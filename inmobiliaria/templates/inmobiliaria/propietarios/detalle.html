@@ -1,0 +1,22 @@
+<!-- inmobiliaria/templates/inmobiliaria/propietarios/detalle.html -->
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Propietario Detail</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <header>
+        <h1>Propietario Details</h1>
+        <a href="{% url 'propietarios_edit' propietario.id %}">Edit</a>
+        <a href="{% url 'propietarios_delete' propietario.id %}">Delete</a>
+    </header>
+    <main>
+        <p>Name: {{ propietario.name }}</p>
+        <p>Details: {{ propietario.details }}</p>
+    </main>
+</body>
+</html>

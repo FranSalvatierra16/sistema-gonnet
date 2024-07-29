@@ -1,0 +1,22 @@
+<!-- inmobiliaria/templates/inmobiliaria/inquilinos/detalle.html -->
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inquilino Detail</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <header>
+        <h1>Inquilino Details</h1>
+        <a href="{% url 'inquilinos_edit' inquilino.id %}">Edit</a>
+        <a href="{% url 'inquilinos_delete' inquilino.id %}">Delete</a>
+    </header>
+    <main>
+        <p>Name: {{ inquilino.name }}</p>
+        <p>Details: {{ inquilino.details }}</p>
+    </main>
+</body>
+</html>

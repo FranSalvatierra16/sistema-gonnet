@@ -1,0 +1,26 @@
+<!-- inmobiliaria/templates/inmobiliaria/inquilinos/lista.html -->
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inquilinos - List</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <header>
+        <h1>Inquilinos List</h1>
+        <a href="{% url 'inquilinos_create' %}">Add New Inquilino</a>
+    </header>
+    <main>
+        <ul>
+            {% for inquilino in inquilinos %}
+                <li>
+                    <a href="{% url 'inquilinos_detail' inquilino.id %}">{{ inquilino.name }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </main>
+</body>
+</html>
