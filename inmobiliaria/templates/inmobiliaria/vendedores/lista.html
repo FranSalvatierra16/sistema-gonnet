@@ -1,26 +1,40 @@
-<!-- inmobiliaria/templates/inmobiliaria/vendedores/lista.html -->
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vendedores - List</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-</head>
-<body>
-    <header>
-        <h1>Vendedores List</h1>
-        <a href="{% url 'inmobiliaria:vendedor_nuevo' %}">Add New Vendedor</a>
-    </header>
-    <main>
-        <ul>
-            {% for vendedor in vendedores %}
-                <li>
-                    <a href="{% url 'inmobiliaria:vendedor_detalle' vendedor.id %}">{{ vendedor.nombre}} {{vendedor.apellido}}</a>
-                </li>
-            {% endfor %}
-        </ul>
-    </main>
-</body>
-</html>
+<!-- File: inmobiliaria/templates/inmobiliaria/vendedores/lista.html -->
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}Vendedores{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Listado de Vendedores</h1>
+<a href="{% url 'inmobiliaria:vendedor_nuevo' %}" class="btn btn-primary mb-3">Nuevo Vendedor</a>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>DNI</th>
+            <th>Nombre</th>
+            <th>Apellido</th>
+            <th>Email</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for vendedor in vendedores %}
+        <tr>
+            <td>{{ vendedor.dni }}</td>
+            <td>{{ vendedor.nombre }}</td>
+            <td>{{ vendedor.apellido }}</td>
+            <td>{{ vendedor.email }}</td>
+            <td>
+                <a href="{% url 'inmobiliaria:vendedor_detalle' vendedor.id %}" class="btn btn-sm btn-info">Ver</a>
+                <a href="{% url 'inmobiliaria:vendedor_editar' vendedor.id %}" class="btn btn-sm btn-warning">Editar</a>
+                <a href="{% url 'inmobiliaria:vendedor_eliminar' vendedor.id %}" class="btn btn-sm btn-danger">Eliminar</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5">No hay vendedores registrados.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

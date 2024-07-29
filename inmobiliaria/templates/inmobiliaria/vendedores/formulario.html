@@ -1,23 +1,15 @@
-<!-- inmobiliaria/templates/inmobiliaria/vendedores/formulario.html -->
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vendedor Form</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-</head>
-<body>
-    <header>
-        <h1>Vendedor Form</h1>
-    </header>
-    <main>
-        <form method="post">
-            {% csrf_token %}
-            {{ form.as_p }}
-            <button type="submit">Save</button>
-        </form>
-    </main>
-</body>
-</html>
+<!-- File: inmobiliaria/templates/inmobiliaria/vendedores/formulario.html -->
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}{% if vendedor %}Editar{% else %}Nuevo{% endif %} Vendedor{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">{% if vendedor %}Editar{% else %}Nuevo{% endif %} Vendedor</h1>
+<form method="post">
+    {% csrf_token %}
+    {% bootstrap_form form %}
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a href="{% url 'inmobiliaria:vendedores' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}

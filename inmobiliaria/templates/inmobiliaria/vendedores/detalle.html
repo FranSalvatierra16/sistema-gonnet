@@ -1,26 +1,35 @@
-<!-- inmobiliaria/templates/inmobiliaria/vendedores/detalle.html -->
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vendedor Detail</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-</head>
-<body>
-    <header>
-        <h1>Vendedor Details</h1>
-        <a href="{% url 'inmobiliaria:vendedor_editar' vendedor.id %}">Edit</a>
-        <a href="{% url 'inmobiliaria:vendedor_eliminar' vendedor.id %}">Delete</a>
-    </header>
-    <main>
-        <p>Name y Apellido: {{ vendedor.nombre }} {{ vendedor.apellido }}</p>
-        <p>DNI: {{ vendedor.dni }}</p>
-        <p>Fecha Nacimiento: {{ vendedor.fecha_nacimiento }}</p>
-        <p>Email: {{ vendedor.email }}</p>
-        <p>Celular: {{ vendedor.celular }}</p>
-        <p>Details: {{ vendedor.observaciones }}</p>
-    </main>
-</body>
-</html>
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="text-center">Detalles del Vendedor</h2>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">Nombre:</dt>
+                        <dd class="col-sm-9">{{ vendedor.nombre }} {{ vendedor.apellido }}</dd>
+                        
+                        <dt class="col-sm-3">Email:</dt>
+                        <dd class="col-sm-9">{{ vendedor.email }}</dd>
+                        
+                        <dt class="col-sm-3">Teléfono:</dt>
+                        <dd class="col-sm-9">{{ vendedor.celular }}</dd>
+
+                        <dt class="col-sm-3">Detalles:</dt>
+                        <dd class="col-sm-9">{{ vendedor.observaciones }}</dd>
+                    </dl>
+                </div>
+                <div class="card-footer text-center">
+                    <a href="{% url 'inmobiliaria:vendedor_editar' vendedor.id %}" class="btn btn-primary">Editar</a>
+                    <a href="{% url 'inmobiliaria:vendedor_eliminar' vendedor.id %}" class="btn btn-danger">Eliminar</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
