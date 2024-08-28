@@ -7,24 +7,50 @@
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="text-center">Detalles del propiedad</h2>
+                    <h2 class="text-center">Detalles de la Propiedad</h2>
                 </div>
                 <div class="card-body">
                     <dl class="row">
-                        <dt class="col-sm-3">Direccion:</dt>
-                        <dd class="col-sm-9">{{ propiedad.direccion }} </dd>
-                        
-                        <dt class="col-sm-3">Precio Tipo:</dt>
-                        <dd class="col-sm-9">{{ propiedad.get_precio_tipo_display }}</dd>
+                        <dt class="col-sm-3">Dirección:</dt>
+                        <dd class="col-sm-9">{{ propiedad.direccion }}</dd>
 
-                        <dt class="col-sm-3">Precio :</dt>
-                        <dd class="col-sm-9"> ${{ propiedad.precio }}</dd>
-                        
-                        <dt class="col-sm-3">Descripcion:</dt>
+                        <dt class="col-sm-3">Descripción:</dt>
                         <dd class="col-sm-9">{{ propiedad.descripcion }}</dd>
 
                         <dt class="col-sm-3">Ambientes:</dt>
                         <dd class="col-sm-9">{{ propiedad.ambientes }}</dd>
+
+                        <dt class="col-sm-3">Piso:</dt>
+                        <dd class="col-sm-9">{{ propiedad.piso }}</dd>
+
+                        <dt class="col-sm-3">Cuenta Bancaria:</dt>
+                        <dd class="col-sm-9">{{ propiedad.cuenta_bancaria }}</dd>
+
+                        <!-- Precios -->
+                        {% if propiedad.habilitar_precio_diario %}
+                            <dt class="col-sm-3">Precio Diario:</dt>
+                            <dd class="col-sm-9">${{ propiedad.precio_diario }}</dd>
+                        {% endif %}
+
+                        {% if propiedad.habilitar_precio_venta %}
+                            <dt class="col-sm-3">Precio Venta:</dt>
+                            <dd class="col-sm-9">${{ propiedad.precio_venta }}</dd>
+                        {% endif %}
+
+                        {% if propiedad.habilitar_precio_alquiler %}
+                            <dt class="col-sm-3">Precio Alquiler:</dt>
+                            <dd class="col-sm-9">${{ propiedad.precio_alquiler }}</dd>
+                        {% endif %}
+                        
+                        <!-- Vista -->
+                        <dt class="col-sm-3">Visible:</dt>
+                        <dd class="col-sm-9">
+                            {% if propiedad.vista %}
+                                Sí
+                            {% else %}
+                                No
+                            {% endif %}
+                        </dd>
                     </dl>
                 </div>
                 <div class="card-footer text-center">

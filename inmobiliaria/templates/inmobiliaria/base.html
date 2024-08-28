@@ -1,5 +1,5 @@
-<!-- File: inmobiliaria/templates/inmobiliaria/base.html -->
 {% load bootstrap4 %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -8,11 +8,32 @@
     <title>{% block title %}Inmobiliaria{% endblock %}</title>
     {% bootstrap_css %}
     {% bootstrap_javascript jquery='full' %}
-    {% block extra_css %}{% endblock %}
+    {% block extra_css %}
+    <link rel="stylesheet" href="{% static 'style/styles.css' %}">
+    <style>
+        /* Hacer que el body ocupe el 100% de la pantalla y use flexbox */
+        html, body {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* El contenedor principal debe expandirse para ocupar el espacio disponible */
+        .container {
+            flex: 1;
+        }
+
+        /* Footer fijo en la parte inferior */
+        .footer {
+            background-color: #f8f9fa;
+        }
+    </style>
+    {% endblock %}
 </head>
 <body>
+
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href="{% url 'inmobiliaria:index' %}">Inmobiliaria</a>
+        <a class="navbar-brand" href="{% url 'inmobiliaria:dashboard' %}">Inmobiliaria</a>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -30,6 +51,20 @@
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'inmobiliaria:propiedades' %}">Propiedades</a>
                 </li>
+            </ul>
+            <ul class="navbar-nav ml-auto">
+                {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'inmobiliaria:logout' %}">Cerrar sesión</a>
+                    </li>
+                {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'inmobiliaria:login' %}">Iniciar sesión</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'inmobiliaria:register' %}">Registrarse</a>
+                    </li>
+                {% endif %}
             </ul>
         </div>
     </nav>

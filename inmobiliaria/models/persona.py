@@ -4,6 +4,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.utils.translation import gettext_lazy as _
+from django.contrib.auth.models import AbstractUser
 TIPOS_INS = [
     ('csfl', 'CSFL'),
     ('exen', 'EXEN'),
@@ -55,13 +56,33 @@ class Persona(models.Model):
             # Remove any non-digit characters
             self.celular = ''.join(filter(str.isdigit, self.celular))
 
-class Vendedor(Persona):
-    comision = models.DecimalField(max_digits=5, decimal_places=2, help_text="Comisión en porcentaje")
-    
+class Vendedor(AbstractUser):
+    dni = models.CharField(max_length=8, unique=True, validators=[validate_dni])
+    nombre = models.CharField(max_length=100)
+    apellido = models.CharField(max_length=100)
+    fecha_nacimiento = models.DateField()
+    email = models.EmailField()
+    comision = models.DecimalField(max_digits=5, decimal_places=2, help_text="Comisión en porcentaje", null=True, blank=True)
+    celular = models.CharField(max_length=20, blank=True)  # Asegúrate de incluir este campo si es necesario
+
+    def __str__(self):
+        return f"{self.nombre} {self.apellido}"
+
+    def clean(self):
+        super().clean()
+        if self.celular:
+            self.celular = ''.join(filter(str.isdigit, self.celular))
 
     class Meta:
         verbose_name = "Vendedor"
         verbose_name_plural = "Vendedores"
+        # Cambia los nombres de las relaciones inversas
+      
+        # Define los nombres de relación inversa
+        # Esto ayuda a evitar conflictos con el modelo User
+        constraints = [
+            models.UniqueConstraint(fields=['dni'], name='unique_dni')
+        ]
 
 class Inquilino(Persona):
     garantia = models.TextField(blank=True, help_text="Información sobre la garantía del inquilino")
