@@ -1,0 +1,38 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="text-center">Detalles del propiedad</h2>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">Direccion:</dt>
+                        <dd class="col-sm-9">{{ propiedad.direccion }} </dd>
+                        
+                        <dt class="col-sm-3">Precio Tipo:</dt>
+                        <dd class="col-sm-9">{{ propiedad.get_precio_tipo_display }}</dd>
+
+                        <dt class="col-sm-3">Precio :</dt>
+                        <dd class="col-sm-9"> ${{ propiedad.precio }}</dd>
+                        
+                        <dt class="col-sm-3">Descripcion:</dt>
+                        <dd class="col-sm-9">{{ propiedad.descripcion }}</dd>
+
+                        <dt class="col-sm-3">Ambientes:</dt>
+                        <dd class="col-sm-9">{{ propiedad.ambientes }}</dd>
+                    </dl>
+                </div>
+                <div class="card-footer text-center">
+                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad.id %}" class="btn btn-primary">Editar</a>
+                    <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad.id %}" class="btn btn-danger">Eliminar</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

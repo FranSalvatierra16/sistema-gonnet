@@ -2,8 +2,23 @@
 
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.utils.translation import gettext_lazy as _
-
+TIPOS_INS = [
+    ('csfl', 'CSFL'),
+    ('exen', 'EXEN'),
+    ('rins', 'RINS'),
+    ('rnin', 'RNIN'),
+    ('otro', 'Otro'),
+]
+TIPOS_DOC= [
+    ('dni', 'DNI'),
+    ('le', 'LE'),
+    ('ls', 'LS'),
+    ('cipf', 'CIPF'),
+    ('pas', 'PAS'),
+    
+]
 def validate_dni(value):
     if not value.isdigit() or len(value) != 8:
         raise ValidationError(
@@ -19,6 +34,14 @@ class Persona(models.Model):
     email = models.EmailField()
     celular = models.CharField(max_length=20)
     observaciones = models.TextField(blank=True)
+    localidad = models.CharField(max_length=100)  # Campo para localidad
+    provincia = models.CharField(max_length=100) 
+    domicilio = models.CharField(max_length=100)  
+    codigo_postal = models.CharField(max_length=10)  # Campo para código postal
+    cuit = models.CharField(max_length=11, validators=[RegexValidator(regex=r'^\d{11}$', message='CUIT debe tener 11 dígitos')])  # Campo para CUIT
+    tipo_ins = models.CharField(max_length=4, choices=TIPOS_INS, default='otro')  # Campo para tipo de inscripción
+    tipo_doc = models.CharField(max_length=4, choices=TIPOS_DOC, default='otro')  
+  
 
     class Meta:
         abstract = True
@@ -34,6 +57,7 @@ class Persona(models.Model):
 
 class Vendedor(Persona):
     comision = models.DecimalField(max_digits=5, decimal_places=2, help_text="Comisión en porcentaje")
+    
 
     class Meta:
         verbose_name = "Vendedor"
@@ -41,7 +65,7 @@ class Vendedor(Persona):
 
 class Inquilino(Persona):
     garantia = models.TextField(blank=True, help_text="Información sobre la garantía del inquilino")
-
+     
     class Meta:
         verbose_name = "Inquilino"
         verbose_name_plural = "Inquilinos"
@@ -52,3 +76,5 @@ class Propietario(Persona):
     class Meta:
         verbose_name = "Propietario"
         verbose_name_plural = "Propietarios"
+
+

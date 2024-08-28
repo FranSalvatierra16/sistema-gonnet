@@ -11,12 +11,12 @@
 <body>
     <header>
         <h1>Propietario Details</h1>
-        <a href="{% url 'propietarios_edit' propietario.id %}">Edit</a>
-        <a href="{% url 'propietarios_delete' propietario.id %}">Delete</a>
+        <a href="{% url 'inmobiliaria:propiedad_editar' propiedad.id %}" class="btn btn-primary">Editar</a>
+        <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad.id %}" class="btn btn-danger">Eliminar</a>
     </header>
     <main>
-        <p>Name: {{ propietario.name }}</p>
-        <p>Details: {{ propietario.details }}</p>
+        <p>Name: {{ propietario.direccion }}</p>
+        <p>Details: {{ propietario.descripcion }}</p>
     </main>
 </body>
 </html>

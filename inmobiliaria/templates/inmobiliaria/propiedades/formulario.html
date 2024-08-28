@@ -1,0 +1,15 @@
+<!-- File: inmobiliaria/templates/inmobiliaria/propiedades/formulario.html -->
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}{% if propiedad %}Editar{% else %}Nuevo{% endif %} propiedad{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">{% if propiedad %}Editar{% else %}Nueva{% endif %} propiedad</h1>
+<form method="post">
+    {% csrf_token %}
+    {% bootstrap_form form %}
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a href="{% url 'inmobiliaria:propiedades' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}

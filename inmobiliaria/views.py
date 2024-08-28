@@ -1,10 +1,10 @@
-# File: inmobiliaria/views.py
+# inmobiliaria/views.py
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse
-from .models import Vendedor, Inquilino, Propietario
+from .models import Vendedor, Inquilino, Propietario, Propiedad
 from django.contrib import messages
-from .forms import VendedorForm, InquilinoForm, PropietarioForm
+from .forms import VendedorForm, InquilinoForm, PropietarioForm, PropiedadForm
 
 # index view
 def index(request):
@@ -129,3 +129,45 @@ def propietario_eliminar(request, propietario_id):
         messages.success(request, 'Propietario eliminado exitosamente.')
         return redirect('inmobiliaria:propietarios')
     return render(request, 'inmobiliaria/propietarios/confirmar_eliminar.html', {'propietario': propietario})
+
+# Propiedad views
+def propiedades(request):
+    propiedades = Propiedad.objects.all()
+    return render(request, 'inmobiliaria/propiedades/lista.html', {'propiedades': propiedades})
+
+def propiedad_detalle(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    return render(request, 'inmobiliaria/propiedades/detalle.html', {'propiedad': propiedad})
+
+def propiedad_nuevo(request):
+    if request.method == "POST":
+        form = PropiedadForm(request.POST, request.FILES)  # Include request.FILES here
+        if form.is_valid():
+            propiedad = form.save()
+            messages.success(request, 'Propiedad creada exitosamente.')
+            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+    else:
+        form = PropiedadForm()
+    return render(request, 'inmobiliaria/propiedades/formulario.html', {'form': form})
+
+def propiedad_editar(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    if request.method == "POST":
+        form = PropiedadForm(request.POST, request.FILES, instance=propiedad)  # Include request.FILES here
+        if form.is_valid():
+            propiedad = form.save()
+            messages.success(request, 'Propiedad actualizada exitosamente.')
+            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+    else:
+        form = PropiedadForm(instance=propiedad)
+    return render(request, 'inmobiliaria/propiedades/formulario.html', {'form': form, 'propiedad': propiedad})
+
+def propiedad_eliminar(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    if request.method == "POST":
+        propiedad.delete()  # Change this from 'propietario.delete()' to 'propiedad.delete()'
+        messages.success(request, 'Propiedad eliminada exitosamente.')
+        return redirect('inmobiliaria:propiedades')
+    return render(request, 'inmobiliaria/propiedades/confirmar_eliminar.html', {'propiedad': propiedad})
+
+

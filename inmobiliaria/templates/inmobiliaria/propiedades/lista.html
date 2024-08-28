@@ -1,0 +1,50 @@
+<!-- File: inmobiliaria/templates/inmobiliaria/propiedades/lista.html -->
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}Propiedades{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Listado de Propiedades</h1>
+<a href="{% url 'inmobiliaria:propiedad_nuevo' %}" class="btn btn-primary mb-3">Nueva Propiedad</a>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Dirección</th>
+            <th>Precio Tipo</th>
+            <th>Precio</th>
+            <th>Descripción</th>
+            <th>Vista</th>
+            <th>Piso</th>
+            <th>Ambientes</th>
+            <th>Cuenta Bancaria</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for propiedad in propiedades %}
+        <tr>
+            <td>{{ propiedad.id }}</td>
+            <td>{{ propiedad.direccion }}</td>
+            <td>{{ propiedad.get_precio_tipo_display }}</td>
+            <td>{{ propiedad.precio }}</td>
+            <td>{{ propiedad.descripcion }}</td>
+            <td>{{ propiedad.vista|yesno:"Sí,No" }}</td>
+            <td>{{ propiedad.piso }}</td>
+            <td>{{ propiedad.ambientes }}</td>
+            <td>{{ propiedad.cuenta_bancaria }}</td>
+            <td>
+                <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-sm btn-info">Ver</a>
+                <a href="{% url 'inmobiliaria:propiedad_editar' propiedad.id %}" class="btn btn-sm btn-warning">Editar</a>
+                <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad.id %}" class="btn btn-sm btn-danger">Eliminar</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="10">No hay propiedades registradas.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -20,8 +20,18 @@
                         <dt class="col-sm-3">Teléfono:</dt>
                         <dd class="col-sm-9">{{ vendedor.celular }}</dd>
 
+                        <dt class="col-sm-3">Fecha nacimiento:</dt>
+                        <dd class="col-sm-9">{{ vendedor.fecha_nacimiento }}</dd>
+
+                        <dt class="col-sm-3">Documento:</dt>
+                        <dd class="col-sm-9">{{ vendedor.tipo_doc }} {{ vendedor.dni }}</dd>
+
+                        <dt class="col-sm-3">Tipo ins:</dt>
+                        <dd class="col-sm-9">{{ vendedor.tipo_ins }}</dd>
+
                         <dt class="col-sm-3">Detalles:</dt>
                         <dd class="col-sm-9">{{ vendedor.observaciones }}</dd>
+
                     </dl>
                 </div>
                 <div class="card-footer text-center">
