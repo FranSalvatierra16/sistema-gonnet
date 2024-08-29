@@ -4,54 +4,70 @@
 {% block content %}
 <div class="container">
     <div class="row justify-content-center">
-        <div class="col-md-8">
+        <div class="col-md-10">
             <div class="card">
                 <div class="card-header">
                     <h2 class="text-center">Detalles de la Propiedad</h2>
                 </div>
                 <div class="card-body">
-                    <dl class="row">
-                        <dt class="col-sm-3">Dirección:</dt>
-                        <dd class="col-sm-9">{{ propiedad.direccion }}</dd>
+                    <div class="row">
+                        <!-- Columna de detalles de la propiedad -->
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">Dirección:</dt>
+                                <dd class="col-sm-8">{{ propiedad.direccion }}</dd>
 
-                        <dt class="col-sm-3">Descripción:</dt>
-                        <dd class="col-sm-9">{{ propiedad.descripcion }}</dd>
+                                <dt class="col-sm-4">Descripción:</dt>
+                                <dd class="col-sm-8">{{ propiedad.descripcion }}</dd>
 
-                        <dt class="col-sm-3">Ambientes:</dt>
-                        <dd class="col-sm-9">{{ propiedad.ambientes }}</dd>
+                                <dt class="col-sm-4">Ambientes:</dt>
+                                <dd class="col-sm-8">{{ propiedad.ambientes }}</dd>
 
-                        <dt class="col-sm-3">Piso:</dt>
-                        <dd class="col-sm-9">{{ propiedad.piso }}</dd>
+                                <dt class="col-sm-4">Piso:</dt>
+                                <dd class="col-sm-8">{{ propiedad.piso }}</dd>
 
-                        <dt class="col-sm-3">Cuenta Bancaria:</dt>
-                        <dd class="col-sm-9">{{ propiedad.cuenta_bancaria }}</dd>
+                                <dt class="col-sm-4">Cuenta Bancaria:</dt>
+                                <dd class="col-sm-8">{{ propiedad.cuenta_bancaria }}</dd>
 
-                        <!-- Precios -->
-                        {% if propiedad.habilitar_precio_diario %}
-                            <dt class="col-sm-3">Precio Diario:</dt>
-                            <dd class="col-sm-9">${{ propiedad.precio_diario }}</dd>
-                        {% endif %}
+                                <!-- Precios -->
+                                {% if propiedad.habilitar_precio_diario %}
+                                    <dt class="col-sm-4">Precio Diario:</dt>
+                                    <dd class="col-sm-8">${{ propiedad.precio_diario }}</dd>
+                                {% endif %}
 
-                        {% if propiedad.habilitar_precio_venta %}
-                            <dt class="col-sm-3">Precio Venta:</dt>
-                            <dd class="col-sm-9">${{ propiedad.precio_venta }}</dd>
-                        {% endif %}
+                                {% if propiedad.habilitar_precio_venta %}
+                                    <dt class="col-sm-4">Precio Venta:</dt>
+                                    <dd class="col-sm-8">${{ propiedad.precio_venta }}</dd>
+                                {% endif %}
 
-                        {% if propiedad.habilitar_precio_alquiler %}
-                            <dt class="col-sm-3">Precio Alquiler:</dt>
-                            <dd class="col-sm-9">${{ propiedad.precio_alquiler }}</dd>
-                        {% endif %}
-                        
-                        <!-- Vista -->
-                        <dt class="col-sm-3">Visible:</dt>
-                        <dd class="col-sm-9">
-                            {% if propiedad.vista %}
-                                Sí
+                                {% if propiedad.habilitar_precio_alquiler %}
+                                    <dt class="col-sm-4">Precio Alquiler:</dt>
+                                    <dd class="col-sm-8">${{ propiedad.precio_alquiler }}</dd>
+                                {% endif %}
+                                
+                                <!-- Vista -->
+                                <dt class="col-sm-4">Visible:</dt>
+                                <dd class="col-sm-8">
+                                    {% if propiedad.vista %}
+                                        Sí
+                                    {% else %}
+                                        No
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+
+                        <!-- Columna de imágenes -->
+                        <div class="col-md-6 text-center">
+                            {% if propiedad.imagenes.all %}
+                                {% for imagen in propiedad.imagenes.all %}
+                                    <img src="{{ imagen.imagen.url }}" class="img-fluid mb-3" alt="Imagen de la propiedad">
+                                {% endfor %}
                             {% else %}
-                                No
+                                <p>No hay imágenes disponibles.</p>
                             {% endif %}
-                        </dd>
-                    </dl>
+                        </div>
+                    </div>
                 </div>
                 <div class="card-footer text-center">
                     <a href="{% url 'inmobiliaria:propiedad_editar' propiedad.id %}" class="btn btn-primary">Editar</a>

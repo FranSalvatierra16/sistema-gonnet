@@ -1,26 +1,40 @@
-<!-- inmobiliaria/templates/inmobiliaria/propietarios/lista.html -->
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Propietarios - List</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-</head>
-<body>
-    <header>
-        <h1>Propietarios List</h1>
-        <a href="{% url 'propietarios_create' %}">Add New Propietario</a>
-    </header>
-    <main>
-        <ul>
-            {% for propietario in propietarios %}
-                <li>
-                    <a href="{% url 'propietarios_detail' propietario.id %}">{{ propietario.name }}</a>
-                </li>
-            {% endfor %}
-        </ul>
-    </main>
-</body>
-</html>
+<!-- File: inmobiliaria/templates/inmobiliaria/propietarioes/lista.html -->
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}propietarioes{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Listado de propietarioes</h1>
+<a href="{% url 'inmobiliaria:propietario_nuevo' %}" class="btn btn-primary mb-3">Nuevo propietario</a>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>DNI</th>
+            <th>Nombre</th>
+            <th>Apellido</th>
+            <th>Email</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for propietario in propietarioes %}
+        <tr>
+            <td>{{ propietario.dni }}</td>
+            <td>{{ propietario.nombre }}</td>
+            <td>{{ propietario.apellido }}</td>
+            <td>{{ propietario.email }}</td>
+            <td>
+                <a href="{% url 'inmobiliaria:propietario_detalle' propietario.id %}" class="btn btn-sm btn-info">Ver</a>
+                <a href="{% url 'inmobiliaria:propietario_editar' propietario.id %}" class="btn btn-sm btn-warning">Editar</a>
+                <a href="{% url 'inmobiliaria:propietario_eliminar' propietario.id %}" class="btn btn-sm btn-danger">Eliminar</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5">No hay propietarioes registrados.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

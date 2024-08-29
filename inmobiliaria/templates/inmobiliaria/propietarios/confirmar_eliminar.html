@@ -1,24 +1,24 @@
-<!-- inmobiliaria/templates/inmobiliaria/propietarios/confirmar_eliminar.html -->
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Confirm Delete</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-</head>
-<body>
-    <header>
-        <h1>Confirm Delete</h1>
-    </header>
-    <main>
-        <p>Are you sure you want to delete {{ propietario.name }}?</p>
-        <form method="post">
-            {% csrf_token %}
-            <button type="submit">Confirm</button>
-            <a href="{% url 'propietarios_list' %}">Cancel</a>
-        </form>
-    </main>
-</body>
-</html>
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="text-center">Confirmar Eliminación</h2>
+                </div>
+                <div class="card-body">
+                    <p class="text-center">¿Está seguro que desea eliminar al propietario {{ propietario.nombre }}?</p>
+                    <form method="post" class="text-center">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">Confirmar</button>
+                        <a href="{% url 'inmobiliaria:propietarios' %}" class="btn btn-secondary">Cancelar</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

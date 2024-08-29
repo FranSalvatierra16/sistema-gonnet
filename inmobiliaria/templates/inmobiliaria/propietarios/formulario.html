@@ -1,25 +1,15 @@
-<!-- inmobiliaria/templates/inmobiliaria/propietarios/formulario.html -->
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Propietario Form</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-</head>
-<body>
-    <header>
-        <h1>Propietario Form</h1>
-    </header>
-    <main>
-      <!-- inmobiliaria/propiedades/formulario.html -->
-<form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Guardar</button>
-</form>
+<!-- File: inmobiliaria/templates/inmobiliaria/propietarioes/formulario.html -->
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
 
-    </main>
-</body>
-</html>
+{% block title %}{% if propietario %}Editar{% else %}Nuevo{% endif %} propietario{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">{% if propietario %}Editar{% else %}Nuevo{% endif %} propietario</h1>
+<form method="post">
+    {% csrf_token %}
+    {% bootstrap_form form %}
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a href="{% url 'inmobiliaria:propietarios' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}

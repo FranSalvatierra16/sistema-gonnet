@@ -1,15 +1,128 @@
-<!-- File: inmobiliaria/templates/inmobiliaria/propiedades/formulario.html -->
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
 
-{% block title %}{% if propiedad %}Editar{% else %}Nuevo{% endif %} propiedad{% endblock %}
+{% block title %}{% if propiedad %}Editar{% else %}Nueva{% endif %} Propiedad{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">{% if propiedad %}Editar{% else %}Nueva{% endif %} propiedad</h1>
-<form method="post">
-    {% csrf_token %}
-    {% bootstrap_form form %}
-    <button type="submit" class="btn btn-primary">Guardar</button>
-    <a href="{% url 'inmobiliaria:propiedades' %}" class="btn btn-secondary">Cancelar</a>
-</form>
+<div class="container-fluid">
+    <h1 class="mb-4">{% if propiedad %}Editar{% else %}Nueva{% endif %} Propiedad</h1>
+    
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <div class="row">
+            <div class="col-md-6">
+                <h3>Información básica</h3>
+                {% bootstrap_field form.direccion layout='horizontal' %}
+                {% bootstrap_field form.tipo_inmueble layout='horizontal' %}
+                {% bootstrap_field form.vista layout='horizontal' %}
+                {% bootstrap_field form.piso layout='horizontal' %}
+                {% bootstrap_field form.ambientes layout='horizontal' %}
+                {% bootstrap_field form.valoracion layout='horizontal' %}
+            </div>
+            <div class="col-md-6">
+                <h3>Propietario</h3>
+                <div class="form-group">
+                    {{ form.propietario.label_tag }}
+                    {{ form.propietario }}
+                </div>
+                
+                <div class="form-check">
+                    {{ form.nuevo_propietario }}
+                    {{ form.nuevo_propietario.label_tag }}
+                </div>
+                
+                <div id="nuevo-propietario-fields" style="display: none;">
+                    <div class="form-group">
+                        {{ form.nombre_propietario.label_tag }}
+                        {{ form.nombre_propietario }}
+                    </div>
+                    <div class="form-group">
+                        {{ form.apellido_propietario.label_tag }}
+                        {{ form.apellido_propietario }}
+                    </div>
+                    <!-- Agrega otros campos para el nuevo propietario aquí -->
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <h3>Precios</h3>
+                {% bootstrap_field form.habilitar_precio_diario layout='horizontal' %}
+                {% bootstrap_field form.precio_diario layout='horizontal' %}
+                {% bootstrap_field form.habilitar_precio_venta layout='horizontal' %}
+                {% bootstrap_field form.precio_venta layout='horizontal' %}
+                {% bootstrap_field form.habilitar_precio_alquiler layout='horizontal' %}
+                {% bootstrap_field form.precio_alquiler layout='horizontal' %}
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <h3>Características</h3>
+                <div class="row">
+                    {% for field in form %}
+                        {% if field.field.widget.input_type == 'checkbox' and field.name not in 'habilitar_precio_diario,habilitar_precio_venta,habilitar_precio_alquiler' %}
+                            <div class="col-md-3 mb-2">
+                                <div class="form-check">
+                                    {{ field }}
+                                    <label class="form-check-label" for="{{ field.id_for_label }}">
+                                        {{ field.label }}
+                                    </label>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <h3>Descripción</h3>
+                {% bootstrap_field form.descripcion %}
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <h3>Imágenes</h3>
+                {{ image_formset.management_form }}
+                {% for form in image_formset %}
+                    <div class="form-group">
+                        {{ form.as_p }}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const nuevoPropietarioCheckbox = document.querySelector('#id_nuevo_propietario');
+        const nuevoPropietarioFields = document.getElementById('nuevo-propietario-fields');
+        
+        // Mostrar/ocultar campos de nuevo propietario según el checkbox
+        nuevoPropietarioCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                nuevoPropietarioFields.style.display = 'block';
+            } else {
+                nuevoPropietarioFields.style.display = 'none';
+            }
+        });
+        
+        // Inicializar la visibilidad en base al estado inicial del checkbox
+        if (nuevoPropietarioCheckbox.checked) {
+            nuevoPropietarioFields.style.display = 'block';
+        } else {
+            nuevoPropietarioFields.style.display = 'none';
+        }
+    });
+</script>
 {% endblock %}

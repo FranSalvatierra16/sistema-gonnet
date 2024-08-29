@@ -1,22 +1,45 @@
-<!-- inmobiliaria/templates/inmobiliaria/propietarios/detalle.html -->
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Propietario Detail</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-</head>
-<body>
-    <header>
-        <h1>Propietario Details</h1>
-        <a href="{% url 'inmobiliaria:propiedad_editar' propiedad.id %}" class="btn btn-primary">Editar</a>
-        <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad.id %}" class="btn btn-danger">Eliminar</a>
-    </header>
-    <main>
-        <p>Name: {{ propietario.direccion }}</p>
-        <p>Details: {{ propietario.descripcion }}</p>
-    </main>
-</body>
-</html>
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="text-center">Detalles del propietario</h2>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">Nombre:</dt>
+                        <dd class="col-sm-9">{{ propietario.nombre }} {{ propietario.apellido }}</dd>
+                        
+                        <dt class="col-sm-3">Email:</dt>
+                        <dd class="col-sm-9">{{ propietario.email }}</dd>
+                        
+                        <dt class="col-sm-3">Teléfono:</dt>
+                        <dd class="col-sm-9">{{ propietario.celular }}</dd>
+
+                        <dt class="col-sm-3">Fecha nacimiento:</dt>
+                        <dd class="col-sm-9">{{ propietario.fecha_nacimiento }}</dd>
+
+                        <dt class="col-sm-3">Documento:</dt>
+                        <dd class="col-sm-9">{{ propietario.tipo_doc }} {{ propietario.dni }}</dd>
+
+                        <dt class="col-sm-3">Tipo ins:</dt>
+                        <dd class="col-sm-9">{{ propietario.tipo_ins }}</dd>
+
+                        <dt class="col-sm-3">Detalles:</dt>
+                        <dd class="col-sm-9">{{ propietario.observaciones }}</dd>
+
+                    </dl>
+                </div>
+                <div class="card-footer text-center">
+                    <a href="{% url 'inmobiliaria:propietario_editar' propietario.id %}" class="btn btn-primary">Editar</a>
+                    <a href="{% url 'inmobiliaria:propietario_eliminar' propietario.id %}" class="btn btn-danger">Eliminar</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

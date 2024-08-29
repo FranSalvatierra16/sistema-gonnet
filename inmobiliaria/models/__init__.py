@@ -1,2 +1,2 @@
 from .persona import Vendedor, Inquilino, Propietario
-from .propiedad import Propiedad
+from .propiedad import Propiedad, PropiedadImagen
