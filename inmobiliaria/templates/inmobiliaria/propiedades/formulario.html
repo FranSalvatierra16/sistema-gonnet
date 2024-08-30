@@ -2,15 +2,15 @@
 {% load bootstrap4 %}
 
 {% block title %}{% if propiedad %}Editar{% else %}Nueva{% endif %} Propiedad{% endblock %}
-
 {% block content %}
 <div class="container-fluid">
     <h1 class="mb-4">{% if propiedad %}Editar{% else %}Nueva{% endif %} Propiedad</h1>
     
+    <!-- Formulario principal de la propiedad -->
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        
         <div class="row">
+            <!-- Información básica -->
             <div class="col-md-6">
                 <h3>Información básica</h3>
                 {% bootstrap_field form.direccion layout='horizontal' %}
@@ -20,6 +20,8 @@
                 {% bootstrap_field form.ambientes layout='horizontal' %}
                 {% bootstrap_field form.valoracion layout='horizontal' %}
             </div>
+            
+            <!-- Información del propietario -->
             <div class="col-md-6">
                 <h3>Propietario</h3>
                 <div class="form-group">
@@ -33,18 +35,12 @@
                 </div>
                 
                 <div id="nuevo-propietario-fields" style="display: none;">
-                    <div class="form-group">
-                        {{ form.nombre_propietario.label_tag }}
-                        {{ form.nombre_propietario }}
-                    </div>
-                    <div class="form-group">
-                        {{ form.apellido_propietario.label_tag }}
-                        {{ form.apellido_propietario }}
-                    </div>
-                    <!-- Agrega otros campos para el nuevo propietario aquí -->
+                    <!-- Botón para abrir el modal de crear propietario -->
+                    <button id="abrir-modal-propietario-btn" type="button" class="btn btn-success">Crear Nuevo Propietario</button>
                 </div>
             </div>
             
+            <!-- Precios -->
             <div class="col-md-6">
                 <h3>Precios</h3>
                 {% bootstrap_field form.habilitar_precio_diario layout='horizontal' %}
@@ -56,6 +52,7 @@
             </div>
         </div>
         
+        <!-- Características -->
         <div class="row mt-4">
             <div class="col-md-12">
                 <h3>Características</h3>
@@ -76,6 +73,7 @@
             </div>
         </div>
         
+        <!-- Descripción -->
         <div class="row mt-4">
             <div class="col-md-12">
                 <h3>Descripción</h3>
@@ -83,6 +81,7 @@
             </div>
         </div>
         
+        <!-- Imágenes -->
         <div class="row mt-4">
             <div class="col-md-12">
                 <h3>Imágenes</h3>
@@ -95,34 +94,85 @@
             </div>
         </div>
         
+        <!-- Botón para guardar -->
         <div class="row mt-4">
             <div class="col-md-12">
                 <button type="submit" class="btn btn-primary">Guardar</button>
             </div>
         </div>
     </form>
+
+    <!-- Modal para crear nuevo propietario -->
+    <div id="modal-propietario" class="modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nuevo Propietario</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <!-- Formulario para el nuevo propietario -->
+                    <form id="nuevo-propietario-form">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            {{ form.nombre_propietario.label_tag }}
+                            {{ form.nombre_propietario }}
+                        </div>
+                        <!-- Otros campos del propietario -->
+                        <!-- Añade todos los campos de propietario aquí -->
+                        <button id="crear-propietario-btn" type="button" class="btn btn-success">Crear Propietario</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const nuevoPropietarioCheckbox = document.querySelector('#id_nuevo_propietario');
-        const nuevoPropietarioFields = document.getElementById('nuevo-propietario-fields');
-        
-        // Mostrar/ocultar campos de nuevo propietario según el checkbox
-        nuevoPropietarioCheckbox.addEventListener('change', function() {
-            if (this.checked) {
-                nuevoPropietarioFields.style.display = 'block';
-            } else {
-                nuevoPropietarioFields.style.display = 'none';
-            }
-        });
-        
-        // Inicializar la visibilidad en base al estado inicial del checkbox
-        if (nuevoPropietarioCheckbox.checked) {
-            nuevoPropietarioFields.style.display = 'block';
-        } else {
-            nuevoPropietarioFields.style.display = 'none';
-        }
+document.addEventListener('DOMContentLoaded', function() {
+    const nuevoPropietarioCheckbox = document.querySelector('#id_nuevo_propietario');
+    const abrirModalPropietarioBtn = document.querySelector('#abrir-modal-propietario-btn');
+    const crearPropietarioBtn = document.querySelector('#crear-propietario-btn');
+    const propietarioSelect = document.querySelector('#id_propietario');
+    
+    // Mostrar modal de nuevo propietario
+    abrirModalPropietarioBtn.addEventListener('click', function() {
+        $('#modal-propietario').modal('show');
     });
+
+    // Enviar los datos del nuevo propietario por AJAX
+    crearPropietarioBtn.addEventListener('click', function() {
+        const form = document.querySelector('#nuevo-propietario-form');
+        const formData = new FormData(form);
+        
+        fetch("{% url 'inmobiliaria:crear_propietario_ajax' %}", {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': '{{ csrf_token }}',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const option = document.createElement('option');
+                option.value = data.propietario_id;
+                option.text = data.propietario_nombre;
+                propietarioSelect.add(option);
+                propietarioSelect.value = data.propietario_id;
+
+                $('#modal-propietario').modal('hide');
+            } else {
+                alert('Error al crear propietario: ' + JSON.stringify(data.errors));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    });
+});
 </script>
 {% endblock %}

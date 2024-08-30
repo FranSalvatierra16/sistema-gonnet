@@ -256,6 +256,8 @@ def propiedad_eliminar(request, propiedad_id):
         messages.success(request, 'Propiedad eliminada exitosamente.')
         return redirect('inmobiliaria:propiedades')
     return render(request, 'inmobiliaria/propiedades/confirmar_eliminar.html', {'propiedad': propiedad})
+
+    
 def register(request):
     if request.method == 'POST':
         form = VendedorUserCreationForm(request.POST)
@@ -266,3 +268,20 @@ def register(request):
     else:
         form = VendedorUserCreationForm()
     return render(request, 'inmobiliaria/autenticacion/register.html', {'form': form})
+@login_required
+def crear_propietario_ajax(request):
+    if request.method == 'POST' and request.is_ajax():
+        form = PropietarioForm(request.POST)
+        if form.is_valid():
+            propietario = form.save()
+            return JsonResponse({
+                'success': True,
+                'propietario_id': propietario.id,
+                'propietario_nombre': f'{propietario.nombre} {propietario.apellido}',
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors.as_json(),
+            })
+    return JsonResponse({'success': False, 'error': 'Invalid request'})

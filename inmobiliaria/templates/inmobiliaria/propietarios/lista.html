@@ -2,10 +2,10 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
 
-{% block title %}propietarioes{% endblock %}
+{% block title %}propietarios{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Listado de propietarioes</h1>
+<h1 class="mb-4">Listado de propietarios</h1>
 <a href="{% url 'inmobiliaria:propietario_nuevo' %}" class="btn btn-primary mb-3">Nuevo propietario</a>
 <table class="table table-striped">
     <thead>
@@ -18,7 +18,7 @@
         </tr>
     </thead>
     <tbody>
-        {% for propietario in propietarioes %}
+        {% for propietario in propietarios %}
         <tr>
             <td>{{ propietario.dni }}</td>
             <td>{{ propietario.nombre }}</td>

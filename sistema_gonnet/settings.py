@@ -41,7 +41,8 @@ INSTALLED_APPS = [
     'inmobiliaria',
     'bootstrap4',  # Bootstrap 4 app
     'crispy_forms',  # Crispy forms for better form handling
-    'crispy_bootstrap4',  # Bootstrap 4 integration with crispy forms
+    'crispy_bootstrap4', 
+    'django_select2', # Bootstrap 4 integration with crispy forms
 ]
 
 MIDDLEWARE = [

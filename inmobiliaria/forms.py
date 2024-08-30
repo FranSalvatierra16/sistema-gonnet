@@ -62,6 +62,19 @@ class PropiedadForm(forms.ModelForm):
     # Fields for new propietario
     nombre_propietario = forms.CharField(required=False, label="Nombre del propietario")
     apellido_propietario = forms.CharField(required=False, label="Apellido del propietario")
+    fecha_nacimiento_propietario = forms.DateField(required=False, label="Fecha de nacimiento")
+    email_propietario = forms.EmailField(required=False, label="Email")
+    celular_propietario = forms.CharField(required=False, label="Celular")
+    tipo_doc_propietario = forms.ChoiceField(required=False, choices=[('DNI', 'DNI'), ('Pasaporte', 'Pasaporte')], label="Tipo de documento")
+    dni_propietario = forms.CharField(required=False, label="DNI")
+    tipo_ins_propietario = forms.CharField(required=False, label="Tipo de inscripción")
+    cuit_propietario = forms.CharField(required=False, label="CUIT")
+    localidad_propietario = forms.CharField(required=False, label="Localidad")
+    provincia_propietario = forms.CharField(required=False, label="Provincia")
+    domicilio_propietario = forms.CharField(required=False, label="Domicilio")
+    codigo_postal_propietario = forms.CharField(required=False, label="Código postal")
+    observaciones_propietario = forms.CharField(required=False, widget=forms.Textarea, label="Observaciones")
+    cuenta_bancaria_propietario = forms.CharField(required=False, label="Cuenta bancaria")
     # Add other fields as necessary for creating a new Propietario
 
     class Meta:
@@ -102,7 +115,7 @@ class PropiedadForm(forms.ModelForm):
         ]
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 5}),
-            'valoracion': forms.NumberInput(attrs={'min': 0, 'max': 10}),
+            'valoracion': forms.Select(attrs={'class': 'form-control'}),
             'direccion': forms.TextInput(attrs={'placeholder': 'Ingrese la dirección'}),
             'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio por día'}),
             'precio_venta': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de venta'}),

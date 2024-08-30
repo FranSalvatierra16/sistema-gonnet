@@ -9,6 +9,14 @@ TIPOS_VISTA = [
     ('lateral', 'Lateral'),
    
 ]
+TIPOS_VALORACION = [
+    ('excelente', 'Excelente'),
+    ('muy_bueno', 'Muy bueno'),
+    ('bueno', 'Bueno'),
+    ('regular', 'Regular'),
+    ('malo', 'Malo'),
+   
+]
 TIPOS_INMUEBLES = [
     ('-', '-'),
     ('campo', 'Campo'),
@@ -40,7 +48,7 @@ class Propiedad(models.Model):
     vista = models.CharField(max_length=20, choices=TIPOS_VISTA, default='otro') 
     piso = models.IntegerField()
     ambientes = models.IntegerField()
-    valoracion = models.IntegerField(validators=[MinValueValidator(0), MaxValueValidator(10)]) 
+    valoracion = models.CharField(max_length=20, choices=TIPOS_VALORACION, default='otro') 
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
     propietario = models.ForeignKey(Propietario, on_delete=models.SET_NULL, null=True, blank=True, related_name='propiedades')
     precio_diario = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Precio por día")

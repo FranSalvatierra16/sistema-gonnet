@@ -1,23 +1,15 @@
-<!-- inmobiliaria/templates/inmobiliaria/inquilinos/formulario.html -->
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inquilino Form</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-</head>
-<body>
-    <header>
-        <h1>Inquilino Form</h1>
-    </header>
-    <main>
-        <form method="post">
-            {% csrf_token %}
-            {{ form.as_p }}
-            <button type="submit">Save</button>
-        </form>
-    </main>
-</body>
-</html>
+<!-- File: inmobiliaria/templates/inmobiliaria/inquilinoes/formulario.html -->
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}{% if inquilino %}Editar{% else %}Nuevo{% endif %} inquilino{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">{% if inquilino %}Editar{% else %}Nuevo{% endif %} inquilino</h1>
+<form method="post">
+    {% csrf_token %}
+    {% bootstrap_form form %}
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a href="{% url 'inmobiliaria:inquilinos' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}
