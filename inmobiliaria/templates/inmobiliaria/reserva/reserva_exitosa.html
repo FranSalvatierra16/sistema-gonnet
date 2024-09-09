@@ -1,0 +1,13 @@
+{% extends 'inmobiliaria/base.html' %}
+
+{% block title %}Reserva Confirmada{% endblock %}
+
+{% block content %}
+<div class="alert alert-success text-center mt-4">
+    <h2>¡Reserva Confirmada con Éxito!</h2>
+    <p>Tu reserva para la propiedad <strong>{{ reserva.propiedad }}</strong> ha sido confirmada.</p>
+    <p><strong>Fechas:</strong> Desde {{ reserva.fecha_inicio }} hasta {{ reserva.fecha_fin }}</p>
+    <p><strong>Precio Total:</strong> {{ reserva.precio_total}} USD</p>
+    <a href="{% url 'inmobiliaria:buscar_propiedades' %}" class="btn btn-primary mt-3">Volver a buscar propiedades</a>
+</div>
+{% endblock %}

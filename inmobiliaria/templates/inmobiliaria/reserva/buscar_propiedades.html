@@ -6,7 +6,7 @@
 {% block content %}
 <h1>Buscar Propiedades</h1>
 
-<form method="post">
+<form method="post" id="buscar-propiedades-form">
     {% csrf_token %}
     {% bootstrap_form form %}
     <button type="submit" class="btn btn-primary">Buscar Propiedades</button>
@@ -20,31 +20,83 @@
         {% for propiedad in propiedades_disponibles %}
         <div class="col-md-4">
             <div class="card mb-4 shadow-sm">
-                <!-- Mostrar imagen de la propiedad si está disponible -->
                 <img class="card-img-top" src="{{ propiedad.imagen.url }}" alt="{{ propiedad.nombre }}">
                 <div class="card-body">
                     <h5 class="card-title">{{ propiedad.direccion }}</h5>
                     <p class="card-text">{{ propiedad.descripcion|truncatewords:15 }}</p>
-                    <p class="card-text"><strong>Precio:</strong> {{ propiedad.precio }} USD</p>
-                    <p class="card-text"><strong>Ubicación:</strong> {{ propiedad.ubicacion }}</p>
+                    <p class="card-text"><strong>Precio:</strong> {{ propiedad.precio_diario }} $</p>
+                    <p class="card-text"><strong>Valoracion:</strong> {{ propiedad.valoracion }}</p>
 
-                    <form action="{% url 'inmobiliaria:confirmar_reserva' %}" method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="propiedad_id" value="{{ propiedad.id }}">
-                        <input type="hidden" name="fecha_inicio" value="{{ fecha_inicio }}">
-                        <input type="hidden" name="fecha_fin" value="{{ fecha_fin }}">
-                        <button type="submit" class="btn btn-primary">Confirmar Reserva</button>
-                    </form>
+                    <button type="button" class="btn btn-primary" onclick="mostrarModalReserva('{{ propiedad.id }}', '{{ propiedad.direccion }}', '{{ propiedad.precio_diario }}', '{{ fecha_inicio }}', '{{ fecha_fin }}')">Confirmar Reserva</button>
                 </div>
             </div>
         </div>
         {% endfor %}
     </div>
 {% else %}
-    <!-- Mostrar mensaje si no hay propiedades disponibles -->
     <div class="alert alert-warning text-center mt-4">
         No hay propiedades disponibles para las fechas seleccionadas.
     </div>
 {% endif %}
 
+<!-- Modal para confirmar la reserva -->
+<div class="modal fade" id="modalConfirmarReserva" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalLabel">Confirmar Reserva</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Propiedad:</strong> <span id="propiedadDireccion"></span></p>
+                <p><strong>Precio por día:</strong> <span id="propiedadPrecio"></span> USD</p>
+                <p><strong>Fecha de inicio:</strong> <span id="fechaInicio"></span></p>
+                <p><strong>Fecha de fin:</strong> <span id="fechaFin"></span></p>
+                <p><strong>Total de días:</strong> <span id="totalDias"></span></p>
+                <p><strong>Precio total:</strong> <span id="precioTotal"></span> USD</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <form id="confirmar-reserva-form" method="post" action="{% url 'inmobiliaria:confirmar_reserva' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="propiedad_id" id="modalPropiedadId">
+                    <input type="hidden" name="fecha_inicio" id="modalFechaInicio">
+                    <input type="hidden" name="fecha_fin" id="modalFechaFin">
+                    <button type="submit" class="btn btn-primary">Confirmar Reserva</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function mostrarModalReserva(propiedadId, direccion, precio, fechaInicio, fechaFin) {
+        // Calcular los días y el precio total
+        let inicio = new Date(fechaInicio);
+        let fin = new Date(fechaFin);
+        let totalDias = Math.ceil((fin - inicio) / (1000 * 60 * 60 * 24));
+        let precioTotal = totalDias * parseFloat(precio);
+
+        // Llenar el modal con los datos de la reserva
+        document.getElementById('propiedadDireccion').textContent = direccion;
+        document.getElementById('propiedadPrecio').textContent = precio;
+        document.getElementById('fechaInicio').textContent = fechaInicio;
+        document.getElementById('fechaFin').textContent = fechaFin;
+        document.getElementById('totalDias').textContent = totalDias;
+        document.getElementById('precioTotal').textContent = precioTotal.toFixed(2);
+
+        // Llenar el formulario oculto del modal
+        document.getElementById('modalPropiedadId').value = propiedadId;
+        document.getElementById('modalFechaInicio').value = fechaInicio;
+        document.getElementById('modalFechaFin').value = fechaFin;
+
+        // Mostrar el modal
+        $('#modalConfirmarReserva').modal('show');
+    }
+</script>
 {% endblock %}

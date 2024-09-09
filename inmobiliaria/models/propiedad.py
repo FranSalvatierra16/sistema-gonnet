@@ -126,7 +126,7 @@ class Reserva(models.Model):
     propiedad = models.ForeignKey(Propiedad, on_delete=models.CASCADE, related_name='reservas')
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
-
+    precio_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True) 
     def clean(self):
         super().clean()
 

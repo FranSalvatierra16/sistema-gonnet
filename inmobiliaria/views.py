@@ -6,13 +6,13 @@ from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Dispon
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
-from datetime import date
+from datetime import datetime, date
 from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
 from django.contrib.auth.signals import user_logged_in
 from django.dispatch import receiver
-from django.utils.dateparse import parse_date
+from dateutil.parser import parse
 
 # index view
 def index(request):
@@ -351,46 +351,65 @@ def reserva_eliminar(request, reserva_id):
         messages.success(request, 'Reserva eliminada exitosamente.')
         return redirect('inmobiliaria:reservas')
     return render(request, 'inmobiliaria/reserva/confirmar_eliminar.html', {'reserva': reserva})
+def parse_fecha(fecha_str):
+    formatos_fecha = ['%Y-%m-%d', '%d %b. %Y', '%d %B %Y', '%m/%d/%Y', '%m-%d-%Y']
+    for formato in formatos_fecha:
+        try:
+            return datetime.strptime(fecha_str, formato).date()
+        except ValueError:
+            continue
+    raise ValidationError('El formato de la fecha es inválido.')
+
 def confirmar_reserva(request):
     if request.method == 'POST':
-        propiedad_id = request.POST.get('propiedad_id')
-        fecha_inicio_str = request.POST.get('fecha_inicio')
-        fecha_fin_str = request.POST.get('fecha_fin')
-
         try:
-            fecha_inicio = parse_date(fecha_inicio_str)
-            fecha_fin = parse_date(fecha_fin_str)
+            # Obtener datos del formulario
+            propiedad_id = request.POST['propiedad_id']
+            fecha_inicio_str = request.POST['fecha_inicio']
+            fecha_fin_str = request.POST['fecha_fin']
 
-            if not fecha_inicio or not fecha_fin:
+            # Validar que las fechas no estén vacías
+            if not fecha_inicio_str or not fecha_fin_str:
                 raise ValidationError('Las fechas proporcionadas no son válidas.')
 
+            # Convertir las fechas a objetos `date`
+            fecha_inicio = parse_fecha(fecha_inicio_str)
+            fecha_fin = parse_fecha(fecha_fin_str)
+
+            # Validar que la fecha de inicio no sea posterior a la de fin
             if fecha_inicio > fecha_fin:
                 raise ValidationError('La fecha de inicio no puede ser posterior a la fecha de fin.')
 
+            # Obtener la propiedad de la base de datos
             propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-            precio_por_dia = propiedad.precio_diario
+
+            # Calcular el precio total
             total_dias = (fecha_fin - fecha_inicio).days
-            if total_dias < 0:
-                raise ValidationError('El rango de fechas es inválido.')
-            total_precio = precio_por_dia * total_dias
+            total_precio = propiedad.precio_diario * total_dias
 
-            context = {
-                'propiedad': propiedad,
-                'fecha_inicio': fecha_inicio,
-                'fecha_fin': fecha_fin,
-                'total_precio': total_precio,
-            }
-            return render(request, 'inmobiliaria/reserva/confirmar_reserva.html', context)
+            # Crear la reserva con el precio total
+            reserva = Reserva.objects.create(
+                propiedad=propiedad,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=fecha_fin,
+                precio_total=total_precio
+            )
 
-        except (ValueError, ValidationError) as e:
+            # Redirigir a la página de éxito con los detalles de la reserva
+            return redirect('inmobiliaria:reserva_exitosa', reserva_id=reserva.id)
+
+        except (ValueError, ValidationError, Propiedad.DoesNotExist) as e:
+            # Si ocurre algún error, mostrar el mensaje de error
             return render(request, 'inmobiliaria/reserva/error.html', {'error': str(e)})
 
+    # Si la solicitud no es POST, redirigir a la búsqueda de propiedades
     return redirect('inmobiliaria:buscar_propiedades')
 def reserva_detalle(request, reserva_id):
     reserva = get_object_or_404(Reserva, pk=reserva_id)
     return render(request, 'inmobiliaria/reserva/detalle.html', {'reserva': reserva})
 # inmobiliaria/views.py
-
+def formato_fecha(fecha):
+    return fecha.strftime('%m/%d/%Y') if fecha else ''
 def buscar_propiedades(request):
     form = BuscarPropiedadesForm(request.POST or None)
     propiedades_disponibles = []
@@ -422,8 +441,8 @@ def buscar_propiedades(request):
     return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
         'form': form,
         'propiedades_disponibles': propiedades_disponibles,
-        'fecha_inicio': fecha_inicio,
-        'fecha_fin': fecha_fin,
+        'fecha_inicio': formato_fecha(fecha_inicio),
+        'fecha_fin': formato_fecha(fecha_fin),
     })
 
 def crear_disponibilidad(request, propiedad_id):
@@ -450,3 +469,11 @@ def crear_disponibilidad(request, propiedad_id):
         'form': form,
         'propiedad': propiedad
     })
+def reserva_exitosa(request, reserva_id):
+    
+    reserva = Reserva.objects.get(id=reserva_id)
+    
+    context = {
+        'reserva': reserva
+    }
+    return render(request, 'inmobiliaria/reserva/reserva_exitosa.html', context)

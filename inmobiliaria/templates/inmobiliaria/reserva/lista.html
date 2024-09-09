@@ -22,6 +22,7 @@
             <td>{{ reserva.propiedad }}</td>
             <td>{{ reserva.fecha_inicio }}</td>
             <td>{{ reserva.fecha_fin }}</td>
+            <td>{{ reserva.precio_total }}</td>
             <td>
                 <!-- Aquí puedes agregar el enlace para ver detalles si lo deseas -->
                 <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn btn-sm btn-info">Ver</a>
