@@ -1,0 +1,30 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block content %}
+<div class="container">
+    <h2 class="text-center">Confirmar Reserva</h2>
+    <div class="card">
+        <div class="card-header">
+            <h3>Propiedad: {{ propiedad.direccion }}</h3>
+        </div>
+        <div class="card-body">
+            <p><strong>Fecha de inicio:</strong> {{ fecha_inicio }}</p>
+            <p><strong>Fecha de fin:</strong> {{ fecha_fin }}</p>
+            <p><strong>Cantidad de días:</strong> {{ cantidad_dias }}</p>
+            <p><strong>Precio por día:</strong> ${{ propiedad.precio_diario }}</p>
+            <p><strong>Precio total:</strong> ${{ precio_total }}</p>
+        </div>
+        <div class="card-footer text-center">
+            <form action="{% url 'inmobiliaria:crear_reserva' %}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="propiedad_id" value="{{ propiedad.id }}">
+                <input type="hidden" name="fecha_inicio" value="{{ fecha_inicio }}">
+                <input type="hidden" name="fecha_fin" value="{{ fecha_fin }}">
+                <button type="submit" class="btn btn-success">Confirmar Reserva</button>
+                <a href="{% url 'inmobiliaria:buscar_propiedades' %}" class="btn btn-secondary">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

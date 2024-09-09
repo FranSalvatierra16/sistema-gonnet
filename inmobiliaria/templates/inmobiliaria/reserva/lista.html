@@ -1,0 +1,39 @@
+<!-- File: inmobiliaria/templates/inmobiliaria/reservas/lista.html -->
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}Reservas{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Listado de Reservas</h1>
+<a href="{% url 'inmobiliaria:crear_reserva' %}" class="btn btn-primary mb-3">Nueva Reserva</a>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Propiedad</th>
+            <th>Fecha de Inicio</th>
+            <th>Fecha de Fin</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for reserva in reservas %}
+        <tr>
+            <td>{{ reserva.propiedad }}</td>
+            <td>{{ reserva.fecha_inicio }}</td>
+            <td>{{ reserva.fecha_fin }}</td>
+            <td>
+                <!-- Aquí puedes agregar el enlace para ver detalles si lo deseas -->
+                <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn btn-sm btn-info">Ver</a>
+                <a href="{% url 'inmobiliaria:reserva_editar' reserva.id %}" class="btn btn-sm btn-warning">Editar</a>
+                <a href="{% url 'inmobiliaria:reserva_eliminar' reserva.id %}" class="btn btn-sm btn-danger">Eliminar</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="4">No hay reservas registradas.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

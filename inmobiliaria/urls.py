@@ -37,14 +37,28 @@ urlpatterns = [
     path('propietarios/nuevo/', views.propietario_nuevo, name='propietario_nuevo'),
     path('propietarios/<int:propietario_id>/editar/', views.propietario_editar, name='propietario_editar'),
     path('propietarios/<int:propietario_id>/eliminar/', views.propietario_eliminar, name='propietario_eliminar'),
-     path('crear-propietario/', views.crear_propietario_ajax, name='crear_propietario_ajax'),
+    path('crear-propietario/', views.crear_propietario_ajax, name='crear_propietario_ajax'),
+
     # Propiedad URLs
     path('propiedades/', views.propiedades, name='propiedades'),
     path('propiedades/<int:propiedad_id>/', views.propiedad_detalle, name='propiedad_detalle'),
     path('propiedades/nuevo/', views.propiedad_nuevo, name='propiedad_nuevo'),
     path('propiedades/<int:propiedad_id>/editar/', views.propiedad_editar, name='propiedad_editar'),
     path('propiedades/<int:propiedad_id>/eliminar/', views.propiedad_eliminar, name='propiedad_eliminar'),
+  path('propiedad/<int:propiedad_id>/crear-disponibilidad/', views.crear_disponibilidad, name='crear_disponibilidad'),
+
+    # Reserva URLs
+    path('reservas/', views.reservas, name='reservas'),
+    path('reservas/nuevo/', views.buscar_propiedades, name='buscar_propiedades'),
+    path('reservas/crear/', views.crear_reserva, name='crear_reserva'),
+    path('reservas/<int:reserva_id>/', views.reserva_detalle, name='reserva_detalle'),
+    path('confirmar_reserva/', views.confirmar_reserva, name='confirmar_reserva'),
+
+    path('reservas/<int:reserva_id>/editar/', views.reserva_editar, name='reserva_editar'),
+
+    path('reservas/<int:reserva_id>/eliminar/', views.reserva_eliminar, name='reserva_eliminar'),
 ]
 
+# Servir archivos de medios durante el desarrollo
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

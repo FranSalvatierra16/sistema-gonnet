@@ -1,0 +1,50 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}Buscar Propiedades{% endblock %}
+
+{% block content %}
+<h1>Buscar Propiedades</h1>
+
+<form method="post">
+    {% csrf_token %}
+    {% bootstrap_form form %}
+    <button type="submit" class="btn btn-primary">Buscar Propiedades</button>
+    <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+
+<!-- Mostrar resultados si hay propiedades disponibles -->
+{% if propiedades_disponibles %}
+    <h3 class="text-center mt-4">Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h3>
+    <div class="row">
+        {% for propiedad in propiedades_disponibles %}
+        <div class="col-md-4">
+            <div class="card mb-4 shadow-sm">
+                <!-- Mostrar imagen de la propiedad si está disponible -->
+                <img class="card-img-top" src="{{ propiedad.imagen.url }}" alt="{{ propiedad.nombre }}">
+                <div class="card-body">
+                    <h5 class="card-title">{{ propiedad.direccion }}</h5>
+                    <p class="card-text">{{ propiedad.descripcion|truncatewords:15 }}</p>
+                    <p class="card-text"><strong>Precio:</strong> {{ propiedad.precio }} USD</p>
+                    <p class="card-text"><strong>Ubicación:</strong> {{ propiedad.ubicacion }}</p>
+
+                    <form action="{% url 'inmobiliaria:confirmar_reserva' %}" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="propiedad_id" value="{{ propiedad.id }}">
+                        <input type="hidden" name="fecha_inicio" value="{{ fecha_inicio }}">
+                        <input type="hidden" name="fecha_fin" value="{{ fecha_fin }}">
+                        <button type="submit" class="btn btn-primary">Confirmar Reserva</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <!-- Mostrar mensaje si no hay propiedades disponibles -->
+    <div class="alert alert-warning text-center mt-4">
+        No hay propiedades disponibles para las fechas seleccionadas.
+    </div>
+{% endif %}
+
+{% endblock %}

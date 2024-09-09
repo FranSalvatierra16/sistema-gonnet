@@ -2,21 +2,43 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad,PropiedadImagen
-from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, PropiedadImagenForm
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad
+from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
-
+from datetime import date
+from django.db.models import Q
+from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
+from django.contrib.auth.signals import user_logged_in
+from django.dispatch import receiver
+from django.utils.dateparse import parse_date
 
 # index view
 def index(request):
-    return render(request, 'inmobiliaria/index.html')
+    nivel = None
+    if request.user.is_authenticated and hasattr(request.user, 'vendedor'):
+        nivel = request.user.vendedor.nivel
+
+    context = {
+        'nivel_usuario': nivel,
+    }
+    return render(request, 'inmobiliaria/index.html', context)
 
 # Vendedor views
 @login_required
 def dashboard(request):
-    return render(request, 'inmobiliaria/dashboard.html')
+    vendedor = None
+    nivel = 0
+    if request.user.is_authenticated and hasattr(request.user, 'vendedor'):
+        vendedor = request.user.vendedor
+        nivel = vendedor.nivel
+
+    context = {
+        'nivel_usuario': nivel,
+        'vendedor': vendedor,
+    }
+    return render(request, 'inmobiliaria/dashboard.html', context)
 @login_required
 def vendedores(request):
     vendedores = Vendedor.objects.all()
@@ -29,13 +51,13 @@ def vendedor_detalle(request, vendedor_id):
 @login_required
 def vendedor_nuevo(request):
     if request.method == "POST":
-        form = VendedorCreationForm(request.POST)
+        form = VendedorUserCreationForm(request.POST)
         if form.is_valid():
             vendedor = form.save()
             messages.success(request, 'Vendedor creado exitosamente.')
             return redirect('inmobiliaria:vendedor_detalle', vendedor_id=vendedor.id)
     else:
-        form = VendedorCreationForm()
+        form = VendedorUserCreationForm()
     return render(request, 'inmobiliaria/vendedores/formulario.html', {'form': form})
 
 @login_required
@@ -156,98 +178,55 @@ def propiedades(request):
 @login_required
 def propiedad_detalle(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
-    return render(request, 'inmobiliaria/propiedades/detalle.html', {'propiedad': propiedad})
-@login_required 
+    disponibilidades = propiedad.disponibilidades.all()  # Si tienes una relación entre propiedad y disponibilidad
+    
+    return render(request, 'inmobiliaria/propiedades/detalle.html', {
+        'propiedad': propiedad,
+        'disponibilidades': disponibilidades,
+    })
+@login_required
 def propiedad_nuevo(request):
-    ImageFormSet = modelformset_factory(PropiedadImagen, form=PropiedadImagenForm, extra=1, can_delete=True)
-
     if request.method == 'POST':
         form = PropiedadForm(request.POST, request.FILES)
-        formset = ImageFormSet(request.POST, request.FILES, queryset=PropiedadImagen.objects.none())
-
-        if form.is_valid() and formset.is_valid():
+        if form.is_valid():
             propiedad = form.save(commit=False)
-            
-            if form.cleaned_data['nuevo_propietario']:
-                # Create new Propietario
-                propietario = Propietario.objects.create(
-                    nombre=form.cleaned_data['nombre_propietario'],
-                    apellido=form.cleaned_data['apellido_propietario'],
-                    # Add other fields as necessary
-                )
-            else:
-                propietario = form.cleaned_data['propietario']
-            
-            propiedad.propietario = propietario
             propiedad.save()
 
-            # Save images
-            for form in formset.cleaned_data:
-                if form:
-                    imagen = form['imagen']
-                    PropiedadImagen.objects.create(propiedad=propiedad, imagen=imagen)
+            # Comentamos la parte de la carga de imágenes
+            # images = request.FILES.getlist('imagenes')
+            # for image in images:
+            #     PropiedadImagen.objects.create(propiedad=propiedad, imagen=image)
 
             messages.success(request, 'Propiedad creada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
         form = PropiedadForm()
-        formset = ImageFormSet(queryset=PropiedadImagen.objects.none())
 
-    return render(request, 'inmobiliaria/propiedades/formulario.html', {
-        'form': form,
-        'image_formset': formset,
-    })
+    return render(request, 'inmobiliaria/propiedades/formulario.html', {'form': form})
 
 @login_required
 def propiedad_editar(request, propiedad_id):
-    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
-    ImageFormSet = modelformset_factory(PropiedadImagen, form=PropiedadImagenForm, extra=1, can_delete=True)
+    propiedad = Propiedad.objects.get(pk=propiedad_id)
 
-    if request.method == "POST":
+    # Comentamos o eliminamos la lógica relacionada con las imágenes
+    # ImageFormSet = modelformset_factory(PropiedadImagen, form=ImagenForm, extra=3)
+
+    if request.method == 'POST':
         form = PropiedadForm(request.POST, request.FILES, instance=propiedad)
-        formset = ImageFormSet(request.POST, request.FILES, queryset=propiedad.imagenes.all())
-
-        if form.is_valid() and formset.is_valid():
-            propiedad = form.save(commit=False)
-            
-            if form.cleaned_data['nuevo_propietario']:
-                # Create new Propietario
-                propietario = Propietario.objects.create(
-                    nombre=form.cleaned_data['nombre_propietario'],
-                    apellido=form.cleaned_data['apellido_propietario'],
-                    # Add other fields as necessary
-                )
-                propiedad.propietario = propietario
-            elif form.cleaned_data['propietario']:
-                propiedad.propietario = form.cleaned_data['propietario']
-            
-            propiedad.save()
-
-            # Handle images (same as before)
-            for form in formset.cleaned_data:
-                if form:
-                    imagen = form['imagen']
-                    if form.get('id'):
-                        instance = form['id']
-                        instance.imagen = imagen
-                        instance.save()
-                    else:
-                        PropiedadImagen.objects.create(propiedad=propiedad, imagen=imagen)
-
-            for obj in formset.deleted_objects:
-                obj.delete()
-
-            messages.success(request, 'Propiedad actualizada exitosamente.')
+        # formset = ImageFormSet(request.POST, request.FILES, queryset=PropiedadImagen.objects.filter(propiedad=propiedad))
+        
+        if form.is_valid():  # Quitamos la validación de formset
+            propiedad = form.save()
+            # for form in formset:
+            #     image = form.save(commit=False)
+            #     image.propiedad = propiedad
+            #     image.save()
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
         form = PropiedadForm(instance=propiedad)
-        formset = ImageFormSet(queryset=propiedad.imagenes.all())
+        # formset = ImageFormSet(queryset=PropiedadImagen.objects.filter(propiedad=propiedad))
 
-    return render(request, 'inmobiliaria/propiedades/formulario.html', {
-        'form': form,
-        'image_formset': formset,
-        'propiedad': propiedad,
-    })
+    return render(request, 'inmobiliaria/propiedades/formulario.html', {'form': form})
 @login_required
 def propiedad_eliminar(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
@@ -285,3 +264,189 @@ def crear_propietario_ajax(request):
                 'errors': form.errors.as_json(),
             })
     return JsonResponse({'success': False, 'error': 'Invalid request'})
+
+@receiver(user_logged_in)
+def user_logged_in_handler(sender, request, user, **kwargs):
+    if hasattr(user, 'vendedor'):
+        request.session['nivel_usuario'] = user.vendedor.nivel
+    else:
+        request.session['nivel_usuario'] = 0  # Default level if not a vendedor
+
+def ver_disponibilidad(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    
+    # Obtener todas las reservas de la propiedad
+    reservas = propiedad.reservas.all()
+    
+    # Obtener todas las disponibilidades de la propiedad
+    disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad)
+
+    context = {
+        'propiedad': propiedad,
+        'reservas': reservas,
+        'disponibilidades': disponibilidades,
+    }
+
+    return render(request, 'inmobiliaria/ver_disponibilidad.html', context)
+def reservas(request):
+    reservas = Reserva.objects.all()
+    return render(request, 'inmobiliaria/reserva/lista.html', {'reservas': reservas})
+
+def crear_reserva(request):
+    if request.method == 'POST':
+        propiedad_id = request.POST.get('propiedad_id')
+        fecha_inicio_str = request.POST.get('fecha_inicio')
+        fecha_fin_str = request.POST.get('fecha_fin')
+
+        try:
+            fecha_inicio = parse_date(fecha_inicio_str)
+            fecha_fin = parse_date(fecha_fin_str)
+
+            if not fecha_inicio or not fecha_fin:
+                raise ValidationError('Las fechas proporcionadas no son válidas.')
+
+            if fecha_inicio > fecha_fin:
+                raise ValidationError('La fecha de inicio no puede ser posterior a la fecha de fin.')
+
+            propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+            
+            # Aquí puedes añadir la lógica para crear la reserva o validar disponibilidad
+
+        except (ValueError, ValidationError) as e:
+            return render(request, 'inmobiliaria/reserva/error.html', {'error': str(e)})
+
+        return redirect('inmobiliaria:confirmar_reserva')
+
+    return redirect('inmobiliaria:buscar_propiedades')
+def reserva_editar(request, reserva_id):
+    reserva = get_object_or_404(Reserva, pk=reserva_id)
+    
+    if request.method == "POST":
+        form = ReservaForm(request.POST, instance=reserva)
+        
+        if form.is_valid():
+            reserva = form.save(commit=False)
+            propiedad = reserva.propiedad
+            fecha_inicio = reserva.fecha_inicio
+            fecha_fin = reserva.fecha_fin
+
+            # Validación de temporadas
+            hoy = date.today()
+  
+
+            # Guardar los cambios si pasa las validaciones de temporada
+            reserva.save()
+            messages.success(request, 'Reserva actualizada exitosamente.')
+            return redirect('inmobiliaria:reserva_detalle', reserva_id=reserva.id)
+    else:
+        form = ReservaForm(instance=reserva)
+    
+    return render(request, 'inmobiliaria/reserva/crear_reserva.html', {'form': form, 'reserva': reserva})
+
+@login_required
+def reserva_eliminar(request, reserva_id):
+    reserva = get_object_or_404(Reserva, pk=reserva_id)
+    if request.method == "POST":
+        reserva.delete()
+        messages.success(request, 'Reserva eliminada exitosamente.')
+        return redirect('inmobiliaria:reservas')
+    return render(request, 'inmobiliaria/reserva/confirmar_eliminar.html', {'reserva': reserva})
+def confirmar_reserva(request):
+    if request.method == 'POST':
+        propiedad_id = request.POST.get('propiedad_id')
+        fecha_inicio_str = request.POST.get('fecha_inicio')
+        fecha_fin_str = request.POST.get('fecha_fin')
+
+        try:
+            fecha_inicio = parse_date(fecha_inicio_str)
+            fecha_fin = parse_date(fecha_fin_str)
+
+            if not fecha_inicio or not fecha_fin:
+                raise ValidationError('Las fechas proporcionadas no son válidas.')
+
+            if fecha_inicio > fecha_fin:
+                raise ValidationError('La fecha de inicio no puede ser posterior a la fecha de fin.')
+
+            propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+            precio_por_dia = propiedad.precio_diario
+            total_dias = (fecha_fin - fecha_inicio).days
+            if total_dias < 0:
+                raise ValidationError('El rango de fechas es inválido.')
+            total_precio = precio_por_dia * total_dias
+
+            context = {
+                'propiedad': propiedad,
+                'fecha_inicio': fecha_inicio,
+                'fecha_fin': fecha_fin,
+                'total_precio': total_precio,
+            }
+            return render(request, 'inmobiliaria/reserva/confirmar_reserva.html', context)
+
+        except (ValueError, ValidationError) as e:
+            return render(request, 'inmobiliaria/reserva/error.html', {'error': str(e)})
+
+    return redirect('inmobiliaria:buscar_propiedades')
+def reserva_detalle(request, reserva_id):
+    reserva = get_object_or_404(Reserva, pk=reserva_id)
+    return render(request, 'inmobiliaria/reserva/detalle.html', {'reserva': reserva})
+# inmobiliaria/views.py
+
+def buscar_propiedades(request):
+    form = BuscarPropiedadesForm(request.POST or None)
+    propiedades_disponibles = []
+    fecha_inicio = None
+    fecha_fin = None
+    
+    if form.is_valid():
+        fecha_inicio = form.cleaned_data['fecha_inicio']
+        fecha_fin = form.cleaned_data['fecha_fin']
+        
+        # Filtrar propiedades que están disponibles en las fechas indicadas
+        propiedades = Propiedad.objects.all()
+
+        # Filtrar propiedades que tienen disponibilidad activa en ese rango
+        for propiedad in propiedades:
+            disponibilidades = Disponibilidad.objects.filter(
+                propiedad=propiedad,
+                fecha_inicio__lte=fecha_fin,
+                fecha_fin__gte=fecha_inicio
+            )
+
+            reservas = propiedad.reservas.filter(
+                Q(fecha_inicio__lte=fecha_fin) & Q(fecha_fin__gte=fecha_inicio)
+            )
+
+            if disponibilidades.exists() and not reservas.exists():
+                propiedades_disponibles.append(propiedad)
+        
+    return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
+        'form': form,
+        'propiedades_disponibles': propiedades_disponibles,
+        'fecha_inicio': fecha_inicio,
+        'fecha_fin': fecha_fin,
+    })
+
+def crear_disponibilidad(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    
+    if request.method == 'POST':
+        form = DisponibilidadForm(request.POST, propiedad=propiedad)
+        if form.is_valid():
+            try:
+                disponibilidad = form.save(commit=False)
+                disponibilidad.propiedad = propiedad
+                disponibilidad.full_clean()
+                disponibilidad.save()
+                messages.success(request, 'Disponibilidad creada exitosamente.')
+                return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+            except ValidationError as e:
+                for field, errors in e.message_dict.items():
+                    for error in errors:
+                        form.add_error(field, error)
+    else:
+        form = DisponibilidadForm(propiedad=propiedad)
+
+    return render(request, 'inmobiliaria/propiedades/crear_disponibilidad.html', {
+        'form': form,
+        'propiedad': propiedad
+    })
