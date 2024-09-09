@@ -1,26 +1,40 @@
-<!-- inmobiliaria/templates/inmobiliaria/inquilinos/lista.html -->
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inquilinos - List</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-</head>
-<body>
-    <header>
-        <h1>Inquilinos List</h1>
-        <a href="{% url 'inquilinos_create' %}">Add New Inquilino</a>
-    </header>
-    <main>
-        <ul>
-            {% for inquilino in inquilinos %}
-                <li>
-                    <a href="{% url 'inquilinos_detail' inquilino.id %}">{{ inquilino.name }}</a>
-                </li>
-            {% endfor %}
-        </ul>
-    </main>
-</body>
-</html>
+<!-- File: inmobiliaria/templates/inmobiliaria/inquilinoes/lista.html -->
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}inquilinos{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Listado de inquilinos</h1>
+<a href="{% url 'inmobiliaria:inquilino_nuevo' %}" class="btn btn-primary mb-3">Nuevo inquilino</a>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>DNI</th>
+            <th>Nombre</th>
+            <th>Apellido</th>
+            <th>Email</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for inquilino in inquilinos %}
+        <tr>
+            <td>{{ inquilino.dni }}</td>
+            <td>{{ inquilino.nombre }}</td>
+            <td>{{ inquilino.apellido }}</td>
+            <td>{{ inquilino.email }}</td>
+            <td>
+                <a href="{% url 'inmobiliaria:inquilino_detalle' inquilino.id %}" class="btn btn-sm btn-info">Ver</a>
+                <a href="{% url 'inmobiliaria:inquilino_editar' inquilino.id %}" class="btn btn-sm btn-warning">Editar</a>
+                <a href="{% url 'inmobiliaria:inquilino_eliminar' inquilino.id %}" class="btn btn-sm btn-danger">Eliminar</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5">No hay inquilinoes registrados.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

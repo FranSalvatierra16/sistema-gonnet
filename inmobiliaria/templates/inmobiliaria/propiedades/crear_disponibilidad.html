@@ -1,0 +1,15 @@
+<!-- File: inmobiliaria/templates/inmobiliaria/propiedades/crear_disponibilidad.html -->
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}Crear Disponibilidad{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Crear Disponibilidad para {{ propiedad.direccion }}</h1>
+<form method="post">
+    {% csrf_token %}
+    {% bootstrap_form form %}
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a href="{% url 'inmobiliaria:propiedades' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}

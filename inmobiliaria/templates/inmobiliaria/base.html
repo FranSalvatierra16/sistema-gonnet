@@ -1,0 +1,90 @@
+{% load bootstrap4 %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Inmobiliaria{% endblock %}</title>
+    {% bootstrap_css %}
+    {% bootstrap_javascript jquery='full' %}
+    {% block extra_css %}
+    <link rel="stylesheet" href="{% static 'style/styles.css' %}">
+    <style>
+        
+        /* Hacer que el body ocupe el 100% de la pantalla y use flexbox */
+        html, body {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* El contenedor principal debe expandirse para ocupar el espacio disponible */
+        .container {
+            flex: 1;
+        }
+
+        /* Footer fijo en la parte inferior */
+        .footer {
+            background-color: #f8f9fa;
+        }
+    </style>
+    {% endblock %}
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="{% url 'inmobiliaria:dashboard' %}">Inmobiliaria</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            {% if user.is_authenticated %}
+            <ul class="navbar-nav">
+                {% if user.nivel >= 3 %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'inmobiliaria:vendedores' %}">Vendedores</a>
+                </li>
+                {% endif %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'inmobiliaria:inquilinos' %}">Inquilinos</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'inmobiliaria:propietarios' %}">Propietarios</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'inmobiliaria:propiedades' %}">Propiedades</a>
+                </li>
+            </ul>
+            {% endif %}
+            <ul class="navbar-nav ml-auto">
+                {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'inmobiliaria:logout' %}">Cerrar sesión</a>
+                    </li>
+                {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'inmobiliaria:login' %}">Iniciar sesión</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'inmobiliaria:register' %}">Registrarse</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% bootstrap_messages %}
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="footer mt-auto py-3 bg-light">
+        <div class="container text-center">
+            <span class="text-muted">&copy; 2024 Inmobiliaria</span>
+        </div>
+    </footer>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

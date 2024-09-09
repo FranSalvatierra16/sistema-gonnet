@@ -1,0 +1,19 @@
+<!-- inmobiliaria/autenticacion/register.html -->
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}{% if vendedor %}Editar{% else %}Registro de {% endif %} Vendedor{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">{% if vendedor %}{% else %}Registro de{% endif %} Vendedor</h1>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button class="btn btn-primary" type="submit">Registrar</button>
+</form>
+
+<!-- Enlace para ir a la página de inicio de sesión si ya tienes cuenta -->
+<div class="mt-3">
+    <a href="{% url 'inmobiliaria:login' %}" class="btn btn-secondary">Ya tengo una cuenta, iniciar sesión</a>
+</div>
+{% endblock %}

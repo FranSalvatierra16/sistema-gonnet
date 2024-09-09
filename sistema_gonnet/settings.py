@@ -39,8 +39,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'inmobiliaria',
-    'bootstrap4',
-    # 'inmobiliaria.apps.InmobiliariaConfig',
+    'bootstrap4',  # Bootstrap 4 app
+    'crispy_forms',  # Crispy forms for better form handling
+    'crispy_bootstrap4', 
+    'django_select2', # Bootstrap 4 integration with crispy forms
 ]
 
 MIDDLEWARE = [
@@ -84,6 +86,12 @@ DATABASES = {
     }
 }
 
+# Custom user model
+AUTH_USER_MODEL = 'inmobiliaria.Vendedor'
+
+# Redirect to home page after login
+LOGIN_REDIRECT_URL = 'inmobiliaria:index'
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -107,7 +115,6 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
-# Language settings
 LANGUAGE_CODE = 'es-ar'
 TIME_ZONE = 'America/Argentina/Buenos_Aires'
 
@@ -119,9 +126,22 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+
+# Media files (uploaded images, etc.)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap4"
+CRISPY_TEMPLATE_PACK = "bootstrap4"
+

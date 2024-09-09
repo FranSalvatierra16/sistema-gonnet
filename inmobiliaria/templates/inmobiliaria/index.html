@@ -1,29 +1,48 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inmobiliaria - Home</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-</head>
-<body>
-    <header>
-        <h1>Welcome to Inmobiliaria</h1>
-        <nav>
-            <ul>
-                <li><a href="{% url 'inmobiliaria:vendedores' %}">Vendedores</a></li>
-                <li><a href="{% url 'inmobiliaria:inquilinos' %}">Inquilinos</a></li>
-                <li><a href="{% url 'inmobiliaria:propietarios' %}">Propietarios</a></li>
-            </ul>
-        </nav>
-    </header>
-    <main>
-        <h2>Home Page</h2>
-        <p>Welcome to our real estate system. Navigate through the sections to manage vendedores, inquilinos, and propietarios.</p>
-    </main>
-    <footer>
-        <p>&copy; 2024 Inmobiliaria</p>
-    </footer>
-</body>
-</html>
+<!-- File: inmobiliaria/templates/inmobiliaria/index.html -->
+{% extends 'inmobiliaria/base.html' %}
+
+{% block title %}Inmobiliaria - Home{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Bienvenido a Inmobiliaria</h1>
+<p class="lead">Bienvenido a nuestro sistema de gestión inmobiliaria. Navegue por las secciones para administrar vendedores, inquilinos y propietarios.</p>
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Vendedores</h5>
+                <p class="card-text">Gestione la información de los vendedores.</p>
+                <a href="{% url 'inmobiliaria:vendedores' %}" class="btn btn-primary">Ir a Vendedores</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Inquilinos</h5>
+                <p class="card-text">Administre los datos de los inquilinos.</p>
+                <a href="{% url 'inmobiliaria:inquilinos' %}" class="btn btn-primary">Ir a Inquilinos</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Propietarios</h5>
+                <p class="card-text">Gestione la información de los propietarios.</p>
+                <a href="{% url 'inmobiliaria:propietarios' %}" class="btn btn-primary">Ir a Propietarios</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Propiedades</h5>
+                <p class="card-text">Gestione la información de las propiedades.</p>
+                <a href="{% url 'inmobiliaria:propiedades' %}" class="btn btn-primary">Ir a Propiedades</a>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

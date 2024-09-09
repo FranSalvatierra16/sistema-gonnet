@@ -1,22 +1,45 @@
-<!-- inmobiliaria/templates/inmobiliaria/inquilinos/detalle.html -->
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inquilino Detail</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-</head>
-<body>
-    <header>
-        <h1>Inquilino Details</h1>
-        <a href="{% url 'inquilinos_edit' inquilino.id %}">Edit</a>
-        <a href="{% url 'inquilinos_delete' inquilino.id %}">Delete</a>
-    </header>
-    <main>
-        <p>Name: {{ inquilino.name }}</p>
-        <p>Details: {{ inquilino.details }}</p>
-    </main>
-</body>
-</html>
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="text-center">Detalles del inquilino</h2>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">Nombre:</dt>
+                        <dd class="col-sm-9">{{ inquilino.nombre }} {{ inquilino.apellido }}</dd>
+                        
+                        <dt class="col-sm-3">Email:</dt>
+                        <dd class="col-sm-9">{{ inquilino.email }}</dd>
+                        
+                        <dt class="col-sm-3">Teléfono:</dt>
+                        <dd class="col-sm-9">{{ inquilino.celular }}</dd>
+
+                        <dt class="col-sm-3">Fecha nacimiento:</dt>
+                        <dd class="col-sm-9">{{ inquilino.fecha_nacimiento }}</dd>
+
+                        <dt class="col-sm-3">Documento:</dt>
+                        <dd class="col-sm-9">{{ inquilino.tipo_doc }} {{ inquilino.dni }}</dd>
+
+                        <dt class="col-sm-3">Tipo ins:</dt>
+                        <dd class="col-sm-9">{{ inquilino.tipo_ins }}</dd>
+
+                        <dt class="col-sm-3">Detalles:</dt>
+                        <dd class="col-sm-9">{{ inquilino.observaciones }}</dd>
+
+                    </dl>
+                </div>
+                <div class="card-footer text-center">
+                    <a href="{% url 'inmobiliaria:inquilino_editar' inquilino.id %}" class="btn btn-primary">Editar</a>
+                    <a href="{% url 'inmobiliaria:inquilino_eliminar' inquilino.id %}" class="btn btn-danger">Eliminar</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

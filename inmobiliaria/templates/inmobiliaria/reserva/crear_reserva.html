@@ -1,0 +1,23 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}Crear Reserva{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Crear Reserva</h1>
+
+<form method="post">
+    {% csrf_token %}
+  
+    
+    <!-- Campos ocultos para enviar información de la reserva -->
+    <input type="hidden" name="propiedad_id" value="{{ propiedad.id }}">
+    <input type="hidden" name="fecha_inicio" value="{{ fecha_inicio }}">
+    <input type="hidden" name="fecha_fin" value="{{ fecha_fin }}">
+    
+    <button type="submit" class="btn btn-primary">Confirmar Reserva</button>
+    <!-- El botón de cancelar puede llevar al usuario de regreso a la lista de propiedades o a otra página -->
+    <a href="{% url 'inmobiliaria:buscar_propiedades' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+
+{% endblock %}

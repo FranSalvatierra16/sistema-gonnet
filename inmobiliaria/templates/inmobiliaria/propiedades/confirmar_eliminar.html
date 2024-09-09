@@ -1,0 +1,24 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="text-center">Confirmar Eliminación</h2>
+                </div>
+                <div class="card-body">
+                    <p class="text-center">¿Está seguro que desea eliminar la propiedad {{ propiedad.direccion }}?</p>
+                    <form method="post" class="text-center">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">Confirmar</button>
+                        <a href="{% url 'inmobiliaria:propiedades' %}" class="btn btn-secondary">Cancelar</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
