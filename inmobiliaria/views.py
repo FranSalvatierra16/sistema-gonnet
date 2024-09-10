@@ -14,7 +14,7 @@ from django.contrib.auth.signals import user_logged_in
 from django.dispatch import receiver
 from dateutil.parser import parse
 from django.contrib.auth.models import User
-
+from decimal import Decimal
 
 # index view
 def index(request):
@@ -293,7 +293,9 @@ def ver_disponibilidad(request, propiedad_id):
 def reservas(request):
     reservas = Reserva.objects.all()
     return render(request, 'inmobiliaria/reserva/lista.html', {'reservas': reservas})
-
+def operaciones(request):
+    reservas = Reserva.objects.all()
+    return render(request, 'inmobiliaria/reserva/operaciones.html', {'reservas': reservas})
 def crear_reserva(request):
     if request.method == 'POST':
         propiedad_id = request.POST.get('propiedad_id')
@@ -510,3 +512,46 @@ def reserva_exitosa(request, reserva_id):
         'reserva': reserva
     }
     return render(request, 'inmobiliaria/reserva/reserva_exitosa.html', context)
+def terminar_reserva(request, reserva_id):
+    reserva = get_object_or_404(Reserva, pk=reserva_id)
+    if request.method == "POST":
+        pago_senia = Decimal(request.POST.get('pago_senia'))
+        reserva.confirmar_reserva(pago_senia)
+        messages.success(request, 'Reserva confirmada exitosamente.')
+        return redirect('inmobiliaria:reservas')
+    return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', {'reserva': reserva})
+def realizar_pago(request, reserva_id):
+    # Obtener la reserva a partir del ID
+    reserva = get_object_or_404(Reserva, id=reserva_id)
+
+    if request.method == 'POST':
+        # Obtener el monto del pago ingresado en el formulario
+        pago = Decimal(request.POST.get('pago', '0.00'))
+
+        if pago <= 0:
+            messages.error(request, 'El monto del pago debe ser mayor que cero.')
+            return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva.id)
+
+        # Actualizar la seña y la cuota pendiente
+        reserva.senia += pago
+
+        # Calcular la cuota pendiente
+        reserva.cuota_pendiente = reserva.precio_total - reserva.senia
+
+        if reserva.cuota_pendiente <= 0:
+            # Si la cuota pendiente es 0 o menor, marcar la reserva como 'realizada'
+            reserva.estado = 'realizada'
+            reserva.cuota_pendiente = 0  # Asegurarse de que no quede negativo
+            messages.success(request, 'La reserva ha sido completada y está totalmente pagada.')
+        else:
+            # Si queda saldo pendiente, mostrar el saldo restante
+            messages.info(request, f'Pago recibido. Saldo pendiente: {reserva.cuota_pendiente:.2f} USD.')
+
+        # Guardar los cambios en la reserva
+        reserva.save()
+
+        # Redirigir al listado de reservas o a alguna página de confirmación
+        return redirect('inmobiliaria:reservas')
+
+    # Si es una solicitud GET, mostrar la página de finalizar reserva
+    return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', {'reserva': reserva})

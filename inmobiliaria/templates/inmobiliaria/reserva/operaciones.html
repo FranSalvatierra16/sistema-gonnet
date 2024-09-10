@@ -4,7 +4,7 @@
 {% block title %}Reservas Pendientes{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Listado de Reservas Pendientes</h1>
+<h1 class="mb-4">Listado de Operaciones</h1>
 <a href="{% url 'inmobiliaria:crear_reserva' %}" class="btn btn-primary mb-3">Nueva Reserva</a>
 <table class="table table-striped">
     <thead>
@@ -13,25 +13,28 @@
             <th>Fecha de Inicio</th>
             <th>Fecha de Fin</th>
             <th>Precio Total</th>
-   
-           
+            <th>Seña</th>
+            <th>Estado</th>
+            <th>Debe:</th>
+            <th>Acciones</th>
         </tr>
     </thead>
     <tbody>
         {% for reserva in reservas %}
-            {% if reserva.estado == 'en_espera' %}
+            {% if reserva.estado == 'confirmada' %}
             <tr class="text-dark">
                 <td>{{ reserva.propiedad }}</td>
                 <td>{{ reserva.fecha_inicio }}</td>
                 <td>{{ reserva.fecha_fin }}</td>
                 <td>{{ reserva.precio_total }}</td>
-              
-          
+                <td>{{ reserva.senia }}</td>
+                <td>{{ reserva.cuota_pendiente }}</td>
+                <td>{{ reserva.estado }}</td>
                 <td>
                     <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn btn-sm btn-info">Ver</a>
                     <a href="{% url 'inmobiliaria:reserva_editar' reserva.id %}" class="btn btn-sm btn-warning">Editar</a>
                     <a href="{% url 'inmobiliaria:reserva_eliminar' reserva.id %}" class="btn btn-sm btn-danger">Eliminar</a>
-                    <a href="{% url 'inmobiliaria:finalizar_reserva' reserva.id %}" class="btn btn-sm btn-success">Finalizar</a>
+                    
                 </td>
             </tr>
             {% endif %}
