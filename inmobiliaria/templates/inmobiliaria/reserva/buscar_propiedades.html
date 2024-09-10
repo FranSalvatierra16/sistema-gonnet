@@ -25,7 +25,7 @@
                     <h5 class="card-title">{{ propiedad.direccion }}</h5>
                     <p class="card-text">{{ propiedad.descripcion|truncatewords:15 }}</p>
                     <p class="card-text"><strong>Precio:</strong> {{ propiedad.precio_diario }} $</p>
-                    <p class="card-text"><strong>Valoracion:</strong> {{ propiedad.valoracion }}</p>
+                    <p class="card-text"><strong>Valoración:</strong> {{ propiedad.valoracion }}</p>
 
                     <button type="button" class="btn btn-primary" onclick="mostrarModalReserva('{{ propiedad.id }}', '{{ propiedad.direccion }}', '{{ propiedad.precio_diario }}', '{{ fecha_inicio }}', '{{ fecha_fin }}')">Confirmar Reserva</button>
                 </div>
@@ -56,6 +56,30 @@
                 <p><strong>Fecha de fin:</strong> <span id="fechaFin"></span></p>
                 <p><strong>Total de días:</strong> <span id="totalDias"></span></p>
                 <p><strong>Precio total:</strong> <span id="precioTotal"></span> USD</p>
+
+                <!-- Campos adicionales -->
+                <p><strong>Hora de ingreso:</strong> <input type="time" id="horaIngreso" name="hora_ingreso" required></p>
+                <p><strong>Hora de egreso:</strong> <input type="time" id="horaEgreso" name="hora_egreso" required></p>
+                
+                <p><strong>Vendedor:</strong>
+                    <select id="vendedor" name="vendedor" class="form-control">
+                        {% for vendedor in vendedores %}
+                            <option value="{{ vendedor.id }}">{{ vendedor.nombre_completo_vendedor  }}</option>
+                        {% empty %}
+                            <option value="">No hay vendedores disponibles</option>
+                        {% endfor %}
+                    </select>
+                </p>
+
+                <p><strong>Cliente:</strong>
+                    <select id="inquilino" name="cliente" class="form-control">
+                        {% for inquilino in inquilinos %}
+                            <option value="{{ inquilino.id }}">{{ inquilino.nombre_completo_inquilino  }}</option>
+                        {% empty %}
+                            <option value="">No hay inquilinos disponibles</option>
+                        {% endfor %}
+                    </select>
+                </p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
@@ -64,6 +88,10 @@
                     <input type="hidden" name="propiedad_id" id="modalPropiedadId">
                     <input type="hidden" name="fecha_inicio" id="modalFechaInicio">
                     <input type="hidden" name="fecha_fin" id="modalFechaFin">
+                    <input type="hidden" name="hora_ingreso" id="modalHoraIngreso">
+                    <input type="hidden" name="hora_egreso" id="modalHoraEgreso">
+                    <input type="hidden" name="cliente" id="modalCliente">
+                    <input type="hidden" name="vendedor" id="modalVendedor">
                     <button type="submit" class="btn btn-primary">Confirmar Reserva</button>
                 </form>
             </div>
@@ -75,28 +103,47 @@
 
 {% block extra_js %}
 <script>
-    function mostrarModalReserva(propiedadId, direccion, precio, fechaInicio, fechaFin) {
-        // Calcular los días y el precio total
-        let inicio = new Date(fechaInicio);
-        let fin = new Date(fechaFin);
-        let totalDias = Math.ceil((fin - inicio) / (1000 * 60 * 60 * 24));
-        let precioTotal = totalDias * parseFloat(precio);
+   function mostrarModalReserva(propiedadId, direccion, precio, fechaInicio, fechaFin) {
+    // Calcular los días y el precio total
+    let inicio = new Date(fechaInicio);
+    let fin = new Date(fechaFin);
+    let totalDias = Math.ceil((fin - inicio) / (1000 * 60 * 60 * 24));
+    let precioTotal = totalDias * parseFloat(precio);
 
-        // Llenar el modal con los datos de la reserva
-        document.getElementById('propiedadDireccion').textContent = direccion;
-        document.getElementById('propiedadPrecio').textContent = precio;
-        document.getElementById('fechaInicio').textContent = fechaInicio;
-        document.getElementById('fechaFin').textContent = fechaFin;
-        document.getElementById('totalDias').textContent = totalDias;
-        document.getElementById('precioTotal').textContent = precioTotal.toFixed(2);
+    // Llenar el modal con los datos de la reserva
+    document.getElementById('propiedadDireccion').textContent = direccion;
+    document.getElementById('propiedadPrecio').textContent = precio;
+    document.getElementById('fechaInicio').textContent = fechaInicio;
+    document.getElementById('fechaFin').textContent = fechaFin;
+    document.getElementById('totalDias').textContent = totalDias;
+    document.getElementById('precioTotal').textContent = precioTotal.toFixed(2);
 
-        // Llenar el formulario oculto del modal
-        document.getElementById('modalPropiedadId').value = propiedadId;
-        document.getElementById('modalFechaInicio').value = fechaInicio;
-        document.getElementById('modalFechaFin').value = fechaFin;
+    // Llenar el formulario oculto del modal
+    document.getElementById('modalPropiedadId').value = propiedadId;
+    document.getElementById('modalFechaInicio').value = fechaInicio;
+    document.getElementById('modalFechaFin').value = fechaFin;
 
-        // Mostrar el modal
-        $('#modalConfirmarReserva').modal('show');
-    }
+    // Mostrar el modal
+    $('#modalConfirmarReserva').modal('show');
+}
+
+// Cuando se confirme la reserva, copiar los valores seleccionados del modal al formulario
+document.getElementById('confirmar-reserva-form').addEventListener('submit', function(event) {
+    // Obtener los valores de vendedor e inquilino seleccionados
+    const vendedorSeleccionado = document.getElementById('vendedor').value;
+    const clienteSeleccionado = document.getElementById('inquilino').value;
+
+    // Pasar los valores seleccionados a los campos ocultos del formulario
+    document.getElementById('modalVendedor').value = vendedorSeleccionado;
+    document.getElementById('modalCliente').value = clienteSeleccionado;
+
+    // También se debe copiar la hora de ingreso y egreso al formulario oculto
+    const horaIngreso = document.getElementById('horaIngreso').value;
+    const horaEgreso = document.getElementById('horaEgreso').value;
+    document.getElementById('modalHoraIngreso').value = horaIngreso;
+    document.getElementById('modalHoraEgreso').value = horaEgreso;
+});
+
+    
 </script>
 {% endblock %}

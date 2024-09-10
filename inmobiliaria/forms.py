@@ -101,12 +101,13 @@ class PropiedadForm(forms.ModelForm):
 class ReservaForm(forms.ModelForm):
     class Meta:
         model = Reserva
-        fields = ['propiedad', 'fecha_inicio', 'fecha_fin']
+        fields = ['propiedad', 'fecha_inicio', 'fecha_fin', 'hora_ingreso', 'hora_egreso', 'vendedor', 'cliente']
         widgets = {
             'fecha_inicio': forms.DateInput(attrs={'type': 'date'}),
             'fecha_fin': forms.DateInput(attrs={'type': 'date'}),
+            'hora_ingreso': forms.TimeInput(attrs={'type': 'time'}),
+            'hora_egreso': forms.TimeInput(attrs={'type': 'time'}),
         }
-
 class BuscarPropiedadesForm(forms.Form):
     fecha_inicio = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
     fecha_fin = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))

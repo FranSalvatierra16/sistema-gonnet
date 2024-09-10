@@ -57,7 +57,7 @@ urlpatterns = [
 
     path('reservas/<int:reserva_id>/editar/', views.reserva_editar, name='reserva_editar'),
 
-    path('reservas/<int:reserva_id>/eliminar/', views.reserva_eliminar, name='reserva_eliminar'),
+    path('reserva/eliminar/<int:reserva_id>/', views.reserva_eliminar, name='reserva_eliminar'),
 ]
 
 # Servir archivos de medios durante el desarrollo

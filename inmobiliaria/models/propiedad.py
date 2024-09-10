@@ -4,8 +4,10 @@ from django.utils.translation import gettext_lazy as _
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import Q
 from datetime import date
+from django.utils.timezone import now
+from django.contrib.auth.models import User
 
-from .persona import Propietario
+from .persona import Propietario, Inquilino, Vendedor
 
 # Definiciones de tipos de vista, valoración e inmuebles
 TIPOS_VISTA = [
@@ -123,18 +125,30 @@ class Propiedad(models.Model):
         if self.habilitar_precio_alquiler and not self.precio_alquiler:
             raise ValidationError(_('Debe ingresar un precio de alquiler si está habilitado.'))
 class Reserva(models.Model):
+    ESTADO_RESERVA = [
+        ('en_espera', 'En Espera'),
+        ('realizada', 'Realizada'),
+    ]
     propiedad = models.ForeignKey(Propiedad, on_delete=models.CASCADE, related_name='reservas')
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
+    hora_ingreso = models.TimeField()  # Nueva hora de ingreso
+    hora_egreso = models.TimeField()   # Nueva hora de egreso
+    fecha_creacion = models.DateTimeField(default=now)  # Fecha y hora cuando se realiza la reserva
+    vendedor = models.ForeignKey(Vendedor, on_delete=models.SET_NULL, null=True, related_name='reservas_vendedor')  # Lista de vendedores
+    cliente = models.ForeignKey(Inquilino, on_delete=models.SET_NULL, null=True, related_name='reservas_cliente')  # Lista de inquilinos
     precio_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True) 
+    estado = models.CharField(max_length=20, choices=ESTADO_RESERVA, default='en_espera')
+
+  
     def clean(self):
         super().clean()
 
         if not self.propiedad_id:
             raise ValidationError('Debe seleccionar una propiedad para la reserva.')
 
-        hoy = date.today()
-        # Puedes añadir más lógica aquí si es necesario
+        if self.fecha_inicio > self.fecha_fin:
+            raise ValidationError('La fecha de inicio no puede ser posterior a la fecha de fin.')
 
 
 class Disponibilidad(models.Model):
