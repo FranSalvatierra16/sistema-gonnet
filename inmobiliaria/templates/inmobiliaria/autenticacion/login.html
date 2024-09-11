@@ -5,11 +5,36 @@
 {% block title %}Iniciar sesión{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Iniciar sesión</h1>
-<form method="post" action="{% url 'inmobiliaria:login' %}">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <input type="hidden" name="next" value="{% url 'inmobiliaria:dashboard' %}">
-    <button type="submit" class="btn btn-primary">Iniciar sesión</button>
-</form>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white text-center">
+                    <h2 class="mb-0">Iniciar sesión</h2>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'inmobiliaria:login' %}" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Renderización del formulario con Bootstrap -->
+                        {% bootstrap_form form layout='horizontal' %}
+                        
+                        <input type="hidden" name="next" value="{% url 'inmobiliaria:dashboard' %}">
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-block">Iniciar sesión</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Enlace para registrarse si no tienes cuenta -->
+            <div class="text-center mt-3">
+                <p>¿No tienes una cuenta?</p>
+                <a href="{% url 'inmobiliaria:register' %}" class="btn btn-secondary">
+                    Registrarse
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

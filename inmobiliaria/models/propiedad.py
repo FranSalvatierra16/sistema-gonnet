@@ -56,7 +56,7 @@ class Propiedad(models.Model):
     tipo_inmueble = models.CharField(max_length=20, choices=TIPOS_INMUEBLES, default='otro')
     vista = models.CharField(max_length=20, choices=TIPOS_VISTA, default='otro')
     piso = models.IntegerField()
-    departamento = models.IntegerField()
+    # departamento = models.IntegerField()
     ambientes = models.IntegerField()
     valoracion = models.CharField(max_length=20, choices=TIPOS_VALORACION, default='otro')
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
