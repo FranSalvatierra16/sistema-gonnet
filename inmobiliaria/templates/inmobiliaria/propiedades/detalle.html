@@ -57,12 +57,26 @@
                             </dl>
                         </div>
 
-                        <!-- Columna de imágenes -->
+                        <!-- Columna de imágenes con carrusel -->
                         <div class="col-md-6 text-center">
                             {% if propiedad.imagenes.all %}
-                                {% for imagen in propiedad.imagenes.all %}
-                                    <img src="{{ imagen.imagen.url }}" class="img-fluid mb-3" alt="Imagen de la propiedad">
-                                {% endfor %}
+                                <div id="carouselExampleControls" class="carousel slide">
+                                    <div class="carousel-inner">
+                                        {% for imagen in propiedad.imagenes.all %}
+                                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                                <img src="{{ imagen.imagen.url }}" class="d-block w-100" alt="Imagen de la propiedad">
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    <a class="carousel-control-prev" href="#carouselExampleControls" role="button" data-slide="prev">
+                                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                        <span class="sr-only">Previous</span>
+                                    </a>
+                                    <a class="carousel-control-next" href="#carouselExampleControls" role="button" data-slide="next">
+                                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                        <span class="sr-only">Next</span>
+                                    </a>
+                                </div>
                             {% else %}
                                 <p>No hay imágenes disponibles.</p>
                             {% endif %}

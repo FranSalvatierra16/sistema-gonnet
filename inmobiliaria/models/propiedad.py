@@ -56,7 +56,7 @@ class Propiedad(models.Model):
     tipo_inmueble = models.CharField(max_length=20, choices=TIPOS_INMUEBLES, default='otro')
     vista = models.CharField(max_length=20, choices=TIPOS_VISTA, default='otro')
     piso = models.IntegerField()
-    # departamento = models.IntegerField()
+    departamento = models.IntegerField()
     ambientes = models.IntegerField()
     valoracion = models.CharField(max_length=20, choices=TIPOS_VALORACION, default='otro')
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
@@ -125,6 +125,14 @@ class Propiedad(models.Model):
 
         if self.habilitar_precio_alquiler and not self.precio_alquiler:
             raise ValidationError(_('Debe ingresar un precio de alquiler si está habilitado.'))
+
+# En models.py
+class ImagenPropiedad(models.Model):
+    propiedad = models.ForeignKey(Propiedad, related_name='imagenes', on_delete=models.CASCADE)
+    imagen = models.ImageField(upload_to='propiedades/')
+
+    def __str__(self):
+        return f"Imagen de {self.propiedad}"         
 class Reserva(models.Model):
     propiedad = models.ForeignKey(Propiedad, on_delete=models.CASCADE, related_name='reservas')
     fecha_inicio = models.DateField()

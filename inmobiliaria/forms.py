@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserChangeForm
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad
 from datetime import datetime
 
 # Formulario de creación de Vendedor
@@ -47,23 +47,37 @@ class PropietarioForm(forms.ModelForm):
     class Meta:
         model = Propietario
         fields = ['nombre', 'apellido', 'fecha_nacimiento', 'email', 'celular', 'tipo_doc', 'dni', 'tipo_ins', 'cuit', 'localidad', 'provincia', 'domicilio', 'codigo_postal', 'observaciones', 'cuenta_bancaria']
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
 
+class MultipleFileField(forms.FileField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            result = [single_file_clean(d, initial) for d in data]
+        else:
+            result = single_file_clean(data, initial)
+        return result
 # Formulario de Propiedad
 class PropiedadForm(forms.ModelForm):
-    # imagenes = forms.FileField(
-    #     widget=forms.ClearableFileInput(attrs={'multiple': True}),
-    #     required=False,
-    #     help_text="Seleccione una o más imágenes para la propiedad"
-    # )
+    imagenes = MultipleFileField(
+        required=False,
+        help_text="Seleccione una o más imágenes para la propiedad"
+    )
 
     class Meta:
         model = Propiedad
         fields = [
-            'direccion', 'tipo_inmueble', 'vista', 'piso', 'ambientes', 'valoracion', 'cuenta_bancaria', 
+            'direccion', 'tipo_inmueble', 'vista', 'piso','departamento', 'ambientes', 'valoracion', 'cuenta_bancaria', 
             'habilitar_precio_diario', 'precio_diario', 'habilitar_precio_venta', 'precio_venta', 
-            'habilitar_precio_alquiler', 'precio_alquiler','amoblado', 'cochera', 'tv_smart', 'wifi', 
+            'habilitar_precio_alquiler', 'precio_alquiler', 'amoblado', 'cochera', 'tv_smart', 'wifi', 
             'dependencia', 'patio', 'parrilla', 'piscina', 'reciclado', 'a_estrenar', 'terraza', 'balcon', 
             'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito', 'descripcion',
+         'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito', 'descripcion',
         ]
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 5}),
@@ -86,6 +100,7 @@ class PropiedadForm(forms.ModelForm):
     # def __init__(self, *args, **kwargs):
     #     super().__init__(*args, **kwargs)
     #     self.fields['imagenes'].widget.attrs.update({'class': 'form-control-file'})
+
 
 # Formulario de Imágenes de Propiedad
 # class PropiedadImagenForm(forms.ModelForm):

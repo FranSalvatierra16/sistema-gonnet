@@ -59,8 +59,6 @@ urlpatterns = [
     path('reservas/<int:reserva_id>/editar/', views.reserva_editar, name='reserva_editar'),
 
     path('reserva/eliminar/<int:reserva_id>/', views.reserva_eliminar, name='reserva_eliminar'),
-]
+]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-# Servir archivos de medios durante el desarrollo
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+

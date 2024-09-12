@@ -2,50 +2,73 @@
 {% load crispy_forms_tags %}
 {% load bootstrap4 %}
 
-
-{% block title %}Propiedades{% endblock %}
+{% block title %}Listado de Propiedades{% endblock %}
 
 {% block content %}
 <h1 class="mb-4">Listado de Propiedades</h1>
 <a href="{% url 'inmobiliaria:propiedad_nuevo' %}" class="btn btn-primary mb-3">Nueva Propiedad</a>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Dirección</th>
-            <th>Precio Tipo</th>
-            <th>Precio</th>
-            <th>Descripción</th>
-            <th>Vista</th>
-            <th>Piso</th>
-            <th>Ambientes</th>
-            <th>Cuenta Bancaria</th>
-            <th>Acciones</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for propiedad in propiedades %}
-        <tr>
-            <td>{{ propiedad.id }}</td>
-            <td>{{ propiedad.direccion }}</td>
-            <td>{{ propiedad.get_precio_tipo_display }}</td>
-            <td>{{ propiedad.precio }}</td>
-            <td>{{ propiedad.descripcion }}</td>
-            <td>{{ propiedad.vista|yesno:"Sí,No" }}</td>
-            <td>{{ propiedad.piso }}</td>
-            <td>{{ propiedad.ambientes }}</td>
-            <td>{{ propiedad.cuenta_bancaria }}</td>
-            <td>
-                <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-sm btn-info">Ver</a>
-                <a href="{% url 'inmobiliaria:propiedad_editar' propiedad.id %}" class="btn btn-sm btn-warning">Editar</a>
-                <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad.id %}" class="btn btn-sm btn-danger">Eliminar</a>
-            </td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="10">No hay propiedades registradas.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+
+<!-- Tabla de propiedades -->
+<div class="table-responsive">
+    <table class="table table-hover table-striped">
+        <thead class="table-light">
+            <tr>
+                <th>ID</th>
+                <th>Dirección</th>
+                <th>Precio Tipo</th>
+                <th>Precio</th>
+                <th>Descripción</th>
+                <th>Vista</th>
+                <th>Piso</th>
+                <th>Ambientes</th>
+                <th>Cuenta Bancaria</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for propiedad in propiedades %}
+            <tr>
+                <td>{{ propiedad.id }}</td>
+                <td>{{ propiedad.direccion }}</td>
+                <td>{{ propiedad.get_precio_tipo_display }}</td>
+                <td>${{ propiedad.precio_diario|floatformat:2 }}</td>
+                <td>{{ propiedad.descripcion|truncatewords:10 }}</td>
+                <td>{{ propiedad.vista|yesno:"Sí,No" }}</td>
+                <td>{{ propiedad.piso }}</td>
+                <td>{{ propiedad.ambientes }}</td>
+                <td>{{ propiedad.cuenta_bancaria }}</td>
+                <td>
+                    <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-info btn-sm" data-toggle="tooltip" title="Ver detalles">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad.id %}" class="btn btn-warning btn-sm" data-toggle="tooltip" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad.id %}" class="btn btn-danger btn-sm" data-toggle="tooltip" title="Eliminar">
+                        <i class="bi bi-trash"></i>
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="10" class="text-center">No hay propiedades registradas.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Incluir Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.8.1/font/bootstrap-icons.min.css">
+
+<!-- Script para inicializar tooltips -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+    })
+</script>
+
 {% endblock %}

@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
@@ -191,44 +191,42 @@ def propiedad_nuevo(request):
     if request.method == 'POST':
         form = PropiedadForm(request.POST, request.FILES)
         if form.is_valid():
-            propiedad = form.save(commit=False)
-            propiedad.save()
-
-            # Comentamos la parte de la carga de imágenes
-            # images = request.FILES.getlist('imagenes')
-            # for image in images:
-            #     PropiedadImagen.objects.create(propiedad=propiedad, imagen=image)
-
+            propiedad = form.save()
+            
+            # Manejo de múltiples imágenes
+            imagenes = request.FILES.getlist('imagenes')
+            for imagen in imagenes:
+                ImagenPropiedad.objects.create(propiedad=propiedad, imagen=imagen)
+            
             messages.success(request, 'Propiedad creada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
         form = PropiedadForm()
-
     return render(request, 'inmobiliaria/propiedades/formulario.html', {'form': form})
-
 @login_required
 def propiedad_editar(request, propiedad_id):
-    propiedad = Propiedad.objects.get(pk=propiedad_id)
-
-    # Comentamos o eliminamos la lógica relacionada con las imágenes
-    # ImageFormSet = modelformset_factory(PropiedadImagen, form=ImagenForm, extra=3)
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
 
     if request.method == 'POST':
         form = PropiedadForm(request.POST, request.FILES, instance=propiedad)
-        # formset = ImageFormSet(request.POST, request.FILES, queryset=PropiedadImagen.objects.filter(propiedad=propiedad))
         
-        if form.is_valid():  # Quitamos la validación de formset
+        if form.is_valid():
             propiedad = form.save()
-            # for form in formset:
-            #     image = form.save(commit=False)
-            #     image.propiedad = propiedad
-            #     image.save()
+            
+            # Manejar las imágenes subidas
+            if 'imagenes' in request.FILES:
+                imagenes = request.FILES.getlist('imagenes')
+                for imagen in imagenes:
+                    ImagenPropiedad.objects.create(propiedad=propiedad, imagen=imagen)
+                    
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
         form = PropiedadForm(instance=propiedad)
-        # formset = ImageFormSet(queryset=PropiedadImagen.objects.filter(propiedad=propiedad))
 
-    return render(request, 'inmobiliaria/propiedades/formulario.html', {'form': form})
+    return render(request, 'inmobiliaria/propiedades/formulario.html', {
+        'form': form,
+        'propiedad': propiedad
+    })
 @login_required
 def propiedad_eliminar(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)

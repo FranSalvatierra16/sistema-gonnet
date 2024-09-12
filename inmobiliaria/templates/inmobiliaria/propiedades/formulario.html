@@ -17,6 +17,7 @@
                 {% bootstrap_field form.tipo_inmueble layout='horizontal' %}
                 {% bootstrap_field form.vista layout='horizontal' %}
                 {% bootstrap_field form.piso layout='horizontal' %}
+                {% bootstrap_field form.departamento layout='horizontal' %}
                 {% bootstrap_field form.ambientes layout='horizontal' %}
                 {% bootstrap_field form.valoracion layout='horizontal' %}
             </div>
@@ -51,20 +52,19 @@
                 {% bootstrap_field form.precio_alquiler layout='horizontal' %}
             </div>
             
-            <!-- Temporadas -->
-            <div class="col-md-6">
-                <h3>Temporadas</h3>
-                <div class="form-check">
-                    {{ form.habilitar_verano }}
-                    <label class="form-check-label" for="{{ form.habilitar_verano.id_for_label }}">
-                        Habilitar reservas en verano
-                    </label>
-                </div>
-                <div class="form-check">
-                    {{ form.habilitar_invierno }}
-                    <label class="form-check-label" for="{{ form.habilitar_invierno.id_for_label }}">
-                        Habilitar reservas en invierno
-                    </label>
+         
+        </div>
+        
+        <!-- Imágenes -->
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <h3>Imágenes</h3>
+                <div class="form-group">
+                    <label for="imagenes">Imágenes de la propiedad:</label>
+                    {{ form.imagenes }}
+                    {% if form.imagenes.help_text %}
+                        <small class="form-text text-muted">{{ form.imagenes.help_text }}</small>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -107,7 +107,7 @@
     </form>
 
     <!-- Modal para crear nuevo propietario -->
-    <div id="modal-propietario" class="modal" tabindex="-1" role="dialog">
+    <div id="modal-propietario" class="modal fade" tabindex="-1" role="dialog">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
@@ -116,17 +116,21 @@
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
-                <div class="row mt-4">
-                    <div class="col-md-12">
-                        <h3>Imágenes</h3>
+                <div class="modal-body">
+                    <!-- Formulario para crear propietario -->
+                    <form id="nuevo-propietario-form">
+                        {% csrf_token %}
                         <div class="form-group">
-                            {{ form.imagenes.label_tag }}
-                            {{ form.imagenes }}
-                            {% if form.imagenes.help_text %}
-                                <small class="form-text text-muted">{{ form.imagenes.help_text }}</small>
-                            {% endif %}
+                            {{ propietario_form.nombre.label_tag }}
+                            {{ propietario_form.nombre }}
                         </div>
-                    </div>
+                        <div class="form-group">
+                            {{ propietario_form.email.label_tag }}
+                            {{ propietario_form.email }}
+                        </div>
+                        <button type="button" id="crear-propietario-btn" class="btn btn-primary">Crear Propietario</button>
+                    </form>
+                   
                 </div>
             </div>
         </div>
