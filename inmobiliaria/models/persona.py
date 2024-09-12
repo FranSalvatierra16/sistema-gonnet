@@ -48,7 +48,7 @@ class Persona(models.Model):
 
     def __str__(self):
         return f"{self.nombre} {self.apellido}"
-
+ 
     def clean(self):
         super().clean()
         if self.celular:
@@ -80,7 +80,8 @@ class Vendedor(AbstractUser):
         super().clean()
         if self.celular:
             self.celular = ''.join(filter(str.isdigit, self.celular))
-
+    def nombre_completo_vendedor(self):
+        return f"{self.nombre} {self.apellido}"
     class Meta:
         verbose_name = "Vendedor"
         verbose_name_plural = "Vendedores"
@@ -90,7 +91,8 @@ class Vendedor(AbstractUser):
 
 class Inquilino(Persona):
     garantia = models.TextField(blank=True, help_text="Información sobre la garantía del inquilino")
-
+    def nombre_completo_inquilino(self):
+        return f"{self.nombre} {self.apellido}"
     class Meta:
         verbose_name = "Inquilino"
         verbose_name_plural = "Inquilinos"

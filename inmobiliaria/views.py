@@ -13,6 +13,8 @@ from django.forms import modelformset_factory
 from django.contrib.auth.signals import user_logged_in
 from django.dispatch import receiver
 from dateutil.parser import parse
+from django.contrib.auth.models import User
+from decimal import Decimal
 
 # index view
 def index(request):
@@ -291,7 +293,9 @@ def ver_disponibilidad(request, propiedad_id):
 def reservas(request):
     reservas = Reserva.objects.all()
     return render(request, 'inmobiliaria/reserva/lista.html', {'reservas': reservas})
-
+def operaciones(request):
+    reservas = Reserva.objects.all()
+    return render(request, 'inmobiliaria/reserva/operaciones.html', {'reservas': reservas})
 def crear_reserva(request):
     if request.method == 'POST':
         propiedad_id = request.POST.get('propiedad_id')
@@ -346,10 +350,12 @@ def reserva_editar(request, reserva_id):
 @login_required
 def reserva_eliminar(request, reserva_id):
     reserva = get_object_or_404(Reserva, pk=reserva_id)
+    
     if request.method == "POST":
         reserva.delete()
         messages.success(request, 'Reserva eliminada exitosamente.')
-        return redirect('inmobiliaria:reservas')
+        return redirect('inmobiliaria:reservas')  # Redirige a la lista de reservas después de eliminar
+    
     return render(request, 'inmobiliaria/reserva/confirmar_eliminar.html', {'reserva': reserva})
 def parse_fecha(fecha_str):
     formatos_fecha = ['%Y-%m-%d', '%d %b. %Y', '%d %B %Y', '%m/%d/%Y', '%m-%d-%Y']
@@ -359,15 +365,23 @@ def parse_fecha(fecha_str):
         except ValueError:
             continue
     raise ValidationError('El formato de la fecha es inválido.')
-
+def parse_time(hora_str):
+    try:
+        return datetime.strptime(hora_str, '%H:%M').time()
+    except ValueError:
+        raise ValidationError('El formato de la hora es inválido.')
 def confirmar_reserva(request):
     if request.method == 'POST':
         try:
             # Obtener datos del formulario
-            propiedad_id = request.POST['propiedad_id']
-            fecha_inicio_str = request.POST['fecha_inicio']
-            fecha_fin_str = request.POST['fecha_fin']
-
+            propiedad_id = request.POST.get('propiedad_id')
+            fecha_inicio_str = request.POST.get('fecha_inicio')
+            fecha_fin_str = request.POST.get('fecha_fin')
+            hora_ingreso_str = request.POST.get('hora_ingreso', '')
+            hora_egreso_str = request.POST.get('hora_egreso', '')
+            vendedor_id = request.POST.get('vendedor', '')
+            cliente_id = request.POST.get('cliente', '')
+            print(vendedor_id)
             # Validar que las fechas no estén vacías
             if not fecha_inicio_str or not fecha_fin_str:
                 raise ValidationError('Las fechas proporcionadas no son válidas.')
@@ -380,30 +394,47 @@ def confirmar_reserva(request):
             if fecha_inicio > fecha_fin:
                 raise ValidationError('La fecha de inicio no puede ser posterior a la fecha de fin.')
 
-            # Obtener la propiedad de la base de datos
+            # Convertir las horas a objetos `time` (opcional, dependiendo de cómo almacenes las horas)
+            hora_ingreso = parse_time(hora_ingreso_str) if hora_ingreso_str else None
+            hora_egreso = parse_time(hora_egreso_str) if hora_egreso_str else None
+
+            # Validar que los IDs no estén vacíos
+            if not vendedor_id or not cliente_id:
+                raise ValidationError('Vendedor o cliente no pueden estar vacíos.')
+
+            # Obtener la propiedad, vendedor y cliente de la base de datos
             propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+            vendedor = get_object_or_404(Vendedor, id=vendedor_id)
+            cliente = get_object_or_404(Inquilino, id=cliente_id)
 
             # Calcular el precio total
             total_dias = (fecha_fin - fecha_inicio).days
             total_precio = propiedad.precio_diario * total_dias
 
-            # Crear la reserva con el precio total
+            # Crear la reserva con el precio total y otros detalles
             reserva = Reserva.objects.create(
                 propiedad=propiedad,
                 fecha_inicio=fecha_inicio,
                 fecha_fin=fecha_fin,
+                hora_ingreso=hora_ingreso,
+                hora_egreso=hora_egreso,
+                vendedor=vendedor,
+                cliente=cliente,
                 precio_total=total_precio
             )
 
             # Redirigir a la página de éxito con los detalles de la reserva
             return redirect('inmobiliaria:reserva_exitosa', reserva_id=reserva.id)
 
-        except (ValueError, ValidationError, Propiedad.DoesNotExist) as e:
+        except (ValueError, ValidationError, Propiedad.DoesNotExist, Vendedor.DoesNotExist, Inquilino.DoesNotExist) as e:
             # Si ocurre algún error, mostrar el mensaje de error
+            # Asegúrate de tener una plantilla para manejar errores
             return render(request, 'inmobiliaria/reserva/error.html', {'error': str(e)})
 
     # Si la solicitud no es POST, redirigir a la búsqueda de propiedades
     return redirect('inmobiliaria:buscar_propiedades')
+
+
 def reserva_detalle(request, reserva_id):
     reserva = get_object_or_404(Reserva, pk=reserva_id)
     return render(request, 'inmobiliaria/reserva/detalle.html', {'reserva': reserva})
@@ -411,19 +442,21 @@ def reserva_detalle(request, reserva_id):
 def formato_fecha(fecha):
     return fecha.strftime('%m/%d/%Y') if fecha else ''
 def buscar_propiedades(request):
+    inquilinos = Inquilino.objects.all()
     form = BuscarPropiedadesForm(request.POST or None)
     propiedades_disponibles = []
+    vendedores = Vendedor.objects.all()
+
     fecha_inicio = None
     fecha_fin = None
-    
+
     if form.is_valid():
         fecha_inicio = form.cleaned_data['fecha_inicio']
         fecha_fin = form.cleaned_data['fecha_fin']
-        
+
         # Filtrar propiedades que están disponibles en las fechas indicadas
         propiedades = Propiedad.objects.all()
 
-        # Filtrar propiedades que tienen disponibilidad activa en ese rango
         for propiedad in propiedades:
             disponibilidades = Disponibilidad.objects.filter(
                 propiedad=propiedad,
@@ -437,12 +470,14 @@ def buscar_propiedades(request):
 
             if disponibilidades.exists() and not reservas.exists():
                 propiedades_disponibles.append(propiedad)
-        
+
     return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
         'form': form,
         'propiedades_disponibles': propiedades_disponibles,
         'fecha_inicio': formato_fecha(fecha_inicio),
         'fecha_fin': formato_fecha(fecha_fin),
+        'inquilinos': inquilinos,  # Asegúrate de que esto esté aquí
+        'vendedores': vendedores,  # Pasar el vendedor actual al template
     })
 
 def crear_disponibilidad(request, propiedad_id):
@@ -477,3 +512,46 @@ def reserva_exitosa(request, reserva_id):
         'reserva': reserva
     }
     return render(request, 'inmobiliaria/reserva/reserva_exitosa.html', context)
+def terminar_reserva(request, reserva_id):
+    reserva = get_object_or_404(Reserva, pk=reserva_id)
+    if request.method == "POST":
+        pago_senia = Decimal(request.POST.get('pago_senia'))
+        reserva.confirmar_reserva(pago_senia)
+        messages.success(request, 'Reserva confirmada exitosamente.')
+        return redirect('inmobiliaria:reservas')
+    return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', {'reserva': reserva})
+def realizar_pago(request, reserva_id):
+    # Obtener la reserva a partir del ID
+    reserva = get_object_or_404(Reserva, id=reserva_id)
+
+    if request.method == 'POST':
+        # Obtener el monto del pago ingresado en el formulario
+        pago = Decimal(request.POST.get('pago', '0.00'))
+
+        if pago <= 0:
+            messages.error(request, 'El monto del pago debe ser mayor que cero.')
+            return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva.id)
+
+        # Actualizar la seña y la cuota pendiente
+        reserva.senia += pago
+
+        # Calcular la cuota pendiente
+        reserva.cuota_pendiente = reserva.precio_total - reserva.senia
+
+        if reserva.cuota_pendiente <= 0:
+            # Si la cuota pendiente es 0 o menor, marcar la reserva como 'realizada'
+            reserva.estado = 'realizada'
+            reserva.cuota_pendiente = 0  # Asegurarse de que no quede negativo
+            messages.success(request, 'La reserva ha sido completada y está totalmente pagada.')
+        else:
+            # Si queda saldo pendiente, mostrar el saldo restante
+            messages.info(request, f'Pago recibido. Saldo pendiente: {reserva.cuota_pendiente:.2f} USD.')
+
+        # Guardar los cambios en la reserva
+        reserva.save()
+
+        # Redirigir al listado de reservas o a alguna página de confirmación
+        return redirect('inmobiliaria:reservas')
+
+    # Si es una solicitud GET, mostrar la página de finalizar reserva
+    return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', {'reserva': reserva})

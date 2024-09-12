@@ -1,0 +1,33 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}Finalizar Reserva{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Finalizar Reserva</h1>
+
+<!-- Información sobre la reserva -->
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Propiedad: {{ reserva.propiedad.direccion }}</h5>
+        <p><strong>Cliente:</strong> {{ reserva.cliente.get_full_name }}</p>
+        <p><strong>Fecha de Inicio:</strong> {{ reserva.fecha_inicio }} a las {{ reserva.hora_ingreso }}</p>
+        <p><strong>Fecha de Fin:</strong> {{ reserva.fecha_fin }} a las {{ reserva.hora_egreso }}</p>
+        <p><strong>Precio Total:</strong> {{ reserva.precio_total }} USD</p>
+        <p><strong>Seña Pagada:</strong> {{ reserva.senia }} USD</p>
+        <p><strong>Cuota Pendiente:</strong> {{ reserva.cuota_pendiente }} USD</p>
+    </div>
+</div>
+
+<!-- Formulario para finalizar la reserva -->
+
+<form method="post" action="{% url 'inmobiliaria:finalizar_reserva' reserva.id %}">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="pago_senia">Pago de Seña:</label>
+        <input type="number" step="0.01" class="form-control" id="pago_senia" name="pago_senia" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Confirmar Pago</button>
+</form>
+
+{% endblock %}

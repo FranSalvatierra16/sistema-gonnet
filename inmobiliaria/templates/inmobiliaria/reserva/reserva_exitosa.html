@@ -5,9 +5,20 @@
 {% block content %}
 <div class="alert alert-success text-center mt-4">
     <h2>¡Reserva Confirmada con Éxito!</h2>
-    <p>Tu reserva para la propiedad <strong>{{ reserva.propiedad }}</strong> ha sido confirmada.</p>
-    <p><strong>Fechas:</strong> Desde {{ reserva.fecha_inicio }} hasta {{ reserva.fecha_fin }}</p>
-    <p><strong>Precio Total:</strong> {{ reserva.precio_total}} USD</p>
+    <p>Tu reserva para la propiedad <strong>{{ reserva.propiedad.direccion }}</strong> ha sido confirmada.</p>
+
+    <!-- Mostrar fechas y horas de la reserva -->
+    <p><strong>Fechas:</strong> Desde {{ reserva.fecha_inicio }} a las {{ reserva.hora_ingreso }} hasta {{ reserva.fecha_fin }} a las {{ reserva.hora_egreso }}</p>
+
+    <!-- Mostrar precio total -->
+    <p><strong>Precio Total:</strong> {{ reserva.precio_total }} USD</p>
+
+    <!-- Mostrar vendedor que realizó la reserva -->
+    <p><strong>Vendedor:</strong> {{ reserva.vendedor.nombre_completo_vendedor  }}</p>
+
+    <!-- Mostrar cliente o inquilino -->
+    <p><strong>Cliente:</strong> {{ reserva.cliente.nombre_completo_inquilino  }}</p>
+
     <a href="{% url 'inmobiliaria:buscar_propiedades' %}" class="btn btn-primary mt-3">Volver a buscar propiedades</a>
 </div>
 {% endblock %}

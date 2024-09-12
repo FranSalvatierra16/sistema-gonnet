@@ -4,8 +4,10 @@ from django.utils.translation import gettext_lazy as _
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import Q
 from datetime import date
+from django.utils.timezone import now
+from django.contrib.auth.models import User
 
-from .persona import Propietario
+from .persona import Propietario, Inquilino, Vendedor
 
 # Definiciones de tipos de vista, valoración e inmuebles
 TIPOS_VISTA = [
@@ -54,6 +56,7 @@ class Propiedad(models.Model):
     tipo_inmueble = models.CharField(max_length=20, choices=TIPOS_INMUEBLES, default='otro')
     vista = models.CharField(max_length=20, choices=TIPOS_VISTA, default='otro')
     piso = models.IntegerField()
+    # departamento = models.IntegerField()
     ambientes = models.IntegerField()
     valoracion = models.CharField(max_length=20, choices=TIPOS_VALORACION, default='otro')
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
@@ -126,15 +129,37 @@ class Reserva(models.Model):
     propiedad = models.ForeignKey(Propiedad, on_delete=models.CASCADE, related_name='reservas')
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
+    hora_ingreso = models.TimeField()  
+    hora_egreso = models.TimeField()  
+    fecha_creacion = models.DateTimeField(default=now)  
+    vendedor = models.ForeignKey(Vendedor, on_delete=models.SET_NULL, null=True, related_name='reservas_vendedor')  
+    cliente = models.ForeignKey(Inquilino, on_delete=models.SET_NULL, null=True, related_name='reservas_cliente')  
     precio_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True) 
-    def clean(self):
-        super().clean()
+    senia = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)  # Nueva seña
+    pago_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)  # Pago total
+    cuota_pendiente = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)  # Nueva cuota pendiente
+    estado = models.CharField(max_length=20, choices=[('en_espera', 'En Espera'), ('confirmada', 'Confirmada'), ('pagada', 'Pagada')], default='en_espera')
 
-        if not self.propiedad_id:
-            raise ValidationError('Debe seleccionar una propiedad para la reserva.')
-
-        hoy = date.today()
-        # Puedes añadir más lógica aquí si es necesario
+    def calcular_cuota_pendiente(self):
+        if self.precio_total and self.pago_total:
+            self.cuota_pendiente = self.precio_total - self.pago_total
+            self.save()
+    
+    def confirmar_reserva(self, pago_senia):
+        # Lógica para confirmar la reserva y registrar la seña
+        self.senia = pago_senia
+        self.pago_total = pago_senia  # Se inicializa con el valor de la seña
+        self.estado = 'confirmada'
+        self.calcular_cuota_pendiente()
+        self.save()
+    
+    def realizar_pago(self, pago):
+        # Lógica para manejar pagos adicionales
+        self.pago_total += pago
+        self.calcular_cuota_pendiente()
+        if self.cuota_pendiente <= 0:
+            self.estado = 'pagada'
+        self.save()
 
 
 class Disponibilidad(models.Model):
