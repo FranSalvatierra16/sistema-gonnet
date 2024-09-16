@@ -48,6 +48,8 @@ TIPOS_INMUEBLES = [
 ]
 
 
+
+
 class Propiedad(models.Model):
     DIRECCION_MAX_LENGTH = 255
 
@@ -126,6 +128,15 @@ class Propiedad(models.Model):
         if self.habilitar_precio_alquiler and not self.precio_alquiler:
             raise ValidationError(_('Debe ingresar un precio de alquiler si está habilitado.'))
 
+        
+    # def save(self, *args, **kwargs):
+    #     creating = self._state.adding
+    #     super().save(*args, **kwargs)
+        
+    #     if creating:
+    #         # Crear precios por defecto cuando la propiedad se guarda por primera vez
+    #         for tipo in TipoPrecio.choices:
+    #             Precio.objects.create(propiedad=self, tipo_precio=tipo[0], precio_total=0, precio_por_dia=0)
 # En models.py
 class ImagenPropiedad(models.Model):
     propiedad = models.ForeignKey(Propiedad, related_name='imagenes', on_delete=models.CASCADE)
@@ -207,3 +218,24 @@ class Disponibilidad(models.Model):
 
     def __str__(self):
         return f"Disponibilidad desde {self.fecha_inicio} hasta {self.fecha_fin} para {self.propiedad}"
+
+class TipoPrecio(models.TextChoices):
+    QUINCENA_1_ENERO = 'quincena_1_enero', _('Primera Quincena de Enero')
+    QUINCENA_2_ENERO = 'quincena_2_enero', _('Segunda Quincena de Enero')
+    QUINCENA_1_FEBRERO = 'quincena_1_febrero', _('Primera Quincena de Febrero')
+    QUINCENA_2_FEBRERO = 'quincena_2_febrero', _('Segunda Quincena de Febrero')
+    QUINCENA_1_MARZO = 'quincena_1_marzo', _('Primera Quincena de Marzo')
+    QUINCENA_2_MARZO = 'quincena_2_marzo', _('Segunda Quincena de Marzo')
+    FINDE_LARGO = 'finde_largo', _('Fin de Semana Largo')
+
+class Precio(models.Model):
+    propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='precios')
+    tipo_precio = models.CharField(max_length=20, choices=TipoPrecio.choices)
+    precio_total = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_por_dia = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        unique_together = ('propiedad', 'tipo_precio')
+
+    def __str__(self):
+        return f"{self.get_tipo_precio_display()} - {self.propiedad}"

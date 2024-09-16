@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserChangeForm
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio,TipoPrecio
 from datetime import datetime
 
 # Formulario de creación de Vendedor
@@ -72,29 +72,30 @@ class PropiedadForm(forms.ModelForm):
     class Meta:
         model = Propiedad
         fields = [
-            'direccion', 'tipo_inmueble', 'vista', 'piso','departamento', 'ambientes', 'valoracion', 'cuenta_bancaria', 
+            'direccion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria', 
             'habilitar_precio_diario', 'precio_diario', 'habilitar_precio_venta', 'precio_venta', 
             'habilitar_precio_alquiler', 'precio_alquiler', 'amoblado', 'cochera', 'tv_smart', 'wifi', 
             'dependencia', 'patio', 'parrilla', 'piscina', 'reciclado', 'a_estrenar', 'terraza', 'balcon', 
-            'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito', 'descripcion',
-         'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito', 'descripcion',
+            'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito', 'descripcion'
         ]
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 5}),
             'valoracion': forms.Select(attrs={'class': 'form-control'}),
             'direccion': forms.TextInput(attrs={'placeholder': 'Ingrese la dirección'}),
-            'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio por día'}),
+            # 'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio por día'}),
             'precio_venta': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de venta'}),
             'precio_alquiler': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de alquiler'}),
-        
-            'vista': forms.Select(attrs={'class': 'form-control'}),
-            'piso': forms.NumberInput(attrs={'placeholder': 'Número de piso'}),
-            'ambientes': forms.NumberInput(attrs={'placeholder': 'Número de ambientes'}),
-            'cuenta_bancaria': forms.TextInput(attrs={'placeholder': 'Ingrese la cuenta bancaria'}),
         }
 
-
-
+class PrecioForm(forms.ModelForm):
+    class Meta:
+        model = Precio
+        fields = ['tipo_precio', 'precio_total', 'precio_por_dia']
+        widgets = {
+            'tipo_precio': forms.Select(attrs={'class': 'form-control'}),
+            'precio_total': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'precio_por_dia': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+        }
 
 
     # def __init__(self, *args, **kwargs):

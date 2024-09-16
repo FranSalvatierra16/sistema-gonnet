@@ -1,0 +1,49 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}  <!-- Esto carga las etiquetas de Bootstrap -->
+
+{% block content %}
+<h2>Gestionar Precios para {{ propiedad.direccion }}</h2>
+
+<form method="post">
+    {% csrf_token %}
+    {{ formset.management_form }}
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Tipo de Precio</th>
+                <th>Precio Total</th>
+                <th>Precio por Día</th>
+                <th>Eliminar</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for form in formset %}
+                <tr>
+                    {{ form.id }}  <!-- Campo oculto para el id -->
+                    <td>
+                        {% bootstrap_field form.tipo_precio show_label=False %}
+                    </td>
+                    <td>
+                        {% bootstrap_field form.precio_total show_label=False %}
+                    </td>
+                    <td>
+                        {% bootstrap_field form.precio_por_dia show_label=False %}
+                    </td>
+                    <td>
+                        {% bootstrap_field form.DELETE show_label=False %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if formset.non_form_errors %}
+        <div class="alert alert-danger">
+            {{ formset.non_form_errors }}
+        </div>
+    {% endif %}
+
+    <button type="submit" class="btn btn-primary">Guardar Precios</button>
+</form>
+{% endblock %}
