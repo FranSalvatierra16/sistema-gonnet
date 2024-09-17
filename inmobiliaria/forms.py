@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserChangeForm
 from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio,TipoPrecio
 from datetime import datetime
-
+from django.forms import modelformset_factory
 # Formulario de creación de Vendedor
 class VendedorUserCreationForm(forms.ModelForm):
     username = forms.CharField(max_length=150, help_text='Requerido. 150 caracteres o menos.')
@@ -86,15 +86,14 @@ class PropiedadForm(forms.ModelForm):
             'precio_venta': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de venta'}),
             'precio_alquiler': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de alquiler'}),
         }
-
 class PrecioForm(forms.ModelForm):
     class Meta:
         model = Precio
         fields = ['tipo_precio', 'precio_por_dia', 'precio_total', 'ajuste_porcentaje']
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Hacer que precio_total sea opcional
+        # Hacer que precio_total sea opcional solo si ya tiene un valor
         self.fields['precio_total'].required = False
 
     def clean_ajuste_porcentaje(self):
@@ -102,6 +101,14 @@ class PrecioForm(forms.ModelForm):
         if ajuste < -100 or ajuste > 100:
             raise forms.ValidationError("El ajuste debe estar entre -100% y 100%.")
         return ajuste
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Validar que si precio_total es ingresado, no se recalcula
+        precio_total = cleaned_data.get('precio_total')
+        if precio_total and precio_total <= 0:
+            raise forms.ValidationError("El precio total debe ser positivo.")
+
 
     # def __init__(self, *args, **kwargs):
     #     super().__init__(*args, **kwargs)
@@ -157,4 +164,11 @@ class DisponibilidadForm(forms.ModelForm):
         if fecha_inicio and fecha_fin and fecha_inicio >= fecha_fin:
             raise forms.ValidationError("La fecha de inicio debe ser anterior a la fecha de fin.")
 
-        return cleaned_data    
+        return cleaned_data
+
+PrecioFormSet = modelformset_factory(
+    Precio,
+    form=PrecioForm,
+    extra=0,  # No agrega formularios extra por defecto
+    can_delete=True  # Para poder eliminar precios
+)

@@ -3,7 +3,7 @@ from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio
-from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm
+from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from datetime import datetime, date
@@ -16,6 +16,7 @@ from dateutil.parser import parse
 from django.contrib.auth.models import User
 from decimal import Decimal
 from django.forms import inlineformset_factory
+
 
 # index view
 def index(request):
@@ -481,7 +482,6 @@ def buscar_propiedades(request):
         'inquilinos': inquilinos,  # Asegúrate de que esto esté aquí
         'vendedores': vendedores,  # Pasar el vendedor actual al template
     })
-
 def crear_disponibilidad(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, id=propiedad_id)
     
@@ -491,14 +491,11 @@ def crear_disponibilidad(request, propiedad_id):
             try:
                 disponibilidad = form.save(commit=False)
                 disponibilidad.propiedad = propiedad
-                disponibilidad.full_clean()
                 disponibilidad.save()
                 messages.success(request, 'Disponibilidad creada exitosamente.')
                 return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
             except ValidationError as e:
-                for field, errors in e.message_dict.items():
-                    for error in errors:
-                        form.add_error(field, error)
+                form.add_error(None, e)  # Agrega errores globales
     else:
         form = DisponibilidadForm(propiedad=propiedad)
 
@@ -506,6 +503,8 @@ def crear_disponibilidad(request, propiedad_id):
         'form': form,
         'propiedad': propiedad
     })
+
+
 def reserva_exitosa(request, reserva_id):
     
     reserva = Reserva.objects.get(id=reserva_id)
@@ -565,22 +564,28 @@ PrecioFormSet = inlineformset_factory(
     extra=1,  # Formularios adicionales vacíos
     can_delete=True  # Para permitir la eliminación de precios
 )
+
 def gestionar_precios(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-    PrecioFormSet = inlineformset_factory(Propiedad, Precio, form=PrecioForm, extra=1, can_delete=True)
+    PrecioFormSet = modelformset_factory(Precio, form=PrecioForm, extra=0)
+    precios = Precio.objects.filter(propiedad=propiedad)
+    formset = PrecioFormSet(queryset=precios)
+    # Si la propiedad no tiene precios, creamos uno por cada tipo de precio
+    if not precios.exists():
+        tipos_de_precios = ['quincena', 'fin_de_semana_largo', 'dia']
+        for tipo in tipos_de_precios:
+            Precio.objects.create(propiedad=propiedad, tipo_precio=tipo, precio_por_dia=0, precio_total=0, ajuste_porcentaje=0)
 
     if request.method == 'POST':
-        formset = PrecioFormSet(request.POST, instance=propiedad)
+        formset = PrecioFormSet(request.POST)
         if formset.is_valid():
-            formset.save()  # Guardar precios, tanto nuevos como editados
+            formset.save()
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
-        else:
-            print(formset.errors)  # Ver los errores si no se guarda
-    else:
-        formset = PrecioFormSet(instance=propiedad)
+ 
 
     return render(request, 'inmobiliaria/propiedades/gestionar_precios.html', {
         'propiedad': propiedad,
-        'formset': formset
+        'formset': formset,
     })
+
 

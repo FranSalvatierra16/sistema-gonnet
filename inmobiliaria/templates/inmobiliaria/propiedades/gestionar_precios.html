@@ -1,5 +1,5 @@
 {% extends 'inmobiliaria/base.html' %}
-{% load bootstrap4 %}  <!-- Esto carga las etiquetas de Bootstrap -->
+{% load bootstrap4 %}  <!-- Carga las etiquetas de Bootstrap -->
 
 {% block content %}
 <h2>Gestionar Precios para {{ propiedad.direccion }}</h2>
@@ -12,7 +12,7 @@
         <thead>
             <tr>
                 <th>Tipo de Precio</th>
-                <th>Precio dia</th>
+                <th>Precio por Día</th>
                 <th>Precio por Quincena</th>
                 <th>Ajuste (%)</th>
                 <th>Eliminar</th>
@@ -25,10 +25,8 @@
                     <td>{% bootstrap_field form.tipo_precio show_label=False %}</td>
                     <td>{% bootstrap_field form.precio_por_dia show_label=False %}</td>
                     <td>{% bootstrap_field form.precio_total show_label=False %}</td>
-                    <td>
-                        {% bootstrap_field form.ajuste_porcentaje show_label=False %}
-                    </td>
-                    <td>{% bootstrap_field form.DELETE show_label=False %}</td>
+                    <td>{% bootstrap_field form.ajuste_porcentaje show_label=False %}</td>
+                    
                 </tr>
             {% endfor %}
         </tbody>

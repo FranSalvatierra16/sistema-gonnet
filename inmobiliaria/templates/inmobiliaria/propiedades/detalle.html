@@ -62,16 +62,19 @@
                             <thead>
                                 <tr>
                                     <th>Quincena</th>
-                                    <th>Precio por Quincena</th>
                                     <th>Precio por Día</th>
+                                    <th>Precio por Quincena</th>
+                                  
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for precio in precios %}
                                     <tr>
                                         <td>{{ precio.get_tipo_precio_display }}</td>
-                                        <td>${{ precio.precio_total }}</td>
                                         <td>${{ precio.precio_por_dia }}</td>
+                                        <td>${{ precio.precio_total }}</td>
+                                        
+                                        
                                     </tr>
                                 {% empty %}
                                     <tr>
