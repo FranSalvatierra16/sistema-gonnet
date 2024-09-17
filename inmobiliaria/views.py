@@ -565,28 +565,22 @@ PrecioFormSet = inlineformset_factory(
     extra=1,  # Formularios adicionales vacíos
     can_delete=True  # Para permitir la eliminación de precios
 )
-
 def gestionar_precios(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-    
+    PrecioFormSet = inlineformset_factory(Propiedad, Precio, form=PrecioForm, extra=1, can_delete=True)
+
     if request.method == 'POST':
         formset = PrecioFormSet(request.POST, instance=propiedad)
-        
         if formset.is_valid():
-            try:
-                # Intentamos guardar, si hay duplicados, los capturamos
-                formset.save()
-                return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
-            except IntegrityError:
-                # Capturar error de duplicado y mostrar mensaje al usuario
-                formset.add_error(None, "Ya existe un precio con ese tipo para esta propiedad.")
+            formset.save()  # Guardar precios, tanto nuevos como editados
+            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
         else:
-            # Mostrar errores de validación si no es válido
-            print(formset.errors)
+            print(formset.errors)  # Ver los errores si no se guarda
     else:
         formset = PrecioFormSet(instance=propiedad)
-    
+
     return render(request, 'inmobiliaria/propiedades/gestionar_precios.html', {
         'propiedad': propiedad,
         'formset': formset
     })
+

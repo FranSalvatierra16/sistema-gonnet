@@ -231,11 +231,26 @@ class TipoPrecio(models.TextChoices):
 class Precio(models.Model):
     propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='precios')
     tipo_precio = models.CharField(max_length=20, choices=TipoPrecio.choices)
-    precio_total = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # Campo opcional
     precio_por_dia = models.DecimalField(max_digits=10, decimal_places=2)
+    ajuste_porcentaje = models.DecimalField(max_digits=5, decimal_places=2, default=0)  # Campo para ajuste en %
 
     class Meta:
         unique_together = ('propiedad', 'tipo_precio')
 
     def __str__(self):
         return f"{self.get_tipo_precio_display()} - {self.propiedad}"
+
+    def save(self, *args, **kwargs):
+        # Calcular el precio total para quincenas o fines de semana largos si no está especificado
+        if 'quincena' in self.tipo_precio and not self.precio_total:
+            self.precio_total = self.precio_por_dia * 15
+        elif self.tipo_precio == TipoPrecio.FINDE_LARGO and not self.precio_total:
+            self.precio_total = self.precio_por_dia * 4
+        
+        # Aplicar el ajuste en porcentaje, si existe
+        if self.ajuste_porcentaje:
+            ajuste = (self.ajuste_porcentaje / 100) * self.precio_total
+            self.precio_total += ajuste
+
+        super().save(*args, **kwargs)

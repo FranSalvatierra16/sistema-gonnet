@@ -90,13 +90,18 @@ class PropiedadForm(forms.ModelForm):
 class PrecioForm(forms.ModelForm):
     class Meta:
         model = Precio
-        fields = ['tipo_precio', 'precio_total', 'precio_por_dia']
-        widgets = {
-            'tipo_precio': forms.Select(attrs={'class': 'form-control'}),
-            'precio_total': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'precio_por_dia': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-        }
+        fields = ['tipo_precio', 'precio_por_dia', 'precio_total', 'ajuste_porcentaje']
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Hacer que precio_total sea opcional
+        self.fields['precio_total'].required = False
 
+    def clean_ajuste_porcentaje(self):
+        ajuste = self.cleaned_data.get('ajuste_porcentaje')
+        if ajuste < -100 or ajuste > 100:
+            raise forms.ValidationError("El ajuste debe estar entre -100% y 100%.")
+        return ajuste
 
     # def __init__(self, *args, **kwargs):
     #     super().__init__(*args, **kwargs)
