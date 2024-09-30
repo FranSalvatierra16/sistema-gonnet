@@ -58,9 +58,10 @@ class Propiedad(models.Model):
     ambientes = models.IntegerField()
     valoracion = models.CharField(max_length=20, choices=TIPOS_VALORACION, default='bueno')
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
-    propietario = models.ForeignKey(Propietario, on_delete=models.SET_NULL, null=True, blank=True, related_name='propiedades')
+    propietario = models.ForeignKey(Propietario, on_delete=models.CASCADE, related_name='propiedades')  # Cambiado a obligatorio
     
-    # Precios
+    # Resto del código permanece igual
+    
     precio_diario = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Precio por día")
     habilitar_precio_diario = models.BooleanField(default=False, verbose_name="Habilitar precio por día")
     precio_venta = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Precio por venta")
@@ -149,6 +150,14 @@ class Propiedad(models.Model):
                 tipo_precio=tipo,
                 defaults={'precio_total': 0, 'precio_por_dia': 0, 'ajuste_porcentaje':0}
             )
+  
+
+    class Meta:
+        verbose_name = "Propiedad"
+        verbose_name_plural = "Propiedades"
+
+    def __str__(self):
+        return f"{self.direccion}"        
 
 
 class ImagenPropiedad(models.Model):
@@ -224,6 +233,10 @@ class TipoPrecio(models.TextChoices):
     QUINCENA_1_MARZO = 'QUINCENA_1_MARZO', _('1ra quincena Marzo')
     QUINCENA_2_MARZO = 'QUINCENA_2_MARZO', _('2da quincena Marzo')
     FINDE_LARGO = 'FINDE_LARGO', _('Finde largo')
+    DICIEMBRE = 'DICIEMBRE', _('Diciembre')
+    ENERO = 'ENERO', _('Enero')
+    FEBRERO = 'FEBRERO', _('Febrero')
+    MARZO = 'MARZO', _('Marzo')
 
 class Precio(models.Model):
     propiedad = models.ForeignKey(Propiedad, on_delete=models.CASCADE, related_name='precios')
@@ -252,4 +265,5 @@ class Precio(models.Model):
             self.precio_total = base_price
 
         super().save(*args, **kwargs)
+
 

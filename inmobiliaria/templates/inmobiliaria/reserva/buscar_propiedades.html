@@ -13,22 +13,18 @@
     <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-secondary">Cancelar</a>
 </form>
 
-<!-- Mostrar resultados si hay propiedades disponibles -->
 {% if propiedades_disponibles %}
     <h3 class="text-center mt-4">Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h3>
     <div class="row">
         {% for propiedad in propiedades_disponibles %}
         <div class="col-md-4">
             <div class="card mb-4 shadow-sm">
-                <!-- Carrusel de imágenes -->
                 <div id="carousel-{{ propiedad.id }}" class="carousel slide" data-ride="carousel">
                     <div class="carousel-inner">
                         {% for imagen in propiedad.imagenes.all %}
                             <div class="carousel-item {% if forloop.first %}active{% endif %}">
                                 <img class="d-block w-100" src="{{ imagen.imagen.url }}" alt="Imagen de la propiedad">
                             </div>
-                        {% empty %}
-                        <p class="text-center">No hay disponibilidades registradas para esta propiedad.</p>
                         {% endfor %}
                     </div>
                     <a class="carousel-control-prev" href="#carousel-{{ propiedad.id }}" role="button" data-slide="prev">
@@ -44,13 +40,43 @@
                 <div class="card-body">
                     <h5 class="card-title">{{ propiedad.direccion }}</h5>
                     <p class="card-text">{{ propiedad.descripcion|truncatewords:15 }}</p>
-                    <p class="card-text"><strong>Precio:</strong> {{ propiedad.precio_diario }} $</p>
+                    
+                    <p class="card-text"><strong>Precio total reserva:</strong> {{ propiedad.precio_total_reserva }} $</p>
                     <p class="card-text"><strong>Valoración:</strong> {{ propiedad.valoracion }}</p>
-
-                    <!-- Botones de acción -->
-                    <button type="button" class="btn btn-primary" onclick="mostrarModalReserva('{{ propiedad.id }}', '{{ propiedad.direccion }}', '{{ propiedad.precio_diario }}', '{{ fecha_inicio }}', '{{ fecha_fin }}')">Reservar</button>
+                
+                    <!-- Tabla de precios -->
+                    <table class="table table-striped mt-3">
+                        <thead>
+                            <tr>
+                                <th>Tipo de precio</th>
+                                <th>Precio por día</th>
+                                <th>Precio total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for precio in precios %}
+                                    <tr>
+                                        <td>{{ precio.get_tipo_precio_display }}</td>
+                                        <td>${{ precio.precio_por_dia }}</td>
+                                        <td>${{ precio.precio_total }}</td>
+                                        
+                                        
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="3" class="text-center">No hay precios registrados para esta propiedad.</td>
+                                    </tr>
+                                {% endfor %}
+                        </tbody>
+                    </table>
+                
+                    <button type="button" class="btn btn-primary" 
+                    onclick="mostrarModalReserva('{{ propiedad.id }}', '{{ propiedad.direccion }}', '{{ propiedad.precio_diario }}', '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.precio_total_reserva }}')">
+                    Reservar
+                </button>
                     <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles{{ propiedad.id }}">Ver</button>
                 </div>
+                
             </div>
         </div>
         {% endfor %}
@@ -61,7 +87,7 @@
     </div>
 {% endif %}
 
-<!-- Modal para confirmar la reserva -->
+<!-- Modal Confirmar Reserva -->
 <div class="modal fade" id="modalConfirmarReserva" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -73,13 +99,12 @@
             </div>
             <div class="modal-body">
                 <p><strong>Propiedad:</strong> <span id="propiedadDireccion"></span></p>
-                <p><strong>Precio por día:</strong> <span id="propiedadPrecio"></span> USD</p>
+             
                 <p><strong>Fecha de inicio:</strong> <span id="fechaInicio"></span></p>
                 <p><strong>Fecha de fin:</strong> <span id="fechaFin"></span></p>
                 <p><strong>Total de días:</strong> <span id="totalDias"></span></p>
-                <p><strong>Precio total:</strong> <span id="precioTotal"></span> USD</p>
+                <p><strong>Precio total:</strong> <span id="precioTotal"></span> </p>
 
-                <!-- Campos adicionales -->
                 <p><strong>Hora de ingreso:</strong> <input type="time" id="horaIngreso" name="hora_ingreso" required></p>
                 <p><strong>Hora de egreso:</strong> <input type="time" id="horaEgreso" name="hora_egreso" required></p>
                 
@@ -87,8 +112,6 @@
                     <select id="vendedor" name="vendedor" class="form-control">
                         {% for vendedor in vendedores %}
                             <option value="{{ vendedor.id }}">{{ vendedor.nombre_completo_vendedor  }}</option>
-                        {% empty %}
-                            <option value="">No hay vendedores disponibles</option>
                         {% endfor %}
                     </select>
                 </p>
@@ -97,8 +120,6 @@
                     <select id="inquilino" name="cliente" class="form-control">
                         {% for inquilino in inquilinos %}
                             <option value="{{ inquilino.id }}">{{ inquilino.nombre_completo_inquilino  }}</option>
-                        {% empty %}
-                            <option value="">No hay inquilinos disponibles</option>
                         {% endfor %}
                     </select>
                 </p>
@@ -114,6 +135,7 @@
                     <input type="hidden" name="hora_egreso" id="modalHoraEgreso">
                     <input type="hidden" name="cliente" id="modalCliente">
                     <input type="hidden" name="vendedor" id="modalVendedor">
+                    <input type="hidden" name="precio_total" id="modalPrecioTotal"> <!-- Nuevo campo oculto -->
                     <button type="submit" class="btn btn-primary">Confirmar Reserva</button>
                 </form>
             </div>
@@ -121,7 +143,6 @@
     </div>
 </div>
 
-<!-- Modal para mostrar detalles de la propiedad -->
 {% for propiedad in propiedades_disponibles %}
 <div class="modal fade" id="modalDetalles{{ propiedad.id }}" tabindex="-1" role="dialog" aria-labelledby="modalDetallesLabel{{ propiedad.id }}" aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
@@ -133,15 +154,12 @@
                 </button>
             </div>
             <div class="modal-body">
-                <!-- Carrusel de imágenes -->
                 <div id="carouselDetalles{{ propiedad.id }}" class="carousel slide" data-ride="carousel">
                     <div class="carousel-inner">
                         {% for imagen in propiedad.imagenes.all %}
                             <div class="carousel-item {% if forloop.first %}active{% endif %}">
                                 <img class="d-block w-100" src="{{ imagen.imagen.url }}" alt="Imagen de la propiedad">
                             </div>
-                        {% empty %}
-                        <p class="text-center">No hay imágenes disponibles para esta propiedad.</p>
                         {% endfor %}
                     </div>
                     <a class="carousel-control-prev" href="#carouselDetalles{{ propiedad.id }}" role="button" data-slide="prev">
@@ -153,65 +171,72 @@
                         <span class="sr-only">Next</span>
                     </a>
                 </div>
-
-                <!-- Detalles adicionales -->
-                <p><strong>Dirección:</strong> {{ propiedad.direccion }}</p>
-                <p><strong>Descripción:</strong> {{ propiedad.descripcion }}</p>
-                <p><strong>Precio por día:</strong> {{ propiedad.precio_diario }} $</p>
+                <h5 class="mt-4">{{ propiedad.direccion }}</h5>
+                <p>{{ propiedad.descripcion }}</p>
+                <p><strong>Precio por día:</strong> {{ propiedad.precio_diario }} USD</p>
                 <p><strong>Valoración:</strong> {{ propiedad.valoracion }}</p>
-                <!-- Puedes añadir más detalles aquí -->
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
 </div>
 {% endfor %}
 
-{% endblock %}
-
-{% block extra_js %}
 <script>
-    function mostrarModalReserva(propiedadId, direccion, precio, fechaInicio, fechaFin) {
-        // Calcular los días y el precio total
-        let inicio = new Date(fechaInicio);
-        let fin = new Date(fechaFin);
-        let totalDias = Math.ceil((fin - inicio) / (1000 * 60 * 60 * 24));
-        let precioTotal = totalDias * parseFloat(precio);
+function mostrarModalReserva(propiedadId, propiedadDireccion, propiedadPrecio, fechaInicio, fechaFin, precioReserva) {
+    // Actualizar la información en el modal
+    document.getElementById("propiedadDireccion").textContent = propiedadDireccion;
+    
+    document.getElementById("fechaInicio").textContent = fechaInicio;
+    document.getElementById("fechaFin").textContent = fechaFin;
+    
+    const precioTotal = parseFloat(precioReserva); 
+    // Calcular la cantidad de días entre fechaInicio y fechaFin
+    const fechaInicioObj = new Date(fechaInicio);
+    const fechaFinObj = new Date(fechaFin);
+    const diffTime = Math.abs(fechaFinObj - fechaInicioObj);
+    const totalDias = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
 
-        // Llenar el modal con los datos de la reserva
-        document.getElementById('propiedadDireccion').textContent = direccion;
-        document.getElementById('propiedadPrecio').textContent = precio;
-        document.getElementById('fechaInicio').textContent = fechaInicio;
-        document.getElementById('fechaFin').textContent = fechaFin;
-        document.getElementById('totalDias').textContent = totalDias;
-        document.getElementById('precioTotal').textContent = precioTotal.toFixed(2);
+    document.getElementById("totalDias").textContent = totalDias;
+    document.getElementById("precioTotal").textContent = precioTotal;
 
-        // Llenar el formulario oculto del modal
-        document.getElementById('modalPropiedadId').value = propiedadId;
-        document.getElementById('modalFechaInicio').value = fechaInicio;
-        document.getElementById('modalFechaFin').value = fechaFin;
+    // Rellenar los campos ocultos del formulario de reserva
+    document.getElementById("modalPropiedadId").value = propiedadId;
+    document.getElementById("modalFechaInicio").value = fechaInicio;
+    document.getElementById("modalFechaFin").value = fechaFin;
+    
+    // Mostrar el modal
+    $('#modalConfirmarReserva').modal('show');
+}
+document.getElementById('confirmar-reserva-form').addEventListener('submit', function(event) {
+    // Obtener los valores de vendedor e inquilino seleccisonados
+    const vendedorSeleccionado = document.getElementById('vendedor').value;
+    const clienteSeleccionado = document.getElementById('inquilino').value;
 
-        // Mostrar el modal
-        $('#modalConfirmarReserva').modal('show');
-    }
+    // Pasar los valores seleccionados a los campos ocultos del formulario
+    document.getElementById('modalVendedor').value = vendedorSeleccionado;
+    document.getElementById('modalCliente').value = clienteSeleccionado;
 
-    // Cuando se confirme la reserva, copiar los valores seleccionados del modal al formulario
-    document.getElementById('confirmar-reserva-form').addEventListener('submit', function(event) {
-        // Obtener los valores de vendedor e inquilino seleccionados
-        const vendedorSeleccionado = document.getElementById('vendedor').value;
-        const clienteSeleccionado = document.getElementById('inquilino').value;
+    // También se debe copiar la hora de ingreso y egreso al formulario oculto
+    const horaIngreso = document.getElementById('horaIngreso').value;
+    const horaEgreso = document.getElementById('horaEgreso').value;
+    
 
-        // Pasar los valores seleccionados a los campos ocultos del formulario
-        document.getElementById('modalVendedor').value = vendedorSeleccionado;
-        document.getElementById('modalCliente').value = clienteSeleccionado;
-
-        // También se debe copiar la hora de ingreso y egreso al formulario oculto
-        const horaIngreso = document.getElementById('horaIngreso').value;
-        const horaEgreso = document.getElementById('horaEgreso').value;
+    // Verificar si los campos de hora están llenos
+    if (horaIngreso && horaEgreso) {
         document.getElementById('modalHoraIngreso').value = horaIngreso;
         document.getElementById('modalHoraEgreso').value = horaEgreso;
-    });
+    } else {
+        alert('Por favor, completa las horas de ingreso y egreso.');
+        event.preventDefault(); // Prevenir el envío del formulario si falta alguna hora
+        return;
+    }
+
+    // Copiar el precio total
+    const precioTotal = document.getElementById('precioTotal').textContent;
+    document.getElementById('modalPrecioTotal').value = precioTotal;
+});
+
 </script>
+
 {% endblock %}

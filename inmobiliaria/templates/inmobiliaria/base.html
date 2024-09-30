@@ -41,6 +41,9 @@
         <div class="collapse navbar-collapse" id="navbarNav">
             {% if user.is_authenticated %}
             <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'inmobiliaria:crear_reserva' %}">Reservas</a>
+                </li>
                 {% if user.nivel >= 3 %}
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'inmobiliaria:vendedores' %}">Vendedores</a>

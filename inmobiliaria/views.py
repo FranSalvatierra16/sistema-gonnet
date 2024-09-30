@@ -1,12 +1,12 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio
-from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet
+from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
@@ -16,6 +16,9 @@ from dateutil.parser import parse
 from django.contrib.auth.models import User
 from decimal import Decimal
 from django.forms import inlineformset_factory
+from xhtml2pdf import pisa
+from io import BytesIO
+from django.template.loader import render_to_string
 
 
 # index view
@@ -88,8 +91,22 @@ def vendedor_eliminar(request, vendedor_id):
 # Inquilino views
 @login_required
 def inquilinos(request):
+    
+    form = PropietarioBuscarForm(request.GET or None)
     inquilinos = Inquilino.objects.all()
-    return render(request, 'inmobiliaria/inquilinos/lista.html', {'inquilinos': inquilinos})
+
+    if form.is_valid():
+        termino = form.cleaned_data.get('termino')
+        
+        if termino:
+            # Divide la cadena en palabras (puede ser nombre y/o apellido)
+            palabras = termino.split()
+            
+            # Filtra los propietarios que coincidan con cualquier palabra en nombre o apellido
+            for palabra in palabras:
+                inquilinos = inquilinos.filter(nombre__icontains=palabra) | inquilinos.filter(apellido__icontains=palabra)
+
+    return render(request, 'inmobiliaria/inquilinos/lista.html', {'inquilinos': inquilinos, 'form': form,})
 
 @login_required
 def inquilino_detalle(request, inquilino_id):
@@ -133,8 +150,24 @@ def inquilino_eliminar(request, inquilino_id):
 # Propietario views
 @login_required
 def propietarios(request):
+    form = PropietarioBuscarForm(request.GET or None)
     propietarios = Propietario.objects.all()
-    return render(request, 'inmobiliaria/propietarios/lista.html', {'propietarios': propietarios})
+
+    if form.is_valid():
+        termino = form.cleaned_data.get('termino')
+        
+        if termino:
+            # Divide la cadena en palabras (puede ser nombre y/o apellido)
+            palabras = termino.split()
+            
+            # Filtra los propietarios que coincidan con cualquier palabra en nombre o apellido
+            for palabra in palabras:
+                propietarios = propietarios.filter(nombre__icontains=palabra) | propietarios.filter(apellido__icontains=palabra)
+
+    return render(request, 'inmobiliaria/propietarios/lista.html', {
+        'form': form,
+        'propietarios': propietarios
+    })
 
 @login_required
 def propietario_detalle(request, propietario_id):
@@ -384,6 +417,7 @@ def confirmar_reserva(request):
             hora_egreso_str = request.POST.get('hora_egreso', '')
             vendedor_id = request.POST.get('vendedor', '')
             cliente_id = request.POST.get('cliente', '')
+            precio_total=request.POST.get('precio_total')
             print(vendedor_id)
             # Validar que las fechas no estén vacías
             if not fecha_inicio_str or not fecha_fin_str:
@@ -392,7 +426,9 @@ def confirmar_reserva(request):
             # Convertir las fechas a objetos `date`
             fecha_inicio = parse_fecha(fecha_inicio_str)
             fecha_fin = parse_fecha(fecha_fin_str)
-
+            print('Hora ingreso:', fecha_inicio_str)
+            print('Hora egreso:', hora_egreso_str)
+            print('Hora egreso:', precio_total)
             # Validar que la fecha de inicio no sea posterior a la de fin
             if fecha_inicio > fecha_fin:
                 raise ValidationError('La fecha de inicio no puede ser posterior a la fecha de fin.')
@@ -400,6 +436,8 @@ def confirmar_reserva(request):
             # Convertir las horas a objetos `time` (opcional, dependiendo de cómo almacenes las horas)
             hora_ingreso = parse_time(hora_ingreso_str) if hora_ingreso_str else None
             hora_egreso = parse_time(hora_egreso_str) if hora_egreso_str else None
+            print('Hora ingreso:', hora_ingreso_str)
+            print('Hora egreso:', hora_egreso_str)
 
             # Validar que los IDs no estén vacíos
             if not vendedor_id or not cliente_id:
@@ -412,8 +450,8 @@ def confirmar_reserva(request):
 
             # Calcular el precio total
             total_dias = (fecha_fin - fecha_inicio).days
-            total_precio = propiedad.precio_diario * total_dias
-
+   
+            
             # Crear la reserva con el precio total y otros detalles
             reserva = Reserva.objects.create(
                 propiedad=propiedad,
@@ -423,7 +461,9 @@ def confirmar_reserva(request):
                 hora_egreso=hora_egreso,
                 vendedor=vendedor,
                 cliente=cliente,
-                precio_total=total_precio
+                precio_total=precio_total
+                
+      
             )
 
             # Redirigir a la página de éxito con los detalles de la reserva
@@ -444,14 +484,19 @@ def reserva_detalle(request, reserva_id):
 # inmobiliaria/views.py
 def formato_fecha(fecha):
     return fecha.strftime('%m/%d/%Y') if fecha else ''
+from datetime import timedelta
+
+
 def buscar_propiedades(request):
     inquilinos = Inquilino.objects.all()
     form = BuscarPropiedadesForm(request.POST or None)
     propiedades_disponibles = []
     vendedores = Vendedor.objects.all()
-
+   
     fecha_inicio = None
     fecha_fin = None
+  
+    
 
     if form.is_valid():
         fecha_inicio = form.cleaned_data['fecha_inicio']
@@ -472,6 +517,53 @@ def buscar_propiedades(request):
             )
 
             if disponibilidades.exists() and not reservas.exists():
+                # Calcular el precio total según las fechas seleccionadas
+                precio_total = 0
+                precio_mas_caro = 0  # Variable para almacenar el precio más caro por día
+                primer_dia = True  # Bandera para el primer día
+                dias_reserva = (fecha_fin - fecha_inicio).days + 1  # Calcular los días de la reserva
+
+                for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
+                    # Verificar en qué quincena cae la fecha actual
+                    if single_date.month == 1:  # Enero
+                        if single_date.day <= 15:
+                            # Buscar el precio para la 1ra quincena de enero
+                            tipo_precio = 'QUINCENA_1_ENERO'
+                        else:
+                            # Buscar el precio para la 2da quincena de enero
+                            tipo_precio = 'QUINCENA_2_ENERO'
+                    elif single_date.month == 2:  # Febrero
+                        if single_date.day <= 15:
+                            # Buscar el precio para la 1ra quincena de febrero
+                            tipo_precio = 'QUINCENA_1_FEBRERO'
+                        else:
+                            # Buscar el precio para la 2da quincena de febrero
+                            tipo_precio = 'QUINCENA_2_FEBRERO'
+                    # Agregar más meses si es necesario
+
+                    # Obtener el precio para la propiedad y la quincena correspondiente
+                    try:
+                        precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
+                        precio_dia = precio.precio_por_dia  # Precio por día para la quincena seleccionada
+                    except Precio.DoesNotExist:
+                        precio_dia = 0  # Si no se encuentra el precio, asignar un valor predeterminado o manejar el error
+
+                    # Guardar el precio más caro hasta el momento
+                    if precio_dia > precio_mas_caro:
+                        precio_mas_caro = precio_dia
+
+                    # Sumar el precio solo si no es el primer día
+                    if primer_dia:
+                        primer_dia = False  # El primer día no se suma, pero se cambia la bandera
+                    else:
+                        # Sumar el precio de cada día al total de la reserva, excepto el primer día
+                        precio_total += precio_dia
+                        print('dia ', precio_dia)
+
+                # Asignar el precio total y el precio más caro a la propiedad para mostrar en la plantilla
+                propiedad.precio_total_reserva = precio_total + precio_mas_caro
+                print('dia mas caro', precio_mas_caro)
+               
                 propiedades_disponibles.append(propiedad)
 
     return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
@@ -479,9 +571,13 @@ def buscar_propiedades(request):
         'propiedades_disponibles': propiedades_disponibles,
         'fecha_inicio': formato_fecha(fecha_inicio),
         'fecha_fin': formato_fecha(fecha_fin),
-        'inquilinos': inquilinos,  # Asegúrate de que esto esté aquí
-        'vendedores': vendedores,  # Pasar el vendedor actual al template
+        'inquilinos': inquilinos,
+        'vendedores': vendedores,
+     
+        
     })
+
+
 def crear_disponibilidad(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, id=propiedad_id)
     
@@ -513,14 +609,65 @@ def reserva_exitosa(request, reserva_id):
         'reserva': reserva
     }
     return render(request, 'inmobiliaria/reserva/reserva_exitosa.html', context)
+
 def terminar_reserva(request, reserva_id):
-    reserva = get_object_or_404(Reserva, pk=reserva_id)
-    if request.method == "POST":
-        pago_senia = Decimal(request.POST.get('pago_senia'))
+    reserva = get_object_or_404(Reserva, id=reserva_id)
+    
+    if request.method == 'POST':
+        pago_senia = Decimal(request.POST.get('pago_senia', 0))
+        
+        # Confirmar reserva y calcular cuotas
         reserva.confirmar_reserva(pago_senia)
-        messages.success(request, 'Reserva confirmada exitosamente.')
-        return redirect('inmobiliaria:reservas')
+
+        # Generar el recibo en PDF
+        template_path = 'inmobiliaria/reserva/recibo.html'  # Tu plantilla de recibo en HTML
+        context = {
+            'reserva': reserva,
+            'pago_senia': pago_senia,
+        }
+        
+        # Convertir el HTML en un string
+        html = render_to_string(template_path, context)
+
+        # Crear un objeto en memoria para guardar el PDF
+        result = BytesIO()
+        pisa_status = pisa.CreatePDF(html, dest=result)
+
+        # Si hubo errores al crear el PDF, devolver un error 500
+        if pisa_status.err:
+            return HttpResponse('Error al generar el PDF', status=500)
+
+        # Guardar el PDF en una variable para la descarga
+        response = HttpResponse(result.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="recibo_reserva.pdf"'
+        
+        # Enviar el PDF como respuesta
+        response.write(result.getvalue())
+        
+        # Aquí no se puede redirigir inmediatamente al dashboard, 
+        # así que retornamos el objeto de respuesta del PDF
+        return response
+    
+    # Si no es POST, devolver la página de confirmación de reserva
     return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', {'reserva': reserva})
+
+
+
+def generar_recibo_pdf(reserva, pago_senia):
+    template_name = 'inmobiliaria/reserva/recibo.html'
+    context = {'reserva': reserva, 'pago_senia': pago_senia}
+    
+    # Renderizar HTML a string
+    html = render_to_string(template_name, context)
+    
+    # Crear el PDF
+    pdf_buffer = BytesIO()
+    pisa_status = pisa.CreatePDF(BytesIO(html.encode("UTF-8")), dest=pdf_buffer)
+    
+    if pisa_status.err:
+        return None
+    else:
+        return pdf_buffer.getvalue()
 def realizar_pago(request, reserva_id):
     # Obtener la reserva a partir del ID
     reserva = get_object_or_404(Reserva, id=reserva_id)
@@ -587,5 +734,7 @@ def gestionar_precios(request, propiedad_id):
         'propiedad': propiedad,
         'formset': formset,
     })
+
+
 
 

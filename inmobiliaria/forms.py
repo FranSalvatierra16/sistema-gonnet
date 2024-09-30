@@ -68,23 +68,28 @@ class PropiedadForm(forms.ModelForm):
         required=False,
         help_text="Seleccione una o más imágenes para la propiedad"
     )
+    nuevo_propietario = forms.BooleanField(
+        required=False,
+        label="¿Nuevo propietario?"
+    )
 
     class Meta:
         model = Propiedad
         fields = [
-            'direccion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria', 
-            'habilitar_precio_diario', 'precio_diario', 'habilitar_precio_venta', 'precio_venta', 
+            'direccion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
+            'habilitar_precio_diario', 'precio_diario', 'habilitar_precio_venta', 'precio_venta',
             'habilitar_precio_alquiler', 'precio_alquiler', 'amoblado', 'cochera', 'tv_smart', 'wifi', 
             'dependencia', 'patio', 'parrilla', 'piscina', 'reciclado', 'a_estrenar', 'terraza', 'balcon', 
-            'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito', 'descripcion'
+            'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito', 'descripcion', 
+            'propietario'
         ]
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 5}),
             'valoracion': forms.Select(attrs={'class': 'form-control'}),
             'direccion': forms.TextInput(attrs={'placeholder': 'Ingrese la dirección'}),
-            # 'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio por día'}),
             'precio_venta': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de venta'}),
             'precio_alquiler': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de alquiler'}),
+            'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio diario'}),
         }
 class PrecioForm(forms.ModelForm):
     class Meta:
@@ -172,3 +177,8 @@ PrecioFormSet = modelformset_factory(
     extra=0,  # No agrega formularios extra por defecto
     can_delete=True  # Para poder eliminar precios
 )
+class PropietarioBuscarForm(forms.Form):
+     termino = forms.CharField(label='Buscar por nombre o apellido', max_length=100, required=False)
+
+class InquilinoBuscarForm(forms.Form):
+     termino = forms.CharField(label='Buscar por nombre o apellido', max_length=100, required=False)
