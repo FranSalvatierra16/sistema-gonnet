@@ -1,14 +1,109 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buscar Propiedades</title>
+    
+    <style>
+        .card-confirmada {
+            background-color: red; /* Color rojo claro */
+            border-color: #f5c6cb; /* Borde rojo */
+        }
+        .card-reserva-confirmada {
+    background-color: #ffcccc; /* Rojo claro, puedes cambiar a otro tono si deseas */
+}
+
+    </style>
+</head>
 
 {% block title %}Buscar Propiedades{% endblock %}
 
 {% block content %}
 <h1>Buscar Propiedades</h1>
+<!-- 
+<div class="btn-group btn-group-toggle" data-toggle="buttons">
+    <label class="btn btn-primary active" id="reserva-dia-tab" onclick="filtrarPorTipo('reserva-dia')">
+        <input type="radio" name="tipoContrato" autocomplete="off" checked> Reserva por día
+    </label>
+</div> -->
 
-<form method="post" id="buscar-propiedades-form">
+<!-- Formulario para reservas por día -->
+<form method="post" id="buscar-propiedades-form-dia">
     {% csrf_token %}
-    {% bootstrap_form form %}
+    <div class="row">
+        <div class="col-md-3">
+            {% bootstrap_field form.fecha_inicio %}
+        </div>
+        <div class="col-md-3">
+            {% bootstrap_field form.fecha_fin %}
+        </div>
+        <div class="col-md-3">
+            {% bootstrap_field form.ambientes %}
+        </div>
+    </div>
+
+    <button type="button" class="btn btn-secondary" id="toggle-filtros" onclick="mostrarOcultarFiltros()">Mostrar Filtros</button>
+    <button type="button" class="btn btn-warning" id="reset-filtros" onclick="resetearFiltros()" style="display: none;">Resetear Filtros</button>
+
+    <div id="filtros-completos" style="display: none;">
+        <div class="row">
+            <div class="col-md-4">
+                {% bootstrap_field form.tipo_inmueble %}
+            </div>
+            <div class="col-md-4">
+                {% bootstrap_field form.vista %}
+            </div>
+
+        </div>
+        <div class="row">
+            <div class="col-md-3">
+                {% bootstrap_field form.precio_min %}
+            </div>
+            <div class="col-md-3">
+                {% bootstrap_field form.precio_max %}
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-4">
+                {% bootstrap_field form.valoracion %}
+            </div>
+        </div>
+        <h4>Características adicionales</h4>
+        <div class="row">
+            <div class="col-md-3">
+                {% bootstrap_field form.amoblado %}
+                {% bootstrap_field form.cochera %}
+                {% bootstrap_field form.tv_smart %}
+            </div>
+            <div class="col-md-3">
+                {% bootstrap_field form.wifi %}
+                {% bootstrap_field form.dependencia %}
+                {% bootstrap_field form.patio %}
+            </div>
+            <div class="col-md-3">
+                {% bootstrap_field form.parrilla %}
+                {% bootstrap_field form.piscina %}
+                {% bootstrap_field form.reciclado %}
+            </div>
+            <div class="col-md-3">
+                {% bootstrap_field form.a_estrenar %}
+                {% bootstrap_field form.terraza %}
+                {% bootstrap_field form.balcon %}
+            </div>
+        </div>
+    </div>
+    <div class="row mt-3">
+        <div class="col-md-12">
+            <button type="submit" class="btn btn-primary">Buscar</button>
+        </div>
+    </div>
+</form>
+
+<!-- Formulario para reservas por 24 meses -->
+<form id="buscar-propiedades-form-24" style="display: none;" onsubmit="return buscarPropiedades23(event);">
+    {% csrf_token %}
+    <p>Formulario para reserva por 24 meses (sin fechas).</p>
     <button type="submit" class="btn btn-primary">Buscar Propiedades</button>
     <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-secondary">Cancelar</a>
 </form>
@@ -18,7 +113,7 @@
     <div class="row">
         {% for propiedad in propiedades_disponibles %}
         <div class="col-md-4">
-            <div class="card mb-4 shadow-sm">
+            <div class="card mb-4 shadow-sm {% if propiedad.estado_reserva == 'confirmada_no_pagada' or propiedad.estado_reserva == 'en_espera' %}card-reserva{% endif %}" {% if propiedad.estado_reserva == 'confirmada_no_pagada' or propiedad.estado_reserva == 'en_espera' %}style="background-color: red;"{% endif %}>
                 <div id="carousel-{{ propiedad.id }}" class="carousel slide" data-ride="carousel">
                     <div class="carousel-inner">
                         {% for imagen in propiedad.imagenes.all %}
@@ -43,40 +138,22 @@
                     
                     <p class="card-text"><strong>Precio total reserva:</strong> {{ propiedad.precio_total_reserva }} $</p>
                     <p class="card-text"><strong>Valoración:</strong> {{ propiedad.valoracion }}</p>
-                
-                    <!-- Tabla de precios -->
-                    <table class="table table-striped mt-3">
-                        <thead>
-                            <tr>
-                                <th>Tipo de precio</th>
-                                <th>Precio por día</th>
-                                <th>Precio total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for precio in precios %}
-                                    <tr>
-                                        <td>{{ precio.get_tipo_precio_display }}</td>
-                                        <td>${{ precio.precio_por_dia }}</td>
-                                        <td>${{ precio.precio_total }}</td>
-                                        
-                                        
-                                    </tr>
-                                {% empty %}
-                                    <tr>
-                                        <td colspan="3" class="text-center">No hay precios registrados para esta propiedad.</td>
-                                    </tr>
-                                {% endfor %}
-                        </tbody>
-                    </table>
-                
+                    <p class="card-text"><strong>Valoración:</strong> {{ propiedad.reserva.estado }}</p>
+                    <!-- Mostrar botones según el estado de reserva -->
+                    {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
+                    <a href="{% url 'inmobiliaria:finalizar_reserva' propiedad.reserva.id %}" class="btn btn-sm btn-success">Finalizar</a>
+                     
+                    {% elif propiedad.estado_reserva == 'en_espera' %}
+                        <button type="button" class="btn btn-danger" onclick="cancelarReserva('{{ propiedad.reserva.id }}')">Cancelar Reserva</button>
+                    {% else %}
                     <button type="button" class="btn btn-primary" 
-                    onclick="mostrarModalReserva('{{ propiedad.id }}', '{{ propiedad.direccion }}', '{{ propiedad.precio_diario }}', '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.precio_total_reserva }}')">
+                    onclick="confirmarReserva('{{ propiedad.id }}', '{{ propiedad.direccion }}', '{{ propiedad.precio_diario }}', '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.precio_total_reserva }}')">
                     Reservar
-                </button>
+                    </button>
+                    {% endif %}
+                    
                     <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles{{ propiedad.id }}">Ver</button>
                 </div>
-                
             </div>
         </div>
         {% endfor %}
@@ -143,46 +220,9 @@
     </div>
 </div>
 
-{% for propiedad in propiedades_disponibles %}
-<div class="modal fade" id="modalDetalles{{ propiedad.id }}" tabindex="-1" role="dialog" aria-labelledby="modalDetallesLabel{{ propiedad.id }}" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalDetallesLabel{{ propiedad.id }}">Detalles de la Propiedad</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div id="carouselDetalles{{ propiedad.id }}" class="carousel slide" data-ride="carousel">
-                    <div class="carousel-inner">
-                        {% for imagen in propiedad.imagenes.all %}
-                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                <img class="d-block w-100" src="{{ imagen.imagen.url }}" alt="Imagen de la propiedad">
-                            </div>
-                        {% endfor %}
-                    </div>
-                    <a class="carousel-control-prev" href="#carouselDetalles{{ propiedad.id }}" role="button" data-slide="prev">
-                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                        <span class="sr-only">Previous</span>
-                    </a>
-                    <a class="carousel-control-next" href="#carouselDetalles{{ propiedad.id }}" role="button" data-slide="next">
-                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                        <span class="sr-only">Next</span>
-                    </a>
-                </div>
-                <h5 class="mt-4">{{ propiedad.direccion }}</h5>
-                <p>{{ propiedad.descripcion }}</p>
-                <p><strong>Precio por día:</strong> {{ propiedad.precio_diario }} USD</p>
-                <p><strong>Valoración:</strong> {{ propiedad.valoracion }}</p>
-            </div>
-        </div>
-    </div>
-</div>
-{% endfor %}
 
 <script>
-function mostrarModalReserva(propiedadId, propiedadDireccion, propiedadPrecio, fechaInicio, fechaFin, precioReserva) {
+    function mostrarModalReserva(propiedadId, propiedadDireccion, propiedadPrecio, fechaInicio, fechaFin, precioReserva) {
     // Actualizar la información en el modal
     document.getElementById("propiedadDireccion").textContent = propiedadDireccion;
     
@@ -237,6 +277,81 @@ document.getElementById('confirmar-reserva-form').addEventListener('submit', fun
     document.getElementById('modalPrecioTotal').value = precioTotal;
 });
 
-</script>
+    function filtrarPorTipo(tipo) {
+        const formDia = document.getElementById('buscar-propiedades-form-dia');
+        const form24 = document.getElementById('buscar-propiedades-form-24');
+        
+        if (tipo === 'reserva-dia') {
+            formDia.style.display = 'block';
+            form24.style.display = 'none';
+        } else if (tipo === 'reserva-24') {
+            formDia.style.display = 'none';
+            form24.style.display = 'block';
+        } else {
+            formDia.style.display = 'none';
+            form24.style.display = 'none';
+        }
+    }
+    function confirmarReserva(propiedadId, propiedadDireccion, propiedadPrecio, fechaInicio, fechaFin, precioReserva) {
+    // Mostrar el cuadro de confirmación
+    const confirmacion = confirm(`¿Está seguro de que desea reservar esta propiedad con ficha ${propiedadId} entre  ${fechaInicio} y ${fechaFin}?`);
+    
+    if (confirmacion) {
+        // Si el usuario confirma, llamar a la función para mostrar el modal
+        mostrarModalReserva(propiedadId, propiedadDireccion, propiedadPrecio, fechaInicio, fechaFin, precioReserva);
+    }
+}
 
+    function mostrarOcultarFiltros() {
+        const filtrosCompletos = document.getElementById('filtros-completos');
+        const toggleButton = document.getElementById('toggle-filtros');
+        const resetButton = document.getElementById('reset-filtros');
+
+        if (filtrosCompletos.style.display === 'none') {
+            filtrosCompletos.style.display = 'block';
+            toggleButton.innerText = 'Ocultar Filtros';
+            resetButton.style.display = 'inline-block'; // Mostrar botón de resetear
+        } else {
+            filtrosCompletos.style.display = 'none';
+            toggleButton.innerText = 'Mostrar Filtros';
+            resetButton.style.display = 'none'; // Ocultar botón de resetear
+        }
+    }
+    
+
+    function resetearFiltros() {
+        // Resetear todos los campos del formulario
+        document.getElementById('buscar-propiedades-form-dia').reset();
+
+        // Resetear todos los checkboxes y radios a su estado inicial
+        const checkboxes = document.querySelectorAll('#buscar-propiedades-form-dia input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+
+        const radios = document.querySelectorAll('#buscar-propiedades-form-dia input[type="radio"]');
+        radios.forEach(radio => {
+            radio.checked = false;
+        });
+
+        // Volver a seleccionar el primer radio si es necesario
+        document.querySelector('#buscar-propiedades-form-dia input[type="radio"]').checked = true;
+
+        // También puedes ocultar los filtros si lo deseas
+        document.getElementById('filtros-completos').style.display = 'none';
+        document.getElementById('toggle-filtros').innerText = 'Mostrar Filtros';
+        document.getElementById('reset-filtros').style.display = 'none'; // Ocultar botón de resetear
+    }
+
+    function buscarPropiedades23(event) {
+        event.preventDefault(); // Evita que el formulario se envíe inmediatamente
+        
+        // Lógica para filtrar propiedades por 23 meses
+        const data = {
+            // Puedes agregar los datos que necesites aquí, si es necesario
+        };
+        
+        console.log("Buscando propiedades para 23 meses", data);
+    }
+</script>
 {% endblock %}

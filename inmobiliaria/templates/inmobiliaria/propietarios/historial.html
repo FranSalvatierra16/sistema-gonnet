@@ -1,0 +1,20 @@
+<!-- historial_reservas.html -->
+
+<h2>Historial de Reservas por Propietario</h2>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Buscar</button>
+</form>
+
+<h3>Reservas Encontradas:</h3>
+<ul>
+    {% for reserva in reservas %}
+        <li>
+            {{ reserva }} <!-- Esto usará el __str__ del modelo Reserva -->
+        </li>
+    {% empty %}
+        <li>No se encontraron reservas para los criterios de búsqueda.</li>
+    {% endfor %}
+</ul>

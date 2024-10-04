@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserChangeForm
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio,TipoPrecio
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio,TipoPrecio,TIPOS_INMUEBLES, TIPOS_VISTA, TIPOS_VALORACION
 from datetime import datetime
 from django.forms import modelformset_factory
 # Formulario de creación de Vendedor
@@ -142,8 +142,45 @@ class ReservaForm(forms.ModelForm):
             'hora_egreso': forms.TimeInput(attrs={'type': 'time'}),
         }
 class BuscarPropiedadesForm(forms.Form):
-    fecha_inicio = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
-    fecha_fin = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    fecha_inicio = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}))
+    fecha_fin = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}))
+    tipo_inmueble = forms.MultipleChoiceField(choices=TIPOS_INMUEBLES, required=False, widget=forms.CheckboxSelectMultiple)
+    vista = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_VISTA, required=False)
+    ambientes = forms.IntegerField(required=False, min_value=1)
+    valoracion = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_VALORACION, required=False)
+    precio_min = forms.DecimalField(required=False, min_value=0)
+    precio_max = forms.DecimalField(required=False, min_value=0)
+
+    # Características booleanas
+    amoblado = forms.BooleanField(required=False)
+    cochera = forms.BooleanField(required=False)
+    tv_smart = forms.BooleanField(required=False)
+    wifi = forms.BooleanField(required=False)
+    dependencia = forms.BooleanField(required=False)
+    patio = forms.BooleanField(required=False)
+    parrilla = forms.BooleanField(required=False)
+    piscina = forms.BooleanField(required=False)
+    reciclado = forms.BooleanField(required=False)
+    a_estrenar = forms.BooleanField(required=False)
+    terraza = forms.BooleanField(required=False)
+    balcon = forms.BooleanField(required=False)
+    baulera = forms.BooleanField(required=False)
+    lavadero = forms.BooleanField(required=False)
+    seguridad = forms.BooleanField(required=False)
+    vista_al_Mar = forms.BooleanField(required=False)
+    vista_panoramica = forms.BooleanField(required=False)
+    apto_credito = forms.BooleanField(required=False)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        fecha_inicio = cleaned_data.get('fecha_inicio')
+        fecha_fin = cleaned_data.get('fecha_fin')
+        
+        if fecha_inicio and fecha_fin and fecha_inicio > fecha_fin:
+            raise forms.ValidationError("La fecha de inicio no puede ser posterior a la fecha de fin.")
+        
+        return cleaned_data
+
 class DisponibilidadForm(forms.ModelForm):
     class Meta:
         model = Disponibilidad

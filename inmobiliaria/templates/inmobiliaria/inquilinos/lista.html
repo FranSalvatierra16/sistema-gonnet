@@ -33,6 +33,7 @@
                 <a href="{% url 'inmobiliaria:inquilino_detalle' inquilino.id %}" class="btn btn-sm btn-info">Ver</a>
                 <a href="{% url 'inmobiliaria:inquilino_editar' inquilino.id %}" class="btn btn-sm btn-warning">Editar</a>
                 <a href="{% url 'inmobiliaria:inquilino_eliminar' inquilino.id %}" class="btn btn-sm btn-danger">Eliminar</a>
+                <a href="{% url 'inmobiliaria:historial_reservas_inquilino' inquilino.id %}" class="btn btn-sm btn-secondary">Historial</a>
             </td>
         </tr>
         {% empty %}

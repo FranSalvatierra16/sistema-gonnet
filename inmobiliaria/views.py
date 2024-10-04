@@ -19,7 +19,7 @@ from django.forms import inlineformset_factory
 from xhtml2pdf import pisa
 from io import BytesIO
 from django.template.loader import render_to_string
-
+import logging
 
 # index view
 def index(request):
@@ -484,7 +484,6 @@ def reserva_detalle(request, reserva_id):
 # inmobiliaria/views.py
 def formato_fecha(fecha):
     return fecha.strftime('%m/%d/%Y') if fecha else ''
-from datetime import timedelta
 
 
 def buscar_propiedades(request):
@@ -493,18 +492,54 @@ def buscar_propiedades(request):
     propiedades_disponibles = []
     vendedores = Vendedor.objects.all()
    
+    # Inicializar las variables
     fecha_inicio = None
     fecha_fin = None
-  
-    
 
     if form.is_valid():
         fecha_inicio = form.cleaned_data['fecha_inicio']
         fecha_fin = form.cleaned_data['fecha_fin']
+        
 
-        # Filtrar propiedades que están disponibles en las fechas indicadas
+        # Filtrar propiedades
         propiedades = Propiedad.objects.all()
 
+        # Aplicar filtros del formulario
+        tipo_inmueble = form.cleaned_data.get('tipo_inmueble')
+        if tipo_inmueble:
+            propiedades = propiedades.filter(tipo_inmueble__in=tipo_inmueble)
+
+        vista = form.cleaned_data.get('vista')
+        if vista:
+            propiedades = propiedades.filter(vista__in=vista)
+
+        ambientes = form.cleaned_data.get('ambientes')
+        if ambientes:
+            propiedades = propiedades.filter(ambientes=ambientes)
+
+        valoracion = form.cleaned_data.get('valoracion')
+        if valoracion:
+            propiedades = propiedades.filter(valoracion=valoracion)
+
+        precio_min = form.cleaned_data.get('precio_min')
+        if precio_min is not None:
+            propiedades = propiedades.filter(precio__gte=precio_min)
+
+        precio_max = form.cleaned_data.get('precio_max')
+        if precio_max is not None:
+            propiedades = propiedades.filter(precio__lte=precio_max)
+
+        # Filtros booleanos
+        caracteristicas_booleanas = [
+            'amoblado', 'cochera', 'tv_smart', 'wifi', 'dependencia', 'patio',
+            'parrilla', 'piscina', 'reciclado', 'a_estrenar', 'terraza', 'balcon',
+            'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito'
+        ]
+        for caracteristica in caracteristicas_booleanas:
+            if form.cleaned_data.get(caracteristica):
+                propiedades = propiedades.filter(**{caracteristica: True})
+
+        # Filtrar propiedades que están disponibles en las fechas indicadas
         for propiedad in propiedades:
             disponibilidades = Disponibilidad.objects.filter(
                 propiedad=propiedad,
@@ -515,9 +550,19 @@ def buscar_propiedades(request):
             reservas = propiedad.reservas.filter(
                 Q(fecha_inicio__lte=fecha_fin) & Q(fecha_fin__gte=fecha_inicio)
             )
+            if reservas.filter(estado='pagada').exists():
+                continue
+            reserva_confirmada_no_pagada = reservas.filter(estado='en_espera').first()
+            
+            if disponibilidades.exists() and not reservas.filter(estado='confirmada').exists():
 
-            if disponibilidades.exists() and not reservas.exists():
                 # Calcular el precio total según las fechas seleccionadas
+                if reserva_confirmada_no_pagada:
+                    propiedad.reserva = reserva_confirmada_no_pagada
+                    propiedad.estado_reserva = 'confirmada_no_pagada'
+                elif not reservas.filter(estado='pagada').exists():
+                    propiedad.estado_reserva = 'disponible'
+
                 precio_total = 0
                 precio_mas_caro = 0  # Variable para almacenar el precio más caro por día
                 primer_dia = True  # Bandera para el primer día
@@ -558,24 +603,21 @@ def buscar_propiedades(request):
                     else:
                         # Sumar el precio de cada día al total de la reserva, excepto el primer día
                         precio_total += precio_dia
-                        print('dia ', precio_dia)
 
                 # Asignar el precio total y el precio más caro a la propiedad para mostrar en la plantilla
                 propiedad.precio_total_reserva = precio_total + precio_mas_caro
-                print('dia mas caro', precio_mas_caro)
-               
+
                 propiedades_disponibles.append(propiedad)
 
     return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
         'form': form,
         'propiedades_disponibles': propiedades_disponibles,
-        'fecha_inicio': formato_fecha(fecha_inicio),
-        'fecha_fin': formato_fecha(fecha_fin),
+        'fecha_inicio': formato_fecha(fecha_inicio) if fecha_inicio else None,
+        'fecha_fin': formato_fecha(fecha_fin) if fecha_fin else None,
         'inquilinos': inquilinos,
         'vendedores': vendedores,
-     
-        
     })
+
 
 
 def crear_disponibilidad(request, propiedad_id):
@@ -735,6 +777,25 @@ def gestionar_precios(request, propiedad_id):
         'formset': formset,
     })
 
+def buscar_propiedades_23(request):
+    # Aquí filtramos directamente las propiedades habilitadas para alquiler
+    propiedades_disponibles = Propiedad.objects.filter(habilitar_precio_alquiler=True)
 
+    # Contexto para la plantilla
+    context = {
+        'propiedades_disponibles': propiedades_disponibles,
+    }
+    
+    return render(request, 'inmobiliaria/reservas/buscar_propiedades.html', context)
+def historial_reservas_vendedor(request, vendedor_id):
+    reservas = Reserva.objects.filter(vendedor_id=vendedor_id)
 
+    return render(request, 'inmobiliaria/vendedores/historial.html', {
+        'reservas': reservas,
+    })
+def historial_reservas_inquilino(request, inquilino_id):
+    reservas = Reserva.objects.filter(cliente_id=inquilino_id)
 
+    return render(request, 'inmobiliaria/inquilinos/historial.html', {
+        'reservas': reservas,
+    })    
