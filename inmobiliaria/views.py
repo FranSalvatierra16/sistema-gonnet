@@ -401,11 +401,7 @@ def parse_fecha(fecha_str):
         except ValueError:
             continue
     raise ValidationError('El formato de la fecha es inválido.')
-def parse_time(hora_str):
-    try:
-        return datetime.strptime(hora_str, '%H:%M').time()
-    except ValueError:
-        raise ValidationError('El formato de la hora es inválido.')
+
 def confirmar_reserva(request):
     if request.method == 'POST':
         try:
@@ -413,11 +409,10 @@ def confirmar_reserva(request):
             propiedad_id = request.POST.get('propiedad_id')
             fecha_inicio_str = request.POST.get('fecha_inicio')
             fecha_fin_str = request.POST.get('fecha_fin')
-            hora_ingreso_str = request.POST.get('hora_ingreso', '')
-            hora_egreso_str = request.POST.get('hora_egreso', '')
+     
             vendedor_id = request.POST.get('vendedor', '')
             cliente_id = request.POST.get('cliente', '')
-            precio_total=request.POST.get('precio_total')
+            precio = request.POST.get('precio_total', '')
             print(vendedor_id)
             # Validar que las fechas no estén vacías
             if not fecha_inicio_str or not fecha_fin_str:
@@ -426,18 +421,12 @@ def confirmar_reserva(request):
             # Convertir las fechas a objetos `date`
             fecha_inicio = parse_fecha(fecha_inicio_str)
             fecha_fin = parse_fecha(fecha_fin_str)
-            print('Hora ingreso:', fecha_inicio_str)
-            print('Hora egreso:', hora_egreso_str)
-            print('Hora egreso:', precio_total)
+
             # Validar que la fecha de inicio no sea posterior a la de fin
             if fecha_inicio > fecha_fin:
                 raise ValidationError('La fecha de inicio no puede ser posterior a la fecha de fin.')
 
-            # Convertir las horas a objetos `time` (opcional, dependiendo de cómo almacenes las horas)
-            hora_ingreso = parse_time(hora_ingreso_str) if hora_ingreso_str else None
-            hora_egreso = parse_time(hora_egreso_str) if hora_egreso_str else None
-            print('Hora ingreso:', hora_ingreso_str)
-            print('Hora egreso:', hora_egreso_str)
+
 
             # Validar que los IDs no estén vacíos
             if not vendedor_id or not cliente_id:
@@ -450,20 +439,18 @@ def confirmar_reserva(request):
 
             # Calcular el precio total
             total_dias = (fecha_fin - fecha_inicio).days
-   
-            
+            precio_total = Decimal(precio.replace(',', '.'))
+     
+           
             # Crear la reserva con el precio total y otros detalles
             reserva = Reserva.objects.create(
                 propiedad=propiedad,
                 fecha_inicio=fecha_inicio,
                 fecha_fin=fecha_fin,
-                hora_ingreso=hora_ingreso,
-                hora_egreso=hora_egreso,
+              
                 vendedor=vendedor,
                 cliente=cliente,
                 precio_total=precio_total
-                
-      
             )
 
             # Redirigir a la página de éxito con los detalles de la reserva

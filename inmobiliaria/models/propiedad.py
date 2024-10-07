@@ -5,6 +5,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import Q
 from django.utils.timezone import now
 
+import datetime
 from .persona import Propietario, Inquilino, Vendedor
 
 
@@ -172,8 +173,8 @@ class Reserva(models.Model):
     propiedad = models.ForeignKey(Propiedad, on_delete=models.CASCADE, related_name='reservas')
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
-    hora_ingreso = models.TimeField()  
-    hora_egreso = models.TimeField()  
+    hora_ingreso = models.TimeField(default=datetime.time(15, 0))  # Valor por defecto: 15:00
+    hora_egreso = models.TimeField(default=datetime.time(10, 0))   # Valor por defecto: 10:00
     fecha_creacion = models.DateTimeField(default=now)  
     vendedor = models.ForeignKey(Vendedor, on_delete=models.SET_NULL, null=True, related_name='reservas_vendedor')  
     cliente = models.ForeignKey(Inquilino, on_delete=models.SET_NULL, null=True, related_name='reservas_cliente')  
@@ -201,8 +202,6 @@ class Reserva(models.Model):
         if self.cuota_pendiente <= 0:
             self.estado = 'pagada'
         self.save()
-
-
 class Disponibilidad(models.Model):
     propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='disponibilidades')
     fecha_inicio = models.DateField()
