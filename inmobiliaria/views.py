@@ -478,6 +478,7 @@ def buscar_propiedades(request):
     form = BuscarPropiedadesForm(request.POST or None)
     propiedades_disponibles = []
     vendedores = Vendedor.objects.all()
+  
    
     # Inicializar las variables
     fecha_inicio = None
