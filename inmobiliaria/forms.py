@@ -143,7 +143,7 @@ class ReservaForm(forms.ModelForm):
 class BuscarPropiedadesForm(forms.Form):
     fecha_inicio = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}))
     fecha_fin = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}))
-    tipo_inmueble = forms.MultipleChoiceField(choices=TIPOS_INMUEBLES, required=False, widget=forms.CheckboxSelectMultiple)
+    tipo_inmueble = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_INMUEBLES, required=False, )
     vista = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_VISTA, required=False)
     ambientes = forms.IntegerField(required=False, min_value=1)
     valoracion = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_VALORACION, required=False)

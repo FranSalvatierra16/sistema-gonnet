@@ -473,12 +473,12 @@ def formato_fecha(fecha):
     return fecha.strftime('%m/%d/%Y') if fecha else ''
 
 
+
 def buscar_propiedades(request):
     inquilinos = Inquilino.objects.all()
     form = BuscarPropiedadesForm(request.POST or None)
     propiedades_disponibles = []
     vendedores = Vendedor.objects.all()
-  
    
     # Inicializar las variables
     fecha_inicio = None
@@ -488,7 +488,6 @@ def buscar_propiedades(request):
         fecha_inicio = form.cleaned_data['fecha_inicio']
         fecha_fin = form.cleaned_data['fecha_fin']
         
-
         # Filtrar propiedades
         propiedades = Propiedad.objects.all()
 
@@ -528,22 +527,33 @@ def buscar_propiedades(request):
                 propiedades = propiedades.filter(**{caracteristica: True})
 
         # Filtrar propiedades que están disponibles en las fechas indicadas
+        
         for propiedad in propiedades:
             disponibilidades = Disponibilidad.objects.filter(
                 propiedad=propiedad,
                 fecha_inicio__lte=fecha_fin,
-                fecha_fin__gte=fecha_inicio
+                fecha_fin__gte=fecha_inicio,
+                
+               
             )
+        for disponibilidad in disponibilidades:
+            propiedad.disponibilidad_inicio = disponibilidad.fecha_inicio
+            propiedad.disponibilidad_fin = disponibilidad.fecha_fin
+            print(propiedad.disponibilidad_inicio)
+            print(propiedad.disponibilidad_fin)
+           
 
             reservas = propiedad.reservas.filter(
                 Q(fecha_inicio__lte=fecha_fin) & Q(fecha_fin__gte=fecha_inicio)
             )
+            
+            # Verificar si existen reservas pagadas
             if reservas.filter(estado='pagada').exists():
                 continue
+            
             reserva_confirmada_no_pagada = reservas.filter(estado='en_espera').first()
             
             if disponibilidades.exists() and not reservas.filter(estado='confirmada').exists():
-
                 # Calcular el precio total según las fechas seleccionadas
                 if reserva_confirmada_no_pagada:
                     propiedad.reserva = reserva_confirmada_no_pagada
@@ -594,8 +604,21 @@ def buscar_propiedades(request):
 
                 # Asignar el precio total y el precio más caro a la propiedad para mostrar en la plantilla
                 propiedad.precio_total_reserva = precio_total + precio_mas_caro
+                reserva_cercana = propiedad.reservas.filter(fecha_fin__lt=fecha_inicio).order_by('-fecha_fin').first()
+                reserva_cercana_fin = propiedad.reservas.filter(fecha_inicio__gt=fecha_fin).order_by('fecha_inicio').first()
+                if reserva_cercana:
+                    propiedad.disponibilidad_inicio = reserva_cercana.fecha_fin + timedelta(days=1)
+                    print(f"Disponibilidad de inicio para {propiedad}: {propiedad.disponibilidad_inicio}")
+                    reserva_cercana_fin = propiedad.reservas.filter(fecha_inicio__gt=fecha_fin).order_by('fecha_inicio').first()
+                
+                if reserva_cercana_fin:
+                    propiedad.disponibilidad_fin = reserva_cercana_fin.fecha_inicio - timedelta(days=1)
+                    print(f"Disponibilidad de fin para {propiedad}: {propiedad.disponibilidad_fin}")
 
                 propiedades_disponibles.append(propiedad)
+
+                # Aquí buscar la reserva más cercana antes de la fecha de inicio
+            
 
     return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
         'form': form,
@@ -604,6 +627,7 @@ def buscar_propiedades(request):
         'fecha_fin': formato_fecha(fecha_fin) if fecha_fin else None,
         'inquilinos': inquilinos,
         'vendedores': vendedores,
+     
     })
 
 
