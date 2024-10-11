@@ -130,7 +130,7 @@
                 )">
                    <td style="color: red;">{{ propiedad.id }}</td>
                    <td style="color: red;">
-                    Reservado
+                    Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
                     </td>
                     <td style="color: red;">{{ propiedad.direccion }}</td>
                     <td style="color: red;">{{ propiedad.piso }}</td>
@@ -145,7 +145,7 @@
                     <td>{{ propiedad.id }}</td>
                     <td>
                         
-                            {{propiedad.disponibilidad_inicio}} al {{propiedad.disponibilidad_fin}}
+                            {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
                            
                     </td>
                     <td>{{ propiedad.direccion }}</td>
@@ -242,7 +242,7 @@
         </div>
     </div>
 </div>
-
+<!-- Modal de Autenticación del Vendedor -->
 <div class="modal fade" id="modalAutenticacionVendedor" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -271,6 +271,8 @@
         </div>
     </div>
 </div>
+
+
 <!-- Modales para ver detalles de la propiedad -->
 {% for propiedad in propiedades_disponibles %}
 <div class="modal fade" id="modalDetalles{{ propiedad.id }}" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
@@ -498,20 +500,33 @@ function mostrarModalAutenticacion(reservaId) {
 }
 
 function autenticarYFinalizar() {
-    const usuario = document.getElementById('usuarioVendedor').value;
-    const contrasena = document.getElementById('contrasenaVendedor').value;
+    var usuario = document.getElementById('usuarioVendedor').value;
+    var contrasena = document.getElementById('contrasenaVendedor').value;
+    var reservaId = window.reservaIdActual; // Usar el ID guardado
 
-    // Aquí deberías hacer una llamada AJAX para autenticar al vendedor
-    // Por ahora, simularemos una autenticación exitosa
-    if (usuario && contrasena) {
-        $('#modalAutenticacionVendedor').modal('hide');
-        // Redirigir a la página de finalización de la reserva
-        window.location.href = `/reservas/finalizar/${window.reservaIdActual}/`;
-    } else {
-        alert('Por favor, ingrese un usuario y contraseña válidos.');
-    }
+    // Enviar los datos a través de AJAX
+    $.ajax({
+        url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
+        type: 'POST',
+        data: {
+            'username': usuario,
+            'password': contrasena,
+            'reserva_id': reservaId,
+            'csrfmiddlewaretoken': '{{ csrf_token }}',
+        },
+        success: function(response) {
+            if (response.success) {
+                alert('Autenticación exitosa. Finalizando operación...');
+                window.location.href = '{% url "inmobiliaria:finalizar_reserva" 0 %}'.replace('0', reservaId);
+            } else {
+                alert('Credenciales incorrectas, por favor intente de nuevo.');
+            }
+        },
+        error: function(xhr, status, error) {
+            alert('Ocurrió un error en el servidor. Por favor, intente de nuevo.');
+        }
+    });
 }
-
 // Seleccionar la primera fila al cargar la página
 window.addEventListener('load', function() {
     const firstRow = document.querySelector('#propiedadesTable tbody tr');
@@ -520,5 +535,33 @@ window.addEventListener('load', function() {
     }
 });
 </script>
+<script type="text/javascript">
+    // Configurar CSRF para todas las solicitudes AJAX
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!/^(GET|HEAD|OPTIONS|TRACE)$/.test(settings.type) && !this.crossDomain) {
+                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+            }
+        }
+    });
+</script>
+
 
 {% endblock %}

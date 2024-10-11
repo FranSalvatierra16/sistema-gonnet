@@ -49,13 +49,13 @@ TIPOS_INMUEBLES = [
 
 class Propiedad(models.Model):
     DIRECCION_MAX_LENGTH = 255
-
+    DEPARTAMENTO_CHOICES = [(chr(i), chr(i)) for i in range(ord('A'), ord('Z')+1)]
     direccion = models.CharField(max_length=DIRECCION_MAX_LENGTH)
     descripcion = models.TextField(blank=True)
     tipo_inmueble = models.CharField(max_length=20, choices=TIPOS_INMUEBLES, default='departamento')
     vista = models.CharField(max_length=20, choices=TIPOS_VISTA, default='a_la_calle')
     piso = models.IntegerField()
-    departamento = models.IntegerField()
+    departamento = models.CharField(max_length=1, choices=DEPARTAMENTO_CHOICES)
     ambientes = models.IntegerField()
     valoracion = models.CharField(max_length=20, choices=TIPOS_VALORACION, default='bueno')
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
@@ -63,12 +63,12 @@ class Propiedad(models.Model):
     
     # Resto del código permanece igual
     
-    precio_diario = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Precio por día")
-    habilitar_precio_diario = models.BooleanField(default=False, verbose_name="Habilitar precio por día")
-    precio_venta = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Precio por venta")
-    habilitar_precio_venta = models.BooleanField(default=False, verbose_name="Habilitar precio por venta")
-    precio_alquiler = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Precio por alquiler")
-    habilitar_precio_alquiler = models.BooleanField(default=False, verbose_name="Habilitar precio por alquiler")
+    # precio_diario = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Precio por día")
+    # habilitar_precio_diario = models.BooleanField(default=False, verbose_name="Habilitar precio por día")
+    # precio_venta = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Precio por venta")
+    # habilitar_precio_venta = models.BooleanField(default=False, verbose_name="Habilitar precio por venta")
+    # precio_alquiler = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Precio por alquiler")
+    # habilitar_precio_alquiler = models.BooleanField(default=False, verbose_name="Habilitar precio por alquiler")
 
     # Atributos adicionales
     amoblado = models.BooleanField(default=False)
@@ -109,26 +109,26 @@ class Propiedad(models.Model):
         )
         return not disponibilidades.exists()
 
-    def clean(self):
-        super().clean()
+    # def clean(self):
+    #     super().clean()
 
-        precios_habilitados = [
-            self.habilitar_precio_diario,
-            self.habilitar_precio_venta,
-            self.habilitar_precio_alquiler
-        ]
+    #     precios_habilitados = [
+    #         self.habilitar_precio_diario,
+    #         self.habilitar_precio_venta,
+    #         self.habilitar_precio_alquiler
+    #     ]
 
-        if not any(precios_habilitados):
-            raise ValidationError(_('Debe habilitar al menos un tipo de precio.'))
+    #     if not any(precios_habilitados):
+    #         raise ValidationError(_('Debe habilitar al menos un tipo de precio.'))
 
-        if self.habilitar_precio_diario and not self.precio_diario:
-            raise ValidationError(_('Debe ingresar un precio por día si está habilitado.'))
+    #     if self.habilitar_precio_diario and not self.precio_diario:
+    #         raise ValidationError(_('Debe ingresar un precio por día si está habilitado.'))
 
-        if self.habilitar_precio_venta and not self.precio_venta:
-            raise ValidationError(_('Debe ingresar un precio de venta si está habilitado.'))
+    #     if self.habilitar_precio_venta and not self.precio_venta:
+    #         raise ValidationError(_('Debe ingresar un precio de venta si está habilitado.'))
 
-        if self.habilitar_precio_alquiler and not self.precio_alquiler:
-            raise ValidationError(_('Debe ingresar un precio de alquiler si está habilitado.'))
+    #     if self.habilitar_precio_alquiler and not self.precio_alquiler:
+    #         raise ValidationError(_('Debe ingresar un precio de alquiler si está habilitado.'))
 
     def save(self, *args, **kwargs):
         creating = self._state.adding  # Detectar si es una creación

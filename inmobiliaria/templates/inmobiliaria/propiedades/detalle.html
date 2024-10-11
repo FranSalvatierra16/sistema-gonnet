@@ -14,16 +14,24 @@
                         <!-- Columna de detalles de la propiedad -->
                         <div class="col-md-6">
                             <dl class="row">
-                                <!-- Información básica de la propiedad -->
+                            
+                                
+                                <dt class="col-sm-4">Ficha:</dt>
+                                <dd class="col-sm-8">{{ propiedad.id }}</dd>
                                 <dt class="col-sm-4">Dirección:</dt>
                                 <dd class="col-sm-8">{{ propiedad.direccion }}</dd>
-
-                                <dt class="col-sm-4">Descripción:</dt>
-                                <dd class="col-sm-8">{{ propiedad.descripcion }}</dd>
-
-                                <!-- Más detalles de la propiedad -->
+                                <dt class="col-sm-4">Valoración:</dt>
+                                <dd class="col-sm-8">{{ propiedad.valoracion }}</dd>
+                                <dt class="col-sm-4">Propietario:</dt>
+                                <dd class="col-sm-8">{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</dd>
+                                <dt class="col-sm-4">Piso:</dt>
+                                <dd class="col-sm-8">{{ propiedad.piso }}</dd>
+                                <dt class="col-sm-4">Departamento:</dt>
+                                <dd class="col-sm-8">{{ propiedad.departamento }}</dd>
                                 <dt class="col-sm-4">Ambientes:</dt>
                                 <dd class="col-sm-8">{{ propiedad.ambientes }}</dd>
+
+                              
                                 <!-- Más campos si es necesario -->
                             </dl>
                         </div>

@@ -68,17 +68,21 @@ class PropiedadForm(forms.ModelForm):
         required=False,
         help_text="Seleccione una o más imágenes para la propiedad"
     )
-    nuevo_propietario = forms.BooleanField(
-        required=False,
-        label="¿Nuevo propietario?"
+    propietario = forms.ModelChoiceField(
+        queryset=Propietario.objects.all(),
+        widget=forms.Select(attrs={'class': 'select2-propietario'}),
+        required=False
     )
+
 
     class Meta:
         model = Propiedad
         fields = [
             'direccion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
-            'habilitar_precio_diario', 'precio_diario', 'habilitar_precio_venta', 'precio_venta',
-            'habilitar_precio_alquiler', 'precio_alquiler', 'amoblado', 'cochera', 'tv_smart', 'wifi', 
+
+            # 'habilitar_precio_diario', 'precio_diario', 'habilitar_precio_venta', 'precio_venta',
+            # 'habilitar_precio_alquiler', 'precio_alquiler',
+            'amoblado', 'cochera', 'tv_smart', 'wifi', 
             'dependencia', 'patio', 'parrilla', 'piscina', 'reciclado', 'a_estrenar', 'terraza', 'balcon', 
             'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito', 'descripcion', 
             'propietario'
@@ -87,9 +91,9 @@ class PropiedadForm(forms.ModelForm):
             'descripcion': forms.Textarea(attrs={'rows': 5}),
             'valoracion': forms.Select(attrs={'class': 'form-control'}),
             'direccion': forms.TextInput(attrs={'placeholder': 'Ingrese la dirección'}),
-            'precio_venta': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de venta'}),
-            'precio_alquiler': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de alquiler'}),
-            'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio diario'}),
+            # 'precio_venta': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de venta'}),
+            # 'precio_alquiler': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de alquiler'}),
+            # 'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio diario'}),
         }
 class PrecioForm(forms.ModelForm):
     class Meta:
@@ -145,7 +149,8 @@ class BuscarPropiedadesForm(forms.Form):
     fecha_fin = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}))
     tipo_inmueble = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_INMUEBLES, required=False, )
     vista = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_VISTA, required=False)
-    ambientes = forms.IntegerField(required=False, min_value=1)
+    ambientes = forms.IntegerField(required=True, min_value=1, label="Ambientes")
+
     valoracion = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_VALORACION, required=False)
     precio_min = forms.DecimalField(required=False, min_value=0)
     precio_max = forms.DecimalField(required=False, min_value=0)
@@ -214,7 +219,7 @@ PrecioFormSet = modelformset_factory(
     can_delete=True  # Para poder eliminar precios
 )
 class PropietarioBuscarForm(forms.Form):
-     termino = forms.CharField(label='Buscar por nombre o apellido', max_length=100, required=False)
+    termino = forms.CharField(required=False, label='Buscar por nombre completo o DNI')
 
 class InquilinoBuscarForm(forms.Form):
-     termino = forms.CharField(label='Buscar por nombre o apellido', max_length=100, required=False)
+    termino = forms.CharField(label='Buscar por nombre o apellido', max_length=100, required=False)

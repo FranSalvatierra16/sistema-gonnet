@@ -19,6 +19,8 @@ from django.forms import inlineformset_factory
 from xhtml2pdf import pisa
 from io import BytesIO
 from django.template.loader import render_to_string
+from django.contrib.auth import authenticate
+
 import logging
 
 # index view
@@ -157,13 +159,24 @@ def propietarios(request):
         termino = form.cleaned_data.get('termino')
         
         if termino:
-            # Divide la cadena en palabras (puede ser nombre y/o apellido)
             palabras = termino.split()
-            
-            # Filtra los propietarios que coincidan con cualquier palabra en nombre o apellido
+            query = Q()
             for palabra in palabras:
-                propietarios = propietarios.filter(nombre__icontains=palabra) | propietarios.filter(apellido__icontains=palabra)
+                query |= Q(nombre__icontains=palabra) | Q(apellido__icontains=palabra)
+            query |= Q(dni__icontains=termino)
+            propietarios = propietarios.filter(query)
 
+    # Detectar si la solicitud es AJAX
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        propietarios_data = [{
+            'id': p.id,
+            'nombre': p.nombre,
+            'apellido': p.apellido,
+            'dni': p.dni
+        } for p in propietarios]
+        return JsonResponse({'propietarios': propietarios_data})
+
+    # Retornar la plantilla completa si no es AJAX
     return render(request, 'inmobiliaria/propietarios/lista.html', {
         'form': form,
         'propietarios': propietarios
@@ -226,21 +239,25 @@ def propiedad_detalle(request, propiedad_id):
     })
 @login_required
 def propiedad_nuevo(request):
+    propietario_form = PropietarioForm(request.POST) # Asegúrate de que esto esté bien definido
     if request.method == 'POST':
         form = PropiedadForm(request.POST, request.FILES)
         if form.is_valid():
             propiedad = form.save()
-            
             # Manejo de múltiples imágenes
             imagenes = request.FILES.getlist('imagenes')
             for imagen in imagenes:
                 ImagenPropiedad.objects.create(propiedad=propiedad, imagen=imagen)
-            
             messages.success(request, 'Propiedad creada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
         form = PropiedadForm()
-    return render(request, 'inmobiliaria/propiedades/formulario.html', {'form': form})
+
+    return render(request, 'inmobiliaria/propiedades/formulario.html', {
+        'form': form,
+        'propietario_form': propietario_form,
+    })
+
 @login_required
 def propiedad_editar(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
@@ -473,13 +490,12 @@ def formato_fecha(fecha):
     return fecha.strftime('%m/%d/%Y') if fecha else ''
 
 
-
 def buscar_propiedades(request):
     inquilinos = Inquilino.objects.all()
     form = BuscarPropiedadesForm(request.POST or None)
     propiedades_disponibles = []
     vendedores = Vendedor.objects.all()
-   
+
     # Inicializar las variables
     fecha_inicio = None
     fecha_fin = None
@@ -487,7 +503,7 @@ def buscar_propiedades(request):
     if form.is_valid():
         fecha_inicio = form.cleaned_data['fecha_inicio']
         fecha_fin = form.cleaned_data['fecha_fin']
-        
+
         # Filtrar propiedades
         propiedades = Propiedad.objects.all()
 
@@ -527,40 +543,34 @@ def buscar_propiedades(request):
                 propiedades = propiedades.filter(**{caracteristica: True})
 
         # Filtrar propiedades que están disponibles en las fechas indicadas
-        
         for propiedad in propiedades:
             disponibilidades = Disponibilidad.objects.filter(
                 propiedad=propiedad,
                 fecha_inicio__lte=fecha_fin,
                 fecha_fin__gte=fecha_inicio,
-                
-               
             )
-        for disponibilidad in disponibilidades:
-            propiedad.disponibilidad_inicio = disponibilidad.fecha_inicio
-            propiedad.disponibilidad_fin = disponibilidad.fecha_fin
-            print(propiedad.disponibilidad_inicio)
-            print(propiedad.disponibilidad_fin)
-           
 
+            # Obtener las reservas asociadas a la propiedad
             reservas = propiedad.reservas.filter(
                 Q(fecha_inicio__lte=fecha_fin) & Q(fecha_fin__gte=fecha_inicio)
             )
-            
+
             # Verificar si existen reservas pagadas
             if reservas.filter(estado='pagada').exists():
-                continue
-            
+                continue  # Saltar esta propiedad si ya tiene una reserva pagada
+
+            # Verificar si existe una reserva en estado 'en espera' (confirmada no pagada)
             reserva_confirmada_no_pagada = reservas.filter(estado='en_espera').first()
-            
+
+            # Evaluar la disponibilidad y las reservas de la propiedad
             if disponibilidades.exists() and not reservas.filter(estado='confirmada').exists():
-                # Calcular el precio total según las fechas seleccionadas
                 if reserva_confirmada_no_pagada:
                     propiedad.reserva = reserva_confirmada_no_pagada
                     propiedad.estado_reserva = 'confirmada_no_pagada'
-                elif not reservas.filter(estado='pagada').exists():
+                else:
                     propiedad.estado_reserva = 'disponible'
 
+                # Calcular el precio total de la reserva según las fechas seleccionadas
                 precio_total = 0
                 precio_mas_caro = 0  # Variable para almacenar el precio más caro por día
                 primer_dia = True  # Bandera para el primer día
@@ -604,21 +614,31 @@ def buscar_propiedades(request):
 
                 # Asignar el precio total y el precio más caro a la propiedad para mostrar en la plantilla
                 propiedad.precio_total_reserva = precio_total + precio_mas_caro
+                if not reservas.exists():
+                    primera_disponibilidad = disponibilidades.order_by('fecha_inicio').first()
+                    ultima_disponibilidad = disponibilidades.order_by('-fecha_fin').first()
+
+                    if primera_disponibilidad:
+                        propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
+                    if ultima_disponibilidad:
+                        propiedad.disponibilidad_fin= ultima_disponibilidad.fecha_fin
+
+                # Obtener la reserva más cercana antes de la fecha de inicio
                 reserva_cercana = propiedad.reservas.filter(fecha_fin__lt=fecha_inicio).order_by('-fecha_fin').first()
                 reserva_cercana_fin = propiedad.reservas.filter(fecha_inicio__gt=fecha_fin).order_by('fecha_inicio').first()
+
                 if reserva_cercana:
                     propiedad.disponibilidad_inicio = reserva_cercana.fecha_fin + timedelta(days=1)
-                    print(f"Disponibilidad de inicio para {propiedad}: {propiedad.disponibilidad_inicio}")
-                    reserva_cercana_fin = propiedad.reservas.filter(fecha_inicio__gt=fecha_fin).order_by('fecha_inicio').first()
-                
+
                 if reserva_cercana_fin:
                     propiedad.disponibilidad_fin = reserva_cercana_fin.fecha_inicio - timedelta(days=1)
-                    print(f"Disponibilidad de fin para {propiedad}: {propiedad.disponibilidad_fin}")
 
+                if reserva_confirmada_no_pagada:
+                    propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio 
+                    propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
+
+                # Añadir la propiedad disponible a la lista
                 propiedades_disponibles.append(propiedad)
-
-                # Aquí buscar la reserva más cercana antes de la fecha de inicio
-            
 
     return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
         'form': form,
@@ -627,9 +647,7 @@ def buscar_propiedades(request):
         'fecha_fin': formato_fecha(fecha_fin) if fecha_fin else None,
         'inquilinos': inquilinos,
         'vendedores': vendedores,
-     
     })
-
 
 
 def crear_disponibilidad(request, propiedad_id):
@@ -811,3 +829,54 @@ def historial_reservas_inquilino(request, inquilino_id):
     return render(request, 'inmobiliaria/inquilinos/historial.html', {
         'reservas': reservas,
     })    
+def buscar_propietarios(request):
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        query = request.GET.get('term', '')
+        propietarios = Propietario.objects.filter(
+            Q(nombre__icontains=query) | 
+            Q(apellido__icontains=query) |
+            Q(dni__icontains=query)
+        )[:10]
+        results = [{'id': p.id, 'text': f"{p.nombre} {p.apellido} (DNI: {p.dni})"} for p in propietarios]
+        return JsonResponse({'results': results})
+    return JsonResponse({'results': []})
+
+def propietario_nuevo_ajax(request):
+    if request.method == "POST" and request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        form = PropietarioForm(request.POST)
+        if form.is_valid():
+            propietario = form.save()
+            return JsonResponse({
+                'success': True,
+                'id': propietario.id,
+                'nombre': propietario.nombre,
+                'apellido': propietario.apellido,
+                'dni': propietario.dni
+            })
+        else:
+            return JsonResponse({'success': False, 'errors': form.errors})
+    return JsonResponse({'success': False, 'message': 'Invalid request'}, status=400)
+    
+def propiedades_por_propietario(request, propietario_id):
+    propietario = get_object_or_404(Propietario, id=propietario_id)
+    propiedades = Propiedad.objects.filter(propietario=propietario)
+    return render(request, 'inmobiliaria/propietarios/propiedades_propietario.html', {
+        'propietario': propietario,
+        'propiedades': propiedades
+    })
+def autenticacion_vendedor(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        reserva_id = request.POST.get('reserva_id')  # Obtener el reserva_id
+        
+        # Autenticar al usuario
+        user = authenticate(request, username=username, password=password)
+        
+        if user is not None:
+            # Autenticación exitosa
+            # Aquí puedes procesar la reserva usando el reserva_id si es necesario
+            return JsonResponse({'success': True, 'reserva_id': reserva_id})
+        else:
+            return JsonResponse({'success': False})
+    return JsonResponse({'error': 'Método no permitido'}, status=405)

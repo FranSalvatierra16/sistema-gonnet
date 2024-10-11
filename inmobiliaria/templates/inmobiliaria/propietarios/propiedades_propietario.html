@@ -2,11 +2,10 @@
 {% load crispy_forms_tags %}
 {% load bootstrap4 %}
 
-{% block title %}Listado de Propiedades{% endblock %}
+{% block title %}Propiedades de {{ propietario.nombre }}{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Listado de Propiedades</h1>
-<a href="{% url 'inmobiliaria:propiedad_nuevo' %}" class="btn btn-primary mb-3">Nueva Propiedad</a>
+<h1 class="mb-4">Propiedades de {{ propietario.nombre }} {{ propietario.apellido }}</h1>
 
 <!-- Tabla de propiedades -->
 <div class="table-responsive">
@@ -16,9 +15,7 @@
                 <th>Ficha</th>
                 <th>Dirección</th>
                 <th>Valoración</th>
-                <th>Propietario</th>
                 <th>Piso</th>
-                <th>Departamento</th>
                 <th>Ambientes</th>
                 
                 
@@ -32,11 +29,9 @@
                 <td>{{ propiedad.id }}</td>
                 <td>{{ propiedad.direccion }}</td>
                 <td>{{ propiedad.valoracion}}</td>
-                <td>{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</td>
                 <td>{{ propiedad.piso }}</td>
-                <td>{{ propiedad.departamento }}</td>
-                
                 <td>{{ propiedad.ambientes }}</td>
+               
                 <td>
                     <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-info btn-sm" data-toggle="tooltip" title="Ver detalles">
                         <i class="bi bi-eye"></i>
@@ -51,7 +46,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="10" class="text-center">No hay propiedades registradas.</td>
+                <td colspan="10" class="text-center">Este propietario no tiene propiedades registradas.</td>
             </tr>
             {% endfor %}
         </tbody>
