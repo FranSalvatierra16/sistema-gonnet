@@ -164,6 +164,9 @@
             </div>
         {% endif %}
     </div>
+    {% if alerta_sin_precio %}
+    <script>alert('Propiedades sin precio asignado');</script>
+{% endif %}
 
 <!-- Tarjeta de propiedad seleccionada -->
 <div class="col-md-4" class="card property-card" id="propertyCard">
@@ -334,6 +337,7 @@
 </div>
 
 {% endfor %}
+
 
 <script>
     // Función para mostrar y ocultar filtros
