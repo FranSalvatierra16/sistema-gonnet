@@ -93,22 +93,36 @@ def vendedor_eliminar(request, vendedor_id):
 # Inquilino views
 @login_required
 def inquilinos(request):
-    
-    form = PropietarioBuscarForm(request.GET or None)
+    form = InquilinoBuscarForm(request.GET or None)
     inquilinos = Inquilino.objects.all()
 
     if form.is_valid():
         termino = form.cleaned_data.get('termino')
         
         if termino:
-            # Divide la cadena en palabras (puede ser nombre y/o apellido)
             palabras = termino.split()
-            
-            # Filtra los propietarios que coincidan con cualquier palabra en nombre o apellido
+            query = Q()
             for palabra in palabras:
-                inquilinos = inquilinos.filter(nombre__icontains=palabra) | inquilinos.filter(apellido__icontains=palabra)
+                query |= Q(nombre__icontains=palabra) | Q(apellido__icontains=palabra)
+            query |= Q(dni__icontains=termino)
+            inquilinos = inquilinos.filter(query)
 
-    return render(request, 'inmobiliaria/inquilinos/lista.html', {'inquilinos': inquilinos, 'form': form,})
+    # Detectar si la solicitud es AJAX
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        inquilinos_data = [{
+            'id': i.id,
+            'dni': i.dni,
+            'nombre': i.nombre,
+            'apellido': i.apellido,
+            'email': i.email
+        } for i in inquilinos]
+        return JsonResponse({'inquilinos': inquilinos_data})
+
+    # Retornar la plantilla completa si no es AJAX
+    return render(request, 'inmobiliaria/inquilinos/lista.html', {
+        'form': form,
+        'inquilinos': inquilinos
+    })
 
 @login_required
 def inquilino_detalle(request, inquilino_id):

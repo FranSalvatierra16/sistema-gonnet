@@ -1,17 +1,18 @@
-<!-- File: inmobiliaria/templates/inmobiliaria/inquilinoes/lista.html -->
+<!-- File: inmobiliaria/templates/inmobiliaria/inquilinos/lista.html -->
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
 
-{% block title %}inquilinos{% endblock %}
+{% block title %}Inquilinos{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Listado de inquilinos</h1>
-<form method="GET" class="form-inline mb-4">
-    {{ form.termino}}  <!-- Campo para buscar por nombre o apellido -->
-    <button type="submit" class="btn btn-primary ml-2">Buscar</button>
-    <a href="{% url 'inmobiliaria:inquilinos' %}" class="btn btn-secondary ml-2">Limpiar</a>
+<h1>Lista de Inquilinos</h1>
+
+<!-- Formulario de búsqueda -->
+<form id="search-form">
+    {{ form.as_p }}
 </form>
-<a href="{% url 'inmobiliaria:inquilino_nuevo' %}" class="btn btn-primary mb-3">Nuevo inquilino</a>
+
+<!-- Tabla de inquilinos -->
 <table class="table table-striped">
     <thead>
         <tr>
@@ -22,7 +23,7 @@
             <th>Acciones</th>
         </tr>
     </thead>
-    <tbody>
+    <tbody id="inquilinos-body">
         {% for inquilino in inquilinos %}
         <tr>
             <td>{{ inquilino.dni }}</td>
@@ -38,9 +39,59 @@
         </tr>
         {% empty %}
         <tr>
-            <td colspan="5">No hay inquilinoes registrados.</td>
+            <td colspan="5">No se encontraron inquilinos.</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    var typingTimer;
+    var doneTypingInterval = 300;  // Tiempo de espera tras dejar de escribir
+
+    $('#id_termino').on('input', function() {
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(doneTyping, doneTypingInterval);
+    });
+
+    function doneTyping() {
+        var searchTerm = $('#id_termino').val();  // Obtener el término de búsqueda
+        $.ajax({
+            url: '{% url "inmobiliaria:inquilinos" %}',  // La vista que maneja la búsqueda
+            data: {
+                'termino': searchTerm  // Pasar el término de búsqueda a la vista
+            },
+            dataType: 'json',
+            success: function(data) {
+                updateTable(data.inquilinos);  // Actualizar la tabla con los nuevos datos
+            }
+        });
+    }
+
+    function updateTable(inquilinos) {
+        var tbody = $('#inquilinos-body');
+        tbody.empty();
+        $.each(inquilinos, function(i, inquilino) {
+            tbody.append(
+                '<tr>' +
+                '<td>' + inquilino.dni + '</td>' +
+                '<td>' + inquilino.nombre + '</td>' +
+                '<td>' + inquilino.apellido + '</td>' +
+                '<td>' + inquilino.email + '</td>' +
+                '<td>' +
+                '<a href="/inquilino/' + inquilino.id + '/" class="btn btn-sm btn-info">Ver</a> ' +
+                '<a href="/inquilino/' + inquilino.id + '/editar/" class="btn btn-sm btn-warning">Editar</a>' +
+                '<a href="/inquilino/' + inquilino.id + '/eliminar/" class="btn btn-sm btn-danger">Eliminar</a>' +
+                '<a href="/inquilino/' + inquilino.id + '/historial/" class="btn btn-sm btn-secondary">Historial</a>' +
+                '</td>' +
+                '</tr>'
+            );
+        });
+    }
+});
+</script>
+
+<a href="{% url 'inmobiliaria:inquilino_nuevo' %}" class="btn btn-primary mb-3">Nuevo inquilino</a>
 {% endblock %}
