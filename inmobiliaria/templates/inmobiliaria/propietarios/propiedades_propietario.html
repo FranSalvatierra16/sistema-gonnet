@@ -1,0 +1,69 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load crispy_forms_tags %}
+{% load bootstrap4 %}
+
+{% block title %}Propiedades de {{ propietario.nombre }}{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Propiedades de {{ propietario.nombre }} {{ propietario.apellido }}</h1>
+
+<!-- Tabla de propiedades -->
+<div class="table-responsive">
+    <table class="table table-hover table-striped">
+        <thead class="table-light">
+            <tr>
+                <th>Ficha</th>
+                <th>Dirección</th>
+                <th>Valoración</th>
+                <th>Piso</th>
+                <th>Ambientes</th>
+                
+                
+                
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for propiedad in propiedades %}
+            <tr>
+                <td>{{ propiedad.id }}</td>
+                <td>{{ propiedad.direccion }}</td>
+                <td>{{ propiedad.valoracion}}</td>
+                <td>{{ propiedad.piso }}</td>
+                <td>{{ propiedad.ambientes }}</td>
+               
+                <td>
+                    <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-info btn-sm" data-toggle="tooltip" title="Ver detalles">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad.id %}" class="btn btn-warning btn-sm" data-toggle="tooltip" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad.id %}" class="btn btn-danger btn-sm" data-toggle="tooltip" title="Eliminar">
+                        <i class="bi bi-trash"></i>
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="10" class="text-center">Este propietario no tiene propiedades registradas.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Incluir Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.8.1/font/bootstrap-icons.min.css">
+
+<!-- Script para inicializar tooltips -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+    })
+</script>
+
+{% endblock %}

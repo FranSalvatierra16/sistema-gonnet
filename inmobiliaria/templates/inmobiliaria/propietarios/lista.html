@@ -1,40 +1,92 @@
-<!-- File: inmobiliaria/templates/inmobiliaria/propietarioes/lista.html -->
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
 
-{% block title %}propietarios{% endblock %}
+{% block title %}Propietarios{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Listado de propietarios</h1>
-<a href="{% url 'inmobiliaria:propietario_nuevo' %}" class="btn btn-primary mb-3">Nuevo propietario</a>
+<h1>Lista de Propietarios</h1>
+<a href="{% url 'inmobiliaria:propietario_nuevo' %}" class="btn btn-primary mb-3">Nuevo Propietario</a>
+<!-- Formulario de búsqueda -->
+<form id="search-form">
+    {{ form.as_p }}
+</form>
+
+<!-- Tabla de propietarios -->
 <table class="table table-striped">
     <thead>
         <tr>
-            <th>DNI</th>
             <th>Nombre</th>
             <th>Apellido</th>
-            <th>Email</th>
+            <th>DNI</th>
             <th>Acciones</th>
         </tr>
     </thead>
-    <tbody>
+    <tbody id="propietarios-body">
         {% for propietario in propietarios %}
         <tr>
-            <td>{{ propietario.dni }}</td>
             <td>{{ propietario.nombre }}</td>
             <td>{{ propietario.apellido }}</td>
-            <td>{{ propietario.email }}</td>
+            <td>{{ propietario.dni }}</td>
             <td>
                 <a href="{% url 'inmobiliaria:propietario_detalle' propietario.id %}" class="btn btn-sm btn-info">Ver</a>
                 <a href="{% url 'inmobiliaria:propietario_editar' propietario.id %}" class="btn btn-sm btn-warning">Editar</a>
                 <a href="{% url 'inmobiliaria:propietario_eliminar' propietario.id %}" class="btn btn-sm btn-danger">Eliminar</a>
+                <a href="{% url 'inmobiliaria:propiedades_propietario' propietario.id %}" class="btn btn-primary btn-sm">Propiedades</a>
             </td>
         </tr>
         {% empty %}
         <tr>
-            <td colspan="5">No hay propietarioes registrados.</td>
+            <td colspan="4">No se encontraron propietarios.</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    var typingTimer;
+    var doneTypingInterval = 300;  // Tiempo de espera tras dejar de escribir
+
+    $('#id_termino').on('input', function() {
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(doneTyping, doneTypingInterval);
+    });
+
+    function doneTyping() {
+        var searchTerm = $('#id_termino').val();  // Obtener el término de búsqueda
+        $.ajax({
+            url: '{% url "inmobiliaria:propietarios" %}',  // La vista que maneja la búsqueda
+            data: {
+                'termino': searchTerm  // Pasar el término de búsqueda a la vista
+            },
+            dataType: 'json',
+            success: function(data) {
+                updateTable(data.propietarios);  // Actualizar la tabla con los nuevos datos
+            }
+        });
+    }
+
+    function updateTable(propietarios) {
+    var tbody = $('#propietarios-body');
+    tbody.empty();
+    $.each(propietarios, function(i, propietario) {
+        tbody.append(
+            '<tr>' +
+            '<td>' + propietario.nombre + '</td>' +
+            '<td>' + propietario.apellido + '</td>' +
+            '<td>' + propietario.dni + '</td>' +
+            '<td>' +
+            '<a href="/propietario/' + propietario.id + '/" class="btn btn-sm btn-info">Ver</a> ' +
+            '<a href="/propietario/' + propietario.id + '/editar/" class="btn btn-sm btn-warning">Editar</a>' +
+            '<a href="/propietario/' + propietario.id + '/eliminar/" class="btn btn-sm btn-danger">Eliminar</a>' +
+            '<a href="/propietario/' + propietario.id + '/propiedades/" class="btn btn-sm btn-primary">Propiedades</a>' + // Update this line
+            '</td>' +
+            '</tr>'
+        );
+    });
+}
+
+});
+</script>
 {% endblock %}

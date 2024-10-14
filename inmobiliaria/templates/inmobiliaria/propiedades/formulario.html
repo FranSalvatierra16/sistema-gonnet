@@ -17,6 +17,7 @@
                 {% bootstrap_field form.tipo_inmueble layout='horizontal' %}
                 {% bootstrap_field form.vista layout='horizontal' %}
                 {% bootstrap_field form.piso layout='horizontal' %}
+                {% bootstrap_field form.departamento layout='horizontal' %}
                 {% bootstrap_field form.ambientes layout='horizontal' %}
                 {% bootstrap_field form.valoracion layout='horizontal' %}
             </div>
@@ -25,46 +26,34 @@
             <div class="col-md-6">
                 <h3>Propietario</h3>
                 <div class="form-group">
-                    {{ form.propietario.label_tag }}
+                    <label for="id_propietario">Seleccionar Propietario:</label>
                     {{ form.propietario }}
                 </div>
                 
-                <div class="form-check">
+                <!-- <div class="form-check">
                     {{ form.nuevo_propietario }}
-                    {{ form.nuevo_propietario.label_tag }}
-                </div>
+                    <label class="form-check-label" for="id_nuevo_propietario">Crear nuevo propietario</label>
+                </div> -->
                 
-                <div id="nuevo-propietario-fields" style="display: none;">
+                <div id="nuevo-propietario-fields">
                     <!-- Botón para abrir el modal de crear propietario -->
-                    <button id="abrir-modal-propietario-btn" type="button" class="btn btn-success">Crear Nuevo Propietario</button>
+                    <button id="abrir-modal-propietario-btn" type="button" class="btn btn-success" data-toggle="modal" data-target="#modal-propietario">Crear Nuevo Propietario</button>
                 </div>
             </div>
             
-            <!-- Precios -->
-            <div class="col-md-6">
-                <h3>Precios</h3>
-                {% bootstrap_field form.habilitar_precio_diario layout='horizontal' %}
-                {% bootstrap_field form.precio_diario layout='horizontal' %}
-                {% bootstrap_field form.habilitar_precio_venta layout='horizontal' %}
-                {% bootstrap_field form.precio_venta layout='horizontal' %}
-                {% bootstrap_field form.habilitar_precio_alquiler layout='horizontal' %}
-                {% bootstrap_field form.precio_alquiler layout='horizontal' %}
-            </div>
-            
-            <!-- Temporadas -->
-            <div class="col-md-6">
-                <h3>Temporadas</h3>
-                <div class="form-check">
-                    {{ form.habilitar_verano }}
-                    <label class="form-check-label" for="{{ form.habilitar_verano.id_for_label }}">
-                        Habilitar reservas en verano
-                    </label>
-                </div>
-                <div class="form-check">
-                    {{ form.habilitar_invierno }}
-                    <label class="form-check-label" for="{{ form.habilitar_invierno.id_for_label }}">
-                        Habilitar reservas en invierno
-                    </label>
+  
+        </div>
+        
+        <!-- Imágenes -->
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <h3>Imágenes</h3>
+                <div class="form-group">
+                    <label for="imagenes">Imágenes de la propiedad:</label>
+                    {{ form.imagenes }}
+                    {% if form.imagenes.help_text %}
+                        <small class="form-text text-muted">{{ form.imagenes.help_text }}</small>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -107,75 +96,121 @@
     </form>
 
     <!-- Modal para crear nuevo propietario -->
-    <div id="modal-propietario" class="modal" tabindex="-1" role="dialog">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Nuevo Propietario</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="row mt-4">
-                    <div class="col-md-12">
-                        <h3>Imágenes</h3>
-                        <div class="form-group">
-                            {{ form.imagenes.label_tag }}
-                            {{ form.imagenes }}
-                            {% if form.imagenes.help_text %}
-                                <small class="form-text text-muted">{{ form.imagenes.help_text }}</small>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
+
+<!-- Modal para agregar propietario -->
+<div id="modal-propietario" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalPropietarioLabel">Agregar Nuevo Propietario</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="form-nuevo-propietario" method="post">
+                    {% csrf_token %}
+                    {{ propietario_form.as_p }}
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" id="guardar-propietario-btn" data-dismiss="modal" class="btn btn-primary">Guardar Propietario</button>
             </div>
         </div>
     </div>
 </div>
 
+
+
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const nuevoPropietarioCheckbox = document.querySelector('#id_nuevo_propietario');
-    const abrirModalPropietarioBtn = document.querySelector('#abrir-modal-propietario-btn');
-    const crearPropietarioBtn = document.querySelector('#crear-propietario-btn');
-    const propietarioSelect = document.querySelector('#id_propietario');
-    
-    // Mostrar modal de nuevo propietario
-    abrirModalPropietarioBtn.addEventListener('click', function() {
-        $('#modal-propietario').modal('show');
-    });
-
-    // Enviar los datos del nuevo propietario por AJAX
-    crearPropietarioBtn.addEventListener('click', function() {
-        const form = document.querySelector('#nuevo-propietario-form');
-        const formData = new FormData(form);
-        
-        fetch("{% url 'inmobiliaria:crear_propietario_ajax' %}", {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': '{{ csrf_token }}',
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const option = document.createElement('option');
-                option.value = data.propietario_id;
-                option.text = data.propietario_nombre;
-                propietarioSelect.add(option);
-                propietarioSelect.value = data.propietario_id;
-
-                $('#modal-propietario').modal('hide');
-            } else {
-                alert('Error al crear propietario: ' + JSON.stringify(data.errors));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
+    $(document).ready(function() {
+        $('#guardar-propietario-btn').click(function() {
+            var formData = $('#form-nuevo-propietario').serialize();
+            $.ajax({
+                url: '{% url "inmobiliaria:crear_propietario_ajax" %}',
+                type: 'POST',
+                data: formData,
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        // Agregar el nuevo propietario al select
+                        var newOption = new Option(response.nombre + ' ' + response.apellido + ' (DNI: ' + response.dni + ')', response.id, true, true);
+                        $('#id_propietario').append(newOption).trigger('change');
+                        
+                        // Cerrar el modal
+                        $('#modal-propietario').modal('hide');
+                        
+                        // Limpiar el formulario
+                        $('#form-nuevo-propietario')[0].reset();
+                    } else {
+                        // Mostrar errores
+                       
+                    }
+                },
+                error: function() {
+                    alert('Error al procesar la solicitud');
+                }
+            });
         });
     });
-});
 </script>
+<script>
+    $(document).ready(function() {
+        $('.select2-propietario').select2({
+            ajax: {
+                url: '{% url "inmobiliaria:buscar_propietarios" %}',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return {
+                        term: params.term,
+                        page: params.page
+                    };
+                },
+                processResults: function (data, params) {
+                    return {
+                        results: data.results,
+                    };
+                },
+                cache: true
+            },
+            minimumInputLength: 2,
+            placeholder: 'Buscar propietario...',
+            allowClear: true
+        });
+    });
+    </script>
+    <script>
+        $(document).ready(function() {
+            $('#guardar-propietario-btn').click(function() {
+                var form = $('#form-nuevo-propietario');
+    
+                $.ajax({
+                    type: form.attr('method'),
+                    url: form.attr('action'),  // O la URL a la que enviarás la solicitud
+                    data: form.serialize(),
+                    success: function(response) {
+                        if (response.success) {
+                            alert(response.mensaje);  // Mensaje de éxito
+                            $('#modal-propietario').modal('hide');  // Cierra el modal
+                            form[0].reset();  // Limpia el formulario
+                        } else {
+                            alert('Error al guardar el propietario.');
+                        }
+                    },
+                    error: function(xhr, textStatus, errorThrown) {
+                        alert('Error en la solicitud: ' + errorThrown);
+                    }
+                });
+            });
+        });
+    </script>
 {% endblock %}

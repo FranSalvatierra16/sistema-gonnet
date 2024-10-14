@@ -99,7 +99,8 @@ class Inquilino(Persona):
 
 class Propietario(Persona):
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
-
+    def nombre_completo_propietario(self):
+        return f"{self.nombre} {self.apellido}"
     class Meta:
         verbose_name = "Propietario"
         verbose_name_plural = "Propietarios"

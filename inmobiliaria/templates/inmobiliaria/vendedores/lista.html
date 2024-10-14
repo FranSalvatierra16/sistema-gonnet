@@ -28,6 +28,7 @@
                 <a href="{% url 'inmobiliaria:vendedor_detalle' vendedor.id %}" class="btn btn-sm btn-info">Ver</a>
                 <a href="{% url 'inmobiliaria:vendedor_editar' vendedor.id %}" class="btn btn-sm btn-warning">Editar</a>
                 <a href="{% url 'inmobiliaria:vendedor_eliminar' vendedor.id %}" class="btn btn-sm btn-danger">Eliminar</a>
+                <a href="{% url 'inmobiliaria:historial_reservas_vendedor' vendedor.id %}" class="btn btn-sm btn-secondary">Historial</a>
             </td>
         </tr>
         {% empty %}

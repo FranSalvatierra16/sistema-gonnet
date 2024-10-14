@@ -20,14 +20,82 @@
 </div>
 
 <!-- Formulario para finalizar la reserva -->
-
 <form method="post" action="{% url 'inmobiliaria:finalizar_reserva' reserva.id %}">
     {% csrf_token %}
     <div class="form-group">
         <label for="pago_senia">Pago de Seña:</label>
         <input type="number" step="0.01" class="form-control" id="pago_senia" name="pago_senia" required>
     </div>
-    <button type="submit" class="btn btn-primary">Confirmar Pago</button>
+    <div class="form-group">
+        <label for="pago_total">Monto Total a Pagar:</label>
+        <input type="number" class="form-control" id="pago_total" name="pago_total" value="{{ reserva.cuota_pendiente }}" readonly>
+    </div>
+    <button type="submit" class="btn btn-primary" onclick="mostrarRecibo()">Confirmar Pago</button>
 </form>
+
+<!-- Modal para el recibo -->
+<div class="modal fade" id="reciboModal" tabindex="-1" role="dialog" aria-labelledby="reciboModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reciboModalLabel">Recibo de Pago</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Propiedad:</strong> {{ reserva.propiedad.direccion }}</p>
+                <p><strong>Cliente:</strong> {{ reserva.cliente.get_full_name }}</p>
+                <p><strong>Fecha de Reserva:</strong> {{ reserva.fecha_inicio }} - {{ reserva.fecha_fin }}</p>
+                <p><strong>Pago Total:</strong> {{ reserva.precio_total }} USD</p>
+                <p><strong>Cuota Pagada:</strong> {{ reserva.senia }} USD</p>
+                <p><strong>Pago Pendiente:</strong> {{ reserva.cuota_pendiente }} USD</p>
+                <p><strong>Monto Pagado:</strong> {{ pago_senia }} USD</p>
+                <p><strong>Cuota Restante:</strong> {{ reserva.cuota_pendiente|floatformat:2 }} USD</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if pago_senia %}
+<script>
+    document.getElementById('finalizarReservaForm').onsubmit = function(event) {
+        event.preventDefault();  // Prevenir el envío normal del formulario
+        var form = this;
+    
+        fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.pdf) {
+                // Crear el blob del PDF y mostrarlo en el modal
+                var blob = new Blob([data.pdf], { type: 'application/pdf' });
+                var url = URL.createObjectURL(blob);
+                document.getElementById('reciboContent').innerHTML = 
+                    `<iframe src="${url}" style="width: 100%; height: 500px;" frameborder="0"></iframe>`;
+                
+                $('#reciboModal').modal('show');
+    
+                // Redirigir al dashboard después de mostrar el recibo
+                setTimeout(function() {
+                    window.location.href = data.redirect_url;
+                }, 5000);  // Cambiar el tiempo de espera si es necesario
+            } else {
+                alert('Error al generar el recibo.');  // Mensaje de error
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Hubo un problema con la solicitud.');
+        });
+    };
+    </script>
+    
+{% endif %}
 
 {% endblock %}
