@@ -5,7 +5,7 @@
 
 {% block content %}
 <h1>Lista de Propietarios</h1>
-
+<a href="{% url 'inmobiliaria:propietario_nuevo' %}" class="btn btn-primary mb-3">Nuevo Propietario</a>
 <!-- Formulario de búsqueda -->
 <form id="search-form">
     {{ form.as_p }}
@@ -68,23 +68,25 @@ $(document).ready(function() {
     }
 
     function updateTable(propietarios) {
-        var tbody = $('#propietarios-body');
-        tbody.empty();
-        $.each(propietarios, function(i, propietario) {
-            tbody.append(
-                '<tr>' +
-                '<td>' + propietario.nombre + '</td>' +
-                '<td>' + propietario.apellido + '</td>' +
-                '<td>' + propietario.dni + '</td>' +
-                '<td>' +
-                '<a href="/propietario/' + propietario.id + '/" class="btn btn-sm btn-info">Ver</a> ' +
-                '<a href="/propietario/' + propietario.id + '/editar/" class="btn btn-sm btn-warning">Editar</a>' +
-                '<a href="/propietario/' + propietario.id + '/eliminar/" class="btn btn-sm btn-danger">Eliminar</a>' +
-                '</td>' +
-                '</tr>'
-            );
-        });
-    }
+    var tbody = $('#propietarios-body');
+    tbody.empty();
+    $.each(propietarios, function(i, propietario) {
+        tbody.append(
+            '<tr>' +
+            '<td>' + propietario.nombre + '</td>' +
+            '<td>' + propietario.apellido + '</td>' +
+            '<td>' + propietario.dni + '</td>' +
+            '<td>' +
+            '<a href="/propietario/' + propietario.id + '/" class="btn btn-sm btn-info">Ver</a> ' +
+            '<a href="/propietario/' + propietario.id + '/editar/" class="btn btn-sm btn-warning">Editar</a>' +
+            '<a href="/propietario/' + propietario.id + '/eliminar/" class="btn btn-sm btn-danger">Eliminar</a>' +
+            '<a href="/propietario/' + propietario.id + '/propiedades/" class="btn btn-sm btn-primary">Propiedades</a>' + // Update this line
+            '</td>' +
+            '</tr>'
+        );
+    });
+}
+
 });
 </script>
 {% endblock %}
