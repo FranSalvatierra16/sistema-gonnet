@@ -2,12 +2,12 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
 from django.contrib.auth.signals import user_logged_in
@@ -364,6 +364,7 @@ def operaciones(request):
     reservas = Reserva.objects.all()
     return render(request, 'inmobiliaria/reserva/operaciones.html', {'reservas': reservas})
 def crear_reserva(request):
+
     if request.method == 'POST':
         propiedad_id = request.POST.get('propiedad_id')
         fecha_inicio_str = request.POST.get('fecha_inicio')
@@ -434,6 +435,8 @@ def parse_fecha(fecha_str):
     raise ValidationError('El formato de la fecha es inválido.')
 
 def confirmar_reserva(request):
+    inquilino_form = InquilinoForm(request.POST)
+    form = (request.POST or None)
     if request.method == 'POST':
         try:
             # Obtener datos del formulario
@@ -507,9 +510,11 @@ def formato_fecha(fecha):
 def buscar_propiedades(request):
     inquilinos = Inquilino.objects.all()
     form = BuscarPropiedadesForm(request.POST or None)
+    inquilino_form = InquilinoForm(request.POST)
     propiedades_disponibles = []
     propiedades_sin_precio = []
     vendedores = Vendedor.objects.all()
+    
 
     fecha_inicio = None
     fecha_fin = None
@@ -520,6 +525,11 @@ def buscar_propiedades(request):
 
         # Filtrar propiedades
         propiedades = Propiedad.objects.all()
+
+        # Prefetch los precios para cada propiedad
+        propiedades = propiedades.prefetch_related(
+            Prefetch('precios', queryset=Precio.objects.all(), to_attr='todos_precios')
+        )
 
         # Aplicar filtros del formulario
         tipo_inmueble = form.cleaned_data.get('tipo_inmueble')
@@ -555,6 +565,10 @@ def buscar_propiedades(request):
         for caracteristica in caracteristicas_booleanas:
             if form.cleaned_data.get(caracteristica):
                 propiedades = propiedades.filter(**{caracteristica: True})
+                
+
+
+                
 
         # Filtrar propiedades que están disponibles en las fechas indicadas
         for propiedad in propiedades:
@@ -581,6 +595,7 @@ def buscar_propiedades(request):
                 if reserva_confirmada_no_pagada:
                     propiedad.reserva = reserva_confirmada_no_pagada
                     propiedad.estado_reserva = 'confirmada_no_pagada'
+                    propiedad.precio_total_reserva = reserva_confirmada_no_pagada.precio_total
                 else:
                     propiedad.estado_reserva = 'disponible'
 
@@ -618,8 +633,12 @@ def buscar_propiedades(request):
                     else:
                         primer_dia = False
 
-                if precio_dia > 0:
-                    propiedad.precio_total_reserva = precio_total + precio_mas_caro
+                if precio_dia > 0 :
+
+                    if reserva_confirmada_no_pagada:
+                        propiedad.precio_total_reserva = reserva_confirmada_no_pagada.precio_total
+                    else:
+                        propiedad.precio_total_reserva = precio_total + precio_mas_caro
                     if not reservas.exists():
                         primera_disponibilidad = disponibilidades.order_by('fecha_inicio').first()
                         ultima_disponibilidad = disponibilidades.order_by('-fecha_fin').first()
@@ -649,8 +668,12 @@ def buscar_propiedades(request):
                     propiedades_disponibles.append(propiedad)
                     propiedades_disponibles.sort(key=lambda x: x.dias_disponibles)
 
+                    # Asegúrate de que todos los precios estén disponibles
+                    propiedad.todos_precios = sorted(propiedad.todos_precios, key=lambda x: TipoPrecio[x.tipo_precio].value)
+
     # Alerta si hay propiedades sin precio
     alerta_sin_precio = len(propiedades_sin_precio) > 0
+    
 
     return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
         'form': form,
@@ -660,6 +683,8 @@ def buscar_propiedades(request):
         'fecha_fin': formato_fecha(fecha_fin) if fecha_fin else None,
         'inquilinos': inquilinos,
         'vendedores': vendedores,
+        'tipos_precio': TipoPrecio,
+        'inquilino_form': inquilino_form,
     })
 
 def crear_disponibilidad(request, propiedad_id):
@@ -892,3 +917,29 @@ def autenticacion_vendedor(request):
         else:
             return JsonResponse({'success': False})
     return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+def buscar_clientes(request):
+    term = request.GET.get('term', '')
+    clientes = Inquilino.objects.filter(
+        Q(nombre__icontains=term) | 
+        Q(apellido__icontains=term) | 
+        Q(dni__icontains=term)
+    )[:10]
+    results = [{'id': c.id, 'text': f"{c.nombre} {c.apellido} (DNI: {c.dni})"} for c in clientes]
+    return JsonResponse({'results': results})
+
+def crear_inquilino_ajax(request):
+    if request.method == "POST":
+        form = InquilinoForm(request.POST)
+        if form.is_valid():
+            inquilino = form.save()
+            return JsonResponse({
+                'success': True,
+                'id': inquilino.id,
+                'nombre': inquilino.nombre,
+                'apellido': inquilino.apellido,
+                'dni': inquilino.dni
+            })
+        else:
+            return JsonResponse({'success': False, 'errors': form.errors})
+    return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)

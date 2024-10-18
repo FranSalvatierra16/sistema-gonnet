@@ -13,24 +13,30 @@
         <p><strong>Cliente:</strong> {{ reserva.cliente.get_full_name }}</p>
         <p><strong>Fecha de Inicio:</strong> {{ reserva.fecha_inicio }} a las {{ reserva.hora_ingreso }}</p>
         <p><strong>Fecha de Fin:</strong> {{ reserva.fecha_fin }} a las {{ reserva.hora_egreso }}</p>
-        <p><strong>Precio Total:</strong> {{ reserva.precio_total }} USD</p>
-        <p><strong>Seña Pagada:</strong> {{ reserva.senia }} USD</p>
-        <p><strong>Cuota Pendiente:</strong> {{ reserva.cuota_pendiente }} USD</p>
+        <div class="form-group">
+            <label for="precio_total">Precio Total:</label>
+            <span id="precio_total_display">{{ reserva.precio_total }}</span> 
+            <button type="button" id="editar_precio_btn" class="btn btn-link">Editar</button>
+            <input type="number" step="0.01" class="form-control" id="precio_total" name="precio_total" value="{{ reserva.precio_total }}" style="display: none;" required>
+            <button type="button" id="guardar_precio_btn" class="btn btn-link" style="display: none;">Guardar</button>
+            <button type="button" id="cancelar_precio_btn" class="btn btn-link" style="display: none;">Cancelar</button>
+        </div>
     </div>
 </div>
 
 <!-- Formulario para finalizar la reserva -->
-<form method="post" action="{% url 'inmobiliaria:finalizar_reserva' reserva.id %}">
+<form method="post" action="{% url 'inmobiliaria:finalizar_reserva' reserva.id %}" id="finalizarReservaForm">
     {% csrf_token %}
     <div class="form-group">
         <label for="pago_senia">Pago de Seña:</label>
         <input type="number" step="0.01" class="form-control" id="pago_senia" name="pago_senia" required>
     </div>
     <div class="form-group">
-        <label for="pago_total">Monto Total a Pagar:</label>
+        <label for="pago_total">Saldo restante:</label>
         <input type="number" class="form-control" id="pago_total" name="pago_total" value="{{ reserva.cuota_pendiente }}" readonly>
     </div>
-    <button type="submit" class="btn btn-primary" onclick="mostrarRecibo()">Confirmar Pago</button>
+    <button type="submit" class="btn btn-primary">Confirmar Pago</button>
+    <a href="{% url 'inmobiliaria:buscar_propiedades' %}" class="btn btn-secondary">Cancelar</a>
 </form>
 
 <!-- Modal para el recibo -->
@@ -60,8 +66,60 @@
     </div>
 </div>
 
-{% if pago_senia %}
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const precioTotalDisplay = document.getElementById('precio_total_display');
+        const precioTotalInput = document.getElementById('precio_total');
+        const editarPrecioBtn = document.getElementById('editar_precio_btn');
+        const guardarPrecioBtn = document.getElementById('guardar_precio_btn');
+        const cancelarPrecioBtn = document.getElementById('cancelar_precio_btn');
+        const pagoSeniaInput = document.getElementById('pago_senia');
+        const cuotaPendienteInput = document.getElementById('pago_total');
+
+        editarPrecioBtn.addEventListener('click', function() {
+            precioTotalDisplay.style.display = 'none';
+            precioTotalInput.style.display = 'inline-block';
+            editarPrecioBtn.style.display = 'none';
+            guardarPrecioBtn.style.display = 'inline-block';
+            cancelarPrecioBtn.style.display = 'inline-block';
+            precioTotalInput.focus();
+        });
+
+        guardarPrecioBtn.addEventListener('click', function() {
+            precioTotalDisplay.style.display = 'inline';
+            precioTotalInput.style.display = 'none';
+            guardarPrecioBtn.style.display = 'none';
+            cancelarPrecioBtn.style.display = 'none';
+            precioTotalDisplay.textContent = precioTotalInput.value;
+            actualizarCuotaPendiente();
+            editarPrecioBtn.style.display = 'inline'; // Mostrar el botón "Editar" nuevamente
+        });
+
+        cancelarPrecioBtn.addEventListener('click', function() {
+            precioTotalDisplay.style.display = 'inline';
+            precioTotalInput.style.display = 'none';
+            guardarPrecioBtn.style.display = 'none';
+            cancelarPrecioBtn.style.display = 'none';
+            precioTotalInput.value = precioTotalDisplay.textContent;  // Restablecer el valor
+            editarPrecioBtn.style.display = 'inline'; // Mostrar el botón "Editar" nuevamente
+        });
+
+        function actualizarCuotaPendiente() {
+            const precioTotal = parseFloat(precioTotalInput.value) || parseFloat(precioTotalDisplay.textContent) || 0;
+            const pagoSenia = parseFloat(pagoSeniaInput.value) || 0;
+            const cuotaPendiente = precioTotal - pagoSenia;
+            cuotaPendienteInput.value = cuotaPendiente.toFixed(2);
+        }
+
+        precioTotalInput.addEventListener('input', actualizarCuotaPendiente);
+        pagoSeniaInput.addEventListener('input', actualizarCuotaPendiente);
+
+        // Inicializar los valores
+        actualizarCuotaPendiente();
+    });
+</script>
+{% if pago_senia %}
+    <script>
     document.getElementById('finalizarReservaForm').onsubmit = function(event) {
         event.preventDefault();  // Prevenir el envío normal del formulario
         var form = this;
@@ -95,7 +153,6 @@
         });
     };
     </script>
-    
 {% endif %}
 
 {% endblock %}

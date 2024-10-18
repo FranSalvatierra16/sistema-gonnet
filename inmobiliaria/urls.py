@@ -49,6 +49,8 @@ urlpatterns = [
     path('propiedad/<int:propiedad_id>/crear-disponibilidad/', views.crear_disponibilidad, name='crear_disponibilidad'),
     path('buscar-propiedades-23/', views.buscar_propiedades_23, name='buscar_propiedades_23'),
     path('propietario/nuevo/ajax/', views.propietario_nuevo_ajax, name='propietario_nuevo_ajax'),
+     path('buscar-clientes/', views.buscar_clientes, name='buscar_clientes'),
+    path('crear-inquilino-ajax/', views.crear_inquilino_ajax, name='crear_inquilino_ajax'),
 
     # Reserva URLs
     path('reservas/', views.reservas, name='reservas'),
@@ -63,6 +65,7 @@ urlpatterns = [
   path('buscar-propietarios/', views.buscar_propietarios, name='buscar_propietarios'),
     path('reserva/eliminar/<int:reserva_id>/', views.reserva_eliminar, name='reserva_eliminar'),
     path('autenticacion-vendedor/', views.autenticacion_vendedor, name='autenticacion_vendedor'),
+  
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
