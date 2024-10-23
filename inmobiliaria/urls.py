@@ -63,8 +63,11 @@ urlpatterns = [
     path('reservas/finalizar/<int:reserva_id>/', views.terminar_reserva, name='finalizar_reserva'),
     path('reservas/<int:reserva_id>/editar/', views.reserva_editar, name='reserva_editar'),
   path('buscar-propietarios/', views.buscar_propietarios, name='buscar_propietarios'),
+  path('buscar-inquilinos/', views.buscar_inquilinos, name='buscar_inquilinos'),
     path('reserva/eliminar/<int:reserva_id>/', views.reserva_eliminar, name='reserva_eliminar'),
     path('autenticacion-vendedor/', views.autenticacion_vendedor, name='autenticacion_vendedor'),
+    path('obtener-precios-propiedad/', views.obtener_precios_propiedad, name='obtener_precios_propiedad'),
+    
   
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -222,4 +222,4 @@ class PropietarioBuscarForm(forms.Form):
     termino = forms.CharField(required=False, label='Buscar por nombre completo o DNI')
 
 class InquilinoBuscarForm(forms.Form):
-    termino = forms.CharField(required=False, label='Buscar por nombre, apellido o DNI')
+    termino = forms.CharField(required=False, label='Buscar nombre completo o DNI')

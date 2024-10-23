@@ -20,6 +20,7 @@ from xhtml2pdf import pisa
 from io import BytesIO
 from django.template.loader import render_to_string
 from django.contrib.auth import authenticate
+from django.core.exceptions import ObjectDoesNotExist
 
 import logging
 
@@ -244,7 +245,7 @@ def propiedad_detalle(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
     disponibilidades = propiedad.disponibilidades.all()  # Si tienes una relación entre propiedad y disponibilidad
     precios = propiedad.precios.all() 
-    print(propiedad.precios.all())  # Para depurar
+    print("hola", propiedad.precios.all())  # Para depurar
 
     return render(request, 'inmobiliaria/propiedades/detalle.html', {
         'propiedad': propiedad,
@@ -402,7 +403,7 @@ def reserva_editar(request, reserva_id):
             fecha_inicio = reserva.fecha_inicio
             fecha_fin = reserva.fecha_fin
 
-            # Validación de temporadas
+            # Validacin de temporadas
             hoy = date.today()
   
 
@@ -435,8 +436,6 @@ def parse_fecha(fecha_str):
     raise ValidationError('El formato de la fecha es inválido.')
 
 def confirmar_reserva(request):
-    inquilino_form = InquilinoForm(request.POST)
-    form = (request.POST or None)
     if request.method == 'POST':
         try:
             # Obtener datos del formulario
@@ -489,14 +488,15 @@ def confirmar_reserva(request):
 
             # Redirigir a la página de éxito con los detalles de la reserva
             return redirect('inmobiliaria:reserva_exitosa', reserva_id=reserva.id)
-
-        except (ValueError, ValidationError, Propiedad.DoesNotExist, Vendedor.DoesNotExist, Inquilino.DoesNotExist) as e:
-            # Si ocurre algún error, mostrar el mensaje de error
-            # Asegúrate de tener una plantilla para manejar errores
-            return render(request, 'inmobiliaria/reserva/error.html', {'error': str(e)})
-
-    # Si la solicitud no es POST, redirigir a la búsqueda de propiedades
-    return redirect('inmobiliaria:buscar_propiedades')
+        except Exception as e:
+            # Si ocurre un error, renderiza la plantilla de error
+            return render(request, 'inmobiliaria/reserva/error.html', {
+                'error_message': str(e)
+            }, status=500)
+    else:
+        # Si no es una solicitud POST, redirige a la página de búsqueda
+        messages.error(request, 'Método no permitido')
+        return redirect('inmobiliaria:buscar_propiedades')
 
 
 def reserva_detalle(request, reserva_id):
@@ -877,7 +877,17 @@ def buscar_propietarios(request):
         results = [{'id': p.id, 'text': f"{p.nombre} {p.apellido} (DNI: {p.dni})"} for p in propietarios]
         return JsonResponse({'results': results})
     return JsonResponse({'results': []})
-
+def buscar_inquilinos(request):
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        query = request.GET.get('term', '')
+        inquilinos = Inquilino.objects.filter(
+            Q(nombre__icontains=query) | 
+            Q(apellido__icontains=query) |
+            Q(dni__icontains=query)
+        )[:10]
+        results = [{'id': i.id, 'text': f"{i.nombre} {i.apellido} (DNI: {i.dni})"} for i in inquilinos]
+        return JsonResponse({'results': results})
+    return JsonResponse({'results': []})
 def propietario_nuevo_ajax(request):
     if request.method == "POST" and request.headers.get('x-requested-with') == 'XMLHttpRequest':
         form = PropietarioForm(request.POST)
@@ -943,3 +953,41 @@ def crear_inquilino_ajax(request):
         else:
             return JsonResponse({'success': False, 'errors': form.errors})
     return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+from .models import Propiedad
+
+def obtener_precios_propiedad(request):
+    try:
+        propiedad_id = request.GET.get('propiedad_id')
+        if not propiedad_id:
+            return JsonResponse({'success': False, 'message': 'El ID de la propiedad es necesario'}, status=400)
+
+        propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+        precios = propiedad.precios.all()
+
+        precios_list = [
+            {
+                'tipo': precio.get_tipo_precio_display(),
+                'precio_por_dia': precio.precio_por_dia,
+                'precio_total': precio.precio_total,
+            }
+            for precio in precios
+        ]
+
+        return JsonResponse({'success': True, 'precios': precios_list})
+
+    except Exception as e:
+        print(f"Error: {str(e)}")  # Imprimir el error para depuración
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+  
+
+
+
+
+
+
+
+
