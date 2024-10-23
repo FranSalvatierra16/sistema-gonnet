@@ -564,10 +564,18 @@ function confirmarReserva() {
     // En lugar de mostrar directamente el modal de reserva, mostramos el modal de autenticación
     mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin);
 }
+function formatearFecha(fecha) {
+    const d = new Date(fecha);
+    const dia = d.getDate().toString().padStart(2, '0');
+    const mes = (d.getMonth() + 1).toString().padStart(2, '0'); // Los meses en JavaScript van de 0 a 11
+    const anio = d.getFullYear();
+    return `${dia}/${mes}/${anio}`;
+}
 function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin) {
     document.getElementById("propiedadDireccion").textContent = direccion;
-    document.getElementById("fechaInicio").textContent = fechaInicio;
-    document.getElementById("fechaFin").textContent = fechaFin;
+    document.getElementById("fechaInicio").textContent = formatearFecha(fechaInicio);;
+    document.getElementById('fechaFin').textContent = formatearFecha(fechaFin);
+
 
     const fechaInicioObj = new Date(fechaInicio);
     const fechaFinObj = new Date(fechaFin);
