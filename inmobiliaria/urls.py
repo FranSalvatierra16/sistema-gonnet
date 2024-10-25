@@ -67,6 +67,7 @@ urlpatterns = [
     path('reserva/eliminar/<int:reserva_id>/', views.reserva_eliminar, name='reserva_eliminar'),
     path('autenticacion-vendedor/', views.autenticacion_vendedor, name='autenticacion_vendedor'),
     path('obtener-precios-propiedad/', views.obtener_precios_propiedad, name='obtener_precios_propiedad'),
+    path('obtener-vendedor/<int:vendedor_id>/', views.obtener_vendedor, name='obtener_vendedor'),
     
   
 

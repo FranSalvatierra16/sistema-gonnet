@@ -23,6 +23,7 @@ from django.contrib.auth import authenticate
 from django.core.exceptions import ObjectDoesNotExist
 
 import logging
+logger = logging.getLogger(__name__)
 
 # index view
 def index(request):
@@ -445,11 +446,13 @@ def confirmar_reserva(request):
      
             vendedor_id = request.POST.get('vendedor', '')
             cliente_id = request.POST.get('cliente', '')
-            precio = request.POST.get('precio_total', '')
-            print(vendedor_id)
+            precio = request.POST.get('precio_total','precio_total_display')
+            print("hola soy el vendeeeee ",vendedor_id)
             # Validar que las fechas no estén vacías
             if not fecha_inicio_str or not fecha_fin_str:
                 raise ValidationError('Las fechas proporcionadas no son válidas.')
+
+            print("hola soy el precio ",)    
 
             # Convertir las fechas a objetos `date`
             fecha_inicio = parse_fecha(fecha_inicio_str)
@@ -466,6 +469,7 @@ def confirmar_reserva(request):
                 raise ValidationError('Vendedor o cliente no pueden estar vacíos.')
 
             # Obtener la propiedad, vendedor y cliente de la base de datos
+             # Obtener la propiedad, vendedor y cliente de la base de datos
             propiedad = get_object_or_404(Propiedad, id=propiedad_id)
             vendedor = get_object_or_404(Vendedor, id=vendedor_id)
             cliente = get_object_or_404(Inquilino, id=cliente_id)
@@ -473,6 +477,7 @@ def confirmar_reserva(request):
             # Calcular el precio total
             total_dias = (fecha_fin - fecha_inicio).days
             precio_total = Decimal(precio.replace(',', '.'))
+            
      
            
             # Crear la reserva con el precio total y otros detalles
@@ -982,7 +987,27 @@ def obtener_precios_propiedad(request):
         print(f"Error: {str(e)}")  # Imprimir el error para depuración
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
-  
+
+
+def obtener_vendedor(request, vendedor_id):
+    logger.info(f"Solicitando vendedor con ID: {vendedor_id}")
+    try:
+        vendedor = Vendedor.objects.get(id=vendedor_id)
+        logger.info(f"Vendedor encontrado: {vendedor.nombre} {vendedor.apellido}")
+        print(f"Vendedor encontrado: {vendedor.nombre} {vendedor.apellido}")
+        return JsonResponse({
+            'success': True,
+            'vendedor': {
+                'id': vendedor.id,
+                'nombre_completo': f"{vendedor.nombre} {vendedor.apellido}"
+            }
+        })
+    except Vendedor.DoesNotExist:
+        logger.warning(f"Vendedor con ID {vendedor_id} no encontrado")
+        return JsonResponse({'success': False, 'message': 'Vendedor no encontrado'}, status=404)
+    except Exception as e:
+        logger.error(f"Error al obtener vendedor: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'Error interno del servidor'}, status=500)
 
 
 

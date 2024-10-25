@@ -162,23 +162,23 @@
             <div class="alert alert-warning text-center mt-4">
                 No hay propiedades disponibles para las fechas seleccionadas.
             </div>
+            {% if alerta_sin_precio %}
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Hay propiedades sin precio asignado',
+                        confirmButtonText: 'Entendido',
+                        confirmButtonColor: '#3085d6',
+                        timer: 5000,
+                        timerProgressBar: true
+                    });
+                });
+            </script>
+            {% endif %}
         {% endif %}
     </div>
-    {% if alerta_sin_precio %}
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Atención',
-                text: 'Hay propiedades sin precio asignado',
-                confirmButtonText: 'Entendido',
-                confirmButtonColor: '#3085d6',
-                timer: 5000,
-                timerProgressBar: true
-            });
-        });
-    </script>
-{% endif %}
 
 <!-- Tarjeta de propiedad seleccionada -->
 <div class="col-md-4" class="card property-card" id="propertyCard">
@@ -218,19 +218,15 @@
                 <p><strong>Total de días:</strong> <span id="totalDias"></span></p>
                 <p><strong>Precio total:</strong> <span id="precioTotalSuperior"></span></p>
 
-                <p><strong>Vendedor:</strong>
-                    <select id="vendedor" name="vendedor" class="form-control">
-                        {% for vendedor in vendedores %}
-                            <option value="{{ vendedor.id }}">{{ vendedor.nombre_completo_vendedor }}</option>
-                        {% empty %}
-                            <option value="">No hay vendedores disponibles</option>
-                        {% endfor %}
-                    </select>
-                </p>
+                <div class="form-group">
+                    <label for="vendedor">ID del Vendedor:</label>
+                    <input type="number" id="vendedor" name="vendedor" class="form-control" required>
+                    <small id="vendedor.nombre" class="form-text text-muted"></small>
+                </div>
 
                 <div class="form-group">
-                    <label for="id_inquilino">Seleccionar Cliente:</label>
-                    <select id="id_inquilino" name="cliente" class="form-control select2-cliente" style="width: 100%;">
+                    <label for="inquilino">Seleccionar Cliente:</label>
+                    <select id="inquilino" name="cliente" class="form-control select2-cliente" style="width: 100%;">
                         <option value="">Seleccione un cliente</option>
                         {% for inquilino in inquilinos %}
                             <option value="{{ inquilino.id }}">{{ inquilino.nombre }} {{ inquilino.apellido }} (DNI: {{ inquilino.dni }})</option>
@@ -251,7 +247,7 @@
                 </div>
                 <div class="form-group">
                     <label for="precio_total">Precio Total:</label>
-                    <span id="precio_total_display"></span>
+                    <span id="precio_total_display">{{ precio_total }}</span>
                     <button type="button" id="editar_precio_btn" class="btn btn-link">Editar</button>
                     <input type="number" step="0.01" class="form-control" id="precio_total" name="precio_total" style="display: none;" required>
                     <button type="button" id="guardar_precio_btn" class="btn btn-link" style="display: none;">Guardar</button>
@@ -267,8 +263,8 @@
                     <input type="hidden" name="fecha_fin" id="modalFechaFin">
                     <input type="hidden" name="cliente" id="modalCliente">
                     <input type="hidden" name="vendedor" id="modalVendedor">
-                    <input type="hidden" name="precio_total" id="modalPrecioTotal">
-                    <button type="submit" class="btn btn-primary">Confirmar Reserva</button>
+                    <input type="hidden" name="precio_total" id="modalPrecioTotal"  >
+                    <button type="submit" class="btn btn-primary" id="confirmar-reserva-btn">Confirmar Reserva</button>
                 </form>
             </div>
         </div>
@@ -553,16 +549,39 @@ async function mostrarPrecios(propiedadId) {
 }
 
 function confirmarReserva() {
-    const ficha = document.getElementById("cardPropiedad").innerText.split(": ")[1];
+    const ficha = document.getElementById("cardPropiedad").innerText.split(": ")[1]; // Extraer el ID
     const direccion = document.getElementById("cardDireccion").innerText.split(": ")[1];
     const propietario = document.getElementById("cardPropietario").innerText.split(": ")[1];
     const disponibilidad = document.getElementById("cardDisponibilidad").innerText.split(": ")[1];
     const precio = document.getElementById("cardPrecio").innerText.split(": ")[1];
+
     const fechaInicio = window.fechaInicioSeleccionada;
     const fechaFin = window.fechaFinSeleccionada;
 
-    // En lugar de mostrar directamente el modal de reserva, mostramos el modal de autenticación
-    mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin);
+    // Verifica si los valores se obtienen correctamente
+    console.log("ID Propiedad:", ficha);
+    console.log("Dirección:", direccion);
+    console.log("Propietario:", propietario);
+    console.log("Disponibilidad:", disponibilidad);
+    console.log("Precio por Día:", precio);
+    console.log("Fecha Inicio:", fechaInicio);
+    console.log("Fecha Fin:", fechaFin);
+
+    // Lógica de confirmación
+    Swal.fire({
+        title: '¿Está seguro?',
+        text: "¿Desea reservar esta propiedad?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, reservar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin);
+        }
+    });
 }
 function formatearFecha(fecha) {
     const d = new Date(fecha);
@@ -600,9 +619,10 @@ function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, prec
 
     precioTotalDisplay.textContent = precio;
     precioTotalInput.value = precio;
+    
 
     $('#modalConfirmarReserva').modal('show');
-}  
+}
 function cancelarReserva(reservaId) {
         // Aquí puedes implementar la lógica para cancelar la reserva
         console.log("Reserva cancelada: " + reservaId);
@@ -618,33 +638,21 @@ function cancelarReserva(reservaId) {
             event.preventDefault(); // Prevenir el envío del formulario
         }
     });
-    document.getElementById('confirmar-reserva-form').addEventListener('submit', function(event) {
-    event.preventDefault();
     
-    const clienteId = document.getElementById('id_inquilino').value;
-    const vendedorId = document.getElementById('vendedor').value;
-    
-    if (!clienteId) {
-        alert('Por favor, seleccione un cliente.');
-        return;
-    }
-    
-    if (!vendedorId) {
-        alert('Por favor, seleccione un vendedor.');
-        return;
-    }
-    
-    document.getElementById('modalCliente').value = clienteId;
-    document.getElementById('modalVendedor').value = vendedorId;
-    
-    // Asegúrate de que el precio total actualizado se use
-    const precioTotalActualizado = document.getElementById('precio_total_display').textContent;
-    document.getElementById('modalPrecioTotal').value = precioTotalActualizado;
-    
-    // Resto del código para enviar el formulario
-    this.submit();
-});
-document.addEventListener('keydown', function(event) {
+   document.getElementById('confirmar-reserva-form').addEventListener('submit', function(event) {
+    // Obtener los valores de vendedor e inquilino seleccionados
+    const vendedorSeleccionado = document.getElementById('vendedor').value;
+    const clienteSeleccionado = document.getElementById('inquilino').value;
+
+    // Pasar los valores seleccionados a los campos ocultos del formulario
+    document.getElementById('modalVendedor').value = vendedorSeleccionado;
+    document.getElementById('modalCliente').value = clienteSeleccionado;
+    const precio = document.getElementById('precio_total').value;
+    document.getElementById('modalPrecioTotal').value = precio;
+    console.log("hola soy el precio total ",precio);
+ 
+});   
+ document.addEventListener('keydown', function(event) {
     const rows = document.querySelectorAll('#propiedadesTable tbody tr');
     let newIndex = selectedRowIndex;
 
@@ -1013,6 +1021,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const guardarPrecioBtn = document.getElementById('guardar_precio_btn');
     const cancelarPrecioBtn = document.getElementById('cancelar_precio_btn');
     const modalPrecioTotalInput = document.getElementById('modalPrecioTotal');
+    const confirmarReservaForm = document.getElementById('confirmar-reserva-form');
 
     function actualizarPreciosMostrados(precio) {
         precioTotalSuperior.textContent = precio;
@@ -1048,11 +1057,74 @@ document.addEventListener('DOMContentLoaded', function() {
         cancelarPrecioBtn.style.display = 'none';
         editarPrecioBtn.style.display = 'inline';
     });
+
+    // Añadir este evento al formulario de confirmación de reserva
+    confirmarReservaForm.addEventListener('submit', function(event) {
+        // Asegurarse de que el precio total se actualice antes de enviar el formulario
+        const precioFinal = precioTotalInput.style.display === 'none' ? precioTotalDisplay.textContent : precioTotalInput.value;
+        modalPrecioTotalInput.value = precioFinal;
+    });
 });
+document.addEventListener('DOMContentLoaded', function() {
+    const vendedorInput = document.getElementById('vendedor_id');
+    const vendedorNombre = document.getElementById('vendedor_nombre');
+
+    if (vendedorInput) {
+        vendedorInput.addEventListener('change', function() {
+            const vendedorId = this.value;
+            if (vendedorId) {
+                fetch(`${obtenerVendedorUrl}${vendedorId}/`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            vendedorNombre.textContent = data.vendedor.nombre_completo;
+                        } else {
+                            vendedorNombre.textContent = 'Vendedor no encontrado';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        vendedorNombre.textContent = 'Error al cargar el vendedor';
+                    });
+            } else {
+                vendedorNombre.textContent = '';
+            }
+        });
+    } else {
+        console.error('El campo de vendedor no se encontró');
+    }
+
+});
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+<script>
+    const obtenerVendedorUrl = "{% url 'inmobiliaria:obtener_vendedor' 0 %}".slice(0, -1);
 </script>
 <!-- Modal para crear nuevo cliente -->
 
 {% endblock %}
+
+
+
 
 
 
