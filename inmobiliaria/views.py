@@ -934,17 +934,17 @@ def autenticacion_vendedor(request):
     return JsonResponse({'error': 'Método no permitido'}, status=405)
 
 def buscar_clientes(request):
-    term = request.GET.get('term', '')
-    clientes = Inquilino.objects.filter(
-        Q(nombre__icontains=term) | 
-        Q(apellido__icontains=term) | 
-        Q(dni__icontains=term)
-    )[:10]
-    results = [{'id': c.id, 'text': f"{c.nombre} {c.apellido} (DNI: {c.dni})"} for c in clientes]
+    term = request.GET.get('term', '')   
+    clientes = Inquilino.objects.filter(nombre__icontains=term) 
+    Inquilino.objects.filter(dni__icontains=term)    
+    results = [{'id': cliente.id, 'text': f'{cliente.nombre} {cliente.apellido} (DNI: {cliente.dni})'} for cliente in clientes]    
     return JsonResponse({'results': results})
 
+
+
+@login_required
 def crear_inquilino_ajax(request):
-    if request.method == "POST":
+    if request.method == "POST" and request.headers.get('x-requested-with') == 'XMLHttpRequest':
         form = InquilinoForm(request.POST)
         if form.is_valid():
             inquilino = form.save()
@@ -957,36 +957,30 @@ def crear_inquilino_ajax(request):
             })
         else:
             return JsonResponse({'success': False, 'errors': form.errors})
-    return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
-
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-from .models import Propiedad
+    return JsonResponse({'success': False, 'message': 'Invalid request'}, status=400)
 
 def obtener_precios_propiedad(request):
+    
     try:
         propiedad_id = request.GET.get('propiedad_id')
+        print(f"Obteniendo precios para propiedad con ID: {propiedad_id}")
         if not propiedad_id:
-            return JsonResponse({'success': False, 'message': 'El ID de la propiedad es necesario'}, status=400)
-
+            return JsonResponse({'error': 'No se proporcionó ID de propiedad'}, status=400)
+            
         propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-        precios = propiedad.precios.all()
-
-        precios_list = [
-            {
-                'tipo': precio.get_tipo_precio_display(),
-                'precio_por_dia': precio.precio_por_dia,
-                'precio_total': precio.precio_total,
-            }
-            for precio in precios
-        ]
-
-        return JsonResponse({'success': True, 'precios': precios_list})
-
+        precios = Precio.objects.filter(propiedad=propiedad)
+        
+        precios_data = [{
+            'tipo_precio': precio.get_tipo_precio_display(),
+            'precio_por_dia': str(precio.precio_por_dia),
+            'precio_total': str(precio.precio_total)
+        } for precio in precios]
+        
+        return JsonResponse({'precios': precios_data})
+        
     except Exception as e:
-        print(f"Error: {str(e)}")  # Imprimir el error para depuración
-        return JsonResponse({'success': False, 'message': str(e)}, status=500)
-
+        print(f"Error en obtener_precios_propiedad: {str(e)}")  # Para debugging
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 def obtener_vendedor(request, vendedor_id):
@@ -1008,6 +1002,7 @@ def obtener_vendedor(request, vendedor_id):
     except Exception as e:
         logger.error(f"Error al obtener vendedor: {str(e)}")
         return JsonResponse({'success': False, 'message': 'Error interno del servidor'}, status=500)
+
 
 
 

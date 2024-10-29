@@ -126,7 +126,8 @@
                     '{{ fecha_inicio }}',
                     '{{ fecha_fin }}',
                     '{{ propiedad.estado_reserva }}',
-                    '{{ propiedad.reserva.id }}'
+                    '{{ propiedad.reserva.id }}',
+                    '{{propiedad.precio}}'
                 )">
                    <td style="color: red;">{{ propiedad.id }}</td>
                    <td style="color: red;">
@@ -225,25 +226,39 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="inquilino">Seleccionar Cliente:</label>
-                    <select id="inquilino" name="cliente" class="form-control select2-cliente" style="width: 100%;">
-                        <option value="">Seleccione un cliente</option>
-                        {% for inquilino in inquilinos %}
-                            <option value="{{ inquilino.id }}">{{ inquilino.nombre }} {{ inquilino.apellido }} (DNI: {{ inquilino.dni }})</option>
-                        {% endfor %}
+                    <label for="id_inquilino">Seleccionar Inquilino:</label>
+                    <select id="id_inquilino" name="inquilino" class="form-control select2-inquilino" style="width: 100%;">
+                        <option value="">Seleccione un inquilino</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <button type="button" class="btn btn-success" id="agregarClienteBtn">Crear Nuevo Cliente</button>
+                
+                <div id="nuevo-inquilino-fields">
+                    <!-- Botón para abrir el modal de crear inquilino -->
+                    <button id="abrir-modal-inquilino-btn" type="button" class="btn btn-success" data-toggle="modal" data-target="#modal-inquilino">Crear Nuevo Inquilino</button>
                 </div>
-
-                <div id="nuevoClienteContainer" style="display: none;">
-                    <h5>Agregar Nuevo Cliente</h5>
-                    <form id="form-nuevo-inquilino" method="post">
-                        {% csrf_token %}
-                        {{ inquilino_form.as_p }}
-                        <button type="button" class="btn btn-primary" id="guardarClienteBtn">Guardar Cliente</button>
-                    </form>
+                
+                // Modal para agregar inquilino
+                <div id="modal-inquilino" class="modal fade" tabindex="-1" role="dialog">
+                    <div class="modal-dialog" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="modalInquilinoLabel">Agregar Nuevo Inquilino</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="form-nuevo-inquilino" method="post">
+                                    {% csrf_token %}
+                                    {{ inquilino_form.as_p }}
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                                <button type="button" id="guardar-inquilino-btn" data-dismiss="modal" class="btn btn-primary">Guardar Inquilino</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="precio_total">Precio Total:</label>
@@ -304,39 +319,16 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalPrecios{{ propiedad.id }}" tabindex="-1" role="dialog" aria-labelledby="modalPreciosLabel{{ propiedad.id }}" aria-hidden="true">
-    <div class="modal-dialog" role="document">
+<div class="modal" id="modalPrecios" tabindex="-1">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modalPreciosLabel{{ propiedad.id }}">Precios de la Propiedad</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                <h5 class="modal-title">Precios de la Propiedad</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <div class="modal-body" id="preciosModalBody{{ propiedad.id }}">
-                <h6>Dirección: {{ propiedad.direccion }}</h6>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Tipo de Precio</th>
-                            <th>Precio por Día</th>
-                            <th>Precio Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for precio in propiedad.todos_precios %}
-                        <tr>
-                            <td>{{ precio.get_tipo_precio_display }}</td>
-                            <td>${{ precio.precio_por_dia }}</td>
-                            <td>${{ precio.precio_total }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="3">No hay precios definidos para esta propiedad.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="modal-body" id="preciosModalBody">
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
@@ -395,7 +387,7 @@
                 <p><strong>Ambientes:</strong> {{ propiedad.ambientes }}</p>
                 <p><strong>Valoración:</strong> {{ propiedad.valoracion }}</p>
                 <p><strong>Características:</strong> {{ propiedad.caracteristicas }}</p>
-                <p><strong>Precio por Día:</strong> {{ propiedad.precio_total_reserva }}</p>
+                <p><strong>Precio Final:</strong> {{ propiedad.precio_total_reserva }}</p>
                 <p><strong>Propietario:</strong> {{ propiedad.propietario }}</p>
             </div>
             <div class="modal-footer">
@@ -407,13 +399,16 @@
 
 <!-- Modal de Precios -->
 
-<!-- ... (modal de detalles existente) ... -->
-
-<!-- Modal de Precios -->
-
 {% endfor %}
 
 
+
+<script>
+    // Añade esto al principio de tus scripts
+    const URLS = {
+        obtenerPrecios: "{% url 'inmobiliaria:obtener_precios_propiedad' %}"
+    };
+</script>
 
 <script>
     // Función para mostrar y ocultar filtros
@@ -466,15 +461,16 @@
         propertyCard.classList.add('card-confirmada');
         cardButtons.innerHTML = `
             <button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion(${reserva_id})">Operacion</button>
-            <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-            <button type="button" class="btn btn-warning" onclick="mostrarPrecios({{ propiedad.id }})">Ver Precios</button>
+       <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
+    <button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>
 
         `;
     } else {
         cardButtons.innerHTML = `
             <button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>
-            <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-            <button type="button" class="btn btn-warning" onclick="mostrarPrecios({{ propiedad.id }})">Ver Precios</button>
+    <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
+    <button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>
+
 
         `;
     }
@@ -486,67 +482,85 @@
     window.fechaInicioSeleccionada = fechaInicio;
     window.fechaFinSeleccionada = fechaFin;
 }
-async function mostrarPrecios(propiedadId) {
+function mostrarPrecios(propiedad_id) {
+    console.log('Mostrando precios para propiedad:', propiedad_id);
+    
+    // Asegurarse de que el modal existe
+    const modal = $('#modalPrecios');
+    if (modal.length === 0) {
+        console.error('Modal no encontrado');
+        return;
+    }
+    
+    // Mostrar el modal
+    modal.modal('show');
+    
+    // Mostrar spinner de carga
+    $('#preciosModalBody').html(`
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="sr-only">Cargando...</span>
+            </div>
+        </div>
+    `);
+    
+    // Realizar la petición AJAX
     $.ajax({
-        url: '{% url "inmobiliaria:obtener_precios_propiedad" %}',
-        data: { 'propiedad_id': propiedadId },
-        dataType: 'json',
-        success: function(data) {
-            if (data.success) {
-                let preciosHtml = `
-                    <table class="table table-bordered">
-                        <thead>
+        url: "{% url 'inmobiliaria:obtener_precios_propiedad' %}",
+        data: { 'propiedad_id': propiedad_id },
+        method: 'GET',
+        success: function(response) {
+            console.log('Respuesta:', response);
+            
+            if (response.precios && response.precios.length > 0) {
+                let tableContent = `
+                    <table class="table table-striped">
+                        <thead class="thead-dark">
                             <tr>
-                                <th>Tipo de Precio</th>
+                                <th>Quincena</th>
                                 <th>Precio por Día</th>
                                 <th>Precio Total</th>
                             </tr>
                         </thead>
                         <tbody>
                 `;
-                if (data.precios.length > 0) {
-                    data.precios.forEach(function(precio) {
-                        preciosHtml += `
-                            <tr>
-                                <td>${precio.tipo}</td>
-                                <td>$${precio.precio_por_dia}</td>
-                                <td>$${precio.precio_total}</td>
-                            </tr>
-                        `;
-                    });
-                } else {
-                    preciosHtml += `
+                
+                response.precios.forEach(function(precio) {
+                    tableContent += `
                         <tr>
-                            <td colspan="3" class="text-center">No hay precios registrados para esta propiedad.</td>
+                            <td>${precio.tipo_precio}</td>
+                            <td>$${precio.precio_por_dia}</td>
+                            <td>$${precio.precio_total}</td>
                         </tr>
                     `;
-                }
-                preciosHtml += `
+                });
+                
+                tableContent += `
                         </tbody>
                     </table>
                 `;
-                // Actualizar el contenido del cuerpo del modal correspondiente
-                $(`#preciosModalBody${propiedadId}`).html(preciosHtml);
-                // Mostrar el modal
-                $(`#modalPrecios${propiedadId}`).modal('show');
+                
+                $('#preciosModalBody').html(tableContent);
             } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'No se pudieron obtener los precios de la propiedad'
-                });
+                $('#preciosModalBody').html(`
+                    <div class="alert alert-warning">
+                        No hay precios registrados para esta propiedad.
+                    </div>
+                `);
             }
         },
-        error: function(jqXHR, textStatus, errorThrown) {
-            console.error("Error:", textStatus, errorThrown);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Hubo un problema al obtener los precios de la propiedad'
-            });
+        error: function(xhr, status, error) {
+            console.error('Error:', error);
+            $('#preciosModalBody').html(`
+                <div class="alert alert-danger">
+                    Error al cargar los precios: ${error}
+                </div>
+            `);
         }
     });
 }
+
+
 
 function confirmarReserva() {
     const ficha = document.getElementById("cardPropiedad").innerText.split(": ")[1]; // Extraer el ID
@@ -651,7 +665,7 @@ function cancelarReserva(reservaId) {
     document.getElementById('modalPrecioTotal').value = precio;
     console.log("hola soy el precio total ",precio);
  
-});   
+});
  document.addEventListener('keydown', function(event) {
     const rows = document.querySelectorAll('#propiedadesTable tbody tr');
     let newIndex = selectedRowIndex;
@@ -858,29 +872,25 @@ function autenticarYReservar() {
     }
 </script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
 $(document).ready(function() {
-   
     $('.select2-cliente').select2({
-       
         ajax: {
-            url: '{% url "inmobiliaria:buscar_clientes" %}',
+            url: '{% url "inmobiliaria:buscar_inquilinos" %}',
             dataType: 'json',
             delay: 250,
-            data: function (params) {
+            data: function(params) {
                 return {
                     term: params.term,
                     page: params.page
                 };
             },
-            processResults: function (data) {
+            processResults: function(data) {
                 return {
-                    results: data.results,
+                    results: data.results
                 };
             },
             cache: true
@@ -891,6 +901,12 @@ $(document).ready(function() {
         language: {
             noResults: function() {
                 return "No se encontraron resultados";
+            },
+            searching: function() {
+                return "Buscando...";
+            },
+            inputTooShort: function() {
+                return "Por favor ingrese 2 o más caracteres";
             }
         }
     });
@@ -922,30 +938,33 @@ $(document).ready(function() {
             }
         }
     });
+
+</script>
+<script>
     $(document).ready(function() {
-        $('.select2-cliente').select2({
+        $('.select2-inquilino').select2({
+            ajax: {
+                url: '{% url "inmobiliaria:buscar_inquilinos" %}',
+                dataType: 'json',
+                delay: 250,
+                data: function(params) {
+                    return {
+                        term: params.term,
+                        page: params.page
+                    };
+                },
+                processResults: function(data) {
+                    return {
+                        results: data.results
+                    };
+                },
+                cache: true
+            },
             minimumInputLength: 2,
-            placeholder: 'Buscar cliente por nombre o DNI...',
-            allowClear: true,
-            language: {
-                noResults: function() {
-                    return "No se encontraron resultados";
-                },
-                searching: function() {
-                    return "Buscando...";
-                },
-                inputTooShort: function() {
-                    return "Por favor ingrese 2 o más caracteres";
-                }
-            }
+            placeholder: 'Buscar inquilino...',
+            allowClear: true
         });
-
-        $('.select2-cliente').on('select2:open', function (e) {
-            setTimeout(function() {
-                $('.select2-search__field').prop('disabled', false);
-            }, 0);
-        });
-
+    
         $('#guardar-inquilino-btn').click(function() {
             var formData = $('#form-nuevo-inquilino').serialize();
             $.ajax({
@@ -955,23 +974,43 @@ $(document).ready(function() {
                 dataType: 'json',
                 success: function(response) {
                     if (response.success) {
+                        // Agregar el nuevo inquilino al select
                         var newOption = new Option(response.nombre + ' ' + response.apellido + ' (DNI: ' + response.dni + ')', response.id, true, true);
                         $('#id_inquilino').append(newOption).trigger('change');
+                        
+                        // Cerrar el modal
                         $('#modal-inquilino').modal('hide');
+                        
+                        // Limpiar el formulario
                         $('#form-nuevo-inquilino')[0].reset();
                     } else {
-                        alert('Error al guardar el cliente: ' + JSON.stringify(response.errors));
+                        Swal.fire('Error', 'Error al guardar el inquilino.', 'error');
                     }
                 },
                 error: function() {
-                    alert('Error al procesar la solicitud');
+                    Swal.fire('Error', 'Error al procesar la solicitud', 'error');
                 }
             });
         });
+
+        $('#submit-form-btn').click(function(event) {
+            var cliente = $('#id_inquilino').val();
+            var vendedor = $('#id_vendedor').val(); // Asegúrate de tener el ID correcto para el campo vendedor
+
+            if (!cliente || !vendedor) {
+                event.preventDefault(); // Evita que el formulario se envíe
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Campos requeridos',
+                    text: 'Por favor, selecciona un cliente y un vendedor.'
+                });
+            } else {
+                // Aquí puedes enviar el formulario si todo está correcto
+                $('form').submit();
+            }
+        });
     });
-
-</script>
-
+    </script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <!-- {% if messages %}
@@ -1119,6 +1158,8 @@ function getCookie(name) {
 <script>
     const obtenerVendedorUrl = "{% url 'inmobiliaria:obtener_vendedor' 0 %}".slice(0, -1);
 </script>
+
+
 <!-- Modal para crear nuevo cliente -->
 
 {% endblock %}

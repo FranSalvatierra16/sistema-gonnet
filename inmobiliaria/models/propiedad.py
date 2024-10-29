@@ -247,15 +247,36 @@ class Precio(models.Model):
     class Meta:
         unique_together = ('propiedad', 'tipo_precio')
 
+    def calcular_precio_total(self, fecha_inicio, fecha_fin):
+        dias = (fecha_fin - fecha_inicio).days + 1
+        mes = fecha_inicio.month
+
+        if 'QUINCENA' in self.tipo_precio:
+            base_price = self.precio_por_dia * 15  # Quincena como 15 días
+            if mes == 1:  # Enero
+                base_price *= 16  # Multiplicar por 16 en enero
+            elif mes == 2:  # Febrero
+                base_price *= 15  # Multiplicar por 15 en febrero
+        elif self.tipo_precio == 'FINDE_LARGO':
+            base_price = self.precio_por_dia * 4  # Finde largo como 4 días
+        else:
+            base_price = self.precio_por_dia * dias
+
+        # Aplicar ajuste porcentual si se ha establecido
+        if self.ajuste_porcentaje != 0:
+            base_price *= (1 - self.ajuste_porcentaje / 100)
+
+        return round(base_price, 2)
+
     def save(self, *args, **kwargs):
         if self.precio_por_dia is not None:
             # Calcular el precio total basado en el tipo de precio
             if 'QUINCENA' in self.tipo_precio:
-                base_price = self.precio_por_dia * 15  # Suponiendo quincena como 15 días
-            elif 'FINDE_LARGO' in self.tipo_precio:
-                base_price = self.precio_por_dia * 4  # Suponiendo finde largo como 4 días
+                base_price = self.precio_por_dia * 15
+            elif self.tipo_precio == 'FINDE_LARGO':
+                base_price = self.precio_por_dia * 4
             else:
-                base_price = self.precio_por_dia  # O el cálculo correspondiente para otros tipos
+                base_price = self.precio_por_dia
 
             # Aplicar ajuste porcentual si se ha establecido
             if self.ajuste_porcentaje != 0:
@@ -264,5 +285,6 @@ class Precio(models.Model):
             self.precio_total = base_price
 
         super().save(*args, **kwargs)
+
 
 
