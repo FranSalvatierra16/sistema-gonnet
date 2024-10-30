@@ -67,7 +67,8 @@ class Vendedor(AbstractUser):
     dni = models.CharField(max_length=8, unique=True, validators=[validate_dni])
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
-    fecha_nacimiento = models.DateField()
+    fecha_nacimiento = models.DateField(null=True, blank=True)  # Permitir nulos
+
     email = models.EmailField()
     comision = models.DecimalField(max_digits=5, decimal_places=2, help_text="Comisión en porcentaje", null=True, blank=True)
     celular = models.CharField(max_length=20, blank=True)
