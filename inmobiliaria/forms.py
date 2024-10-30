@@ -78,7 +78,7 @@ class PropiedadForm(forms.ModelForm):
     class Meta:
         model = Propiedad
         fields = [
-            'direccion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
+            'direccion','ubicacion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
 
             # 'habilitar_precio_diario', 'precio_diario', 'habilitar_precio_venta', 'precio_venta',
             # 'habilitar_precio_alquiler', 'precio_alquiler',
@@ -91,6 +91,7 @@ class PropiedadForm(forms.ModelForm):
             'descripcion': forms.Textarea(attrs={'rows': 5}),
             'valoracion': forms.Select(attrs={'class': 'form-control'}),
             'direccion': forms.TextInput(attrs={'placeholder': 'Ingrese la dirección'}),
+            'ubicacion': forms.TextInput(attrs={'placeholder': 'Ingrese la ubicación'}),
             # 'precio_venta': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de venta'}),
             # 'precio_alquiler': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de alquiler'}),
             # 'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio diario'}),

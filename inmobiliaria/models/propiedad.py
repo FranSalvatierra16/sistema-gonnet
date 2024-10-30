@@ -49,8 +49,10 @@ TIPOS_INMUEBLES = [
 
 class Propiedad(models.Model):
     DIRECCION_MAX_LENGTH = 255
+    UBICACION_MAX_LENGTH = 255
     DEPARTAMENTO_CHOICES = [(chr(i), chr(i)) for i in range(ord('A'), ord('Z')+1)]
     direccion = models.CharField(max_length=DIRECCION_MAX_LENGTH)
+    ubicacion = models.CharField(max_length=UBICACION_MAX_LENGTH)
     descripcion = models.TextField(blank=True)
     tipo_inmueble = models.CharField(max_length=20, choices=TIPOS_INMUEBLES, default='departamento')
     vista = models.CharField(max_length=20, choices=TIPOS_VISTA, default='a_la_calle')
@@ -224,6 +226,11 @@ class Disponibilidad(models.Model):
             # No verificamos disponibilidad si alguna de las fechas no está definida
             pass
 
+
+
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
 class TipoPrecio(models.TextChoices):
     QUINCENA_1_ENERO = 'QUINCENA_1_ENERO', _('1ra quincena Enero')
     QUINCENA_2_ENERO = 'QUINCENA_2_ENERO', _('2da quincena Enero')
@@ -249,14 +256,13 @@ class Precio(models.Model):
 
     def calcular_precio_total(self, fecha_inicio, fecha_fin):
         dias = (fecha_fin - fecha_inicio).days + 1
-        mes = fecha_inicio.month
+        base_price = 0
 
         if 'QUINCENA' in self.tipo_precio:
-            base_price = self.precio_por_dia * 15  # Quincena como 15 días
-            if mes == 1:  # Enero
-                base_price *= 16  # Multiplicar por 16 en enero
-            elif mes == 2:  # Febrero
-                base_price *= 15  # Multiplicar por 15 en febrero
+            if 'ENERO' in self.tipo_precio or 'MARZO' in self.tipo_precio:  # Verifica si es enero o marzo
+                base_price = self.precio_por_dia * 16  # Multiplicar por 16 en enero y marzo
+            else:
+                base_price = self.precio_por_dia * 15  # Quincena como 15 días
         elif self.tipo_precio == 'FINDE_LARGO':
             base_price = self.precio_por_dia * 4  # Finde largo como 4 días
         else:
@@ -272,7 +278,10 @@ class Precio(models.Model):
         if self.precio_por_dia is not None:
             # Calcular el precio total basado en el tipo de precio
             if 'QUINCENA' in self.tipo_precio:
-                base_price = self.precio_por_dia * 15
+                if 'ENERO' in self.tipo_precio or 'MARZO' in self.tipo_precio:  # Multiplica por 16 si es enero o marzo
+                    base_price = self.precio_por_dia * 16
+                else:
+                    base_price = self.precio_por_dia * 15
             elif self.tipo_precio == 'FINDE_LARGO':
                 base_price = self.precio_por_dia * 4
             else:
@@ -282,9 +291,6 @@ class Precio(models.Model):
             if self.ajuste_porcentaje != 0:
                 base_price *= (1 - self.ajuste_porcentaje / 100)
 
-            self.precio_total = base_price
+            self.precio_total = round(base_price, 2)  # Redondear a 2 decimales
 
         super().save(*args, **kwargs)
-
-
-
