@@ -259,7 +259,7 @@ class Precio(models.Model):
         base_price = 0
 
         if 'QUINCENA' in self.tipo_precio:
-            if 'ENERO' in self.tipo_precio or 'MARZO' in self.tipo_precio:  # Verifica si es enero o marzo
+            if 'ENERO' in self.tipo_precio or 'MARZO'  in self.tipo_precio or 'DICIEMBRE' in self.tipo_precio:  # Verifica si es enero o marzo
                 base_price = self.precio_por_dia * 16  # Multiplicar por 16 en enero y marzo
             else:
                 base_price = self.precio_por_dia * 15  # Quincena como 15 días
