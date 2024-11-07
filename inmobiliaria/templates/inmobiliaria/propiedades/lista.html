@@ -7,6 +7,9 @@
 {% block content %}
 <h1 class="mb-4">Listado de Propiedades</h1>
 <a href="{% url 'inmobiliaria:propiedad_nuevo' %}" class="btn btn-primary mb-3">Nueva Propiedad</a>
+<a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}" class="btn btn-primary">
+    Agregar Disponibilidad Masiva
+</a>
 
 <!-- Tabla de propiedades -->
 <div class="table-responsive">

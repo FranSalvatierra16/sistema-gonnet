@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-#ry=f1tqj+=1*32^c54&0qk2)1xt02qpg-%r)ae6%-+3ip*fx^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['gonnet-interno-052a6cec3da9.herokuapp.com', '.herokuapp.com']
+    # ALLOWED_HOSTS = ['gonnet-interno-052a6cec3da9.herokuapp.com', '.herokuapp.com']
 
 
 # Application definition
@@ -89,16 +89,17 @@ WSGI_APPLICATION = 'sistema_gonnet.wsgi.application'
 #        }
 #    }
 
- 
-
 DATABASES = {
-       'default': dj_database_url.config(
-           default=os.environ.get('DATABASE_URL')
-       )
-   }
-# DATABASES = {
-#     'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'))
-# }
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'dda2bl8b9d9sdk',
+        'USER': 'u4qlp9bgdov74n',
+        'PASSWORD': 'p3bafdcc0bf88f90bd03acc09f8e8d4d369328cd2fa65e3b252dd95476323e48c',
+        'HOST': 'cat670aihdrkt1.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com',
+        'PORT': '5432',
+    }
+}
+
 # Configuración para Heroku
 if 'DATABASE_URL' in os.environ:
     DATABASES['default'] = dj_database_url.config(conn_max_age=600, ssl_require=True)

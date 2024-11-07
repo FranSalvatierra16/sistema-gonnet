@@ -277,6 +277,7 @@ def propiedad_nuevo(request):
 @login_required
 def propiedad_editar(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    propietario_form = PropietarioForm(request.POST)
 
     if request.method == 'POST':
         form = PropiedadForm(request.POST, request.FILES, instance=propiedad)
@@ -296,7 +297,8 @@ def propiedad_editar(request, propiedad_id):
 
     return render(request, 'inmobiliaria/propiedades/formulario.html', {
         'form': form,
-        'propiedad': propiedad
+        'propiedad': propiedad,
+        'propietario_form': propietario_form,
     })
 @login_required
 def propiedad_eliminar(request, propiedad_id):
@@ -509,7 +511,7 @@ def reserva_detalle(request, reserva_id):
     return render(request, 'inmobiliaria/reserva/detalle.html', {'reserva': reserva})
 # inmobiliaria/views.py
 def formato_fecha(fecha):
-    return fecha.strftime('%m/%d/%Y') if fecha else ''
+    return fecha.strftime('%d/%m/%Y') if fecha else ''
 
 
 def buscar_propiedades(request):
@@ -686,7 +688,7 @@ def buscar_propiedades(request):
         'alerta_sin_precio': alerta_sin_precio,
         'fecha_inicio': formato_fecha(fecha_inicio) if fecha_inicio else None,
         'fecha_fin': formato_fecha(fecha_fin) if fecha_fin else None,
-        'inquilinos': inquilinos,
+        'inquilinos': Inquilino.objects.all().order_by('apellido', 'nombre'),
         'vendedores': vendedores,
         'tipos_precio': TipoPrecio,
         'inquilino_form': inquilino_form,
@@ -883,16 +885,26 @@ def buscar_propietarios(request):
         return JsonResponse({'results': results})
     return JsonResponse({'results': []})
 def buscar_inquilinos(request):
-    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-        query = request.GET.get('term', '')
-        inquilinos = Inquilino.objects.filter(
-            Q(nombre__icontains=query) | 
-            Q(apellido__icontains=query) |
-            Q(dni__icontains=query)
-        )[:10]
-        results = [{'id': i.id, 'text': f"{i.nombre} {i.apellido} (DNI: {i.dni})"} for i in inquilinos]
-        return JsonResponse({'results': results})
-    return JsonResponse({'results': []})
+    query = request.GET.get('term', '')
+    inquilinos = Inquilino.objects.filter(
+        Q(nombre__icontains=query) | 
+        Q(apellido__icontains=query) |
+        Q(dni__icontains=query)
+    )[:10]
+    
+    results = []
+    for inquilino in inquilinos:
+        results.append({
+            'id': inquilino.id,
+            'text': f"{inquilino.nombre} {inquilino.apellido} (DNI: {inquilino.dni})"
+        })
+    
+    return JsonResponse({
+        'results': results,
+        'pagination': {
+            'more': False
+        }
+    })
 def propietario_nuevo_ajax(request):
     if request.method == "POST" and request.headers.get('x-requested-with') == 'XMLHttpRequest':
         form = PropietarioForm(request.POST)
@@ -934,17 +946,17 @@ def autenticacion_vendedor(request):
     return JsonResponse({'error': 'Método no permitido'}, status=405)
 
 def buscar_clientes(request):
-    term = request.GET.get('term', '')   
-    clientes = Inquilino.objects.filter(nombre__icontains=term) 
-    Inquilino.objects.filter(dni__icontains=term)    
-    results = [{'id': cliente.id, 'text': f'{cliente.nombre} {cliente.apellido} (DNI: {cliente.dni})'} for cliente in clientes]    
+    term = request.GET.get('term', '')
+    clientes = Inquilino.objects.filter(
+        Q(nombre__icontains=term) | 
+        Q(apellido__icontains=term) | 
+        Q(dni__icontains=term)
+    )[:10]
+    results = [{'id': c.id, 'text': f"{c.nombre} {c.apellido} (DNI: {c.dni})"} for c in clientes]
     return JsonResponse({'results': results})
 
-
-
-@login_required
 def crear_inquilino_ajax(request):
-    if request.method == "POST" and request.headers.get('x-requested-with') == 'XMLHttpRequest':
+    if request.method == "POST":
         form = InquilinoForm(request.POST)
         if form.is_valid():
             inquilino = form.save()
@@ -957,7 +969,8 @@ def crear_inquilino_ajax(request):
             })
         else:
             return JsonResponse({'success': False, 'errors': form.errors})
-    return JsonResponse({'success': False, 'message': 'Invalid request'}, status=400)
+    return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+
 
 def obtener_precios_propiedad(request):
     
@@ -972,8 +985,8 @@ def obtener_precios_propiedad(request):
         
         precios_data = [{
             'tipo_precio': precio.get_tipo_precio_display(),
-            'precio_por_dia': str(precio.precio_por_dia),
-            'precio_total': str(precio.precio_total)
+            'precio_por_dia': format_price(precio.precio_por_dia),
+            'precio_total': format_price(precio.precio_total)
         } for precio in precios]
         
         return JsonResponse({'precios': precios_data})
@@ -982,6 +995,11 @@ def obtener_precios_propiedad(request):
         print(f"Error en obtener_precios_propiedad: {str(e)}")  # Para debugging
         return JsonResponse({'error': str(e)}, status=500)
 
+def format_price(value):
+    try:
+        return "{:,.0f}".format(value).replace(',', '.')
+    except (ValueError, TypeError):
+        return str(value)
 
 def obtener_vendedor(request, vendedor_id):
     logger.info(f"Solicitando vendedor con ID: {vendedor_id}")
@@ -1011,3 +1029,49 @@ def obtener_vendedor(request, vendedor_id):
 
 
 
+def agregar_disponibilidad_masiva(request):
+    if request.method == 'POST':
+        propiedad_ids = request.POST.getlist('propiedades[]')
+        fecha_inicio = request.POST.get('fecha_inicio')
+        fecha_fin = request.POST.get('fecha_fin')
+        
+        propiedades_actualizadas = 0
+        errores = []
+        
+        try:
+            for propiedad_id in propiedad_ids:
+                try:
+                    propiedad = Propiedad.objects.get(id=propiedad_id)
+                    Disponibilidad.objects.create(
+                        propiedad=propiedad,
+                        fecha_inicio=fecha_inicio,
+                        fecha_fin=fecha_fin
+                    )
+                    propiedades_actualizadas += 1
+                except Exception as e:
+                    errores.append(f"Error en propiedad {propiedad_id}: {str(e)}")
+            
+            if propiedades_actualizadas > 0:
+                mensaje = f'Se actualizó la disponibilidad de {propiedades_actualizadas} propiedades'
+                if errores:
+                    mensaje += f'\nPero hubo {len(errores)} errores'
+                return JsonResponse({
+                    'success': True,
+                    'message': mensaje
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'No se pudo actualizar ninguna propiedad.\nErrores: {", ".join(errores)}'
+                })
+                
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Error al actualizar disponibilidades: {str(e)}'
+            })
+            
+    propiedades = Propiedad.objects.all().order_by('direccion')
+    return render(request, 'inmobiliaria/propiedades/disponibilidad_masiva.html', {
+        'propiedades': propiedades
+    })

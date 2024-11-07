@@ -1,0 +1,198 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Agregar Disponibilidad Masiva</h2>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="form-group">
+                <label for="fecha_inicio">Fecha de Inicio:</label>
+                <input type="date" class="form-control" id="fecha_inicio" required>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group">
+                <label for="fecha_fin">Fecha de Fin:</label>
+                <input type="date" class="form-control" id="fecha_fin" required>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <input type="text" id="buscar-id" class="form-control" placeholder="Buscar por ID">
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col">
+            <button class="btn btn-secondary" id="seleccionar-todas">Seleccionar Todas</button>
+            <button class="btn btn-secondary" id="deseleccionar-todas">Deseleccionar Todas</button>
+            <button class="btn btn-primary" id="guardar-disponibilidad">Guardar Disponibilidad</button>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped" id="tabla-propiedades">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="checkbox-principal"></th>
+                    <th>ID</th>
+                    <th>Dirección</th>
+                    <th>Propietario</th>
+                    
+                </tr>
+            </thead>
+            <tbody>
+                {% for propiedad in propiedades %}
+                <tr>
+                    <td>
+                        <input type="checkbox" class="propiedad-checkbox" value="{{ propiedad.id }}">
+                    </td>
+                    <td>{{ propiedad.id }}</td>
+                    <td>{{ propiedad.direccion }}</td>
+                    <td>{{ propiedad.propietario.nombre }}</td>
+                    
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxPrincipal = document.getElementById('checkbox-principal');
+    const checkboxesPropiedades = document.querySelectorAll('.propiedad-checkbox');
+    const btnSeleccionarTodas = document.getElementById('seleccionar-todas');
+    const btnDeseleccionarTodas = document.getElementById('deseleccionar-todas');
+    const btnGuardarDisponibilidad = document.getElementById('guardar-disponibilidad');
+    const buscarIdInput = document.getElementById('buscar-id');
+
+    // Función para seleccionar/deseleccionar todas
+    checkboxPrincipal.addEventListener('change', function() {
+        checkboxesPropiedades.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
+
+    btnSeleccionarTodas.addEventListener('click', function() {
+        checkboxesPropiedades.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+        checkboxPrincipal.checked = true;
+    });
+
+    btnDeseleccionarTodas.addEventListener('click', function() {
+        checkboxesPropiedades.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        checkboxPrincipal.checked = false;
+    });
+
+    btnGuardarDisponibilidad.addEventListener('click', function() {
+        const fechaInicio = document.getElementById('fecha_inicio').value;
+        const fechaFin = document.getElementById('fecha_fin').value;
+        
+        if (!fechaInicio || !fechaFin) {
+            Swal.fire('Error', 'Por favor seleccione las fechas', 'error');
+            return;
+        }
+
+        const propiedadesSeleccionadas = Array.from(checkboxesPropiedades)
+            .filter(checkbox => checkbox.checked)
+            .map(checkbox => checkbox.value);
+
+        if (propiedadesSeleccionadas.length === 0) {
+            Swal.fire('Error', 'Por favor seleccione al menos una propiedad', 'error');
+            return;
+        }
+
+        // Confirmar antes de guardar
+        Swal.fire({
+            title: '¿Está seguro?',
+            text: `Se agregará disponibilidad a ${propiedadesSeleccionadas.length} propiedades`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, guardar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                guardarDisponibilidad(propiedadesSeleccionadas, fechaInicio, fechaFin);
+            }
+        });
+    });
+
+    function guardarDisponibilidad(propiedades, fechaInicio, fechaFin) {
+        // Mostrar loading
+        Swal.fire({
+            title: 'Guardando...',
+            text: 'Por favor espere mientras se guardan las disponibilidades',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        const formData = new FormData();
+        propiedades.forEach(id => formData.append('propiedades[]', id));
+        formData.append('fecha_inicio', fechaInicio);
+        formData.append('fecha_fin', fechaFin);
+
+        fetch('{% url "inmobiliaria:agregar_disponibilidad_masiva" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Éxito!',
+                    text: data.message,
+                    showConfirmButton: true,
+                    timer: 3000
+                }).then(() => {
+                    // Opcional: recargar la página después de guardar
+                    window.location.reload();
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: data.message,
+                    showConfirmButton: true
+                });
+            }
+        })
+        .catch(error => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Ocurrió un error al guardar las disponibilidades',
+                showConfirmButton: true
+            });
+        });
+    }
+
+    buscarIdInput.addEventListener('keyup', function() {
+        const filter = buscarIdInput.value.toUpperCase();
+        const rows = document.querySelectorAll('#tabla-propiedades tbody tr');
+
+        rows.forEach(row => {
+            const idCell = row.querySelector('td:nth-child(2)');
+            if (idCell) {
+                const idText = idCell.textContent || idCell.innerText;
+                row.style.display = idText.toUpperCase().indexOf(filter) > -1 ? '' : 'none';
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

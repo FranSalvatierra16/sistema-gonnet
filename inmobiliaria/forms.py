@@ -78,7 +78,7 @@ class PropiedadForm(forms.ModelForm):
     class Meta:
         model = Propiedad
         fields = [
-            'direccion','ubicacion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
+            'id','direccion','ubicacion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
 
             # 'habilitar_precio_diario', 'precio_diario', 'habilitar_precio_venta', 'precio_venta',
             # 'habilitar_precio_alquiler', 'precio_alquiler',
