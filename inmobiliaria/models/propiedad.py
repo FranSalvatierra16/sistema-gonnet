@@ -162,7 +162,7 @@ class Propiedad(models.Model):
         verbose_name_plural = "Propiedades"
 
     def __str__(self):
-        return f"{self.id} - {self.direccion}"        
+        return f"{self.direccion}"        
 
 
 class ImagenPropiedad(models.Model):
@@ -234,12 +234,18 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 class TipoPrecio(models.TextChoices):
+    QUINCENA_1_DICIEMBRE = 'QUINCENA_1_DICIEMBRE', _('1ra quincena Diciembre')
+    QUINCENA_2_DICIEMBRE = 'QUINCENA_2_DICIEMBRE', _('2da quincena Diciembre')
     QUINCENA_1_ENERO = 'QUINCENA_1_ENERO', _('1ra quincena Enero')
     QUINCENA_2_ENERO = 'QUINCENA_2_ENERO', _('2da quincena Enero')
     QUINCENA_1_FEBRERO = 'QUINCENA_1_FEBRERO', _('1ra quincena Febrero')
     QUINCENA_2_FEBRERO = 'QUINCENA_2_FEBRERO', _('2da quincena Febrero')
     QUINCENA_1_MARZO = 'QUINCENA_1_MARZO', _('1ra quincena Marzo')
     QUINCENA_2_MARZO = 'QUINCENA_2_MARZO', _('2da quincena Marzo')
+    TEMPORADA_BAJA = 'TEMPORADA_BAJA', _('Temporada baja')
+    VACACIONES_INVIERNO = 'VACACIONES_INVIERNO', _('Vacaciones Invierno')
+    ESTUDIANTES = 'ESTUDIANTES', _('Estudiantes')
+    
     FINDE_LARGO = 'FINDE_LARGO', _('Finde largo')
     DICIEMBRE = 'DICIEMBRE', _('Diciembre')
     ENERO = 'ENERO', _('Enero')
@@ -260,13 +266,15 @@ class Precio(models.Model):
         dias = (fecha_fin - fecha_inicio).days + 1
         base_price = 0
 
-        if 'QUINCENA' in self.tipo_precio:
-            if 'ENERO' in self.tipo_precio or 'MARZO'  in self.tipo_precio or 'DICIEMBRE' in self.tipo_precio:  # Verifica si es enero o marzo
-                base_price = self.precio_por_dia * 16  # Multiplicar por 16 en enero y marzo
+        if 'QUINCENA' in self.tipo_precio or self.tipo_precio == 'VACACIONES_INVIERNO':
+            if 'ENERO' in self.tipo_precio or 'MARZO' in self.tipo_precio or 'DICIEMBRE' in self.tipo_precio:
+                base_price = self.precio_por_dia * 16  # Multiplicar por 16 en enero, marzo y vacaciones
             else:
                 base_price = self.precio_por_dia * 15  # Quincena como 15 días
         elif self.tipo_precio == 'FINDE_LARGO':
             base_price = self.precio_por_dia * 4  # Finde largo como 4 días
+        elif self.tipo_precio in ['TEMPORADA_BAJA', 'ESTUDIANTES']:
+            base_price = self.precio_por_dia * dias  # Precio por día individual
         else:
             base_price = self.precio_por_dia * dias
 
@@ -279,20 +287,22 @@ class Precio(models.Model):
     def save(self, *args, **kwargs):
         if self.precio_por_dia is not None:
             # Calcular el precio total basado en el tipo de precio
-            if 'QUINCENA' in self.tipo_precio:
-                if 'ENERO' in self.tipo_precio or 'MARZO' in self.tipo_precio:  # Multiplica por 16 si es enero o marzo
+            if 'QUINCENA' in self.tipo_precio or self.tipo_precio == 'VACACIONES_INVIERNO':
+                if 'ENERO' in self.tipo_precio or 'MARZO' in self.tipo_precio or 'DICIEMBRE' in self.tipo_precio:
                     base_price = self.precio_por_dia * 16
                 else:
                     base_price = self.precio_por_dia * 15
             elif self.tipo_precio == 'FINDE_LARGO':
                 base_price = self.precio_por_dia * 4
+            elif self.tipo_precio in ['TEMPORADA_BAJA', 'ESTUDIANTES']:
+                base_price = None  # No calcular precio total para días individuales
             else:
                 base_price = self.precio_por_dia
 
             # Aplicar ajuste porcentual si se ha establecido
-            if self.ajuste_porcentaje != 0:
+            if base_price is not None and self.ajuste_porcentaje != 0:
                 base_price *= (1 - self.ajuste_porcentaje / 100)
 
-            self.precio_total = round(base_price, 2)  # Redondear a 2 decimales
+            self.precio_total = round(base_price, 2) if base_price is not None else None
 
         super().save(*args, **kwargs)

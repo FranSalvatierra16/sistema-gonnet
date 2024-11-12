@@ -77,6 +77,7 @@ class PropiedadForm(forms.ModelForm):
 
     class Meta:
         model = Propiedad
+         # Excluir el campo 'id' para que no sea editable
         fields = [
             'id','direccion','ubicacion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
 
@@ -96,6 +97,10 @@ class PropiedadForm(forms.ModelForm):
             # 'precio_alquiler': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de alquiler'}),
             # 'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio diario'}),
         }
+        
+    def __init__(self, *args, **kwargs):
+        super(PropiedadForm, self).__init__(*args, **kwargs)
+        self.fields['id'].widget.attrs['readonly'] = True
 class PrecioForm(forms.ModelForm):
     class Meta:
         model = Precio

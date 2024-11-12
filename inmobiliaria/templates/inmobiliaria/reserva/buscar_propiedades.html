@@ -19,6 +19,15 @@
         color: white;
     }
 
+    .modal {
+        z-index: 1050 !important;
+    }
+    .modal-backdrop {
+        z-index: 1040 !important;
+    }
+    .select2-container {
+        z-index: 1051 !important;
+    }
 
     </style>
 </head>
@@ -122,13 +131,14 @@
                     '{{ propiedad.direccion|escapejs }}',
                     '{{ propiedad.propietario.nombre|escapejs }}',
                     '{{ propiedad.disponibilidad }}',
-                    '{{ propiedad.precio_total_reserva|format_price }}',
+                    '{{ propiedad.precio_total_reserva|default:0|format_price }}',
                     '{{ propiedad.id }}',
                     '{{ fecha_inicio }}',
                     '{{ fecha_fin }}',
                     '{{ propiedad.estado_reserva }}',
                     '{{ propiedad.reserva.id }}',
-                    '{{propiedad.precio|format_price}}'
+                   
+                    '{{total_dias|default:0}}',
                 )">
                    <td style="color: red;">{{ propiedad.id }}</td>
                    <td style="color: red;">
@@ -143,7 +153,7 @@
                 </tr>
                
                 {% else %}
-                <tr data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}')">
+                <tr data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad( '{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}',)">
                     <td>{{ propiedad.id }}</td>
                     <td>
                         
@@ -220,40 +230,26 @@
                 <p><strong>Total de días:</strong> <span id="totalDias"></span></p>
                 <p><strong>Precio total:</strong> <span id="precioTotalSuperior"></span></p>
 
-                <div class="form-group">
-                    <label for="vendedor">ID del Vendedor:</label>
-                    <input type="number" id="vendedor" name="vendedor" class="form-control" required>
-                    <small id="vendedor.nombre" class="form-text text-muted"></small>
+                <div>
+                    <label for="vendedor_id">ID del Vendedor:</label>
+                    <input type="number" id="vendedor_id" name="vendedor" >
+                    <p><strong>Nombre del Vendedor:</strong> <span id="vendedor_nombre"></span></p>
                 </div>
-
-                <div class="col-md-6">
-                    <label for="inquilino">Seleccionar Inquilino:</label>
-                    <select class="form-control select2-inquilino" id="inquilino" name="inquilino" style="width: 100%;" required>
-                        <option value="">Seleccione un inquilino...</option>
+                <!-- Dentro del modal de Confirmar Reserva -->
+                <div class="form-group">
+                    <label for="inquilino">Buscar Inquilino:</label>
+                    <select id="inquilino" name="inquilino" class="form-control" style="width: 100%;">
+                        <option value="">Seleccione un inquilino</option>
+                        {% for inquilino in inquilinos %}
+                        <option value="{{ inquilino.id }}">{{ inquilino.nombre }} {{ inquilino.apellido }} - {{ inquilino.dni }}</option>
+                        {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-6">
-                    <h3>Seleccionar Inquilino:</h3>
-                    <div class="form-group">
-                        <label for="id_inquilino">Seleccionar Inquilino:</label>
-                        {{ form.inquilino }}
-                    </div>
-                    
-                    <!-- <div class="form-check">
-                        {{ form.nuevo_propietario }}
-                        <label class="form-check-label" for="id_nuevo_propietario">Crear nuevo propietario<
-                            /label>
-                    </div> -->
-                    
-                    <div id="nuevo-inquilino-fields">
-                        <!-- Botón para abrir el modal de crear inquilino -->
-                        <button id="abrir-modal-inquilino-btn" type="button" class="btn btn-success" data-toggle="modal" data-target="#modal-inquilino">Crear Nuevo Inquilino</button>
-                    </div>
-                </div>  
-                
-               
-                
-           
+                <div id="nuevo-inquilino-fields">
+                    <!-- Botón para abrir el modal de crear inquilino -->
+                    <button id="abrir-modal-inquilino-btn" type="button" class="btn btn-success" data-toggle="modal" data-target="#modal-inquilino">Crear Nuevo Inquilino</button>
+                </div>
+                       
                 <div id="modal-inquilino" class="modal fade" tabindex="-1" role="dialog">
                     <div class="modal-dialog" role="document">
                         <div class="modal-content">
@@ -286,14 +282,14 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal" id="cancelarReservaBtn">Cancelar</button>
+                <button type="button" class="btn btn-secondary close" data-dismiss="modal" aria-label="Close">Cerrar</button>
                 <form id="confirmar-reserva-form" method="post" action="{% url 'inmobiliaria:confirmar_reserva' %}">
                     {% csrf_token %}
                     <input type="hidden" name="propiedad_id" id="modalPropiedadId">
                     <input type="hidden" name="fecha_inicio" id="modalFechaInicio">
                     <input type="hidden" name="fecha_fin" id="modalFechaFin">
-                    <input type="hidden" name="cliente" id="modalCliente">
-                    <input type="hidden" name="vendedor" id="modalVendedor">
+                    <input type="hidden" name="vendedor_id" id="modalVendedorId">
+                    <input type="hidden" name="cliente_id" id="modalClienteId">
                     <input type="hidden" name="precio_total" id="modalPrecioTotal"  >
                     <button type="submit" class="btn btn-primary" id="confirmar-reserva-btn">Confirmar Reserva</button>
                 </form>
@@ -303,7 +299,29 @@
 </div>
 
 
-
+  
+<div id="modal-inquilino" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalInquilinoLabel">Agregar Nuevo Inquilino</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="form-nuevo-inquilino" method="post">
+                    {% csrf_token %}
+                    {{ inquilino_form.as_p }}
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" id="guardar-inquilino-btn" data-dismiss="modal" class="btn btn-primary">Guardar Inquilino</button>
+            </div>
+        </div>
+    </div>
+</div>
 <!-- Modal de Autenticación del Vendedor -->
 <div class="modal fade" id="modalAutenticacionVendedor" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
@@ -348,7 +366,7 @@
                 <!-- Contenido del modal -->
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-secondary close" data-dismiss="modal" aria-label="Close">Cerrar</button>
             </div>
         </div>
     </div>
@@ -426,8 +444,19 @@
         obtenerPrecios: "{% url 'inmobiliaria:obtener_precios_propiedad' %}"
     };
 </script>
+<!-- Incluir jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- Incluir Bootstrap JS -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
 
 <script>
+    function formatPrice(value) {
+    return value.toLocaleString('es-ES', { minimumFractionDigits: 0 });
+}
+$('#modalPrecios .close').click(function () {
+    $('#modalPrecios').modal('hide');
+});
     // Función para mostrar y ocultar filtros
     function mostrarOcultarFiltros() {
         const filtros = document.getElementById("filtros-completos");
@@ -435,7 +464,7 @@
         
         if (filtros.style.display === "none") {
             filtros.style.display = "block";
-            resetBoton.style.display = "inline-block"; // Mostrar el botón de reset
+            resetBoton.style.display = "inline-block"; // Mostrar el botn de reset
         } else {
             filtros.style.display = "none";
             resetBoton.style.display = "none"; // Ocultar el botón de reset
@@ -448,9 +477,18 @@
         mostrarOcultarFiltros(); // Ocultar los filtros
     }
     let selectedRowIndex = -1;
-    function seleccionarPropiedad(direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id) {
+    function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id) {
     console.log('El estado de la reserva es', estadoReserva);
     console.log('El ID de la reserva es', reserva_id);
+    window.fechaInicioSeleccionada = fechaInicio.trim(); // Eliminar espacios en blanco
+    window.fechaFinSeleccionada = fechaFin.trim(); // Eliminar espacios en blanco
+    window.total_dias = total_dias;
+    
+    console.log('Fechas seleccionadas:', {
+        inicio: window.fechaInicioSeleccionada,
+        fin: window.fechaFinSeleccionada,
+        
+    });
 
     const row = event.currentTarget;
     const rows = document.querySelectorAll('#propiedadesTable tbody tr');
@@ -499,9 +537,7 @@
     window.fechaInicioSeleccionada = fechaInicio;
     window.fechaFinSeleccionada = fechaFin;
 }
-function formatPrice(value) {
-    return value.toLocaleString('es-ES', { minimumFractionDigits: 0 });
-}
+
 function mostrarPrecios(propiedad_id) {
     console.log('Mostrando precios para propiedad:', propiedad_id);
     
@@ -586,7 +622,10 @@ function confirmarReserva() {
     const precio = document.getElementById("cardPrecio").innerText.split(": ")[1];
 
     const fechaInicio = window.fechaInicioSeleccionada;
+    console.log("hola soy la fecha de inicio",window.fechaInicioSeleccionada);
     const fechaFin = window.fechaFinSeleccionada;
+    const totalDias = window.total_dias;
+    console.log("hola soy el total de diassssss",totalDias); 
 
     // Verifica si los valores se obtienen correctamente
     console.log("ID Propiedad:", ficha);
@@ -596,6 +635,7 @@ function confirmarReserva() {
     console.log("Precio por Día:", precio);
     console.log("Fecha Inicio:", fechaInicio);
     console.log("Fecha Fin:", fechaFin);
+    
 
     // Lógica de confirmación
     Swal.fire({
@@ -609,7 +649,7 @@ function confirmarReserva() {
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin);
+            mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias);
         }
     });
 }
@@ -620,18 +660,33 @@ function formatearFecha(fecha) {
     const anio = d.getFullYear();
     return `${dia}/${mes}/${anio}`;
 }
-function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin) {
+function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
     document.getElementById("propiedadDireccion").textContent = direccion;
     document.getElementById("fechaInicio").textContent = formatearFecha(fechaInicio);;
     document.getElementById('fechaFin').textContent = formatearFecha(fechaFin);
+    
+    document.getElementById("fechaInicio").textContent = fechaInicio;
+    document.getElementById("fechaFin").textContent = fechaFin;
+   
+    console.log("hola soy la fecha de inicio",fechaInicio);
+    console.log("hola soy la fecha de fin",fechaFin);
+    console.log("hola soy la cantidad de dias",totalDias);
+
+    // Asegúrate de que las fechas estén correctamente formateadas antes de crear los objetos Date
+    
+
+    
+    // Calcula el total de días
+   
+
+    // Muestra el total de días en la consola
+    console.log("Total de días:", totalDias);
+
+    document.getElementById("totalDias").textContent = `${totalDias} días`;
+    document.getElementById("precioTotalSuperior").textContent = precio;
 
 
-    const fechaInicioObj = new Date(fechaInicio);
-    const fechaFinObj = new Date(fechaFin);
-    const diffTime = Math.abs(fechaFinObj - fechaInicioObj);
-    const totalDias = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    document.getElementById("totalDias").textContent = totalDias;
+ 
     document.getElementById("precioTotalSuperior").textContent = precio;
     document.getElementById("precio_total_display").textContent = precio;
     document.getElementById("precio_total").value = precio;
@@ -757,10 +812,10 @@ window.addEventListener('load', function() {
         firstRow.click();
     }
 });
-function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin) {
+function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
     // Guardamos los datos de la reserva en variables globales
-    window.datosReserva = {ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin};
-    
+    window.datosReserva = {ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin,totalDias};
+    console.log("hola soy el window.datosReserva",window.datosReserva);
     // Mostramos el modal de autenticación
     $('#modalAutenticacionVendedor').modal('show');
     
@@ -802,7 +857,8 @@ function autenticarYReservar() {
                         window.datosReserva.disponibilidad,
                         window.datosReserva.precio,
                         window.datosReserva.fechaInicio,
-                        window.datosReserva.fechaFin
+                        window.datosReserva.fechaFin,
+                        window.datosReserva.totalDias
                     );
                 });
             } else {
@@ -824,6 +880,174 @@ function autenticarYReservar() {
 }
 
 </script>
+<script>
+    document.getElementById('agregarClienteBtn').addEventListener('click', function() {
+        var nuevoClienteContainer = document.getElementById('nuevoClienteContainer');
+        if (nuevoClienteContainer.style.display === "none" || nuevoClienteContainer.style.display === "") {
+            nuevoClienteContainer.style.display = "block";
+        } else {
+            nuevoClienteContainer.style.display = "none";
+        }
+    });
+
+  
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+
+<script type="text/javascript">
+    // Configurar CSRF para todas las solicitudes AJAX
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!/^(GET|HEAD|OPTIONS|TRACE)$/.test(settings.type) && !this.crossDomain) {
+                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+            }
+        }
+    });
+
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- {% if messages %}
+<script>
+    {% for message in messages %}
+        Swal.fire({
+            icon: '{% if message.tags == "error" %}error{% else %}{{ message.tags }}{% endif %}',
+            title: '{{ message.tags|title }}',
+            text: '{{ message|safe }}',
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,ƒ
+            timer: 3000
+        });
+    {% endfor %}
+</script>
+{% endif %} -->
+<script>
+    // Cuando cambia el vendedor
+    $('#vendedor_id').on('change', function() {
+        $('#modalVendedorId').val($(this).val());
+    });
+
+    // Cuando cambia el inquilino
+    $('#inquilino').on('change', function() {
+        $('#modalInquilinoId').val($(this).val());
+    });
+
+    // Cuando se actualiza el precio
+    $('#precio_total').on('change', function() {
+        $('#modalPrecioTotal').val($(this).val());
+    });
+</script>
+<!-- ... mantener el modal como está ... -->
+
+<script>
+    $(document).ready(function() {
+        // Manejar el click en el botón de guardar inquilino
+        $('#guardar-inquilino-btn').click(function(e) {
+            e.preventDefault();
+            
+            // Obtener los datos del formulario
+            const formData = new FormData($('#form-nuevo-inquilino')[0]);
+            
+            // Agregar el token CSRF
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            
+            // Realizar la petición AJAX
+            $.ajax({
+                url: '{% url "inmobiliaria:crear_inquilino_ajax" %}',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        // Crear nueva opción para el select
+                        const newOption = new Option(
+                            `${response.nombre} ${response.apellido} - ${response.dni}`,
+                            response.id,
+                            true,
+                            true
+                        );
+                        
+                        // Agregar la opción al select y seleccionarla
+                        $('#inquilino').append(newOption).trigger('change');
+                        
+                        // Actualizar el campo oculto
+                        $('#modalInquilinoId').val(response.id);
+                        
+                        // Cerrar el modal
+                        $('#modal-inquilino').modal('hide');
+                        
+                        // Limpiar el formulario
+                        $('#form-nuevo-inquilino')[0].reset();
+                        
+                        // Mostrar mensaje de éxito
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Éxito',
+                            text: 'Inquilino creado correctamente',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    } else {
+                        // Mostrar errores si los hay
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: response.errors || 'Error al crear el inquilino',
+                            timer: 3000
+                        });
+                    }
+                },
+                error: function(xhr, errmsg, err) {
+                    // Manejar errores de la petición
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Ocurrió un error al procesar la solicitud',
+                        timer: 3000
+                    });
+                    console.error('Error:', errmsg);
+                }
+            });
+        });
+    });
+    </script>
 <script>
     document.getElementById('agregarClienteBtn').addEventListener('click', function() {
         var nuevoClienteContainer = document.getElementById('nuevoClienteContainer');
@@ -887,94 +1111,41 @@ function autenticarYReservar() {
         return cookieValue;
     }
 </script>
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
 <script>
-$(document).ready(function() {
-    $('.select2-inquilino').select2({
-        ajax: {
-            url: '{% url "inmobiliaria:buscar_inquilinos" %}',
-            dataType: 'json',
-            delay: 250,
-            data: function(params) {
-                return {
-                    term: params.term,
-                    page: params.page
-                };
+    $('#inquilino').on('change', function() {
+    const selectedInquilinoId = $(this).val();
+    if (selectedInquilinoId) {
+        $.ajax({
+            url: '{% url "inmobiliaria:obtener_inquilino" 0 %}'.replace('0', selectedInquilinoId),
+            type: 'GET',
+            success: function(data) {
+                if (data.success) {
+                    // Aquí puedes actualizar los campos del modal con la información del inquilino seleccionado
+                    $('#modalCliente').val(data.inquilino.id);
+                    // Agrega más actualizaciones según lo necesites
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'No se pudo obtener la información del inquilino.'
+                    });
+                }
             },
-            processResults: function(data) {
-                return {
-                    results: data.results
-                };
-            },
-            cache: true
-        },
-        minimumInputLength: 2,
-        placeholder: 'Buscar inquilino por nombre o DNI...',
-        allowClear: true,
-        language: {
-            noResults: function() {
-                return "No se encontraron resultados";
-            },
-            searching: function() {
-                return "Buscando...";
-            },
-            inputTooShort: function() {
-                return "Por favor ingrese 2 o más caracteres";
+            error: function(xhr, status, error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error del servidor',
+                    text: 'Ocurrió un error al obtener la información del inquilino.'
+                });
             }
-        }
-    });
+        });
+    } else {
+        // Restaura los campos del modal a su estado inicial
+        $('#modalCliente').val('');
+        // Agrega más restauraciones según lo necesites
+    }
 });
 </script>
-<script type="text/javascript">
-    // Configurar CSRF para todas las solicitudes AJAX
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-
-    const csrftoken = getCookie('csrftoken');
-
-    $.ajaxSetup({
-        beforeSend: function(xhr, settings) {
-            if (!/^(GET|HEAD|OPTIONS|TRACE)$/.test(settings.type) && !this.crossDomain) {
-                xhr.setRequestHeader("X-CSRFToken", csrftoken);
-            }
-        }
-    });
-
-</script>
-
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-<!-- {% if messages %}
-<script>
-    {% for message in messages %}
-        Swal.fire({
-            icon: '{% if message.tags == "error" %}error{% else %}{{ message.tags }}{% endif %}',
-            title: '{{ message.tags|title }}',
-            text: '{{ message|safe }}',
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,ƒ
-            timer: 3000
-        });
-    {% endfor %}
-</script>
-{% endif %} -->
-
 <script>
         $('#cancelarReservaBtn').on('click', function() {
         $('#modalConfirmarReserva').modal('hide');
@@ -987,6 +1158,7 @@ $(document).ready(function() {
         }
     });
 </script>
+
 <script>
     $('#cancelarReservaBtnA').on('click', function() {
     $('#modalAutenticacionVendedor').modal('hide');

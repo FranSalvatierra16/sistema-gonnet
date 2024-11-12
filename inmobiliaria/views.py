@@ -21,6 +21,7 @@ from io import BytesIO
 from django.template.loader import render_to_string
 from django.contrib.auth import authenticate
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
 
 import logging
 logger = logging.getLogger(__name__)
@@ -277,14 +278,14 @@ def propiedad_nuevo(request):
 @login_required
 def propiedad_editar(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
-    propietario_form = PropietarioForm(request.POST)
+    propietario_form = PropietarioForm(request.POST or None)
 
     if request.method == 'POST':
         form = PropiedadForm(request.POST, request.FILES, instance=propiedad)
         
         if form.is_valid():
             propiedad = form.save()
-            
+
             # Manejar las imágenes subidas
             if 'imagenes' in request.FILES:
                 imagenes = request.FILES.getlist('imagenes')
@@ -430,7 +431,7 @@ def reserva_eliminar(request, reserva_id):
     
     return render(request, 'inmobiliaria/reserva/confirmar_eliminar.html', {'reserva': reserva})
 def parse_fecha(fecha_str):
-    formatos_fecha = ['%Y-%m-%d', '%d %b. %Y', '%d %B %Y', '%m/%d/%Y', '%m-%d-%Y']
+    formatos_fecha = ['%Y-%m-%d', '%d %b. %Y', '%d %B %Y', '%m/%d/%Y', '%m-%d-%Y','%d/%m/%Y']
     for formato in formatos_fecha:
         try:
             return datetime.strptime(fecha_str, formato).date()
@@ -445,63 +446,68 @@ def confirmar_reserva(request):
             propiedad_id = request.POST.get('propiedad_id')
             fecha_inicio_str = request.POST.get('fecha_inicio')
             fecha_fin_str = request.POST.get('fecha_fin')
-     
-            vendedor_id = request.POST.get('vendedor', '')
-            cliente_id = request.POST.get('cliente', '')
-            precio = request.POST.get('precio_total','precio_total_display')
-            print("hola soy el vendeeeee ",vendedor_id)
-            # Validar que las fechas no estén vacías
-            if not fecha_inicio_str or not fecha_fin_str:
-                raise ValidationError('Las fechas proporcionadas no son válidas.')
+            vendedor_id = request.POST.get('vendedor_id')
+            inquilino_id = request.POST.get('inquilino_id')
+            precio = request.POST.get('precio_total', '0')
 
-            print("hola soy el precio ",)    
+            # Validación de datos obligatorios
+            campos_requeridos = {
+                'propiedad_id': propiedad_id,
+                'fecha_inicio': fecha_inicio_str,
+                'fecha_fin': fecha_fin_str,
+                'vendedor_id': vendedor_id,
+                'inquilino_id': inquilino_id,
+                'precio': precio
+            }
 
-            # Convertir las fechas a objetos `date`
+            campos_faltantes = [k for k, v in campos_requeridos.items() if not v]
+            if campos_faltantes:
+                messages.error(request, f'Faltan los siguientes campos: {", ".join(campos_faltantes)}')
+                return redirect('inmobiliaria:buscar_propiedades')
+
+            # Convertir fechas
             fecha_inicio = parse_fecha(fecha_inicio_str)
             fecha_fin = parse_fecha(fecha_fin_str)
 
-            # Validar que la fecha de inicio no sea posterior a la de fin
+            # Validar fechas
             if fecha_inicio > fecha_fin:
-                raise ValidationError('La fecha de inicio no puede ser posterior a la fecha de fin.')
+                messages.error(request, 'La fecha de inicio no puede ser posterior a la fecha de fin.')
+                return redirect('inmobiliaria:buscar_propiedades')
 
+            # Obtener objetos de la base de datos
+            try:
+                propiedad = Propiedad.objects.get(id=propiedad_id)
+                vendedor = Vendedor.objects.get(id=vendedor_id)
+                inquilino = Inquilino.objects.get(id=inquilino_id)
+            except ObjectDoesNotExist as e:
+                messages.error(request, f'Error al obtener datos: {str(e)}')
+                return redirect('inmobiliaria:buscar_propiedades')
 
+            # Procesar el precio
+            try:
+                precio_total = Decimal(precio.replace(',', '.'))
+            except (ValueError, TypeError):
+                messages.error(request, 'El precio proporcionado no es válido')
+                return redirect('inmobiliaria:buscar_propiedades')
 
-            # Validar que los IDs no estén vacíos
-            if not vendedor_id or not cliente_id:
-                raise ValidationError('Vendedor o cliente no pueden estar vacíos.')
+            # Crear la reserva
+            with transaction.atomic():
+                reserva = Reserva.objects.create(
+                    propiedad=propiedad,
+                    fecha_inicio=fecha_inicio,
+                    fecha_fin=fecha_fin,
+                    vendedor=vendedor,
+                    cliente=inquilino,
+                    precio_total=precio_total
+                )
 
-            # Obtener la propiedad, vendedor y cliente de la base de datos
-             # Obtener la propiedad, vendedor y cliente de la base de datos
-            propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-            vendedor = get_object_or_404(Vendedor, id=vendedor_id)
-            cliente = get_object_or_404(Inquilino, id=cliente_id)
-
-            # Calcular el precio total
-            total_dias = (fecha_fin - fecha_inicio).days
-            precio_total = Decimal(precio.replace(',', '.'))
-            
-     
-           
-            # Crear la reserva con el precio total y otros detalles
-            reserva = Reserva.objects.create(
-                propiedad=propiedad,
-                fecha_inicio=fecha_inicio,
-                fecha_fin=fecha_fin,
-              
-                vendedor=vendedor,
-                cliente=cliente,
-                precio_total=precio_total
-            )
-
-            # Redirigir a la página de éxito con los detalles de la reserva
+            messages.success(request, 'Reserva creada exitosamente')
             return redirect('inmobiliaria:reserva_exitosa', reserva_id=reserva.id)
+
         except Exception as e:
-            # Si ocurre un error, renderiza la plantilla de error
-            return render(request, 'inmobiliaria/reserva/error.html', {
-                'error_message': str(e)
-            }, status=500)
+            messages.error(request, f'Error inesperado: {str(e)}')
+            return redirect('inmobiliaria:buscar_propiedades')
     else:
-        # Si no es una solicitud POST, redirige a la página de búsqueda
         messages.error(request, 'Método no permitido')
         return redirect('inmobiliaria:buscar_propiedades')
 
@@ -521,7 +527,7 @@ def buscar_propiedades(request):
     propiedades_disponibles = []
     propiedades_sin_precio = []
     vendedores = Vendedor.objects.all()
-    
+    total_dias_reserva=0
 
     fecha_inicio = None
     fecha_fin = None
@@ -529,6 +535,7 @@ def buscar_propiedades(request):
     if form.is_valid():
         fecha_inicio = form.cleaned_data['fecha_inicio']
         fecha_fin = form.cleaned_data['fecha_fin']
+        
 
         # Filtrar propiedades
         propiedades = Propiedad.objects.all()
@@ -610,7 +617,10 @@ def buscar_propiedades(request):
                 precio_total = 0
                 precio_mas_caro = 0
                 primer_dia = True
+                print('fecha de inicio',fecha_inicio)
+                print('fecha de fin',fecha_fin)
                 dias_reserva = (fecha_fin - fecha_inicio).days + 1
+                total_dias_reserva = dias_reserva - 1
 
                 for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
                     # Determinar el tipo de precio según la fecha
@@ -619,7 +629,14 @@ def buscar_propiedades(request):
                         tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
                     elif single_date.month == 2:  # Febrero
                         tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day <= 15 else 'QUINCENA_2_FEBRERO'
-                    # Agregar más meses si es necesario
+                    elif single_date.month == 3:  # Marzo
+                        tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
+                    elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
+                        tipo_precio = 'VACACIONES_INVIERNO'
+                    elif single_date.month == 12:  # Diciembre
+                        tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
+                    else:
+                        tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
 
                     # Obtener el precio para la propiedad y la quincena correspondiente
                     try:
@@ -630,7 +647,8 @@ def buscar_propiedades(request):
 
                     if precio_dia == 0:
                         propiedades_sin_precio.append(propiedad)
-                        break
+                        # No romper el bucle, solo marcar la propiedad como sin precio
+                        continue
 
                     if precio_dia > precio_mas_caro:
                         precio_mas_caro = precio_dia
@@ -640,7 +658,7 @@ def buscar_propiedades(request):
                     else:
                         primer_dia = False
 
-                if precio_dia > 0 :
+                if precio_dia > 0 or precio_dia == 0 :
 
                     if reserva_confirmada_no_pagada:
                         propiedad.precio_total_reserva = reserva_confirmada_no_pagada.precio_total
@@ -680,7 +698,8 @@ def buscar_propiedades(request):
 
     # Alerta si hay propiedades sin precio
     alerta_sin_precio = len(propiedades_sin_precio) > 0
-    
+    print("las fechas de inicio y fin son ",fecha_inicio,fecha_fin)
+    print("los dias de reserva son ",total_dias_reserva)
 
     return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
         'form': form,
@@ -692,6 +711,7 @@ def buscar_propiedades(request):
         'vendedores': vendedores,
         'tipos_precio': TipoPrecio,
         'inquilino_form': inquilino_form,
+        'total_dias': total_dias_reserva,
     })
 
 def crear_disponibilidad(request, propiedad_id):
@@ -956,20 +976,40 @@ def buscar_clientes(request):
     return JsonResponse({'results': results})
 
 def crear_inquilino_ajax(request):
-    if request.method == "POST":
-        form = InquilinoForm(request.POST)
-        if form.is_valid():
-            inquilino = form.save()
+    if request.method == 'POST':
+        try:
+            inquilino = Inquilino.objects.create(
+                nombre=request.POST['nombre'],
+                apellido=request.POST['apellido'],
+                fecha_nacimiento=request.POST['fecha_nacimiento'],
+                email=request.POST['email'],
+                celular=request.POST['celular'],
+                tipo_doc=request.POST['tipo_doc'],
+                dni=request.POST['dni'],
+                tipo_ins=request.POST['tipo_ins'],
+                cuit=request.POST.get('cuit', ''),
+                localidad=request.POST['localidad'],
+                provincia=request.POST['provincia'],
+                domicilio=request.POST['domicilio'],
+                codigo_postal=request.POST['codigo_postal'],
+                observaciones=request.POST.get('observaciones', ''),
+                garantia=request.POST.get('garantia', '')
+            )
             return JsonResponse({
                 'success': True,
-                'id': inquilino.id,
-                'nombre': inquilino.nombre,
-                'apellido': inquilino.apellido,
-                'dni': inquilino.dni
+                'inquilino': {
+                    'id': inquilino.id,
+                    'nombre': inquilino.nombre,
+                    'apellido': inquilino.apellido,
+                    'dni': inquilino.dni
+                }
             })
-        else:
-            return JsonResponse({'success': False, 'errors': form.errors})
-    return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 
 def obtener_precios_propiedad(request):
@@ -1075,3 +1115,18 @@ def agregar_disponibilidad_masiva(request):
     return render(request, 'inmobiliaria/propiedades/disponibilidad_masiva.html', {
         'propiedades': propiedades
     })
+
+# views.py
+@login_required
+def obtener_inquilino(request, inquilino_id):
+    try:
+        inquilino = Inquilino.objects.get(id=inquilino_id)
+        return JsonResponse({'success': True, 'inquilino': {
+            'id': inquilino.id,
+            'nombre': inquilino.nombre,
+            'apellido': inquilino.apellido,
+            'dni': inquilino.dni,
+            # Agrega más campos según sea necesario
+        }})
+    except Inquilino.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Inquilino no encontrado.'}, status=404)
