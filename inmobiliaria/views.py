@@ -459,6 +459,7 @@ def confirmar_reserva(request):
                 'inquilino_id': inquilino_id,
                 'precio': precio
             }
+            print("los campos requeridos son ",campos_requeridos)
 
             campos_faltantes = [k for k, v in campos_requeridos.items() if not v]
             if campos_faltantes:
