@@ -73,7 +73,11 @@ class PropiedadForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': 'select2-propietario'}),
         required=False
     )
-
+    id = forms.IntegerField(
+        label='ID de la Propiedad',
+        required=True,
+        help_text='Ingrese el ID deseado para la propiedad'
+    )
 
     class Meta:
         model = Propiedad
@@ -98,9 +102,7 @@ class PropiedadForm(forms.ModelForm):
             # 'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio diario'}),
         }
         
-    def __init__(self, *args, **kwargs):
-        super(PropiedadForm, self).__init__(*args, **kwargs)
-        self.fields['id'].widget.attrs['readonly'] = True
+   
 class PrecioForm(forms.ModelForm):
     class Meta:
         model = Precio
