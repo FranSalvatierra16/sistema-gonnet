@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.models import AbstractUser
-
+from .sucursal import Sucursal
 TIPOS_INS = [
     ('csfl', 'CSFL'),
     ('exen', 'EXEN'),
@@ -42,6 +42,11 @@ class Persona(models.Model):
     cuit = models.CharField(max_length=11, validators=[RegexValidator(regex=r'^\d{11}$', message='CUIT debe tener 11 dígitos')])  # Campo para CUIT
     tipo_ins = models.CharField(max_length=4, choices=TIPOS_INS, default='otro')  # Campo para tipo de inscripción
     tipo_doc = models.CharField(max_length=4, choices=TIPOS_DOC, default='otro')
+    sucursal = models.ForeignKey(
+        'Sucursal', 
+        on_delete=models.PROTECT,
+        related_name='%(class)s_set'
+    )
 
     class Meta:
         abstract = True
@@ -73,6 +78,11 @@ class Vendedor(AbstractUser):
     comision = models.DecimalField(max_digits=5, decimal_places=2, help_text="Comisión en porcentaje", null=True, blank=True)
     celular = models.CharField(max_length=20, blank=True)
     nivel = models.IntegerField(choices=NIVELES_VENDEDOR, default=1, help_text="Nivel del vendedor para determinar sus permisos")
+    sucursal = models.ForeignKey(
+        'Sucursal', 
+        on_delete=models.PROTECT,
+        related_name='vendedores'
+    )
 
     def __str__(self):
         return f"{self.nombre} {self.apellido}"
@@ -89,6 +99,11 @@ class Vendedor(AbstractUser):
         constraints = [
             models.UniqueConstraint(fields=['dni'], name='unique_dni')
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.pk:  # Si es una nueva instancia
+            self.is_active = False  # El usuario debe ser activado por un admin
+        super().save(*args, **kwargs)
 
 class Inquilino(Persona):
     garantia = models.TextField(blank=True, help_text="Información sobre la garantía del inquilino")

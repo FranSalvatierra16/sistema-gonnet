@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserChangeForm
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio,TipoPrecio,TIPOS_INMUEBLES, TIPOS_VISTA, TIPOS_VALORACION
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio,TipoPrecio,TIPOS_INMUEBLES, TIPOS_VISTA, TIPOS_VALORACION, Sucursal
 from datetime import datetime
 from django.forms import modelformset_factory
 # Formulario de creación de Vendedor
@@ -11,7 +11,7 @@ class VendedorUserCreationForm(forms.ModelForm):
 
     class Meta:
         model = Vendedor
-        fields = ['dni', 'username', 'nombre', 'apellido', 'email', 'comision', 'fecha_nacimiento', 'nivel']
+        fields = ['dni', 'username', 'nombre', 'apellido', 'email', 'comision', 'fecha_nacimiento', 'nivel','sucursal']
 
     def clean_password2(self):
         password1 = self.cleaned_data.get("password1")
@@ -26,6 +26,10 @@ class VendedorUserCreationForm(forms.ModelForm):
         if commit:
             vendedor.save()
         return vendedor
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['sucursal'].required = True
 
 # Formulario de cambio de Vendedor
 class VendedorChangeForm(UserChangeForm):

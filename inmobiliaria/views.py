@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Sucursal
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
@@ -1131,3 +1131,19 @@ def obtener_inquilino(request, inquilino_id):
         }})
     except Inquilino.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Inquilino no encontrado.'}, status=404)
+
+class BaseSucursalMixin:
+    def get_queryset(self):
+        return super().get_queryset().filter(sucursal=self.request.user.sucursal)
+
+    def form_valid(self, form):
+        form.instance.sucursal = self.request.user.sucursal
+        return super().form_valid(form)
+
+class PropiedadListView(BaseSucursalMixin, ListView):
+    model = Propiedad
+    template_name = 'inmobiliaria/propiedades/lista.html'
+
+class InquilinoListView(BaseSucursalMixin, ListView):
+    model = Inquilino
+    template_name = 'inmobiliaria/inquilinos/lista.html'

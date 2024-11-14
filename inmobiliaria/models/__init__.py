@@ -1,2 +1,2 @@
-from .persona import Vendedor, Inquilino, Propietario
-from .propiedad import Propiedad,  Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio,TIPOS_INMUEBLES, TIPOS_VISTA, TIPOS_VALORACION
+from .persona import Vendedor, Inquilino, Propietario, Sucursal
+from .propiedad import Propiedad,  Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio,TIPOS_INMUEBLES, TIPOS_VISTA, TIPOS_VALORACION, Sucursal

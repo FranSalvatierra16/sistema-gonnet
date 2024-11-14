@@ -37,4 +37,11 @@
         </div>
     </div>
 </div>
+
+<div class="user-info">
+    {% if user.is_authenticated %}
+        <p>Usuario: {{ user.get_full_name }}</p>
+        <p>Sucursal: {{ user.sucursal.get_nombre_display }}</p>
+    {% endif %}
+</div>
 {% endblock %}
