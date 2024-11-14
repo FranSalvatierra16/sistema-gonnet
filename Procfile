@@ -1,1 +1,2 @@
-web: gunicorn gonnetinterno.wsgi --log-file -
+web: gunicorn sistema_gonnet.wsgi --log-file -
+

@@ -13,7 +13,14 @@
             <!-- Información básica -->
             <div class="col-md-6">
                 <h3>Información básica</h3>
+              
+                {% if propiedad %}
+                {% bootstrap_field form.id layout='horizontal' readonly='readonly' %}
+            {% else %}
+                {% bootstrap_field form.id layout='horizontal' %}
+            {% endif %}
                 {% bootstrap_field form.direccion layout='horizontal' %}
+                {% bootstrap_field form.ubicacion layout='horizontal' %}
                 {% bootstrap_field form.tipo_inmueble layout='horizontal' %}
                 {% bootstrap_field form.vista layout='horizontal' %}
                 {% bootstrap_field form.piso layout='horizontal' %}
@@ -32,7 +39,8 @@
                 
                 <!-- <div class="form-check">
                     {{ form.nuevo_propietario }}
-                    <label class="form-check-label" for="id_nuevo_propietario">Crear nuevo propietario</label>
+                    <label class="form-check-label" for="id_nuevo_propietario">Crear nuevo propietario<
+                        /label>
                 </div> -->
                 
                 <div id="nuevo-propietario-fields">

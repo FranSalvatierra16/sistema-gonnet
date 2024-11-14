@@ -1,6 +1,6 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
-
+{% load custom_filters %}
 {% block content %}
 <div class="container">
     <div class="row justify-content-center">
@@ -78,9 +78,9 @@
                             <tbody>
                                 {% for precio in precios %}
                                     <tr>
-                                        <td>{{ precio.get_tipo_precio_display }}</td>
-                                        <td>${{ precio.precio_por_dia }}</td>
-                                        <td>${{ precio.precio_total }}</td>
+                                        <td>{{ precio.get_tipo_precio_display |format_price}}</td>
+                                        <td>${{ precio.precio_por_dia |format_price }}</td>
+                                        <td>${{ precio.precio_total |format_price }}</td>
                                         
                                         
                                     </tr>

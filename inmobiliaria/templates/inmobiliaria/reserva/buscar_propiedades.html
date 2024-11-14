@@ -1,5 +1,6 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
+{% load custom_filters %}
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,6 +19,15 @@
         color: white;
     }
 
+    .modal {
+        z-index: 1050 !important;
+    }
+    .modal-backdrop {
+        z-index: 1040 !important;
+    }
+    .select2-container {
+        z-index: 1051 !important;
+    }
 
     </style>
 </head>
@@ -117,17 +127,7 @@
             <tbody>
                 {% for propiedad in propiedades_disponibles %}
                 {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                <tr data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad(
-                    '{{ propiedad.direccion|escapejs }}',
-                    '{{ propiedad.propietario.nombre|escapejs }}',
-                    '{{ propiedad.disponibilidad }}',
-                    '{{ propiedad.precio_total_reserva }}',
-                    '{{ propiedad.id }}',
-                    '{{ fecha_inicio }}',
-                    '{{ fecha_fin }}',
-                    '{{ propiedad.estado_reserva }}',
-                    '{{ propiedad.reserva.id }}'
-                )">
+                <tr data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad( '{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','{{ propiedad.reserva.id }}',)">
                    <td style="color: red;">{{ propiedad.id }}</td>
                    <td style="color: red;">
                     Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
@@ -141,7 +141,7 @@
                 </tr>
                
                 {% else %}
-                <tr data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}')">
+                <tr data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad( '{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}',)">
                     <td>{{ propiedad.id }}</td>
                     <td>
                         
@@ -152,7 +152,7 @@
                     <td>{{ propiedad.piso }}</td>
                     <td>{{ propiedad.dpto }}</td>
                     <td>{{ propiedad.propietario.nombre }}</td>
-                    <td>{{ propiedad.precio_total_reserva }}</td>
+                    <td>{{ propiedad.precio_total_reserva|format_price }}</td>
                 </tr>
                 {% endif %}
                 {% endfor %}
@@ -162,23 +162,23 @@
             <div class="alert alert-warning text-center mt-4">
                 No hay propiedades disponibles para las fechas seleccionadas.
             </div>
+            {% if alerta_sin_precio %}
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Hay propiedades sin precio asignado',
+                        confirmButtonText: 'Entendido',
+                        confirmButtonColor: '#3085d6',
+                        timer: 5000,
+                        timerProgressBar: true
+                    });
+                });
+            </script>
+            {% endif %}
         {% endif %}
     </div>
-    {% if alerta_sin_precio %}
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Atención',
-                text: 'Hay propiedades sin precio asignado',
-                confirmButtonText: 'Entendido',
-                confirmButtonColor: '#3085d6',
-                timer: 5000,
-                timerProgressBar: true
-            });
-        });
-    </script>
-{% endif %}
 
 <!-- Tarjeta de propiedad seleccionada -->
 <div class="col-md-4" class="card property-card" id="propertyCard">
@@ -207,52 +207,105 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalLabel">Confirmar Reserva</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
             <div class="modal-body">
                 <p><strong>Propiedad:</strong> <span id="propiedadDireccion"></span></p>
-             
                 <p><strong>Fecha de inicio:</strong> <span id="fechaInicio"></span></p>
                 <p><strong>Fecha de fin:</strong> <span id="fechaFin"></span></p>
                 <p><strong>Total de días:</strong> <span id="totalDias"></span></p>
-                <p><strong>Precio total:</strong> <span id="precioTotal"></span> </p>
+                <p><strong>Precio total:</strong> <span id="precioTotalSuperior"></span></p>
 
-                
-                <p><strong>Vendedor:</strong>
-                    <select id="vendedor" name="vendedor" class="form-control">
-                        {% for vendedor in vendedores %}
-                            <option value="{{ vendedor.id }}">{{ vendedor.nombre_completo_vendedor  }}</option>
-                        {% empty %}
-                            <option value="">No hay vendedores disponibles</option>
-                        {% endfor %}
-                    </select>
-                </p>
-
-                <p><strong>Cliente:</strong>
-                    <select id="inquilino" name="cliente" class="form-control">
+                <div>
+                    <label for="vendedor_id">ID del Vendedor:</label>
+                    <input type="number" id="vendedor_id" name="vendedor" >
+                    <p><strong>Nombre del Vendedor:</strong> <span id="vendedor_nombre"></span></p>
+                </div>
+                <!-- Dentro del modal de Confirmar Reserva -->
+                <div class="form-group">
+                    <label for="inquilino">Buscar Inquilino:</label>
+                    <select id="inquilino" name="inquilino" class="form-control" style="width: 100%;">
+                        <option value="">Seleccione un inquilino</option>
                         {% for inquilino in inquilinos %}
-                            <option value="{{ inquilino.id }}">{{ inquilino.nombre_completo_inquilino  }}</option>
-                        {% empty %}
-                            <option value="">No hay inquilinos disponibles</option>
+                        <option value="{{ inquilino.id }}">{{ inquilino.nombre }} {{ inquilino.apellido }} - {{ inquilino.dni }}</option>
                         {% endfor %}
                     </select>
-                </p>
+                </div>
+                <div id="nuevo-inquilino-fields">
+                    <!-- Botón para abrir el modal de crear inquilino -->
+                    <button id="abrir-modal-inquilino-btn" type="button" class="btn btn-success" data-toggle="modal" data-target="#modal-inquilino">Crear Nuevo Inquilino</button>
+                </div>
+                       
+                <div id="modal-inquilino" class="modal fade" tabindex="-1" role="dialog">
+                    <div class="modal-dialog" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="modalInquilinoLabel">Agregar Nuevo Inquilino</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="form-nuevo-inquilino" method="post">
+                                    {% csrf_token %}
+                                    {{ inquilino_form.as_p }}
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                                <button type="button" id="guardar-inquilino-btn" data-dismiss="modal" class="btn btn-primary">Guardar Inquilino</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="precio_total">Precio Total:</label>
+                    <span id="precio_total_display">{{ precio_total }}</span>
+                    <button type="button" id="editar_precio_btn" class="btn btn-link">Editar</button>
+                    <input type="number" step="0.01" class="form-control" id="precio_total" name="precio_total" style="display: none;" required>
+                    <button type="button" id="guardar_precio_btn" class="btn btn-link" style="display: none;">Guardar</button>
+                    <button type="button" id="cancelar_precio_btn" class="btn btn-link" style="display: none;">Cancelar</button>
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-secondary close" data-dismiss="modal" aria-label="Close">Cerrar</button>
                 <form id="confirmar-reserva-form" method="post" action="{% url 'inmobiliaria:confirmar_reserva' %}">
                     {% csrf_token %}
                     <input type="hidden" name="propiedad_id" id="modalPropiedadId">
                     <input type="hidden" name="fecha_inicio" id="modalFechaInicio">
                     <input type="hidden" name="fecha_fin" id="modalFechaFin">
-         
-                    <input type="hidden" name="cliente" id="modalCliente">
-                    <input type="hidden" name="vendedor" id="modalVendedor">
-                    <input type="hidden" name="precio_total" id="modalPrecioTotal"> <!-- Nuevo campo oculto -->
-                    <button type="submit" class="btn btn-primary">Confirmar Reserva</button>
+                    <input type="hidden" name="vendedor_id" id="modalVendedorId">
+                    <input type="hidden" name="inquilino_id" id="modalInquilinoId">
+                    <input type="hidden" name="precio_total" id="modalPrecioTotal"  >
+                    <button type="submit" class="btn btn-primary" id="confirmar-reserva-btn">Confirmar Reserva</button>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+  
+<div id="modal-inquilino" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalInquilinoLabel">Agregar Nuevo Inquilino</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="form-nuevo-inquilino" method="post">
+                    {% csrf_token %}
+                    {{ inquilino_form.as_p }}
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" id="guardar-inquilino-btn" data-dismiss="modal" class="btn btn-primary">Guardar Inquilino</button>
             </div>
         </div>
     </div>
@@ -263,7 +316,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalLabel">Autenticación del Vendedor</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
@@ -280,13 +333,32 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" id="cancelarReservaBtnA">Cancelar</button>
+
                 <button type="button" class="btn btn-primary" onclick="autenticarYFinalizar()">Autenticar y Finalizar</button>
             </div>
         </div>
     </div>
 </div>
 
+<div class="modal fade" id="modalPrecios" tabindex="-1" role="dialog" aria-labelledby="modalPreciosLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalPreciosLabel">Precios de la Propiedad</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="preciosModalBody">
+                <!-- Contenido del modal -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary close" data-dismiss="modal" aria-label="Close">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Modales para ver detalles de la propiedad -->
 {% for propiedad in propiedades_disponibles %}
@@ -295,7 +367,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalLabel">Detalles de la Propiedad</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
@@ -338,7 +410,7 @@
                 <p><strong>Ambientes:</strong> {{ propiedad.ambientes }}</p>
                 <p><strong>Valoración:</strong> {{ propiedad.valoracion }}</p>
                 <p><strong>Características:</strong> {{ propiedad.caracteristicas }}</p>
-                <p><strong>Precio por Día:</strong> {{ propiedad.precio_total_reserva }}</p>
+                <p><strong>Precio Final:</strong> {{ propiedad.precio_total_reserva }}</p>
                 <p><strong>Propietario:</strong> {{ propiedad.propietario }}</p>
             </div>
             <div class="modal-footer">
@@ -348,10 +420,31 @@
     </div>
 </div>
 
+<!-- Modal de Precios -->
+
 {% endfor %}
 
 
+
 <script>
+    // Añade esto al principio de tus scripts
+    const URLS = {
+        obtenerPrecios: "{% url 'inmobiliaria:obtener_precios_propiedad' %}"
+    };
+</script>
+<!-- Incluir jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- Incluir Bootstrap JS -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    function formatPrice(value) {
+    return value.toLocaleString('es-ES', { minimumFractionDigits: 0 });
+}
+$('#modalPrecios .close').click(function () {
+    $('#modalPrecios').modal('hide');
+});
     // Función para mostrar y ocultar filtros
     function mostrarOcultarFiltros() {
         const filtros = document.getElementById("filtros-completos");
@@ -359,7 +452,7 @@
         
         if (filtros.style.display === "none") {
             filtros.style.display = "block";
-            resetBoton.style.display = "inline-block"; // Mostrar el botón de reset
+            resetBoton.style.display = "inline-block"; // Mostrar el botn de reset
         } else {
             filtros.style.display = "none";
             resetBoton.style.display = "none"; // Ocultar el botón de reset
@@ -372,44 +465,50 @@
         mostrarOcultarFiltros(); // Ocultar los filtros
     }
     let selectedRowIndex = -1;
-    function seleccionarPropiedad(direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id) {
-    console.log('El estado de la reserva es', estadoReserva);
-    console.log('El ID de la reserva es', reserva_id);
+    function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id) {
+        console.log('El estado de la reserva es:', estadoReserva);
+        console.log('El ID de la propiedad es:', id);
+        
+        window.fechaInicioSeleccionada = fechaInicio.trim();
+        window.fechaFinSeleccionada = fechaFin.trim();
+        window.total_dias = total_dias;
 
-    const row = event.currentTarget;
-    const rows = document.querySelectorAll('#propiedadesTable tbody tr');
-    rows.forEach(r => r.classList.remove('table-active'));
+        const row = event.currentTarget;
+        const rows = document.querySelectorAll('#propiedadesTable tbody tr');
+        rows.forEach(r => r.classList.remove('table-active'));
+        row.classList.add('table-active');
+        
+        // Actualizar la tarjeta de propiedad
+        document.getElementById("cardDireccion").innerText = "Dirección: " + direccion;
+        document.getElementById("cardPropietario").innerText = "Propietario: " + propietario;
+        document.getElementById("cardDisponibilidad").innerText = "Disponibilidad: " + disponibilidad;
+        document.getElementById("cardPrecio").innerText = "Precio: " + formatPrice(precio);
+        document.getElementById("cardPropiedad").innerText = "Ficha: " + id;
 
-    row.classList.add('table-active');
-    selectedRowIndex = parseInt(row.dataset.index);
-    document.getElementById("cardDireccion").innerText = "Dirección: " + direccion;
-    document.getElementById("cardPropietario").innerText = "Propietario: " + propietario;
-    document.getElementById("cardDisponibilidad").innerText = "Disponibilidad: " + disponibilidad;
-    document.getElementById("cardPrecio").innerText = "Precio: " + precio;
-    document.getElementById("cardPropiedad").innerText = "Ficha: " + id;
+        const propertyCard = document.getElementById("propertyCard");
+        const cardButtons = document.getElementById("cardButtons");
 
-    const propertyCard = document.getElementById("propertyCard");
-    const cardButtons = document.getElementById("cardButtons");
+        // Limpiar botones existentes
+        cardButtons.innerHTML = '';
 
-    // Limpiar el contenido anterior de los botones
-    cardButtons.innerHTML = '';
+        // Remover clases previas
+        propertyCard.classList.remove('card-confirmada');
 
-    // Remover todas las clases de estado previas
-    propertyCard.classList.remove('card-confirmada');
-
-    if (estadoReserva === 'confirmada_no_pagada' && reserva_id) {
-        console.log('Entrando en la condición para mostrar el botón Finalizar');
-        propertyCard.classList.add('card-confirmada');
-        cardButtons.innerHTML = `
-            <button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion(${reserva_id})">Operacion</button>
-            <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-        `;
-    } else {
-        cardButtons.innerHTML = `
-            <button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>
-            <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-        `;
-    }
+        // Verificar el estado de la reserva y mostrar los botones correspondientes
+        if (estadoReserva === 'confirmada_no_pagada') {
+            propertyCard.classList.add('card-confirmada');
+            cardButtons.innerHTML = `
+                <button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion('${reserva_id}')">Operacion</button>
+                <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
+                <button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>
+            `;
+        } else {
+            cardButtons.innerHTML = `
+                <button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>
+                <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
+                <button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>
+            `;
+        }
 
     // Forzar un repintado del DOM
     void propertyCard.offsetWidth;
@@ -418,6 +517,83 @@
     window.fechaInicioSeleccionada = fechaInicio;
     window.fechaFinSeleccionada = fechaFin;
 }
+
+function mostrarPrecios(propiedad_id) {
+    console.log('Mostrando precios para propiedad:', propiedad_id);
+    
+    const modal = $('#modalPrecios');
+    if (modal.length === 0) {
+        console.error('Modal no encontrado');
+        return;
+    }
+    
+    modal.modal('show');
+    
+    $('#preciosModalBody').html(`
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="sr-only">Cargando...</span>
+            </div>
+        </div>
+    `);
+    
+    $.ajax({
+        url: "{% url 'inmobiliaria:obtener_precios_propiedad' %}",
+        data: { 'propiedad_id': propiedad_id },
+        method: 'GET',
+        success: function(response) {
+            console.log('Respuesta:', response);
+            
+            if (response.precios && response.precios.length > 0) {
+                let tableContent = `
+                    <table class="table table-striped">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>Quincena</th>
+                                <th>Precio por Día</th>
+                                <th>Precio Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                response.precios.forEach(function(precio) {
+                    tableContent += `
+                        <tr>
+                            <td>${precio.tipo_precio}</td>
+                            <td>$${formatPrice(precio.precio_por_dia)}</td>
+                            <td>$${formatPrice(precio.precio_total)}</td>
+                        </tr>
+                    `;
+                });
+                
+                tableContent += `
+                        </tbody>
+                    </table>
+                `;
+                
+                $('#preciosModalBody').html(tableContent);
+            } else {
+                $('#preciosModalBody').html(`
+                    <div class="alert alert-warning">
+                        No hay precios registrados para esta propiedad.
+                    </div>
+                `);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error:', error);
+            $('#preciosModalBody').html(`
+                <div class="alert alert-danger">
+                    Error al cargar los precios: ${error}
+                </div>
+            `);
+        }
+    });
+}
+
+
+
 function confirmarReserva() {
     const ficha = document.getElementById("cardPropiedad").innerText.split(": ")[1]; // Extraer el ID
     const direccion = document.getElementById("cardDireccion").innerText.split(": ")[1];
@@ -426,7 +602,10 @@ function confirmarReserva() {
     const precio = document.getElementById("cardPrecio").innerText.split(": ")[1];
 
     const fechaInicio = window.fechaInicioSeleccionada;
+    console.log("hola soy la fecha de inicio",window.fechaInicioSeleccionada);
     const fechaFin = window.fechaFinSeleccionada;
+    const totalDias = window.total_dias;
+    console.log("hola soy el total de diassssss",totalDias); 
 
     // Verifica si los valores se obtienen correctamente
     console.log("ID Propiedad:", ficha);
@@ -436,6 +615,7 @@ function confirmarReserva() {
     console.log("Precio por Día:", precio);
     console.log("Fecha Inicio:", fechaInicio);
     console.log("Fecha Fin:", fechaFin);
+    
 
     // Lógica de confirmación
     Swal.fire({
@@ -449,30 +629,65 @@ function confirmarReserva() {
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin);
+            mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias);
         }
     });
 }
-function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio,fechaInicio, fechaFin) {
+function formatearFecha(fecha) {
+    const d = new Date(fecha);
+    const dia = d.getDate().toString().padStart(2, '0');
+    const mes = (d.getMonth() + 1).toString().padStart(2, '0'); // Los meses en JavaScript van de 0 a 11
+    const anio = d.getFullYear();
+    return `${dia}/${mes}/${anio}`;
+}
+function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
     document.getElementById("propiedadDireccion").textContent = direccion;
+    document.getElementById("fechaInicio").textContent = formatearFecha(fechaInicio);;
+    document.getElementById('fechaFin').textContent = formatearFecha(fechaFin);
+    
     document.getElementById("fechaInicio").textContent = fechaInicio;
     document.getElementById("fechaFin").textContent = fechaFin;
+   
+    console.log("hola soy la fecha de inicio",fechaInicio);
+    console.log("hola soy la fecha de fin",fechaFin);
+    console.log("hola soy la cantidad de dias",totalDias);
 
-    const fechaInicioObj = new Date(fechaInicio);
-    const fechaFinObj = new Date(fechaFin);
-    const diffTime = Math.abs(fechaFinObj - fechaInicioObj);
-    const totalDias = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // Asegúrate de que las fechas estén correctamente formateadas antes de crear los objetos Date
+    
 
-    document.getElementById("totalDias").textContent = totalDias;
-    document.getElementById("precioTotal").textContent = precio;
+    
+    // Calcula el total de días
+   
+
+    // Muestra el total de días en la consola
+    console.log("Total de días:", totalDias);
+
+    document.getElementById("totalDias").textContent = `${totalDias} días`;
+    document.getElementById("precioTotalSuperior").textContent = precio;
+
+
+ 
+    document.getElementById("precioTotalSuperior").textContent = precio;
+    document.getElementById("precio_total_display").textContent = precio;
+    document.getElementById("precio_total").value = precio;
 
     document.getElementById("modalPropiedadId").value = ficha;
     document.getElementById("modalFechaInicio").value = fechaInicio;
     document.getElementById("modalFechaFin").value = fechaFin;
     document.getElementById("modalPrecioTotal").value = precio;
 
+    const precioTotalDisplay = document.getElementById('precio_total_display');
+    const precioTotalInput = document.getElementById('precio_total');
+    const editarPrecioBtn = document.getElementById('editar_precio_btn');
+    const guardarPrecioBtn = document.getElementById('guardar_precio_btn');
+    const cancelarPrecioBtn = document.getElementById('cancelar_precio_btn');
+
+    precioTotalDisplay.textContent = precio;
+    precioTotalInput.value = precio;
+    
+
     $('#modalConfirmarReserva').modal('show');
-}  
+}
 function cancelarReserva(reservaId) {
         // Aquí puedes implementar la lógica para cancelar la reserva
         console.log("Reserva cancelada: " + reservaId);
@@ -488,20 +703,21 @@ function cancelarReserva(reservaId) {
             event.preventDefault(); // Prevenir el envío del formulario
         }
     });
-    document.getElementById('confirmar-reserva-form').addEventListener('submit', function(event) {
+    
+   document.getElementById('confirmar-reserva-form').addEventListener('submit', function(event) {
     // Obtener los valores de vendedor e inquilino seleccionados
     const vendedorSeleccionado = document.getElementById('vendedor').value;
     const clienteSeleccionado = document.getElementById('inquilino').value;
 
     // Pasar los valores seleccionados a los campos ocultos del formulario
     document.getElementById('modalVendedor').value = vendedorSeleccionado;
-    document.getElementById('modalCliente').value = clienteSeleccionado;
+    document.getElementById('modalInquilino').value = clienteSeleccionado;
     const precio = document.getElementById('precio_total').value;
-    document.getElementById('modalPrecioTotal').value = clienteSeleccionado;
-
+    document.getElementById('modalPrecioTotal').value = precio;
+    console.log("hola soy el precio total ",precio);
  
 });
-document.addEventListener('keydown', function(event) {
+ document.addEventListener('keydown', function(event) {
     const rows = document.querySelectorAll('#propiedadesTable tbody tr');
     let newIndex = selectedRowIndex;
 
@@ -528,7 +744,9 @@ function mostrarModalAutenticacion(reservaId) {
 function autenticarYFinalizar() {
     var usuario = document.getElementById('usuarioVendedor').value;
     var contrasena = document.getElementById('contrasenaVendedor').value;
-    var reservaId = window.reservaIdActual; // Usar el ID guardado
+    var reservaId = window.reservaIdActual;
+    console.log("hola soy el reservaId",reservaId);
+     // Usar el ID guardado
 
     // Enviar los datos a través de AJAX
     $.ajax({
@@ -549,7 +767,7 @@ function autenticarYFinalizar() {
                     showConfirmButton: false,
                     timer: 1500
                 }).then(() => {
-                    // Aquí puedes poner el código que se ejecuta después de que se cierre la alerta
+                    // Aqu puedes poner el código que se ejecuta después de que se cierre la alerta
                     window.location.href = '{% url "inmobiliaria:finalizar_reserva" 0 %}'.replace('0', response.reserva_id);
                 });
             } else {
@@ -576,7 +794,105 @@ window.addEventListener('load', function() {
         firstRow.click();
     }
 });
+function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
+    // Guardamos los datos de la reserva en variables globales
+    window.datosReserva = {ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin,totalDias};
+    console.log("hola soy el window.datosReserva",window.datosReserva);
+    // Mostramos el modal de autenticación
+    $('#modalAutenticacionVendedor').modal('show');
+    
+    // Cambiamos el texto del botón de autenticación
+    document.querySelector('#modalAutenticacionVendedor .btn-primary').textContent = 'Autenticar y Reservar';
+    
+    // Cambiamos la función que se ejecuta al hacer clic en el botón
+    document.querySelector('#modalAutenticacionVendedor .btn-primary').onclick = autenticarYReservar;
+}
+function autenticarYReservar() {
+    var usuario = document.getElementById('usuarioVendedor').value;
+    var contrasena = document.getElementById('contrasenaVendedor').value;
+    var reservaId = window.reservaIdActual;
+
+    // Enviar los datos a través de AJAX     s
+    $.ajax({
+        url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
+        type: 'POST',
+        data: {
+            'username': usuario,
+            'password': contrasena,
+            'csrfmiddlewaretoken': '{{ csrf_token }}',
+        },
+        success: function(response) {
+            if (response.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Autenticación exitosa',
+                    text: 'Procediendo con la reserva...',
+                    showConfirmButton: false,
+                    timer: 1500
+                }).then(() => {
+                    $('#modalAutenticacionVendedor').modal('hide');
+                    // Si la autenticación es exitosa, mostramos el modal de reserva
+                    mostrarModalReserva(
+                        window.datosReserva.ficha,
+                        window.datosReserva.direccion,
+                        window.datosReserva.propietario,
+                        window.datosReserva.disponibilidad,
+                        window.datosReserva.precio,
+                        window.datosReserva.fechaInicio,
+                        window.datosReserva.fechaFin,
+                        window.datosReserva.totalDias
+                    );
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de autenticación',
+                    text: 'Credenciales incorrectas, por favor intente de nuevo.'
+                });
+            }
+        },
+        error: function(xhr, status, error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error del servidor',
+                text: 'Ocurrió un error en el servidor. Por favor, intente de nuevo.'
+            });
+        }
+    });
+}
+
 </script>
+<script>
+    document.getElementById('agregarClienteBtn').addEventListener('click', function() {
+        var nuevoClienteContainer = document.getElementById('nuevoClienteContainer');
+        if (nuevoClienteContainer.style.display === "none" || nuevoClienteContainer.style.display === "") {
+            nuevoClienteContainer.style.display = "block";
+        } else {
+            nuevoClienteContainer.style.display = "none";
+        }
+    });
+
+  
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+
 <script type="text/javascript">
     // Configurar CSRF para todas las solicitudes AJAX
     function getCookie(name) {
@@ -603,7 +919,9 @@ window.addEventListener('load', function() {
             }
         }
     });
+
 </script>
+
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <!-- {% if messages %}
@@ -615,11 +933,366 @@ window.addEventListener('load', function() {
             text: '{{ message|safe }}',
             toast: true,
             position: 'top-end',
-            showConfirmButton: false,
+            showConfirmButton: false,ƒ
             timer: 3000
         });
     {% endfor %}
 </script>
 {% endif %} -->
+<script>
+    // Cuando cambia el vendedor
+    $('#vendedor_id').on('change', function() {
+        $('#modalVendedorId').val($(this).val());
+    });
+
+    // Cuando cambia el inquilino
+    $('#inquilino').on('change', function() {
+        $('#modalInquilinoId').val($(this).val());
+    });
+
+    // Cuando se actualiza el precio
+    $('#precio_total').on('change', function() {
+        $('#modalPrecioTotal').val($(this).val());
+    });
+</script>
+<!-- ... mantener el modal como está ... -->
+
+<script>
+    $(document).ready(function() {
+        // Manejar el click en el botón de guardar inquilino
+        $('#guardar-inquilino-btn').click(function(e) {
+            e.preventDefault();
+            
+            // Obtener los datos del formulario
+            const formData = new FormData($('#form-nuevo-inquilino')[0]);
+            
+            // Agregar el token CSRF
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            
+            // Realizar la petición AJAX
+            $.ajax({
+                url: '{% url "inmobiliaria:crear_inquilino_ajax" %}',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        // Crear nueva opción para el select
+                        const newOption = new Option(
+                            `${response.nombre} ${response.apellido} - ${response.dni}`,
+                            response.id,
+                            true,
+                            true
+                        );
+                        
+                        // Agregar la opción al select y seleccionarla
+                        $('#inquilino').append(newOption).trigger('change');
+                        
+                        // Actualizar el campo oculto
+                        $('#modalInquilinoId').val(response.id);
+                        
+                        // Cerrar el modal
+                        $('#modal-inquilino').modal('hide');
+                        
+                        // Limpiar el formulario
+                        $('#form-nuevo-inquilino')[0].reset();
+                        
+                        // Mostrar mensaje de éxito
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Éxito',
+                            text: 'Inquilino creado correctamente',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    } else {
+                        // Mostrar errores si los hay
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: response.errors || 'Error al crear el inquilino',
+                            timer: 3000
+                        });
+                    }
+                },
+                error: function(xhr, errmsg, err) {
+                    // Manejar errores de la petición
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Ocurrió un error al procesar la solicitud',
+                        timer: 3000
+                    });
+                    console.error('Error:', errmsg);
+                }
+            });
+        });
+    });
+    </script>
+<script>
+    document.getElementById('agregarClienteBtn').addEventListener('click', function() {
+        var nuevoClienteContainer = document.getElementById('nuevoClienteContainer');
+        if (nuevoClienteContainer.style.display === "none" || nuevoClienteContainer.style.display === "") {
+            nuevoClienteContainer.style.display = "block";
+        } else {
+            nuevoClienteContainer.style.display = "none";
+        }
+    });
+
+    document.getElementById('guardarClienteBtn').addEventListener('click', function() {
+        var formData = new FormData(document.getElementById('form-nuevo-inquilino'));
+        fetch('{% url "inmobiliaria:crear_inquilino_ajax" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                var newOption = new Option(data.nombre + ' ' + data.apellido + ' (DNI: ' + data.dni + ')', data.id, true, true);
+                $('#id_inquilino').append(newOption).trigger('change');
+                document.getElementById('nuevoClienteContainer').style.display = 'none';
+                document.getElementById('form-nuevo-inquilino').reset();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Éxito',
+                    text: 'Cliente creado correctamente'
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al guardar el cliente: ' + JSON.stringify(data.errors)
+                });
+            }
+        })
+        .catch(error => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al procesar la solicitud'
+            });
+        });
+    });
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+<script>
+    $('#inquilino').on('change', function() {
+    const selectedInquilinoId = $(this).val();
+    if (selectedInquilinoId) {
+        $.ajax({
+            url: '{% url "inmobiliaria:obtener_inquilino" 0 %}'.replace('0', selectedInquilinoId),
+            type: 'GET',
+            success: function(data) {
+                if (data.success) {
+                    // Aquí puedes actualizar los campos del modal con la información del inquilino seleccionado
+                    $('#modalCliente').val(data.inquilino.id);
+                    // Agrega más actualizaciones según lo necesites
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'No se pudo obtener la información del inquilino.'
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error del servidor',
+                    text: 'Ocurrió un error al obtener la información del inquilino.'
+                });
+            }
+        });
+    } else {
+        // Restaura los campos del modal a su estado inicial
+        $('#modalCliente').val('');
+        // Agrega más restauraciones según lo necesites
+    }
+});
+</script>
+<script>
+        $('#cancelarReservaBtn').on('click', function() {
+        $('#modalConfirmarReserva').modal('hide');
+        // Enfocar la lista de propiedades
+        $('#propiedadesTable').focus();
+        // Opcionalmente, puedes resaltar la fila que estaba seleccionada
+        if (selectedRowIndex !== -1) {
+            const rows = document.querySelectorAll('#propiedadesTable tbody tr');
+            rows[selectedRowIndex].focus();
+        }
+    });
+</script>
+
+<script>
+    $('#cancelarReservaBtnA').on('click', function() {
+    $('#modalAutenticacionVendedor').modal('hide');
+    // Enfocar la lista de propiedades
+    $('#propiedadesTable').focus();
+    // Opcionalmente, puedes resaltar la fila que estaba seleccionada
+    if (selectedRowIndex !== -1) {
+        const rows = document.querySelectorAll('#propiedadesTable tbody tr');
+        rows[selectedRowIndex].focus();
+    }
+});
+document.addEventListener('DOMContentLoaded', function() {
+    const precioTotalSuperior = document.getElementById('precioTotalSuperior');
+    const precioTotalDisplay = document.getElementById('precio_total_display');
+    const precioTotalInput = document.getElementById('precio_total');
+    const editarPrecioBtn = document.getElementById('editar_precio_btn');
+    const guardarPrecioBtn = document.getElementById('guardar_precio_btn');
+    const cancelarPrecioBtn = document.getElementById('cancelar_precio_btn');
+    const modalPrecioTotalInput = document.getElementById('modalPrecioTotal');
+    const confirmarReservaForm = document.getElementById('confirmar-reserva-form');
+
+    function actualizarPreciosMostrados(precio) {
+        precioTotalSuperior.textContent = precio;
+        precioTotalDisplay.textContent = precio;
+        precioTotalInput.value = precio;
+        modalPrecioTotalInput.value = precio;  // Actualiza el campo oculto
+    }
+
+    editarPrecioBtn.addEventListener('click', function() {
+        precioTotalDisplay.style.display = 'none';
+        precioTotalInput.style.display = 'inline-block';
+        editarPrecioBtn.style.display = 'none';
+        guardarPrecioBtn.style.display = 'inline-block';
+        cancelarPrecioBtn.style.display = 'inline-block';
+        precioTotalInput.focus();
+    });
+
+    guardarPrecioBtn.addEventListener('click', function() {
+        const nuevoPrecio = precioTotalInput.value;
+        actualizarPreciosMostrados(nuevoPrecio);
+        precioTotalDisplay.style.display = 'inline';
+        precioTotalInput.style.display = 'none';
+        guardarPrecioBtn.style.display = 'none';
+        cancelarPrecioBtn.style.display = 'none';
+        editarPrecioBtn.style.display = 'inline';
+    });
+
+    cancelarPrecioBtn.addEventListener('click', function() {
+        actualizarPreciosMostrados(precioTotalDisplay.textContent);
+        precioTotalDisplay.style.display = 'inline';
+        precioTotalInput.style.display = 'none';
+        guardarPrecioBtn.style.display = 'none';
+        cancelarPrecioBtn.style.display = 'none';
+        editarPrecioBtn.style.display = 'inline';
+    });
+
+    // Añadir este evento al formulario de confirmación de reserva
+    confirmarReservaForm.addEventListener('submit', function(event) {
+        // Asegurarse de que el precio total se actualice antes de enviar el formulario
+        const precioFinal = precioTotalInput.style.display === 'none' ? precioTotalDisplay.textContent : precioTotalInput.value;
+        modalPrecioTotalInput.value = precioFinal;
+    });
+});
+document.addEventListener('DOMContentLoaded', function() {
+    const vendedorInput = document.getElementById('vendedor_id');
+    const vendedorNombre = document.getElementById('vendedor_nombre');
+
+    if (vendedorInput) {
+        vendedorInput.addEventListener('change', function() {
+            const vendedorId = this.value;
+            if (vendedorId) {
+                fetch(`${obtenerVendedorUrl}${vendedorId}/`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            vendedorNombre.textContent = data.vendedor.nombre_completo;
+                        } else {
+                            vendedorNombre.textContent = 'Vendedor no encontrado';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        vendedorNombre.textContent = 'Error al cargar el vendedor';
+                    });
+            } else {
+                vendedorNombre.textContent = '';
+            }
+        });
+    } else {
+        console.error('El campo de vendedor no se encontró');
+    }
+
+});
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+<script>
+    const obtenerVendedorUrl = "{% url 'inmobiliaria:obtener_vendedor' 0 %}".slice(0, -1);
+</script>
+
+
+<!-- Modal para crear nuevo cliente -->
 
 {% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

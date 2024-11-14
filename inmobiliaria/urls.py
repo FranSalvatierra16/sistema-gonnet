@@ -49,6 +49,9 @@ urlpatterns = [
     path('propiedad/<int:propiedad_id>/crear-disponibilidad/', views.crear_disponibilidad, name='crear_disponibilidad'),
     path('buscar-propiedades-23/', views.buscar_propiedades_23, name='buscar_propiedades_23'),
     path('propietario/nuevo/ajax/', views.propietario_nuevo_ajax, name='propietario_nuevo_ajax'),
+     path('buscar-clientes/', views.buscar_clientes, name='buscar_clientes'),
+    path('crear-inquilino-ajax/', views.crear_inquilino_ajax, name='crear_inquilino_ajax'),
+    path('disponibilidad-masiva/', views.agregar_disponibilidad_masiva, name='agregar_disponibilidad_masiva'),
 
     # Reserva URLs
     path('reservas/', views.reservas, name='reservas'),
@@ -61,9 +64,12 @@ urlpatterns = [
     path('reservas/finalizar/<int:reserva_id>/', views.terminar_reserva, name='finalizar_reserva'),
     path('reservas/<int:reserva_id>/editar/', views.reserva_editar, name='reserva_editar'),
   path('buscar-propietarios/', views.buscar_propietarios, name='buscar_propietarios'),
+  path('buscar-inquilinos/', views.buscar_inquilinos, name='buscar_inquilinos'),
     path('reserva/eliminar/<int:reserva_id>/', views.reserva_eliminar, name='reserva_eliminar'),
     path('autenticacion-vendedor/', views.autenticacion_vendedor, name='autenticacion_vendedor'),
-
+    path('obtener_precios_propiedad/', views.obtener_precios_propiedad, name='obtener_precios_propiedad'),
+    path('obtener_vendedor/<int:vendedor_id>/', views.obtener_vendedor, name='obtener_vendedor'),
+    path('obtener-inquilino/<int:inquilino_id>/', views.obtener_inquilino, name='obtener_inquilino'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
