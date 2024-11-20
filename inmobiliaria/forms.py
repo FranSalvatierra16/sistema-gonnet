@@ -8,6 +8,7 @@ class VendedorUserCreationForm(forms.ModelForm):
     username = forms.CharField(max_length=150, help_text='Requerido. 150 caracteres o menos.')
     password1 = forms.CharField(widget=forms.PasswordInput, help_text='Requerido.')
     password2 = forms.CharField(widget=forms.PasswordInput, help_text='Ingrese la misma contraseña para verificar.')
+
     sucursal = forms.ModelChoiceField(
         queryset=Sucursal.objects.all(),
         required=True,
@@ -20,7 +21,9 @@ class VendedorUserCreationForm(forms.ModelForm):
 
     def clean_password2(self):
         password1 = self.cleaned_data.get("password1")
+        print(password1)
         password2 = self.cleaned_data.get("password2")
+        print(password2)
         if password1 and password2 and password1 != password2:
             raise forms.ValidationError("Las contraseñas no coinciden")
         return password2
@@ -106,6 +109,11 @@ class PropiedadForm(forms.ModelForm):
         queryset=Propietario.objects.all(),
         widget=forms.Select(attrs={'class': 'select2-propietario'}),
         required=False
+    )
+    id = forms.IntegerField(
+        label='ID de la Propiedad',
+        required=True,
+        help_text='Ingrese el ID deseado para la propiedad'
     )
 
 
@@ -283,3 +291,7 @@ class SucursalForm(forms.ModelForm):
         self.fields['direccion'].widget.attrs.update({'placeholder': 'Dirección'})
         self.fields['telefono'].widget.attrs.update({'placeholder': 'Teléfono'})
         self.fields['email'].widget.attrs.update({'placeholder': 'Email'})
+
+class LoginForm(forms.Form):
+    username = forms.CharField(max_length=150, label='Usuario')
+    password = forms.CharField(widget=forms.PasswordInput, label='Contraseña')

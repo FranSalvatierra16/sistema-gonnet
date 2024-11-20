@@ -42,6 +42,7 @@ class Migration(migrations.Migration):
                 ('celular', models.CharField(blank=True, max_length=20)),
                 ('nivel', models.IntegerField(choices=[(1, 'Básico'), (2, 'Intermedio'), (3, 'Avanzado'), (4, 'Administrador')], default=1, help_text='Nivel del vendedor para determinar sus permisos')),
                 ('groups', models.ManyToManyField(blank=True, help_text='The groups this user belongs to. A user will get all permissions granted to each of their groups.', related_name='user_set', related_query_name='user', to='auth.group', verbose_name='groups')),
+                ('user_permissions', models.ManyToManyField(blank=True, help_text='Specific permissions for this user.', related_name='user_set', related_query_name='user', to='auth.permission', verbose_name='user permissions')),
             ],
             options={
                 'verbose_name': 'Vendedor',
