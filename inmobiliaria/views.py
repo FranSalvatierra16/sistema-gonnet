@@ -3,7 +3,7 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio
-from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm
+from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
@@ -22,6 +22,7 @@ from django.template.loader import render_to_string
 from django.contrib.auth import authenticate
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
+from django.views.decorators.csrf import csrf_exempt
 
 import logging
 logger = logging.getLogger(__name__)
@@ -135,13 +136,13 @@ def inquilino_detalle(request, inquilino_id):
 @login_required
 def inquilino_nuevo(request):
     if request.method == "POST":
-        form = InquilinoForm(request.POST)
+        form = InquilinoForm(request.POST, user=request.user)
         if form.is_valid():
             inquilino = form.save()
             messages.success(request, 'Inquilino creado exitosamente.')
             return redirect('inmobiliaria:inquilino_detalle', inquilino_id=inquilino.id)
     else:
-        form = InquilinoForm()
+        form = InquilinoForm(user=request.user)
     return render(request, 'inmobiliaria/inquilinos/formulario.html', {'form': form})
 
 @login_required
@@ -207,13 +208,13 @@ def propietario_detalle(request, propietario_id):
 @login_required
 def propietario_nuevo(request):
     if request.method == "POST":
-        form = PropietarioForm(request.POST)
+        form = PropietarioForm(request.POST, user=request.user)
         if form.is_valid():
             propietario = form.save()
             messages.success(request, 'Propietario creado exitosamente.')
             return redirect('inmobiliaria:propietario_detalle', propietario_id=propietario.id)
     else:
-        form = PropietarioForm()
+        form = PropietarioForm(user=request.user)
     return render(request, 'inmobiliaria/propietarios/formulario.html', {'form': form})
 
 @login_required
@@ -256,9 +257,9 @@ def propiedad_detalle(request, propiedad_id):
     })
 @login_required
 def propiedad_nuevo(request):
-    propietario_form = PropietarioForm(request.POST) # Asegúrate de que esto esté bien definido
+    propietario_form = PropietarioForm(request.POST)  # Asegúrate de que esto esté bien definido
     if request.method == 'POST':
-        form = PropiedadForm(request.POST, request.FILES)
+        form = PropiedadForm(request.POST, request.FILES, user=request.user)  # Pasa el usuario actual
         if form.is_valid():
             propiedad = form.save()
             # Manejo de múltiples imágenes
@@ -268,7 +269,7 @@ def propiedad_nuevo(request):
             messages.success(request, 'Propiedad creada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
-        form = PropiedadForm()
+        form = PropiedadForm(user=request.user)  # Pasa el usuario actual
 
     return render(request, 'inmobiliaria/propiedades/formulario.html', {
         'form': form,
@@ -323,21 +324,17 @@ def register(request):
     return render(request, 'inmobiliaria/autenticacion/register.html', {'form': form})
 @login_required
 def crear_propietario_ajax(request):
-    if request.method == 'POST' and request.is_ajax():
-        form = PropietarioForm(request.POST)
+    if request.method == 'POST':
+        form = PropietarioForm(request.POST, user=request.user)
         if form.is_valid():
-            propietario = form.save()
-            return JsonResponse({
-                'success': True,
-                'propietario_id': propietario.id,
-                'propietario_nombre': f'{propietario.nombre} {propietario.apellido}',
-            })
+            form.save()
+            return JsonResponse({'success': True, 'message': 'Propietario creado exitosamente.'})
         else:
-            return JsonResponse({
-                'success': False,
-                'errors': form.errors.as_json(),
-            })
-    return JsonResponse({'success': False, 'error': 'Invalid request'})
+            # Imprimir errores en la consola para depuración
+            
+            print(form.errors)
+            return JsonResponse({'success': False, 'errors': form.errors}, status=400)
+    return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)
 
 @receiver(user_logged_in)
 def user_logged_in_handler(sender, request, user, **kwargs):
@@ -1131,3 +1128,14 @@ def obtener_inquilino(request, inquilino_id):
         }})
     except Inquilino.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Inquilino no encontrado.'}, status=404)
+
+def crear_sucursal(request):
+    if request.method == 'POST':
+        form = SucursalForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('inmobiliaria:reservas')  # Redirige a una lista de sucursales o a donde desees
+    else:
+        form = SucursalForm()
+    
+    return render(request, 'inmobiliaria/sucursal/crear_sucursal.html', {'form': form})

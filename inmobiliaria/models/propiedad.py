@@ -7,7 +7,7 @@ from django.utils.timezone import now
 
 import datetime
 from .persona import Propietario, Inquilino, Vendedor
-
+from .sucursal import Sucursal
 
 # Definiciones de tipos de vista, valoración e inmuebles
 TIPOS_VISTA = [
@@ -63,7 +63,8 @@ class Propiedad(models.Model):
     ambientes = models.IntegerField()
     valoracion = models.CharField(max_length=20, choices=TIPOS_VALORACION, default='bueno')
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
-    propietario = models.ForeignKey(Propietario, on_delete=models.CASCADE, related_name='propiedades')  # Cambiado a obligatorio
+    propietario = models.ForeignKey(Propietario, on_delete=models.CASCADE, related_name='propiedades')  
+    sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='propiedades')# Cambiado a obligatorio
     
     # Resto del código permanece igual
     
