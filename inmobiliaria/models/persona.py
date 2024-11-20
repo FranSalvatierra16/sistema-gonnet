@@ -78,11 +78,8 @@ class Vendedor(AbstractUser):
     comision = models.DecimalField(max_digits=5, decimal_places=2, help_text="Comisión en porcentaje", null=True, blank=True)
     celular = models.CharField(max_length=20, blank=True)
     nivel = models.IntegerField(choices=NIVELES_VENDEDOR, default=1, help_text="Nivel del vendedor para determinar sus permisos")
-    sucursal = models.ForeignKey(
-        'Sucursal', 
-        on_delete=models.PROTECT,
-        related_name='vendedores'
-    )
+    
+    sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='vendedores')
 
     def __str__(self):
         return f"{self.nombre} {self.apellido}"
@@ -107,6 +104,7 @@ class Vendedor(AbstractUser):
 
 class Inquilino(Persona):
     garantia = models.TextField(blank=True, help_text="Información sobre la garantía del inquilino")
+    sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='inquilinos')
     def nombre_completo_inquilino(self):
         return f"{self.nombre} {self.apellido}"
     class Meta:
@@ -115,6 +113,7 @@ class Inquilino(Persona):
 
 class Propietario(Persona):
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
+    sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='propietarios')
     def nombre_completo_propietario(self):
         return f"{self.nombre} {self.apellido}"
     class Meta:

@@ -13,12 +13,10 @@
             <!-- Información básica -->
             <div class="col-md-6">
                 <h3>Información básica</h3>
-              
-                {% if propiedad %}
-                {% bootstrap_field form.id layout='horizontal' readonly='readonly' %}
-            {% else %}
+               
                 {% bootstrap_field form.id layout='horizontal' %}
-            {% endif %}
+                
+
                 {% bootstrap_field form.direccion layout='horizontal' %}
                 {% bootstrap_field form.ubicacion layout='horizontal' %}
                 {% bootstrap_field form.tipo_inmueble layout='horizontal' %}

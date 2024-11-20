@@ -8,10 +8,15 @@ class VendedorUserCreationForm(forms.ModelForm):
     username = forms.CharField(max_length=150, help_text='Requerido. 150 caracteres o menos.')
     password1 = forms.CharField(widget=forms.PasswordInput, help_text='Requerido.')
     password2 = forms.CharField(widget=forms.PasswordInput, help_text='Ingrese la misma contraseña para verificar.')
+    sucursal = forms.ModelChoiceField(
+        queryset=Sucursal.objects.all(),
+        required=True,
+        help_text='Seleccione la sucursal a la que pertenece el vendedor.'
+    )
 
     class Meta:
         model = Vendedor
-        fields = ['dni', 'username', 'nombre', 'apellido', 'email', 'comision', 'fecha_nacimiento', 'nivel','sucursal']
+        fields = ['dni', 'username', 'nombre', 'apellido', 'email', 'comision', 'fecha_nacimiento', 'nivel', 'sucursal']
 
     def clean_password2(self):
         password1 = self.cleaned_data.get("password1")
@@ -46,11 +51,36 @@ class InquilinoForm(forms.ModelForm):
         model = Inquilino
         fields = ['nombre', 'apellido', 'fecha_nacimiento', 'email', 'celular', 'tipo_doc', 'dni', 'tipo_ins', 'cuit', 'localidad', 'provincia', 'domicilio', 'codigo_postal', 'observaciones', 'garantia']
 
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super(InquilinoForm, self).__init__(*args, **kwargs)
+
+    def save(self, commit=True):
+        inquilino = super(InquilinoForm, self).save(commit=False)
+        if self.user:
+            inquilino.sucursal = self.user.sucursal  # Asigna la sucursal del vendedor
+        if commit:
+            inquilino.save()
+        return inquilino
+
 # Formulario de Propietario
 class PropietarioForm(forms.ModelForm):
     class Meta:
         model = Propietario
-        fields = ['nombre', 'apellido', 'fecha_nacimiento', 'email', 'celular', 'tipo_doc', 'dni', 'tipo_ins', 'cuit', 'localidad', 'provincia', 'domicilio', 'codigo_postal', 'observaciones', 'cuenta_bancaria']
+        fields = ['nombre', 'apellido', 'fecha_nacimiento', 'email', 'celular', 'tipo_doc', 'dni', 'tipo_ins', 'cuit', 'localidad', 'provincia', 'domicilio', 'codigo_postal', 'observaciones']
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super(PropietarioForm, self).__init__(*args, **kwargs)
+
+    def save(self, commit=True):
+        propietario = super(PropietarioForm, self).save(commit=False)
+        if self.user and hasattr(self.user, 'sucursal'):
+            propietario.sucursal = self.user.sucursal  # Asigna la sucursal del vendedor
+        if commit:
+            propietario.save()
+        return propietario
+
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
@@ -106,7 +136,17 @@ class PropiedadForm(forms.ModelForm):
             # 'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio diario'}),
         }
         
-   
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super(PropiedadForm, self).__init__(*args, **kwargs)
+
+    def save(self, commit=True):
+        propiedad = super(PropiedadForm, self).save(commit=False)
+        if self.user and hasattr(self.user, 'sucursal'):
+            propiedad.sucursal = self.user.sucursal  # Asigna la sucursal del vendedor
+        if commit:
+            propiedad.save()
+        return propiedad
 class PrecioForm(forms.ModelForm):
     class Meta:
         model = Precio
@@ -235,3 +275,15 @@ class PropietarioBuscarForm(forms.Form):
 
 class InquilinoBuscarForm(forms.Form):
     termino = forms.CharField(required=False, label='Buscar nombre completo o DNI')
+
+class SucursalForm(forms.ModelForm):
+    class Meta:
+        model = Sucursal
+        fields = ['nombre', 'direccion', 'telefono', 'email']  # Asegúrate de incluir todos los campos necesarios
+
+    def __init__(self, *args, **kwargs):
+        super(SucursalForm, self).__init__(*args, **kwargs)
+        self.fields['nombre'].widget.attrs.update({'placeholder': 'Nombre de la sucursal'})
+        self.fields['direccion'].widget.attrs.update({'placeholder': 'Dirección'})
+        self.fields['telefono'].widget.attrs.update({'placeholder': 'Teléfono'})
+        self.fields['email'].widget.attrs.update({'placeholder': 'Email'})
