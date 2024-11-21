@@ -32,9 +32,14 @@ logger = logging.getLogger(__name__)
 
 # index view
 def index(request):
-    if not request.user.is_authenticated:
-        return redirect('inmobiliaria:login')
-    return redirect('inmobiliaria:crear_reserva')  # o la página que quieras mostrar después del login
+    nivel = None
+    if request.user.is_authenticated and hasattr(request.user, 'vendedor'):
+        nivel = request.user.vendedor.nivel
+
+    context = {
+        'nivel_usuario': nivel,
+    }
+    return render(request, 'inmobiliaria/index.html', context)
 
 # Vendedor views
 @login_required
@@ -242,8 +247,8 @@ def propiedades(request):
     return render(request, 'inmobiliaria/propiedades/lista.html', {'propiedades': propiedades})
 
 @login_required
-def propiedad_detalle(request, pk):
-    propiedad = get_object_or_404(Propiedad, pk=pk)
+def propiedad_detalle(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
     disponibilidades = propiedad.disponibilidades.all()  # Si tienes una relación entre propiedad y disponibilidad
     precios = propiedad.precios.all() 
     print("hola", propiedad.precios.all())  # Para depurar
@@ -256,7 +261,7 @@ def propiedad_detalle(request, pk):
 @login_required
 def propiedad_nuevo(request):
     if request.method == 'POST':
-        form = PropiedadForm(request.POST, request.FILES,user=request.user)
+        form = PropiedadForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             propiedad = form.save()
             
@@ -270,7 +275,7 @@ def propiedad_nuevo(request):
                 )
             
             messages.success(request, 'Propiedad creada exitosamente.')
-            return redirect('inmobiliaria:propiedad_detalle', pk=propiedad.pk)
+            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
         form = PropiedadForm()
     
@@ -280,45 +285,39 @@ def propiedad_nuevo(request):
     })
 
 @login_required
-def propiedad_editar(request, pk):
-    propiedad = get_object_or_404(Propiedad, pk=pk)
-    
+def propiedad_editar(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    propietario_form = PropietarioForm(request.POST or None)
+
     if request.method == 'POST':
         form = PropiedadForm(request.POST, request.FILES, instance=propiedad)
+        
         if form.is_valid():
             propiedad = form.save()
-            
-            # Procesar nuevas imágenes si las hay
-            imagenes = request.FILES.getlist('imagenes')
-            for index, imagen in enumerate(imagenes):
-                ImagenPropiedad.objects.create(
-                    propiedad=propiedad,
-                    imagen=imagen,
-                    orden=propiedad.imagenpropiedad_set.count() + index + 1
-                )
-            
-            messages.success(request, 'Propiedad actualizada exitosamente.')
-            return redirect('inmobiliaria:propiedad_detalle', pk=propiedad.pk)
+
+            # Manejar las imágenes subidas
+            if 'imagenes' in request.FILES:
+                imagenes = request.FILES.getlist('imagenes')
+                for imagen in imagenes:
+                    ImagenPropiedad.objects.create(propiedad=propiedad, imagen=imagen)
+                    
+            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
         form = PropiedadForm(instance=propiedad)
-    
+
     return render(request, 'inmobiliaria/propiedades/formulario.html', {
         'form': form,
         'propiedad': propiedad,
-        'titulo': 'Editar Propiedad'
+        'propietario_form': propietario_form,
     })
 @login_required
-def propiedad_eliminar(request, pk):
-    propiedad = get_object_or_404(Propiedad, pk=pk)
-    
-    if request.method == 'POST':
+def propiedad_eliminar(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    if request.method == "POST":
         propiedad.delete()
         messages.success(request, 'Propiedad eliminada exitosamente.')
         return redirect('inmobiliaria:propiedades')
-    
-    return render(request, 'inmobiliaria/propiedades/confirmar_eliminar.html', {
-        'propiedad': propiedad
-    })
+    return render(request, 'inmobiliaria/propiedades/confirmar_eliminar.html', {'propiedad': propiedad})
 
     
 def register(request):

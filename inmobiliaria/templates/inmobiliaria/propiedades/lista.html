@@ -41,13 +41,13 @@
                 
                 <td>{{ propiedad.ambientes }}</td>
                 <td>
-                    <a href="{% url 'inmobiliaria:propiedad_detalle' pk=propiedad.pk %}" class="btn btn-info btn-sm" data-toggle="tooltip" title="Ver detalles">
+                    <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad_id=propiedad.id %}" class="btn btn-info btn-sm" data-toggle="tooltip" title="Ver detalles">
                         <i class="bi bi-eye"></i>
                     </a>
-                    <a href="{% url 'inmobiliaria:propiedad_editar' pk=propiedad.pk %}" class="btn btn-warning btn-sm" data-toggle="tooltip" title="Editar">
+                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" class="btn btn-warning btn-sm" data-toggle="tooltip" title="Editar">
                         <i class="bi bi-pencil"></i>
                     </a>
-                    <a href="{% url 'inmobiliaria:propiedad_eliminar' pk=propiedad.pk %}" class="btn btn-danger btn-sm" data-toggle="tooltip" title="Eliminar">
+                    <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad_id=propiedad.id %}" class="btn btn-danger btn-sm" data-toggle="tooltip" title="Eliminar">
                         <i class="bi bi-trash"></i>
                     </a>
                 </td>

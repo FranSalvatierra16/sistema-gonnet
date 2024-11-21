@@ -42,10 +42,10 @@ urlpatterns = [
     path('propietario/<int:propietario_id>/propiedades/', views.propiedades_por_propietario, name='propiedades_propietario'),
     # Propiedad URLs
     path('propiedades/', views.propiedades, name='propiedades'),
-    path('propiedades/<int:pk>/', views.propiedad_detalle, name='propiedad_detalle'),
+    path('propiedades/<int:propiedad_id>/', views.propiedad_detalle, name='propiedad_detalle'),
     path('propiedades/nuevo/', views.propiedad_nuevo, name='propiedad_nuevo'),
-    path('propiedades/<int:pk>/editar/', views.propiedad_editar, name='propiedad_editar'),
-    path('propiedades/<int:pk>/eliminar/', views.propiedad_eliminar, name='propiedad_eliminar'),
+    path('propiedades/<int:propiedad_id>/editar/', views.propiedad_editar, name='propiedad_editar'),
+    path('propiedades/<int:propiedad_id>/eliminar/', views.propiedad_eliminar, name='propiedad_eliminar'),
     path('propiedades/nuevo/', views.propiedad_nuevo, name='propiedad_nuevo'),
     path('propiedad/<int:propiedad_id>/crear-disponibilidad/', views.crear_disponibilidad, name='crear_disponibilidad'),
     path('buscar-propiedades-23/', views.buscar_propiedades_23, name='buscar_propiedades_23'),
