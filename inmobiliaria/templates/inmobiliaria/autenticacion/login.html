@@ -1,47 +1,70 @@
 <!-- inmobiliaria/templates/inmobiliaria/autenticacion/login.html -->
 {% extends 'inmobiliaria/base.html' %}
-{% load bootstrap4 %}
-
-{% block title %}Iniciar sesión{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="container">
     <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white text-center">
-                    <h2 class="mb-0">Iniciar sesión</h2>
-                </div>
+        <div class="col-md-6">
+            <div class="card mt-5">
                 <div class="card-body">
-                    <form method="post" action="{% url 'inmobiliaria:login' %}" novalidate>
-                        {% csrf_token %}
-                        
-                        <!-- Renderización del formulario con Bootstrap -->
-                        {% bootstrap_form form layout='horizontal' %}
-                        
-                        <input type="hidden" name="next" value="{% url 'inmobiliaria:crear_reserva' %}">
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary btn-block">Iniciar sesión</button>
+                    <h2 class="text-center mb-4">Iniciar Sesión</h2>
+                    
+                    {% if messages %}
+                    <div class="messages">
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            {{ message }}
                         </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <form method="post" id="loginForm">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                        <input type="hidden" name="next" value="{{ next }}">
+                        <button type="submit" class="btn btn-primary w-100">Iniciar Sesión</button>
                     </form>
                 </div>
-            </div>
-
-            <!-- Enlace para registrarse si no tienes cuenta -->
-            <div class="text-center mt-3">
-                <p>¿No tienes una cuenta?</p>
-                <a href="{% url 'inmobiliaria:register' %}" class="btn btn-secondary">
-                    Registrarse
-                </a>
             </div>
         </div>
     </div>
 </div>
 
-<div class="user-info">
-    {% if user.is_authenticated %}
-        <p>Usuario: {{ user.get_full_name }}</p>
-        <p>Sucursal: {{ user.sucursal.get_nombre_display }}</p>
-    {% endif %}
-</div>
+<script>
+document.getElementById('loginForm').addEventListener('submit', function(e) {
+    // e.preventDefault(); // Descomenta para prevenir el envío del formulario durante pruebas
+    
+    const formData = new FormData(this);
+    console.log('Datos del formulario:');
+    for (let pair of formData.entries()) {
+        console.log(pair[0] + ': ' + pair[1]);
+    }
+
+    // Verificar campos específicos
+    const username = formData.get('username');
+    const password = formData.get('password');
+    
+    console.log('Validaciones:');
+    console.log('Username presente:', !!username);
+    console.log('Password presente:', !!password);
+    console.log('Username length:', username ? username.length : 0);
+    console.log('Password length:', password ? password.length : 0);
+    
+    // Verificar CSRF token
+    const csrfToken = formData.get('csrfmiddlewaretoken');
+    console.log('CSRF token presente:', !!csrfToken);
+});
+
+// Verificar si los campos existen en el DOM
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Estado de los campos:');
+    console.log('Username field:', !!document.querySelector('input[name="username"]'));
+    console.log('Password field:', !!document.querySelector('input[name="password"]'));
+    console.log('CSRF token field:', !!document.querySelector('input[name="csrfmiddlewaretoken"]'));
+    
+    // Mostrar errores del backend si existen
+   
+});
+</script>
 {% endblock %}

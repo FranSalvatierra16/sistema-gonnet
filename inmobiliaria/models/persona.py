@@ -99,7 +99,7 @@ class Vendedor(AbstractUser):
 
     def save(self, *args, **kwargs):
         if not self.pk:  # Si es una nueva instancia
-            self.is_active = False  # El usuario debe ser activado por un admin
+            self.is_active = True  # Activar el usuario automáticamente
         super().save(*args, **kwargs)
 
 class Inquilino(Persona):

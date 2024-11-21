@@ -24,20 +24,17 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.views.decorators.csrf import csrf_exempt
 from django.urls import reverse
+from django.views.decorators.http import require_POST, require_http_methods
+import json
 
 import logging
 logger = logging.getLogger(__name__)
 
 # index view
 def index(request):
-    nivel = None
-    if request.user.is_authenticated and hasattr(request.user, 'vendedor'):
-        nivel = request.user.vendedor.nivel
-
-    context = {
-        'nivel_usuario': nivel,
-    }
-    return render(request, 'inmobiliaria/index.html', context)
+    if not request.user.is_authenticated:
+        return redirect('inmobiliaria:login')
+    return redirect('inmobiliaria:crear_reserva')  # o la página que quieras mostrar después del login
 
 # Vendedor views
 @login_required
@@ -245,8 +242,8 @@ def propiedades(request):
     return render(request, 'inmobiliaria/propiedades/lista.html', {'propiedades': propiedades})
 
 @login_required
-def propiedad_detalle(request, propiedad_id):
-    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+def propiedad_detalle(request, pk):
+    propiedad = get_object_or_404(Propiedad, pk=pk)
     disponibilidades = propiedad.disponibilidades.all()  # Si tienes una relación entre propiedad y disponibilidad
     precios = propiedad.precios.all() 
     print("hola", propiedad.precios.all())  # Para depurar
@@ -258,70 +255,127 @@ def propiedad_detalle(request, propiedad_id):
     })
 @login_required
 def propiedad_nuevo(request):
-    propietario_form = PropietarioForm(request.POST)  # Asegúrate de que esto esté bien definido
     if request.method == 'POST':
-        form = PropiedadForm(request.POST, request.FILES, user=request.user)  # Pasa el usuario actual
+        form = PropiedadForm(request.POST, request.FILES,user=request.user)
         if form.is_valid():
             propiedad = form.save()
-            # Manejo de múltiples imágenes
+            
+            # Procesar imágenes
             imagenes = request.FILES.getlist('imagenes')
-            for imagen in imagenes:
-                ImagenPropiedad.objects.create(propiedad=propiedad, imagen=imagen)
+            for index, imagen in enumerate(imagenes):
+                ImagenPropiedad.objects.create(
+                    propiedad=propiedad,
+                    imagen=imagen,
+                    orden=index + 1
+                )
+            
             messages.success(request, 'Propiedad creada exitosamente.')
-            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+            return redirect('inmobiliaria:propiedad_detalle', pk=propiedad.pk)
     else:
-        form = PropiedadForm(user=request.user)  # Pasa el usuario actual
-
+        form = PropiedadForm()
+    
     return render(request, 'inmobiliaria/propiedades/formulario.html', {
         'form': form,
-        'propietario_form': propietario_form,
+        'titulo': 'Nueva Propiedad'
     })
 
 @login_required
-def propiedad_editar(request, propiedad_id):
-    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
-    propietario_form = PropietarioForm(request.POST or None)
-
+def propiedad_editar(request, pk):
+    propiedad = get_object_or_404(Propiedad, pk=pk)
+    
     if request.method == 'POST':
         form = PropiedadForm(request.POST, request.FILES, instance=propiedad)
-        
         if form.is_valid():
             propiedad = form.save()
-
-            # Manejar las imágenes subidas
-            if 'imagenes' in request.FILES:
-                imagenes = request.FILES.getlist('imagenes')
-                for imagen in imagenes:
-                    ImagenPropiedad.objects.create(propiedad=propiedad, imagen=imagen)
-                    
-            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+            
+            # Procesar nuevas imágenes si las hay
+            imagenes = request.FILES.getlist('imagenes')
+            for index, imagen in enumerate(imagenes):
+                ImagenPropiedad.objects.create(
+                    propiedad=propiedad,
+                    imagen=imagen,
+                    orden=propiedad.imagenpropiedad_set.count() + index + 1
+                )
+            
+            messages.success(request, 'Propiedad actualizada exitosamente.')
+            return redirect('inmobiliaria:propiedad_detalle', pk=propiedad.pk)
     else:
         form = PropiedadForm(instance=propiedad)
-
+    
     return render(request, 'inmobiliaria/propiedades/formulario.html', {
         'form': form,
         'propiedad': propiedad,
-        'propietario_form': propietario_form,
+        'titulo': 'Editar Propiedad'
     })
 @login_required
-def propiedad_eliminar(request, propiedad_id):
-    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
-    if request.method == "POST":
+def propiedad_eliminar(request, pk):
+    propiedad = get_object_or_404(Propiedad, pk=pk)
+    
+    if request.method == 'POST':
         propiedad.delete()
         messages.success(request, 'Propiedad eliminada exitosamente.')
         return redirect('inmobiliaria:propiedades')
-    return render(request, 'inmobiliaria/propiedades/confirmar_eliminar.html', {'propiedad': propiedad})
+    
+    return render(request, 'inmobiliaria/propiedades/confirmar_eliminar.html', {
+        'propiedad': propiedad
+    })
 
     
 def register(request):
     if request.method == 'POST':
         form = VendedorUserCreationForm(request.POST)
+        print("\n=== DATOS DEL FORMULARIO RECIBIDOS ===")
+        print(f"Datos POST: {request.POST}")
+        
         if form.is_valid():
+            print("\n=== DATOS VALIDADOS ===")
+            print(f"Username: {form.cleaned_data.get('username')}")
+            print(f"DNI: {form.cleaned_data.get('dni')}")
+            print(f"Nombre: {form.cleaned_data.get('nombre')}")
+            print(f"Apellido: {form.cleaned_data.get('apellido')}")
+            print(f"Email: {form.cleaned_data.get('email')}")
+            print(f"Comisión: {form.cleaned_data.get('comision')}")
+            print(f"Fecha Nacimiento: {form.cleaned_data.get('fecha_nacimiento')}")
+            print(f"Nivel: {form.cleaned_data.get('nivel')}")
+            print(f"Sucursal: {form.cleaned_data.get('sucursal')}")
+            print(f"Password1 presente: {'password1' in form.cleaned_data}")
+            print(f"Password2 presente: {'password2' in form.cleaned_data}")
+            print(f"Passwords coinciden: {form.cleaned_data.get('password1') == form.cleaned_data.get('password2')}")
+            
             vendedor = form.save()
+            
+            # Verificar que la contraseña se guardó correctamente
+            print("\n=== VENDEDOR CREADO ===")
+            print(f"ID: {vendedor.id}")
+            print(f"Username: {vendedor.username}")
+            print(f"Nombre completo: {vendedor.nombre} {vendedor.apellido}")
+            print(f"Es activo: {vendedor.is_active}")
+            print(f"Es staff: {vendedor.is_staff}")
+            print(f"Es superusuario: {vendedor.is_superuser}")
+            print(f"Sucursal asignada: {vendedor.sucursal}")
+            print(f"Contraseña hasheada guardada: {bool(vendedor.password)}")
+            print(f"Longitud del hash de la contraseña: {len(vendedor.password)}")
+            
+            # Verificar que podemos autenticar con la contraseña
+            from django.contrib.auth import authenticate
+            test_auth = authenticate(username=vendedor.username, 
+                                  password=form.cleaned_data.get('password1'))
+            print(f"Prueba de autenticación exitosa: {test_auth is not None}")
+            
             messages.success(request, 'Registro exitoso. Ahora puedes iniciar sesión.')
-            return redirect('inmobiliaria:login')  # Redirige a la página de inicio de sesión
+            return redirect('inmobiliaria:login')
+        else:
+            print("\n=== ERRORES EN EL FORMULARIO ===")
+            print(f"Errores: {form.errors}")
+            if 'password1' in form.errors:
+                print(f"Errores de password1: {form.errors['password1']}")
+            if 'password2' in form.errors:
+                print(f"Errores de password2: {form.errors['password2']}")
     else:
         form = VendedorUserCreationForm()
+        print("\n=== NUEVO FORMULARIO CREADO ===")
+        print("Método GET - Mostrando formulario vacío")
+    
     return render(request, 'inmobiliaria/autenticacion/register.html', {'form': form})
 @login_required
 def crear_propietario_ajax(request):
@@ -1147,13 +1201,49 @@ def login_view(request):
         if form.is_valid():
             username = form.cleaned_data.get('username')
             password = form.cleaned_data.get('password')
-            user = authenticate(request, username=username, password=password)
-            if user is not None:
-                login(request, user)
-                next_url = request.POST.get('next', reverse('inmobiliaria:home'))
-                return redirect(next_url)
-            else:
-                messages.error(request, 'Usuario o contraseña incorrectos.')
+            
+            try:
+                vendedor = Vendedor.objects.get(username=username)
+                print(f"Usuario encontrado: {username}")
+                print(f"¿Usuario activo?: {vendedor.is_active}")
+                
+                if not vendedor.is_active:
+                    messages.error(request, 'Tu cuenta no está activa. Contacta al administrador.')
+                    return render(request, 'inmobiliaria/autenticacion/login.html', {'form': form})
+                
+                user = authenticate(request, username=username, password=password)
+                if user is not None:
+                    login(request, user)
+                    messages.success(request, '¡Bienvenido!')
+                    # Usar la URL de reservas directamente
+                    return redirect('inmobiliaria:reservas')  # Asegúrate de que esta URL existe
+                else:
+                    messages.error(request, 'Contraseña incorrecta.')
+                    print("Contraseña incorrecta para el usuario:", username)
+                
+            except Vendedor.DoesNotExist:
+                messages.error(request, f'El usuario {username} no existe.')
+                print(f"Usuario no encontrado: {username}")
+        else:
+            messages.error(request, 'Por favor, corrige los errores del formulario.')
+            print("Errores del formulario:", form.errors)
     else:
         form = LoginForm()
+    
     return render(request, 'inmobiliaria/autenticacion/login.html', {'form': form})
+
+@require_POST
+def actualizar_orden_imagenes(request):
+    data = json.loads(request.body)
+    for imagen_data in data['imagenes']:
+        ImagenPropiedad.objects.filter(id=imagen_data['id']).update(orden=imagen_data['orden'])
+    return JsonResponse({'success': True})
+
+@require_http_methods(["DELETE"])
+def eliminar_imagen(request, imagen_id):
+    try:
+        imagen = ImagenPropiedad.objects.get(id=imagen_id)
+        imagen.delete()
+        return JsonResponse({'success': True})
+    except ImagenPropiedad.DoesNotExist:
+        return JsonResponse({'success': False}, status=404)

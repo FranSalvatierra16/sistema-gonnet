@@ -114,10 +114,10 @@
 
                 <!-- Botones de acciones -->
                 <div class="card-footer text-center">
-                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad.id %}" class="btn btn-primary">Editar</a>
-                    <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad.id %}" class="btn btn-danger">Eliminar</a>
-                    <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad.id %}" class="btn btn-success">Agregar Disponibilidad</a>
-                    <a href="{% url 'inmobiliaria:gestionar_precios' propiedad.id %}" class="btn btn-success">Gestionar Precios</a>
+                    <a href="{% url 'inmobiliaria:propiedad_editar' pk=propiedad.pk %}" class="btn btn-primary">Editar</a>
+                    <a href="{% url 'inmobiliaria:propiedad_eliminar' pk=propiedad.pk %}" class="btn btn-danger">Eliminar</a>
+                    <a href="{% url 'inmobiliaria:crear_disponibilidad' pk=propiedad.pk %}" class="btn btn-success">Agregar Disponibilidad</a>
+                    <a href="{% url 'inmobiliaria:gestionar_precios' pk=propiedad.pk %}" class="btn btn-success">Gestionar Precios</a>
                 </div>
             </div>
         </div>

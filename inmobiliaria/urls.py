@@ -9,7 +9,7 @@ app_name = 'inmobiliaria'
 
 urlpatterns = [
     # Auth URLs
-    path('login/', auth_views.LoginView.as_view(template_name='inmobiliaria/autenticacion/login.html'), name='login'),
+    path('login/', views.login_view, name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='inmobiliaria:login'), name='logout'),
     path('register/', views.register, name='register'),
     path('dashboard/', views.dashboard, name='dashboard'),
@@ -42,10 +42,11 @@ urlpatterns = [
     path('propietario/<int:propietario_id>/propiedades/', views.propiedades_por_propietario, name='propiedades_propietario'),
     # Propiedad URLs
     path('propiedades/', views.propiedades, name='propiedades'),
-    path('propiedades/<int:propiedad_id>/', views.propiedad_detalle, name='propiedad_detalle'),
+    path('propiedades/<int:pk>/', views.propiedad_detalle, name='propiedad_detalle'),
     path('propiedades/nuevo/', views.propiedad_nuevo, name='propiedad_nuevo'),
-    path('propiedades/<int:propiedad_id>/editar/', views.propiedad_editar, name='propiedad_editar'),
-    path('propiedades/<int:propiedad_id>/eliminar/', views.propiedad_eliminar, name='propiedad_eliminar'),
+    path('propiedades/<int:pk>/editar/', views.propiedad_editar, name='propiedad_editar'),
+    path('propiedades/<int:pk>/eliminar/', views.propiedad_eliminar, name='propiedad_eliminar'),
+    path('propiedades/nuevo/', views.propiedad_nuevo, name='propiedad_nuevo'),
     path('propiedad/<int:propiedad_id>/crear-disponibilidad/', views.crear_disponibilidad, name='crear_disponibilidad'),
     path('buscar-propiedades-23/', views.buscar_propiedades_23, name='buscar_propiedades_23'),
     path('propietario/nuevo/ajax/', views.propietario_nuevo_ajax, name='propietario_nuevo_ajax'),
@@ -70,6 +71,9 @@ urlpatterns = [
     path('obtener_precios_propiedad/', views.obtener_precios_propiedad, name='obtener_precios_propiedad'),
     path('obtener_vendedor/<int:vendedor_id>/', views.obtener_vendedor, name='obtener_vendedor'),
     path('obtener-inquilino/<int:inquilino_id>/', views.obtener_inquilino, name='obtener_inquilino'),
+    path('crear-sucursal/', views.crear_sucursal, name='crear_sucursal'),
+    path('actualizar-orden-imagenes/', views.actualizar_orden_imagenes, name='actualizar_orden_imagenes'),
+    path('eliminar-imagen/<int:imagen_id>/', views.eliminar_imagen, name='eliminar_imagen'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 

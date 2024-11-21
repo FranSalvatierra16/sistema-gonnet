@@ -293,5 +293,10 @@ class SucursalForm(forms.ModelForm):
         self.fields['email'].widget.attrs.update({'placeholder': 'Email'})
 
 class LoginForm(forms.Form):
-    username = forms.CharField(max_length=150, label='Usuario')
-    password = forms.CharField(widget=forms.PasswordInput, label='Contraseña')
+    username = forms.CharField(
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Usuario'})
+    )
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Contraseña'})
+    )
+
