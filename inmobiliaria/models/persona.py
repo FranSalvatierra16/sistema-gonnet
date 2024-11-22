@@ -28,7 +28,7 @@ def validate_dni(value):
         )
 
 class Persona(models.Model):
-    dni = models.CharField(max_length=8, unique=True, validators=[validate_dni])
+   
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
     fecha_nacimiento = models.DateField()
@@ -69,7 +69,7 @@ NIVELES_VENDEDOR = [
 ]
 
 class Vendedor(AbstractUser):
-    dni = models.CharField(max_length=8, unique=True, validators=[validate_dni])
+    dni = models.CharField(max_length=8)
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
     fecha_nacimiento = models.DateField(null=True, blank=True)
@@ -93,10 +93,7 @@ class Vendedor(AbstractUser):
     class Meta:
         verbose_name = "Vendedor"
         verbose_name_plural = "Vendedores"
-        constraints = [
-            models.UniqueConstraint(fields=['dni'], name='unique_dni')
-        ]
-
+       
     def save(self, *args, **kwargs):
         if not self.pk:  # Si es una nueva instancia
             self.is_active = True  # Activar el usuario automáticamente
@@ -105,6 +102,7 @@ class Vendedor(AbstractUser):
 class Inquilino(Persona):
     garantia = models.TextField(blank=True, help_text="Información sobre la garantía del inquilino")
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='inquilinos')
+    dni = models.CharField(max_length=8, unique=True, validators=[validate_dni])
     def nombre_completo_inquilino(self):
         return f"{self.nombre} {self.apellido}"
     class Meta:
@@ -114,6 +112,7 @@ class Inquilino(Persona):
 class Propietario(Persona):
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='propietarios')
+    dni = models.CharField(max_length=8, unique=True, validators=[validate_dni])
     def nombre_completo_propietario(self):
         return f"{self.nombre} {self.apellido}"
     class Meta:

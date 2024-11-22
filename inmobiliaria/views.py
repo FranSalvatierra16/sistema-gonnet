@@ -57,7 +57,7 @@ def dashboard(request):
     return render(request, 'inmobiliaria/dashboard.html', context)
 @login_required
 def vendedores(request):
-    vendedores = Vendedor.objects.all()
+    vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal)
     return render(request, 'inmobiliaria/vendedores/lista.html', {'vendedores': vendedores})
 
 @login_required
@@ -101,7 +101,8 @@ def vendedor_eliminar(request, vendedor_id):
 @login_required
 def inquilinos(request):
     form = InquilinoBuscarForm(request.GET or None)
-    inquilinos = Inquilino.objects.all()
+    inquilinos = Inquilino.objects.filter(sucursal=request.user.sucursal)
+    
 
     if form.is_valid():
         termino = form.cleaned_data.get('termino')
@@ -174,7 +175,13 @@ def inquilino_eliminar(request, inquilino_id):
 @login_required
 def propietarios(request):
     form = PropietarioBuscarForm(request.GET or None)
-    propietarios = Propietario.objects.all()
+    
+    # Determinar qué propietarios mostrar según el nivel del usuario
+    if request.user.is_superuser or request.user.nivel == 4:
+        propietarios = Propietario.objects.filter(sucursal=request.user.sucursal)
+    else:
+        # Filtrar por la sucursal del vendedor logueado
+        propietarios = Propietario.objects.filter(sucursal=request.user.sucursal)
 
     if form.is_valid():
         termino = form.cleaned_data.get('termino')
@@ -193,15 +200,19 @@ def propietarios(request):
             'id': p.id,
             'nombre': p.nombre,
             'apellido': p.apellido,
-            'dni': p.dni
+            'dni': p.dni,
+            'sucursal': p.sucursal.nombre  # Agregar el nombre de la sucursal si lo necesitas en la respuesta
         } for p in propietarios]
         return JsonResponse({'propietarios': propietarios_data})
 
     # Retornar la plantilla completa si no es AJAX
-    return render(request, 'inmobiliaria/propietarios/lista.html', {
+    context = {
         'form': form,
-        'propietarios': propietarios
-    })
+        'propietarios': propietarios,
+        'sucursal_actual': request.user.sucursal.nombre if not request.user.is_superuser else 'Todas las sucursales'
+    }
+    
+    return render(request, 'inmobiliaria/propietarios/lista.html', context)
 
 @login_required
 def propietario_detalle(request, propietario_id):
@@ -243,7 +254,7 @@ def propietario_eliminar(request, propietario_id):
     return render(request, 'inmobiliaria/propietarios/confirmar_eliminar.html', {'propietario': propietario})
 @login_required
 def propiedades(request):
-    propiedades = Propiedad.objects.all()
+    propiedades = Propiedad.objects.filter(sucursal=request.user.sucursal)
     return render(request, 'inmobiliaria/propiedades/lista.html', {'propiedades': propiedades})
 
 @login_required
@@ -572,14 +583,19 @@ def formato_fecha(fecha):
     return fecha.strftime('%d/%m/%Y') if fecha else ''
 
 
+@login_required
 def buscar_propiedades(request):
-    inquilinos = Inquilino.objects.all()
+    # Obtener la sucursal del vendedor logueado
+    sucursal_vendedor = request.user.sucursal
+    print("la sucursal del vendedor es ",sucursal_vendedor)
+    
+    inquilinos = Inquilino.objects.filter(sucursal=sucursal_vendedor)
     form = BuscarPropiedadesForm(request.POST or None)
     inquilino_form = InquilinoForm(request.POST)
     propiedades_disponibles = []
     propiedades_sin_precio = []
-    vendedores = Vendedor.objects.all()
-    total_dias_reserva=0
+    vendedores = Vendedor.objects.filter(sucursal=sucursal_vendedor)
+    total_dias_reserva = 0
 
     fecha_inicio = None
     fecha_fin = None
@@ -587,10 +603,9 @@ def buscar_propiedades(request):
     if form.is_valid():
         fecha_inicio = form.cleaned_data['fecha_inicio']
         fecha_fin = form.cleaned_data['fecha_fin']
-        
 
-        # Filtrar propiedades
-        propiedades = Propiedad.objects.all()
+        # Filtrar propiedades por sucursal
+        propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor)
 
         # Prefetch los precios para cada propiedad
         propiedades = propiedades.prefetch_related(
@@ -1215,7 +1230,7 @@ def login_view(request):
                     login(request, user)
                     messages.success(request, '¡Bienvenido!')
                     # Usar la URL de reservas directamente
-                    return redirect('inmobiliaria:reservas')  # Asegúrate de que esta URL existe
+                    return redirect('inmobiliaria:crear_reserva')  # Asegúrate de que esta URL existe
                 else:
                     messages.error(request, 'Contraseña incorrecta.')
                     print("Contraseña incorrecta para el usuario:", username)
