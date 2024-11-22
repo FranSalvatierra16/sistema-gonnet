@@ -185,16 +185,28 @@ class Reserva(models.Model):
     propiedad = models.ForeignKey(Propiedad, on_delete=models.CASCADE, related_name='reservas')
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
-    hora_ingreso = models.TimeField(default=datetime.time(15, 0))  # Valor por defecto: 15:00
-    hora_egreso = models.TimeField(default=datetime.time(10, 0))   # Valor por defecto: 10:00
-    fecha_creacion = models.DateTimeField(default=now)  
-    vendedor = models.ForeignKey(Vendedor, on_delete=models.SET_NULL, null=True, related_name='reservas_vendedor')  
-    cliente = models.ForeignKey(Inquilino, on_delete=models.SET_NULL, null=True, related_name='reservas_cliente')  
-    precio_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True) 
+    hora_ingreso = models.TimeField(default=datetime.time(15, 0))
+    hora_egreso = models.TimeField(default=datetime.time(10, 0))
+    fecha_creacion = models.DateTimeField(default=now)
+    vendedor = models.ForeignKey(Vendedor, on_delete=models.SET_NULL, null=True, related_name='reservas_vendedor')
+    cliente = models.ForeignKey(Inquilino, on_delete=models.SET_NULL, null=True, related_name='reservas_cliente')
+    precio_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     senia = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     pago_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     cuota_pendiente = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     estado = models.CharField(max_length=20, choices=[('en_espera', 'En Espera'), ('confirmada', 'Confirmada'), ('pagada', 'Pagada')], default='en_espera')
+    sucursal = models.ForeignKey(
+        'Sucursal',  # Asegúrate de que Sucursal esté importado
+        on_delete=models.CASCADE,
+        related_name='reservas_sucursal',
+        null=True  # Permitimos null temporalmente para la migración
+    )
+
+    def save(self, *args, **kwargs):
+        # Si no se especificó una sucursal, usar la sucursal de la propiedad
+        if not self.sucursal and self.propiedad:
+            self.sucursal = self.propiedad.sucursal
+        super().save(*args, **kwargs)
 
     def calcular_cuota_pendiente(self):
         if self.precio_total and self.pago_total:

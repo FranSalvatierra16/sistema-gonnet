@@ -424,11 +424,12 @@ def ver_disponibilidad(request, propiedad_id):
     }
 
     return render(request, 'inmobiliaria/ver_disponibilidad.html', context)
+@login_required
 def reservas(request):
-    reservas = Reserva.objects.all()
+    reservas = Reserva.objects.filter(sucursal=request.user.sucursal)
     return render(request, 'inmobiliaria/reserva/lista.html', {'reservas': reservas})
 def operaciones(request):
-    reservas = Reserva.objects.all()
+    reservas = Reserva.objects.filter(sucursal=request.user.sucursal)
     return render(request, 'inmobiliaria/reserva/operaciones.html', {'reservas': reservas})
 def crear_reserva(request):
 
