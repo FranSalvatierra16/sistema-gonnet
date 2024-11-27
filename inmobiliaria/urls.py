@@ -37,7 +37,7 @@ urlpatterns = [
     path('propietarios/nuevo/', views.propietario_nuevo, name='propietario_nuevo'),
     path('propietarios/<int:propietario_id>/editar/', views.propietario_editar, name='propietario_editar'),
     path('propietarios/<int:propietario_id>/eliminar/', views.propietario_eliminar, name='propietario_eliminar'),
-    path('crear-propietario/', views.propietario_nuevo_ajax, name='crear_propietario_ajax'),
+    path('crear-propietario/', views.crear_propietario_ajax, name='crear_propietario_ajax'),
     path('propiedad/<int:propiedad_id>/precios/', views.gestionar_precios, name='gestionar_precios'),
     path('propietario/<int:propietario_id>/propiedades/', views.propiedades_por_propietario, name='propiedades_propietario'),
     # Propiedad URLs

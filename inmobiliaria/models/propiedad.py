@@ -167,7 +167,7 @@ class Propiedad(models.Model):
 
 
 class ImagenPropiedad(models.Model):
-    propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE)
+    propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='imagenes')
     imagen = models.ImageField(upload_to='propiedades/')
     orden = models.IntegerField(default=0)
     fecha_creacion = models.DateTimeField(auto_now_add=True)

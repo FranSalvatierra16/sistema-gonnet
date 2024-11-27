@@ -38,10 +38,10 @@
 
                         <!-- Columna de imágenes con carrusel -->
                         <div class="col-md-6 text-center">
-                            {% if propiedad.imagenes.all %}
-                                <div id="carouselExampleControls" class="carousel slide">
+                            {% if imagenes %}
+                                <div id="carouselExampleControls" class="carousel slide" data-ride="carousel">
                                     <div class="carousel-inner">
-                                        {% for imagen in propiedad.imagenes.all %}
+                                        {% for imagen in imagenes %}
                                             <div class="carousel-item {% if forloop.first %}active{% endif %}">
                                                 <img src="{{ imagen.imagen.url }}" class="d-block w-100" alt="Imagen de la propiedad">
                                             </div>

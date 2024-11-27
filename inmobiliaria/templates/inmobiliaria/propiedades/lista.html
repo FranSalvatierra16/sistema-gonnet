@@ -6,13 +6,20 @@
 
 {% block content %}
 <h1 class="mb-4">Listado de Propiedades</h1>
+
+<!-- Formulario de búsqueda -->
+<form method="get" class="form-inline mb-3">
+    {{ form.query|as_crispy_field }}  
+    <button type="submit" class="btn btn-primary ml-2">Buscar</button>
+</form>
+
 <a href="{% url 'inmobiliaria:propiedad_nuevo' %}" class="btn btn-primary mb-3">Nueva Propiedad</a>
 <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}" class="btn btn-primary">
     Agregar Disponibilidad Masiva
 </a>
 
 <!-- Tabla de propiedades -->
-<div class="table-responsive">
+<div class="table-responsive">  
     <table class="table table-hover table-striped">
         <thead class="table-light">
             <tr>
@@ -23,9 +30,6 @@
                 <th>Piso</th>
                 <th>Departamento</th>
                 <th>Ambientes</th>
-                
-                
-                
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -34,11 +38,10 @@
             <tr>
                 <td>{{ propiedad.id }}</td>
                 <td>{{ propiedad.direccion }}</td>
-                <td>{{ propiedad.valoracion}}</td>
+                <td>{{ propiedad.valoracion }}</td>
                 <td>{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</td>
                 <td>{{ propiedad.piso }}</td>
                 <td>{{ propiedad.departamento }}</td>
-                
                 <td>{{ propiedad.ambientes }}</td>
                 <td>
                     <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad_id=propiedad.id %}" class="btn btn-info btn-sm" data-toggle="tooltip" title="Ver detalles">

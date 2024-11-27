@@ -3,6 +3,7 @@ from django.contrib.auth.forms import UserChangeForm
 from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio,TipoPrecio,TIPOS_INMUEBLES, TIPOS_VISTA, TIPOS_VALORACION, Sucursal
 from datetime import datetime
 from django.forms import modelformset_factory
+from django.core.exceptions import ValidationError
 # Formulario de creación de Vendedor
 class VendedorUserCreationForm(forms.ModelForm):
     username = forms.CharField(max_length=150, help_text='Requerido. 150 caracteres o menos.')
@@ -70,20 +71,48 @@ class InquilinoForm(forms.ModelForm):
 class PropietarioForm(forms.ModelForm):
     class Meta:
         model = Propietario
-        fields = ['nombre', 'apellido', 'fecha_nacimiento', 'email', 'celular', 'tipo_doc', 'dni', 'tipo_ins', 'cuit', 'localidad', 'provincia', 'domicilio', 'codigo_postal', 'observaciones']
+        fields = ['nombre', 'apellido', 'fecha_nacimiento', 'email', 'celular', 
+                 'tipo_doc', 'dni', 'tipo_ins', 'cuit', 'localidad', 'provincia', 
+                 'domicilio', 'codigo_postal', 'observaciones']
+        widgets = {
+            'fecha_nacimiento': forms.DateInput(attrs={'type': 'date'}),
+            'observaciones': forms.Textarea(attrs={'rows': 3}),
+        }
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super(PropietarioForm, self).__init__(*args, **kwargs)
+        
+        # Marcar campos requeridos
+        self.fields['nombre'].required = True
+        self.fields['apellido'].required = True
+        self.fields['dni'].required = True
+        
+        # Agregar clases de Bootstrap
+        for field in self.fields:
+            self.fields[field].widget.attrs.update({
+                'class': 'form-control'
+            })
+
+    def clean(self):
+        cleaned_data = super().clean()
+        dni = cleaned_data.get('dni')
+        
+        # Validar DNI único
+        if dni and Propietario.objects.filter(dni=dni).exists():
+            if not self.instance.pk or (self.instance.pk and str(self.instance.dni) != str(dni)):
+                raise ValidationError({'dni': 'Ya existe un propietario con este DNI'})
+        
+        return cleaned_data
 
     def save(self, commit=True):
         propietario = super(PropietarioForm, self).save(commit=False)
-        if self.user and hasattr(self.user, 'sucursal'):
+        
+        if self.user:
             propietario.sucursal = self.user.sucursal  # Asigna la sucursal del vendedor
         if commit:
             propietario.save()
         return propietario
-
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
@@ -298,5 +327,16 @@ class LoginForm(forms.Form):
     )
     password = forms.CharField(
         widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Contraseña'})
+    )
+
+class PropiedadSearchForm(forms.Form):
+    query = forms.CharField(
+        label='Buscar',
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Buscar por dirección, ficha o propietario'
+        })
     )
 

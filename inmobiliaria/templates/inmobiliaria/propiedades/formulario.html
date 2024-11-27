@@ -58,7 +58,7 @@
                 <!-- Input para subir imágenes -->
                 <div class="form-group mb-3">
                     <label for="id_imagenes">Subir nuevas imágenes:</label>
-                    {{ form.imagenes }}
+                    <input type="file" id="id_imagenes" name="imagenes" multiple>
                     <small class="form-text text-muted">Seleccione una o más imágenes para la propiedad</small>
                 </div>
 
@@ -69,22 +69,20 @@
 
                 <!-- Contenedor de imágenes existentes -->
                 <div id="imagenes-container" class="d-flex flex-wrap gap-3">
-                    {% if propiedad %}
-                        {% for imagen in propiedad.imagenpropiedad_set.all %}
-                        <div class="imagen-item" data-id="{{ imagen.id }}" draggable="true">
-                            <div class="imagen-wrapper position-relative" style="width: 200px;">
-                                <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 eliminar-imagen" 
-                                        data-imagen-id="{{ imagen.id }}">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                                <img src="{{ imagen.imagen.url }}" class="img-thumbnail" style="width: 100%; height: 150px; object-fit: cover;">
-                                <small class="position-absolute bottom-0 start-0 m-1 bg-dark text-white px-2 rounded">
-                                    Orden: {{ imagen.orden }}
-                                </small>
-                            </div>
+                    {% for imagen in imagenes %}
+                    <div class="imagen-item" data-id="{{ imagen.id }}" draggable="true">
+                        <div class="imagen-wrapper position-relative" style="width: 200px;">
+                            <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 eliminar-imagen" 
+                                    data-imagen-id="{{ imagen.id }}">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            <img src="{{ imagen.imagen.url }}" class="img-thumbnail" style="width: 100%; height: 150px; object-fit: cover;">
+                            <small class="position-absolute bottom-0 start-0 m-1 bg-dark text-white px-2 rounded">
+                                Orden: {{ imagen.orden }}
+                            </small>
                         </div>
-                        {% endfor %}
-                    {% endif %}
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
         </div>
@@ -154,42 +152,113 @@
 
 
 
+
 </div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
-
 <script>
     $(document).ready(function() {
-        $('#guardar-propietario-btn').click(function() {
+        const guardarPropietarioBtn = $('#guardar-propietario-btn');
+        
+        function resetearBoton() {
+            guardarPropietarioBtn
+                .prop('disabled', false)
+                .html('Guardar Propietario')
+                .removeClass('loading');
+        }
+
+        function mostrarBotonCargando() {
+            guardarPropietarioBtn
+                .prop('disabled', true)
+                .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...')
+                .addClass('loading');
+        }
+
+        guardarPropietarioBtn.click(function(e) {
+            e.preventDefault();
+            
+            // Verificar si el botón está en estado de carga
+            if ($(this).hasClass('loading')) {
+                return false;
+            }
+
+            // Limpiar errores previos
+            $('.is-invalid').removeClass('is-invalid');
+            $('.invalid-feedback').remove();
+            
+            // Mostrar estado de carga
+            mostrarBotonCargando();
+            
             var formData = $('#form-nuevo-propietario').serialize();
+            
             $.ajax({
                 url: '{% url "inmobiliaria:crear_propietario_ajax" %}',
                 type: 'POST',
                 data: formData,
-                dataType: 'json',
-                success: function(response) {
-                    if (response.success) {
-                        // Agregar el nuevo propietario al select
-                        var newOption = new Option(response.nombre + ' ' + response.apellido + ' (DNI: ' + response.dni + ')', response.id, true, true);
-                        $('#id_propietario').append(newOption).trigger('change');
+                dataType: 'json'
+            })
+            .done(function(response) {
+                console.log(response); // Verificar la respuesta del servidor
+                if (response.success) {
+                    // Crear nueva opción para el select
+                    var newOption = new Option(
+                        response.propietario_nombre,
+                        response.propietario_id,
+                        true,
+                        true
+                    );
+                    $('#id_propietario').append(newOption).trigger('change');
+                    
+                    // Limpiar formulario y cerrar modal
+                    $('#form-nuevo-propietario')[0].reset();
+                    $('#modal-propietario').modal('hide');
+                    
+                    // Mostrar mensaje de éxito
+                    alert('Propietario creado exitosamente');
+                } else {
+                    // Mostrar errores en los campos
+                    if (response.errors) {
+                        Object.keys(response.errors).forEach(function(fieldName) {
+                            const field = $('#id_' + fieldName);
+                            field.addClass('is-invalid');
+                            
+                            const errorDiv = $('<div>')
+                                .addClass('invalid-feedback d-block')
+                                .text(response.errors[fieldName].join(', '));
+                            field.after(errorDiv);
+                        });
                         
-                        // Cerrar el modal
-                        $('#modal-propietario').modal('hide');
-                        
-                        // Limpiar el formulario
-                        $('#form-nuevo-propietario')[0].reset();
+                        alert('Por favor, complete todos los campos requeridos');
                     } else {
-                        // Mostrar errores
-                       
+                        alert(response.error || 'Error al crear el propietario');
                     }
-                },
-                error: function() {
-                    alert('Error al procesar la solicitud');
                 }
+            })
+            .fail(function(xhr, status, error) {
+                alert('Error en la solicitud: ' + error);
+            })
+            .always(function() {
+                // Siempre restaurar el botón, sin importar el resultado
+                resetearBoton();
             });
+        });
+
+        // Limpiar validaciones al cerrar el modal
+        $('#modal-propietario').on('hidden.bs.modal', function () {
+            $('#form-nuevo-propietario')[0].reset();
+            $('.is-invalid').removeClass('is-invalid');
+            $('.invalid-feedback').remove();
+            resetearBoton();
+        });
+
+        // Prevenir múltiples envíos
+        $('#form-nuevo-propietario').on('submit', function(e) {
+            e.preventDefault();
+            if (!guardarPropietarioBtn.hasClass('loading')) {
+                guardarPropietarioBtn.click();
+            }
         });
     });
 </script>
@@ -234,7 +303,9 @@
                             $('#modal-propietario').modal('hide');  // Cierra el modal
                             form[0].reset();  // Limpia el formulario
                         } else {
-                            alert('Error al guardar el propietario.');
+                            alert(response.mensaje);  // Mensaje de éxito
+                            $('#modal-propietario').modal('hide');  // Cierra el modal
+                            form[0].reset();  
                         }
                     },
                     error: function(xhr, textStatus, errorThrown) {
@@ -290,52 +361,24 @@
 <!-- Agregar este JavaScript -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Previsualización de imágenes
-    const inputImagenes = document.querySelector('#id_imagenes');
-    const previewContainer = document.querySelector('#preview-container');
+    const container = document.getElementById('imagenes-container');
 
-    inputImagenes.addEventListener('change', function(e) {
-        previewContainer.innerHTML = ''; // Limpiar previsualizaciones anteriores
-        
-        Array.from(this.files).forEach((file, index) => {
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                const div = document.createElement('div');
-                div.className = 'imagen-item';
-                div.innerHTML = `
-                    <div class="imagen-wrapper position-relative">
-                        <img src="${e.target.result}" class="img-thumbnail">
-                        <small class="position-absolute bottom-0 start-0 m-1 bg-dark text-white px-2 rounded">
-                            Nueva
-                        </small>
-                    </div>
-                `;
-                previewContainer.appendChild(div);
-            }
-            
-            reader.readAsDataURL(file);
-        });
+    container.addEventListener('dragstart', e => {
+        if (e.target.classList.contains('imagen-item')) {
+            e.target.classList.add('dragging');
+        }
     });
 
-    // Funcionalidad de arrastrar y soltar
-    const container = document.getElementById('imagenes-container');
-    const items = container.querySelectorAll('.imagen-item');
-
-    items.forEach(item => {
-        item.addEventListener('dragstart', () => {
-            item.classList.add('dragging');
-        });
-
-        item.addEventListener('dragend', () => {
-            item.classList.remove('dragging');
+    container.addEventListener('dragend', e => {
+        if (e.target.classList.contains('imagen-item')) {
+            e.target.classList.remove('dragging');
             updateImageOrder();
-        });
+        }
     });
 
     container.addEventListener('dragover', e => {
         e.preventDefault();
-        const afterElement = getDragAfterElement(container, e.clientX);
+        const afterElement = getDragAfterElement(container, e.clientY);
         const draggable = document.querySelector('.dragging');
         if (afterElement == null) {
             container.appendChild(draggable);
@@ -344,23 +387,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Eliminar imagen
-    document.querySelectorAll('.eliminar-imagen').forEach(button => {
-        button.addEventListener('click', function() {
-            const imageId = this.dataset.imagenId;
-            if (confirm('¿Estás seguro de que quieres eliminar esta imagen?')) {
-                eliminarImagen(imageId);
-            }
-        });
-    });
-
-    // Funciones auxiliares
-    function getDragAfterElement(container, x) {
+    function getDragAfterElement(container, y) {
         const draggableElements = [...container.querySelectorAll('.imagen-item:not(.dragging)')];
 
         return draggableElements.reduce((closest, child) => {
             const box = child.getBoundingClientRect();
-            const offset = x - box.left - box.width / 2;
+            const offset = y - box.top - box.height / 2;
 
             if (offset < 0 && offset > closest.offset) {
                 return { offset: offset, element: child };
@@ -396,27 +428,39 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const inputImagenes = document.querySelector('#id_imagenes');
+    const previewContainer = document.querySelector('#preview-container');
+    let selectedFiles = [];
 
-    function eliminarImagen(imageId) {
-        fetch(`/eliminar-imagen/${imageId}/`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+    inputImagenes.addEventListener('change', function(e) {
+        selectedFiles = selectedFiles.concat(Array.from(this.files));
+
+        previewContainer.innerHTML = '';
+
+        selectedFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'imagen-item';
+                div.innerHTML = `
+                    <div class="imagen-wrapper position-relative">
+                        <img src="${e.target.result}" class="img-thumbnail">
+                        <small class="position-absolute bottom-0 start-0 m-1 bg-dark text-white px-2 rounded">
+                            Nueva
+                        </small>
+                    </div>
+                `;
+                previewContainer.appendChild(div);
             }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                document.querySelector(`[data-id="${imageId}"]`).remove();
-            } else {
-                alert('Error al eliminar la imagen');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error al eliminar la imagen');
+            
+            reader.readAsDataURL(file);
         });
-    }
+    });
 });
 </script>
 {% endblock %}
