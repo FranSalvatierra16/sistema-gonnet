@@ -51,7 +51,7 @@ class Propiedad(models.Model):
     DIRECCION_MAX_LENGTH = 255
     UBICACION_MAX_LENGTH = 255
     DEPARTAMENTO_CHOICES = [(chr(i), chr(i)) for i in range(ord('A'), ord('Z')+1)]
-    ID_MAX_LENGTH = 2000  # Define un tamaño máximo para el campo id
+    ID_MAX_LENGTH = 255 # Define un tamaño máximo para el campo id
     id = models.CharField(max_length=ID_MAX_LENGTH, primary_key=True, unique=True, null=False, blank=False)
     direccion = models.CharField(max_length=DIRECCION_MAX_LENGTH)
     ubicacion = models.CharField(max_length=UBICACION_MAX_LENGTH)
