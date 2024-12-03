@@ -58,6 +58,7 @@ class InquilinoForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super(InquilinoForm, self).__init__(*args, **kwargs)
+        self.fields['cuit'].required = False
 
     def save(self, commit=True):
         inquilino = super(InquilinoForm, self).save(commit=False)
@@ -87,6 +88,7 @@ class PropietarioForm(forms.ModelForm):
         self.fields['nombre'].required = True
         self.fields['apellido'].required = True
         self.fields['dni'].required = True
+        self.fields['cuit'].required = False
         
         # Agregar clases de Bootstrap
         for field in self.fields:

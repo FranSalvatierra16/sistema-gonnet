@@ -39,7 +39,12 @@ class Persona(models.Model):
     provincia = models.CharField(max_length=100)
     domicilio = models.CharField(max_length=100)
     codigo_postal = models.CharField(max_length=10)  # Campo para código postal
-    cuit = models.CharField(max_length=11, validators=[RegexValidator(regex=r'^\d{11}$', message='CUIT debe tener 11 dígitos')])  # Campo para CUIT
+    cuit = models.CharField(
+        max_length=11, 
+        validators=[RegexValidator(regex=r'^\d{11}$', message='CUIT debe tener 11 dígitos')],
+        blank=True,  # Permitir que el campo esté vacío en formularios
+        null=True    # Permitir que el campo sea nulo en la base de datos
+    )
     tipo_ins = models.CharField(max_length=4, choices=TIPOS_INS, default='otro')  # Campo para tipo de inscripción
     tipo_doc = models.CharField(max_length=4, choices=TIPOS_DOC, default='otro')
     sucursal = models.ForeignKey(
