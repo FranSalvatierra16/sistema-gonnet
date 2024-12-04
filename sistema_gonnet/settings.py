@@ -91,7 +91,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'gonnet',  # Nombre de la base de datos
-        'USER': 'gonnet',  # El nombre de usuario creado
+        'USER': 'Gonnet',  # El nombre de usuario creado
         'PASSWORD': 'gonnet1234',  # La contraseña del usuario
         'HOST': 'localhost',  # Usualmente es localhost si estás trabajando localmente
         'PORT': '3306',  # El puerto predeterminado de MySQL
