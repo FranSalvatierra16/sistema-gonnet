@@ -26,6 +26,7 @@ SECRET_KEY = 'django-insecure-#ry=f1tqj+=1*32^c54&0qk2)1xt02qpg-%r)ae6%-+3ip*fx^
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
 ALLOWED_HOSTS = ['gonnet-interno-052a6cec3da9.herokuapp.com', '.herokuapp.com']
 
 
@@ -90,10 +91,10 @@ WSGI_APPLICATION = 'sistema_gonnet.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_NAME', 'gonnet'),
-        'USER': os.environ.get('DB_USER', 'Gonnet'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'gonnet1234'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'NAME': os.environ.get('DB_NAME', 'vgd8ktskappw7cmj'),
+        'USER': os.environ.get('DB_USER', 'oaai2ab9qsc7xvyn'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'it2cxhq71iiubhlj'),
+        'HOST': os.environ.get('DB_HOST', 'tj5iv8piornf713y.cbetxkdyhwsb.us-east-1.rds.amazonaws.com'),
         'PORT': os.environ.get('DB_PORT', '3306'),
     }
 }
