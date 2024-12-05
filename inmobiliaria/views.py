@@ -26,6 +26,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.urls import reverse
 from django.views.decorators.http import require_POST, require_http_methods
 import json
+from django.db import models
 
 import logging
 logger = logging.getLogger(__name__)
