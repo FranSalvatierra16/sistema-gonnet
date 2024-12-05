@@ -341,7 +341,6 @@ def propiedad_nuevo(request):
 @login_required
 def propiedad_editar(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
-    # Obtener todas las imágenes ordenadas por el campo orden
     imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad).order_by('orden')
     
     if request.method == 'POST':
@@ -351,14 +350,22 @@ def propiedad_editar(request, propiedad_id):
             
             # Manejar las nuevas imágenes
             nuevas_imagenes = request.FILES.getlist('imagenes')
-            for imagen in nuevas_imagenes:
-                # Obtener el último orden
-                ultimo_orden = ImagenPropiedad.objects.filter(propiedad=propiedad).count()
-                ImagenPropiedad.objects.create(
-                    propiedad=propiedad,
-                    imagen=imagen,
-                    orden=ultimo_orden + 1
-                )
+            if nuevas_imagenes:  # Solo procesar si hay nuevas imágenes
+                ultimo_orden = ImagenPropiedad.objects.filter(propiedad=propiedad).aggregate(
+                    max_orden=models.Max('orden')
+                )['max_orden'] or 0
+                
+                for i, imagen in enumerate(nuevas_imagenes, 1):
+                    # Verificar si la imagen ya existe para evitar duplicados
+                    if not ImagenPropiedad.objects.filter(
+                        propiedad=propiedad,
+                        imagen=f'propiedades/{imagen.name}'
+                    ).exists():
+                        ImagenPropiedad.objects.create(
+                            propiedad=propiedad,
+                            imagen=imagen,
+                            orden=ultimo_orden + i
+                        )
             
             messages.success(request, 'Propiedad actualizada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
@@ -368,7 +375,7 @@ def propiedad_editar(request, propiedad_id):
     return render(request, 'inmobiliaria/propiedades/formulario.html', {
         'form': form,
         'propiedad': propiedad,
-        'imagenes': imagenes,  # Pasar las imágenes al template
+        'imagenes': imagenes,
     })
 @login_required
 def propiedad_eliminar(request, propiedad_id):
