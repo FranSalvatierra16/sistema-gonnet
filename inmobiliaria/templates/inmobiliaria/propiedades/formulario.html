@@ -58,11 +58,11 @@
                 <!-- Input para subir imágenes -->
                 <div class="form-group mb-3">
                     <label for="id_imagenes">Subir nuevas imágenes:</label>
-                    <input type="file" id="id_imagenes" name="imagenes" multiple>
+                    <input type="file" id="id_imagenes" name="imagenes" multiple class="form-control">
                     <small class="form-text text-muted">Seleccione una o más imágenes para la propiedad</small>
                 </div>
 
-                <!-- Vista previa de imágenes -->
+                <!-- Vista previa de imágenes nuevas -->
                 <div id="preview-container" class="d-flex flex-wrap gap-3 mb-3">
                     <!-- Las imágenes previsualizadas se mostrarán aquí -->
                 </div>
@@ -71,15 +71,16 @@
                 <div id="imagenes-container" class="d-flex flex-wrap gap-3">
                     {% for imagen in imagenes %}
                     <div class="imagen-item" data-id="{{ imagen.id }}" draggable="true">
-                        <div class="imagen-wrapper position-relative" style="width: 200px;">
+                        <div class="imagen-wrapper position-relative">
                             <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 eliminar-imagen" 
                                     data-imagen-id="{{ imagen.id }}">
                                 <i class="fas fa-times"></i>
                             </button>
-                            <img src="{{ imagen.imagen.url }}" class="img-thumbnail" style="width: 100%; height: 150px; object-fit: cover;">
-                            <small class="position-absolute bottom-0 start-0 m-1 bg-dark text-white px-2 rounded">
-                                Orden: {{ imagen.orden }}
-                            </small>
+                            <img src="{{ imagen.imagen.url }}" class="img-thumbnail" style="width: 200px; height: 150px; object-fit: cover;">
+                            <div class="position-absolute bottom-0 start-0 w-100 p-2 bg-dark bg-opacity-75">
+                                <small class="text-white">Orden: {{ imagen.orden }}</small>
+                                <i class="fas fa-arrows-alt text-white float-end" style="cursor: move;"></i>
+                            </div>
                         </div>
                     </div>
                     {% endfor %}
@@ -316,151 +317,132 @@
         });
     </script>
 
-<!-- Agregar estos estilos -->
+<!-- Estilos para las imágenes -->
 <style>
 .imagen-item {
-    cursor: move;
     transition: transform 0.2s;
-    margin: 10px;
+    cursor: move;
 }
 
 .imagen-item:hover {
     transform: scale(1.05);
 }
 
-.imagen-item.dragging {
-    opacity: 0.5;
-}
-
 .imagen-wrapper {
     border: 2px solid transparent;
-    transition: border-color 0.3s;
+    border-radius: 8px;
+    overflow: hidden;
     position: relative;
     width: 200px;
-    height: 200px;
+    margin: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.imagen-wrapper:hover {
-    border-color: #007bff;
-}
-
-.imagen-wrapper img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+.imagen-item.dragging {
+    opacity: 0.5;
+    transform: scale(1.1);
 }
 
 .eliminar-imagen {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.imagen-wrapper:hover .eliminar-imagen {
+    opacity: 1;
 }
 </style>
 
-<!-- Agregar este JavaScript -->
+<!-- Scripts para el manejo de imágenes -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const container = document.getElementById('imagenes-container');
+    const inputImagenes = document.getElementById('id_imagenes');
+    const previewContainer = document.getElementById('preview-container');
 
-    container.addEventListener('dragstart', e => {
-        if (e.target.classList.contains('imagen-item')) {
-            e.target.classList.add('dragging');
+    // Configuración de Sortable para el reordenamiento
+    new Sortable(container, {
+        animation: 150,
+        ghostClass: 'dragging',
+        onEnd: function() {
+            actualizarOrdenImagenes();
         }
     });
 
-    container.addEventListener('dragend', e => {
-        if (e.target.classList.contains('imagen-item')) {
-            e.target.classList.remove('dragging');
-            updateImageOrder();
-        }
+    // Previsualización de nuevas imágenes
+    inputImagenes.addEventListener('change', function() {
+        previewContainer.innerHTML = '';
+        Array.from(this.files).forEach(file => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'imagen-wrapper position-relative';
+                div.innerHTML = `
+                    <img src="${e.target.result}" class="img-thumbnail" style="width: 200px; height: 150px; object-fit: cover;">
+                    <div class="position-absolute bottom-0 start-0 w-100 p-2 bg-dark bg-opacity-75">
+                        <small class="text-white">Nueva imagen</small>
+                    </div>
+                `;
+                previewContainer.appendChild(div);
+            };
+            reader.readAsDataURL(file);
+        });
     });
 
-    container.addEventListener('dragover', e => {
-        e.preventDefault();
-        const afterElement = getDragAfterElement(container, e.clientY);
-        const draggable = document.querySelector('.dragging');
-        if (afterElement == null) {
-            container.appendChild(draggable);
-        } else {
-            container.insertBefore(draggable, afterElement);
-        }
-    });
-
-    function getDragAfterElement(container, y) {
-        const draggableElements = [...container.querySelectorAll('.imagen-item:not(.dragging)')];
-
-        return draggableElements.reduce((closest, child) => {
-            const box = child.getBoundingClientRect();
-            const offset = y - box.top - box.height / 2;
-
-            if (offset < 0 && offset > closest.offset) {
-                return { offset: offset, element: child };
-            } else {
-                return closest;
+    // Eliminar imagen
+    container.addEventListener('click', function(e) {
+        if (e.target.closest('.eliminar-imagen')) {
+            const button = e.target.closest('.eliminar-imagen');
+            const imagenId = button.dataset.imagenId;
+            if (confirm('¿Está seguro de eliminar esta imagen?')) {
+                eliminarImagen(imagenId);
             }
-        }, { offset: Number.NEGATIVE_INFINITY }).element;
-    }
+        }
+    });
 
-    function updateImageOrder() {
-        const items = container.querySelectorAll('.imagen-item');
-        const orderData = Array.from(items).map((item, index) => ({
+    // Función para actualizar el orden de las imágenes
+    function actualizarOrdenImagenes() {
+        const imagenes = Array.from(container.querySelectorAll('.imagen-item'));
+        const ordenData = imagenes.map((item, index) => ({
             id: item.dataset.id,
             orden: index + 1
         }));
 
-        // Enviar nuevo orden al servidor
         fetch('{% url "inmobiliaria:actualizar_orden_imagenes" %}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
             },
-            body: JSON.stringify({ imagenes: orderData })
+            body: JSON.stringify({ imagenes: ordenData })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Actualizar números de orden mostrados
-                items.forEach((item, index) => {
+                imagenes.forEach((item, index) => {
                     item.querySelector('small').textContent = `Orden: ${index + 1}`;
                 });
             }
         });
     }
-});
-</script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const inputImagenes = document.querySelector('#id_imagenes');
-    const previewContainer = document.querySelector('#preview-container');
-    let selectedFiles = [];
 
-    inputImagenes.addEventListener('change', function(e) {
-        selectedFiles = selectedFiles.concat(Array.from(this.files));
-
-        previewContainer.innerHTML = '';
-
-        selectedFiles.forEach((file, index) => {
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                const div = document.createElement('div');
-                div.className = 'imagen-item';
-                div.innerHTML = `
-                    <div class="imagen-wrapper position-relative">
-                        <img src="${e.target.result}" class="img-thumbnail">
-                        <small class="position-absolute bottom-0 start-0 m-1 bg-dark text-white px-2 rounded">
-                            Nueva
-                        </small>
-                    </div>
-                `;
-                previewContainer.appendChild(div);
+    // Función para eliminar una imagen
+    function eliminarImagen(imagenId) {
+        fetch(`{% url "inmobiliaria:eliminar_imagen" %}?imagen_id=${imagenId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
             }
-            
-            reader.readAsDataURL(file);
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const imagenElement = document.querySelector(`[data-id="${imagenId}"]`);
+                imagenElement.remove();
+                actualizarOrdenImagenes();
+            }
         });
-    });
+    }
 });
 </script>
 {% endblock %}
