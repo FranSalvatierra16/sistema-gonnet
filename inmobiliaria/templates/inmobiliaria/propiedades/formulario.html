@@ -53,33 +53,35 @@
         <!-- Imágenes -->
         <div class="row mt-4">
             <div class="col-md-12">
-                <h3>Imágenes</h3>
+                <h3>Imágenes de la Propiedad</h3>
                 
                 <!-- Input para subir imágenes -->
-                <div class="form-group mb-3">
-                    <label for="id_imagenes">Subir nuevas imágenes:</label>
-                    <input type="file" id="id_imagenes" name="imagenes" multiple class="form-control">
-                    <small class="form-text text-muted">Seleccione una o más imágenes para la propiedad</small>
-                </div>
-
-                <!-- Vista previa de imágenes nuevas -->
-                <div id="preview-container" class="d-flex flex-wrap gap-3 mb-3">
-                    <!-- Las imágenes previsualizadas se mostrarán aquí -->
+                <div class="form-group mb-4">
+                    <label for="id_imagenes" class="form-label">Agregar nuevas imágenes:</label>
+                    <input type="file" id="id_imagenes" name="imagenes" multiple accept="image/*" class="form-control">
+                    <small class="text-muted">Puede seleccionar múltiples imágenes</small>
                 </div>
 
                 <!-- Contenedor de imágenes existentes -->
-                <div id="imagenes-container" class="d-flex flex-wrap gap-3">
+                <div class="row" id="imagenes-container">
                     {% for imagen in imagenes %}
-                    <div class="imagen-item" data-id="{{ imagen.id }}" draggable="true">
-                        <div class="imagen-wrapper position-relative">
-                            <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 eliminar-imagen" 
-                                    data-imagen-id="{{ imagen.id }}">
-                                <i class="fas fa-times"></i>
-                            </button>
-                            <img src="{{ imagen.imagen.url }}" class="img-thumbnail" style="width: 200px; height: 150px; object-fit: cover;">
-                            <div class="position-absolute bottom-0 start-0 w-100 p-2 bg-dark bg-opacity-75">
-                                <small class="text-white">Orden: {{ imagen.orden }}</small>
-                                <i class="fas fa-arrows-alt text-white float-end" style="cursor: move;"></i>
+                    <div class="col-md-3 mb-4">
+                        <div class="imagen-item card" data-id="{{ imagen.id }}">
+                            <div class="position-relative">
+                                <img src="{{ imagen.imagen.url }}" 
+                                     class="card-img-top" 
+                                     style="height: 200px; object-fit: cover;">
+                                <button type="button" 
+                                        class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 eliminar-imagen" 
+                                        data-imagen-id="{{ imagen.id }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                <div class="position-absolute bottom-0 start-0 w-100 p-2 bg-dark bg-opacity-50">
+                                    <span class="text-white">
+                                        <i class="fas fa-arrows-alt me-2"></i>
+                                        Orden: {{ imagen.orden }}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -320,27 +322,19 @@
 <!-- Estilos para las imágenes -->
 <style>
 .imagen-item {
-    transition: transform 0.2s;
     cursor: move;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
 }
 
 .imagen-item:hover {
-    transform: scale(1.05);
-}
-
-.imagen-wrapper {
-    border: 2px solid transparent;
-    border-radius: 8px;
-    overflow: hidden;
-    position: relative;
-    width: 200px;
-    margin: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 }
 
 .imagen-item.dragging {
     opacity: 0.5;
-    transform: scale(1.1);
+    border: 2px dashed #007bff;
 }
 
 .eliminar-imagen {
@@ -348,19 +342,18 @@
     transition: opacity 0.2s;
 }
 
-.imagen-wrapper:hover .eliminar-imagen {
+.imagen-item:hover .eliminar-imagen {
     opacity: 1;
 }
 </style>
 
 <!-- Scripts para el manejo de imágenes -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const container = document.getElementById('imagenes-container');
-    const inputImagenes = document.getElementById('id_imagenes');
-    const previewContainer = document.getElementById('preview-container');
 
-    // Configuración de Sortable para el reordenamiento
+    // Inicializar Sortable
     new Sortable(container, {
         animation: 150,
         ghostClass: 'dragging',
@@ -369,32 +362,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Previsualización de nuevas imágenes
-    inputImagenes.addEventListener('change', function() {
-        previewContainer.innerHTML = '';
-        Array.from(this.files).forEach(file => {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const div = document.createElement('div');
-                div.className = 'imagen-wrapper position-relative';
-                div.innerHTML = `
-                    <img src="${e.target.result}" class="img-thumbnail" style="width: 200px; height: 150px; object-fit: cover;">
-                    <div class="position-absolute bottom-0 start-0 w-100 p-2 bg-dark bg-opacity-75">
-                        <small class="text-white">Nueva imagen</small>
-                    </div>
-                `;
-                previewContainer.appendChild(div);
-            };
-            reader.readAsDataURL(file);
-        });
-    });
-
-    // Eliminar imagen
+    // Manejar la eliminación de imágenes
     container.addEventListener('click', function(e) {
-        if (e.target.closest('.eliminar-imagen')) {
-            const button = e.target.closest('.eliminar-imagen');
-            const imagenId = button.dataset.imagenId;
-            if (confirm('¿Está seguro de eliminar esta imagen?')) {
+        const deleteBtn = e.target.closest('.eliminar-imagen');
+        if (deleteBtn) {
+            const imagenId = deleteBtn.dataset.imagenId;
+            if (confirm('¿Está seguro de que desea eliminar esta imagen?')) {
                 eliminarImagen(imagenId);
             }
         }
@@ -419,16 +392,22 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                // Actualizar los números de orden mostrados
                 imagenes.forEach((item, index) => {
-                    item.querySelector('small').textContent = `Orden: ${index + 1}`;
+                    const ordenText = item.querySelector('.text-white');
+                    ordenText.innerHTML = `<i class="fas fa-arrows-alt me-2"></i>Orden: ${index + 1}`;
                 });
             }
+        })
+        .catch(error => {
+            console.error('Error al actualizar el orden:', error);
+            alert('Hubo un error al actualizar el orden de las imágenes');
         });
     }
 
     // Función para eliminar una imagen
     function eliminarImagen(imagenId) {
-        fetch(`{% url "inmobiliaria:eliminar_imagen" %}?imagen_id=${imagenId}`, {
+        fetch('{% url "inmobiliaria:eliminar_imagen" %}?imagen_id=' + imagenId, {
             method: 'DELETE',
             headers: {
                 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
@@ -437,10 +416,14 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const imagenElement = document.querySelector(`[data-id="${imagenId}"]`);
+                const imagenElement = document.querySelector(`.imagen-item[data-id="${imagenId}"]`).closest('.col-md-3');
                 imagenElement.remove();
                 actualizarOrdenImagenes();
             }
+        })
+        .catch(error => {
+            console.error('Error al eliminar la imagen:', error);
+            alert('Hubo un error al eliminar la imagen');
         });
     }
 });
