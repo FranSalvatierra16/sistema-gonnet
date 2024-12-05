@@ -288,6 +288,10 @@ def propiedad_detalle(request, propiedad_id):
         When(tipo_precio=TipoPrecio.QUINCENA_2_FEBRERO, then=5),
         When(tipo_precio=TipoPrecio.QUINCENA_1_MARZO, then=6),
         When(tipo_precio=TipoPrecio.QUINCENA_2_MARZO, then=7),
+        When(tipo_precio=TipoPrecio.TEMPORADA_BAJA, then=8),
+        When(tipo_precio=TipoPrecio.FINDE_LARGO, then=9),
+        When(tipo_precio=TipoPrecio.VACACIONES_INVIERNO, then=10),
+        When(tipo_precio=TipoPrecio.ESTUDIANTES, then=11),
         # Añade más condiciones si es necesario
         output_field=IntegerField(),
     )
