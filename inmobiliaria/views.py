@@ -340,26 +340,35 @@ def propiedad_nuevo(request):
 
 @login_required
 def propiedad_editar(request, propiedad_id):
-    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    # Obtener todas las imágenes ordenadas por el campo orden
+    imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad).order_by('orden')
+    
     if request.method == 'POST':
         form = PropiedadForm(request.POST, request.FILES, instance=propiedad)
         if form.is_valid():
             propiedad = form.save()
-            # Obtener el número actual de imágenes para determinar el orden
-            current_image_count = ImagenPropiedad.objects.filter(propiedad=propiedad).count()
-            # Manejar las imágenes cargadas
-            for index, imagen in enumerate(request.FILES.getlist('imagenes'), start=current_image_count + 1):
-                ImagenPropiedad.objects.create(propiedad=propiedad, imagen=imagen, orden=index)
+            
+            # Manejar las nuevas imágenes
+            nuevas_imagenes = request.FILES.getlist('imagenes')
+            for imagen in nuevas_imagenes:
+                # Obtener el último orden
+                ultimo_orden = ImagenPropiedad.objects.filter(propiedad=propiedad).count()
+                ImagenPropiedad.objects.create(
+                    propiedad=propiedad,
+                    imagen=imagen,
+                    orden=ultimo_orden + 1
+                )
+            
+            messages.success(request, 'Propiedad actualizada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
         form = PropiedadForm(instance=propiedad)
-
-    imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad).order_by('orden')
-
+    
     return render(request, 'inmobiliaria/propiedades/formulario.html', {
         'form': form,
         'propiedad': propiedad,
-        'imagenes': imagenes,
+        'imagenes': imagenes,  # Pasar las imágenes al template
     })
 @login_required
 def propiedad_eliminar(request, propiedad_id):
