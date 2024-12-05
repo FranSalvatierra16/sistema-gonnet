@@ -1306,10 +1306,11 @@ def actualizar_orden_imagenes(request):
     return JsonResponse({'success': True})
 
 @require_http_methods(["DELETE"])
-def eliminar_imagen(request, imagen_id):
+def eliminar_imagen(request):
+    imagen_id = request.GET.get('imagen_id')
     try:
         imagen = ImagenPropiedad.objects.get(id=imagen_id)
         imagen.delete()
         return JsonResponse({'success': True})
     except ImagenPropiedad.DoesNotExist:
-        return JsonResponse({'success': False}, status=404)
+        return JsonResponse({'success': False, 'error': 'Imagen no encontrada'}, status=404)
