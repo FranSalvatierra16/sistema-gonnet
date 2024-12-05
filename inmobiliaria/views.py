@@ -342,22 +342,26 @@ def propiedad_nuevo(request):
 @login_required
 def propiedad_editar(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    # Asegurarnos de que las imágenes se cargan correctamente
     imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad).order_by('orden')
+    
+    # Debug: imprimir información de las imágenes
+    print("Imágenes encontradas:", imagenes.count())
+    for img in imagenes:
+        print(f"Imagen ID: {img.id}, URL: {img.imagen.url if img.imagen else 'No URL'}")
     
     if request.method == 'POST':
         form = PropiedadForm(request.POST, request.FILES, instance=propiedad)
         if form.is_valid():
             propiedad = form.save()
             
-            # Manejar las nuevas imágenes
             nuevas_imagenes = request.FILES.getlist('imagenes')
-            if nuevas_imagenes:  # Solo procesar si hay nuevas imágenes
+            if nuevas_imagenes:
                 ultimo_orden = ImagenPropiedad.objects.filter(propiedad=propiedad).aggregate(
                     max_orden=models.Max('orden')
                 )['max_orden'] or 0
                 
                 for i, imagen in enumerate(nuevas_imagenes, 1):
-                    # Verificar si la imagen ya existe para evitar duplicados
                     if not ImagenPropiedad.objects.filter(
                         propiedad=propiedad,
                         imagen=f'propiedades/{imagen.name}'
@@ -373,10 +377,14 @@ def propiedad_editar(request, propiedad_id):
     else:
         form = PropiedadForm(instance=propiedad)
     
+    # Recargar las imágenes después de cualquier modificación
+    imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad).order_by('orden')
+    
     return render(request, 'inmobiliaria/propiedades/formulario.html', {
         'form': form,
         'propiedad': propiedad,
         'imagenes': imagenes,
+        'MEDIA_URL': settings.MEDIA_URL,  # Añadir MEDIA_URL al contexto
     })
 @login_required
 def propiedad_eliminar(request, propiedad_id):
@@ -731,7 +739,6 @@ def buscar_propiedades(request):
             # Obtener las reservas asociadas a la propiedad
             reservas = propiedad.reservas.filter(
                 Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
-            )
 
             # Verificar si existen reservas pagadas
             if reservas.filter(estado='pagada').exists():
