@@ -2,45 +2,77 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recibo de Pago</title>
+    <title>Recibo Inmobiliaria</title>
     <style>
-        .recibo {
-            width: 80%;
-            margin: 0 auto;
-            border: 1px solid #000;
-            padding: 20px;
+        body {
             font-family: Arial, sans-serif;
+            margin: 20px;
+            font-size: 12px;
         }
-        h2 {
+        .recibo {
+            border: 1px solid #59ab55;
+            padding: 20px;
+            width: '90%';
+            height: '90%';
+        }
+        .header {
+            width: '100%';
+            height: '100%';
+            background-color: #59ab55;
+        }
+        .logo {
+            width: 200px;
+        }
+        .recibo-info {
+            text-align: right;
+        }
+        .cliente-info {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .propiedad-info {
+            border: 1px solid #000;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        .tabla-pagos {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .tabla-pagos th, .tabla-pagos td {
+            border: 1px solid #000;
+            padding: 5px;
+        }
+        .destacado {
+            background-color: #e0ffe0;
+        }
+        .footer {
+            margin-top: 20px;
             text-align: center;
         }
-        .detalle {
-            margin-top: 20px;
+        .firmas {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 50px;
         }
-        .detalle p {
-            margin: 5px 0;
+        .firma {
+            width: 200px;
+            text-align: center;
+            border-top: 1px solid #000;
         }
     </style>
 </head>
 <body>
     <div class="recibo">
-        <h2>Recibo de Pago</h2>
-        <p><strong>Fecha de Pago:</strong> {{ reserva.fecha_reserva|date:"d/m/Y" }}</p>
-        <p><strong>Cliente:</strong> {{ reserva.inquilino.nombre }} {{ reserva.inquilino.apellido }}</p>
-        <p><strong>Propiedad:</strong> {{ reserva.propiedad.direccion }}</p>
-        <p><strong>Precio Total de la Reserva:</strong> ${{ reserva.precio_total }}</p>
-        <p><strong>Pago de Seña:</strong> ${{ pago_senia }}</p>
-        <p><strong>Cuota Pendiente:</strong> ${{ reserva.cuota_pendiente }}</p>
-        
-        <div class="detalle">
-            <p>Este recibo certifica que el cliente ha realizado un pago de seña para la reserva de la propiedad mencionada.</p>
+        <div style="width: 33%; height: 100px; background-color: #59ab55; flex-direction: column;">
+            <img src="https://www.gonnet.com.ar/wp-content/uploads/2024/05/logo-gonnet-blanco.png" alt="Logo Gonnet" class="logo">
+            <p>Recibo</p>
+            
         </div>
-        
-        <div style="text-align: center; margin-top: 40px;">
-            <p>______________________________________</p>
-            <p>Firma del Cliente</p>
-        </div>
+       
     </div>
 </body>
 </html>

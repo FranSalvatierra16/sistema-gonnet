@@ -7,7 +7,7 @@ from django.utils.timezone import now
 
 import datetime
 from .persona import Propietario, Inquilino, Vendedor
-
+from .sucursal import Sucursal
 
 # Definiciones de tipos de vista, valoración e inmuebles
 TIPOS_VISTA = [
@@ -51,7 +51,7 @@ class Propiedad(models.Model):
     DIRECCION_MAX_LENGTH = 255
     UBICACION_MAX_LENGTH = 255
     DEPARTAMENTO_CHOICES = [(chr(i), chr(i)) for i in range(ord('A'), ord('Z')+1)]
-    ID_MAX_LENGTH = 2000  # Define un tamaño máximo para el campo id
+    ID_MAX_LENGTH = 255 # Define un tamaño máximo para el campo id
     id = models.CharField(max_length=ID_MAX_LENGTH, primary_key=True, unique=True, null=False, blank=False)
     direccion = models.CharField(max_length=DIRECCION_MAX_LENGTH)
     ubicacion = models.CharField(max_length=UBICACION_MAX_LENGTH)
@@ -63,7 +63,8 @@ class Propiedad(models.Model):
     ambientes = models.IntegerField()
     valoracion = models.CharField(max_length=20, choices=TIPOS_VALORACION, default='bueno')
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
-    propietario = models.ForeignKey(Propietario, on_delete=models.CASCADE, related_name='propiedades')  # Cambiado a obligatorio
+    propietario = models.ForeignKey(Propietario, on_delete=models.CASCADE, related_name='propiedades')  
+    sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='propiedades')# Cambiado a obligatorio
     
     # Resto del código permanece igual
     
@@ -166,27 +167,46 @@ class Propiedad(models.Model):
 
 
 class ImagenPropiedad(models.Model):
-    propiedad = models.ForeignKey(Propiedad, related_name='imagenes', on_delete=models.CASCADE)
+    propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='imagenes')
     imagen = models.ImageField(upload_to='propiedades/')
+    orden = models.IntegerField(default=0)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['orden']
+        verbose_name = 'Imagen de propiedad'
+        verbose_name_plural = 'Imágenes de propiedades'
 
     def __str__(self):
-        return f"Imagen de {self.propiedad}"
+        return f"Imagen {self.orden} de {self.propiedad}"
 
 
 class Reserva(models.Model):
     propiedad = models.ForeignKey(Propiedad, on_delete=models.CASCADE, related_name='reservas')
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
-    hora_ingreso = models.TimeField(default=datetime.time(15, 0))  # Valor por defecto: 15:00
-    hora_egreso = models.TimeField(default=datetime.time(10, 0))   # Valor por defecto: 10:00
-    fecha_creacion = models.DateTimeField(default=now)  
-    vendedor = models.ForeignKey(Vendedor, on_delete=models.SET_NULL, null=True, related_name='reservas_vendedor')  
-    cliente = models.ForeignKey(Inquilino, on_delete=models.SET_NULL, null=True, related_name='reservas_cliente')  
-    precio_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True) 
+    hora_ingreso = models.TimeField(default=datetime.time(15, 0))
+    hora_egreso = models.TimeField(default=datetime.time(10, 0))
+    fecha_creacion = models.DateTimeField(default=now)
+    vendedor = models.ForeignKey(Vendedor, on_delete=models.SET_NULL, null=True, related_name='reservas_vendedor')
+    cliente = models.ForeignKey(Inquilino, on_delete=models.SET_NULL, null=True, related_name='reservas_cliente')
+    precio_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     senia = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     pago_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     cuota_pendiente = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     estado = models.CharField(max_length=20, choices=[('en_espera', 'En Espera'), ('confirmada', 'Confirmada'), ('pagada', 'Pagada')], default='en_espera')
+    sucursal = models.ForeignKey(
+        'Sucursal',  # Asegúrate de que Sucursal esté importado
+        on_delete=models.CASCADE,
+        related_name='reservas_sucursal',
+        null=True  # Permitimos null temporalmente para la migración
+    )
+
+    def save(self, *args, **kwargs):
+        # Si no se especificó una sucursal, usar la sucursal de la propiedad
+        if not self.sucursal and self.propiedad:
+            self.sucursal = self.propiedad.sucursal
+        super().save(*args, **kwargs)
 
     def calcular_cuota_pendiente(self):
         if self.precio_total and self.pago_total:

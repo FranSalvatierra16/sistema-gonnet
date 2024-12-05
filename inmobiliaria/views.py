@@ -3,11 +3,11 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio
-from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm
+from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
-from django.db.models import Q, Prefetch
+from django.db.models import Q, Prefetch, Case, When, IntegerField
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
 from django.contrib.auth.signals import user_logged_in
@@ -22,6 +22,10 @@ from django.template.loader import render_to_string
 from django.contrib.auth import authenticate
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
+from django.views.decorators.csrf import csrf_exempt
+from django.urls import reverse
+from django.views.decorators.http import require_POST, require_http_methods
+import json
 
 import logging
 logger = logging.getLogger(__name__)
@@ -53,7 +57,7 @@ def dashboard(request):
     return render(request, 'inmobiliaria/dashboard.html', context)
 @login_required
 def vendedores(request):
-    vendedores = Vendedor.objects.all()
+    vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal)
     return render(request, 'inmobiliaria/vendedores/lista.html', {'vendedores': vendedores})
 
 @login_required
@@ -97,7 +101,8 @@ def vendedor_eliminar(request, vendedor_id):
 @login_required
 def inquilinos(request):
     form = InquilinoBuscarForm(request.GET or None)
-    inquilinos = Inquilino.objects.all()
+    inquilinos = Inquilino.objects.filter(sucursal=request.user.sucursal)
+    
 
     if form.is_valid():
         termino = form.cleaned_data.get('termino')
@@ -135,13 +140,13 @@ def inquilino_detalle(request, inquilino_id):
 @login_required
 def inquilino_nuevo(request):
     if request.method == "POST":
-        form = InquilinoForm(request.POST)
+        form = InquilinoForm(request.POST, user=request.user)
         if form.is_valid():
             inquilino = form.save()
             messages.success(request, 'Inquilino creado exitosamente.')
             return redirect('inmobiliaria:inquilino_detalle', inquilino_id=inquilino.id)
     else:
-        form = InquilinoForm()
+        form = InquilinoForm(user=request.user)
     return render(request, 'inmobiliaria/inquilinos/formulario.html', {'form': form})
 
 @login_required
@@ -170,7 +175,13 @@ def inquilino_eliminar(request, inquilino_id):
 @login_required
 def propietarios(request):
     form = PropietarioBuscarForm(request.GET or None)
-    propietarios = Propietario.objects.all()
+    
+    # Determinar qué propietarios mostrar según el nivel del usuario
+    if request.user.is_superuser or request.user.nivel == 4:
+        propietarios = Propietario.objects.filter(sucursal=request.user.sucursal)
+    else:
+        # Filtrar por la sucursal del vendedor logueado
+        propietarios = Propietario.objects.filter(sucursal=request.user.sucursal)
 
     if form.is_valid():
         termino = form.cleaned_data.get('termino')
@@ -189,15 +200,19 @@ def propietarios(request):
             'id': p.id,
             'nombre': p.nombre,
             'apellido': p.apellido,
-            'dni': p.dni
+            'dni': p.dni,
+            'sucursal': p.sucursal.nombre  # Agregar el nombre de la sucursal si lo necesitas en la respuesta
         } for p in propietarios]
         return JsonResponse({'propietarios': propietarios_data})
 
     # Retornar la plantilla completa si no es AJAX
-    return render(request, 'inmobiliaria/propietarios/lista.html', {
+    context = {
         'form': form,
-        'propietarios': propietarios
-    })
+        'propietarios': propietarios,
+        'sucursal_actual': request.user.sucursal.nombre if not request.user.is_superuser else 'Todas las sucursales'
+    }
+    
+    return render(request, 'inmobiliaria/propietarios/lista.html', context)
 
 @login_required
 def propietario_detalle(request, propietario_id):
@@ -207,13 +222,13 @@ def propietario_detalle(request, propietario_id):
 @login_required
 def propietario_nuevo(request):
     if request.method == "POST":
-        form = PropietarioForm(request.POST)
+        form = PropietarioForm(request.POST, user=request.user)
         if form.is_valid():
             propietario = form.save()
             messages.success(request, 'Propietario creado exitosamente.')
             return redirect('inmobiliaria:propietario_detalle', propietario_id=propietario.id)
     else:
-        form = PropietarioForm()
+        form = PropietarioForm(user=request.user)
     return render(request, 'inmobiliaria/propietarios/formulario.html', {'form': form})
 
 @login_required
@@ -239,67 +254,108 @@ def propietario_eliminar(request, propietario_id):
     return render(request, 'inmobiliaria/propietarios/confirmar_eliminar.html', {'propietario': propietario})
 @login_required
 def propiedades(request):
-    propiedades = Propiedad.objects.all()
-    return render(request, 'inmobiliaria/propiedades/lista.html', {'propiedades': propiedades})
+    form = PropiedadSearchForm(request.GET or None)
+    propiedades = Propiedad.objects.filter(sucursal=request.user.sucursal)
+
+    if form.is_valid():
+        query = form.cleaned_data.get('query')
+        if query:
+            propiedades = propiedades.filter(
+                Q(direccion__icontains=query) |
+                Q(id__icontains=query) |
+                Q(propietario__nombre__icontains=query) |
+                Q(propietario__apellido__icontains=query)
+            )
+
+    return render(request, 'inmobiliaria/propiedades/lista.html', {
+        'form': form,
+        'propiedades': propiedades
+    })
 
 @login_required
 def propiedad_detalle(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
-    disponibilidades = propiedad.disponibilidades.all()  # Si tienes una relación entre propiedad y disponibilidad
-    precios = propiedad.precios.all() 
-    print("hola", propiedad.precios.all())  # Para depurar
+    disponibilidades = propiedad.disponibilidades.all()
+    imagenes = propiedad.imagenes.all()
+
+    # Definir el orden personalizado para los tipos de precio
+    orden_tipo_precio = Case(
+        When(tipo_precio=TipoPrecio.QUINCENA_1_DICIEMBRE, then=0),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_DICIEMBRE, then=1),
+        When(tipo_precio=TipoPrecio.QUINCENA_1_ENERO, then=2),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_ENERO, then=3),
+        When(tipo_precio=TipoPrecio.QUINCENA_1_FEBRERO, then=4),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_FEBRERO, then=5),
+        When(tipo_precio=TipoPrecio.QUINCENA_1_MARZO, then=6),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_MARZO, then=7),
+        # Añade más condiciones si es necesario
+        output_field=IntegerField(),
+    )
+
+    # Obtener los precios ordenados
+    precios = propiedad.precios.annotate(
+        orden_tipo_precio=orden_tipo_precio
+    ).order_by('orden_tipo_precio')
+
+    print("Imágenes de la propiedad:", [imagen.imagen.url for imagen in imagenes])
 
     return render(request, 'inmobiliaria/propiedades/detalle.html', {
         'propiedad': propiedad,
         'disponibilidades': disponibilidades,
-        'precios': precios
+        'precios': precios,
+        'imagenes': imagenes
     })
 @login_required
 def propiedad_nuevo(request):
-    propietario_form = PropietarioForm(request.POST) # Asegúrate de que esto esté bien definido
     if request.method == 'POST':
-        form = PropiedadForm(request.POST, request.FILES)
+        form = PropiedadForm(request.POST, request.FILES, user=request.user)
+        propietario_form = PropietarioForm(user=request.user)
         if form.is_valid():
             propiedad = form.save()
-            # Manejo de múltiples imágenes
+            
+            # Procesar imágenes
             imagenes = request.FILES.getlist('imagenes')
-            for imagen in imagenes:
-                ImagenPropiedad.objects.create(propiedad=propiedad, imagen=imagen)
+            for index, imagen in enumerate(imagenes):
+                ImagenPropiedad.objects.create(
+                    propiedad=propiedad,
+                    imagen=imagen,
+                    orden=index + 1
+                )
+            
             messages.success(request, 'Propiedad creada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
         form = PropiedadForm()
-
+        propietario_form = PropietarioForm(user=request.user)
+    
     return render(request, 'inmobiliaria/propiedades/formulario.html', {
         'form': form,
         'propietario_form': propietario_form,
+        'titulo': 'Nueva Propiedad'
     })
 
 @login_required
 def propiedad_editar(request, propiedad_id):
-    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
-    propietario_form = PropietarioForm(request.POST or None)
-
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
     if request.method == 'POST':
         form = PropiedadForm(request.POST, request.FILES, instance=propiedad)
-        
         if form.is_valid():
             propiedad = form.save()
-
-            # Manejar las imágenes subidas
-            if 'imagenes' in request.FILES:
-                imagenes = request.FILES.getlist('imagenes')
-                for imagen in imagenes:
-                    ImagenPropiedad.objects.create(propiedad=propiedad, imagen=imagen)
-                    
+            # Obtener el número actual de imágenes para determinar el orden
+            current_image_count = ImagenPropiedad.objects.filter(propiedad=propiedad).count()
+            # Manejar las imágenes cargadas
+            for index, imagen in enumerate(request.FILES.getlist('imagenes'), start=current_image_count + 1):
+                ImagenPropiedad.objects.create(propiedad=propiedad, imagen=imagen, orden=index)
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
         form = PropiedadForm(instance=propiedad)
 
+    imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad).order_by('orden')
+
     return render(request, 'inmobiliaria/propiedades/formulario.html', {
         'form': form,
         'propiedad': propiedad,
-        'propietario_form': propietario_form,
+        'imagenes': imagenes,
     })
 @login_required
 def propiedad_eliminar(request, propiedad_id):
@@ -314,30 +370,83 @@ def propiedad_eliminar(request, propiedad_id):
 def register(request):
     if request.method == 'POST':
         form = VendedorUserCreationForm(request.POST)
+        print("\n=== DATOS DEL FORMULARIO RECIBIDOS ===")
+        print(f"Datos POST: {request.POST}")
+        
         if form.is_valid():
+            print("\n=== DATOS VALIDADOS ===")
+            print(f"Username: {form.cleaned_data.get('username')}")
+            print(f"DNI: {form.cleaned_data.get('dni')}")
+            print(f"Nombre: {form.cleaned_data.get('nombre')}")
+            print(f"Apellido: {form.cleaned_data.get('apellido')}")
+            print(f"Email: {form.cleaned_data.get('email')}")
+            print(f"Comisión: {form.cleaned_data.get('comision')}")
+            print(f"Fecha Nacimiento: {form.cleaned_data.get('fecha_nacimiento')}")
+            print(f"Nivel: {form.cleaned_data.get('nivel')}")
+            print(f"Sucursal: {form.cleaned_data.get('sucursal')}")
+            print(f"Password1 presente: {'password1' in form.cleaned_data}")
+            print(f"Password2 presente: {'password2' in form.cleaned_data}")
+            print(f"Passwords coinciden: {form.cleaned_data.get('password1') == form.cleaned_data.get('password2')}")
+            
             vendedor = form.save()
+            
+            # Verificar que la contraseña se guardó correctamente
+            print("\n=== VENDEDOR CREADO ===")
+            print(f"ID: {vendedor.id}")
+            print(f"Username: {vendedor.username}")
+            print(f"Nombre completo: {vendedor.nombre} {vendedor.apellido}")
+            print(f"Es activo: {vendedor.is_active}")
+            print(f"Es staff: {vendedor.is_staff}")
+            print(f"Es superusuario: {vendedor.is_superuser}")
+            print(f"Sucursal asignada: {vendedor.sucursal}")
+            print(f"Contraseña hasheada guardada: {bool(vendedor.password)}")
+            print(f"Longitud del hash de la contraseña: {len(vendedor.password)}")
+            
+            # Verificar que podemos autenticar con la contraseña
+            from django.contrib.auth import authenticate
+            test_auth = authenticate(username=vendedor.username, 
+                                  password=form.cleaned_data.get('password1'))
+            print(f"Prueba de autenticación exitosa: {test_auth is not None}")
+            
             messages.success(request, 'Registro exitoso. Ahora puedes iniciar sesión.')
-            return redirect('inmobiliaria:login')  # Redirige a la página de inicio de sesión
+            return redirect('inmobiliaria:login')
+        else:
+            print("\n=== ERRORES EN EL FORMULARIO ===")
+            print(f"Errores: {form.errors}")
+            if 'password1' in form.errors:
+                print(f"Errores de password1: {form.errors['password1']}")
+            if 'password2' in form.errors:
+                print(f"Errores de password2: {form.errors['password2']}")
     else:
         form = VendedorUserCreationForm()
+        print("\n=== NUEVO FORMULARIO CREADO ===")
+        print("Método GET - Mostrando formulario vacío")
+    
     return render(request, 'inmobiliaria/autenticacion/register.html', {'form': form})
+
 @login_required
 def crear_propietario_ajax(request):
-    if request.method == 'POST' and request.is_ajax():
-        form = PropietarioForm(request.POST)
+    if request.method == "POST":
+        form = PropietarioForm(request.POST, user=request.user)
         if form.is_valid():
             propietario = form.save()
+            print('Propietario creado exitosamente.')
+            print('Propietario', propietario)
+            messages.success(request, 'Propietario creado exitosamente.')
+
             return JsonResponse({
                 'success': True,
                 'propietario_id': propietario.id,
-                'propietario_nombre': f'{propietario.nombre} {propietario.apellido}',
+                'propietario_nombre': f"{propietario.nombre} {propietario.apellido}"
             })
         else:
-            return JsonResponse({
-                'success': False,
-                'errors': form.errors.as_json(),
-            })
-    return JsonResponse({'success': False, 'error': 'Invalid request'})
+            # Asegurarse de que los errores se envíen de manera adecuada al frontend
+            errors = {}
+            for field, error_list in form.errors.items():
+                errors[field] = error_list
+
+            return JsonResponse({'success': False, 'errors': errors})
+
 
 @receiver(user_logged_in)
 def user_logged_in_handler(sender, request, user, **kwargs):
@@ -362,11 +471,12 @@ def ver_disponibilidad(request, propiedad_id):
     }
 
     return render(request, 'inmobiliaria/ver_disponibilidad.html', context)
+@login_required
 def reservas(request):
-    reservas = Reserva.objects.all()
+    reservas = Reserva.objects.filter(sucursal=request.user.sucursal)
     return render(request, 'inmobiliaria/reserva/lista.html', {'reservas': reservas})
 def operaciones(request):
-    reservas = Reserva.objects.all()
+    reservas = Reserva.objects.filter(sucursal=request.user.sucursal)
     return render(request, 'inmobiliaria/reserva/operaciones.html', {'reservas': reservas})
 def crear_reserva(request):
 
@@ -521,14 +631,19 @@ def formato_fecha(fecha):
     return fecha.strftime('%d/%m/%Y') if fecha else ''
 
 
+@login_required
 def buscar_propiedades(request):
-    inquilinos = Inquilino.objects.all()
+    # Obtener la sucursal del vendedor logueado
+    sucursal_vendedor = request.user.sucursal
+    print("la sucursal del vendedor es ",sucursal_vendedor)
+    
+    inquilinos = Inquilino.objects.filter(sucursal=sucursal_vendedor)
     form = BuscarPropiedadesForm(request.POST or None)
     inquilino_form = InquilinoForm(request.POST)
     propiedades_disponibles = []
     propiedades_sin_precio = []
-    vendedores = Vendedor.objects.all()
-    total_dias_reserva=0
+    vendedores = Vendedor.objects.filter(sucursal=sucursal_vendedor)
+    total_dias_reserva = 0
 
     fecha_inicio = None
     fecha_fin = None
@@ -536,10 +651,9 @@ def buscar_propiedades(request):
     if form.is_valid():
         fecha_inicio = form.cleaned_data['fecha_inicio']
         fecha_fin = form.cleaned_data['fecha_fin']
-        
 
-        # Filtrar propiedades
-        propiedades = Propiedad.objects.all()
+        # Filtrar propiedades por sucursal
+        propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor)
 
         # Prefetch los precios para cada propiedad
         propiedades = propiedades.prefetch_related(
@@ -1131,3 +1245,67 @@ def obtener_inquilino(request, inquilino_id):
         }})
     except Inquilino.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Inquilino no encontrado.'}, status=404)
+
+def crear_sucursal(request):
+    if request.method == 'POST':
+        form = SucursalForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('inmobiliaria:reservas')  # Redirige a una lista de sucursales o a donde desees
+    else:
+        form = SucursalForm()
+    
+    return render(request, 'inmobiliaria/sucursal/crear_sucursal.html', {'form': form})
+
+def login_view(request):
+    if request.method == 'POST':
+        form = LoginForm(request.POST)
+        if form.is_valid():
+            username = form.cleaned_data.get('username')
+            password = form.cleaned_data.get('password')
+            
+            try:
+                vendedor = Vendedor.objects.get(username=username)
+                print(f"Usuario encontrado: {username}")
+                print(f"¿Usuario activo?: {vendedor.is_active}")
+                
+                if not vendedor.is_active:
+                    messages.error(request, 'Tu cuenta no está activa. Contacta al administrador.')
+                    return render(request, 'inmobiliaria/autenticacion/login.html', {'form': form})
+                
+                user = authenticate(request, username=username, password=password)
+                if user is not None:
+                    login(request, user)
+                    messages.success(request, '¡Bienvenido!')
+                    # Usar la URL de reservas directamente
+                    return redirect('inmobiliaria:crear_reserva')  # Asegúrate de que esta URL existe
+                else:
+                    messages.error(request, 'Contraseña incorrecta.')
+                    print("Contraseña incorrecta para el usuario:", username)
+                
+            except Vendedor.DoesNotExist:
+                messages.error(request, f'El usuario {username} no existe.')
+                print(f"Usuario no encontrado: {username}")
+        else:
+            messages.error(request, 'Por favor, corrige los errores del formulario.')
+            print("Errores del formulario:", form.errors)
+    else:
+        form = LoginForm()
+    
+    return render(request, 'inmobiliaria/autenticacion/login.html', {'form': form})
+
+@require_POST
+def actualizar_orden_imagenes(request):
+    data = json.loads(request.body)
+    for imagen_data in data['imagenes']:
+        ImagenPropiedad.objects.filter(id=imagen_data['id']).update(orden=imagen_data['orden'])
+    return JsonResponse({'success': True})
+
+@require_http_methods(["DELETE"])
+def eliminar_imagen(request, imagen_id):
+    try:
+        imagen = ImagenPropiedad.objects.get(id=imagen_id)
+        imagen.delete()
+        return JsonResponse({'success': True})
+    except ImagenPropiedad.DoesNotExist:
+        return JsonResponse({'success': False}, status=404)

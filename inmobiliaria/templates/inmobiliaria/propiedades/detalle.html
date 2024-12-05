@@ -38,10 +38,10 @@
 
                         <!-- Columna de imágenes con carrusel -->
                         <div class="col-md-6 text-center">
-                            {% if propiedad.imagenes.all %}
-                                <div id="carouselExampleControls" class="carousel slide">
+                            {% if imagenes %}
+                                <div id="carouselExampleControls" class="carousel slide" data-ride="carousel">
                                     <div class="carousel-inner">
-                                        {% for imagen in propiedad.imagenes.all %}
+                                        {% for imagen in imagenes %}
                                             <div class="carousel-item {% if forloop.first %}active{% endif %}">
                                                 <img src="{{ imagen.imagen.url }}" class="d-block w-100" alt="Imagen de la propiedad">
                                             </div>
@@ -114,10 +114,10 @@
 
                 <!-- Botones de acciones -->
                 <div class="card-footer text-center">
-                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad.id %}" class="btn btn-primary">Editar</a>
-                    <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad.id %}" class="btn btn-danger">Eliminar</a>
-                    <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad.id %}" class="btn btn-success">Agregar Disponibilidad</a>
-                    <a href="{% url 'inmobiliaria:gestionar_precios' propiedad.id %}" class="btn btn-success">Gestionar Precios</a>
+                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" class="btn btn-primary">Editar</a>
+                    <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad_id=propiedad.id %}" class="btn btn-danger">Eliminar</a>
+                    <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-success">Agregar Disponibilidad</a>
+                    <a href="{% url 'inmobiliaria:gestionar_precios' propiedad_id=propiedad.id %}" class="btn btn-success">Gestionar Precios</a>
                 </div>
             </div>
         </div>
