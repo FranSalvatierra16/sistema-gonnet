@@ -7,7 +7,7 @@ from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm,
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
-from django.db.models import Q, Prefetch
+from django.db.models import Q, Prefetch, Case, When, IntegerField
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
 from django.contrib.auth.signals import user_logged_in
@@ -276,8 +276,26 @@ def propiedades(request):
 def propiedad_detalle(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
     disponibilidades = propiedad.disponibilidades.all()
-    precios = propiedad.precios.all()
     imagenes = propiedad.imagenes.all()
+
+    # Definir el orden personalizado para los tipos de precio
+    orden_tipo_precio = Case(
+        When(tipo_precio=TipoPrecio.QUINCENA_1_DICIEMBRE, then=0),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_DICIEMBRE, then=1),
+        When(tipo_precio=TipoPrecio.QUINCENA_1_ENERO, then=2),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_ENERO, then=3),
+        When(tipo_precio=TipoPrecio.QUINCENA_1_FEBRERO, then=4),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_FEBRERO, then=5),
+        When(tipo_precio=TipoPrecio.QUINCENA_1_MARZO, then=6),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_MARZO, then=7),
+        # Añade más condiciones si es necesario
+        output_field=IntegerField(),
+    )
+
+    # Obtener los precios ordenados
+    precios = propiedad.precios.annotate(
+        orden_tipo_precio=orden_tipo_precio
+    ).order_by('orden_tipo_precio')
 
     print("Imágenes de la propiedad:", [imagen.imagen.url for imagen in imagenes])
 
