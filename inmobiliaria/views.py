@@ -386,13 +386,33 @@ def propiedad_editar(request, propiedad_id):
 
 @login_required
 def propiedad_eliminar(request, propiedad_id):
-    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
-    if request.method == "POST":
+    try:
+        propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+        
+        # Primero eliminar todas las imágenes asociadas
+        imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad)
+        for imagen in imagenes:
+            try:
+                # Eliminar el archivo físico
+                if imagen.imagen:
+                    imagen.imagen.delete(save=False)
+            except Exception as e:
+                logger.error(f"Error al eliminar archivo de imagen {imagen.id}: {str(e)}")
+            
+        # Luego eliminar la propiedad
+        nombre_propiedad = str(propiedad)
         propiedad.delete()
-        messages.success(request, 'Propiedad eliminada exitosamente.')
+        
+        messages.success(request, f'La propiedad "{nombre_propiedad}" ha sido eliminada exitosamente.')
         return redirect('inmobiliaria:propiedades')
-    return render(request, 'inmobiliaria/propiedades/confirmar_eliminar.html', {'propiedad': propiedad})
-
+        
+    except Propiedad.DoesNotExist:
+        messages.error(request, 'La propiedad no existe o ya fue eliminada.')
+        return redirect('inmobiliaria:propiedades')
+    except Exception as e:
+        logger.error(f"Error al eliminar propiedad {propiedad_id}: {str(e)}")
+        messages.error(request, f'Error al eliminar la propiedad: {str(e)}')
+        return redirect('inmobiliaria:propiedades')
     
 def register(request):
     if request.method == 'POST':

@@ -50,9 +50,12 @@
                     <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" class="btn btn-warning btn-sm" data-toggle="tooltip" title="Editar">
                         <i class="bi bi-pencil"></i>
                     </a>
-                    <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad_id=propiedad.id %}" class="btn btn-danger btn-sm" data-toggle="tooltip" title="Eliminar">
-                        <i class="bi bi-trash"></i>
-                    </a>
+                    <form method="post" action="{% url 'inmobiliaria:propiedad_eliminar' propiedad.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger" onclick="return confirm('¿Está seguro de que desea eliminar esta propiedad?')">
+                            Eliminar Propiedad
+                        </button>
+                    </form>
                 </td>
             </tr>
             {% empty %}
