@@ -27,6 +27,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST, require_http_methods
 import json
 from django.db import models
+from django.conf import settings
 
 import logging
 logger = logging.getLogger(__name__)
@@ -1329,39 +1330,58 @@ def actualizar_orden_imagenes(request):
             data = json.loads(request.body)
             imagenes_orden = data.get('imagenes', [])
             
+            # Agregar logging para debug
+            print(f"Datos recibidos: {data}")
+            
             # Actualizar solo las imágenes que cambiaron de posición
             for item in imagenes_orden:
-                imagen = ImagenPropiedad.objects.get(id=item['id'])
-                if imagen.orden != item['orden']:
-                    imagen.orden = item['orden']
-                    imagen.save()
+                try:
+                    imagen = ImagenPropiedad.objects.get(id=item['id'])
+                    if imagen.orden != item['orden']:
+                        imagen.orden = item['orden']
+                        imagen.save()
+                except Exception as e:
+                    print(f"Error al actualizar imagen {item['id']}: {str(e)}")
             
             return JsonResponse({'success': True})
         except Exception as e:
+            print(f"Error en actualizar_orden_imagenes: {str(e)}")
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 @login_required
 def eliminar_imagen(request):
     if request.method == 'DELETE':
-        imagen_id = request.GET.get('imagen_id')
         try:
-            imagen = ImagenPropiedad.objects.get(id=imagen_id)
-            # Guardar el orden actual
-            orden_eliminado = imagen.orden
+            imagen_id = request.GET.get('imagen_id')
+            print(f"Intentando eliminar imagen ID: {imagen_id}")
             
-            # Eliminar la imagen
+            imagen = ImagenPropiedad.objects.get(id=imagen_id)
+            orden_eliminado = imagen.orden
+            propiedad = imagen.propiedad
+            
+            # Eliminar el archivo físico si existe
+            if imagen.imagen:
+                try:
+                    imagen.imagen.delete(save=False)
+                except Exception as e:
+                    print(f"Error al eliminar archivo físico: {str(e)}")
+            
+            # Eliminar el registro de la base de datos
             imagen.delete()
             
             # Reordenar las imágenes restantes
             ImagenPropiedad.objects.filter(
-                propiedad=imagen.propiedad,
+                propiedad=propiedad,
                 orden__gt=orden_eliminado
             ).update(orden=models.F('orden') - 1)
             
             return JsonResponse({'success': True})
         except ImagenPropiedad.DoesNotExist:
+            print(f"Imagen no encontrada: {imagen_id}")
             return JsonResponse({'success': False, 'error': 'Imagen no encontrada'})
         except Exception as e:
+            print(f"Error al eliminar imagen: {str(e)}")
             return JsonResponse({'success': False, 'error': str(e)})
+    
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
