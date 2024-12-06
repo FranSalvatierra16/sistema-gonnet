@@ -1322,19 +1322,46 @@ def login_view(request):
     
     return render(request, 'inmobiliaria/autenticacion/login.html', {'form': form})
 
-@require_POST
+@login_required
 def actualizar_orden_imagenes(request):
-    data = json.loads(request.body)
-    for imagen_data in data['imagenes']:
-        ImagenPropiedad.objects.filter(id=imagen_data['id']).update(orden=imagen_data['orden'])
-    return JsonResponse({'success': True})
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            imagenes_orden = data.get('imagenes', [])
+            
+            # Actualizar solo las imágenes que cambiaron de posición
+            for item in imagenes_orden:
+                imagen = ImagenPropiedad.objects.get(id=item['id'])
+                if imagen.orden != item['orden']:
+                    imagen.orden = item['orden']
+                    imagen.save()
+            
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
-@require_http_methods(["DELETE"])
+@login_required
 def eliminar_imagen(request):
-    imagen_id = request.GET.get('imagen_id')
-    try:
-        imagen = ImagenPropiedad.objects.get(id=imagen_id)
-        imagen.delete()
-        return JsonResponse({'success': True})
-    except ImagenPropiedad.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Imagen no encontrada'}, status=404)
+    if request.method == 'DELETE':
+        imagen_id = request.GET.get('imagen_id')
+        try:
+            imagen = ImagenPropiedad.objects.get(id=imagen_id)
+            # Guardar el orden actual
+            orden_eliminado = imagen.orden
+            
+            # Eliminar la imagen
+            imagen.delete()
+            
+            # Reordenar las imágenes restantes
+            ImagenPropiedad.objects.filter(
+                propiedad=imagen.propiedad,
+                orden__gt=orden_eliminado
+            ).update(orden=models.F('orden') - 1)
+            
+            return JsonResponse({'success': True})
+        except ImagenPropiedad.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Imagen no encontrada'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})

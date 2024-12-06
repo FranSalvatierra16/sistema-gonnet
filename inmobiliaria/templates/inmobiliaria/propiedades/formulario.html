@@ -354,35 +354,36 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const container = document.getElementById('imagenes-container');
-
-    // Inicializar Sortable
+    
+    // Inicializar Sortable con opciones mejoradas
     new Sortable(container, {
         animation: 150,
         ghostClass: 'dragging',
-        onEnd: function() {
-            actualizarOrdenImagenes();
-        }
-    });
-
-    // Manejar la eliminación de imágenes
-    container.addEventListener('click', function(e) {
-        const deleteBtn = e.target.closest('.eliminar-imagen');
-        if (deleteBtn) {
-            const imagenId = deleteBtn.dataset.imagenId;
-            if (confirm('¿Está seguro de que desea eliminar esta imagen?')) {
-                eliminarImagen(imagenId);
+        onEnd: function(evt) {
+            const item = evt.item;
+            const newIndex = evt.newIndex;
+            const oldIndex = evt.oldIndex;
+            
+            if (newIndex !== oldIndex) {
+                const ordenData = [];
+                // Solo actualizar las dos imágenes involucradas en el intercambio
+                const items = container.querySelectorAll('.imagen-item');
+                items.forEach((el, index) => {
+                    if (index === newIndex || index === oldIndex) {
+                        ordenData.push({
+                            id: el.dataset.id,
+                            orden: index + 1
+                        });
+                    }
+                });
+                
+                actualizarOrdenImagenes(ordenData);
             }
         }
     });
 
-    // Función para actualizar el orden de las imágenes
-    function actualizarOrdenImagenes() {
-        const imagenes = Array.from(container.querySelectorAll('.imagen-item'));
-        const ordenData = imagenes.map((item, index) => ({
-            id: item.dataset.id,
-            orden: index + 1
-        }));
-
+    // Función mejorada para actualizar orden
+    function actualizarOrdenImagenes(ordenData) {
         fetch('{% url "inmobiliaria:actualizar_orden_imagenes" %}', {
             method: 'POST',
             headers: {
@@ -394,20 +395,36 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Actualizar los números de orden mostrados
-                imagenes.forEach((item, index) => {
-                    const ordenText = item.querySelector('.text-white');
-                    ordenText.innerHTML = `<i class="fas fa-arrows-alt me-2"></i>Orden: ${index + 1}`;
+                // Actualizar solo los números de orden de las imágenes afectadas
+                ordenData.forEach(item => {
+                    const imagen = document.querySelector(`.imagen-item[data-id="${item.id}"]`);
+                    if (imagen) {
+                        imagen.querySelector('.text-white').innerHTML = 
+                            `<i class="fas fa-arrows-alt me-2"></i>Orden: ${item.orden}`;
+                    }
                 });
+            } else {
+                console.error('Error al actualizar el orden:', data.error);
+                alert('Error al actualizar el orden de las imágenes');
             }
         })
         .catch(error => {
-            console.error('Error al actualizar el orden:', error);
-            alert('Hubo un error al actualizar el orden de las imágenes');
+            console.error('Error:', error);
+            alert('Error al actualizar el orden de las imágenes');
         });
     }
 
-    // Función para eliminar una imagen
+    // Mejorar el manejo de eliminación de imágenes
+    container.addEventListener('click', function(e) {
+        const deleteBtn = e.target.closest('.eliminar-imagen');
+        if (deleteBtn) {
+            const imagenId = deleteBtn.dataset.imagenId;
+            if (confirm('¿Está seguro de que desea eliminar esta imagen?')) {
+                eliminarImagen(imagenId);
+            }
+        }
+    });
+
     function eliminarImagen(imagenId) {
         fetch('{% url "inmobiliaria:eliminar_imagen" %}?imagen_id=' + imagenId, {
             method: 'DELETE',
@@ -420,14 +437,40 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 const imagenElement = document.querySelector(`.imagen-item[data-id="${imagenId}"]`).closest('.col-md-3');
                 imagenElement.remove();
-                actualizarOrdenImagenes();
+                
+                // Actualizar el orden de las imágenes restantes
+                const items = container.querySelectorAll('.imagen-item');
+                items.forEach((item, index) => {
+                    item.querySelector('.text-white').innerHTML = 
+                        `<i class="fas fa-arrows-alt me-2"></i>Orden: ${index + 1}`;
+                });
+            } else {
+                console.error('Error al eliminar la imagen:', data.error);
+                alert('Error al eliminar la imagen');
             }
         })
         .catch(error => {
-            console.error('Error al eliminar la imagen:', error);
-            alert('Hubo un error al eliminar la imagen');
+            console.error('Error:', error);
+            alert('Error al eliminar la imagen');
         });
     }
+
+    // Prevenir duplicados al subir imágenes
+    const inputImagenes = document.querySelector('input[name="imagenes"]');
+    inputImagenes.addEventListener('change', function(e) {
+        const files = Array.from(this.files);
+        const existingImages = Array.from(document.querySelectorAll('.imagen-item img'))
+            .map(img => img.src.split('/').pop());
+
+        const duplicados = files.filter(file => 
+            existingImages.includes(file.name));
+
+        if (duplicados.length > 0) {
+            alert('Algunas imágenes ya existen y no se subirán nuevamente');
+            // Limpiar el input
+            this.value = '';
+        }
+    });
 });
 </script>
 {% endblock %}
