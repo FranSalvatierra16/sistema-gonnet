@@ -737,7 +737,7 @@ def buscar_propiedades(request):
             # Obtener las reservas asociadas a la propiedad
             reservas = propiedad.reservas.filter(
                 Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
-
+            )
             # Verificar si existen reservas pagadas
             if reservas.filter(estado='pagada').exists():
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
