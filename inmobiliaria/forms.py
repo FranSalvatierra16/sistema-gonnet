@@ -146,13 +146,18 @@ class PropiedadForm(forms.ModelForm):
         required=True,
         help_text='Ingrese el ID deseado para la propiedad'
     )
-
+    llave = forms.IntegerField(
+        required=False,
+        label='Número de llave',
+        help_text='Ingrese el número de llave de la propiedad',
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )
 
     class Meta:
         model = Propiedad
          # Excluir el campo 'id' para que no sea editable
         fields = [
-            'id','direccion','ubicacion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
+            'id', 'llave', 'direccion', 'ubicacion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
 
             # 'habilitar_precio_diario', 'precio_diario', 'habilitar_precio_venta', 'precio_venta',
             # 'habilitar_precio_alquiler', 'precio_alquiler',
