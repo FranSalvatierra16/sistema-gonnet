@@ -65,6 +65,7 @@ class Propiedad(models.Model):
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
     propietario = models.ForeignKey(Propietario, on_delete=models.CASCADE, related_name='propiedades')  
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='propiedades')# Cambiado a obligatorio
+    llave = models.IntegerField(unique=True, null=True, blank=True, verbose_name="Número de llave")
     
     # Resto del código permanece igual
     
