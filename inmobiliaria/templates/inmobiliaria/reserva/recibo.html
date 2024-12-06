@@ -1,7 +1,43 @@
-<div style="height: 94%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid;">
+<style type="text/css" media="print">
+    @page {
+        size: A4;
+        margin: 0;
+    }
+    
+    body {
+        margin: 1cm;
+    }
+
+    /* Asegurar que los colores y bordes se impriman */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Mantener los bordes verdes */
+    .border-green {
+        border-color: #2d8524 !important;
+    }
+
+    /* Ocultar elementos que no queremos imprimir */
+    .no-print {
+        display: none !important;
+    }
+
+    /* Asegurar que el contenido se ajuste a una página */
+    .recibo-container {
+        page-break-inside: avoid;
+        width: 21cm;
+        min-height: 29.7cm;
+        padding: 1cm;
+        margin: 0 auto;
+    }
+</style>
+
+<div class="recibo-container" style="height: 94%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid;">
     <div style="height: 25%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
         <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-            {% comment %} <img src="{% static 'inmobiliaria/img/logo.png' %}" alt="logo" style="height: 40%; width: 60%; margin-top: 0%;"> {% endcomment %}
+            <!-- {% comment %} <img src="{% static 'inmobiliaria/img/logo.png' %}" alt="logo" style="height: 40%; width: 60%; margin-top: 0%;"> {% endcomment %} -->
             <p style="margin: 0;"> de Nestor Oscar Gonnet</p>
             <p style="margin: 0;">Corrientes 1987</p>
             <p style="margin: 0;">(B7600EBO) Mar del Plata - Prov. de Bs. As.</p>
@@ -9,12 +45,12 @@
             <p style="margin: 0;">email: info@gonnet.com.ar</p>
         </div>
         <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
-            {% comment %} <svg xmlns="http://www.w3.org/2000/svg" width="50%" height="50%" id="x" style="display: block; margin-top: 20px;margin-left:37%">
+            <!-- {% comment %} <svg xmlns="http://www.w3.org/2000/svg" width="50%" height="50%" id="x" style="display: block; margin-top: 20px;margin-left:37%">
                 <g fill="none" fill-rule="evenodd" stroke="#2d8524" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" transform="translate(1 1)">
                     <rect width="70" height="70" rx="2"></rect>
                     <path d="M15 15 L55 55 M55 15 L15 55"></path>
                 </g>
-            </svg> {% endcomment %}
+            </svg> {% endcomment %} -->
             <h1 style="margin-top: 0px;">RECIBO</h1>
             
             <p style="margin: 0;">DOCUMENTO NO VALIDO COMO FACTURA</p>
@@ -298,4 +334,40 @@
         </div>
     </div>
 </div>
+
+<div class="no-print" style="text-align: center; margin-top: 20px;">
+    <button onclick="window.print()" class="btn btn-primary">
+        Imprimir Recibo
+    </button>
+</div>
+
+<script>
+// Asegurar que los bordes se mantengan al imprimir
+window.onbeforeprint = function() {
+    var elements = document.getElementsByTagName('*');
+    for(var i = 0; i < elements.length; i++) {
+        var style = getComputedStyle(elements[i]);
+        if(style.borderColor === 'rgb(45, 133, 36)') { // El color verde
+            elements[i].style.borderColor = '#2d8524 !important';
+        }
+    }
+};
+
+// Ajustar tamaño automáticamente al imprimir
+function adjustPrintSize() {
+    var content = document.querySelector('.recibo-container');
+    var contentHeight = content.offsetHeight;
+    var pageHeight = 1122; // Altura aproximada de A4 en píxeles
+    
+    if (contentHeight > pageHeight) {
+        var scale = pageHeight / contentHeight;
+        content.style.transform = `scale(${scale})`;
+        content.style.transformOrigin = 'top center';
+    }
+}
+
+// Llamar a la función cuando se carga la página y antes de imprimir
+document.addEventListener('DOMContentLoaded', adjustPrintSize);
+window.onbeforeprint = adjustPrintSize;
+</script>
   
