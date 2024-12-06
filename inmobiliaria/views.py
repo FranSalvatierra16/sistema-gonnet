@@ -342,51 +342,48 @@ def propiedad_nuevo(request):
 
 @login_required
 def propiedad_editar(request, propiedad_id):
-    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
-    # Asegurarnos de que las imágenes se cargan correctamente
-    imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad).order_by('orden')
-    
-    # Debug: imprimir información de las imágenes
-    print("Imágenes encontradas:", imagenes.count())
-    for img in imagenes:
-        print(f"Imagen ID: {img.id}, URL: {img.imagen.url if img.imagen else 'No URL'}")
-    
-    if request.method == 'POST':
-        form = PropiedadForm(request.POST, request.FILES, instance=propiedad)
-        if form.is_valid():
-            propiedad = form.save()
-            
-            nuevas_imagenes = request.FILES.getlist('imagenes')
-            if nuevas_imagenes:
-                ultimo_orden = ImagenPropiedad.objects.filter(propiedad=propiedad).aggregate(
-                    max_orden=models.Max('orden')
-                )['max_orden'] or 0
+    try:
+        propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+        imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad).order_by('orden')
+        
+        if request.method == 'POST':
+            form = PropiedadForm(request.POST, request.FILES, instance=propiedad)
+            if form.is_valid():
+                propiedad = form.save()
                 
-                for i, imagen in enumerate(nuevas_imagenes, 1):
-                    if not ImagenPropiedad.objects.filter(
-                        propiedad=propiedad,
-                        imagen=f'propiedades/{imagen.name}'
-                    ).exists():
-                        ImagenPropiedad.objects.create(
+                nuevas_imagenes = request.FILES.getlist('imagenes')
+                if nuevas_imagenes:
+                    ultimo_orden = ImagenPropiedad.objects.filter(propiedad=propiedad).aggregate(
+                        max_orden=models.Max('orden')
+                    )['max_orden'] or 0
+                    
+                    for i, imagen in enumerate(nuevas_imagenes, 1):
+                        # Verificar duplicados por nombre de archivo
+                        if not ImagenPropiedad.objects.filter(
                             propiedad=propiedad,
-                            imagen=imagen,
-                            orden=ultimo_orden + i
-                        )
-            
-            messages.success(request, 'Propiedad actualizada exitosamente.')
-            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
-    else:
-        form = PropiedadForm(instance=propiedad)
-    
-    # Recargar las imágenes después de cualquier modificación
-    imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad).order_by('orden')
-    
-    return render(request, 'inmobiliaria/propiedades/formulario.html', {
-        'form': form,
-        'propiedad': propiedad,
-        'imagenes': imagenes,
-        'MEDIA_URL': settings.MEDIA_URL,  # Añadir MEDIA_URL al contexto
-    })
+                            imagen__icontains=imagen.name
+                        ).exists():
+                            ImagenPropiedad.objects.create(
+                                propiedad=propiedad,
+                                imagen=imagen,
+                                orden=ultimo_orden + i
+                            )
+                
+                messages.success(request, 'Propiedad actualizada exitosamente.')
+                return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+        else:
+            form = PropiedadForm(instance=propiedad)
+        
+        return render(request, 'inmobiliaria/propiedades/formulario.html', {
+            'form': form,
+            'propiedad': propiedad,
+            'imagenes': imagenes,
+        })
+    except Exception as e:
+        logger.error(f"Error en propiedad_editar: {str(e)}")
+        messages.error(request, f'Error al procesar la solicitud: {str(e)}')
+        return redirect('inmobiliaria:propiedades')
+
 @login_required
 def propiedad_eliminar(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
@@ -1324,64 +1321,66 @@ def login_view(request):
     return render(request, 'inmobiliaria/autenticacion/login.html', {'form': form})
 
 @login_required
+@require_http_methods(["POST"])
 def actualizar_orden_imagenes(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            imagenes_orden = data.get('imagenes', [])
-            
-            # Agregar logging para debug
-            print(f"Datos recibidos: {data}")
-            
-            # Actualizar solo las imágenes que cambiaron de posición
-            for item in imagenes_orden:
-                try:
-                    imagen = ImagenPropiedad.objects.get(id=item['id'])
-                    if imagen.orden != item['orden']:
-                        imagen.orden = item['orden']
-                        imagen.save()
-                except Exception as e:
-                    print(f"Error al actualizar imagen {item['id']}: {str(e)}")
-            
-            return JsonResponse({'success': True})
-        except Exception as e:
-            print(f"Error en actualizar_orden_imagenes: {str(e)}")
-            return JsonResponse({'success': False, 'error': str(e)})
-    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+    try:
+        data = json.loads(request.body)
+        imagenes_orden = data.get('imagenes', [])
+        logger.info(f"Actualizando orden de imágenes: {imagenes_orden}")
+        
+        for item in imagenes_orden:
+            try:
+                imagen = ImagenPropiedad.objects.get(id=item['id'])
+                if imagen.orden != item['orden']:
+                    imagen.orden = item['orden']
+                    imagen.save()
+            except ImagenPropiedad.DoesNotExist:
+                logger.error(f"No se encontró la imagen con ID: {item['id']}")
+            except Exception as e:
+                logger.error(f"Error al actualizar imagen {item['id']}: {str(e)}")
+        
+        return JsonResponse({'success': True})
+    except json.JSONDecodeError as e:
+        logger.error(f"Error al decodificar JSON: {str(e)}")
+        return JsonResponse({'success': False, 'error': 'Datos JSON inválidos'}, status=400)
+    except Exception as e:
+        logger.error(f"Error general en actualizar_orden_imagenes: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 @login_required
+@require_http_methods(["DELETE"])
 def eliminar_imagen(request):
-    if request.method == 'DELETE':
+    try:
+        imagen_id = request.GET.get('imagen_id')
+        logger.info(f"Intentando eliminar imagen ID: {imagen_id}")
+        
+        if not imagen_id:
+            return JsonResponse({'success': False, 'error': 'ID de imagen no proporcionado'}, status=400)
+        
+        imagen = get_object_or_404(ImagenPropiedad, id=imagen_id)
+        orden_eliminado = imagen.orden
+        propiedad = imagen.propiedad
+        
+        # Eliminar el archivo físico
         try:
-            imagen_id = request.GET.get('imagen_id')
-            print(f"Intentando eliminar imagen ID: {imagen_id}")
-            
-            imagen = ImagenPropiedad.objects.get(id=imagen_id)
-            orden_eliminado = imagen.orden
-            propiedad = imagen.propiedad
-            
-            # Eliminar el archivo físico si existe
             if imagen.imagen:
-                try:
-                    imagen.imagen.delete(save=False)
-                except Exception as e:
-                    print(f"Error al eliminar archivo físico: {str(e)}")
-            
-            # Eliminar el registro de la base de datos
-            imagen.delete()
-            
-            # Reordenar las imágenes restantes
-            ImagenPropiedad.objects.filter(
-                propiedad=propiedad,
-                orden__gt=orden_eliminado
-            ).update(orden=models.F('orden') - 1)
-            
-            return JsonResponse({'success': True})
-        except ImagenPropiedad.DoesNotExist:
-            print(f"Imagen no encontrada: {imagen_id}")
-            return JsonResponse({'success': False, 'error': 'Imagen no encontrada'})
+                imagen.imagen.delete(save=False)
         except Exception as e:
-            print(f"Error al eliminar imagen: {str(e)}")
-            return JsonResponse({'success': False, 'error': str(e)})
-    
-    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+            logger.error(f"Error al eliminar archivo físico: {str(e)}")
+        
+        # Eliminar el registro de la base de datos
+        imagen.delete()
+        
+        # Reordenar las imágenes restantes
+        ImagenPropiedad.objects.filter(
+            propiedad=propiedad,
+            orden__gt=orden_eliminado
+        ).update(orden=models.F('orden') - 1)
+        
+        return JsonResponse({'success': True})
+    except ImagenPropiedad.DoesNotExist:
+        logger.error(f"Imagen no encontrada: {imagen_id}")
+        return JsonResponse({'success': False, 'error': 'Imagen no encontrada'}, status=404)
+    except Exception as e:
+        logger.error(f"Error al eliminar imagen: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
