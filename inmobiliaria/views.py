@@ -26,6 +26,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.urls import reverse
 from django.views.decorators.http import require_POST, require_http_methods
 import json
+from django.db import models
 
 import logging
 logger = logging.getLogger(__name__)
@@ -340,26 +341,50 @@ def propiedad_nuevo(request):
 
 @login_required
 def propiedad_editar(request, propiedad_id):
-    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    # Asegurarnos de que las imágenes se cargan correctamente
+    imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad).order_by('orden')
+    
+    # Debug: imprimir información de las imágenes
+    print("Imágenes encontradas:", imagenes.count())
+    for img in imagenes:
+        print(f"Imagen ID: {img.id}, URL: {img.imagen.url if img.imagen else 'No URL'}")
+    
     if request.method == 'POST':
         form = PropiedadForm(request.POST, request.FILES, instance=propiedad)
         if form.is_valid():
             propiedad = form.save()
-            # Obtener el número actual de imágenes para determinar el orden
-            current_image_count = ImagenPropiedad.objects.filter(propiedad=propiedad).count()
-            # Manejar las imágenes cargadas
-            for index, imagen in enumerate(request.FILES.getlist('imagenes'), start=current_image_count + 1):
-                ImagenPropiedad.objects.create(propiedad=propiedad, imagen=imagen, orden=index)
+            
+            nuevas_imagenes = request.FILES.getlist('imagenes')
+            if nuevas_imagenes:
+                ultimo_orden = ImagenPropiedad.objects.filter(propiedad=propiedad).aggregate(
+                    max_orden=models.Max('orden')
+                )['max_orden'] or 0
+                
+                for i, imagen in enumerate(nuevas_imagenes, 1):
+                    if not ImagenPropiedad.objects.filter(
+                        propiedad=propiedad,
+                        imagen=f'propiedades/{imagen.name}'
+                    ).exists():
+                        ImagenPropiedad.objects.create(
+                            propiedad=propiedad,
+                            imagen=imagen,
+                            orden=ultimo_orden + i
+                        )
+            
+            messages.success(request, 'Propiedad actualizada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
         form = PropiedadForm(instance=propiedad)
-
+    
+    # Recargar las imágenes después de cualquier modificación
     imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad).order_by('orden')
-
+    
     return render(request, 'inmobiliaria/propiedades/formulario.html', {
         'form': form,
         'propiedad': propiedad,
         'imagenes': imagenes,
+        'MEDIA_URL': settings.MEDIA_URL,  # Añadir MEDIA_URL al contexto
     })
 @login_required
 def propiedad_eliminar(request, propiedad_id):
@@ -714,7 +739,6 @@ def buscar_propiedades(request):
             # Obtener las reservas asociadas a la propiedad
             reservas = propiedad.reservas.filter(
                 Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
-            )
 
             # Verificar si existen reservas pagadas
             if reservas.filter(estado='pagada').exists():
@@ -1306,10 +1330,11 @@ def actualizar_orden_imagenes(request):
     return JsonResponse({'success': True})
 
 @require_http_methods(["DELETE"])
-def eliminar_imagen(request, imagen_id):
+def eliminar_imagen(request):
+    imagen_id = request.GET.get('imagen_id')
     try:
         imagen = ImagenPropiedad.objects.get(id=imagen_id)
         imagen.delete()
         return JsonResponse({'success': True})
     except ImagenPropiedad.DoesNotExist:
-        return JsonResponse({'success': False}, status=404)
+        return JsonResponse({'success': False, 'error': 'Imagen no encontrada'}, status=404)

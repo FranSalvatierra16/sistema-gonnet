@@ -73,7 +73,7 @@ urlpatterns = [
     path('obtener-inquilino/<int:inquilino_id>/', views.obtener_inquilino, name='obtener_inquilino'),
     path('crear-sucursal/', views.crear_sucursal, name='crear_sucursal'),
     path('actualizar-orden-imagenes/', views.actualizar_orden_imagenes, name='actualizar_orden_imagenes'),
-    path('eliminar-imagen/<int:imagen_id>/', views.eliminar_imagen, name='eliminar_imagen'),
+    path('eliminar-imagen/', views.eliminar_imagen, name='eliminar_imagen'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
