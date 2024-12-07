@@ -206,7 +206,7 @@ class Reserva(models.Model):
     )
 
     def save(self, *args, **kwargs):
-        # Si no se especificó una sucursal, usar la sucursal de la propiedad
+        # Si no se especific�� una sucursal, usar la sucursal de la propiedad
         if not self.sucursal and self.propiedad:
             self.sucursal = self.propiedad.sucursal
         super().save(*args, **kwargs)
@@ -278,9 +278,50 @@ class TipoPrecio(models.TextChoices):
 class Precio(models.Model):
     propiedad = models.ForeignKey(Propiedad, on_delete=models.CASCADE, related_name='precios')
     tipo_precio = models.CharField(max_length=20, choices=TipoPrecio.choices)
-    precio_total = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    precio_por_dia = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    ajuste_porcentaje = models.DecimalField(max_digits=5, decimal_places=2, default=0)  # Descuento en porcentaje
+    
+    # Precios por día
+
+     precio_toma = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        blank=True, 
+        null=True,
+        verbose_name="Precio Toma"
+    )
+    
+    # Precios por toma
+    precio_dia_toma = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        blank=True, 
+        null=True,
+        verbose_name="Precio dia: Toma"
+    )
+    precio_por_dia = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        blank=True, 
+        null=True,
+        verbose_name="Precio por día"
+    )
+    
+    # Precios por propietario
+  
+    # Precio total (calculado)
+    precio_total = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        blank=True, 
+        null=True,
+        verbose_name="Precio total"
+    )
+    
+    ajuste_porcentaje = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=0,
+        verbose_name="Ajuste (%)"
+    )
 
     class Meta:
         unique_together = ('propiedad', 'tipo_precio')
@@ -289,17 +330,18 @@ class Precio(models.Model):
         dias = (fecha_fin - fecha_inicio).days + 1
         base_price = 0
 
-        if 'QUINCENA' in self.tipo_precio or self.tipo_precio == 'VACACIONES_INVIERNO':
-            if 'ENERO' in self.tipo_precio or 'MARZO' in self.tipo_precio or 'DICIEMBRE' in self.tipo_precio:
-                base_price = self.precio_por_dia * 16  # Multiplicar por 16 en enero, marzo y vacaciones
+        if self.precio_por_dia:
+            if 'QUINCENA' in self.tipo_precio or self.tipo_precio == 'VACACIONES_INVIERNO':
+                if 'ENERO' in self.tipo_precio or 'MARZO' in self.tipo_precio or 'DICIEMBRE' in self.tipo_precio:
+                    base_price = self.precio_por_dia * 16
+                else:
+                    base_price = self.precio_por_dia * 15
+            elif self.tipo_precio == 'FINDE_LARGO':
+                base_price = self.precio_por_dia * 4
+            elif self.tipo_precio in ['TEMPORADA_BAJA', 'ESTUDIANTES']:
+                base_price = self.precio_por_dia * dias
             else:
-                base_price = self.precio_por_dia * 15  # Quincena como 15 días
-        elif self.tipo_precio == 'FINDE_LARGO':
-            base_price = self.precio_por_dia * 4  # Finde largo como 4 días
-        elif self.tipo_precio in ['TEMPORADA_BAJA', 'ESTUDIANTES']:
-            base_price = self.precio_por_dia * dias  # Precio por día individual
-        else:
-            base_price = self.precio_por_dia * dias
+                base_price = self.precio_por_dia * dias
 
         # Aplicar ajuste porcentual si se ha establecido
         if self.ajuste_porcentaje != 0:

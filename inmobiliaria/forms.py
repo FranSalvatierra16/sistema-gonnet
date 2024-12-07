@@ -197,7 +197,22 @@ class PropiedadForm(forms.ModelForm):
 class PrecioForm(forms.ModelForm):
     class Meta:
         model = Precio
-        fields = ['tipo_precio', 'precio_por_dia', 'precio_total', 'ajuste_porcentaje']
+        fields = [
+
+            'precio_toma',
+            'precio_dia_toma',
+            'tipo_precio',
+            'precio_por_dia',
+
+            'ajuste_porcentaje'
+        ]
+        widgets = {
+            'precio_toma': forms.NumberInput(attrs={'class': 'form-control'}),
+            'precio_dia_toma': forms.NumberInput(attrs={'class': 'form-control'}),
+            'precio_por_dia': forms.NumberInput(attrs={'class': 'form-control'}),
+        
+            'ajuste_porcentaje': forms.NumberInput(attrs={'class': 'form-control'})
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
