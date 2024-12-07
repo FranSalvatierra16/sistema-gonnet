@@ -197,7 +197,7 @@ class PropiedadForm(forms.ModelForm):
 class PrecioForm(forms.ModelForm):
     class Meta:
         model = Precio
-        fields = ['tipo_precio', 'precio_por_dia', 'precio_total', 'ajuste_porcentaje']
+        fields = ['tipo_precio','precio_toma', 'precio_dia_toma', 'precio_por_dia', 'precio_total', 'ajuste_porcentaje']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
