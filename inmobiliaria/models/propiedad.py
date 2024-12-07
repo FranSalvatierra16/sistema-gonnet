@@ -281,7 +281,7 @@ class Precio(models.Model):
     
     # Precios por día
 
-     precio_toma = models.DecimalField(
+    precio_toma = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
         blank=True, 
