@@ -13,21 +13,22 @@
             <tr>
                 <th>Tipo de Precio</th>
                 <th>Precio por Día</th>
-                <th>Precio por Quincena</th>
+                <th>Precio Propietario</th>
+                <th>Precio Toma</th>
+                <th>Precio Total</th>
                 <th>Ajuste (%)</th>
-              
             </tr>
         </thead>
         <tbody>
             {% for form in formset %}
                 <tr>
-                    {{ form.id }}  <!-- Campo oculto para el id -->
-                    <td>{% bootstrap_field form.precio_toma show_label=False %}</td>
-                    <td>{% bootstrap_field form.precio_dia_toma show_label=False %}</td>
+                    {{ form.id }}
                     <td>{% bootstrap_field form.tipo_precio show_label=False %}</td>
                     <td>{% bootstrap_field form.precio_por_dia show_label=False %}</td>
+                    <td>{% bootstrap_field form.precio_propietario show_label=False %}</td>
+                    <td>{% bootstrap_field form.precio_toma show_label=False %}</td>
+                    <td>{% bootstrap_field form.precio_total show_label=False %}</td>
                     <td>{% bootstrap_field form.ajuste_porcentaje show_label=False %}</td>
-                    
                 </tr>
             {% endfor %}
         </tbody>
