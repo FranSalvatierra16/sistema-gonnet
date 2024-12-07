@@ -198,26 +198,25 @@ class PrecioForm(forms.ModelForm):
     class Meta:
         model = Precio
         fields = [
-
-            'precio_toma',
-            'precio_dia_toma',
             'tipo_precio',
             'precio_por_dia',
-
+            'precio_propietario',
+            'precio_toma',
+            'precio_total',
             'ajuste_porcentaje'
         ]
         widgets = {
-            'precio_toma': forms.NumberInput(attrs={'class': 'form-control'}),
-            'precio_dia_toma': forms.NumberInput(attrs={'class': 'form-control'}),
             'precio_por_dia': forms.NumberInput(attrs={'class': 'form-control'}),
-        
+            'precio_propietario': forms.NumberInput(attrs={'class': 'form-control'}),
+            'precio_toma': forms.NumberInput(attrs={'class': 'form-control'}),
+            'precio_total': forms.NumberInput(attrs={'class': 'form-control', 'readonly': 'readonly'}),
             'ajuste_porcentaje': forms.NumberInput(attrs={'class': 'form-control'})
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Hacer que precio_total sea opcional solo si ya tiene un valor
-        self.fields['precio_total'].required = False
+        for field in self.fields:
+            self.fields[field].required = False
 
     def clean_ajuste_porcentaje(self):
         ajuste = self.cleaned_data.get('ajuste_porcentaje')
