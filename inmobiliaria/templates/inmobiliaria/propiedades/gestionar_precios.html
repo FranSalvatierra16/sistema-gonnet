@@ -4,21 +4,21 @@
 {% block content %}
 <style>
     /* Estilo para los campos específicos */
-    select[name*="tipo_precio"],
-    input[name*="precio_toma"] {
-        background-color: #ffebee !important; /* Rojo claro */
+    select[name*="precio_toma"],
+    input[name*="precio_dia_toma"] {
+        background-color: #ffebee !important;
         border-color: #ffcdd2 !important;
     }
     
     /* Opcional: Estilo al pasar el mouse */
-    select[name*="tipo_precio"]:hover,
-    input[name*="precio_toma"]:hover {
+    select[name*="precio_toma"]:hover,
+    input[name*="precio_dia_toma"]:hover {
         background-color: #ffcdd2 !important;
     }
     
     /* Opcional: Estilo cuando el campo está enfocado */
-    select[name*="tipo_precio"]:focus,
-    input[name*="precio_toma"]:focus {
+    select[name*="precio_toma"]:focus,
+    input[name*="precio_dia_toma"]:focus {
         background-color: #ffebee !important;
         box-shadow: 0 0 0 0.2rem rgba(255, 205, 210, 0.25) !important;
     }
@@ -34,12 +34,13 @@
         <thead>
             <tr>
                 <th>Tipo de Precio</th>
-                <th>Precio por Toma</th>
-                <th>Precio por Día: Toma</th>
+                {% if request.user.vendedor.nivel > 2 %}
+                    <th>Precio por Toma</th>
+                    <th>Precio por Día: Toma</th>
+                {% endif %}
                 <th>Precio por Día</th>
                 <th>Precio por Quincena</th>
                 <th>Ajuste (%)</th>
-              
             </tr>
         </thead>
         <tbody>
@@ -49,9 +50,10 @@
 
 
                     <td>{% bootstrap_field form.tipo_precio show_label=False %}</td>
-                    <td>{% bootstrap_field form.precio_toma show_label=False %}</td>
-                    
-                    <td>{% bootstrap_field form.precio_dia_toma show_label=False %}</td>
+                    {% if request.user.vendedor.nivel > 2 %}
+                        <td>{% bootstrap_field form.precio_toma show_label=False %}</td>
+                        <td>{% bootstrap_field form.precio_dia_toma show_label=False %}</td>
+                    {% endif %}
                     <td>{% bootstrap_field form.precio_por_dia show_label=False %}</td>
                     <td>{% bootstrap_field form.precio_total show_label=False %}</td>
                     <td>{% bootstrap_field form.ajuste_porcentaje show_label=False %}</td>
