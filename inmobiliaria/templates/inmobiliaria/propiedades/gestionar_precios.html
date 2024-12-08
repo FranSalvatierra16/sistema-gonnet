@@ -2,6 +2,28 @@
 {% load bootstrap4 %}  <!-- Carga las etiquetas de Bootstrap -->
 
 {% block content %}
+<style>
+    /* Estilo para los campos específicos */
+    select[name*="tipo_precio"],
+    input[name*="precio_toma"] {
+        background-color: #ffebee !important; /* Rojo claro */
+        border-color: #ffcdd2 !important;
+    }
+    
+    /* Opcional: Estilo al pasar el mouse */
+    select[name*="tipo_precio"]:hover,
+    input[name*="precio_toma"]:hover {
+        background-color: #ffcdd2 !important;
+    }
+    
+    /* Opcional: Estilo cuando el campo está enfocado */
+    select[name*="tipo_precio"]:focus,
+    input[name*="precio_toma"]:focus {
+        background-color: #ffebee !important;
+        box-shadow: 0 0 0 0.2rem rgba(255, 205, 210, 0.25) !important;
+    }
+</style>
+
 <h2>Gestionar Precios para {{ propiedad.direccion }}</h2>
 
 <form method="post">
