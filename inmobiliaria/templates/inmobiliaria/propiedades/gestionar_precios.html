@@ -34,13 +34,14 @@
         <thead>
             <tr>
                 <th>Tipo de Precio</th>
-                {% if request.user.vendedor.nivel > 2 %}
+                {% if nivel_vendedor > 2 %}
                     <th>Precio por Toma</th>
                     <th>Precio por Día: Toma</th>
                 {% endif %}
                 <th>Precio por Día</th>
                 <th>Precio por Quincena</th>
                 <th>Ajuste (%)</th>
+              
             </tr>
         </thead>
         <tbody>
@@ -50,7 +51,7 @@
 
 
                     <td>{% bootstrap_field form.tipo_precio show_label=False %}</td>
-                    {% if request.user.vendedor.nivel > 2 %}
+                    {% if nivel_vendedor > 2 %}
                         <td>{% bootstrap_field form.precio_toma show_label=False %}</td>
                         <td>{% bootstrap_field form.precio_dia_toma show_label=False %}</td>
                     {% endif %}

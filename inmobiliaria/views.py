@@ -1008,10 +1008,12 @@ PrecioFormSet = inlineformset_factory(
     extra=1,  # Formularios adicionales vacíos
     can_delete=True  # Para permitir la eliminación de precios
 )
-
 def gestionar_precios(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, id=propiedad_id)
     precios = Precio.objects.filter(propiedad=propiedad)
+    
+    # Obtener el vendedor directamente
+    vendedor = request.user
     
     # Definir campos según el nivel del vendedor
     fields = [
@@ -1022,7 +1024,7 @@ def gestionar_precios(request, propiedad_id):
     ]
     
     # Agregar campos adicionales si el nivel es mayor a 2
-    if request.user.vendedor.nivel > 2:
+    if vendedor.nivel > 2:
         fields.extend(['precio_toma', 'precio_dia_toma'])
     
     PrecioFormSet = modelformset_factory(
@@ -1041,8 +1043,8 @@ def gestionar_precios(request, propiedad_id):
                 tipo_precio=tipo,
                 precio_por_dia=0,
                 precio_total=0,
-                precio_toma=0 if request.user.vendedor.nivel > 2 else None,
-                precio_dia_toma=0 if request.user.vendedor.nivel > 2 else None,
+                precio_toma=0 if vendedor.nivel > 2 else None,
+                precio_dia_toma=0 if vendedor.nivel > 2 else None,
                 ajuste_porcentaje=0
             )
         precios = Precio.objects.filter(propiedad=propiedad)
@@ -1062,6 +1064,7 @@ def gestionar_precios(request, propiedad_id):
     return render(request, 'inmobiliaria/propiedades/gestionar_precios.html', {
         'propiedad': propiedad,
         'formset': formset,
+        'nivel_vendedor': vendedor.nivel  # Pasamos el nivel a la plantilla
     })
 def buscar_propiedades_23(request):
     # Aquí filtramos directamente las propiedades habilitadas para alquiler
