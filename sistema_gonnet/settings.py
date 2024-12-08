@@ -99,6 +99,13 @@ DATABASES = {
     }
 }
 
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'  # O tu servidor SMTP
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'gonnetintern0@gmail.com'  # El email desde donde se enviarán los correos
+EMAIL_HOST_PASSWORD = '1357Gonnet'  #
+
 
 # Configuración para Heroku
 if 'DATABASE_URL' in os.environ:

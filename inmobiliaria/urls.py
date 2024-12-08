@@ -74,6 +74,32 @@ urlpatterns = [
     path('crear-sucursal/', views.crear_sucursal, name='crear_sucursal'),
     path('actualizar-orden-imagenes/', views.actualizar_orden_imagenes, name='actualizar_orden_imagenes'),
     path('eliminar-imagen/', views.eliminar_imagen, name='eliminar_imagen'),
+    path('password_reset/', 
+        auth_views.PasswordResetView.as_view(
+            template_name='inmobiliaria/autenticacion/recuperar_password.html',
+            email_template_name='inmobiliaria/autenticacion/password_reset_email.html',
+            subject_template_name='inmobiliaria/autenticacion/password_reset_subject.txt'
+        ),
+        name='password_reset'
+    ),
+    path('password_reset/done/',
+        auth_views.PasswordResetDoneView.as_view(
+            template_name='inmobiliaria/autenticacion/password_reset_done.html'
+        ),
+        name='password_reset_done'
+    ),
+    path('reset/<uidb64>/<token>/',
+        auth_views.PasswordResetConfirmView.as_view(
+            template_name='inmobiliaria/autenticacion/password_reset_confirm.html'
+        ),
+        name='password_reset_confirm'
+    ),
+    path('reset/done/',
+        auth_views.PasswordResetCompleteView.as_view(
+            template_name='inmobiliaria/autenticacion/password_reset_complete.html'
+        ),
+        name='password_reset_complete'
+    ),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
