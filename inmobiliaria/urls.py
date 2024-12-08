@@ -9,7 +9,7 @@ app_name = 'inmobiliaria'
 
 urlpatterns = [
     # Auth URLs
-    path('login/', auth_views.LoginView.as_view(template_name='inmobiliaria/autenticacion/login.html'), name='login'),
+    path('login/', views.login_view, name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='inmobiliaria:login'), name='logout'),
     path('register/', views.register, name='register'),
     path('dashboard/', views.dashboard, name='dashboard'),
@@ -37,7 +37,7 @@ urlpatterns = [
     path('propietarios/nuevo/', views.propietario_nuevo, name='propietario_nuevo'),
     path('propietarios/<int:propietario_id>/editar/', views.propietario_editar, name='propietario_editar'),
     path('propietarios/<int:propietario_id>/eliminar/', views.propietario_eliminar, name='propietario_eliminar'),
-    path('crear-propietario/', views.propietario_nuevo_ajax, name='crear_propietario_ajax'),
+    path('crear-propietario/', views.crear_propietario_ajax, name='crear_propietario_ajax'),
     path('propiedad/<int:propiedad_id>/precios/', views.gestionar_precios, name='gestionar_precios'),
     path('propietario/<int:propietario_id>/propiedades/', views.propiedades_por_propietario, name='propiedades_propietario'),
     # Propiedad URLs
@@ -46,6 +46,7 @@ urlpatterns = [
     path('propiedades/nuevo/', views.propiedad_nuevo, name='propiedad_nuevo'),
     path('propiedades/<int:propiedad_id>/editar/', views.propiedad_editar, name='propiedad_editar'),
     path('propiedades/<int:propiedad_id>/eliminar/', views.propiedad_eliminar, name='propiedad_eliminar'),
+    path('propiedades/nuevo/', views.propiedad_nuevo, name='propiedad_nuevo'),
     path('propiedad/<int:propiedad_id>/crear-disponibilidad/', views.crear_disponibilidad, name='crear_disponibilidad'),
     path('buscar-propiedades-23/', views.buscar_propiedades_23, name='buscar_propiedades_23'),
     path('propietario/nuevo/ajax/', views.propietario_nuevo_ajax, name='propietario_nuevo_ajax'),
@@ -70,6 +71,35 @@ urlpatterns = [
     path('obtener_precios_propiedad/', views.obtener_precios_propiedad, name='obtener_precios_propiedad'),
     path('obtener_vendedor/<int:vendedor_id>/', views.obtener_vendedor, name='obtener_vendedor'),
     path('obtener-inquilino/<int:inquilino_id>/', views.obtener_inquilino, name='obtener_inquilino'),
+    path('crear-sucursal/', views.crear_sucursal, name='crear_sucursal'),
+    path('actualizar-orden-imagenes/', views.actualizar_orden_imagenes, name='actualizar_orden_imagenes'),
+    path('eliminar-imagen/', views.eliminar_imagen, name='eliminar_imagen'),
+    path('password_reset/', 
+        auth_views.PasswordResetView.as_view(
+            template_name='inmobiliaria/autenticacion/password_reset_form.html',
+            email_template_name='inmobiliaria/autenticacion/password_reset_email.html',
+            subject_template_name='inmobiliaria/autenticacion/password_reset_subject.txt'
+        ),
+        name='password_reset'
+    ),
+    path('password_reset/done/',
+        auth_views.PasswordResetDoneView.as_view(
+            template_name='inmobiliaria/autenticacion/password_reset_done.html'
+        ),
+        name='password_reset_done'
+    ),
+    path('reset/<uidb64>/<token>/',
+        auth_views.PasswordResetConfirmView.as_view(
+            template_name='inmobiliaria/autenticacion/password_reset_confirm.html'
+        ),
+        name='password_reset_confirm'
+    ),
+    path('reset/done/',
+        auth_views.PasswordResetCompleteView.as_view(
+            template_name='inmobiliaria/autenticacion/password_reset_complete.html'
+        ),
+        name='password_reset_complete'
+    ),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 

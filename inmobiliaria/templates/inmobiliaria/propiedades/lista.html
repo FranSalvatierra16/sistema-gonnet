@@ -6,13 +6,20 @@
 
 {% block content %}
 <h1 class="mb-4">Listado de Propiedades</h1>
+
+<!-- Formulario de búsqueda -->
+<form method="get" class="form-inline mb-3">
+    {{ form.query|as_crispy_field }}  
+    <button type="submit" class="btn btn-primary ml-2">Buscar</button>
+</form>
+
 <a href="{% url 'inmobiliaria:propiedad_nuevo' %}" class="btn btn-primary mb-3">Nueva Propiedad</a>
 <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}" class="btn btn-primary">
     Agregar Disponibilidad Masiva
 </a>
 
 <!-- Tabla de propiedades -->
-<div class="table-responsive">
+<div class="table-responsive">  
     <table class="table table-hover table-striped">
         <thead class="table-light">
             <tr>
@@ -23,9 +30,6 @@
                 <th>Piso</th>
                 <th>Departamento</th>
                 <th>Ambientes</th>
-                
-                
-                
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -34,22 +38,24 @@
             <tr>
                 <td>{{ propiedad.id }}</td>
                 <td>{{ propiedad.direccion }}</td>
-                <td>{{ propiedad.valoracion}}</td>
+                <td>{{ propiedad.valoracion }}</td>
                 <td>{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</td>
                 <td>{{ propiedad.piso }}</td>
                 <td>{{ propiedad.departamento }}</td>
-                
                 <td>{{ propiedad.ambientes }}</td>
                 <td>
-                    <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-info btn-sm" data-toggle="tooltip" title="Ver detalles">
+                    <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad_id=propiedad.id %}" class="btn btn-info btn-sm" data-toggle="tooltip" title="Ver detalles">
                         <i class="bi bi-eye"></i>
                     </a>
-                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad.id %}" class="btn btn-warning btn-sm" data-toggle="tooltip" title="Editar">
+                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" class="btn btn-warning btn-sm" data-toggle="tooltip" title="Editar">
                         <i class="bi bi-pencil"></i>
                     </a>
-                    <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad.id %}" class="btn btn-danger btn-sm" data-toggle="tooltip" title="Eliminar">
-                        <i class="bi bi-trash"></i>
-                    </a>
+                    <form method="post" action="{% url 'inmobiliaria:propiedad_eliminar' propiedad.id %}" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('¿Está seguro de que desea eliminar esta propiedad?')" data-toggle="tooltip" title="Eliminar">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
                 </td>
             </tr>
             {% empty %}

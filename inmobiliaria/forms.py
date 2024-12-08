@@ -3,19 +3,28 @@ from django.contrib.auth.forms import UserChangeForm
 from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio,TipoPrecio,TIPOS_INMUEBLES, TIPOS_VISTA, TIPOS_VALORACION, Sucursal
 from datetime import datetime
 from django.forms import modelformset_factory
+from django.core.exceptions import ValidationError
 # Formulario de creación de Vendedor
 class VendedorUserCreationForm(forms.ModelForm):
     username = forms.CharField(max_length=150, help_text='Requerido. 150 caracteres o menos.')
     password1 = forms.CharField(widget=forms.PasswordInput, help_text='Requerido.')
     password2 = forms.CharField(widget=forms.PasswordInput, help_text='Ingrese la misma contraseña para verificar.')
 
+    sucursal = forms.ModelChoiceField(
+        queryset=Sucursal.objects.all(),
+        required=True,
+        help_text='Seleccione la sucursal a la que pertenece el vendedor.'
+    )
+
     class Meta:
         model = Vendedor
-        fields = ['dni', 'username', 'nombre', 'apellido', 'email', 'comision', 'fecha_nacimiento', 'nivel','sucursal']
+        fields = ['dni', 'username', 'nombre', 'apellido', 'email', 'comision', 'fecha_nacimiento', 'nivel', 'sucursal']
 
     def clean_password2(self):
         password1 = self.cleaned_data.get("password1")
+        print(password1)
         password2 = self.cleaned_data.get("password2")
+        print(password2)
         if password1 and password2 and password1 != password2:
             raise forms.ValidationError("Las contraseñas no coinciden")
         return password2
@@ -46,11 +55,66 @@ class InquilinoForm(forms.ModelForm):
         model = Inquilino
         fields = ['nombre', 'apellido', 'fecha_nacimiento', 'email', 'celular', 'tipo_doc', 'dni', 'tipo_ins', 'cuit', 'localidad', 'provincia', 'domicilio', 'codigo_postal', 'observaciones', 'garantia']
 
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super(InquilinoForm, self).__init__(*args, **kwargs)
+        self.fields['cuit'].required = False
+
+    def save(self, commit=True):
+        inquilino = super(InquilinoForm, self).save(commit=False)
+        if self.user:
+            inquilino.sucursal = self.user.sucursal  # Asigna la sucursal del vendedor
+        if commit:
+            inquilino.save()
+        return inquilino
+
 # Formulario de Propietario
 class PropietarioForm(forms.ModelForm):
     class Meta:
         model = Propietario
-        fields = ['nombre', 'apellido', 'fecha_nacimiento', 'email', 'celular', 'tipo_doc', 'dni', 'tipo_ins', 'cuit', 'localidad', 'provincia', 'domicilio', 'codigo_postal', 'observaciones', 'cuenta_bancaria']
+        fields = ['nombre', 'apellido', 'fecha_nacimiento', 'email', 'celular', 
+                 'tipo_doc', 'dni', 'tipo_ins', 'cuit', 'localidad', 'provincia', 
+                 'domicilio', 'codigo_postal', 'observaciones']
+        widgets = {
+            'fecha_nacimiento': forms.DateInput(attrs={'type': 'date'}),
+            'observaciones': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super(PropietarioForm, self).__init__(*args, **kwargs)
+        
+        # Marcar campos requeridos
+        self.fields['nombre'].required = True
+        self.fields['apellido'].required = True
+        self.fields['dni'].required = True
+        self.fields['cuit'].required = False
+        
+        # Agregar clases de Bootstrap
+        for field in self.fields:
+            self.fields[field].widget.attrs.update({
+                'class': 'form-control'
+            })
+
+    def clean(self):
+        cleaned_data = super().clean()
+        dni = cleaned_data.get('dni')
+        
+        # Validar DNI único
+        if dni and Propietario.objects.filter(dni=dni).exists():
+            if not self.instance.pk or (self.instance.pk and str(self.instance.dni) != str(dni)):
+                raise ValidationError({'dni': 'Ya existe un propietario con este DNI'})
+        
+        return cleaned_data
+
+    def save(self, commit=True):
+        propietario = super(PropietarioForm, self).save(commit=False)
+        
+        if self.user:
+            propietario.sucursal = self.user.sucursal  # Asigna la sucursal del vendedor
+        if commit:
+            propietario.save()
+        return propietario
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
@@ -82,12 +146,18 @@ class PropiedadForm(forms.ModelForm):
         required=True,
         help_text='Ingrese el ID deseado para la propiedad'
     )
+    llave = forms.IntegerField(
+        required=False,
+        label='Número de llave',
+        help_text='Ingrese el número de llave de la propiedad',
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )
 
     class Meta:
         model = Propiedad
          # Excluir el campo 'id' para que no sea editable
         fields = [
-            'id','direccion','ubicacion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
+            'id', 'llave', 'direccion', 'ubicacion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
 
             # 'habilitar_precio_diario', 'precio_diario', 'habilitar_precio_venta', 'precio_venta',
             # 'habilitar_precio_alquiler', 'precio_alquiler',
@@ -106,11 +176,28 @@ class PropiedadForm(forms.ModelForm):
             # 'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio diario'}),
         }
         
-   
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super(PropiedadForm, self).__init__(*args, **kwargs)
+
+    def save(self, commit=True):
+        propiedad = super(PropiedadForm, self).save(commit=False)
+        if self.user and hasattr(self.user, 'sucursal'):
+            propiedad.sucursal = self.user.sucursal  # Asigna la sucursal del vendedor
+        if commit:
+            propiedad.save()
+            # Guardar imágenes
+            for index, imagen in enumerate(self.cleaned_data['imagenes']):
+                ImagenPropiedad.objects.create(
+                    propiedad=propiedad,
+                    imagen=imagen,
+                    orden=index + 1
+                )
+        return propiedad
 class PrecioForm(forms.ModelForm):
     class Meta:
         model = Precio
-        fields = ['tipo_precio', 'precio_por_dia', 'precio_total', 'ajuste_porcentaje']
+        fields = ['tipo_precio','precio_toma', 'precio_dia_toma', 'precio_por_dia', 'precio_total', 'ajuste_porcentaje']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -235,3 +322,35 @@ class PropietarioBuscarForm(forms.Form):
 
 class InquilinoBuscarForm(forms.Form):
     termino = forms.CharField(required=False, label='Buscar nombre completo o DNI')
+
+class SucursalForm(forms.ModelForm):
+    class Meta:
+        model = Sucursal
+        fields = ['nombre', 'direccion', 'telefono', 'email']  # Asegúrate de incluir todos los campos necesarios
+
+    def __init__(self, *args, **kwargs):
+        super(SucursalForm, self).__init__(*args, **kwargs)
+        self.fields['nombre'].widget.attrs.update({'placeholder': 'Nombre de la sucursal'})
+        self.fields['direccion'].widget.attrs.update({'placeholder': 'Dirección'})
+        self.fields['telefono'].widget.attrs.update({'placeholder': 'Teléfono'})
+        self.fields['email'].widget.attrs.update({'placeholder': 'Email'})
+
+class LoginForm(forms.Form):
+    username = forms.CharField(
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Usuario'})
+    )
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Contraseña'})
+    )
+
+class PropiedadSearchForm(forms.Form):
+    query = forms.CharField(
+        label='Buscar',
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Buscar por dirección, ficha o propietario'
+        })
+    )
+
