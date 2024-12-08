@@ -4,22 +4,19 @@
 {% block content %}
 <style>
     /* Estilo para los campos específicos */
-    select[name*="tipo_precio"],
     input[name*="precio_toma"],
     input[name*="precio_dia_toma"] {
-        background-color: #ffebee !important;
+        background-color: #ffebee !important; /* Rojo claro */
         border-color: #ffcdd2 !important;
     }
     
     /* Opcional: Estilo al pasar el mouse */
-    select[name*="tipo_precio"]:hover,
     input[name*="precio_toma"]:hover,
     input[name*="precio_dia_toma"]:hover {
         background-color: #ffcdd2 !important;
     }
     
     /* Opcional: Estilo cuando el campo está enfocado */
-    select[name*="tipo_precio"]:focus,
     input[name*="precio_toma"]:focus,
     input[name*="precio_dia_toma"]:focus {
         background-color: #ffebee !important;
