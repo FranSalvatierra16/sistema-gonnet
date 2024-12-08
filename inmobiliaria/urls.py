@@ -76,7 +76,7 @@ urlpatterns = [
     path('eliminar-imagen/', views.eliminar_imagen, name='eliminar_imagen'),
     path('password_reset/', 
         auth_views.PasswordResetView.as_view(
-            template_name='inmobiliaria/autenticacion/recuperar_password.html',
+            template_name='inmobiliaria/autenticacion/password_reset_form.html',
             email_template_name='inmobiliaria/autenticacion/password_reset_email.html',
             subject_template_name='inmobiliaria/autenticacion/password_reset_subject.txt'
         ),
