@@ -1011,27 +1011,58 @@ PrecioFormSet = inlineformset_factory(
 
 def gestionar_precios(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-    PrecioFormSet = modelformset_factory(Precio, form=PrecioForm, extra=0)
     precios = Precio.objects.filter(propiedad=propiedad)
-    formset = PrecioFormSet(queryset=precios)
+    
+    # Definir campos según el nivel del vendedor
+    fields = [
+        'tipo_precio',
+        'precio_por_dia',
+        'precio_total',
+        'ajuste_porcentaje'
+    ]
+    
+    # Agregar campos adicionales si el nivel es mayor a 2
+    if request.user.vendedor.nivel > 2:
+        fields.extend(['precio_toma', 'precio_dia_toma'])
+    
+    PrecioFormSet = modelformset_factory(
+        Precio, 
+        form=PrecioForm, 
+        fields=fields,
+        extra=0
+    )
+    
     # Si la propiedad no tiene precios, creamos uno por cada tipo de precio
     if not precios.exists():
         tipos_de_precios = ['quincena', 'fin_de_semana_largo', 'dia']
         for tipo in tipos_de_precios:
-            Precio.objects.create(propiedad=propiedad, tipo_precio=tipo, precio_por_dia=0, precio_total=0, ajuste_porcentaje=0)
+            Precio.objects.create(
+                propiedad=propiedad,
+                tipo_precio=tipo,
+                precio_por_dia=0,
+                precio_total=0,
+                precio_toma=0 if request.user.vendedor.nivel > 2 else None,
+                precio_dia_toma=0 if request.user.vendedor.nivel > 2 else None,
+                ajuste_porcentaje=0
+            )
+        precios = Precio.objects.filter(propiedad=propiedad)
 
     if request.method == 'POST':
-        formset = PrecioFormSet(request.POST)
+        formset = PrecioFormSet(request.POST, queryset=precios)
         if formset.is_valid():
-            formset.save()
+            instances = formset.save(commit=False)
+            for instance in instances:
+                instance.propiedad = propiedad
+                instance.save()
+            messages.success(request, 'Precios actualizados correctamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
- 
+    else:
+        formset = PrecioFormSet(queryset=precios)
 
     return render(request, 'inmobiliaria/propiedades/gestionar_precios.html', {
         'propiedad': propiedad,
         'formset': formset,
     })
-
 def buscar_propiedades_23(request):
     # Aquí filtramos directamente las propiedades habilitadas para alquiler
     propiedades_disponibles = Propiedad.objects.filter(habilitar_precio_alquiler=True)
