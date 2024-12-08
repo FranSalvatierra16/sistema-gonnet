@@ -3,24 +3,43 @@
 
 {% block content %}
 <style>
-    /* Estilo para los campos específicos */
+    /* Estilo para los campos rojos */
     input[name*="precio_toma"],
     input[name*="precio_dia_toma"] {
-        background-color: #ffebee !important; /* Rojo claro */
+        background-color: #ffebee !important;
         border-color: #ffcdd2 !important;
     }
     
-    /* Opcional: Estilo al pasar el mouse */
     input[name*="precio_toma"]:hover,
     input[name*="precio_dia_toma"]:hover {
         background-color: #ffcdd2 !important;
     }
     
-    /* Opcional: Estilo cuando el campo está enfocado */
     input[name*="precio_toma"]:focus,
     input[name*="precio_dia_toma"]:focus {
         background-color: #ffebee !important;
         box-shadow: 0 0 0 0.2rem rgba(255, 205, 210, 0.25) !important;
+    }
+
+    /* Estilo para los campos verdes */
+    select[name*="tipo_precio"],
+    input[name*="precio_por_dia"],
+    input[name*="precio_total"] {
+        background-color: #e8f5e9 !important; /* Verde claro */
+        border-color: #c8e6c9 !important;
+    }
+    
+    select[name*="tipo_precio"]:hover,
+    input[name*="precio_por_dia"]:hover,
+    input[name*="precio_total"]:hover {
+        background-color: #c8e6c9 !important;
+    }
+    
+    select[name*="tipo_precio"]:focus,
+    input[name*="precio_por_dia"]:focus,
+    input[name*="precio_total"]:focus {
+        background-color: #e8f5e9 !important;
+        box-shadow: 0 0 0 0.2rem rgba(200, 230, 201, 0.25) !important;
     }
 </style>
 
