@@ -100,17 +100,9 @@ DATABASES = {
 }
 
 # Configuración de Email con SendGrid
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.sendgrid.net'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'apikey'  # Esto es literal, debe ser 'apikey'
-EMAIL_HOST_PASSWORD = os.environ.get('SENDGRID_API_KEY')
-DEFAULT_FROM_EMAIL = 'gonnetinterno@gmail.com'  # Tu dirección de correo
-
-# Para desarrollo, usa el backend de consola
-if DEBUG:
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.sendgrid.SendgridBackend'
+SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY')
+DEFAULT_FROM_EMAIL = 'gonnetinterno@gmail.com'
 
 # Configuración para Heroku
 if 'DATABASE_URL' in os.environ:
