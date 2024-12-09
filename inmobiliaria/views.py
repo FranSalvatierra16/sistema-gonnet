@@ -28,6 +28,9 @@ from django.views.decorators.http import require_POST, require_http_methods
 import json
 from django.db import models
 from django.conf import settings
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+import os
 
 import logging
 logger = logging.getLogger(__name__)
