@@ -204,9 +204,10 @@ class Reserva(models.Model):
         related_name='reservas_sucursal',
         null=True  # Permitimos null temporalmente para la migración
     )
+    deposito = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0, verbose_name="Depósito")
 
     def save(self, *args, **kwargs):
-        # Si no se especific�� una sucursal, usar la sucursal de la propiedad
+        # Si no se especificó una sucursal, usar la sucursal de la propiedad
         if not self.sucursal and self.propiedad:
             self.sucursal = self.propiedad.sucursal
         super().save(*args, **kwargs)
