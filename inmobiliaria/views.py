@@ -36,6 +36,7 @@ from django.core.mail import send_mail
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth import get_user_model
+from django.contrib.auth import update_session_auth_hash
 
 import logging
 logger = logging.getLogger(__name__)
@@ -778,7 +779,6 @@ def buscar_propiedades(request):
             # Obtener las reservas asociadas a la propiedad
             reservas = propiedad.reservas.filter(
                 Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
-            )
             # Verificar si existen reservas pagadas
             if reservas.filter(estado='pagada').exists():
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
@@ -1471,6 +1471,7 @@ def enviar_recuperacion(request):
             # Generar una nueva contraseña temporal
             nueva_password = User.objects.make_random_password()
             user.set_password(nueva_password)
+            user.password_temporal = True  # Marcar como contraseña temporal
             user.save()
             
             # Enviar email con la nueva contraseña
@@ -1502,4 +1503,26 @@ def enviar_recuperacion(request):
             messages.error(request, 'No existe una cuenta con ese correo electrónico.')
     
     return render(request, 'inmobiliaria/autenticacion/password_reset_form.html')
+
+@login_required
+def cambiar_password(request):
+    if request.method == 'POST':
+        password1 = request.POST.get('password1')
+        password2 = request.POST.get('password2')
+        
+        if password1 and password2:
+            if password1 == password2:
+                user = request.user
+                user.set_password(password1)
+                user.password_temporal = False  # Quitar marca de contraseña temporal
+                user.save()
+                update_session_auth_hash(request, user)
+                messages.success(request, 'Tu contraseña ha sido actualizada exitosamente.')
+                return redirect('inmobiliaria:dashboard')
+            else:
+                messages.error(request, 'Las contraseñas no coinciden.')
+        else:
+            messages.error(request, 'Por favor, completa todos los campos.')
+    
+    return render(request, 'inmobiliaria/autenticacion/cambiar_password.html')
 

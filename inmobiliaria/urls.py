@@ -75,6 +75,7 @@ urlpatterns = [
     path('actualizar-orden-imagenes/', views.actualizar_orden_imagenes, name='actualizar_orden_imagenes'),
     path('eliminar-imagen/', views.eliminar_imagen, name='eliminar_imagen'),
    
+   
     path('password_reset/done/', 
          auth_views.PasswordResetDoneView.as_view(
              template_name='inmobiliaria/autenticacion/password_reset_done.html'
@@ -91,6 +92,7 @@ urlpatterns = [
          ),
          name='password_reset_complete'),
     path('recuperar-password/', views.enviar_recuperacion, name='recuperar_password'),
+    path('cambiar-password/', views.cambiar_password, name='cambiar_password'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
