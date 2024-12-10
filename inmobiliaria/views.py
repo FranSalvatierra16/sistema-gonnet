@@ -591,13 +591,24 @@ def reserva_eliminar(request, reserva_id):
     
     return render(request, 'inmobiliaria/reserva/confirmar_eliminar.html', {'reserva': reserva})
 def parse_fecha(fecha_str):
-    formatos_fecha = ['%Y-%m-%d', '%d %b. %Y', '%d %B %Y', '%m/%d/%Y', '%m-%d-%Y','%d/%m/%Y']
-    for formato in formatos_fecha:
-        try:
-            return datetime.strptime(fecha_str, formato).date()
-        except ValueError:
-            continue
-    raise ValidationError('El formato de la fecha es inválido.')
+    try:
+        # Dividir la fecha en sus componentes
+        dia, mes, anio = fecha_str.split('/')
+        
+        # Convertir a enteros
+        dia = int(dia)
+        mes = int(mes)
+        anio = int(anio)
+        
+        # Validar que los valores sean razonables
+        if dia < 1 or dia > 31 or mes < 1 or mes > 12:
+            raise ValidationError('Fecha inválida')
+            
+        # Crear la fecha en el formato correcto
+        return date(anio, mes, dia)
+        
+    except (ValueError, TypeError, AttributeError):
+        raise ValidationError('El formato de fecha debe ser DD/MM/YYYY')
 
 def confirmar_reserva(request):
     if request.method == 'POST':
@@ -650,7 +661,7 @@ def confirmar_reserva(request):
             try:
                 precio_total = Decimal(precio.replace(',', '.'))
             except (ValueError, TypeError):
-                messages.error(request, 'El precio proporcionado no es v��lido')
+                messages.error(request, 'El precio proporcionado no es válido')
                 return redirect('inmobiliaria:buscar_propiedades')
 
             # Crear la reserva
