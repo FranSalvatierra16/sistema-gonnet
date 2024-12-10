@@ -23,4 +23,5 @@ from inmobiliaria.views import index
 urlpatterns = [
     path('', index, name='index'),  # Ruta raíz
     path('admin/', admin.site.urls),
-    path('inmobiliaria/', include('inmobiliaria.urls')),
+    path('', include('inmobiliaria.urls')),
+]
