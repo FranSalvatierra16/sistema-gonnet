@@ -74,7 +74,7 @@ urlpatterns = [
     path('crear-sucursal/', views.crear_sucursal, name='crear_sucursal'),
     path('actualizar-orden-imagenes/', views.actualizar_orden_imagenes, name='actualizar_orden_imagenes'),
     path('eliminar-imagen/', views.eliminar_imagen, name='eliminar_imagen'),
-    path('password_reset/', views.password_reset_request, name='password_reset'),
+   
     path('password_reset/done/', 
          auth_views.PasswordResetDoneView.as_view(
              template_name='inmobiliaria/autenticacion/password_reset_done.html'
