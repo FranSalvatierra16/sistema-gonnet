@@ -86,6 +86,28 @@ class Vendedor(AbstractUser):
     
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='vendedores')
 
+    groups = models.ManyToManyField(
+        'auth.Group',
+        related_name='vendedor_set',
+        blank=True,
+        verbose_name='groups',
+        help_text='The groups this user belongs to.'
+    )
+    
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        related_name='vendedor_set',
+        blank=True,
+        verbose_name='user permissions',
+        help_text='Specific permissions for this user.'
+    )
+
+    password_temporal = models.BooleanField(
+        default=False,
+        verbose_name='Contraseña temporal',
+        help_text='Indica si el usuario debe cambiar su contraseña en el próximo inicio de sesión'
+    )
+
     def __str__(self):
         return f"{self.nombre} {self.apellido}"
 
@@ -125,5 +147,21 @@ class Propietario(Persona):
         verbose_name_plural = "Propietarios"
 
 class User(AbstractUser):
+    groups = models.ManyToManyField(
+        'auth.Group',
+        related_name='custom_user_set',
+        blank=True,
+        verbose_name='groups',
+        help_text='The groups this user belongs to.'
+    )
+    
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        related_name='custom_user_set',
+        blank=True,
+        verbose_name='user permissions',
+        help_text='Specific permissions for this user.'
+    )
+    
     password_temporal = models.BooleanField(default=False)
     # ... otros campos ...

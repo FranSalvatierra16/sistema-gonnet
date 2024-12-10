@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
 from django.db.models import Q, Prefetch, Case, When, IntegerField
@@ -779,7 +779,9 @@ def buscar_propiedades(request):
             # Obtener las reservas asociadas a la propiedad
             reservas = propiedad.reservas.filter(
                 Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
-            # Verificar si existen reservas pagadas
+            # Verificar si existen reservas pagada
+            )
+            
             if reservas.filter(estado='pagada').exists():
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
 
@@ -1377,9 +1379,10 @@ def login_view(request):
                 user = authenticate(request, username=username, password=password)
                 if user is not None:
                     login(request, user)
-                    messages.success(request, '¡Bienvenido!')
-                    # Usar la URL de reservas directamente
-                    return redirect('inmobiliaria:crear_reserva')  # Asegúrate de que esta URL existe
+                    # Verificar si tiene contraseña temporal
+                    if hasattr(user, 'password_temporal') and user.password_temporal:
+                        return redirect('inmobiliaria:cambiar_password')
+                    return redirect('inmobiliaria:index')
                 else:
                     messages.error(request, 'Contraseña incorrecta.')
                     print("Contraseña incorrecta para el usuario:", username)
@@ -1507,22 +1510,30 @@ def enviar_recuperacion(request):
 @login_required
 def cambiar_password(request):
     if request.method == 'POST':
-        password1 = request.POST.get('password1')
-        password2 = request.POST.get('password2')
-        
-        if password1 and password2:
-            if password1 == password2:
-                user = request.user
-                user.set_password(password1)
-                user.password_temporal = False  # Quitar marca de contraseña temporal
+        form = SetPasswordForm(request.user, request.POST)
+        if form.is_valid():
+            try:
+                user = form.save()
+                update_session_auth_hash(request, user)  # Mantiene la sesión activa
+                user.password_temporal = False
                 user.save()
-                update_session_auth_hash(request, user)
                 messages.success(request, 'Tu contraseña ha sido actualizada exitosamente.')
-                return redirect('inmobiliaria:dashboard')
-            else:
-                messages.error(request, 'Las contraseñas no coinciden.')
+                return redirect('inmobiliaria:index')
+            except Exception as e:
+                messages.error(request, f'Error al guardar la contraseña: {str(e)}')
         else:
-            messages.error(request, 'Por favor, completa todos los campos.')
+            # Mostrar errores específicos del formulario
+            for field in form:
+                for error in field.errors:
+                    messages.error(request, f'{field.label}: {error}')
+            if form.non_field_errors():
+                for error in form.non_field_errors():
+                    messages.error(request, error)
+    else:
+        form = SetPasswordForm(request.user)
     
-    return render(request, 'inmobiliaria/autenticacion/cambiar_password.html')
+    return render(request, 'inmobiliaria/autenticacion/cambiar_password.html', {
+        'form': form,
+        'user': request.user
+    })
 
