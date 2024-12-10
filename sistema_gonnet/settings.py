@@ -99,10 +99,13 @@ DATABASES = {
     }
 }
 
-# Configuración de Email con SendGrid
-EMAIL_BACKEND = 'django.core.mail.backends.sendgrid.SendgridBackend'
-SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY')
-DEFAULT_FROM_EMAIL = 'gonnetinterno@gmail.com'
+# Configuración de Email
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'gonnetinterno@gmail.com'  # Tu correo
+EMAIL_HOST_PASSWORD = 'mfzt dvrp rqmb cbek'  # Contraseña de aplicación de Google
 
 # Configuración para Heroku
 if 'DATABASE_URL' in os.environ:
@@ -170,3 +173,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap4"
 CRISPY_TEMPLATE_PACK = "bootstrap4"
+
+# Configuración de formato de fecha
+DATE_INPUT_FORMATS = ['%Y-%m-%d', '%d/%m/%Y']

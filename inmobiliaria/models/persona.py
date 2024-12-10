@@ -123,3 +123,7 @@ class Propietario(Persona):
     class Meta:
         verbose_name = "Propietario"
         verbose_name_plural = "Propietarios"
+
+class User(AbstractUser):
+    password_temporal = models.BooleanField(default=False)
+    # ... otros campos ...

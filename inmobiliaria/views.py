@@ -31,6 +31,12 @@ from django.conf import settings
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 import os
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from django.contrib.auth import get_user_model
+from django.contrib.auth import update_session_auth_hash
 
 import logging
 logger = logging.getLogger(__name__)
@@ -591,13 +597,24 @@ def reserva_eliminar(request, reserva_id):
     
     return render(request, 'inmobiliaria/reserva/confirmar_eliminar.html', {'reserva': reserva})
 def parse_fecha(fecha_str):
-    formatos_fecha = ['%Y-%m-%d', '%d %b. %Y', '%d %B %Y', '%m/%d/%Y', '%m-%d-%Y','%d/%m/%Y']
-    for formato in formatos_fecha:
-        try:
-            return datetime.strptime(fecha_str, formato).date()
-        except ValueError:
-            continue
-    raise ValidationError('El formato de la fecha es inválido.')
+    try:
+        # Dividir la fecha en sus componentes
+        dia, mes, anio = fecha_str.split('/')
+        
+        # Convertir a enteros
+        dia = int(dia)
+        mes = int(mes)
+        anio = int(anio)
+        
+        # Validar que los valores sean razonables
+        if dia < 1 or dia > 31 or mes < 1 or mes > 12:
+            raise ValidationError('Fecha inválida')
+            
+        # Crear la fecha en el formato correcto
+        return date(anio, mes, dia)
+        
+    except (ValueError, TypeError, AttributeError):
+        raise ValidationError('El formato de fecha debe ser DD/MM/YYYY')
 
 def confirmar_reserva(request):
     if request.method == 'POST':
@@ -626,11 +643,13 @@ def confirmar_reserva(request):
                 messages.error(request, f'Faltan los siguientes campos: {", ".join(campos_faltantes)}')
                 return redirect('inmobiliaria:buscar_propiedades')
 
-            # Convertir fechas
+            # Convertir 
+            print("la fecha de inicio es ",fecha_inicio_str)
             fecha_inicio = parse_fecha(fecha_inicio_str)
             fecha_fin = parse_fecha(fecha_fin_str)
+            print("la fecha de fin es ",fecha_fin)
 
-            # Validar fechas
+            # Validar fechas    
             if fecha_inicio > fecha_fin:
                 messages.error(request, 'La fecha de inicio no puede ser posterior a la fecha de fin.')
                 return redirect('inmobiliaria:buscar_propiedades')
@@ -760,7 +779,6 @@ def buscar_propiedades(request):
             # Obtener las reservas asociadas a la propiedad
             reservas = propiedad.reservas.filter(
                 Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
-            )
             # Verificar si existen reservas pagadas
             if reservas.filter(estado='pagada').exists():
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
@@ -1441,4 +1459,70 @@ def eliminar_imagen(request):
     except Exception as e:
         logger.error(f"Error al eliminar imagen: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+def enviar_recuperacion(request):
+    if request.method == "POST":
+        email = request.POST.get("email")
+        User = get_user_model()
+        
+        if User.objects.filter(email=email).exists():
+            user = User.objects.get(email=email)
+            
+            # Generar una nueva contraseña temporal
+            nueva_password = User.objects.make_random_password()
+            user.set_password(nueva_password)
+            user.password_temporal = True  # Marcar como contraseña temporal
+            user.save()
+            
+            # Enviar email con la nueva contraseña
+            subject = 'Tu nueva contraseña - Gonnet'
+            message = f'''
+            Hola {user.username},
+            
+            Tu nueva contraseña temporal es: {nueva_password}
+            
+            Por favor, ingresa con esta contraseña y cámbiala inmediatamente por una de tu preferencia.
+            
+            Saludos,
+            El equipo de Gonnet
+            '''
+            
+            try:
+                send_mail(
+                    subject,
+                    message,
+                    'gonnetinterno@gmail.com',  # Remitente
+                    [email],  # Destinatario
+                    fail_silently=False,
+                )
+                messages.success(request, 'Se ha enviado un correo con tu nueva contraseña.')
+                return redirect('login')
+            except Exception as e:
+                messages.error(request, f'Error al enviar el correo: {str(e)}')
+        else:
+            messages.error(request, 'No existe una cuenta con ese correo electrónico.')
+    
+    return render(request, 'inmobiliaria/autenticacion/password_reset_form.html')
+
+@login_required
+def cambiar_password(request):
+    if request.method == 'POST':
+        password1 = request.POST.get('password1')
+        password2 = request.POST.get('password2')
+        
+        if password1 and password2:
+            if password1 == password2:
+                user = request.user
+                user.set_password(password1)
+                user.password_temporal = False  # Quitar marca de contraseña temporal
+                user.save()
+                update_session_auth_hash(request, user)
+                messages.success(request, 'Tu contraseña ha sido actualizada exitosamente.')
+                return redirect('inmobiliaria:dashboard')
+            else:
+                messages.error(request, 'Las contraseñas no coinciden.')
+        else:
+            messages.error(request, 'Por favor, completa todos los campos.')
+    
+    return render(request, 'inmobiliaria/autenticacion/cambiar_password.html')
 
