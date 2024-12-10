@@ -626,11 +626,13 @@ def confirmar_reserva(request):
                 messages.error(request, f'Faltan los siguientes campos: {", ".join(campos_faltantes)}')
                 return redirect('inmobiliaria:buscar_propiedades')
 
-            # Convertir fechas
-            fecha_inicio = parse_fecha(fecha_inicio_str)
-            fecha_fin = parse_fecha(fecha_fin_str)
+            # # Convertir 
+            # print("la fecha de inicio es ",fecha_inicio_str)
+            # fecha_inicio = parse_fecha(fecha_inicio_str)
+            # fecha_fin = parse_fecha(fecha_fin_str)
+            # print("la fecha de fin es ",fecha_fin)
 
-            # Validar fechas
+            # Validar fechas    
             if fecha_inicio > fecha_fin:
                 messages.error(request, 'La fecha de inicio no puede ser posterior a la fecha de fin.')
                 return redirect('inmobiliaria:buscar_propiedades')
