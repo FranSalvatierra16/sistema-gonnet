@@ -650,7 +650,7 @@ def confirmar_reserva(request):
             try:
                 precio_total = Decimal(precio.replace(',', '.'))
             except (ValueError, TypeError):
-                messages.error(request, 'El precio proporcionado no es válido')
+                messages.error(request, 'El precio proporcionado no es v��lido')
                 return redirect('inmobiliaria:buscar_propiedades')
 
             # Crear la reserva
