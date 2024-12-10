@@ -32,6 +32,10 @@
         <input type="number" step="0.01" class="form-control" id="pago_senia" name="pago_senia" required>
     </div>
     <div class="form-group">
+        <label for="deposito">Depósito:</label>
+        <input type="number" step="0.01" class="form-control" id="deposito" name="deposito" required>
+    </div>
+    <div class="form-group">
         <label for="pago_total">Saldo restante:</label>
         <input type="number" class="form-control" id="pago_total" name="pago_total" value="{{ reserva.cuota_pendiente }}" readonly>
     </div>
