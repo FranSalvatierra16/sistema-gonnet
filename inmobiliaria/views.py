@@ -1460,7 +1460,7 @@ def eliminar_imagen(request):
         logger.error(f"Error al eliminar imagen: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
-def password_reset_request(request):
+def enviar_recuperacion(request):
     if request.method == "POST":
         email = request.POST.get("email")
         User = get_user_model()
@@ -1468,34 +1468,38 @@ def password_reset_request(request):
         if User.objects.filter(email=email).exists():
             user = User.objects.get(email=email)
             
-            # Generar token
-            token = default_token_generator.make_token(user)
-            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            # Generar una nueva contraseña temporal
+            nueva_password = User.objects.make_random_password()
+            user.set_password(nueva_password)
+            user.save()
             
-            # Construir el enlace de recuperación
-            reset_url = request.build_absolute_uri(
-                reverse('password_reset_confirm', kwargs={'uidb64': uid, 'token': token})
-            )
+            # Enviar email con la nueva contraseña
+            subject = 'Tu nueva contraseña - Gonnet'
+            message = f'''
+            Hola {user.username},
             
-            # Enviar email
-            subject = 'Recuperación de contraseña'
-            message = render_to_string('registration/password_reset_email.html', {
-                'user': user,
-                'reset_url': reset_url,
-            })
+            Tu nueva contraseña temporal es: {nueva_password}
             
-            send_mail(
-                subject,
-                message,
-                'gonnetinterno@gmail.com',  # Remitente
-                [email],  # Destinatario
-                fail_silently=False,
-            )
+            Por favor, ingresa con esta contraseña y cámbiala inmediatamente por una de tu preferencia.
             
-            messages.success(request, 'Se ha enviado un correo con instrucciones para recuperar tu contraseña.')
-            return redirect('login')
+            Saludos,
+            El equipo de Gonnet
+            '''
             
-        messages.error(request, 'No existe una cuenta con ese correo electrónico.')
+            try:
+                send_mail(
+                    subject,
+                    message,
+                    'gonnetinterno@gmail.com',  # Remitente
+                    [email],  # Destinatario
+                    fail_silently=False,
+                )
+                messages.success(request, 'Se ha enviado un correo con tu nueva contraseña.')
+                return redirect('login')
+            except Exception as e:
+                messages.error(request, f'Error al enviar el correo: {str(e)}')
+        else:
+            messages.error(request, 'No existe una cuenta con ese correo electrónico.')
     
-    return render(request, 'registration/password_reset_form.html')
+    return render(request, 'inmobiliaria/autenticacion/password_reset_form.html')
 

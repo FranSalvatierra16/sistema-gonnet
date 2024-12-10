@@ -90,6 +90,7 @@ urlpatterns = [
              template_name='inmobiliaria/autenticacion/password_reset_complete.html'
          ),
          name='password_reset_complete'),
+    path('recuperar-password/', views.enviar_recuperacion, name='recuperar_password'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
