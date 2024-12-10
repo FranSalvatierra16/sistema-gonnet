@@ -31,6 +31,11 @@ from django.conf import settings
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 import os
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from django.contrib.auth import get_user_model
 
 import logging
 logger = logging.getLogger(__name__)
@@ -1454,4 +1459,43 @@ def eliminar_imagen(request):
     except Exception as e:
         logger.error(f"Error al eliminar imagen: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+def password_reset_request(request):
+    if request.method == "POST":
+        email = request.POST.get("email")
+        User = get_user_model()
+        
+        if User.objects.filter(email=email).exists():
+            user = User.objects.get(email=email)
+            
+            # Generar token
+            token = default_token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            
+            # Construir el enlace de recuperación
+            reset_url = request.build_absolute_uri(
+                reverse('password_reset_confirm', kwargs={'uidb64': uid, 'token': token})
+            )
+            
+            # Enviar email
+            subject = 'Recuperación de contraseña'
+            message = render_to_string('registration/password_reset_email.html', {
+                'user': user,
+                'reset_url': reset_url,
+            })
+            
+            send_mail(
+                subject,
+                message,
+                'gonnetinterno@gmail.com',  # Remitente
+                [email],  # Destinatario
+                fail_silently=False,
+            )
+            
+            messages.success(request, 'Se ha enviado un correo con instrucciones para recuperar tu contraseña.')
+            return redirect('login')
+            
+        messages.error(request, 'No existe una cuenta con ese correo electrónico.')
+    
+    return render(request, 'registration/password_reset_form.html')
 
