@@ -46,7 +46,7 @@ def index(request):
     if request.user.is_authenticated:
         return redirect('inmobiliaria:buscar_propiedades')
     else:
-        return redirect('login')
+        return redirect('inmobiliaria:login')
 
 # Vendedor views
 @login_required
