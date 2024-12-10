@@ -43,14 +43,10 @@ logger = logging.getLogger(__name__)
 
 # index view
 def index(request):
-    nivel = None
-    if request.user.is_authenticated and hasattr(request.user, 'vendedor'):
-        nivel = request.user.vendedor.nivel
-
-    context = {
-        'nivel_usuario': nivel,
-    }
-    return render(request, 'inmobiliaria/index.html', context)
+    if request.user.is_authenticated:
+        return redirect('inmobiliaria:buscar_propiedades')
+    else:
+        return redirect('login')
 
 # Vendedor views
 @login_required
