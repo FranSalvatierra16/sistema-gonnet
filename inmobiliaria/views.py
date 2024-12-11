@@ -1534,7 +1534,7 @@ def cambiar_password(request):
 
 def ver_recibo(request, reserva_id):
     reserva = get_object_or_404(Reserva, id=reserva_id)
-    return render(request, 'inmobiliaria/reserva/recibo_imprimir.html', {
+    return render(request, 'inmobiliaria/reserva/recibo.html', {
         'reserva': reserva,
         'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
         'hora_actual': datetime.now().strftime('%H:%M')
