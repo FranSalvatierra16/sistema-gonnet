@@ -930,44 +930,43 @@ def terminar_reserva(request, reserva_id):
     reserva = get_object_or_404(Reserva, id=reserva_id)
     
     if request.method == 'POST':
-        pago_senia = Decimal(request.POST.get('pago_senia', 0))
-        
-        # Confirmar reserva y calcular cuotas
-        reserva.confirmar_reserva(pago_senia)
-
-        # Generar el recibo en PDF
-        template_path = 'inmobiliaria/reserva/recibo.html'  # Tu plantilla de recibo en HTML
-        context = {
-            'reserva': reserva,
-            'pago_senia': pago_senia,
-        }
-        
-        # Convertir el HTML en un string
-        html = render_to_string(template_path, context)
-
-        # Crear un objeto en memoria para guardar el PDF
-        result = BytesIO()
-        pisa_status = pisa.CreatePDF(html, dest=result)
-
-        # Si hubo errores al crear el PDF, devolver un error 500
-        if pisa_status.err:
-            return HttpResponse('Error al generar el PDF', status=500)
-
-        # Guardar el PDF en una variable para la descarga
-        response = HttpResponse(result.getvalue(), content_type='application/pdf')
-        response['Content-Disposition'] = 'attachment; filename="recibo_reserva.pdf"'
-        
-        # Enviar el PDF como respuesta
-        response.write(result.getvalue())
-        
-        # Aquí no se puede redirigir inmediatamente al dashboard, 
-        # así que retornamos el objeto de respuesta del PDF
-        return response
+        try:
+            pago_senia = Decimal(request.POST.get('pago_senia', 0))
+            
+            # Confirmar reserva y calcular cuotas
+            reserva.confirmar_reserva(pago_senia)
+            
+            # Devolver respuesta JSON para el AJAX
+            return JsonResponse({
+                'success': True,
+                'message': 'Reserva confirmada exitosamente',
+                'redirect_url': reverse('inmobiliaria:ver_recibo', args=[reserva.id])
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': str(e)
+            })
     
-    # Si no es POST, devolver la página de confirmación de reserva
-    return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', {'reserva': reserva})
+    # Si no es POST, mostrar la página de confirmación de reserva
+    return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', {
+        'reserva': reserva
+    })
 
-
+@login_required
+def ver_recibo(request, reserva_id):
+    reserva = get_object_or_404(Reserva, id=reserva_id)
+    
+    # Obtener la fecha y hora actual
+    fecha_actual = datetime.now()
+    
+    return render(request, 'inmobiliaria/reserva/recibo.html', {
+        'reserva': reserva,
+        'pago_senia': reserva.senia,
+        'fecha': fecha_actual.strftime('%d/%m/%Y'),
+        'hora': fecha_actual.strftime('%H:%M')
+    })
 
 def generar_recibo_pdf(reserva, pago_senia):
     template_name = 'inmobiliaria/reserva/recibo.html'
@@ -1531,5 +1530,13 @@ def cambiar_password(request):
     return render(request, 'inmobiliaria/autenticacion/cambiar_password.html', {
         'form': form,
         'user': request.user
+    })
+
+def ver_recibo(request, reserva_id):
+    reserva = get_object_or_404(Reserva, id=reserva_id)
+    return render(request, 'inmobiliaria/reserva/recibo_imprimir.html', {
+        'reserva': reserva,
+        'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
+        'hora_actual': datetime.now().strftime('%H:%M')
     })
 

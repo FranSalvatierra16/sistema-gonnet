@@ -1,305 +1,326 @@
-<style type="text/css" media="print">
-    @page {
-        size: legal;
-        margin: 0;
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+
+{% block content %}
+<script>
+function abrirRecibo() {
+    window.location.href = "{% url 'inmobiliaria:buscar_propiedades' %}";
+}
+</script>
+<script>
+    function abrirRecibo() {
+        window.open('recibo.html', '_blank'); // Abre en nueva ventana/pestaña
     }
-    body {
-        margin: 1cm;
-    }
-    @media print {
-        button {
-            display: none;
+    </script>
+    
+    <style type="text/css" media="print">
+        @page {
+            size: legal;
+            margin: 0;
         }
-    }
-</style>
-
-<button onclick="window.print()" style="position: fixed; top: 20px; right: 20px;">Imprimir Recibo</button>
-
-<div style="height: 49%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid;">
-    <div style="height: 15%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
-        <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-            <img src="img/logo.png" alt="logo" style="height: 30%; width: 60%; margin-top: 0%;">
-            <p style="margin: 0; font-size: 7px;"> de Nestor Oscar Gonnet</p>
-            <p style="margin: 0; font-size: 7px;">Corrientes 1987</p>
-            <p style="margin: 0; font-size: 7px;">(B7600EBO) Mar del Plata - Prov. de Bs. As.</p>
-            <p style="margin: 0; font-size: 7px;">http://www.gonnet.com.ar</p>
-            <p style="margin: 0; font-size: 7px;">email: info@gonnet.com.ar</p>
-        </div>
-        <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
-        
-            <h4 style="margin-top: 15px;">RECIBO</h1>
+        body {
+            margin: 1cm;
+        }
+        @media print {
+            button {
+                display: none;
+            }
+        }
+    </style>
+    
+    <button onclick="window.print()" style="position: fixed; top: 20px; right: 20px;">Imprimir Recibo</button>
+    <button onclick="abrirRecibo()" style="position: fixed; bottom: 20px; right: 20px;">Finalizar</button>
+    
+    <div style="height: 49%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid;">
+        <div style="height: 15%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
+            <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                <img src="img/logo.png" alt="logo" style="height: 30%; width: 60%; margin-top: 0%;">
+                <p style="margin: 0; font-size: 7px;"> de Nestor Oscar Gonnet</p>
+                <p style="margin: 0; font-size: 7px;">Corrientes 1987</p>
+                <p style="margin: 0; font-size: 7px;">(B7600EBO) Mar del Plata - Prov. de Bs. As.</p>
+                <p style="margin: 0; font-size: 7px;">http://www.gonnet.com.ar</p>
+                <p style="margin: 0; font-size: 7px;">email: info@gonnet.com.ar</p>
+            </div>
+            <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
             
-            <p style="margin: 0; font-size:  7px;">DOCUMENTO NO VALIDO COMO FACTURA</p>
-        </div> 
-        <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; margin-top: 5px;">
-            <div style="width: 80%; text-align: left;">
-                <h1 style="margin: 0; font-size: 10px;">Nº: 0007-567890</h1>    
-                <h2 style="margin: 0; font-size: 10px;">Fecha: <u>&nbsp;&nbsp;&nbsp;01&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;01&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;2024&nbsp;&nbsp;&nbsp;</u></h2>
-                <h2 style="margin: 0; font-size: 7px;">Hora: &nbsp;&nbsp;<u>&nbsp;&nbsp;&nbsp;&nbsp;12:00&nbsp;&nbsp;&nbsp;&nbsp;</u></h2>
-                <p style="margin: 0; font-size: 7px;">IVA : RESPONSABLE INSCRIPTO</p>
-                <p style="margin: 0; font-size: 7px;">CUIT: 20-10757572-4</p>
-                <p style="margin: 0; font-size: 7px;">ING. BRUTOS: 20-10757572-4</p>
-                <!-- <p style="margin: 0;">JUB: 60620856 C.P.S.M.C.P.P.B.A Ley 7014</p> -->
-                <p style="margin: 0; font-size: 7px;">INSC: 120609/8 REG. 1572</p>
-                <p style="margin: 0; font-size: 7px;">INICIO ACTIVIDAD: 01/01/1977</p>
-            </div>
-        </div>
-    </div>
-    <div style="height: 3%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; align-items: center;">
-        <div style="width: 63%; padding-left: 10px;">
-            <h4 style="margin: 0; font-size: 10px;">OPERACION: <u>&nbsp;&nbsp;&nbsp;9830&nbsp;&nbsp;&nbsp;</u></h4>
-        </div>
-    </div>
-    <div style="height: 16%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
-   
-     
-        <div style="height: 100%; width: 63%; display: flex; flex-direction: column;   text-align: center;margin-top: 5px;">
-            <div style="width: 80%; text-align: left; margin-left: 10px;">
-                <h4 style="margin: 0; font-size: 10px;">CLIENTE: </h4>    
-                <div style="display: flex; align-items: center;">
-                    <span style="min-width: 120px; font-size: 8px;">NOMBRE:</span>
-                    <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
-                </div>
-                <div style="display: flex; align-items: center;">
-                    <span style="min-width: 120px; font-size: 8px;">DOMICILIO:</span>
-                    <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
-                </div>
-                <div style="display: flex; align-items: center;">
-                    <span style="min-width: 120px; font-size: 8px;">LOCALIDAD:</span>
-                    <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
-                </div>
-                <div style="display: flex; align-items: center;">
-                    <span style="min-width: 120px; font-size: 8px;">IVA:</span>
-                    <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
+                <h4 style="margin-top: 15px;">RECIBO</h1>
+                
+                <p style="margin: 0; font-size:  7px;">DOCUMENTO NO VALIDO COMO FACTURA</p>
+            </div> 
+            <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; margin-top: 5px;">
+                <div style="width: 80%; text-align: left;">
+                    <h1 style="margin: 0; font-size: 10px;">Nº: 0007-567890</h1>    
+                    <h2 style="margin: 0; font-size: 10px;">Fecha: <u>&nbsp;&nbsp;&nbsp;01&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;01&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;2024&nbsp;&nbsp;&nbsp;</u></h2>
+                    <h2 style="margin: 0; font-size: 7px;">Hora: &nbsp;&nbsp;<u>&nbsp;&nbsp;&nbsp;&nbsp;12:00&nbsp;&nbsp;&nbsp;&nbsp;</u></h2>
+                    <p style="margin: 0; font-size: 7px;">IVA : RESPONSABLE INSCRIPTO</p>
+                    <p style="margin: 0; font-size: 7px;">CUIT: 20-10757572-4</p>
+                    <p style="margin: 0; font-size: 7px;">ING. BRUTOS: 20-10757572-4</p>
+                    <!-- <p style="margin: 0;">JUB: 60620856 C.P.S.M.C.P.P.B.A Ley 7014</p> -->
+                    <p style="margin: 0; font-size: 7px;">INSC: 120609/8 REG. 1572</p>
+                    <p style="margin: 0; font-size: 7px;">INICIO ACTIVIDAD: 01/01/1977</p>
                 </div>
             </div>
         </div>
-
-        <div style="height: 100%; width: 36%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
-            <div style="width: 80%; text-align: left; ">
-                <h4 style="margin: 0; color: transparent; font-size: 10px;      ">CLIENTE: </h4>    
-                <div style="display: flex; align-items: center; ">
-                    <span style="min-width: 120px; font-size: 8px;">D.N.I:</span>
-                    <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
-                </div>
-                <div style="display: flex; align-items: center; ">
-                    <span style="min-width: 120px; font-size: 8px;">TEL:</span>
-                    <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
-                </div>
-                <div style="display: flex; align-items: center; ">
-                    <span style="min-width: 120px; font-size: 8px;">PROVINCIA:</span>
-                    <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
-                </div>
-                <div style="display: flex; align-items: center; ">
-                    <span style="min-width: 120px; font-size: 8px;">C.U.I.T:</span>
-                    <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
-                </div>
+        <div style="height: 3%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; align-items: center;">
+            <div style="width: 63%; padding-left: 10px;">
+                <h4 style="margin: 0; font-size: 10px;">OPERACION: <u>&nbsp;&nbsp;&nbsp;9830&nbsp;&nbsp;&nbsp;</u></h4>
             </div>
         </div>
-    </div>
-    <div style="height: 16%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
-   
-     
-        <div style="height: 100%; width: 63%; display: flex; flex-direction: column;   text-align: center;margin-top: 5px;padding-left: 10px;">
-            <div style="width: 80%; text-align: left;   ">
-                <h4 style="margin: 0; font-size: 10px;">PROPIEDAD: </h4>    
-                <div style="display: flex; align-items: center;         ">
-                    <span style="min-width: 120px; font-size: 8px;">DIRECCION:</span>
-                    <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
-                </div>
-                <div style="display: flex; align-items: center; ">
-                    <span style="min-width: 120px; font-size: 8px;">COMODIDADES:</span>
-                    <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
-                </div>
-
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="display: flex; align-items: center; width: 30%;">
-                        <span style="min-width: 40px; font-size: 8px;">WIFI:</span>
-                        <div style="border-bottom: 1px dotted black; width: 100px;">&nbsp;</div>
+        <div style="height: 16%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
+       
+         
+            <div style="height: 100%; width: 63%; display: flex; flex-direction: column;   text-align: center;margin-top: 5px;">
+                <div style="width: 80%; text-align: left; margin-left: 10px;">
+                    <h4 style="margin: 0; font-size: 10px;">CLIENTE: </h4>    
+                    <div style="display: flex; align-items: center;">
+                        <span style="min-width: 120px; font-size: 8px;">NOMBRE:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
                     </div>
-                    <div style="display: flex; align-items: center; width: 30%;">
-                        <span style="min-width: 60px; font-size: 8px;">COCHERA:</span>
-                        <div style="border-bottom: 1px dotted black; width: 100px;">&nbsp;</div>
+                    <div style="display: flex; align-items: center;">
+                        <span style="min-width: 120px; font-size: 8px;">DOMICILIO:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
                     </div>
-                    <div style="display: flex; align-items: center; width: 35%;">
-                        <span style="min-width: 50px; font-size: 8px;">AMOBLADO PARA:</span>
-                        <div style="border-bottom: 1px dotted black; width: 100px;">&nbsp;</div>
+                    <div style="display: flex; align-items: center;">
+                        <span style="min-width: 120px; font-size: 8px;">LOCALIDAD:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <div style="height: 100%; width: 36%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
-            <div style="width: 80%; text-align: left;    ">     
-                <h2 style="margin: 0; color: transparent; font-size: 8px;">CLIENTE: </h2>    
-                <div style="display: flex; align-items: center; justify-content: space-between; margin: 5px 0;">
-                    <div style="display: flex; align-items: center; width: 45%;">
-                        <span style="min-width: 40px; font-size: 8px;">FICHA:</span>
-                        <div style="border-bottom: 1px dotted black; width: 100px;">&nbsp;</div>
+                    <div style="display: flex; align-items: center;">
+                        <span style="min-width: 120px; font-size: 8px;">IVA:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
                     </div>
-                    <div style="display: flex; align-items: center; width: 45%;">
-                        <span style="min-width: 40px; font-size: 8px;">LLAVE:</span>
-                        <div style="border-bottom: 1px dotted black; width: 100px;">&nbsp;</div>
-                    </div>
-                </div>
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="display: flex; align-items: center; width: 45%;">
-                        <span style="min-width: 40px; font-size: 8px;">PISO:</span>
-                        <div style="border-bottom: 1px dotted black; width: 100px;">&nbsp;</div>
-                    </div>
-                    <div style="display: flex; align-items: center; width: 45%;">
-                        <span style="min-width: 40px; font-size: 8px;">DPTO:</span>
-                        <div style="border-bottom: 1px dotted black; width: 100px;">&nbsp;</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; height: 50%;">
-        <!-- Tabla de conceptos -->
-        <div style="width: 100%; display: flex; flex-direction: column; height: 12%;">
-            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d8524; height: 100%;">
-                <div style="display: flex; flex-wrap: wrap; width: 72%;">
-                    <div style="width: 18%; height: 100%; border-right: 1px solid #2d8524; border-bottom: 1px solid #2d8524; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-                        <h3 style="margin: 0; width: 100%; font-size: 7px;">Precio</h3>
-                        <div style="border-bottom: 1px solid #2d8524; height: 1px; width: 100%;"></div>
-                        <h3 style="margin: 0; width: 100%; font-size: 7px;">Seña</h3>
-                    </div>
-                    <div style="width: 18%; height: 100%; border-right: 1px solid #2d8524; border-bottom: 1px solid #2d8524; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-                        <h3 style="margin: 0; width: 100%; font-size: 7px;">SEÑA</h3>
-                        <div style="border-bottom: 1px solid #2d8524; height: 1px; width: 100%;"></div>
-                        <h3 style="margin: 0; width: 100%; font-size: 7px;">Seña</h3>
-                    </div>
-                    <div style="width: 18%; height: 100%; border-right: 1px solid #2d8524; border-bottom: 1px solid #2d8524; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-                        <h3 style="margin: 0; width: 100%; font-size: 7px;">SALDO</h3>
-                        <div style="border-bottom: 1px solid #2d8524; height: 1px; width: 100%;"></div>
-                        <h3 style="margin: 0; width: 100%; font-size: 7px;">Seña</h3>
-                    </div>
-                    <div style="width: 18%; height: 100%; border-right: 1px solid #2d8524; border-bottom: 1px solid #2d8524; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-                        <h3 style="margin: 0; width: 100%; font-size: 7px;">DEPOSITO GARANTIA</h3>
-                        <div style="border-bottom: 1px solid #2d8524; height: 1px; width: 100%;"></div>
-                        <h3 style="margin: 0; width: 100%; font-size: 7px;">Seña</h3>
-                    </div>
-                </div>
-
-                <div style="width: 28%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                    <h3 style="margin: 0; font-size: 10px; text-align: center;">DESDE: _______________ HORA: 14:00 HS.</h3>
-                    <h3 style="margin: 0; font-size: 10px; text-align: center;">HASTA: _______________ HORA: 09:00 HS.</h3>
                 </div>
             </div>
     
+            <div style="height: 100%; width: 36%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
+                <div style="width: 80%; text-align: left; ">
+                    <h4 style="margin: 0; color: transparent; font-size: 10px;      ">CLIENTE: </h4>    
+                    <div style="display: flex; align-items: center; ">
+                        <span style="min-width: 120px; font-size: 8px;">D.N.I:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
+                    </div>
+                    <div style="display: flex; align-items: center; ">
+                        <span style="min-width: 120px; font-size: 8px;">TEL:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
+                    </div>
+                    <div style="display: flex; align-items: center; ">
+                        <span style="min-width: 120px; font-size: 8px;">PROVINCIA:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
+                    </div>
+                    <div style="display: flex; align-items: center; ">
+                        <span style="min-width: 120px; font-size: 8px;">C.U.I.T:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
+                    </div>
+                </div>
+            </div>
         </div>
+        <div style="height: 16%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
+       
+         
+            <div style="height: 100%; width: 63%; display: flex; flex-direction: column;   text-align: center;margin-top: 5px;padding-left: 10px;">
+                <div style="width: 80%; text-align: left;   ">
+                    <h4 style="margin: 0; font-size: 10px;">PROPIEDAD: </h4>    
+                    <div style="display: flex; align-items: center;         ">
+                        <span style="min-width: 120px; font-size: 8px;">DIRECCION:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
+                    </div>
+                    <div style="display: flex; align-items: center; ">
+                        <span style="min-width: 120px; font-size: 8px;">COMODIDADES:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
+                    </div>
+    
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; width: 30%;">
+                            <span style="min-width: 40px; font-size: 8px;">WIFI:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px;">&nbsp;</div>
+                        </div>
+                        <div style="display: flex; align-items: center; width: 30%;">
+                            <span style="min-width: 60px; font-size: 8px;">COCHERA:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px;">&nbsp;</div>
+                        </div>
+                        <div style="display: flex; align-items: center; width: 35%;">
+                            <span style="min-width: 50px; font-size: 8px;">AMOBLADO PARA:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px;">&nbsp;</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+    
+            <div style="height: 100%; width: 36%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
+                <div style="width: 80%; text-align: left;    ">     
+                    <h2 style="margin: 0; color: transparent; font-size: 8px;">CLIENTE: </h2>    
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin: 5px 0;">
+                        <div style="display: flex; align-items: center; width: 45%;">
+                            <span style="min-width: 40px; font-size: 8px;">FICHA:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px;">&nbsp;</div>
+                        </div>
+                        <div style="display: flex; align-items: center; width: 45%;">
+                            <span style="min-width: 40px; font-size: 8px;">LLAVE:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px;">&nbsp;</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; width: 45%;">
+                            <span style="min-width: 40px; font-size: 8px;">PISO:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px;">&nbsp;</div>
+                        </div>
+                        <div style="display: flex; align-items: center; width: 45%;">
+                            <span style="min-width: 40px; font-size: 8px;">DPTO:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px;">&nbsp;</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; height: 50%;">
+            <!-- Tabla de conceptos -->
+            <div style="width: 100%; display: flex; flex-direction: column; height: 12%;">
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d8524; height: 100%;">
+                    <div style="display: flex; flex-wrap: wrap; width: 72%;">
+                        <div style="width: 18%; height: 100%; border-right: 1px solid #2d8524; border-bottom: 1px solid #2d8524; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                            <h3 style="margin: 0; width: 100%; font-size: 7px;">Precio</h3>
+                            <div style="border-bottom: 1px solid #2d8524; height: 1px; width: 100%;"></div>
+                            <h3 style="margin: 0; width: 100%; font-size: 7px;">Seña</h3>
+                        </div>
+                        <div style="width: 18%; height: 100%; border-right: 1px solid #2d8524; border-bottom: 1px solid #2d8524; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                            <h3 style="margin: 0; width: 100%; font-size: 7px;">SEÑA</h3>
+                            <div style="border-bottom: 1px solid #2d8524; height: 1px; width: 100%;"></div>
+                            <h3 style="margin: 0; width: 100%; font-size: 7px;">Seña</h3>
+                        </div>
+                        <div style="width: 18%; height: 100%; border-right: 1px solid #2d8524; border-bottom: 1px solid #2d8524; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                            <h3 style="margin: 0; width: 100%; font-size: 7px;">SALDO</h3>
+                            <div style="border-bottom: 1px solid #2d8524; height: 1px; width: 100%;"></div>
+                            <h3 style="margin: 0; width: 100%; font-size: 7px;">Seña</h3>
+                        </div>
+                        <div style="width: 18%; height: 100%; border-right: 1px solid #2d8524; border-bottom: 1px solid #2d8524; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                            <h3 style="margin: 0; width: 100%; font-size: 7px;">DEPOSITO GARANTIA</h3>
+                            <div style="border-bottom: 1px solid #2d8524; height: 1px; width: 100%;"></div>
+                            <h3 style="margin: 0; width: 100%; font-size: 7px;">Seña</h3>
+                        </div>
+                    </div>
+    
+                    <div style="width: 28%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                        <h3 style="margin: 0; font-size: 10px; text-align: center;">DESDE: _______________ HORA: 14:00 HS.</h3>
+                        <h3 style="margin: 0; font-size: 10px; text-align: center;">HASTA: _______________ HORA: 09:00 HS.</h3>
+                    </div>
+                </div>
         
-            <!-- Encabezados, de la tabla -->
-        <div style="display: flex; justify-content: space-between; height: 6%;">
-            <div style="display: flex; border: 1px solid #2d8524;width: 80%;">
-                <div style="width: 15%; padding: 3px; border-right: 1px solid transparent;margin-left: 5%; font-size: 9px;">FECHA</div>
-                <div style="width: 15%; padding: 3px; border-right: 1px solid transparent;margin-left: 10px; font-size: 9px;">CÓDIGO</div>
-                <div style="width: 55%; padding: 3px; border-right: 1px solid transparent;margin-left: 10px; font-size: 9px;">CONCEPTO</div>
-              
-            </div>
-            <div style="display: flex; border-bottom: 1px solid #2d8524;width: 20%; justify-content: center;">
-                <div style="width: 15%; padding: 3px; border-right: 1px solid transparent; font-size: 9px;">IMPORTE</div>
-               
-              
-            </div>
             </div>
             
-            <!-- Espacio para conceptos -->
-            <div style="display: flex; justify-content: space-between; border: 1px solid #030402; height: 34%;">
-                <div style="display: flex; border-right: 1px solid #2d8524;width: 80%;">
-                
+                <!-- Encabezados, de la tabla -->
+            <div style="display: flex; justify-content: space-between; height: 6%;">
+                <div style="display: flex; border: 1px solid #2d8524;width: 80%;">
+                    <div style="width: 15%; padding: 3px; border-right: 1px solid transparent;margin-left: 5%; font-size: 9px;">FECHA</div>
+                    <div style="width: 15%; padding: 3px; border-right: 1px solid transparent;margin-left: 10px; font-size: 9px;">CÓDIGO</div>
+                    <div style="width: 55%; padding: 3px; border-right: 1px solid transparent;margin-left: 10px; font-size: 9px;">CONCEPTO</div>
                   
                 </div>
-                <div style="display: flex; width: 20%; justify-content: center;border-left: 1px solid #2d8524;">
-                    <div style="width: 15%; padding: 3px; border-right: 1px solid transparent; font-size: 9px;">220.200</div>
+                <div style="display: flex; border-bottom: 1px solid #2d8524;width: 20%; justify-content: center;">
+                    <div style="width: 15%; padding: 3px; border-right: 1px solid transparent; font-size: 9px;">IMPORTE</div>
                    
                   
                 </div>
-               
-
+                </div>
                 
-        </div>
-            
-        <div style="display: flex; justify-content: space-between; height: 12%;">
-            <div style="display: flex; flex-direction: column; width: 70%; height: 100%;border-bottom: 1px solid transparent;">
-
-
-                <p style=" padding-left: 10px; font-size: 6px;">SR.TURISTA: Si no se presentara a abonar el saldo de locación en la fecha estipulada 
-                perdera en favor del propietario los importes entregados en este acto. <br> 
-                Abonara en 
-                efectivo cualquier faltante de inventario, roturas, limpieza, etc. al desocupar la propiedad. 
-                La presente seña se recibe ad referendum del propietario.</p>
-                
-                  
-               <p style="margin: 0; font-size: 6px; padding-left: 10px;">El presente recibo carece de valor cancelatorio hasta tanto se acredite la totalidad de los valores entregados en este acto.</p>
-                
-                
-                
-            </div>
-            
-           
-                <!-- Columna de textos -->
-                <div style="display: flex; flex-direction: column; width: 10%;height: 100%;">
-                
-                    <div style="padding: 2px; border-bottom: 1px solid #2d8524;height: 100%;border-left: 1px solid #2d8524;display: flex; justify-content: center; align-items: center;">
-                        <span style="font-size: 7px;">TOTAL</span>
+                <!-- Espacio para conceptos -->
+                <div style="display: flex; justify-content: space-between; border: 1px solid #030402; height: 34%;">
+                    <div style="display: flex; border-right: 1px solid #2d8524;width: 80%;">
+                    
+                      
                     </div>
+                    <div style="display: flex; width: 20%; justify-content: center;border-left: 1px solid #2d8524;">
+                        <div style="width: 15%; padding: 3px; border-right: 1px solid transparent; font-size: 9px;">220.200</div>
+                       
+                      
+                    </div>
+                   
+    
+                    
+            </div>
+                
+            <div style="display: flex; justify-content: space-between; height: 12%;">
+                <div style="display: flex; flex-direction: column; width: 70%; height: 100%;border-bottom: 1px solid transparent;">
+    
+    
+                    <p style=" padding-left: 10px; font-size: 6px;">SR.TURISTA: Si no se presentara a abonar el saldo de locación en la fecha estipulada 
+                    perdera en favor del propietario los importes entregados en este acto. <br> 
+                    Abonara en 
+                    efectivo cualquier faltante de inventario, roturas, limpieza, etc. al desocupar la propiedad. 
+                    La presente seña se recibe ad referendum del propietario.</p>
+                    
+                      
+                   <p style="margin: 0; font-size: 6px; padding-left: 10px;">El presente recibo carece de valor cancelatorio hasta tanto se acredite la totalidad de los valores entregados en este acto.</p>
+                    
+                    
                     
                 </div>
                 
-                <!-- Columna de valores -->
-                <div style="display: flex; flex-direction: column; border: 1px solid #2d8524; width: 20%;height: 100%;">
-                  
-                    <div style="padding: 2px; border-bottom: 1px solid #2d8524; border-left: 1px solid #2d8524;height: 100%;display: flex; justify-content: center; align-items: center;">
-                        <span style="font-size: 7px;">250.000,00</span>
+               
+                    <!-- Columna de textos -->
+                    <div style="display: flex; flex-direction: column; width: 10%;height: 100%;">
+                    
+                        <div style="padding: 2px; border-bottom: 1px solid #2d8524;height: 100%;border-left: 1px solid #2d8524;display: flex; justify-content: center; align-items: center;">
+                            <span style="font-size: 7px;">TOTAL</span>
+                        </div>
+                        
                     </div>
-                 
-                </div>
-            
-        </div>
-            <!-- Totales -->
-       
-
+                    
+                    <!-- Columna de valores -->
+                    <div style="display: flex; flex-direction: column; border: 1px solid #2d8524; width: 20%;height: 100%;">
+                      
+                        <div style="padding: 2px; border-bottom: 1px solid #2d8524; border-left: 1px solid #2d8524;height: 100%;display: flex; justify-content: center; align-items: center;">
+                            <span style="font-size: 7px;">250.000,00</span>
+                        </div>
+                     
+                    </div>
+                
+            </div>
+                <!-- Totales -->
            
-
-            <!-- La suma de -->
-            <div style="padding: 2; padding-left: 10px; border-top: 1px solid #2d8524; height: 6%;">
-                <p style="margin: 0; font-size: 9px;">LA SUMA DE:</p>
-                <div style="border-bottom: 1px dotted black; height: 5px;"></div>
+    
+               
+    
+                <!-- La suma de -->
+                <div style="padding: 2; padding-left: 10px; border-top: 1px solid #2d8524; height: 6%;">
+                    <p style="margin: 0; font-size: 9px;">LA SUMA DE:</p>
+                    <div style="border-bottom: 1px dotted black; height: 5px;"></div>
+                </div>
+    
+                <!-- Forma de pago -->
+                <div style="padding: 2; padding-left: 10px; border-top: 1px solid #2d8524; height: 6%;">
+                    <p style="margin: 0; font-size: 9px;">FORMA DE PAGO:</p>
+                    <div style="border-bottom: 1px dotted black; height: 5px;"></div>
+                </div>
+    
+                <!-- Texto legal -->
+                <div style="padding: 2; border-top: 1px solid #2d8524; height: 12%;">
+                
+    
+                <!-- Firmas -->
+                <div style="display: flex; justify-content: space-between; padding: 5px; padding-top: 35px;">
+                    <div style="text-align: center; width: 200px;">
+                        <div style="border-top: 1px solid #2d8524;"></div>
+                        <p style="margin: 0; font-size: 12px;">FIRMA</p>
+                    </div>
+                    <div style="text-align: center; width: 200px;">
+                        <div style="border-top: 1px solid #2d8524;"></div>
+                        <p style="margin: 0; font-size: 12px;">ACLARACION</p>
+                    </div>
+                    <div style="text-align: center; width: 200px;">
+                        <div style="border-top: 1px solid #2d8524;"></div>
+                        <p style="margin: 0; font-size: 12px;">P/GONNET PROPIEDADES</p>
+                    </div>
+                </div>
             </div>
-
-            <!-- Forma de pago -->
-            <div style="padding: 2; padding-left: 10px; border-top: 1px solid #2d8524; height: 6%;">
-                <p style="margin: 0; font-size: 9px;">FORMA DE PAGO:</p>
-                <div style="border-bottom: 1px dotted black; height: 5px;"></div>
-            </div>
-
-            <!-- Texto legal -->
-            <div style="padding: 2; border-top: 1px solid #2d8524; height: 12%;">
-            
-
-            <!-- Firmas -->
-            <div style="display: flex; justify-content: space-between; padding: 5px; padding-top: 35px;">
-                <div style="text-align: center; width: 200px;">
-                    <div style="border-top: 1px solid #2d8524;"></div>
-                    <p style="margin: 0; font-size: 12px;">FIRMA</p>
-                </div>
-                <div style="text-align: center; width: 200px;">
-                    <div style="border-top: 1px solid #2d8524;"></div>
-                    <p style="margin: 0; font-size: 12px;">ACLARACION</p>
-                </div>
-                <div style="text-align: center; width: 200px;">
-                    <div style="border-top: 1px solid #2d8524;"></div>
-                    <p style="margin: 0; font-size: 12px;">P/GONNET PROPIEDADES</p>
-                </div>
+    
+                <!-- Pie de página -->
+          
             </div>
         </div>
-
-            <!-- Pie de página -->
+    
       
-        </div>
-    </div>
-
-  
+    
+{% endblock %}
+    
+      
+    

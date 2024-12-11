@@ -74,7 +74,7 @@ urlpatterns = [
     path('crear-sucursal/', views.crear_sucursal, name='crear_sucursal'),
     path('actualizar-orden-imagenes/', views.actualizar_orden_imagenes, name='actualizar_orden_imagenes'),
     path('eliminar-imagen/', views.eliminar_imagen, name='eliminar_imagen'),
-   
+    path('ver-recibo/<int:reserva_id>/', views.ver_recibo, name='ver_recibo'),
    
     path('password_reset/done/', 
          auth_views.PasswordResetDoneView.as_view(
