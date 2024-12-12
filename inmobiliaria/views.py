@@ -956,76 +956,67 @@ def terminar_reserva(request, reserva_id):
 
 @login_required
 def ver_recibo(request, reserva_id):
-    reserva = get_object_or_404(Reserva, id=reserva_id)
-    fecha_actual = datetime.now()
-    
-    # Prints de debug
-    print("Reserva ID:", reserva_id)
-    print("Cliente:", reserva.cliente.nombre, reserva.cliente.apellido)
-    print("Propiedad:", reserva.propiedad.direccion)
-    print("Montos:", {
-        'total': reserva.precio_total,
-        'seña': reserva.senia,
-        'saldo': reserva.cuota_pendiente
-    })
-    
-    context = {
-        # Datos básicos del recibo
-        'numero_recibo': f'0007-{reserva.id:06d}',  # Formato: 0007-000123
-        'fecha': fecha_actual.strftime('%d/%m/%Y'),
-        'hora': fecha_actual.strftime('%H:%M'),
+    try:
+        reserva = get_object_or_404(Reserva, id=reserva_id)
+        fecha_actual = datetime.now()
         
-        # Datos de la reserva
-        'reserva': reserva,
-        'operacion': f'{reserva.id:04d}',  # Formato: 0123
-        'precio_total': reserva.precio_total,
-        'senia': reserva.senia,
-        'saldo': reserva.cuota_pendiente,
-        'deposito': reserva.deposito if hasattr(reserva, 'deposito') else 0,
-        'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
-        'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
+        # Prints de debug mejorados
+        print("="*50)
+        print("DEBUG VER_RECIBO")
+        print(f"Reserva ID: {reserva_id}")
+        print(f"Cliente: {reserva.cliente.nombre} {reserva.cliente.apellido}")
+        print(f"Propiedad: {reserva.propiedad.direccion}")
+        print(f"Fechas: {reserva.fecha_inicio} - {reserva.fecha_fin}")
+        print(f"Montos: Total={reserva.precio_total}, Seña={reserva.senia}, Saldo={reserva.cuota_pendiente}")
+        print("="*50)
         
-        # Datos del cliente
-        'cliente': {
-            'nombre_completo': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
-            'dni': reserva.cliente.dni,
-            'telefono': reserva.cliente.celular,
-            'domicilio': reserva.cliente.domicilio,
-            'localidad': reserva.cliente.localidad,
-            'provincia': reserva.cliente.provincia,
-            'cuit': reserva.cliente.cuit,
-            'iva': reserva.cliente.tipo_ins
-        },
-        
-        # Datos de la propiedad
-        'propiedad': {
-            'direccion': reserva.propiedad.direccion,
-            'piso': reserva.propiedad.piso if hasattr(reserva.propiedad, 'piso') else '',
-            'departamento': reserva.propiedad.departamento if hasattr(reserva.propiedad, 'departamento') else '',
-            'ficha': reserva.propiedad.ficha if hasattr(reserva.propiedad, 'ficha') else '',
-            'llave': reserva.propiedad.llave if hasattr(reserva.propiedad, 'llave') else '',
-            'wifi': 'SI' if reserva.propiedad.wifi else 'NO',
-            'cochera': 'SI' if reserva.propiedad.cochera else 'NO',
-            'amoblado': reserva.propiedad.ambientes if hasattr(reserva.propiedad, 'amoblado') else '',
-            'comodidades': ', '.join([
-                'Wifi' if reserva.propiedad.wifi else '',
-                'Cochera' if reserva.propiedad.cochera else '',
-                'TV Smart' if reserva.propiedad.tv_smart else '',
-                'Piscina' if reserva.propiedad.piscina else '',
-                'Parrilla' if reserva.propiedad.parrilla else ''
-            ]).strip(', ')
-        },
-        
-        # Datos del vendedor
-        'vendedor': {
-            'nombre_completo': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else ''
+        context = {
+            # Datos básicos del recibo
+            'numero_recibo': f'0007-{reserva.id:06d}',
+            'fecha': fecha_actual.strftime('%d/%m/%Y'),
+            'hora': fecha_actual.strftime('%H:%M'),
+            
+            # Datos de la reserva
+            'reserva': reserva,
+            'operacion': f'{reserva.id:04d}',
+            'precio_total': reserva.precio_total,
+            'senia': reserva.senia,
+            'saldo': reserva.cuota_pendiente,
+            
+            # Datos del cliente
+            'cliente': {
+                'nombre_completo': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
+                'dni': reserva.cliente.dni,
+                'telefono': reserva.cliente.celular,
+                'domicilio': reserva.cliente.domicilio,
+                'localidad': reserva.cliente.localidad,
+                'provincia': reserva.cliente.provincia,
+            },
+            
+            # Datos de la propiedad
+            'propiedad': {
+                'direccion': reserva.propiedad.direccion,
+                'comodidades': ', '.join([
+                    'Wifi' if reserva.propiedad.wifi else '',
+                    'Cochera' if reserva.propiedad.cochera else '',
+                    'TV Smart' if reserva.propiedad.tv_smart else '',
+                    'Piscina' if reserva.propiedad.piscina else '',
+                    'Parrilla' if reserva.propiedad.parrilla else ''
+                ]).strip(', ')
+            },
         }
-    }
-    
-    # Print final del context
-    print("Context completo:", context)
-    
-    return render(request, 'inmobiliaria/reserva/recibo.html', context)
+        
+        # Print del context para debug
+        print("Context completo:")
+        for key, value in context.items():
+            print(f"{key}: {value}")
+        
+        return render(request, 'inmobiliaria/reserva/recibo.html', context)
+        
+    except Exception as e:
+        print(f"Error en ver_recibo: {str(e)}")
+        messages.error(request, f'Error al generar el recibo: {str(e)}')
+        return redirect('inmobiliaria:reservas')
 
 def generar_recibo_pdf(reserva, pago_senia):
     template_name = 'inmobiliaria/reserva/recibo.html'
@@ -1592,10 +1583,65 @@ def cambiar_password(request):
     })
 
 def ver_recibo(request, reserva_id):
-    reserva = get_object_or_404(Reserva, id=reserva_id)
-    return render(request, 'inmobiliaria/reserva/recibo.html', {
-        'reserva': reserva,
-        'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
-        'hora_actual': datetime.now().strftime('%H:%M')
-    })
+    try:
+        reserva = get_object_or_404(Reserva, id=reserva_id)
+        fecha_actual = datetime.now()
+        
+        # Prints de debug mejorados
+        print("="*50)
+        print("DEBUG VER_RECIBO")
+        print(f"Reserva ID: {reserva_id}")
+        print(f"Cliente: {reserva.cliente.nombre} {reserva.cliente.apellido}")
+        print(f"Propiedad: {reserva.propiedad.direccion}")
+        print(f"Fechas: {reserva.fecha_inicio} - {reserva.fecha_fin}")
+        print(f"Montos: Total={reserva.precio_total}, Seña={reserva.senia}, Saldo={reserva.cuota_pendiente}")
+        print("="*50)
+        
+        context = {
+            # Datos básicos del recibo
+            'numero_recibo': f'0007-{reserva.id:06d}',
+            'fecha': fecha_actual.strftime('%d/%m/%Y'),
+            'hora': fecha_actual.strftime('%H:%M'),
+            
+            # Datos de la reserva
+            'reserva': reserva,
+            'operacion': f'{reserva.id:04d}',
+            'precio_total': reserva.precio_total,
+            'senia': reserva.senia,
+            'saldo': reserva.cuota_pendiente,
+            
+            # Datos del cliente
+            'cliente': {
+                'nombre_completo': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
+                'dni': reserva.cliente.dni,
+                'telefono': reserva.cliente.celular,
+                'domicilio': reserva.cliente.domicilio,
+                'localidad': reserva.cliente.localidad,
+                'provincia': reserva.cliente.provincia,
+            },
+            
+            # Datos de la propiedad
+            'propiedad': {
+                'direccion': reserva.propiedad.direccion,
+                'comodidades': ', '.join([
+                    'Wifi' if reserva.propiedad.wifi else '',
+                    'Cochera' if reserva.propiedad.cochera else '',
+                    'TV Smart' if reserva.propiedad.tv_smart else '',
+                    'Piscina' if reserva.propiedad.piscina else '',
+                    'Parrilla' if reserva.propiedad.parrilla else ''
+                ]).strip(', ')
+            },
+        }
+        
+        # Print del context para debug
+        print("Context completo:")
+        for key, value in context.items():
+            print(f"{key}: {value}")
+        
+        return render(request, 'inmobiliaria/reserva/recibo.html', context)
+        
+    except Exception as e:
+        print(f"Error en ver_recibo: {str(e)}")
+        messages.error(request, f'Error al generar el recibo: {str(e)}')
+        return redirect('inmobiliaria:reservas')
 
