@@ -72,19 +72,19 @@ function abrirRecibo() {
             <div style="height: 100%; width: 63%; display: flex; flex-direction: column;   text-align: center;margin-top: 5px;">
                 <div style="width: 80%; text-align: left; margin-left: 10px;">
                     <h4 style="margin: 0; font-size: 10px;">CLIENTE: </h4>    
-                    <div style="display: flex; align-items: center;">
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
                         <span style="min-width: 120px; font-size: 8px;">NOMBRE:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ cliente.nombre_completo }}</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.nombre_completo }}</div>
                     </div>
-                    <div style="display: flex; align-items: center;">
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
                         <span style="min-width: 120px; font-size: 8px;">DOMICILIO:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ cliente.domicilio }}</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.domicilio }}</div>
                     </div>
-                    <div style="display: flex; align-items: center;">
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
                         <span style="min-width: 120px; font-size: 8px;">LOCALIDAD:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ cliente.localidad }}</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.localidad }}</div>
                     </div>
-                    <div style="display: flex; align-items: center;">
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
                         <span style="min-width: 120px; font-size: 8px;">IVA:</span>
                         <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
                     </div>
@@ -94,21 +94,21 @@ function abrirRecibo() {
             <div style="height: 100%; width: 36%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
                 <div style="width: 80%; text-align: left; ">
                     <h4 style="margin: 0; color: transparent; font-size: 10px;      ">CLIENTE: </h4>    
-                    <div style="display: flex; align-items: center; ">
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
                         <span style="min-width: 120px; font-size: 8px;">D.N.I:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ cliente.dni }}</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.dni }}</div>
                     </div>
-                    <div style="display: flex; align-items: center; ">
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
                         <span style="min-width: 120px; font-size: 8px;">TEL:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ cliente.telefono }}</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.telefono }}</div>
                     </div>
-                    <div style="display: flex; align-items: center; ">
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
                         <span style="min-width: 120px; font-size: 8px;">PROVINCIA:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ cliente.provincia }}</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.provincia }}</div>
                     </div>
-                    <div style="display: flex; align-items: center;">
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
                         <span style="min-width: 120px; font-size: 8px;">C.U.I.T:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">
                             {% if cliente.cuit %}{{ cliente.cuit }}{% endif %}
                         </div>
                     </div>
@@ -284,8 +284,8 @@ function abrirRecibo() {
     
                 <!-- La suma de -->
                 <div style="padding: 2; padding-left: 10px; border-top: 1px solid #2d8524; height: 6%;">
-                    <p style="margin: 0; font-size: 9px;">LA SUMA DE:</p>
-                    <div style="border-bottom: 1px dotted black; height: 5px; font-size: 9px;">{{ monto_en_palabras }}</div>
+                    <p style="margin: 0; font-size: 9px;">LA SUMA DE: <u>&nbsp;&nbsp;&nbsp;{{ monto_en_palabras }}&nbsp;&nbsp;&nbsp;</u></p>
+                    <div style="border-bottom: 1px dotted black; height: 5px; font-size: 9px;"></div>
                 </div>
     
                 <!-- Forma de pago -->
