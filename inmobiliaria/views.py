@@ -961,36 +961,33 @@ def ver_recibo(request, reserva_id):
         reserva = get_object_or_404(Reserva, id=reserva_id)
         fecha_actual = datetime.now()
         
-        # Crear descripción formateada con manejo de errores
-        caracteristicas = []
         propiedad = reserva.propiedad
         
-        # Verificar cada atributo antes de usarlo
-        if hasattr(propiedad, 'wifi') and propiedad.wifi:
-            caracteristicas.append('wifi')
-        if hasattr(propiedad, 'cochera') and propiedad.cochera:
-            caracteristicas.append('cochera')
-        if hasattr(propiedad, 'tv_smart') and propiedad.tv_smart:
-            caracteristicas.append('TV Smart')
-        if hasattr(propiedad, 'piscina') and propiedad.piscina:
-            caracteristicas.append('piscina')
-        if hasattr(propiedad, 'parrilla') and propiedad.parrilla:
-            caracteristicas.append('parrilla')
-        if hasattr(propiedad, 'aire_acondicionado') and propiedad.aire_acondicionado:
-            caracteristicas.append('aire acondicionado')
-        if hasattr(propiedad, 'calefaccion') and propiedad.calefaccion:
-            caracteristicas.append('calefacción')
+        # Crear lista de características con SI/NO
+        caracteristicas = []
+        caracteristicas_base = [
+            ('WiFi', propiedad.wifi),
+            ('Cochera', propiedad.cochera),
+            ('TV Smart', propiedad.tv_smart),
+            ('Piscina', propiedad.piscina),
+            ('Parrilla', propiedad.parrilla),
 
-        # Crear descripción con verificación de atributos
+        ]
+        
+        # Convertir cada característica a su formato "Nombre: SI/NO"
+        caracteristicas = [f"{nombre}: {'SI' if valor else 'NO'}" for nombre, valor in caracteristicas_base]
+        
+        # Crear descripción
         vista = getattr(propiedad, 'vista', 'No especificada')
         ambientes = getattr(propiedad, 'ambientes', 'No especificados')
         
         descripcion = f"Vista {vista}, {ambientes} ambientes"
         if caracteristicas:
             descripcion += f" con {', '.join(caracteristicas)}"
-
-        # Convertir el precio total a palabras
-        monto_en_palabras = numero_a_palabras(int(reserva.precio_total))
+        
+        # Print de debug
+        print("Características encontradas:", caracteristicas)
+        print("Descripción generada:", descripcion)
         
         context = {
             # Datos básicos del recibo
@@ -1047,7 +1044,13 @@ def ver_recibo(request, reserva_id):
                 'ficha': getattr(propiedad, 'ficha', ''),
                 'llave': getattr(propiedad, 'llave', ''),
                 'comodidades': ', '.join(caracteristicas),
-                'vista': vista
+                'vista': vista,
+                'wifi': 'SI' if propiedad.wifi else 'NO',
+                'cochera': 'SI' if propiedad.cochera else 'NO',
+                'tv_smart': 'SI' if propiedad.tv_smart else 'NO',
+                'piscina': 'SI' if propiedad.piscina else 'NO',
+                'parrilla': 'SI' if propiedad.parrilla else 'NO',
+          
             },
             
             # Datos del vendedor
