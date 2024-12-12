@@ -49,9 +49,9 @@ function abrirRecibo() {
             </div> 
             <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; margin-top: 5px;">
                 <div style="width: 80%; text-align: left;">
-                    <h1 style="margin: 0; font-size: 10px;">Nº: 0007-567890</h1>    
-                    <h2 style="margin: 0; font-size: 10px;">Fecha: <u>&nbsp;&nbsp;&nbsp;01&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;01&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;2024&nbsp;&nbsp;&nbsp;</u></h2>
-                    <h2 style="margin: 0; font-size: 7px;">Hora: &nbsp;&nbsp;<u>&nbsp;&nbsp;&nbsp;&nbsp;12:00&nbsp;&nbsp;&nbsp;&nbsp;</u></h2>
+                    <h1 style="margin: 0; font-size: 10px;">Nº: {{ numero_recibo }}</h1>    
+                    <h2 style="margin: 0; font-size: 10px;">Fecha: <u>&nbsp;&nbsp;&nbsp;{{ fecha }}&nbsp;&nbsp;&nbsp;</u></h2>
+                    <h2 style="margin: 0; font-size: 7px;">Hora: &nbsp;&nbsp;<u>&nbsp;&nbsp;&nbsp;&nbsp;{{ hora }}&nbsp;&nbsp;&nbsp;&nbsp;</u></h2>
                     <p style="margin: 0; font-size: 7px;">IVA : RESPONSABLE INSCRIPTO</p>
                     <p style="margin: 0; font-size: 7px;">CUIT: 20-10757572-4</p>
                     <p style="margin: 0; font-size: 7px;">ING. BRUTOS: 20-10757572-4</p>
@@ -74,7 +74,7 @@ function abrirRecibo() {
                     <h4 style="margin: 0; font-size: 10px;">CLIENTE: </h4>    
                     <div style="display: flex; align-items: center;">
                         <span style="min-width: 120px; font-size: 8px;">NOMBRE:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">{{ cliente.nombre_completo }}</div>
                     </div>
                     <div style="display: flex; align-items: center;">
                         <span style="min-width: 120px; font-size: 8px;">DOMICILIO:</span>
@@ -96,7 +96,7 @@ function abrirRecibo() {
                     <h4 style="margin: 0; color: transparent; font-size: 10px;      ">CLIENTE: </h4>    
                     <div style="display: flex; align-items: center; ">
                         <span style="min-width: 120px; font-size: 8px;">D.N.I:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">{{ cliente.dni }}</div>
                     </div>
                     <div style="display: flex; align-items: center; ">
                         <span style="min-width: 120px; font-size: 8px;">TEL:</span>
@@ -200,8 +200,8 @@ function abrirRecibo() {
                     </div>
     
                     <div style="width: 28%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                        <h3 style="margin: 0; font-size: 10px; text-align: center;">DESDE: _______________ HORA: 14:00 HS.</h3>
-                        <h3 style="margin: 0; font-size: 10px; text-align: center;">HASTA: _______________ HORA: 09:00 HS.</h3>
+                        <h3 style="margin: 0; font-size: 10px; text-align: center;">DESDE: {{ fecha_inicio }} HORA: 14:00 HS.</h3>
+                        <h3 style="margin: 0; font-size: 10px; text-align: center;">HASTA: {{ fecha_fin }} HORA: 09:00 HS.</h3>
                     </div>
                 </div>
         
