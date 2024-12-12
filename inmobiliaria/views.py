@@ -963,6 +963,9 @@ def ver_recibo(request, reserva_id):
         
         propiedad = reserva.propiedad
         
+        # Convertir el precio total a palabras
+        monto_en_palabras = numero_a_palabras(int(reserva.precio_total))
+        
         # Crear lista de características con SI/NO
         caracteristicas = []
         caracteristicas_base = [
