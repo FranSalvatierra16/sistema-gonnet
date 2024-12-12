@@ -957,117 +957,72 @@ def terminar_reserva(request, reserva_id):
 
 @login_required
 def ver_recibo(request, reserva_id):
-    reserva = get_object_or_404(Reserva, id=reserva_id)
-    fecha_actual = datetime.now()
-    
-    # Crear descripción formateada
-    @login_required
-def ver_recibo(request, reserva_id):
-    reserva = get_object_or_404(Reserva, id=reserva_id)
-    fecha_actual = datetime.now()
-    
-    # Crear descripción formateada
-    monto_en_palabras = numero_a_palabras(int(reserva.precio_total))
-    caracteristicas = []
-    if reserva.propiedad.wifi:
-        caracteristicas.append('wifi')
-    if reserva.propiedad.cochera:
-        caracteristicas.append('cochera')
-    if reserva.propiedad.tv_smart:
-        caracteristicas.append('TV Smart')
-    if reserva.propiedad.piscina:
-        caracteristicas.append('piscina')
-    if reserva.propiedad.parrilla:
-        caracteristicas.append('parrilla')
+    try:
+        reserva = get_object_or_404(Reserva, id=reserva_id)
+        fecha_actual = datetime.now()
+        
+        # Crear descripción formateada con manejo de errores
+        caracteristicas = []
+        propiedad = reserva.propiedad
+        
+        # Verificar cada atributo antes de usarlo
+        if hasattr(propiedad, 'wifi') and propiedad.wifi:
+            caracteristicas.append('wifi')
+        if hasattr(propiedad, 'cochera') and propiedad.cochera:
+            caracteristicas.append('cochera')
+        if hasattr(propiedad, 'tv_smart') and propiedad.tv_smart:
+            caracteristicas.append('TV Smart')
+        if hasattr(propiedad, 'piscina') and propiedad.piscina:
+            caracteristicas.append('piscina')
+        if hasattr(propiedad, 'parrilla') and propiedad.parrilla:
+            caracteristicas.append('parrilla')
+        if hasattr(propiedad, 'aire_acondicionado') and propiedad.aire_acondicionado:
+            caracteristicas.append('aire acondicionado')
+        if hasattr(propiedad, 'calefaccion') and propiedad.calefaccion:
+            caracteristicas.append('calefacción')
 
-
-  
-
-
-    descripcion = f"Vista {reserva.propiedad.vista}, {reserva.propiedad.ambientes} ambientes con {', '.join(caracteristicas)}"
-    
-    context = {
-        # Datos básicos del recibo
-        'numero_recibo': f'0007-{reserva.id:06d}',
-        'fecha': fecha_actual.strftime('%d/%m/%Y'),
-        'hora': fecha_actual.strftime('%H:%M'),
+        # Crear descripción con verificación de atributos
+        vista = getattr(propiedad, 'vista', 'No especificada')
+        ambientes = getattr(propiedad, 'ambientes', 'No especificados')
         
-        # Datos de la reserva
-        'reserva': reserva,
-        'operacion': f'{reserva.id:04d}',
-        'precio_total': reserva.precio_total,
-        'senia': reserva.senia,
-        'saldo': reserva.cuota_pendiente,
-        'deposito': reserva.deposito if hasattr(reserva, 'deposito') else 0,
-        'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
-        'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
+        descripcion = f"Vista {vista}, {ambientes} ambientes"
+        if caracteristicas:
+            descripcion += f" con {', '.join(caracteristicas)}"
         
-        # Datos del cliente
-        'cliente': {
-            'nombre_completo': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
-            'dni': reserva.cliente.dni,
-            'telefono': reserva.cliente.celular,
-            'domicilio': reserva.cliente.domicilio,
-            'localidad': reserva.cliente.localidad,
-            'provincia': reserva.cliente.provincia,
-            'cuit': reserva.cliente.cuit if reserva.cliente.cuit not in [None, ''] else '',  # Si es None o vacío, devuelve string vacío
-            'iva': reserva.cliente.tipo_ins
-        },
+        # Print de debug
+        print("Descripción generada:", descripcion)
         
-        # Datos completos de la propiedad
-        'propiedad': {
-            'id': reserva.propiedad.id,
-            'direccion': reserva.propiedad.direccion,
+        context = {
+            # Datos básicos del recibo
+            'numero_recibo': f'0007-{reserva.id:06d}',
+            'fecha': fecha_actual.strftime('%d/%m/%Y'),
+            'hora': fecha_actual.strftime('%H:%M'),
             
-            'piso': reserva.propiedad.piso,
-            'departamento': reserva.propiedad.departamento,
-           
-            'tipo_propiedad': reserva.propiedad.tipo_inmueble,
-           
-            'ambientes': reserva.propiedad.ambientes,
+            # Datos de la reserva
+            'reserva': reserva,
+            'operacion': f'{reserva.id:04d}',
+            'precio_total': reserva.precio_total,
+            'senia': reserva.senia,
+            'saldo': reserva.cuota_pendiente,
+            'deposito': getattr(reserva, 'deposito', 0),
+            'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
+            'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
             
-           
-            'descripcion': reserva.propiedad.descripcion,
+            # Descripción generada
+            'descripcion': descripcion,
             
+            # ... resto del context ...
+        }
         
-          
-            'propietario': reserva.propiedad.propietario.nombre if reserva.propiedad.propietario else '',
-            'ficha': reserva.propiedad.ficha if hasattr(reserva.propiedad, 'ficha') else '',
-            'llave': reserva.propiedad.llave if hasattr(reserva.propiedad, 'llave') else '',
-            
-            # Comodidades
-            'wifi': 'SI' if reserva.propiedad.wifi else 'NO',
-            'cochera': 'SI' if reserva.propiedad.cochera else 'NO',
-            'tv_smart': 'SI' if reserva.propiedad.tv_smart else 'NO',
-            'piscina': 'SI' if reserva.propiedad.piscina else 'NO',
-            'parrilla': 'SI' if reserva.propiedad.parrilla else 'NO',
-   
-           
-            # String de comodidades concatenadas
-            'comodidades': ', '.join(filter(None, [
-                'Wifi' if reserva.propiedad.wifi else '',
-                'Cochera' if reserva.propiedad.cochera else '',
-                'TV Smart' if reserva.propiedad.tv_smart else '',
-                'Piscina' if reserva.propiedad.piscina else '',
-                'Parrilla' if reserva.propiedad.parrilla else '',
-               
-            ]))
-        },
+        # Print de debug del context completo
+        print("Context completo:", context)
         
-        # Datos del vendedor
-        'vendedor': {
-            'nombre_completo': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else '',
-            'dni': reserva.vendedor.dni if reserva.vendedor else '',
-            'telefono': reserva.vendedor.celular if reserva.vendedor else ''
-        },
-        'monto_en_palabras': monto_en_palabras,
+        return render(request, 'inmobiliaria/reserva/recibo.html', context)
         
-    }
-    
-    # Print final del context
-    print("Context completo:", context)
-    
-    return render(request, 'inmobiliaria/reserva/recibo.html', context)
+    except Exception as e:
+        print(f"Error en ver_recibo: {str(e)}")
+        messages.error(request, f'Error al generar el recibo: {str(e)}')
+        return redirect('inmobiliaria:buscar_propiedades')
 
 def generar_recibo_pdf(reserva, pago_senia):
     template_name = 'inmobiliaria/reserva/recibo.html'
