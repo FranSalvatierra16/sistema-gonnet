@@ -987,7 +987,7 @@ def ver_recibo(request, reserva_id):
             'domicilio': reserva.cliente.domicilio,
             'localidad': reserva.cliente.localidad,
             'provincia': reserva.cliente.provincia,
-            'cuit': reserva.cliente.cuit,
+            'cuit': reserva.cliente.cuit if reserva.cliente.cuit not in [None, ''] else '',  # Si es None o vacío, devuelve string vacío
             'iva': reserva.cliente.tipo_ins
         },
         

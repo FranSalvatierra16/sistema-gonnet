@@ -74,15 +74,15 @@ function abrirRecibo() {
                     <h4 style="margin: 0; font-size: 10px;">CLIENTE: </h4>    
                     <div style="display: flex; align-items: center;">
                         <span style="min-width: 120px; font-size: 8px;">NOMBRE:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">{{ cliente.nombre_completo }}</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ cliente.nombre_completo }}</div>
                     </div>
                     <div style="display: flex; align-items: center;">
                         <span style="min-width: 120px; font-size: 8px;">DOMICILIO:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">{{ cliente.domicilio }}</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ cliente.domicilio }}</div>
                     </div>
                     <div style="display: flex; align-items: center;">
                         <span style="min-width: 120px; font-size: 8px;">LOCALIDAD:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">{{ cliente.localidad }};</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ cliente.localidad }}</div>
                     </div>
                     <div style="display: flex; align-items: center;">
                         <span style="min-width: 120px; font-size: 8px;">IVA:</span>
@@ -96,19 +96,21 @@ function abrirRecibo() {
                     <h4 style="margin: 0; color: transparent; font-size: 10px;      ">CLIENTE: </h4>    
                     <div style="display: flex; align-items: center; ">
                         <span style="min-width: 120px; font-size: 8px;">D.N.I:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">{{ cliente.dni }}</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ cliente.dni }}</div>
                     </div>
                     <div style="display: flex; align-items: center; ">
                         <span style="min-width: 120px; font-size: 8px;">TEL:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">{{ cliente.telefono }}</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ cliente.telefono }}</div>
                     </div>
                     <div style="display: flex; align-items: center; ">
                         <span style="min-width: 120px; font-size: 8px;">PROVINCIA:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">{{ cliente.provincia }}</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ cliente.provincia }}</div>
                     </div>
-                    <div style="display: flex; align-items: center; ">
+                    <div style="display: flex; align-items: center;">
                         <span style="min-width: 120px; font-size: 8px;">C.U.I.T:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">{{ cliente.cuit }}</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">
+                            {% if cliente.cuit %}{{ cliente.cuit }}{% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -121,11 +123,11 @@ function abrirRecibo() {
                     <h4 style="margin: 0; font-size: 10px;">PROPIEDAD: </h4>    
                     <div style="display: flex; align-items: center;         ">
                         <span style="min-width: 120px; font-size: 8px;">DIRECCION:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">{{propiedad.direccion}};</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ propiedad.direccion }}</div>
                     </div>
                     <div style="display: flex; align-items: center; ">
                         <span style="min-width: 120px; font-size: 8px;">COMODIDADES:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">{{propiedad.comodidades}}</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ propiedad.comodidades }}</div>
                     </div>
     
                     <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -177,25 +179,25 @@ function abrirRecibo() {
             <div style="width: 100%; display: flex; flex-direction: column; height: 12%;">
                 <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d8524; height: 100%;">
                     <div style="display: flex; flex-wrap: wrap; width: 72%;">
-                        <div style="width: 18%; height: 100%; border-right: 1px solid #2d8524; border-bottom: 1px solid #2d8524; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-                            <h3 style="margin: 0; width: 100%; font-size: 7px;">Precio</h3>
-                            <div style="border-bottom: 1px solid #2d8524; height: 1px; width: 100%;"></div>
-                            <h3 style="margin: 0; width: 100%; font-size: 7px;">{{reserva.precio_total}}</h3>
+                        <div style="width: 18%; text-align: center;">
+                            <h3 style="margin: 0; font-size: 7px;">Precio</h3>
+                            <div style="border-bottom: 1px solid #2d8524;"></div>
+                            <h3 style="margin: 0; font-size: 7px;">{{ reserva.precio_total }}</h3>
                         </div>
-                        <div style="width: 18%; height: 100%; border-right: 1px solid #2d8524; border-bottom: 1px solid #2d8524; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-                            <h3 style="margin: 0; width: 100%; font-size: 7px;">SEÑA</h3>
-                            <div style="border-bottom: 1px solid #2d8524; height: 1px; width: 100%;"></div>
-                            <h3 style="margin: 0; width: 100%; font-size: 7px;">{{reserva.senia}}</h3>
+                        <div style="width: 18%; text-align: center;">
+                            <h3 style="margin: 0; font-size: 7px;">SEÑA</h3>
+                            <div style="border-bottom: 1px solid #2d8524;"></div>
+                            <h3 style="margin: 0; font-size: 7px;">{{ reserva.senia }}</h3>
                         </div>
-                        <div style="width: 18%; height: 100%; border-right: 1px solid #2d8524; border-bottom: 1px solid #2d8524; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-                            <h3 style="margin: 0; width: 100%; font-size: 7px;">SALDO</h3>
-                            <div style="border-bottom: 1px solid #2d8524; height: 1px; width: 100%;"></div>
-                            <h3 style="margin: 0; width: 100%; font-size: 7px;">{{reserva.cuota_pendiente}}</h3>
+                        <div style="width: 18%; text-align: center;">
+                            <h3 style="margin: 0; font-size: 7px;">SALDO</h3>
+                            <div style="border-bottom: 1px solid #2d8524;"></div>
+                            <h3 style="margin: 0; font-size: 7px;">{{ reserva.cuota_pendiente }}</h3>
                         </div>
-                        <div style="width: 18%; height: 100%; border-right: 1px solid #2d8524; border-bottom: 1px solid #2d8524; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-                            <h3 style="margin: 0; width: 100%; font-size: 7px;">DEPOSITO GARANTIA</h3>
-                            <div style="border-bottom: 1px solid #2d8524; height: 1px; width: 100%;"></div>
-                            <h3 style="margin: 0; width: 100%; font-size: 7px;">{{reserva.deposito_garantia}}</h3>
+                        <div style="width: 18%; text-align: center;">
+                            <h3 style="margin: 0; font-size: 7px;">DEPOSITO GARANTIA</h3>
+                            <div style="border-bottom: 1px solid #2d8524;"></div>
+                            <h3 style="margin: 0; font-size: 7px;">{{ reserva.deposito_garantia }}</h3>
                         </div>
                     </div>
     
@@ -229,7 +231,7 @@ function abrirRecibo() {
                       
                     </div>
                     <div style="display: flex; width: 20%; justify-content: center;border-left: 1px solid #2d8524;">
-                        <div style="width: 15%; padding: 3px; border-right: 1px solid transparent; font-size: 9px;">{{reserva.precio_total}}</div>
+                        <div style="width: 15%; padding: 3px; border-right: 1px solid transparent; font-size: 9px;">{{ reserva.precio_total }}</div>
                        
                       
                     </div>
@@ -269,7 +271,7 @@ function abrirRecibo() {
                     <div style="display: flex; flex-direction: column; border: 1px solid #2d8524; width: 20%;height: 100%;">
                       
                         <div style="padding: 2px; border-bottom: 1px solid #2d8524; border-left: 1px solid #2d8524;height: 100%;display: flex; justify-content: center; align-items: center;">
-                            <span style="font-size: 7px;">{{reserva.precio_total}}</span>
+                            <span style="font-size: 7px;">{{ reserva.precio_total }}</span>
                         </div>
                      
                     </div>
@@ -283,7 +285,7 @@ function abrirRecibo() {
                 <!-- La suma de -->
                 <div style="padding: 2; padding-left: 10px; border-top: 1px solid #2d8524; height: 6%;">
                     <p style="margin: 0; font-size: 9px;">LA SUMA DE:</p>
-                    <div style="border-bottom: 1px dotted black; height: 5px;">{{ monto_en_palabras }}</div>
+                    <div style="border-bottom: 1px dotted black; height: 5px; font-size: 9px;">{{ monto_en_palabras }}</div>
                 </div>
     
                 <!-- Forma de pago -->
