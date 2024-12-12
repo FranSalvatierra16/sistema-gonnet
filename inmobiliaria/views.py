@@ -959,7 +959,16 @@ def ver_recibo(request, reserva_id):
     reserva = get_object_or_404(Reserva, id=reserva_id)
     fecha_actual = datetime.now()
     
-    # Crear un diccionario con todos los datos necesarios
+    # Prints de debug
+    print("Reserva ID:", reserva_id)
+    print("Cliente:", reserva.cliente.nombre, reserva.cliente.apellido)
+    print("Propiedad:", reserva.propiedad.direccion)
+    print("Montos:", {
+        'total': reserva.precio_total,
+        'seña': reserva.senia,
+        'saldo': reserva.cuota_pendiente
+    })
+    
     context = {
         # Datos básicos del recibo
         'numero_recibo': f'0007-{reserva.id:06d}',  # Formato: 0007-000123
@@ -997,7 +1006,7 @@ def ver_recibo(request, reserva_id):
             'llave': reserva.propiedad.llave if hasattr(reserva.propiedad, 'llave') else '',
             'wifi': 'SI' if reserva.propiedad.wifi else 'NO',
             'cochera': 'SI' if reserva.propiedad.cochera else 'NO',
-            'amoblado': reserva.propiedad.capacidad_personas if hasattr(reserva.propiedad, 'capacidad_personas') else '',
+            'amoblado': reserva.propiedad.ambientes if hasattr(reserva.propiedad, 'amoblado') else '',
             'comodidades': ', '.join([
                 'Wifi' if reserva.propiedad.wifi else '',
                 'Cochera' if reserva.propiedad.cochera else '',
@@ -1012,6 +1021,9 @@ def ver_recibo(request, reserva_id):
             'nombre_completo': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else ''
         }
     }
+    
+    # Print final del context
+    print("Context completo:", context)
     
     return render(request, 'inmobiliaria/reserva/recibo.html', context)
 
