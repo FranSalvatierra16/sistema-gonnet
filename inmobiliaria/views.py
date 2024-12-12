@@ -998,21 +998,16 @@ def ver_recibo(request, reserva_id):
             
             'piso': reserva.propiedad.piso,
             'departamento': reserva.propiedad.departamento,
-            'localidad': reserva.propiedad.localidad,
-            'provincia': reserva.propiedad.provincia,
-            'codigo_postal': reserva.propiedad.codigo_postal,
-            'tipo_propiedad': reserva.propiedad.tipo_propiedad,
-            'superficie': reserva.propiedad.superficie,
+           
+            'tipo_propiedad': reserva.propiedad.tipo_inmueble,
+           
             'ambientes': reserva.propiedad.ambientes,
-            'dormitorios': reserva.propiedad.dormitorios,
-            'baños': reserva.propiedad.baños,
-            'garage': reserva.propiedad.garage,
+            
+           
             'descripcion': reserva.propiedad.descripcion,
-            'precio': reserva.propiedad.precio,
-            'moneda': reserva.propiedad.moneda,
-            'estado': reserva.propiedad.estado,
-            'disponibilidad': reserva.propiedad.disponibilidad,
-            'fecha_publicacion': reserva.propiedad.fecha_publicacion,
+            
+        
+          
             'propietario': reserva.propiedad.propietario.nombre if reserva.propiedad.propietario else '',
             'ficha': reserva.propiedad.ficha if hasattr(reserva.propiedad, 'ficha') else '',
             'llave': reserva.propiedad.llave if hasattr(reserva.propiedad, 'llave') else '',
@@ -1023,10 +1018,8 @@ def ver_recibo(request, reserva_id):
             'tv_smart': 'SI' if reserva.propiedad.tv_smart else 'NO',
             'piscina': 'SI' if reserva.propiedad.piscina else 'NO',
             'parrilla': 'SI' if reserva.propiedad.parrilla else 'NO',
-            'aire_acondicionado': 'SI' if reserva.propiedad.aire_acondicionado else 'NO',
-            'calefaccion': 'SI' if reserva.propiedad.calefaccion else 'NO',
-            'capacidad_personas': reserva.propiedad.capacidad_personas if hasattr(reserva.propiedad, 'capacidad_personas') else '',
-            
+   
+           
             # String de comodidades concatenadas
             'comodidades': ', '.join(filter(None, [
                 'Wifi' if reserva.propiedad.wifi else '',
@@ -1034,8 +1027,7 @@ def ver_recibo(request, reserva_id):
                 'TV Smart' if reserva.propiedad.tv_smart else '',
                 'Piscina' if reserva.propiedad.piscina else '',
                 'Parrilla' if reserva.propiedad.parrilla else '',
-                'Aire Acondicionado' if reserva.propiedad.aire_acondicionado else '',
-                'Calefacción' if reserva.propiedad.calefaccion else ''
+               
             ]))
         },
         
