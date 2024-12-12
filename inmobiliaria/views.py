@@ -995,7 +995,7 @@ def ver_recibo(request, reserva_id):
         'propiedad': {
             'id': reserva.propiedad.id,
             'direccion': reserva.propiedad.direccion,
-            'numero': reserva.propiedad.numero,
+            
             'piso': reserva.propiedad.piso,
             'departamento': reserva.propiedad.departamento,
             'localidad': reserva.propiedad.localidad,
