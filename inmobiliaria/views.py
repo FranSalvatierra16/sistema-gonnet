@@ -981,26 +981,6 @@ def ver_recibo(request, reserva_id):
         caracteristicas.append('parrilla')
 
 
-    descripcion = f"Vista {reserva.propiedad.vista}, {reserva.propiedad.ambientes} ambientes con {', '.join(caracteristicas)}"
-    
-    context = {
-        # ... resto del context ...
-        'descripcion': descripcion,
-        # ... resto del context ...
-    }
-    
-    return render(request, 'inmobiliaria/reserva/recibo.html', context)
-    caracteristicas = []
-    if reserva.propiedad.wifi:
-        caracteristicas.append('wifi')
-    if reserva.propiedad.cochera:
-        caracteristicas.append('cochera')
-    if reserva.propiedad.tv_smart:
-        caracteristicas.append('TV Smart')
-    if reserva.propiedad.piscina:
-        caracteristicas.append('piscina')
-    if reserva.propiedad.parrilla:
-        caracteristicas.append('parrilla')
   
 
 
