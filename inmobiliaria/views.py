@@ -972,10 +972,8 @@ def ver_recibo(request, reserva_id):
         caracteristicas.append('piscina')
     if reserva.propiedad.parrilla:
         caracteristicas.append('parrilla')
-    if reserva.propiedad.aire_acondicionado:
-        caracteristicas.append('aire acondicionado')
-    if reserva.propiedad.calefaccion:
-        caracteristicas.append('calefacción')
+  
+
 
     descripcion = f"Vista {reserva.propiedad.vista}, {reserva.propiedad.ambientes} ambientes con {', '.join(caracteristicas)}"
     
