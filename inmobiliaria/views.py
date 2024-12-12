@@ -960,8 +960,24 @@ def ver_recibo(request, reserva_id):
     reserva = get_object_or_404(Reserva, id=reserva_id)
     fecha_actual = datetime.now()
     
-    # Convertir el precio total a palabras
-    monto_en_palabras = numero_a_palabras(int(reserva.precio_total))
+    # Crear descripción formateada
+    caracteristicas = []
+    if reserva.propiedad.wifi:
+        caracteristicas.append('wifi')
+    if reserva.propiedad.cochera:
+        caracteristicas.append('cochera')
+    if reserva.propiedad.tv_smart:
+        caracteristicas.append('TV Smart')
+    if reserva.propiedad.piscina:
+        caracteristicas.append('piscina')
+    if reserva.propiedad.parrilla:
+        caracteristicas.append('parrilla')
+    if reserva.propiedad.aire_acondicionado:
+        caracteristicas.append('aire acondicionado')
+    if reserva.propiedad.calefaccion:
+        caracteristicas.append('calefacción')
+
+    descripcion = f"Vista {reserva.propiedad.vista}, {reserva.propiedad.ambientes} ambientes con {', '.join(caracteristicas)}"
     
     context = {
         # Datos básicos del recibo
@@ -1038,6 +1054,7 @@ def ver_recibo(request, reserva_id):
             'telefono': reserva.vendedor.celular if reserva.vendedor else ''
         },
         'monto_en_palabras': monto_en_palabras,
+        
     }
     
     # Print final del context
