@@ -988,9 +988,9 @@ def ver_recibo(request, reserva_id):
         descripcion = f"Vista {vista}, {ambientes} ambientes"
         if caracteristicas:
             descripcion += f" con {', '.join(caracteristicas)}"
-        
-        # Print de debug
-        print("Descripción generada:", descripcion)
+
+        # Convertir el precio total a palabras
+        monto_en_palabras = numero_a_palabras(int(reserva.precio_total))
         
         context = {
             # Datos básicos del recibo
@@ -1007,15 +1007,56 @@ def ver_recibo(request, reserva_id):
             'deposito': getattr(reserva, 'deposito', 0),
             'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
             'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
+            'monto_en_palabras': monto_en_palabras,
             
-            # Descripción generada
-            'descripcion': descripcion,
+            # Datos del cliente
+            'cliente': {
+                'nombre_completo': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
+                'dni': reserva.cliente.dni,
+                'telefono': reserva.cliente.celular,
+                'domicilio': reserva.cliente.domicilio,
+                'localidad': reserva.cliente.localidad,
+                'provincia': reserva.cliente.provincia,
+                'cuit': reserva.cliente.cuit if reserva.cliente.cuit not in [None, ''] else '',
+                'iva': reserva.cliente.tipo_ins
+            },
             
-            # ... resto del context ...
+            # Datos de la propiedad
+            'propiedad': {
+                'id': propiedad.id,
+                'direccion': propiedad.direccion,
+                'numero': getattr(propiedad, 'numero', ''),
+                'piso': getattr(propiedad, 'piso', ''),
+                'departamento': getattr(propiedad, 'departamento', ''),
+                'localidad': getattr(propiedad, 'localidad', ''),
+                'provincia': getattr(propiedad, 'provincia', ''),
+                'codigo_postal': getattr(propiedad, 'codigo_postal', ''),
+                'tipo_propiedad': getattr(propiedad, 'tipo_propiedad', ''),
+                'superficie': getattr(propiedad, 'superficie', ''),
+                'ambientes': ambientes,
+                'dormitorios': getattr(propiedad, 'dormitorios', ''),
+                'baños': getattr(propiedad, 'baños', ''),
+                'garage': getattr(propiedad, 'garage', ''),
+                'descripcion': descripcion,
+                'precio': getattr(propiedad, 'precio', ''),
+                'moneda': getattr(propiedad, 'moneda', ''),
+                'estado': getattr(propiedad, 'estado', ''),
+                'disponibilidad': getattr(propiedad, 'disponibilidad', ''),
+                'fecha_publicacion': getattr(propiedad, 'fecha_publicacion', ''),
+                'propietario': propiedad.propietario.nombre if getattr(propiedad, 'propietario', None) else '',
+                'ficha': getattr(propiedad, 'ficha', ''),
+                'llave': getattr(propiedad, 'llave', ''),
+                'comodidades': ', '.join(caracteristicas),
+                'vista': vista
+            },
+            
+            # Datos del vendedor
+            'vendedor': {
+                'nombre_completo': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else '',
+                'dni': getattr(reserva.vendedor, 'dni', '') if reserva.vendedor else '',
+                'telefono': getattr(reserva.vendedor, 'celular', '') if reserva.vendedor else ''
+            }
         }
-        
-        # Print de debug del context completo
-        print("Context completo:", context)
         
         return render(request, 'inmobiliaria/reserva/recibo.html', context)
         
