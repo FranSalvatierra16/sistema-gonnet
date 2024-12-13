@@ -938,7 +938,12 @@ def terminar_reserva(request, reserva_id):
     reserva = get_object_or_404(Reserva, id=reserva_id)
     conceptos_pago = ConceptoPago.objects.all()
     pagos_previos = Pago.objects.filter(reserva=reserva).order_by('-fecha')
-    print('los pagos previos son ',reserva.cuota_pendiente)
+    
+    # Inicializar o actualizar cuota_pendiente si es necesario
+    if reserva.cuota_pendiente is None or reserva.cuota_pendiente == 0:
+        reserva.cuota_pendiente = reserva.precio_total
+        reserva.save()
+    
     if request.method == 'POST':
         try:
             with transaction.atomic():
@@ -965,9 +970,8 @@ def terminar_reserva(request, reserva_id):
                     forma_pago=forma_pago,
                     concepto=concepto
                 )
-                print('',)
                 
-                # Actualizar montos de la reserva
+                # Calcular total pagado y actualizar saldo pendiente
                 total_pagado = Pago.objects.filter(reserva=reserva).aggregate(
                     total=models.Sum('monto'))['total'] or Decimal('0')
                 
@@ -975,6 +979,10 @@ def terminar_reserva(request, reserva_id):
                 reserva.senia = total_pagado
                 reserva.deposito = deposito
                 reserva.cuota_pendiente = reserva.precio_total - total_pagado
+                
+                print(f"Debug - Precio Total: {reserva.precio_total}")
+                print(f"Debug - Total Pagado: {total_pagado}")
+                print(f"Debug - Cuota Pendiente: {reserva.cuota_pendiente}")
                 
                 # Actualizar estado según el saldo pendiente
                 if reserva.cuota_pendiente <= 0:
@@ -986,7 +994,6 @@ def terminar_reserva(request, reserva_id):
                 
                 reserva.save()
                 
-                # Devolver respuesta JSON para el AJAX
                 return JsonResponse({
                     'success': True,
                     'message': 'Pago registrado exitosamente',
@@ -1004,14 +1011,17 @@ def terminar_reserva(request, reserva_id):
                 'message': str(e)
             })
     
-    # Si no es POST, mostrar la página de confirmación de reserva
+    # Calcular saldo pendiente actual para el contexto
+    total_pagado = sum(pago.monto for pago in pagos_previos)
+    saldo_pendiente = reserva.precio_total - total_pagado
+    
     context = {
         'reserva': reserva,
         'conceptos_pago': conceptos_pago,
         'pagos_previos': pagos_previos,
         'formas_pago': Pago.FORMA_PAGO_CHOICES,
-        'total_pagado': sum(pago.monto for pago in pagos_previos),
-        'saldo_pendiente': reserva.cuota_pendiente
+        'total_pagado': total_pagado,
+        'saldo_pendiente': saldo_pendiente
     }
     
     return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
