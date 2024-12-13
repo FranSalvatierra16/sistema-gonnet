@@ -381,13 +381,20 @@ class Pago(models.Model):
     ]
     
     reserva = models.ForeignKey('Reserva', on_delete=models.CASCADE, related_name='pagos')
+    codigo = models.CharField(max_length=10, unique=True, editable=False)
     fecha = models.DateField(auto_now_add=True)
+    concepto = models.CharField(max_length=255)
     forma_pago = models.CharField(max_length=20, choices=FORMA_PAGO_CHOICES)
-    importe = models.DecimalField(max_digits=10, decimal_places=2)
-    concepto = models.CharField(max_length=255, blank=True)
+    monto = models.DecimalField(max_digits=10, decimal_places=2)
     
+    def save(self, *args, **kwargs):
+        if not self.codigo:
+            # Generar código único: PAG-XXXXX
+            self.codigo = f"PAG-{str(uuid.uuid4())[:5].upper()}"
+        super().save(*args, **kwargs)
+
     class Meta:
         ordering = ['-fecha']
 
     def __str__(self):
-        return f"Pago {self.forma_pago} - ${self.importe} - {self.fecha}"
+        return f"{self.codigo} - {self.concepto} - ${self.monto}"
