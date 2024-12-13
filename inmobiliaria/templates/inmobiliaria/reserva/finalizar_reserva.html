@@ -24,12 +24,53 @@
     </div>
 </div>
 
+<!-- Historial de pagos -->
+{% if pagos_previos %}
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Pagos Realizados</h5>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Forma de Pago</th>
+                    <th>Concepto</th>
+                    <th>Importe</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pago in pagos_previos %}
+                <tr>
+                    <td>{{ pago.fecha }}</td>
+                    <td>{{ pago.get_forma_pago_display }}</td>
+                    <td>{{ pago.concepto }}</td>
+                    <td>${{ pago.importe }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <!-- Formulario para finalizar la reserva -->
 <form method="post" action="{% url 'inmobiliaria:finalizar_reserva' reserva.id %}" id="finalizarReservaForm">
     {% csrf_token %}
     <div class="form-group">
-        <label for="pago_senia">Pago de Seña:</label>
+        <label for="pago_senia">Importe a Pagar:</label>
         <input type="number" step="0.01" class="form-control" id="pago_senia" name="pago_senia" required>
+    </div>
+    <div class="form-group">
+        <label for="forma_pago">Forma de Pago:</label>
+        <select class="form-control" id="forma_pago" name="forma_pago" required>
+            <option value="efectivo">Efectivo</option>
+            <option value="transferencia">Transferencia</option>
+            <option value="tarjeta">Tarjeta</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="concepto">Concepto:</label>
+        <input type="text" class="form-control" id="concepto" name="concepto" placeholder="Ej: Seña, Pago parcial, Saldo final">
     </div>
     <div class="form-group">
         <label for="deposito">Depósito:</label>
@@ -58,11 +99,11 @@
                 <p><strong>Cliente:</strong> {{ reserva.cliente.get_full_name }}</p>
                 <p><strong>Fecha de Reserva:</strong> {{ reserva.fecha_inicio }} - {{ reserva.fecha_fin }}</p>
                 <p><strong>Pago Total:</strong> {{ reserva.precio_total }} USD</p>
-                <p><strong>Cuota Pagada:</strong> {{ reserva.senia }} USD</p>
-                <p><strong>Pago Pendiente:</strong> {{ reserva.cuota_pendiente }} USD</p>
+                <p><strong>Forma de Pago:</strong> {{ forma_pago }}</p>
+                <p><strong>Concepto:</strong> {{ concepto }}</p>
                 <p><strong>Monto Pagado:</strong> {{ pago_senia }} USD</p>
                 <p><strong>Depósito:</strong> {{ reserva.deposito }} USD</p>
-                <p><strong>Cuota Restante:</strong> {{ reserva.cuota_pendiente|floatformat:2 }} USD</p>
+                <p><strong>Saldo Restante:</strong> {{ reserva.cuota_pendiente|floatformat:2 }} USD</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>

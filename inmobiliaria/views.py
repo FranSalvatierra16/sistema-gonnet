@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
@@ -1087,40 +1087,60 @@ def generar_recibo_pdf(reserva, pago_senia):
     else:
         return pdf_buffer.getvalue()
 def realizar_pago(request, reserva_id):
-    # Obtener la reserva a partir del ID
     reserva = get_object_or_404(Reserva, id=reserva_id)
-
+    
     if request.method == 'POST':
-        # Obtener el monto del pago ingresado en el formulario
-        pago = Decimal(request.POST.get('pago', '0.00'))
-
-        if pago <= 0:
-            messages.error(request, 'El monto del pago debe ser mayor que cero.')
+        try:
+            # Obtener datos del formulario
+            importe = Decimal(request.POST.get('importe', '0'))
+            forma_pago = request.POST.get('forma_pago')
+            concepto = request.POST.get('concepto', '')
+            
+            if importe <= 0:
+                messages.error(request, 'El importe debe ser mayor que cero.')
+                return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva.id)
+            
+            # Verificar que el pago no exceda el saldo pendiente
+            if importe > reserva.cuota_pendiente:
+                messages.error(request, 'El importe no puede ser mayor al saldo pendiente.')
+                return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva.id)
+            
+            # Crear el pago
+            pago = Pago.objects.create(
+                reserva=reserva,
+                importe=importe,
+                forma_pago=forma_pago,
+                concepto=concepto
+            )
+            
+            # Actualizar la seña y la cuota pendiente de la reserva
+            reserva.senia += importe
+            reserva.cuota_pendiente = reserva.precio_total - reserva.senia
+            
+            # Si ya no hay saldo pendiente, marcar como pagada
+            if reserva.cuota_pendiente <= 0:
+                reserva.estado = 'pagada'
+                messages.success(request, 'Reserva completamente pagada.')
+            else:
+                messages.success(request, f'Pago registrado. Saldo pendiente: ${reserva.cuota_pendiente}')
+            
+            reserva.save()
+            
+            # Redirigir al recibo
+            return redirect('inmobiliaria:ver_recibo', reserva_id=reserva.id)
+            
+        except Exception as e:
+            messages.error(request, f'Error al procesar el pago: {str(e)}')
             return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva.id)
-
-        # Actualizar la seña y la cuota pendiente
-        reserva.senia += pago
-
-        # Calcular la cuota pendiente
-        reserva.cuota_pendiente = reserva.precio_total - reserva.senia
-
-        if reserva.cuota_pendiente <= 0:
-            # Si la cuota pendiente es 0 o menor, marcar la reserva como 'realizada'
-            reserva.estado = 'realizada'
-            reserva.cuota_pendiente = 0  # Asegurarse de que no quede negativo
-            messages.success(request, 'La reserva ha sido completada y está totalmente pagada.')
-        else:
-            # Si queda saldo pendiente, mostrar el saldo restante
-            messages.info(request, f'Pago recibido. Saldo pendiente: {reserva.cuota_pendiente:.2f} USD.')
-
-        # Guardar los cambios en la reserva
-        reserva.save()
-
-        # Redirigir al listado de reservas o a alguna página de confirmación
-        return redirect('inmobiliaria:reservas')
-
-    # Si es una solicitud GET, mostrar la página de finalizar reserva
-    return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', {'reserva': reserva})
+    
+    # Si es GET, mostrar formulario
+    context = {
+        'reserva': reserva,
+        'formas_pago': Pago.FORMA_PAGO_CHOICES,
+        'pagos_previos': reserva.pagos.all()  # Lista de pagos previos
+    }
+    
+    return render(request, 'inmobiliaria/reserva/realizar_pago.html', context)
 
 PrecioFormSet = inlineformset_factory(
     Propiedad,  # Modelo padre

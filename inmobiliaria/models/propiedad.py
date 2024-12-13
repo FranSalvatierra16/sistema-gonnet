@@ -372,3 +372,22 @@ class Precio(models.Model):
             self.precio_total = round(base_price, 2) if base_price is not None else None
 
         super().save(*args, **kwargs)
+
+class Pago(models.Model):
+    FORMA_PAGO_CHOICES = [
+        ('efectivo', 'Efectivo'),
+        ('transferencia', 'Transferencia'),
+        ('tarjeta', 'Tarjeta')
+    ]
+    
+    reserva = models.ForeignKey('Reserva', on_delete=models.CASCADE, related_name='pagos')
+    fecha = models.DateField(auto_now_add=True)
+    forma_pago = models.CharField(max_length=20, choices=FORMA_PAGO_CHOICES)
+    importe = models.DecimalField(max_digits=10, decimal_places=2)
+    concepto = models.CharField(max_length=255, blank=True)
+    
+    class Meta:
+        ordering = ['-fecha']
+
+    def __str__(self):
+        return f"Pago {self.forma_pago} - ${self.importe} - {self.fecha}"
