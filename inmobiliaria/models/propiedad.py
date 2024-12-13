@@ -8,6 +8,7 @@ from django.utils.timezone import now
 import datetime
 from .persona import Propietario, Inquilino, Vendedor
 from .sucursal import Sucursal
+import uuid
 
 # Definiciones de tipos de vista, valoración e inmuebles
 TIPOS_VISTA = [
@@ -201,9 +202,9 @@ class Reserva(models.Model):
     fecha_creacion = models.DateTimeField(default=now)
     vendedor = models.ForeignKey(Vendedor, on_delete=models.SET_NULL, null=True, related_name='reservas_vendedor')
     cliente = models.ForeignKey(Inquilino, on_delete=models.SET_NULL, null=True, related_name='reservas_cliente')
-    precio_total = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     senia = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    cuota_pendiente = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    cuota_pendiente = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     estado = models.CharField(max_length=20, choices=[('en_espera', 'En Espera'), ('confirmada', 'Confirmada'), ('pagada', 'Pagada')], default='en_espera')
     sucursal = models.ForeignKey(
         'Sucursal',  # Asegúrate de que Sucursal esté importado
@@ -217,27 +218,27 @@ class Reserva(models.Model):
         if not self.sucursal and self.propiedad:
             self.sucursal = self.propiedad.sucursal
         if self.cuota_pendiente is None:
+         if not self.pk:  # Si es una nueva reserva
             self.cuota_pendiente = self.precio_total
+            self.senia = 0
         super().save(*args, **kwargs)
 
-    def calcular_cuota_pendiente(self):
-        if self.precio_total and self.pago_total:
-            self.cuota_pendiente = self.precio_total - self.pago_total
-            self.save()
-
-    def confirmar_reserva(self, pago_senia):
-        self.senia = pago_senia
-        self.pago_total = pago_senia
-        self.estado = 'confirmada'
-        self.calcular_cuota_pendiente()
+    def actualizar_saldos(self):
+        """Actualiza los saldos basados en los pagos realizados"""
+        from django.db.models import Sum
+        # Calcular el total de pagos
+        total_pagado = self.pagos.aggregate(Sum('monto'))['monto__sum'] or 0
+        
+        # Actualizar seña (total pagado) y cuota pendiente
+        self.senia = total_pagado
+        self.cuota_pendiente = self.precio_total - total_pagado
+        
+        # Guardar los cambios
         self.save()
 
-    def realizar_pago(self, pago):
-        self.pago_total += pago
-        self.calcular_cuota_pendiente()
-        if self.cuota_pendiente <= 0:
-            self.estado = 'pagada'
-        self.save()
+    def __str__(self):
+        return f"Reserva {self.id} - {self.propiedad}"
+
 class Disponibilidad(models.Model):
     propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='disponibilidades')
     fecha_inicio = models.DateField()
@@ -398,24 +399,40 @@ class Pago(models.Model):
     FORMA_PAGO_CHOICES = [
         ('efectivo', 'Efectivo'),
         ('transferencia', 'Transferencia'),
-        ('tarjeta', 'Tarjeta')
+        ('tarjeta', 'Tarjeta'),
     ]
-    
+
     reserva = models.ForeignKey('Reserva', on_delete=models.CASCADE, related_name='pagos')
     codigo = models.CharField(max_length=10, unique=True, editable=False)
     fecha = models.DateField(auto_now_add=True)
-    concepto = models.ForeignKey(ConceptoPago, on_delete=models.PROTECT)
     forma_pago = models.CharField(max_length=20, choices=FORMA_PAGO_CHOICES)
+    concepto = models.ForeignKey('ConceptoPago', on_delete=models.PROTECT)
     monto = models.DecimalField(max_digits=10, decimal_places=2)
-    
+
+    def clean(self):
+        if not self.pk:  # Solo validar al crear un nuevo pago
+            # Verificar que el monto no supere la cuota pendiente
+            if self.monto > self.reserva.cuota_pendiente:
+                raise ValidationError({
+                    'monto': f'El monto del pago (${self.monto}) no puede superar el saldo pendiente (${self.reserva.cuota_pendiente})'
+                })
+
     def save(self, *args, **kwargs):
-        if not self.codigo:
-            # Generar código único: PAG-XXXXX
-            self.codigo = f"PAG-{str(uuid.uuid4())[:5].upper()}"
+        self.clean()  # Ejecutar validaciones
+        if not self.pk:  # Si es un nuevo pago
+            ultimo_pago = Pago.objects.order_by('-id').first()
+            numero = (ultimo_pago.id + 1) if ultimo_pago else 1
+            self.codigo = f'PAG{numero:06d}'
         super().save(*args, **kwargs)
+        self.reserva.actualizar_saldos()
+
+    def delete(self, *args, **kwargs):
+        reserva = self.reserva
+        super().delete(*args, **kwargs)
+        reserva.actualizar_saldos()  # Actualizar saldos después de eliminar
 
     class Meta:
         ordering = ['-fecha']
 
     def __str__(self):
-        return f"{self.codigo} - {self.concepto} - ${self.monto}"
+        return f"{self.codigo} - {self.concepto.nombre} - ${self.monto}"

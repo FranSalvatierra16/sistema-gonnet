@@ -1033,6 +1033,9 @@ def ver_recibo(request, reserva_id):
         
         propiedad = reserva.propiedad
         
+        # Obtener todos los pagos de la reserva ordenados por fecha
+        pagos = reserva.pagos.all().order_by('fecha')
+        
         # Convertir el precio total a palabras
         monto_en_palabras = numero_a_palabras(int(reserva.precio_total))
         
@@ -1131,7 +1134,19 @@ def ver_recibo(request, reserva_id):
                 'nombre_completo': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else '',
                 'dni': getattr(reserva.vendedor, 'dni', '') if reserva.vendedor else '',
                 'telefono': getattr(reserva.vendedor, 'celular', '') if reserva.vendedor else ''
-            }
+            },
+            
+            # Agregar los pagos al contexto
+            'pagos': [{
+                'fecha': pago.fecha.strftime('%d/%m/%Y'),
+                'codigo': pago.codigo,
+                'concepto': pago.concepto.nombre,
+                'forma_pago': pago.get_forma_pago_display(),
+                'monto': pago.monto
+            } for pago in pagos],
+            
+            # Total de pagos
+            'total_pagado': sum(pago.monto for pago in pagos),
         }
         
         return render(request, 'inmobiliaria/reserva/recibo.html', context)
@@ -1455,6 +1470,7 @@ def obtener_vendedor(request, vendedor_id):
 
 
 
+
 def agregar_disponibilidad_masiva(request):
     if request.method == 'POST':
         propiedad_ids = request.POST.getlist('propiedades[]')
@@ -1724,17 +1740,35 @@ def agregar_pago(request, reserva_id):
             # Convertir el monto a Decimal
             monto = Decimal(request.POST['monto'])
             
+            # Crear el pago
             pago = Pago.objects.create(
                 reserva=reserva,
                 concepto_id=request.POST['concepto'],
                 forma_pago=request.POST['forma_pago'],
-                monto=monto  # Usar el monto convertido
+                monto=monto
             )
+            
+            # Forzar la actualización de saldos
+            reserva.actualizar_saldos()
+            
             messages.success(request, 'Pago registrado exitosamente.')
         except ValueError as e:
             messages.error(request, f'Error al procesar el pago: {str(e)}')
         except Exception as e:
             messages.error(request, f'Error inesperado: {str(e)}')
         
+    return redirect('inmobiliaria:confirmar_pago', reserva_id=reserva_id)
+
+@login_required
+def eliminar_pago(request, pago_id):
+    pago = get_object_or_404(Pago, id=pago_id)
+    reserva_id = pago.reserva.id
+    
+    try:
+        pago.delete()
+        messages.success(request, 'Pago eliminado correctamente.')
+    except Exception as e:
+        messages.error(request, f'Error al eliminar el pago: {str(e)}')
+    
     return redirect('inmobiliaria:confirmar_pago', reserva_id=reserva_id)
 

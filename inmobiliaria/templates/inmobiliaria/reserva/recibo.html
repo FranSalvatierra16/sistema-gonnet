@@ -209,37 +209,45 @@ function abrirRecibo() {
         
             </div>
             
-                <!-- Encabezados, de la tabla -->
+                <!-- Encabezados -->
             <div style="display: flex; justify-content: space-between; height: 6%;">
                 <div style="display: flex; border: 1px solid #2d8524;width: 80%;">
                     <div style="width: 15%; padding: 3px; border-right: 1px solid transparent;margin-left: 5%; font-size: 9px;">FECHA</div>
                     <div style="width: 15%; padding: 3px; border-right: 1px solid transparent;margin-left: 10px; font-size: 9px;">CÓDIGO</div>
                     <div style="width: 55%; padding: 3px; border-right: 1px solid transparent;margin-left: 10px; font-size: 9px;">CONCEPTO</div>
-                  
                 </div>
                 <div style="display: flex; border-bottom: 1px solid #2d8524;width: 20%; justify-content: center;">
                     <div style="width: 15%; padding: 3px; border-right: 1px solid transparent; font-size: 9px;">IMPORTE</div>
-                   
-                  
                 </div>
-                </div>
-                
-                <!-- Espacio para conceptos -->
-                <div style="display: flex; justify-content: space-between; border: 1px solid #030402; height: 34%;">
-                    <div style="display: flex; border-right: 1px solid #2d8524;width: 80%;">
-                    
-                      
-                    </div>
-                    <div style="display: flex; width: 20%; justify-content: center;border-left: 1px solid #2d8524;">
-                        <div style="width: 15%; padding: 3px; border-right: 1px solid transparent; font-size: 9px;">{{ reserva.precio_total }}</div>
-                       
-                      
-                    </div>
-                   
-    
-                    
             </div>
-                
+            
+            <!-- Espacio para conceptos y pagos -->
+            <div style="display: flex; justify-content: space-between; border: 1px solid #030402; height: 34%;">
+                <div style="display: flex; flex-direction: column; border-right: 1px solid #2d8524; width: 80%;">
+                    {% for pago in pagos %}
+                    <div style="display: flex; padding: 3px; font-size: 9px;">
+                        <div style="width: 15%; margin-left: 5%;">{{ pago.fecha }}</div>
+                        <div style="width: 15%; margin-left: 10px;">{{ pago.codigo }}</div>
+                        <div style="width: 55%; margin-left: 10px;">{{ pago.concepto }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div style="display: flex; flex-direction: column; width: 20%; border-left: 1px solid #2d8524;">
+                    {% for pago in pagos %}
+                    <div style="display: flex; justify-content: center; padding: 3px; font-size: 9px;">
+                        <div style="width: 15%;">${{ pago.monto|floatformat:2 }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Total -->
+            <div style="display: flex; justify-content: flex-end; margin-top: 5px;">
+                <div style="width: 20%; text-align: center; font-size: 9px; border-top: 1px solid #2d8524;">
+                    <strong>Total: ${{ total_pagado|floatformat:2 }}</strong>
+                </div>
+            </div>
+            
             <div style="display: flex; justify-content: space-between; height: 12%;">
                 <div style="display: flex; flex-direction: column; width: 70%; height: 100%;border-bottom: 1px solid transparent;">
     
