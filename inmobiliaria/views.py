@@ -551,6 +551,13 @@ def crear_reserva(request):
             propiedad = get_object_or_404(Propiedad, id=propiedad_id)
             
             # Aquí puedes añadir la lógica para crear la reserva o validar disponibilidad
+            reserva = form.save(commit=False)
+            reserva.propiedad_id = propiedad_id
+            reserva.vendedor = request.user
+            # Asegúrate de que precio_total tenga un valor
+            reserva.precio_total = form.cleaned_data.get('precio_total', 0)
+            # La cuota_pendiente se establecerá automáticamente en el save()
+            reserva.save()
 
         except (ValueError, ValidationError) as e:
             return render(request, 'inmobiliaria/reserva/error.html', {'error': str(e)})
@@ -931,7 +938,7 @@ def terminar_reserva(request, reserva_id):
     reserva = get_object_or_404(Reserva, id=reserva_id)
     conceptos_pago = ConceptoPago.objects.all()
     pagos_previos = Pago.objects.filter(reserva=reserva).order_by('-fecha')
-    
+    print('los pagos previos son ',reserva.cuota_pendiente)
     if request.method == 'POST':
         try:
             with transaction.atomic():
@@ -958,25 +965,37 @@ def terminar_reserva(request, reserva_id):
                     forma_pago=forma_pago,
                     concepto=concepto
                 )
+                print('',)
+                
+                # Actualizar montos de la reserva
+                total_pagado = Pago.objects.filter(reserva=reserva).aggregate(
+                    total=models.Sum('monto'))['total'] or Decimal('0')
                 
                 # Actualizar la reserva
-                reserva.senia += monto
+                reserva.senia = total_pagado
                 reserva.deposito = deposito
-                reserva.cuota_pendiente = reserva.precio_total - reserva.senia
+                reserva.cuota_pendiente = reserva.precio_total - total_pagado
                 
-                # Si ya no hay saldo pendiente, marcar como pagada
+                # Actualizar estado según el saldo pendiente
                 if reserva.cuota_pendiente <= 0:
                     reserva.estado = 'pagada'
+                    messages.success(request, 'Reserva pagada completamente')
                 else:
                     reserva.estado = 'en_espera'
+                    messages.success(request, f'Pago registrado. Saldo pendiente: ${reserva.cuota_pendiente}')
                 
                 reserva.save()
                 
                 # Devolver respuesta JSON para el AJAX
                 return JsonResponse({
                     'success': True,
-                    'message': 'Reserva confirmada exitosamente',
-                    'redirect_url': reverse('inmobiliaria:ver_recibo', args=[reserva.id])
+                    'message': 'Pago registrado exitosamente',
+                    'redirect_url': reverse('inmobiliaria:ver_recibo', args=[reserva.id]),
+                    'detalles': {
+                        'total_pagado': float(total_pagado),
+                        'saldo_pendiente': float(reserva.cuota_pendiente),
+                        'estado': reserva.estado
+                    }
                 })
                 
         except Exception as e:
@@ -990,11 +1009,12 @@ def terminar_reserva(request, reserva_id):
         'reserva': reserva,
         'conceptos_pago': conceptos_pago,
         'pagos_previos': pagos_previos,
-        'formas_pago': Pago.FORMA_PAGO_CHOICES
+        'formas_pago': Pago.FORMA_PAGO_CHOICES,
+        'total_pagado': sum(pago.monto for pago in pagos_previos),
+        'saldo_pendiente': reserva.cuota_pendiente
     }
     
     return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
-
 @login_required
 def ver_recibo(request, reserva_id):
     try:
@@ -1674,4 +1694,37 @@ def cambiar_password(request):
         'form': form,
         'user': request.user
     })
+
+@login_required
+def confirmar_pago(request, reserva_id):
+    reserva = get_object_or_404(Reserva, id=reserva_id)
+    conceptos_pago = ConceptoPago.objects.all()
+    
+    context = {
+        'reserva': reserva,
+        'conceptos_pago': conceptos_pago,
+    }
+    return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
+
+@login_required
+def agregar_pago(request, reserva_id):
+    if request.method == 'POST':
+        reserva = get_object_or_404(Reserva, id=reserva_id)
+        try:
+            # Convertir el monto a Decimal
+            monto = Decimal(request.POST['monto'])
+            
+            pago = Pago.objects.create(
+                reserva=reserva,
+                concepto_id=request.POST['concepto'],
+                forma_pago=request.POST['forma_pago'],
+                monto=monto  # Usar el monto convertido
+            )
+            messages.success(request, 'Pago registrado exitosamente.')
+        except ValueError as e:
+            messages.error(request, f'Error al procesar el pago: {str(e)}')
+        except Exception as e:
+            messages.error(request, f'Error inesperado: {str(e)}')
+        
+    return redirect('inmobiliaria:confirmar_pago', reserva_id=reserva_id)
 

@@ -46,7 +46,6 @@ TIPOS_INMUEBLES = [
     ('deposito', 'Depósito'), 
 ]
 
-
 class Propiedad(models.Model):
     DIRECCION_MAX_LENGTH = 255
     UBICACION_MAX_LENGTH = 255
@@ -58,8 +57,16 @@ class Propiedad(models.Model):
     descripcion = models.TextField(blank=True)
     tipo_inmueble = models.CharField(max_length=20, choices=TIPOS_INMUEBLES, default='departamento')
     vista = models.CharField(max_length=20, choices=TIPOS_VISTA, default='a_la_calle')
-    piso = models.IntegerField()
-    departamento = models.CharField(max_length=1, choices=DEPARTAMENTO_CHOICES)
+    piso = models.CharField(
+        max_length=10,
+        verbose_name="Piso",
+        help_text="Número o descripción del piso (ej: PB, 1, 15, etc.)"
+    )
+    departamento = models.CharField(
+        max_length=10,
+        verbose_name="Departamento",
+        help_text="Número o letra del departamento"
+    )
     ambientes = models.IntegerField()
     valoracion = models.CharField(max_length=20, choices=TIPOS_VALORACION, default='bueno')
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
@@ -137,7 +144,9 @@ class Propiedad(models.Model):
     #         raise ValidationError(_('Debe ingresar un precio de alquiler si está habilitado.'))
 
     def save(self, *args, **kwargs):
-        creating = self._state.adding  # Detectar si es una creación
+        if not self.pk:  # Si es una nueva reserva
+            self.cuota_pendiente = self.precio_total  # Inicializar con el precio total
+            self.senia = 0
         super().save(*args, **kwargs)
     
         if creating:
@@ -167,7 +176,6 @@ class Propiedad(models.Model):
 
     def __str__(self):
         return f"{self.direccion}"        
-
 
 class ImagenPropiedad(models.Model):
     propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='imagenes')

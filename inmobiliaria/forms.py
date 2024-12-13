@@ -152,6 +152,22 @@ class PropiedadForm(forms.ModelForm):
         help_text='Ingrese el número de llave de la propiedad',
         widget=forms.NumberInput(attrs={'class': 'form-control'})
     )
+    piso = forms.CharField(
+        max_length=10,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ej: PB, 1, 15'
+        })
+    )
+    departamento = forms.CharField(
+        max_length=10,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ej: 1A, 150, B3'
+        })
+    )
 
     class Meta:
         model = Propiedad

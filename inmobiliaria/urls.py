@@ -93,6 +93,8 @@ urlpatterns = [
          name='password_reset_complete'),
     path('recuperar-password/', views.enviar_recuperacion, name='recuperar_password'),
     path('cambiar-password/', views.cambiar_password, name='cambiar_password'),
+    path('reserva/<int:reserva_id>/confirmar-pago/', views.confirmar_pago, name='confirmar_pago'),
+    path('reserva/<int:reserva_id>/agregar-pago/', views.agregar_pago, name='agregar_pago'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 

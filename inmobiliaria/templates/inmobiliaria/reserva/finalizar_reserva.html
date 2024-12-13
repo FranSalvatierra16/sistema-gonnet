@@ -4,200 +4,112 @@
 {% block title %}Finalizar Reserva{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Finalizar Reserva</h1>
-
-<!-- Información sobre la reserva -->
-<div class="card mb-4">
-    <div class="card-body">
-        <h5 class="card-title">Propiedad: {{ reserva.propiedad.direccion }}</h5>
-        <p><strong>Cliente:</strong> {{ reserva.cliente.get_full_name }}</p>
-        <p><strong>Fecha de Inicio:</strong> {{ reserva.fecha_inicio }} a las {{ reserva.hora_ingreso }}</p>
-        <p><strong>Fecha de Fin:</strong> {{ reserva.fecha_fin }} a las {{ reserva.hora_egreso }}</p>
-        <div class="form-group">
-            <label for="precio_total">Precio Total:</label>
-            <span id="precio_total_display">{{ reserva.precio_total }}</span> 
-            <button type="button" id="editar_precio_btn" class="btn btn-link">Editar</button>
-            <input type="number" step="0.01" class="form-control" id="precio_total" name="precio_total" value="{{ reserva.precio_total }}" style="display: none;" required>
-            <button type="button" id="guardar_precio_btn" class="btn btn-link" style="display: none;">Guardar</button>
-            <button type="button" id="cancelar_precio_btn" class="btn btn-link" style="display: none;">Cancelar</button>
+<div class="container mt-4">
+    <h2>Confirmar Pago - Reserva #{{ reserva.id }}</h2>
+    
+    <!-- Información de la reserva -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Detalles de la Reserva</h5>
+            <p><strong>Cliente:</strong> {{ reserva.inquilino.nombre_completo }}</p>
+            <p><strong>Propiedad:</strong> {{ reserva.propiedad.direccion }}</p>
+            <p><strong>Precio Total:</strong> ${{ reserva.precio_total }}</p>
+            <p><strong>Saldo Pendiente:</strong> ${{ reserva.cuota_pendiente }}</p>
         </div>
     </div>
+
+    <!-- Botón para agregar nuevo pago -->
+    <button type="button" class="btn btn-primary mb-3" data-toggle="modal" data-target="#agregarPagoModal">
+        Agregar Pago
+    </button>
+
+    <!-- Tabla de pagos realizados -->
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Pagos Realizados</h5>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Fecha</th>
+                        <th>Concepto</th>
+                        <th>Forma de Pago</th>
+                        <th>Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pago in reserva.pagos.all %}
+                    <tr>
+                        <td>{{ pago.codigo }}</td>
+                        <td>{{ pago.fecha|date:"d/m/Y" }}</td>
+                        <td>{{ pago.concepto.nombre }}</td>
+                        <td>{{ pago.get_forma_pago_display }}</td>
+                        <td>${{ pago.monto }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" class="text-right"><strong>Total Pagado:</strong></td>
+                        <td>${{ reserva.senia }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="4" class="text-right"><strong>Saldo Pendiente:</strong></td>
+                        <td>${{ reserva.cuota_pendiente }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- Botón para finalizar -->
+    {% if reserva.cuota_pendiente <= 0 %}
+    <a href="{% url 'inmobiliaria:ver_recibo' reserva.id %}" class="btn btn-success mt-3">
+        Finalizar y Ver Recibo
+    </a>
+    {% endif %}
 </div>
 
-<!-- Historial de pagos -->
-{% if pagos_previos %}
-<div class="card mb-4">
-    <div class="card-body">
-        <h5 class="card-title">Pagos Realizados</h5>
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Código</th>
-                    <th>Concepto</th>
-                    <th>Forma de Pago</th>
-                    <th>Importe</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for pago in pagos_previos %}
-                <tr>
-                    <td>{{ pago.fecha }}</td>
-                    <td>{{ pago.concepto.codigo }}</td>
-                    <td>{{ pago.concepto.nombre }}</td>
-                    <td>{{ pago.get_forma_pago_display }}</td>
-                    <td>${{ pago.monto }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-{% endif %}
-
-<!-- Formulario para finalizar la reserva -->
-<form method="post" action="{% url 'inmobiliaria:finalizar_reserva' reserva.id %}" id="finalizarReservaForm">
-    {% csrf_token %}
-    <div class="form-group">
-        <label for="monto">Importe a Pagar:</label>
-        <input type="number" step="0.01" class="form-control" id="monto" name="monto" required>
-    </div>
-    <div class="form-group">
-        <label for="forma_pago">Forma de Pago:</label>
-        <select class="form-control" id="forma_pago" name="forma_pago" required>
-            <option value="efectivo">Efectivo</option>
-            <option value="transferencia">Transferencia</option>
-            <option value="tarjeta">Tarjeta</option>
-        </select>
-    </div>
-    <div class="form-group">
-        <label for="concepto">Concepto:</label>
-        <select class="form-control" id="concepto" name="concepto" required>
-            {% for concepto in conceptos_pago %}
-                <option value="{{ concepto.id }}">{{ concepto.codigo }} - {{ concepto.nombre }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="form-group">
-        <label for="deposito">Depósito:</label>
-        <input type="number" step="0.01" class="form-control" id="deposito" name="deposito" required>
-    </div>
-    <div class="form-group">
-        <label for="pago_total">Saldo restante:</label>
-        <input type="number" class="form-control" id="pago_total" name="pago_total" value="{{ reserva.cuota_pendiente }}" readonly>
-    </div>
-    <button type="submit" class="btn btn-primary">Confirmar Pago</button>
-    <a href="{% url 'inmobiliaria:buscar_propiedades' %}" class="btn btn-secondary">Cancelar</a>
-</form>
-
-<!-- Modal para el recibo -->
-<div class="modal fade" id="reciboModal" tabindex="-1" role="dialog" aria-labelledby="reciboModalLabel" aria-hidden="true">
+<!-- Modal para agregar pago -->
+<div class="modal fade" id="agregarPagoModal" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="reciboModalLabel">Recibo de Pago</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
+                <h5 class="modal-title">Agregar Pago</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
                 </button>
             </div>
-            <div class="modal-body">
-                <p><strong>Propiedad:</strong> {{ reserva.propiedad.direccion }}</p>
-                <p><strong>Cliente:</strong> {{ reserva.cliente.get_full_name }}</p>
-                <p><strong>Fecha de Reserva:</strong> {{ reserva.fecha_inicio }} - {{ reserva.fecha_fin }}</p>
-                <p><strong>Pago Total:</strong> {{ reserva.precio_total }} USD</p>
-                <p><strong>Código:</strong> {{ pago.concepto.codigo }}</p>
-                <p><strong>Concepto:</strong> {{ pago.concepto.nombre }}</p>
-                <p><strong>Forma de Pago:</strong> {{ pago.get_forma_pago_display }}</p>
-                <p><strong>Monto Pagado:</strong> {{ pago.monto }} USD</p>
-                <p><strong>Depósito:</strong> {{ reserva.deposito }} USD</p>
-                <p><strong>Saldo Restante:</strong> {{ reserva.cuota_pendiente|floatformat:2 }} USD</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-            </div>
+            <form method="post" action="{% url 'inmobiliaria:agregar_pago' reserva.id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Concepto</label>
+                        <select name="concepto" class="form-control" required>
+                            {% for concepto in conceptos_pago %}
+                            <option value="{{ concepto.id }}">{{ concepto.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Forma de Pago</label>
+                        <select name="forma_pago" class="form-control" required>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="tarjeta">Tarjeta</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Monto</label>
+                        <input type="number" name="monto" class="form-control" step="0.01" max="{{ reserva.cuota_pendiente }}" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Pago</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const precioTotalDisplay = document.getElementById('precio_total_display');
-        const precioTotalInput = document.getElementById('precio_total');
-        const editarPrecioBtn = document.getElementById('editar_precio_btn');
-        const guardarPrecioBtn = document.getElementById('guardar_precio_btn');
-        const cancelarPrecioBtn = document.getElementById('cancelar_precio_btn');
-        const pagoSeniaInput = document.getElementById('pago_senia');
-        const cuotaPendienteInput = document.getElementById('pago_total');
-
-        editarPrecioBtn.addEventListener('click', function() {
-            precioTotalDisplay.style.display = 'none';
-            precioTotalInput.style.display = 'inline-block';
-            editarPrecioBtn.style.display = 'none';
-            guardarPrecioBtn.style.display = 'inline-block';
-            cancelarPrecioBtn.style.display = 'inline-block';
-            precioTotalInput.focus();
-        });
-
-        guardarPrecioBtn.addEventListener('click', function() {
-            precioTotalDisplay.style.display = 'inline';
-            precioTotalInput.style.display = 'none';
-            guardarPrecioBtn.style.display = 'none';
-            cancelarPrecioBtn.style.display = 'none';
-            precioTotalDisplay.textContent = precioTotalInput.value;
-            actualizarCuotaPendiente();
-            editarPrecioBtn.style.display = 'inline'; // Mostrar el botón "Editar" nuevamente
-        });
-
-        cancelarPrecioBtn.addEventListener('click', function() {
-            precioTotalDisplay.style.display = 'inline';
-            precioTotalInput.style.display = 'none';
-            guardarPrecioBtn.style.display = 'none';
-            cancelarPrecioBtn.style.display = 'none';
-            precioTotalInput.value = precioTotalDisplay.textContent;  // Restablecer el valor
-            editarPrecioBtn.style.display = 'inline'; // Mostrar el botón "Editar" nuevamente
-        });
-
-        function actualizarCuotaPendiente() {
-            const precioTotal = parseFloat(precioTotalInput.value) || parseFloat(precioTotalDisplay.textContent) || 0;
-            const pagoSenia = parseFloat(pagoSeniaInput.value) || 0;
-            const cuotaPendiente = precioTotal - pagoSenia;
-            cuotaPendienteInput.value = cuotaPendiente.toFixed(2);
-        }
-
-        precioTotalInput.addEventListener('input', actualizarCuotaPendiente);
-        pagoSeniaInput.addEventListener('input', actualizarCuotaPendiente);
-
-        // Inicializar los valores
-        actualizarCuotaPendiente();
-    });
-</script>
-
-<script>
-    document.getElementById('finalizarReservaForm').onsubmit = function(event) {
-        event.preventDefault();
-        var form = this;
-        
-        fetch(form.action, {
-            method: 'POST',
-            body: new FormData(form),
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Redirigir a la página del recibo
-                window.location.href = "{% url 'inmobiliaria:ver_recibo' reserva.id %}";
-            } else {
-                alert('Error al procesar el pago');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Hubo un problema con la solicitud');
-        });
-    };
-</script>
-
 {% endblock %}
