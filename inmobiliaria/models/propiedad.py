@@ -373,6 +373,19 @@ class Precio(models.Model):
 
         super().save(*args, **kwargs)
 
+class ConceptoPago(models.Model):
+    codigo = models.CharField(max_length=10, unique=True)
+    nombre = models.CharField(max_length=255)
+    descripcion = models.TextField(blank=True)
+    
+    class Meta:
+        ordering = ['codigo']
+        verbose_name = "Concepto de Pago"
+        verbose_name_plural = "Conceptos de Pago"
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nombre}"
+
 class Pago(models.Model):
     FORMA_PAGO_CHOICES = [
         ('efectivo', 'Efectivo'),
@@ -383,7 +396,7 @@ class Pago(models.Model):
     reserva = models.ForeignKey('Reserva', on_delete=models.CASCADE, related_name='pagos')
     codigo = models.CharField(max_length=10, unique=True, editable=False)
     fecha = models.DateField(auto_now_add=True)
-    concepto = models.CharField(max_length=255)
+    concepto = models.ForeignKey(ConceptoPago, on_delete=models.PROTECT)
     forma_pago = models.CharField(max_length=20, choices=FORMA_PAGO_CHOICES)
     monto = models.DecimalField(max_digits=10, decimal_places=2)
     

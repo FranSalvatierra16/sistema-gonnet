@@ -33,8 +33,9 @@
             <thead>
                 <tr>
                     <th>Fecha</th>
-                    <th>Forma de Pago</th>
+                    <th>Código</th>
                     <th>Concepto</th>
+                    <th>Forma de Pago</th>
                     <th>Importe</th>
                 </tr>
             </thead>
@@ -42,9 +43,10 @@
                 {% for pago in pagos_previos %}
                 <tr>
                     <td>{{ pago.fecha }}</td>
+                    <td>{{ pago.concepto.codigo }}</td>
+                    <td>{{ pago.concepto.nombre }}</td>
                     <td>{{ pago.get_forma_pago_display }}</td>
-                    <td>{{ pago.concepto }}</td>
-                    <td>${{ pago.importe }}</td>
+                    <td>${{ pago.monto }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -57,8 +59,8 @@
 <form method="post" action="{% url 'inmobiliaria:finalizar_reserva' reserva.id %}" id="finalizarReservaForm">
     {% csrf_token %}
     <div class="form-group">
-        <label for="pago_senia">Importe a Pagar:</label>
-        <input type="number" step="0.01" class="form-control" id="pago_senia" name="pago_senia" required>
+        <label for="monto">Importe a Pagar:</label>
+        <input type="number" step="0.01" class="form-control" id="monto" name="monto" required>
     </div>
     <div class="form-group">
         <label for="forma_pago">Forma de Pago:</label>
@@ -70,7 +72,11 @@
     </div>
     <div class="form-group">
         <label for="concepto">Concepto:</label>
-        <input type="text" class="form-control" id="concepto" name="concepto" placeholder="Ej: Seña, Pago parcial, Saldo final">
+        <select class="form-control" id="concepto" name="concepto" required>
+            {% for concepto in conceptos_pago %}
+                <option value="{{ concepto.id }}">{{ concepto.codigo }} - {{ concepto.nombre }}</option>
+            {% endfor %}
+        </select>
     </div>
     <div class="form-group">
         <label for="deposito">Depósito:</label>
@@ -99,9 +105,10 @@
                 <p><strong>Cliente:</strong> {{ reserva.cliente.get_full_name }}</p>
                 <p><strong>Fecha de Reserva:</strong> {{ reserva.fecha_inicio }} - {{ reserva.fecha_fin }}</p>
                 <p><strong>Pago Total:</strong> {{ reserva.precio_total }} USD</p>
-                <p><strong>Forma de Pago:</strong> {{ forma_pago }}</p>
-                <p><strong>Concepto:</strong> {{ concepto }}</p>
-                <p><strong>Monto Pagado:</strong> {{ pago_senia }} USD</p>
+                <p><strong>Código:</strong> {{ pago.concepto.codigo }}</p>
+                <p><strong>Concepto:</strong> {{ pago.concepto.nombre }}</p>
+                <p><strong>Forma de Pago:</strong> {{ pago.get_forma_pago_display }}</p>
+                <p><strong>Monto Pagado:</strong> {{ pago.monto }} USD</p>
                 <p><strong>Depósito:</strong> {{ reserva.deposito }} USD</p>
                 <p><strong>Saldo Restante:</strong> {{ reserva.cuota_pendiente|floatformat:2 }} USD</p>
             </div>

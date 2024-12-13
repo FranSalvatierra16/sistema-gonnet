@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
@@ -929,21 +929,56 @@ def reserva_exitosa(request, reserva_id):
 
 def terminar_reserva(request, reserva_id):
     reserva = get_object_or_404(Reserva, id=reserva_id)
+    conceptos_pago = ConceptoPago.objects.all()
+    pagos_previos = Pago.objects.filter(reserva=reserva).order_by('-fecha')
     
     if request.method == 'POST':
         try:
-            pago_senia = Decimal(request.POST.get('pago_senia', 0))
-            
-            # Confirmar reserva y calcular cuotas
-            reserva.confirmar_reserva(pago_senia)
-            
-            # Devolver respuesta JSON para el AJAX
-            return JsonResponse({
-                'success': True,
-                'message': 'Reserva confirmada exitosamente',
-                'redirect_url': reverse('inmobiliaria:ver_recibo', args=[reserva.id])
-            })
-            
+            with transaction.atomic():
+                # Obtener datos del formulario
+                monto = Decimal(request.POST.get('monto', '0'))
+                forma_pago = request.POST.get('forma_pago')
+                concepto_id = request.POST.get('concepto')
+                deposito = Decimal(request.POST.get('deposito', '0'))
+                
+                # Validaciones
+                if monto <= 0:
+                    raise ValueError('El monto debe ser mayor que cero')
+                
+                if monto > reserva.cuota_pendiente:
+                    raise ValueError('El monto no puede ser mayor al saldo pendiente')
+                
+                # Obtener el concepto
+                concepto = get_object_or_404(ConceptoPago, id=concepto_id)
+                
+                # Crear el pago
+                pago = Pago.objects.create(
+                    reserva=reserva,
+                    monto=monto,
+                    forma_pago=forma_pago,
+                    concepto=concepto
+                )
+                
+                # Actualizar la reserva
+                reserva.senia += monto
+                reserva.deposito = deposito
+                reserva.cuota_pendiente = reserva.precio_total - reserva.senia
+                
+                # Si ya no hay saldo pendiente, marcar como pagada
+                if reserva.cuota_pendiente <= 0:
+                    reserva.estado = 'pagada'
+                else:
+                    reserva.estado = 'en_espera'
+                
+                reserva.save()
+                
+                # Devolver respuesta JSON para el AJAX
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Reserva confirmada exitosamente',
+                    'redirect_url': reverse('inmobiliaria:ver_recibo', args=[reserva.id])
+                })
+                
         except Exception as e:
             return JsonResponse({
                 'success': False,
@@ -951,9 +986,14 @@ def terminar_reserva(request, reserva_id):
             })
     
     # Si no es POST, mostrar la página de confirmación de reserva
-    return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', {
-        'reserva': reserva
-    })
+    context = {
+        'reserva': reserva,
+        'conceptos_pago': conceptos_pago,
+        'pagos_previos': pagos_previos,
+        'formas_pago': Pago.FORMA_PAGO_CHOICES
+    }
+    
+    return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
 
 @login_required
 def ver_recibo(request, reserva_id):
@@ -1087,60 +1127,40 @@ def generar_recibo_pdf(reserva, pago_senia):
     else:
         return pdf_buffer.getvalue()
 def realizar_pago(request, reserva_id):
+    # Obtener la reserva a partir del ID
     reserva = get_object_or_404(Reserva, id=reserva_id)
-    
+
     if request.method == 'POST':
-        try:
-            # Obtener datos del formulario
-            importe = Decimal(request.POST.get('importe', '0'))
-            forma_pago = request.POST.get('forma_pago')
-            concepto = request.POST.get('concepto', '')
-            
-            if importe <= 0:
-                messages.error(request, 'El importe debe ser mayor que cero.')
-                return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva.id)
-            
-            # Verificar que el pago no exceda el saldo pendiente
-            if importe > reserva.cuota_pendiente:
-                messages.error(request, 'El importe no puede ser mayor al saldo pendiente.')
-                return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva.id)
-            
-            # Crear el pago
-            pago = Pago.objects.create(
-                reserva=reserva,
-                importe=importe,
-                forma_pago=forma_pago,
-                concepto=concepto
-            )
-            
-            # Actualizar la seña y la cuota pendiente de la reserva
-            reserva.senia += importe
-            reserva.cuota_pendiente = reserva.precio_total - reserva.senia
-            
-            # Si ya no hay saldo pendiente, marcar como pagada
-            if reserva.cuota_pendiente <= 0:
-                reserva.estado = 'pagada'
-                messages.success(request, 'Reserva completamente pagada.')
-            else:
-                messages.success(request, f'Pago registrado. Saldo pendiente: ${reserva.cuota_pendiente}')
-            
-            reserva.save()
-            
-            # Redirigir al recibo
-            return redirect('inmobiliaria:ver_recibo', reserva_id=reserva.id)
-            
-        except Exception as e:
-            messages.error(request, f'Error al procesar el pago: {str(e)}')
+        # Obtener el monto del pago ingresado en el formulario
+        pago = Decimal(request.POST.get('pago', '0.00'))
+
+        if pago <= 0:
+            messages.error(request, 'El monto del pago debe ser mayor que cero.')
             return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva.id)
-    
-    # Si es GET, mostrar formulario
-    context = {
-        'reserva': reserva,
-        'formas_pago': Pago.FORMA_PAGO_CHOICES,
-        'pagos_previos': reserva.pagos.all()  # Lista de pagos previos
-    }
-    
-    return render(request, 'inmobiliaria/reserva/realizar_pago.html', context)
+
+        # Actualizar la seña y la cuota pendiente
+        reserva.senia += pago
+
+        # Calcular la cuota pendiente
+        reserva.cuota_pendiente = reserva.precio_total - reserva.senia
+
+        if reserva.cuota_pendiente <= 0:
+            # Si la cuota pendiente es 0 o menor, marcar la reserva como 'realizada'
+            reserva.estado = 'realizada'
+            reserva.cuota_pendiente = 0  # Asegurarse de que no quede negativo
+            messages.success(request, 'La reserva ha sido completada y está totalmente pagada.')
+        else:
+            # Si queda saldo pendiente, mostrar el saldo restante
+            messages.info(request, f'Pago recibido. Saldo pendiente: {reserva.cuota_pendiente:.2f} USD.')
+
+        # Guardar los cambios en la reserva
+        reserva.save()
+
+        # Redirigir al listado de reservas o a alguna página de confirmación
+        return redirect('inmobiliaria:reservas')
+
+    # Si es una solicitud GET, mostrar la página de finalizar reserva
+    return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', {'reserva': reserva})
 
 PrecioFormSet = inlineformset_factory(
     Propiedad,  # Modelo padre
