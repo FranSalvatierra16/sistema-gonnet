@@ -473,4 +473,37 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const propietarioSelect = document.querySelector('#id_propietario');
+    const idField = document.querySelector('#id_id');  // Campo ID de la propiedad
+    
+    // Si estamos en modo edición (la propiedad ya existe)
+    if (idField && idField.value) {
+        idField.readOnly = true;  // Hacer el campo de solo lectura
+        idField.style.backgroundColor = '#e9ecef';  // Fondo gris claro para indicar que no es editable
+    }
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!propietarioSelect.value) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Debe seleccionar un propietario',
+                confirmButtonColor: '#3085d6',
+            });
+            return false;
+        }
+        
+        form.submit();
+    });
+});
+</script>
+
+<!-- Asegúrate de incluir SweetAlert2 en el head del template -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 {% endblock %}

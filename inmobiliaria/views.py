@@ -951,7 +951,7 @@ def terminar_reserva(request, reserva_id):
                 monto = Decimal(request.POST.get('monto', '0'))
                 forma_pago = request.POST.get('forma_pago')
                 concepto_id = request.POST.get('concepto')
-                deposito = Decimal(request.POST.get('deposito', '0'))
+                deposito_garantia = Decimal(request.POST.get('monto_deposito', '0'))  # Agregado
                 
                 # Validaciones
                 if monto <= 0:
@@ -977,12 +977,13 @@ def terminar_reserva(request, reserva_id):
                 
                 # Actualizar la reserva
                 reserva.senia = total_pagado
-                reserva.deposito = deposito
+                reserva.deposito_garantia = deposito_garantia  # Actualizado
                 reserva.cuota_pendiente = reserva.precio_total - total_pagado
                 
                 print(f"Debug - Precio Total: {reserva.precio_total}")
                 print(f"Debug - Total Pagado: {total_pagado}")
                 print(f"Debug - Cuota Pendiente: {reserva.cuota_pendiente}")
+                print(f"Debug - Depósito de Garantía: {reserva.deposito_garantia}")  # Agregado
                 
                 # Actualizar estado según el saldo pendiente
                 if reserva.cuota_pendiente <= 0:
@@ -1001,7 +1002,8 @@ def terminar_reserva(request, reserva_id):
                     'detalles': {
                         'total_pagado': float(total_pagado),
                         'saldo_pendiente': float(reserva.cuota_pendiente),
-                        'estado': reserva.estado
+                        'estado': reserva.estado,
+                        'deposito_garantia': float(reserva.deposito_garantia)  # Agregado
                     }
                 })
                 
@@ -1021,7 +1023,8 @@ def terminar_reserva(request, reserva_id):
         'pagos_previos': pagos_previos,
         'formas_pago': Pago.FORMA_PAGO_CHOICES,
         'total_pagado': total_pagado,
-        'saldo_pendiente': saldo_pendiente
+        'saldo_pendiente': saldo_pendiente,
+        'deposito_garantia': reserva.deposito_garantia  # Agregado
     }
     
     return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
@@ -1471,6 +1474,7 @@ def obtener_vendedor(request, vendedor_id):
 
 
 
+
 def agregar_disponibilidad_masiva(request):
     if request.method == 'POST':
         propiedad_ids = request.POST.getlist('propiedades[]')
@@ -1771,4 +1775,20 @@ def eliminar_pago(request, pago_id):
         messages.error(request, f'Error al eliminar el pago: {str(e)}')
     
     return redirect('inmobiliaria:confirmar_pago', reserva_id=reserva_id)
+
+@login_required
+def agregar_deposito(request, reserva_id):
+    reserva = get_object_or_404(Reserva, id=reserva_id)
+    
+    if request.method == 'POST':
+        try:
+            monto = Decimal(request.POST['monto_deposito'])
+            reserva.deposito_garantia = monto
+            reserva.save()
+            print(f"Depósito de garantía agregado correctamente. Monto: {reserva.deposito_garantia}")
+            messages.success(request, 'Depósito de garantía agregado correctamente.')
+        except Exception as e:
+            messages.error(request, f'Error al agregar el depósito de garantía: {str(e)}')
+    
+    return redirect('inmobiliaria:confirmar_pago', reserva_id=reserva.id)
 

@@ -18,69 +18,106 @@
         </div>
     </div>
 
-    <!-- Botón para agregar nuevo pago -->
-    <button type="button" class="btn btn-primary mb-3" data-toggle="modal" data-target="#agregarPagoModal">
-        Agregar Pago
-    </button>
-
-    <!-- Tabla de pagos realizados -->
-    <div class="card">
+    <!-- Sección de pagos y depósito -->
+    <div class="card mb-4">
         <div class="card-body">
-            <h5 class="card-title">Pagos Realizados</h5>
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Código</th>
-                        <th>Fecha</th>
-                        <th>Concepto</th>
-                        <th>Forma de Pago</th>
-                        <th>Monto</th>
-                    </tr>
-                </thead>
-                <tbody>
-                  <!-- En la tabla de pagos -->
-<tbody>
-    {% for pago in reserva.pagos.all %}
-    <tr>
-        <td>{{ pago.codigo }}</td>
-        <td>{{ pago.fecha|date:"d/m/Y" }}</td>
-        <td>{{ pago.concepto.nombre }}</td>
-        <td>{{ pago.get_forma_pago_display }}</td>
-        <td>${{ pago.monto }}</td>
-        <td>
-            <form method="post" action="{% url 'inmobiliaria:eliminar_pago' pago.id %}" 
-                  onsubmit="return confirm('¿Está seguro de eliminar este pago?');" 
-                  style="display: inline;">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-danger btn-sm">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </form>
-        </td>
-    </tr>
-    {% endfor %}
-</tbody>
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="4" class="text-right"><strong>Total Pagado:</strong></td>
-                        <td>${{ reserva.senia }}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="4" class="text-right"><strong>Saldo Pendiente:</strong></td>
-                        <td>${{ reserva.cuota_pendiente }}</td>
-                    </tr>
-                </tfoot>
-            </table>
+            <h5 class="card-title">Detalle de Pagos y Depósito</h5>
+            
+            <!-- Tabla de pagos -->
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Código</th>
+                            <th>Concepto</th>
+                            <th>Forma de Pago</th>
+                            <th class="text-right">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pago in reserva.pagos.all %}
+                        <tr>
+                            <td>{{ pago.fecha|date:"d/m/Y" }}</td>
+                            <td>{{ pago.codigo }}</td>
+                            <td>{{ pago.concepto.nombre }}</td>
+                            <td>{{ pago.get_forma_pago_display }}</td>
+                            <td class="text-right">${{ pago.monto|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                        
+                        {% if reserva.deposito_garantia > 0 %}
+                        <tr class="table-info">
+                            <td>{{ reserva.fecha_inicio|date:"d/m/Y" }}</td>
+                            <td>DEP-{{ reserva.id }}</td>
+                            <td>Depósito de Garantía</td>
+                            <td>-</td>
+                            <td class="text-right">${{ reserva.deposito_garantia|floatformat:2 }}</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="text-right"><strong>Total Pagado:</strong></td>
+                            <td class="text-right"><strong>${{ reserva.senia|floatformat:2 }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-right"><strong>Depósito de Garantía:</strong></td>
+                            <td class="text-right"><strong>${{ reserva.deposito_garantia|floatformat:2 }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-right"><strong>Saldo Pendiente:</strong></td>
+                            <td class="text-right"><strong>${{ reserva.cuota_pendiente|floatformat:2 }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
         </div>
     </div>
 
-    <!-- Botón para finalizar -->
-    {% if reserva.cuota_pendiente <= 0 %}
-    <a href="{% url 'inmobiliaria:ver_recibo' reserva.id %}" class="btn btn-success mt-3">
-        Finalizar y Ver Recibo
-    </a>
-    {% endif %}
+    <!-- Botones -->
+    <div class="mt-3">
+        {% if not reserva.deposito_garantia > 0 %}
+        <button type="button" class="btn btn-primary mb-3" data-toggle="modal" data-target="#agregarDepositoModal">
+            <i class="fas fa-plus"></i> Agregar Depósito de Garantía
+        </button>
+        {% endif %}
+
+        <form method="post" action="{% url 'inmobiliaria:ver_recibo' reserva.id %}">
+            {% csrf_token %}
+            <button type="submit" name="confirmar" class="btn btn-success">
+                <i class="fas fa-check"></i> Confirmar y Ver Recibo
+            </button>
+        </form>
+    </div>
+
+    <!-- Modal para agregar depósito -->
+    <div class="modal fade" id="agregarDepositoModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Agregar Depósito de Garantía</h5>
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <form method="post" action="{% url 'inmobiliaria:agregar_deposito' reserva.id %}">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>Monto del Depósito de Garantía</label>
+                            <input type="number" name="monto_deposito" class="form-control" step="0.01" required>
+                            <small class="form-text text-muted">Este es un depósito de garantía que se devolverá al finalizar el contrato.</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar Depósito</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Modal para agregar pago -->
@@ -124,14 +161,5 @@
             </form>
         </div>
     </div>
-</div>
-
-<div class="mt-3">
-    <form method="post" action="{% url 'inmobiliaria:ver_recibo' reserva.id %}">
-        {% csrf_token %}
-        <button type="submit" name="confirmar" class="btn btn-success">
-            <i class="fas fa-check"></i> Confirmar y Ver Recibo
-        </button>
-    </form>
 </div>
 {% endblock %}
