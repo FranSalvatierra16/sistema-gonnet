@@ -1,4 +1,5 @@
 {% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
 
 {% block title %}Reserva Confirmada{% endblock %}
 
@@ -10,8 +11,8 @@
     <!-- Mostrar fechas y horas de la reserva -->
     <p><strong>Fechas:</strong> Desde {{ reserva.fecha_inicio }} a las {{ reserva.hora_ingreso }} hasta {{ reserva.fecha_fin }} a las {{ reserva.hora_egreso }}</p>
 
-    <!-- Mostrar precio total -->
-    <p><strong>Precio Total:</strong> {{ reserva.precio_total }}</p>
+    <!-- Mostrar precio total con formato personalizado -->
+    <p><strong>Precio Total:</strong> {{ reserva.precio_total|format_price }}</p>
 
     <!-- Mostrar vendedor que realizó la reserva -->
     <p><strong>Vendedor:</strong> {{ reserva.vendedor.nombre_completo_vendedor  }}</p>

@@ -686,6 +686,8 @@ def confirmar_reserva(request):
                     cliente=inquilino,
                     precio_total=precio_total
                 )
+                print("la reserva es ",reserva)
+
 
             messages.success(request, 'Reserva creada exitosamente')
             return redirect('inmobiliaria:reserva_exitosa', reserva_id=reserva.id)
@@ -1005,7 +1007,7 @@ def terminar_reserva(request, reserva_id):
                     'detalles': {
                         'total_pagado': float(total_pagado),
                         'saldo_pendiente': float(reserva.cuota_pendiente),
-                        'deposito': float(deposito),  # Incluimos el depósito en la respuesta
+                        'deposit_garantia': float(reserva.deposito_garantia),  # Incluimos el depósito en la respuesta
                         'estado': reserva.estado
                     }
                 })
@@ -1027,7 +1029,7 @@ def terminar_reserva(request, reserva_id):
         'formas_pago': Pago.FORMA_PAGO_CHOICES,
         'total_pagado': sum(pago.monto for pago in pagos_previos),
         'saldo_pendiente': reserva.cuota_pendiente,
-        'deposito': reserva.deposito or 0  # Aseguramos que siempre haya un valor
+        'deposito': reserva.deposito_garantia or 0  # Aseguramos que siempre haya un valor
     }
     
     return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
@@ -1781,17 +1783,24 @@ def eliminar_pago(request, pago_id):
 
 @login_required
 def agregar_deposito(request, reserva_id):
-    reserva = get_object_or_404(Reserva, id=reserva_id)
-    
-    if request.method == 'POST':
-        try:
-            monto = Decimal(request.POST['monto_deposito'])
-            reserva.deposito_garantia = monto
+    try:
+        reserva = get_object_or_404(Reserva, id=reserva_id)
+        
+        if request.method == 'POST':
+            monto_deposito = Decimal(request.POST.get('monto_deposito', '0'))
+            
+            # Actualizar el depósito de garantía en la reserva
+            reserva.deposito_garantia = monto_deposito
             reserva.save()
-            print(f"Depósito de garantía agregado correctamente. Monto: {reserva.deposito_garantia}")
-            messages.success(request, 'Depósito de garantía agregado correctamente.')
-        except Exception as e:
-            messages.error(request, f'Error al agregar el depósito de garantía: {str(e)}')
-    
-    return redirect('inmobiliaria:confirmar_pago', reserva_id=reserva.id)
+            
+            messages.success(request, 'Depósito de garantía agregado correctamente')
+            
+            # Print de debug
+            print(f"Depósito guardado: {reserva.deposito_garantia}")
+            
+        return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva.id)
+        
+    except Exception as e:
+        messages.error(request, f'Error al agregar el depósito: {str(e)}')
+        return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva_id)
 
