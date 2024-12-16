@@ -93,15 +93,9 @@ WSGI_APPLICATION = 'sistema_gonnet.wsgi.application'
 #    }
 DATABASES = {
     'default': dj_database_url.config(
-        env='JAWSDB_NAVY',  # Mantenemos esta si es la que acabamos de actualizar
+        env='JAWSDB_NAVY',
         conn_max_age=600,
-        ssl_require=True,
-        # Agregamos algunas opciones para optimizar la conexión
-        'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-            'charset': 'utf8mb4',
-            'autocommit': True,
-        }
+        ssl_require=True
     )
 }
 
