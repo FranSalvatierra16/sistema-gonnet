@@ -30,7 +30,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['gonnet-interno-052a6cec3da9.herokuapp.com', '.herokuapp.com', 'localhost', '127.0.0.1']
 
 # Configuración de sesión
-SESSION_COOKIE_AGE = 600# 10 minutos en segundos
+SESSION_COOKIE_AGE = 1200# 20 minutos en segundos
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 # Application definition
