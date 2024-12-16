@@ -30,7 +30,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['gonnet-interno-052a6cec3da9.herokuapp.com', '.herokuapp.com', 'localhost', '127.0.0.1']
 
 # Configuración de sesión
-SESSION_COOKIE_AGE = 1200# 20 minutos en segundos
+SESSION_COOKIE_AGE = 1200   # 20 minutos en segundos
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 # Application definition
@@ -92,14 +92,17 @@ WSGI_APPLICATION = 'sistema_gonnet.wsgi.application'
 #        }
 #    }
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_NAME', 'vgd8ktskappw7cmj'),
-        'USER': os.environ.get('DB_USER', 'oaai2ab9qsc7xvyn'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'it2cxhq71iiubhlj'),
-        'HOST': os.environ.get('DB_HOST', 'tj5iv8piornf713y.cbetxkdyhwsb.us-east-1.rds.amazonaws.com'),
-        'PORT': os.environ.get('DB_PORT', '3306'),
-    }
+    'default': dj_database_url.config(
+        env='JAWSDB_NAVY',  # Mantenemos esta si es la que acabamos de actualizar
+        conn_max_age=600,
+        ssl_require=True,
+        # Agregamos algunas opciones para optimizar la conexión
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            'charset': 'utf8mb4',
+            'autocommit': True,
+        }
+    )
 }
 
 # Configuración de Email
