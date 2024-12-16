@@ -672,7 +672,9 @@ def confirmar_reserva(request):
                 precio_total = Decimal(precio.replace(',', '.'))
             except (ValueError, TypeError):
                 messages.error(request, 'El precio proporcionado no es válido')
-                return redirect('inmobiliaria:buscar_propiedades')
+                return redirect('inmobiliaria:buscar_propiedades') 
+
+            print("el precio total es ",precio_total)
 
             # Crear la reserva
             with transaction.atomic():
@@ -928,6 +930,7 @@ def crear_disponibilidad(request, propiedad_id):
 def reserva_exitosa(request, reserva_id):
     
     reserva = Reserva.objects.get(id=reserva_id)
+    print("la reserva es ",reserva.precio_total)
     
     context = {
         'reserva': reserva
