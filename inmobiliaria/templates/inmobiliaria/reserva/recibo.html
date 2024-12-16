@@ -19,6 +19,7 @@
         body {
             margin: 1cm;
         }
+       
         @media print {
             body * {
                 visibility: hidden;
@@ -35,8 +36,11 @@
             button {
                 display: none;
             }
+           
         }
     </style>
+ 
+
     
     <!-- Aquí comienza la sección del recibo -->
     <div style="height: 49%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid;">
@@ -337,7 +341,7 @@
 </div>
 </div>
 <!-- Botón para imprimir -->
-<button onclick="window.print();" class="btn btn-primary mt-3">Imprimir Recibo</button>
+<button onclick="window.print();" class="btn btn-primary mt-3" style="background-color: #2d8524; border-color: #2d8524; color: white;">Imprimir Recibo</button>
 
 {% endblock %}
     
