@@ -1043,9 +1043,10 @@ def ver_recibo(request, reserva_id):
         
         # Obtener todos los pagos de la reserva ordenados por fecha
         pagos = reserva.pagos.all().order_by('fecha')
+        formas_de_pago = ', '.join(set(pago.get_forma_pago_display() for pago in pagos))
         
         # Convertir el precio total a palabras
-        monto_en_palabras = numero_a_palabras(int(reserva.precio_total))
+        monto_en_palabras = numero_a_palabras(int(sum(pago.monto for pago in pagos)))
         
         # Crear lista de características con SI/NO
         caracteristicas = []
@@ -1155,6 +1156,7 @@ def ver_recibo(request, reserva_id):
             
             # Total de pagos
             'total_pagado': sum(pago.monto for pago in pagos),
+            'formas_de_pago': formas_de_pago,
         }
         
         return render(request, 'inmobiliaria/reserva/recibo.html', context)

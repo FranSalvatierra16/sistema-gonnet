@@ -1,12 +1,10 @@
 {% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
 {% load static %}
+{% block title %}Recibo{% endblock %}
 
 {% block content %}
-<script>
-function abrirRecibo() {
-    window.location.href = "{% url 'inmobiliaria:buscar_propiedades' %}";
-}
-</script>
+<div class="printable">
 <script>
     function abrirRecibo() {
         window.open('recibo.html', '_blank'); // Abre en nueva ventana/pestaña
@@ -22,19 +20,30 @@ function abrirRecibo() {
             margin: 1cm;
         }
         @media print {
+            body * {
+                visibility: hidden;
+            }
+            .printable, .printable * {
+                visibility: visible;
+            }
+            .printable {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
             button {
                 display: none;
             }
         }
     </style>
     
-    <button onclick="window.print()" style="position: fixed; top: 20px; right: 20px;">Imprimir Recibo</button>
-    <button onclick="abrirRecibo()" style="position: fixed; bottom: 20px; right: 20px;">Finalizar</button>
-    
+    <!-- Aquí comienza la sección del recibo -->
     <div style="height: 49%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid;">
+        <!-- Contenido del recibo -->
         <div style="height: 15%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
             <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-                <img src="img/logo.png" alt="logo" style="height: 30%; width: 60%; margin-top: 0%;">
+                 <img src="{% static 'images/logo.png' %}" alt="logo" style="height: 30%; width: 60%; margin-top: 0%;">
                 <p style="margin: 0; font-size: 7px;"> de Nestor Oscar Gonnet</p>
                 <p style="margin: 0; font-size: 7px;">Corrientes 1987</p>
                 <p style="margin: 0; font-size: 7px;">(B7600EBO) Mar del Plata - Prov. de Bs. As.</p>
@@ -42,11 +51,9 @@ function abrirRecibo() {
                 <p style="margin: 0; font-size: 7px;">email: info@gonnet.com.ar</p>
             </div>
             <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
-            
-                <h4 style="margin-top: 15px;">RECIBO</h1>
-                
-                <p style="margin: 0; font-size:  7px;">DOCUMENTO NO VALIDO COMO FACTURA</p>
-            </div> 
+                <h4 style="margin-top: 15px;">RECIBO</h4>
+                <p style="margin: 0; font-size: 7px;">DOCUMENTO NO VALIDO COMO FACTURA</p>
+            </div>
             <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; margin-top: 5px;">
                 <div style="width: 80%; text-align: left;">
                     <h1 style="margin: 0; font-size: 10px;">Nº: {{ numero_recibo }}</h1>    
@@ -180,24 +187,24 @@ function abrirRecibo() {
                 <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d8524; height: 100%;">
                     <div style="display: flex; flex-wrap: wrap; width: 72%;">
                         <div style="width: 18%; text-align: center;">
-                            <h3 style="margin: 0; font-size: 7px;">Precio</h3>
+                            <h3 style="margin: 0; font-size: 9px;">Precio</h3>
                             <div style="border-bottom: 1px solid #2d8524;"></div>
-                            <h3 style="margin: 0; font-size: 7px;">{{ reserva.precio_total }}</h3>
+                            <h3 style="margin: 0; font-size: 9px;">{{ reserva.precio_total }}</h3>
                         </div>
                         <div style="width: 18%; text-align: center;">
-                            <h3 style="margin: 0; font-size: 7px;">SEÑA</h3>
+                            <h3 style="margin: 0; font-size: 9px;">SEÑA</h3>
                             <div style="border-bottom: 1px solid #2d8524;"></div>
-                            <h3 style="margin: 0; font-size: 7px;">{{ reserva.senia }}</h3>
+                            <h3 style="margin: 0; font-size: 9px;">{{ reserva.senia }}</h3>
                         </div>
                         <div style="width: 18%; text-align: center;">
-                            <h3 style="margin: 0; font-size: 7px;">SALDO</h3>
+                            <h3 style="margin: 0; font-size: 9px;">SALDO</h3>
                             <div style="border-bottom: 1px solid #2d8524;"></div>
-                            <h3 style="margin: 0; font-size: 7px;">{{ reserva.cuota_pendiente }}</h3>
+                            <h3 style="margin: 0; font-size: 9px;">{{ reserva.cuota_pendiente }}</h3>
                         </div>
                         <div style="width: 18%; text-align: center;">
-                            <h3 style="margin: 0; font-size: 7px;">DEPOSITO GARANTIA</h3>
+                            <h3 style="margin: 0; font-size: 9px;">DEPOSITO GARANTIA</h3>
                             <div style="border-bottom: 1px solid #2d8524;"></div>
-                            <h3 style="margin: 0; font-size: 7px;">{{ reserva.deposito_garantia }}</h3>
+                            <h3 style="margin: 0; font-size: 9px;">{{ reserva.deposito_garantia }}</h3>
                         </div>
                     </div>
     
@@ -235,19 +242,13 @@ function abrirRecibo() {
                 <div style="display: flex; flex-direction: column; width: 20%; border-left: 1px solid #2d8524;">
                     {% for pago in pagos %}
                     <div style="display: flex; justify-content: center; padding: 3px; font-size: 9px;">
-                        <div style="width: 15%;">${{ pago.monto|floatformat:2 }}</div>
+                        <div style="width: 15%;">{{ pago.monto|format_price }}</div>
                     </div>
                     {% endfor %}
                 </div>
             </div>
             
-            <!-- Total -->
-            <div style="display: flex; justify-content: flex-end; margin-top: 5px;">
-                <div style="width: 20%; text-align: center; font-size: 9px; border-top: 1px solid #2d8524;">
-                    <strong>Total: ${{ total_pagado|floatformat:2 }}</strong>
-                </div>
-            </div>
-            
+           
             <div style="display: flex; justify-content: space-between; height: 12%;">
                 <div style="display: flex; flex-direction: column; width: 70%; height: 100%;border-bottom: 1px solid transparent;">
     
@@ -270,7 +271,7 @@ function abrirRecibo() {
                     <div style="display: flex; flex-direction: column; width: 10%;height: 100%;">
                     
                         <div style="padding: 2px; border-bottom: 1px solid #2d8524;height: 100%;border-left: 1px solid #2d8524;display: flex; justify-content: center; align-items: center;">
-                            <span style="font-size: 7px;">TOTAL</span>
+                            <span style="font-size: 9px;padding: 3px;">TOTAL</span>
                         </div>
                         
                     </div>
@@ -279,7 +280,7 @@ function abrirRecibo() {
                     <div style="display: flex; flex-direction: column; border: 1px solid #2d8524; width: 20%;height: 100%;">
                       
                         <div style="padding: 2px; border-bottom: 1px solid #2d8524; border-left: 1px solid #2d8524;height: 100%;display: flex; justify-content: center; align-items: center;">
-                            <span style="font-size: 7px;">{{ reserva.precio_total }}</span>
+                            <span style="font-size: 9px;padding: 3px;">{{total_pagado}}</span>
                         </div>
                      
                     </div>
@@ -298,7 +299,7 @@ function abrirRecibo() {
     
                 <!-- Forma de pago -->
                 <div style="padding: 2; padding-left: 10px; border-top: 1px solid #2d8524; height: 6%;">
-                    <p style="margin: 0; font-size: 9px;">FORMA DE PAGO:</p>
+                    <p style="margin: 0; font-size: 9px;">FORMA DE PAGO:<u>&nbsp;&nbsp;&nbsp;{{ formas_de_pago }}&nbsp;&nbsp;&nbsp;</u></p></p>
                     <div style="border-bottom: 1px dotted black; height: 5px;"></div>
                 </div>
     
@@ -328,9 +329,19 @@ function abrirRecibo() {
             </div>
         </div>
     
-      
-    
+              <!-- Contenido del recibo -->
+        <!-- ... todo el contenido del recibo ... -->
+    </div>
+</div>
+    <!-- Aquí termina la sección del recibo -->
+</div>
+</div>
+<!-- Botón para imprimir -->
+<button onclick="window.print();" class="btn btn-primary mt-3">Imprimir Recibo</button>
+
 {% endblock %}
+    
+
     
       
     
