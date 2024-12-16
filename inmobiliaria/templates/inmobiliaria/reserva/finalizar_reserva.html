@@ -153,6 +153,11 @@
                         <label>Monto</label>
                         <input type="number" name="monto" class="form-control" step="0.01" max="{{ reserva.cuota_pendiente }}" required>
                     </div>
+                    <div class="form-group">
+                        <label for="deposito">Depósito:</label>
+                        <input type="number" step="0.01" class="form-control" id="deposito" name="deposito" 
+                               value="{{ reserva.deposito|default:0 }}" required>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>

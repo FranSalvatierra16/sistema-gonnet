@@ -951,7 +951,7 @@ def terminar_reserva(request, reserva_id):
                 monto = Decimal(request.POST.get('monto', '0'))
                 forma_pago = request.POST.get('forma_pago')
                 concepto_id = request.POST.get('concepto')
-                deposito_garantia = Decimal(request.POST.get('monto_deposito', '0'))  # Agregado
+                deposito = Decimal(request.POST.get('deposito', '0'))
                 
                 # Validaciones
                 if monto <= 0:
@@ -977,7 +977,7 @@ def terminar_reserva(request, reserva_id):
                 
                 # Actualizar la reserva
                 reserva.senia = total_pagado
-                reserva.deposito_garantia = deposito_garantia  # Actualizado
+                reserva.deposito = deposito  # Aseguramos que se guarde el depósito
                 reserva.cuota_pendiente = reserva.precio_total - total_pagado
                 
                 print(f"Debug - Precio Total: {reserva.precio_total}")
@@ -1002,8 +1002,8 @@ def terminar_reserva(request, reserva_id):
                     'detalles': {
                         'total_pagado': float(total_pagado),
                         'saldo_pendiente': float(reserva.cuota_pendiente),
-                        'estado': reserva.estado,
-                        'deposito_garantia': float(reserva.deposito_garantia)  # Agregado
+                        'deposito': float(deposito),  # Incluimos el depósito en la respuesta
+                        'estado': reserva.estado
                     }
                 })
                 
@@ -1022,9 +1022,9 @@ def terminar_reserva(request, reserva_id):
         'conceptos_pago': conceptos_pago,
         'pagos_previos': pagos_previos,
         'formas_pago': Pago.FORMA_PAGO_CHOICES,
-        'total_pagado': total_pagado,
-        'saldo_pendiente': saldo_pendiente,
-        'deposito_garantia': reserva.deposito_garantia  # Agregado
+        'total_pagado': sum(pago.monto for pago in pagos_previos),
+        'saldo_pendiente': reserva.cuota_pendiente,
+        'deposito': reserva.deposito or 0  # Aseguramos que siempre haya un valor
     }
     
     return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
