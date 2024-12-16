@@ -117,5 +117,28 @@
     </footer>
 
     {% block extra_js %}{% endblock %}
+    {% block javascript %}
+    <script>
+        var inactivityTime = function () {
+            var time;
+            window.onload = resetTimer;
+            document.onmousemove = resetTimer;
+            document.onkeypress = resetTimer;
+            document.onscroll = resetTimer;
+            document.onclick = resetTimer;
+
+            function logout() {
+                window.location.href = "{% url 'inmobiliaria:logout' %}";
+            }
+
+            function resetTimer() {
+                clearTimeout(time);
+                time = setTimeout(logout, 60000)  // 10 minutos en milisegundos
+            }
+        };
+
+        inactivityTime();
+    </script>
+    {% endblock %}
 </body>
 </html>

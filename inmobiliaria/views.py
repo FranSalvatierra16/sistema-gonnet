@@ -1806,3 +1806,10 @@ def agregar_deposito(request, reserva_id):
         messages.error(request, f'Error al agregar el depósito: {str(e)}')
         return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva_id)
 
+from django.contrib.auth import logout
+from django.shortcuts import redirect
+
+def logout_view(request):
+    logout(request)
+    return redirect('inmobiliaria:login')
+
