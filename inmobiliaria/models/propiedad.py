@@ -215,25 +215,56 @@ class Reserva(models.Model):
     deposito_garantia = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     def save(self, *args, **kwargs):
+        # Asegúrate de que la sucursal esté establecida si no está definida
         if not self.sucursal and self.propiedad:
             self.sucursal = self.propiedad.sucursal
-        if self.cuota_pendiente is None:
-         if not self.pk:  # Si es una nueva reserva
+
+        # Verifica si es una nueva instancia
+        is_new = self.pk is None
+
+        # Llama al método save del padre
+        super().save(*args, **kwargs)
+
+        # Si es una nueva reserva, inicializa los valores
+        if is_new:
             self.cuota_pendiente = self.precio_total
             self.senia = 0
-           is_new = self._state.adding
-       
-        
-        # Actualizar historial de disponibilidad
-        estado = 'confirmado' if self.estado == 'confirmada' else 'reservado'
-        HistorialDisponibilidad.actualizar_disponibilidad(
-            self.propiedad,
-            self.fecha_inicio,
-            self.fecha_fin,
-            estado,
-            self
-        )    
-        super().save(*args, **kwargs)
+
+            # Actualizar historial de disponibilidad
+            self.actualizar_historial_disponibilidad()
+
+    def actualizar_historial_disponibilidad(self):
+        # Obtener periodos de disponibilidad actuales que se solapan con la nueva reserva
+        periodos = HistorialDisponibilidad.objects.filter(
+            propiedad=self.propiedad,
+            fecha_fin__gte=self.fecha_inicio,
+            fecha_inicio__lte=self.fecha_fin
+        ).order_by('fecha_inicio')
+
+        for periodo in periodos:
+            if periodo.fecha_inicio < self.fecha_inicio:
+                # Crear un nuevo periodo de disponibilidad antes de la reserva
+                HistorialDisponibilidad.objects.create(
+                    propiedad=self.propiedad,
+                    fecha_inicio=periodo.fecha_inicio,
+                    fecha_fin=self.fecha_inicio - datetime.timedelta(days=1),
+                    estado='libre'
+                )
+
+            if periodo.fecha_fin > self.fecha_fin:
+                # Crear un nuevo periodo de disponibilidad después de la reserva
+                HistorialDisponibilidad.objects.create(
+                    propiedad=self.propiedad,
+                    fecha_inicio=self.fecha_fin + datetime.timedelta(days=1),
+                    fecha_fin=periodo.fecha_fin,
+                    estado='libre'
+                )
+
+            # Actualizar el periodo actual para reflejar la reserva
+            periodo.fecha_inicio = max(periodo.fecha_inicio, self.fecha_inicio)
+            periodo.fecha_fin = min(periodo.fecha_fin, self.fecha_fin)
+            periodo.estado = 'reservado'
+            periodo.save()
 
     def actualizar_saldos(self):
         """Actualiza los saldos basados en los pagos realizados"""

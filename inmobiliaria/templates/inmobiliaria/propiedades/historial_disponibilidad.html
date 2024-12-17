@@ -21,7 +21,7 @@
                     <td>{{ periodo.get_estado_display }}</td>
                     <td>
                         {% if periodo.reserva %}
-                            <a href="{% url 'inmobiliaria:ver_reserva' periodo.reserva.id %}">
+                            <a href="{% url 'inmobiliaria:reserva_detalle' periodo.reserva.id %}">
                                 Ver reserva
                             </a>
                         {% else %}
