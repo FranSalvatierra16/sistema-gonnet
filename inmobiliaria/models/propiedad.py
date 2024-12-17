@@ -145,13 +145,12 @@ class Propiedad(models.Model):
     #         raise ValidationError(_('Debe ingresar un precio de alquiler si está habilitado.'))
 
     def save(self, *args, **kwargs):
-        if not self.pk:  # Si es una nueva reserva
-            self.cuota_pendiente = self.precio_total  # Inicializar con el precio total
-            self.senia = 0
+        creating = self._state.adding  # Detectar si es una creación
         super().save(*args, **kwargs)
     
         if creating:
             self.crear_precios_iniciales()
+
 
     @transaction.atomic
     def crear_precios_iniciales(self):
