@@ -1,0 +1,37 @@
+{% extends 'inmobiliaria/base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>Historial de Disponibilidad - {{ propiedad.id }}</h2>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Desde</th>
+                    <th>Hasta</th>
+                    <th>Estado</th>
+                    <th>Reserva</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for periodo in historial %}
+                <tr class="{% if periodo.estado == 'libre' %}table-success{% elif periodo.estado == 'reservado' %}table-warning{% else %}table-danger{% endif %}">
+                    <td>{{ periodo.fecha_inicio|date:"d/m/Y" }}</td>
+                    <td>{{ periodo.fecha_fin|date:"d/m/Y" }}</td>
+                    <td>{{ periodo.get_estado_display }}</td>
+                    <td>
+                        {% if periodo.reserva %}
+                            <a href="{% url 'inmobiliaria:ver_reserva' periodo.reserva.id %}">
+                                Ver reserva
+                            </a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %} 

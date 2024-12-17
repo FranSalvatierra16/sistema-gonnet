@@ -118,6 +118,7 @@
                     <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad_id=propiedad.id %}" class="btn btn-danger">Eliminar</a>
                     <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-success">Agregar Disponibilidad</a>
                     <a href="{% url 'inmobiliaria:gestionar_precios' propiedad_id=propiedad.id %}" class="btn btn-success">Gestionar Precios</a>
+                    <a href="{% url 'inmobiliaria:historial_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-info">Historial</a>
                 </div>
             </div>
         </div>

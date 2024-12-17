@@ -1813,3 +1813,13 @@ def logout_view(request):
     logout(request)
     return redirect('inmobiliaria:login')
 
+def ver_historial_disponibilidad(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    historial = propiedad.historial_disponibilidad.all()
+    
+    context = {
+        'propiedad': propiedad,
+        'historial': historial
+    }
+    return render(request, 'inmobiliaria/propiedades/historial_disponibilidad.html', context)
+

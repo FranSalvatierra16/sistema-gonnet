@@ -221,6 +221,18 @@ class Reserva(models.Model):
          if not self.pk:  # Si es una nueva reserva
             self.cuota_pendiente = self.precio_total
             self.senia = 0
+           is_new = self._state.adding
+       
+        
+        # Actualizar historial de disponibilidad
+        estado = 'confirmado' if self.estado == 'confirmada' else 'reservado'
+        HistorialDisponibilidad.actualizar_disponibilidad(
+            self.propiedad,
+            self.fecha_inicio,
+            self.fecha_fin,
+            estado,
+            self
+        )    
         super().save(*args, **kwargs)
 
     def actualizar_saldos(self):
@@ -436,3 +448,83 @@ class Pago(models.Model):
 
     def __str__(self):
         return f"{self.codigo} - {self.concepto.nombre} - ${self.monto}"
+
+class HistorialDisponibilidad(models.Model):
+    ESTADO_CHOICES = [
+        ('libre', 'Libre'),
+        ('reservado', 'Reservado'),
+        ('confirmado', 'Confirmado'),
+        ('ocupado', 'Ocupado')
+    ]
+
+    propiedad = models.ForeignKey(
+        Propiedad, 
+        on_delete=models.CASCADE, 
+        related_name='historial_disponibilidad'
+    )
+    fecha_inicio = models.DateField()
+    fecha_fin = models.DateField()
+    estado = models.CharField(
+        max_length=20, 
+        choices=ESTADO_CHOICES, 
+        default='libre'
+    )
+    reserva = models.ForeignKey(
+        'Reserva', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='historial_disponibilidad'
+    )
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Historial de Disponibilidad"
+        verbose_name_plural = "Historial de Disponibilidades"
+        ordering = ['fecha_inicio', 'fecha_fin']
+
+    def __str__(self):
+        return f"{self.propiedad.id} - {self.fecha_inicio} al {self.fecha_fin} - {self.get_estado_display()}"
+
+    @classmethod
+    def actualizar_disponibilidad(cls, propiedad, fecha_inicio, fecha_fin, estado, reserva=None):
+        """
+        Actualiza el historial de disponibilidad cuando se crea o modifica una reserva
+        """
+        # Obtener períodos afectados
+        periodos_afectados = cls.objects.filter(
+            propiedad=propiedad,
+            fecha_fin__gte=fecha_inicio,
+            fecha_inicio__lte=fecha_fin
+        ).order_by('fecha_inicio')
+
+        # Eliminar períodos afectados
+        periodos_afectados.delete()
+
+        # Crear nuevo período para la reserva
+        cls.objects.create(
+            propiedad=propiedad,
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin,
+            estado=estado,
+            reserva=reserva
+        )
+
+        # Crear períodos libres antes y después si es necesario
+        primer_periodo = periodos_afectados.first()
+        if primer_periodo and primer_periodo.fecha_inicio < fecha_inicio:
+            cls.objects.create(
+                propiedad=propiedad,
+                fecha_inicio=primer_periodo.fecha_inicio,
+                fecha_fin=fecha_inicio - datetime.timedelta(days=1),
+                estado='libre'
+            )
+
+        ultimo_periodo = periodos_afectados.last()
+        if ultimo_periodo and ultimo_periodo.fecha_fin > fecha_fin:
+            cls.objects.create(
+                propiedad=propiedad,
+                fecha_inicio=fecha_fin + datetime.timedelta(days=1),
+                fecha_fin=ultimo_periodo.fecha_fin,
+                estado='libre'
+            )
