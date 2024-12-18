@@ -114,14 +114,24 @@ class Propiedad(models.Model):
     def esta_disponible_en_fecha(self, fecha_inicio, fecha_fin):
         """Verifica si una propiedad está disponible entre las fechas dadas."""
         if not fecha_inicio or not fecha_fin:
-            # Si alguna de las fechas no está definida, considera la propiedad como disponible
-            return True
+            return False
 
+        # Verificar si hay disponibilidades que cubran el período
         disponibilidades = self.disponibilidades.filter(
-            fecha_inicio__lte=fecha_fin, 
+            fecha_inicio__lte=fecha_fin,
             fecha_fin__gte=fecha_inicio
-        )
-        return not disponibilidades.exists()
+        ).exists()
+
+        # Verificar si hay reservas que se superpongan
+        reservas_superpuestas = self.reservas.filter(
+            fecha_inicio__lte=fecha_fin,
+            fecha_fin__gte=fecha_inicio
+        ).exists()
+
+        # La propiedad está disponible si:
+        # 1. No hay disponibilidades específicas definidas (está siempre disponible) O hay una disponibilidad que cubre el período
+        # 2. Y no hay reservas que se superpongan
+        return (not self.disponibilidades.exists() or disponibilidades) and not reservas_superpuestas
 
     # def clean(self):
     #     super().clean()
@@ -145,12 +155,13 @@ class Propiedad(models.Model):
     #         raise ValidationError(_('Debe ingresar un precio de alquiler si está habilitado.'))
 
     def save(self, *args, **kwargs):
-        creating = self._state.adding  # Detectar si es una creación
+        creating = self._state.adding 
+        is_new = self._state.adding# Detectar si es una creación
         super().save(*args, **kwargs)
     
         if creating:
             self.crear_precios_iniciales()
-
+      
 
     @transaction.atomic
     def crear_precios_iniciales(self):
@@ -219,52 +230,33 @@ class Reserva(models.Model):
         if not self.sucursal and self.propiedad:
             self.sucursal = self.propiedad.sucursal
 
-        # Verifica si es una nueva instancia
-        is_new = self.pk is None
+        is_new = self._state.adding
 
-        # Llama al método save del padre
+        # Verificar disponibilidad antes de guardar
+        if is_new:
+            # Si no hay disponibilidades definidas, asumimos que está disponible
+            if not self.propiedad.disponibilidades.exists():
+                disponible = True
+            else:
+                disponible = self.propiedad.esta_disponible_en_fecha(self.fecha_inicio, self.fecha_fin)
+                
+            if not disponible:
+                raise ValidationError('La propiedad no está disponible para las fechas seleccionadas.')
+
         super().save(*args, **kwargs)
 
-        # Si es una nueva reserva, inicializa los valores
         if is_new:
             self.cuota_pendiente = self.precio_total
             self.senia = 0
-
-            # Actualizar historial de disponibilidad
-            self.actualizar_historial_disponibilidad()
-
-    def actualizar_historial_disponibilidad(self):
-        # Obtener periodos de disponibilidad actuales que se solapan con la nueva reserva
-        periodos = HistorialDisponibilidad.objects.filter(
-            propiedad=self.propiedad,
-            fecha_fin__gte=self.fecha_inicio,
-            fecha_inicio__lte=self.fecha_fin
-        ).order_by('fecha_inicio')
-
-        for periodo in periodos:
-            if periodo.fecha_inicio < self.fecha_inicio:
-                # Crear un nuevo periodo de disponibilidad antes de la reserva
-                HistorialDisponibilidad.objects.create(
-                    propiedad=self.propiedad,
-                    fecha_inicio=periodo.fecha_inicio,
-                    fecha_fin=self.fecha_inicio - datetime.timedelta(days=1),
-                    estado='libre'
-                )
-
-            if periodo.fecha_fin > self.fecha_fin:
-                # Crear un nuevo periodo de disponibilidad después de la reserva
-                HistorialDisponibilidad.objects.create(
-                    propiedad=self.propiedad,
-                    fecha_inicio=self.fecha_fin + datetime.timedelta(days=1),
-                    fecha_fin=periodo.fecha_fin,
-                    estado='libre'
-                )
-
-            # Actualizar el periodo actual para reflejar la reserva
-            periodo.fecha_inicio = max(periodo.fecha_inicio, self.fecha_inicio)
-            periodo.fecha_fin = min(periodo.fecha_fin, self.fecha_fin)
-            periodo.estado = 'reservado'
-            periodo.save()
+            
+            # Actualizar el historial de disponibilidad
+            HistorialDisponibilidad.objects.create(
+                propiedad=self.propiedad,
+                fecha_inicio=self.fecha_inicio,
+                fecha_fin=self.fecha_fin,
+                estado='reservado',
+                reserva=self
+            )
 
     def actualizar_saldos(self):
         """Actualiza los saldos basados en los pagos realizados"""
@@ -279,6 +271,23 @@ class Reserva(models.Model):
         # Guardar los cambios
         self.save()
 
+    def terminar_reserva(self):
+        """Método para terminar una reserva"""
+        self.estado = 'pagada'
+        self.save()
+        
+        # Actualizar el historial de disponibilidad
+        historial = HistorialDisponibilidad.objects.filter(
+            propiedad=self.propiedad,
+            fecha_inicio=self.fecha_inicio,
+            fecha_fin=self.fecha_fin,
+            reserva=self
+        ).first()
+        
+        if historial:
+            historial.estado = 'ocupado'
+            historial.save()
+
     def __str__(self):
         return f"Reserva {self.id} - {self.propiedad}"
 
@@ -286,6 +295,19 @@ class Disponibilidad(models.Model):
     propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='disponibilidades')
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
+
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+        
+        if is_new:
+            # Crear o actualizar el historial cuando se crea una nueva disponibilidad
+            HistorialDisponibilidad.objects.create(
+                propiedad=self.propiedad,
+                fecha_inicio=self.fecha_inicio,
+                fecha_fin=self.fecha_fin,
+                estado='libre'
+            )
 
     class Meta:
         verbose_name = _("Disponibilidad")
