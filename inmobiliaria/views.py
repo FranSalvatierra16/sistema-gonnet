@@ -524,7 +524,7 @@ def ver_disponibilidad(request, propiedad_id):
     }
 
     return render(request, 'inmobiliaria/ver_disponibilidad.html', context)
-@login_required
+@login_required                                                                 
 def reservas(request):
     reservas = Reserva.objects.filter(sucursal=request.user.sucursal)
     return render(request, 'inmobiliaria/reserva/lista.html', {'reservas': reservas})
@@ -631,6 +631,9 @@ def confirmar_reserva(request):
             inquilino_id = request.POST.get('inquilino_id')
             precio = request.POST.get('precio_total', '0')
 
+            # Limpiar el precio: remover puntos de miles y reemplazar coma por punto
+            precio_limpio = precio.replace('.', '').replace(',', '.')
+            
             # Validación de datos obligatorios
             campos_requeridos = {
                 'propiedad_id': propiedad_id,
@@ -638,20 +641,17 @@ def confirmar_reserva(request):
                 'fecha_fin': fecha_fin_str,
                 'vendedor_id': vendedor_id,
                 'inquilino_id': inquilino_id,
-                'precio': precio
+                'precio': precio_limpio
             }
-            print("los campos requeridos son ",campos_requeridos)
 
             campos_faltantes = [k for k, v in campos_requeridos.items() if not v]
             if campos_faltantes:
                 messages.error(request, f'Faltan los siguientes campos: {", ".join(campos_faltantes)}')
                 return redirect('inmobiliaria:buscar_propiedades')
 
-            # Convertir 
-            print("la fecha de inicio es ",fecha_inicio_str)
+            # Convertir fechas
             fecha_inicio = parse_fecha(fecha_inicio_str)
             fecha_fin = parse_fecha(fecha_fin_str)
-            print("la fecha de fin es ",fecha_fin)
 
             # Validar fechas    
             if fecha_inicio > fecha_fin:
@@ -669,10 +669,11 @@ def confirmar_reserva(request):
 
             # Procesar el precio
             try:
-                precio_total = Decimal(precio.replace(',', '.'))
+                precio_total = Decimal(precio_limpio)
+                print("Precio procesado:", precio_total)  # Debug
             except (ValueError, TypeError):
                 messages.error(request, 'El precio proporcionado no es válido')
-                return redirect('inmobiliaria:buscar_propiedades') 
+                return redirect('inmobiliaria:buscar_propiedades')
 
             print("el precio total es ",precio_total)
 
@@ -945,6 +946,11 @@ def terminar_reserva(request, reserva_id):
     conceptos_pago = ConceptoPago.objects.all()
     pagos_previos = Pago.objects.filter(reserva=reserva).order_by('-fecha')
     
+    # Verificar si hay pagos y actualizar el estado
+    if pagos_previos.exists():
+        reserva.estado = 'pagada'
+        reserva.save()
+    print("la reserva es ",reserva.estado) 
     # Inicializar o actualizar cuota_pendiente si es necesario
     if reserva.cuota_pendiente is None or reserva.cuota_pendiente == 0:
         reserva.cuota_pendiente = reserva.precio_total
@@ -995,13 +1001,14 @@ def terminar_reserva(request, reserva_id):
                 
                 # Actualizar la reserva
                 reserva.senia = total_pagado
-                reserva.deposito = deposito  # Aseguramos que se guarde el depósito
+                reserva.deposito = deposito
                 reserva.cuota_pendiente = reserva.precio_total - total_pagado
+                reserva.estado = 'pagada'  # Siempre marcar como pagada cuando hay un pago
                 
                 print(f"Debug - Precio Total: {reserva.precio_total}")
                 print(f"Debug - Total Pagado: {total_pagado}")
                 print(f"Debug - Cuota Pendiente: {reserva.cuota_pendiente}")
-                print(f"Debug - Depósito de Garantía: {reserva.deposito_garantia}")  # Agregado
+                print(f"Debug - Depósito de Garantía: {reserva.deposito_garantia}")
                 
                 # Actualizar estado según el saldo pendiente
                 if reserva.cuota_pendiente <= 0:
@@ -1013,6 +1020,8 @@ def terminar_reserva(request, reserva_id):
                 
                 reserva.save()
                 
+                messages.success(request, 'Pago registrado exitosamente')
+                
                 return JsonResponse({
                     'success': True,
                     'message': 'Pago registrado exitosamente',
@@ -1020,7 +1029,7 @@ def terminar_reserva(request, reserva_id):
                     'detalles': {
                         'total_pagado': float(total_pagado),
                         'saldo_pendiente': float(reserva.cuota_pendiente),
-                        'deposit_garantia': float(reserva.deposito_garantia),  # Incluimos el depósito en la respuesta
+                        'deposit_garantia': float(reserva.deposito_garantia),
                         'estado': reserva.estado
                     }
                 })
@@ -1506,15 +1515,21 @@ def agregar_disponibilidad_masiva(request):
         errores = []
         
         try:
+            # Verificar que las propiedades pertenezcan a la sucursal del usuario
             for propiedad_id in propiedad_ids:
                 try:
-                    propiedad = Propiedad.objects.get(id=propiedad_id)
+                    propiedad = Propiedad.objects.get(
+                        id=propiedad_id,
+                        sucursal=sucursal  # Filtrar por sucursal
+                    )
                     Disponibilidad.objects.create(
                         propiedad=propiedad,
                         fecha_inicio=fecha_inicio,
                         fecha_fin=fecha_fin
                     )
                     propiedades_actualizadas += 1
+                except Propiedad.DoesNotExist:
+                    errores.append(f"Propiedad {propiedad_id} no pertenece a su sucursal")
                 except Exception as e:
                     errores.append(f"Error en propiedad {propiedad_id}: {str(e)}")
             
@@ -1537,10 +1552,15 @@ def agregar_disponibilidad_masiva(request):
                 'success': False,
                 'message': f'Error al actualizar disponibilidades: {str(e)}'
             })
-            
-    propiedades = Propiedad.objects.all().order_by('direccion')
+    
+    # Filtrar propiedades por sucursal para el listado
+    propiedades = Propiedad.objects.filter(
+        sucursal=sucursal
+    ).order_by('direccion')
+    
     return render(request, 'inmobiliaria/propiedades/disponibilidad_masiva.html', {
-        'propiedades': propiedades
+        'propiedades': propiedades,
+        'sucursal': sucursal  # Pasar la sucursal al template
     })
 
 # views.py

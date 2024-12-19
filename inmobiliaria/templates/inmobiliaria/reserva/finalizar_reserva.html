@@ -60,15 +60,15 @@
                     <tfoot>
                         <tr>
                             <td colspan="4" class="text-right"><strong>Total Pagado:</strong></td>
-                            <td class="text-right"><strong>${{ reserva.senia|floatformat:2 }}</strong></td>
+                            <td class="text-right"><strong>${{ reserva.senia|format_price }}</strong></td>
                         </tr>
                         <tr>
                             <td colspan="4" class="text-right"><strong>Depósito de Garantía:</strong></td>
-                            <td class="text-right"><strong>${{ reserva.deposito_garantia|floatformat:2 }}</strong></td>
+                            <td class="text-right"><strong>${{ reserva.deposito_garantia|format_price }}</strong></td>
                         </tr>
                         <tr>
                             <td colspan="4" class="text-right"><strong>Saldo Pendiente:</strong></td>
-                            <td class="text-right"><strong>${{ reserva.cuota_pendiente|floatformat:2 }}</strong></td>
+                            <td class="text-right"><strong>${{ reserva.cuota_pendiente|format_price }}</strong></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -146,18 +146,21 @@
                             <input 
                                 type="text" 
                                 id="concepto_input" 
-                                name="concepto" 
                                 class="form-control" 
                                 list="conceptos_list" 
                                 placeholder="Buscar concepto..." 
                                 required
                             >
+                            <input type="hidden" id="concepto_id" name="concepto">
                             <datalist id="conceptos_list">
                                 {% for concepto in conceptos_pago %}
-                                    <option value="{{ concepto.codigo }} - {{ concepto.nombre }}" data-id="{{ concepto.id }}" data-codigo="{{ concepto.codigo }}">
+                                    <option 
+                                        value="{{ concepto.codigo }} - {{ concepto.nombre }}"
+                                        data-id="{{ concepto.id }}"
+                                        data-codigo="{{ concepto.codigo }}"
+                                    >
                                 {% endfor %}
                             </datalist>
-                            <input type="hidden" name="concepto_id" id="concepto_id">
                         </div>
                     </div>
                     <div class="form-group">
@@ -222,40 +225,93 @@ document.getElementById('forma_pago').addEventListener('change', function() {
     }
 });
 
-// Funcionalidad para el concepto de pago
-document.getElementById('codigo_concepto').addEventListener('input', function(e) {
-    const codigo = e.target.value;
-    const conceptoInput = document.getElementById('concepto_input');
-    const options = document.getElementById('conceptos_list').options;
-    
-    for (let option of options) {
-        if (option.dataset.codigo === codigo) {
-            conceptoInput.value = option.value;
-            document.getElementById('concepto_id').value = option.dataset.id;
-            break;
+document.addEventListener('DOMContentLoaded', function() {
+    // Evento para cuando se ingresa el código
+    document.getElementById('codigo_concepto').addEventListener('input', function(e) {
+        const codigo = e.target.value;
+        const conceptoInput = document.getElementById('concepto_input');
+        const options = document.getElementById('conceptos_list').options;
+        
+        for (let option of options) {
+            if (option.dataset.codigo === codigo) {
+                conceptoInput.value = option.value;
+                document.getElementById('concepto_id').value = option.dataset.id;
+                break;
+            }
         }
-    }
-});
+    });
 
-document.getElementById('concepto_input').addEventListener('input', function(e) {
-    const selectedValue = e.target.value;
-    const options = document.getElementById('conceptos_list').options;
-    
-    for (let option of options) {
-        if (option.value === selectedValue) {
-            document.getElementById('codigo_concepto').value = option.dataset.codigo;
-            document.getElementById('concepto_id').value = option.dataset.id;
-            break;
+    // Evento para cuando se selecciona un concepto
+    document.getElementById('concepto_input').addEventListener('input', function(e) {
+        const selectedValue = e.target.value;
+        const options = document.getElementById('conceptos_list').options;
+        
+        for (let option of options) {
+            if (option.value === selectedValue) {
+                document.getElementById('concepto_id').value = option.dataset.id;
+                document.getElementById('codigo_concepto').value = option.dataset.codigo;
+                break;
+            }
         }
-    }
-});
+    });
 
-// Validar que se haya seleccionado un concepto válido antes de enviar
-document.querySelector('form').addEventListener('submit', function(e) {
-    const conceptoId = document.getElementById('concepto_id').value;
-    if (!conceptoId) {
-        e.preventDefault();
-        alert('Por favor, seleccione un concepto válido de la lista');
+    // Función para validar y obtener el ID del concepto
+    function getConceptoId() {
+        const conceptoId = document.getElementById('concepto_id').value;
+        if (!conceptoId) {
+            throw new Error('Por favor seleccione un concepto válido');
+        }
+        return conceptoId;
+    }
+
+    // Manejo del formulario de pago
+    const formPago = document.querySelector('form[action*="agregar_pago"]');
+    if (formPago) {
+        formPago.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            try {
+                const conceptoId = getConceptoId();
+                const formData = new FormData(this);
+                formData.set('concepto', conceptoId);
+
+                fetch(this.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Redirección explícita
+                        console.log('Redirigiendo a:', data.redirect_url);
+                        window.location.replace(data.redirect_url);
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.message
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Ocurrió un error al procesar el pago'
+                    });
+                });
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message
+                });
+            }
+        });
     }
 });
 </script>
