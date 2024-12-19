@@ -141,20 +141,55 @@
                 <div class="modal-body">
                     <div class="form-group">
                         <label>Concepto</label>
-                        <select name="concepto" class="form-control" required>
-                            {% for concepto in conceptos_pago %}
-                            <option value="{{ concepto.id }}">{{ concepto.nombre }}</option>
-                            {% endfor %}
-                        </select>
+                        <div class="input-group">
+                            <input type="text" id="codigo_concepto" class="form-control" placeholder="Código" maxlength="3">
+                            <input 
+                                type="text" 
+                                id="concepto_input" 
+                                name="concepto" 
+                                class="form-control" 
+                                list="conceptos_list" 
+                                placeholder="Buscar concepto..." 
+                                required
+                            >
+                            <datalist id="conceptos_list">
+                                {% for concepto in conceptos_pago %}
+                                    <option value="{{ concepto.codigo }} - {{ concepto.nombre }}" data-id="{{ concepto.id }}" data-codigo="{{ concepto.codigo }}">
+                                {% endfor %}
+                            </datalist>
+                            <input type="hidden" name="concepto_id" id="concepto_id">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Forma de Pago</label>
-                        <select name="forma_pago" class="form-control" required>
+                        <select name="forma_pago" id="forma_pago" class="form-control" required>
                             <option value="efectivo">Efectivo</option>
                             <option value="transferencia">Transferencia</option>
-                            <option value="tarjeta">Tarjeta</option>
+                            <option value="tarjeta_credito">Tarjeta de Crédito</option>
+                            <option value="tarjeta_debito">Tarjeta de Débito</option>
+                            <option value="cheque">Cheque</option>
+                            <option value="qr">QR</option>
                         </select>
                     </div>
+                    
+                    <!-- Campos para tarjeta (inicialmente ocultos) -->
+                    <div id="campos_tarjeta" style="display: none;">
+                        <div class="form-group">
+                            <label>Número de Tarjeta (últimos 4 dígitos)</label>
+                            <input type="text" name="numero_tarjeta" class="form-control" maxlength="4" pattern="\d{4}">
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo de Tarjeta</label>
+                            <select name="tipo_tarjeta" class="form-control">
+                                <option value="">Seleccione tipo de tarjeta</option>
+                                <option value="visa">Visa</option>
+                                <option value="mastercard">Mastercard</option>
+                                <option value="american_express">American Express</option>
+                                <option value="otro">Otro</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label>Monto</label>
                         <input type="number" name="monto" class="form-control" step="0.01" max="{{ reserva.cuota_pendiente }}" required>
@@ -168,4 +203,76 @@
         </div>
     </div>
 </div>
+
+<!-- Agregar este script al final del archivo -->
+<script>
+document.getElementById('forma_pago').addEventListener('change', function() {
+    const camposTarjeta = document.getElementById('campos_tarjeta');
+    const numeroTarjeta = document.querySelector('input[name="numero_tarjeta"]');
+    const tipoTarjeta = document.querySelector('select[name="tipo_tarjeta"]');
+    
+    if (this.value.includes('tarjeta')) {
+        camposTarjeta.style.display = 'block';
+        numeroTarjeta.required = true;
+        tipoTarjeta.required = true;
+    } else {
+        camposTarjeta.style.display = 'none';
+        numeroTarjeta.required = false;
+        tipoTarjeta.required = false;
+    }
+});
+
+// Funcionalidad para el concepto de pago
+document.getElementById('codigo_concepto').addEventListener('input', function(e) {
+    const codigo = e.target.value;
+    const conceptoInput = document.getElementById('concepto_input');
+    const options = document.getElementById('conceptos_list').options;
+    
+    for (let option of options) {
+        if (option.dataset.codigo === codigo) {
+            conceptoInput.value = option.value;
+            document.getElementById('concepto_id').value = option.dataset.id;
+            break;
+        }
+    }
+});
+
+document.getElementById('concepto_input').addEventListener('input', function(e) {
+    const selectedValue = e.target.value;
+    const options = document.getElementById('conceptos_list').options;
+    
+    for (let option of options) {
+        if (option.value === selectedValue) {
+            document.getElementById('codigo_concepto').value = option.dataset.codigo;
+            document.getElementById('concepto_id').value = option.dataset.id;
+            break;
+        }
+    }
+});
+
+// Validar que se haya seleccionado un concepto válido antes de enviar
+document.querySelector('form').addEventListener('submit', function(e) {
+    const conceptoId = document.getElementById('concepto_id').value;
+    if (!conceptoId) {
+        e.preventDefault();
+        alert('Por favor, seleccione un concepto válido de la lista');
+    }
+});
+</script>
+
+<style>
+/* Estilos para mejorar la apariencia */
+.input-group {
+    display: flex;
+    gap: 10px;
+}
+
+#codigo_concepto {
+    width: 100px;
+}
+
+#concepto_input {
+    flex: 1;
+}
+</style>
 {% endblock %}

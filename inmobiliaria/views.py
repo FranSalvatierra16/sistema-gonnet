@@ -939,6 +939,7 @@ def reserva_exitosa(request, reserva_id):
     }
     return render(request, 'inmobiliaria/reserva/reserva_exitosa.html', context)
 
+@login_required
 def terminar_reserva(request, reserva_id):
     reserva = get_object_or_404(Reserva, id=reserva_id)
     conceptos_pago = ConceptoPago.objects.all()
@@ -968,12 +969,24 @@ def terminar_reserva(request, reserva_id):
                 # Obtener el concepto
                 concepto = get_object_or_404(ConceptoPago, id=concepto_id)
                 
-                # Crear el pago
+                # Obtener datos adicionales de tarjeta si es necesario
+                numero_tarjeta = None
+                tipo_tarjeta = None
+                if 'tarjeta' in forma_pago:
+                    numero_tarjeta = request.POST.get('numero_tarjeta')
+                    tipo_tarjeta = request.POST.get('tipo_tarjeta')
+                    
+                    if not numero_tarjeta or not tipo_tarjeta:
+                        raise ValueError('Los datos de la tarjeta son requeridos')
+                
+                # Crear el pago con los datos adicionales
                 pago = Pago.objects.create(
                     reserva=reserva,
                     monto=monto,
                     forma_pago=forma_pago,
-                    concepto=concepto
+                    concepto=concepto,
+                    numero_tarjeta=numero_tarjeta,
+                    tipo_tarjeta=tipo_tarjeta
                 )
                 
                 # Calcular total pagado y actualizar saldo pendiente

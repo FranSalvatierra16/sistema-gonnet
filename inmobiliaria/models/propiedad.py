@@ -464,7 +464,10 @@ class Pago(models.Model):
     FORMA_PAGO_CHOICES = [
         ('efectivo', 'Efectivo'),
         ('transferencia', 'Transferencia'),
-        ('tarjeta', 'Tarjeta'),
+        ('tarjeta_credito', 'Tarjeta de Crédito'),
+        ('tarjeta_debito', 'Tarjeta de Débito'),
+        ('cheque', 'Cheque'),
+        ('qr', 'QR'),
     ]
 
     reserva = models.ForeignKey('Reserva', on_delete=models.CASCADE, related_name='pagos')
@@ -473,21 +476,54 @@ class Pago(models.Model):
     forma_pago = models.CharField(max_length=20, choices=FORMA_PAGO_CHOICES)
     concepto = models.ForeignKey('ConceptoPago', on_delete=models.PROTECT)
     monto = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    # Nuevos campos para tarjetas
+    numero_tarjeta = models.CharField(
+        max_length=16, 
+        blank=True, 
+        null=True,
+        verbose_name="Número de Tarjeta",
+        help_text="Últimos 4 dígitos de la tarjeta"
+    )
+    tipo_tarjeta = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name="Tipo de Tarjeta",
+        choices=[
+            ('visa', 'Visa'),
+            ('mastercard', 'Mastercard'),
+            ('american_express', 'American Express'),
+            ('otro', 'Otro')
+        ]
+    )
 
     def clean(self):
+        super().clean()
         if not self.pk:  # Solo validar al crear un nuevo pago
             # Verificar que el monto no supere la cuota pendiente
             if self.monto > self.reserva.cuota_pendiente:
                 raise ValidationError({
                     'monto': f'El monto del pago (${self.monto}) no puede superar el saldo pendiente (${self.reserva.cuota_pendiente})'
                 })
+        if 'tarjeta' in self.forma_pago and not self.numero_tarjeta:
+            raise ValidationError({
+                'numero_tarjeta': 'El número de tarjeta es requerido para pagos con tarjeta'
+            })
+        if 'tarjeta' in self.forma_pago and not self.tipo_tarjeta:
+            raise ValidationError({
+                'tipo_tarjeta': 'El tipo de tarjeta es requerido para pagos con tarjeta'
+            })
 
     def save(self, *args, **kwargs):
+        # Si se proporciona un número de tarjeta completo, guardar solo los últimos 4 dígitos
         self.clean()  # Ejecutar validaciones
         if not self.pk:  # Si es un nuevo pago
             ultimo_pago = Pago.objects.order_by('-id').first()
             numero = (ultimo_pago.id + 1) if ultimo_pago else 1
             self.codigo = f'PAG{numero:06d}'
+        if self.numero_tarjeta and len(self.numero_tarjeta) > 4:
+            self.numero_tarjeta = self.numero_tarjeta[-4:]
         super().save(*args, **kwargs)
         self.reserva.actualizar_saldos()
 
@@ -506,7 +542,6 @@ class HistorialDisponibilidad(models.Model):
     ESTADO_CHOICES = [
         ('libre', 'Libre'),
         ('reservado', 'Reservado'),
-        ('confirmado', 'Confirmado'),
         ('ocupado', 'Ocupado')
     ]
 
@@ -531,6 +566,57 @@ class HistorialDisponibilidad(models.Model):
     )
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
+    @classmethod
+    def actualizar_historial_con_reserva(cls, reserva):
+        """
+        Actualiza el historial de disponibilidad cuando se crea una nueva reserva
+        """
+        propiedad = reserva.propiedad
+        fecha_inicio_reserva = reserva.fecha_inicio
+        fecha_fin_reserva = reserva.fecha_fin
+
+        # Buscar períodos existentes que se superpongan
+        periodos_afectados = cls.objects.filter(
+            propiedad=propiedad,
+            fecha_fin__gte=fecha_inicio_reserva,
+            fecha_inicio__lte=fecha_fin_reserva
+        ).order_by('fecha_inicio')
+
+        # Si hay períodos afectados
+        if periodos_afectados.exists():
+            primer_periodo = periodos_afectados.first()
+            ultimo_periodo = periodos_afectados.last()
+
+            # Crear período libre antes de la reserva si es necesario
+            if primer_periodo.fecha_inicio < fecha_inicio_reserva:
+                cls.objects.create(
+                    propiedad=propiedad,
+                    fecha_inicio=primer_periodo.fecha_inicio,
+                    fecha_fin=fecha_inicio_reserva - datetime.timedelta(days=1),
+                    estado='libre'
+                )
+
+            # Crear período libre después de la reserva si es necesario
+            if ultimo_periodo.fecha_fin > fecha_fin_reserva:
+                cls.objects.create(
+                    propiedad=propiedad,
+                    fecha_inicio=fecha_fin_reserva + datetime.timedelta(days=1),
+                    fecha_fin=ultimo_periodo.fecha_fin,
+                    estado='libre'
+                )
+
+            # Eliminar períodos afectados
+            periodos_afectados.delete()
+
+        # Crear el nuevo período para la reserva
+        cls.objects.create(
+            propiedad=propiedad,
+            fecha_inicio=fecha_inicio_reserva,
+            fecha_fin=fecha_fin_reserva,
+            estado='reservado',
+            reserva=reserva
+        )
+
     class Meta:
         verbose_name = "Historial de Disponibilidad"
         verbose_name_plural = "Historial de Disponibilidades"
@@ -538,46 +624,3 @@ class HistorialDisponibilidad(models.Model):
 
     def __str__(self):
         return f"{self.propiedad.id} - {self.fecha_inicio} al {self.fecha_fin} - {self.get_estado_display()}"
-
-    @classmethod
-    def actualizar_disponibilidad(cls, propiedad, fecha_inicio, fecha_fin, estado, reserva=None):
-        """
-        Actualiza el historial de disponibilidad cuando se crea o modifica una reserva
-        """
-        # Obtener períodos afectados
-        periodos_afectados = cls.objects.filter(
-            propiedad=propiedad,
-            fecha_fin__gte=fecha_inicio,
-            fecha_inicio__lte=fecha_fin
-        ).order_by('fecha_inicio')
-
-        # Eliminar períodos afectados
-        periodos_afectados.delete()
-
-        # Crear nuevo período para la reserva
-        cls.objects.create(
-            propiedad=propiedad,
-            fecha_inicio=fecha_inicio,
-            fecha_fin=fecha_fin,
-            estado=estado,
-            reserva=reserva
-        )
-
-        # Crear períodos libres antes y después si es necesario
-        primer_periodo = periodos_afectados.first()
-        if primer_periodo and primer_periodo.fecha_inicio < fecha_inicio:
-            cls.objects.create(
-                propiedad=propiedad,
-                fecha_inicio=primer_periodo.fecha_inicio,
-                fecha_fin=fecha_inicio - datetime.timedelta(days=1),
-                estado='libre'
-            )
-
-        ultimo_periodo = periodos_afectados.last()
-        if ultimo_periodo and ultimo_periodo.fecha_fin > fecha_fin:
-            cls.objects.create(
-                propiedad=propiedad,
-                fecha_inicio=fecha_fin + datetime.timedelta(days=1),
-                fecha_fin=ultimo_periodo.fecha_fin,
-                estado='libre'
-            )
