@@ -41,110 +41,224 @@
                     <div class="tab-pane fade show active" id="alquiler" role="tabpanel">
                         <div class="card-body">
                             <div class="row">
-                                <!-- Columna de detalles -->
+                                <!-- Columna izquierda: Información Principal y Características -->
                                 <div class="col-md-6">
-                                    <dl class="row">
-                                        <dt class="col-sm-4">Ficha:</dt>
-                                        <dd class="col-sm-8">{{ propiedad.id }}</dd>
-                                        <dt class="col-sm-4">Direcci��n:</dt>
-                                        <dd class="col-sm-8">{{ propiedad.direccion }}</dd>
-                                        <dt class="col-sm-4">Propietario:</dt>
-                                        <dd class="col-sm-8">{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</dd>
-                                        <dt class="col-sm-4">Piso:</dt>
-                                        <dd class="col-sm-8">{{ propiedad.piso }}</dd>
-                                        <dt class="col-sm-4">Departamento:</dt>
-                                        <dd class="col-sm-8">{{ propiedad.departamento }}</dd>
-                                        <dt class="col-sm-4">Ambientes:</dt>
-                                        <dd class="col-sm-8">{{ propiedad.ambientes }}</dd>
-                                    </dl>
+                                    <!-- Información Principal -->
+                                    <div class="info-section mb-4">
+                                        <h4 class="section-title">
+                                            <i class="fas fa-info-circle text-primary"></i> Información Principal
+                                        </h4>
+                                        <div class="detail-grid">
+                                            <div class="detail-item">
+                                                <span class="detail-label"><i class="fas fa-hashtag"></i> Ficha</span>
+                                                <span class="detail-value badge badge-primary text-white">{{ propiedad.id }}</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label"><i class="fas fa-map-marker-alt"></i> Dirección</span>
+                                                <span class="detail-value">{{ propiedad.direccion }}</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label"><i class="fas fa-home"></i> Tipo</span>
+                                                <span class="detail-value">{{ propiedad.get_tipo_inmueble_display }}</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label"><i class="fas fa-door-open"></i> Ambientes</span>
+                                                <span class="detail-value badge badge-info text-white">{{ propiedad.ambientes }}</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label"><i class="fas fa-building"></i> Piso</span>
+                                                <span class="detail-value badge badge-secondary text-white">{{ propiedad.piso }}</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label"><i class="fas fa-door-closed"></i> Departamento</span>
+                                                <span class="detail-value badge badge-dark text-white">{{ propiedad.departamento }}</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label"><i class="fas fa-eye"></i> Vista</span>
+                                                <span class="detail-value">{{ propiedad.get_vista_display }}</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label"><i class="fas fa-star"></i> Estado</span>
+                                                <span class="detail-value badge badge-success">{{ propiedad.get_valoracion_display }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Características con tamaño ajustado -->
+                                    <div class="info-section mb-4">
+                                        <h4 class="section-title">
+                                            <i class="fas fa-check-circle text-success"></i> Características
+                                        </h4>
+                                        <div class="features-grid-compact">
+                                            {% if propiedad.amoblado %}
+                                                <div class="feature-item active">
+                                                    <i class="fas fa-couch"></i> Amoblado
+                                                </div>
+                                            {% endif %}
+                                            {% if propiedad.cochera %}
+                                                <div class="feature-item active">
+                                                    <i class="fas fa-car"></i> Cochera
+                                                </div>
+                                            {% endif %}
+                                            {% if propiedad.wifi %}
+                                                <div class="feature-item active">
+                                                    <i class="fas fa-wifi"></i> WiFi
+                                                </div>
+                                            {% endif %}
+                                            {% if propiedad.piscina %}
+                                                <div class="feature-item active">
+                                                    <i class="fas fa-swimming-pool"></i> Piscina
+                                                </div>
+                                            {% endif %}
+                                            {% if propiedad.parrilla %}
+                                                <div class="feature-item active">
+                                                    <i class="fas fa-fire"></i> Parrilla
+                                                </div>
+                                            {% endif %}
+                                            {% if propiedad.patio %}
+                                                <div class="feature-item active">
+                                                    <i class="fas fa-tree"></i> Patio
+                                                </div>
+                                            {% endif %}
+                                            {% if propiedad.balcon %}
+                                                <div class="feature-item active">
+                                                    <i class="fas fa-door-open"></i> Balcón
+                                                </div>
+                                            {% endif %}
+                                            {% if propiedad.seguridad %}
+                                                <div class="feature-item active">
+                                                    <i class="fas fa-shield-alt"></i> Seguridad
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <!-- Columna de imágenes -->
-                              
-                        <!-- Columna de imágenes con carrusel -->
-                       <div class="col-md-6 text-center">
-                            {% if imagenes %}
-                                <div id="carouselExampleControls" class="carousel slide" data-ride="carousel">
-                                    <div class="carousel-inner">
+                                <!-- Columna derecha: Imágenes y Descripción -->
+                                <div class="col-md-6">
+                                    <!-- Debug info -->
+                                    <div class="debug-info" style="display: none;">
+                                        <p>Número de imágenes: {{ imagenes|length }}</p>
                                         {% for imagen in imagenes %}
-                                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                                <img src="{{ imagen.imagen.url }}" class="d-block w-100" alt="Imagen de la propiedad">
-                                            </div>
+                                            <p>URL de imagen: {{ imagen.imagen.url }}</p>
                                         {% endfor %}
                                     </div>
-                                    <a class="carousel-control-prev" href="#carouselExampleControls" role="button" data-slide="prev">
-                                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                        <span class="sr-only">Previous</span>
-                                    </a>
-                                    <a class="carousel-control-next" href="#carouselExampleControls" role="button" data-slide="next">
-                                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                        <span class="sr-only">Next</span>
-                                    </a>
-                                </div>
-                            {% else %}
-                                <p>No hay imágenes disponibles.</p>
-                            {% endif %}
-                        </div>
-                    </div>
-                            <!-- Sección de precios por día con acordeón -->
-                    <div class="mt-4">
-                        <div class="accordion" id="accordionPrecios">
-                            <div class="card">
-                                <div class="card-header" id="headingPrecios">
-                                    <h2 class="mb-0">
-                                        <button class="btn btn-link btn-block text-left" type="button" 
-                                                data-toggle="collapse" data-target="#collapsePrecios" 
-                                                aria-expanded="false" aria-controls="collapsePrecios">
-                                            <i class="fas fa-dollar-sign"></i> Precios por Día
-                                            <i class="fas fa-chevron-down float-right"></i>
-                                        </button>
-                                    </h2>
-                                </div>
 
-                                <div id="collapsePrecios" class="collapse" aria-labelledby="headingPrecios" 
-                                     data-parent="#accordionPrecios">
-                                    <div class="card-body">
-                                        <div class="table-responsive">
-                                            <table class="table table-striped">
-                                                <thead class="thead-dark">
-                                                    <tr>
-                                                        <th style="width: 40%">Temporada</th>
-                                                        <th style="width: 30%" class="text-right">Precio por Día</th>
-                                                        <th style="width: 30%" class="text-right">Precio Quincena</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {% for precio in precios %}
-                                                        <tr>
-                                                            <td>
-                                                                <strong>{{ precio.get_tipo_precio_display }}</strong>
-                                                                {% if precio.descripcion %}
-                                                                    <br>
-                                                                    <small class="text-muted">{{ precio.descripcion }}</small>
-                                                                {% endif %}
-                                                            </td>
-                                                            <td class="text-right precio-celda">
-                                                                <span class="precio-valor">${{ precio.precio_por_dia|format_price }}</span>
-                                                            </td>
-                                                            <td class="text-right precio-celda">
-                                                                <span class="precio-valor">${{ precio.precio_total|format_price }}</span>
-                                                            </td>
-                                                        </tr>
-                                                    {% empty %}
-                                                        <tr>
-                                                            <td colspan="3" class="text-center">
-                                                                <em>No hay precios configurados para esta propiedad</em>
-                                                            </td>
-                                                        </tr>
+                                    <!-- Imágenes -->
+                                    <div class="mb-4">
+                                        {% if imagenes %}
+                                            <div id="carouselExampleControls" class="carousel slide" data-ride="carousel">
+                                                <div class="carousel-inner">
+                                                    {% for imagen in imagenes %}
+                                                        <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                                            <img src="{{ imagen.imagen.url }}" 
+                                                                 class="d-block w-100" 
+                                                                 alt="Imagen de la propiedad"
+                                                                 onerror="console.log('Error cargando imagen:', this.src);">
+                                                        </div>
                                                     {% endfor %}
-                                                </tbody>
-                                            </table>
+                                                </div>
+                                                <!-- Indicadores del carrusel -->
+                                                <ol class="carousel-indicators">
+                                                    {% for imagen in imagenes %}
+                                                        <li data-target="#carouselExampleControls" 
+                                                            data-slide-to="{{ forloop.counter0 }}" 
+                                                            {% if forloop.first %}class="active"{% endif %}></li>
+                                                    {% endfor %}
+                                                </ol>
+                                                <!-- Controles -->
+                                                <button class="carousel-control-prev" type="button" data-target="#carouselExampleControls" data-slide="prev">
+                                                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                                    <span class="sr-only">Previous</span>
+                                                </button>
+                                                <button class="carousel-control-next" type="button" data-target="#carouselExampleControls" data-slide="next">
+                                                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                                    <span class="sr-only">Next</span>
+                                                </button>
+                                            </div>
+                                        {% else %}
+                                            <div class="no-image-placeholder">
+                                                <i class="fas fa-image"></i>
+                                                <p>No hay imágenes disponibles</p>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Descripción con tamaño ajustado -->
+                                    <div class="info-section description-section">
+                                        <h4 class="section-title">
+                                            <i class="fas fa-file-alt text-info"></i> Descripción
+                                        </h4>
+                                        <div class="description-content">
+                                            {% if propiedad.descripcion %}
+                                                <p class="description-text">{{ propiedad.descripcion|linebreaks }}</p>
+                                            {% else %}
+                                                <p class="text-muted">No hay descripción disponible para esta propiedad.</p>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
+
+                            <!-- Sección de precios por día con acordeón -->
+                            <div class="mt-4">
+                                <div class="accordion" id="accordionPrecios">
+                                    <div class="card">
+                                        <div class="card-header" id="headingPrecios">
+                                            <h2 class="mb-0">
+                                                <button class="btn btn-link btn-block text-left" type="button" 
+                                                        data-toggle="collapse" data-target="#collapsePrecios" 
+                                                        aria-expanded="false" aria-controls="collapsePrecios">
+                                                    <i class="fas fa-dollar-sign"></i> Precios por Día
+                                                    <i class="fas fa-chevron-down float-right"></i>
+                                                </button>
+                                            </h2>
+                                        </div>
+
+                                        <div id="collapsePrecios" class="collapse" aria-labelledby="headingPrecios" 
+                                             data-parent="#accordionPrecios">
+                                            <div class="card-body">
+                                                <div class="table-responsive">
+                                                    <table class="table table-striped">
+                                                        <thead class="thead-dark">
+                                                            <tr>
+                                                                <th style="width: 40%">Temporada</th>
+                                                                <th style="width: 30%" class="text-right">Precio por Día</th>
+                                                                <th style="width: 30%" class="text-right">Precio Quincena</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {% for precio in precios %}
+                                                                <tr>
+                                                                    <td>
+                                                                        <strong>{{ precio.get_tipo_precio_display }}</strong>
+                                                                        {% if precio.descripcion %}
+                                                                            <br>
+                                                                            <small class="text-muted">{{ precio.descripcion }}</small>
+                                                                        {% endif %}
+                                                                    </td>
+                                                                    <td class="text-right precio-celda">
+                                                                        <span class="precio-valor">${{ precio.precio_por_dia|format_price }}</span>
+                                                                    </td>
+                                                                    <td class="text-right precio-celda">
+                                                                        <span class="precio-valor">${{ precio.precio_total|format_price }}</span>
+                                                                    </td>
+                                                                </tr>
+                                                            {% empty %}
+                                                                <tr>
+                                                                    <td colspan="3" class="text-center">
+                                                                        <em>No hay precios configurados para esta propiedad</em>
+                                                                    </td>
+                                                                </tr>
+                                                            {% endfor %}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
                     <!-- Sección de disponibilidades con acordeón -->
                     <div class="mt-4">
@@ -161,91 +275,93 @@
                                     </h2>
                                 </div>
 
-                                <div id="collapseDisponibilidades" class="collapse" aria-labelledby="headingDisponibilidades" 
-                                     data-parent="#accordionDisponibilidades">
-                                    <div class="card-body">
-                                        <table class="table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Fecha Inicio</th>
-                                                    <th>Fecha Fin</th>
-                                                    
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {% for disponibilidad in disponibilidades %}
-                                                    <tr>
-                                                        <td>{{ disponibilidad.fecha_inicio }}</td>
-                                                        <td>{{ disponibilidad.fecha_fin }}</td>
-                                                       
-                                                    </tr>
-                                                {% empty %}
-                                                    <tr>
-                                                        <td colspan="3" class="text-center">No hay disponibilidades registradas</td>
-                                                    </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
+                                        <div id="collapseDisponibilidades" class="collapse" aria-labelledby="headingDisponibilidades" 
+                                             data-parent="#accordionDisponibilidades">
+                                            <div class="card-body">
+                                                <table class="table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Fecha Inicio</th>
+                                                            <th>Fecha Fin</th>
+                                                            
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for disponibilidad in disponibilidades %}
+                                                            <tr>
+                                                                <td>{{ disponibilidad.fecha_inicio }}</td>
+                                                                <td>{{ disponibilidad.fecha_fin }}</td>
+                                                               
+                                                            </tr>
+                                                        {% empty %}
+                                                            <tr>
+                                                                <td colspan="3" class="text-center">No hay disponibilidades registradas</td>
+                                                            </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Pestaña de Venta -->
+                            <div class="tab-pane fade" id="venta" role="tabpanel">
+                                <div class="card-body">
+                                    {% if propiedad.habilitar_venta %}
+                                        <div class="alert alert-info">
+                                            <h4>Precio de Venta: ${{ propiedad.precio_venta|format_price }}</h4>
+                                        </div>
+                                        <!-- Aquí puedes agregar más detalles específicos de venta -->
+                                    {% else %}
+                                        <div class="alert alert-warning">
+                                            Esta propiedad no está disponible para venta.
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Pestaña de 24 Meses -->
+                            <div class="tab-pane fade" id="meses" role="tabpanel">
+                                <div class="card-body">
+                                    {% if propiedad.habilitar_23_meses %}
+                                        <div class="alert alert-info">
+                                            <h4>Precio Mensual: ${{ propiedad.precio_23_meses|format_price }}</h4>
+                                        </div>
+                                        <!-- Aquí puedes agregar más detalles específicos de alquiler por meses -->
+                                    {% else %}
+                                        <div class="alert alert-warning">
+                                            Esta propiedad no está disponible para alquiler por 24 meses.
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Pestaña de Invierno -->
+                            <div class="tab-pane fade" id="invierno" role="tabpanel">
+                                <div class="card-body">
+                                    {% if propiedad.habilitar_invierno %}
+                                        <div class="alert alert-info">
+                                            <h4>Precio Invierno: ${{ propiedad.precio_invierno|format_price }}</h4>
+                                        </div>
+                                        <!-- Aquí puedes agregar más detalles específicos de invierno -->
+                                    {% else %}
+                                        <p class="text-center">No hay disponibilidades registradas para esta propiedad.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botones de acciones -->
+                        <div class="card-footer text-center">
+                            <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" class="btn btn-primary">Editar</a>
+                            <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad_id=propiedad.id %}" class="btn btn-danger">Eliminar</a>
+                            <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-success">Agregar Disponibilidad</a>
+                            <a href="{% url 'inmobiliaria:gestionar_precios' propiedad_id=propiedad.id %}" class="btn btn-success">Gestionar Precios</a>
+                            <a href="{% url 'inmobiliaria:historial_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-info">Historial</a>
                         </div>
                     </div>
-
-                    <!-- Pestaña de Venta -->
-                    <div class="tab-pane fade" id="venta" role="tabpanel">
-                        <div class="card-body">
-                            {% if propiedad.habilitar_venta %}
-                                <div class="alert alert-info">
-                                    <h4>Precio de Venta: ${{ propiedad.precio_venta|format_price }}</h4>
-                                </div>
-                                <!-- Aquí puedes agregar más detalles específicos de venta -->
-                            {% else %}
-                                <div class="alert alert-warning">
-                                    Esta propiedad no está disponible para venta.
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    <!-- Pestaña de 24 Meses -->
-                    <div class="tab-pane fade" id="meses" role="tabpanel">
-                        <div class="card-body">
-                            {% if propiedad.habilitar_23_meses %}
-                                <div class="alert alert-info">
-                                    <h4>Precio Mensual: ${{ propiedad.precio_23_meses|format_price }}</h4>
-                                </div>
-                                <!-- Aquí puedes agregar más detalles específicos de alquiler por meses -->
-                            {% else %}
-                                <div class="alert alert-warning">
-                                    Esta propiedad no está disponible para alquiler por 24 meses.
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    <!-- Pestaña de Invierno -->
-                    <div class="tab-pane fade" id="invierno" role="tabpanel">
-                        <div class="card-body">
-                            {% if propiedad.habilitar_invierno %}
-                                <div class="alert alert-info">
-                                    <h4>Precio Invierno: ${{ propiedad.precio_invierno|format_price }}</h4>
-                                </div>
-                                <!-- Aquí puedes agregar más detalles específicos de invierno -->
-                            {% else %}
-                                <p class="text-center">No hay disponibilidades registradas para esta propiedad.</p>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Botones de acciones -->
-                <div class="card-footer text-center">
-                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" class="btn btn-primary">Editar</a>
-                    <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad_id=propiedad.id %}" class="btn btn-danger">Eliminar</a>
-                    <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-success">Agregar Disponibilidad</a>
-                    <a href="{% url 'inmobiliaria:gestionar_precios' propiedad_id=propiedad.id %}" class="btn btn-success">Gestionar Precios</a>
-                    <a href="{% url 'inmobiliaria:historial_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-info">Historial</a>
                 </div>
             </div>
         </div>
@@ -335,6 +451,357 @@
 
 .table th:not(:first-child) {
     text-align: right;
+}
+
+/* Estilos específicos para la tabla de disponibilidades */
+.table th, .table td {
+    vertical-align: middle !important;
+    text-align: center !important;
+}
+
+.thead-dark th {
+    background-color: #343a40;
+    color: white;
+    font-weight: bold;
+    text-align: center !important;
+}
+
+/* Formato de fechas */
+.table td {
+    font-size: 1.1em;
+    padding: 12px !important;
+}
+
+/* Asegurar alineación consistente */
+.table-striped td, 
+.table-striped th {
+    text-align: center !important;
+}
+
+/* Estilos mejorados para la sección de detalles */
+.info-section {
+    background-color: #ffffff;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.info-section:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+
+.section-title {
+    color: #2c3e50;
+    font-size: 1.4rem;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.section-title i {
+    font-size: 1.6rem;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+.detail-item {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.detail-item:hover {
+    background-color: #e9ecef;
+    transform: translateY(-2px);
+}
+
+.detail-label {
+    font-weight: 600;
+    color: #6c757d;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.detail-label i {
+    color: #007bff;
+}
+
+.detail-value {
+    color: #2c3e50;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+/* Estilos mejorados para las características */
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 15px;
+}
+
+.feature-item {
+    background-color: #f8f9fa;
+    padding: 12px 18px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+}
+
+.feature-item.active {
+    background-color: #e8f4ff;
+    border-color: #007bff;
+}
+
+.feature-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.feature-item i {
+    color: #007bff;
+    font-size: 1.2rem;
+}
+
+/* Badges personalizados */
+.badge {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .detail-grid, .features-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .info-section {
+        padding: 15px;
+    }
+}
+
+/* Estilos adicionales para la descripción */
+.description-content {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    min-height: 200px;
+}
+
+.description-text {
+    color: #2c3e50;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    white-space: pre-line;
+}
+
+/* Ajuste para mantener alturas similares */
+.info-section {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.features-grid {
+    flex-grow: 1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .description-content {
+        min-height: auto;
+    }
+}
+
+/* Ajustes para el nuevo layout */
+.description-content {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.description-text {
+    color: #2c3e50;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    white-space: pre-line;
+}
+
+/* Ajuste para el carrusel */
+.carousel {
+    margin-bottom: 1.5rem;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.carousel-item {
+    background-color: #f8f9fa;
+}
+
+.carousel-item img {
+    width: 100%;
+    height: 400px;
+    object-fit: cover;
+}
+
+/* Estilos para el placeholder cuando no hay imágenes */
+.no-image-placeholder {
+    width: 100%;
+    height: 400px;
+    background-color: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    color: #6c757d;
+}
+
+.no-image-placeholder i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+/* Controles del carrusel */
+.carousel-control-prev,
+.carousel-control-next {
+    width: 10%;
+    opacity: 0.8;
+    background: rgba(0,0,0,0.2);
+}
+
+.carousel-control-prev:hover,
+.carousel-control-next:hover {
+    opacity: 1;
+    background: rgba(0,0,0,0.4);
+}
+
+/* Estilos para las características */
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.feature-item {
+    background-color: #f8f9fa;
+    padding: 12px 18px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+}
+
+.feature-item.active {
+    background-color: #e8f4ff;
+    border-color: #007bff;
+}
+
+.feature-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.feature-item i {
+    color: #007bff;
+    font-size: 1.2rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .carousel-item img {
+        height: 300px;
+    }
+    
+    .features-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+}
+
+/* Ajustes para características más compactas */
+.features-grid-compact {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+}
+
+.feature-item {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+}
+
+.feature-item i {
+    font-size: 1rem;
+}
+
+/* Ajustes para la descripción */
+.description-section {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.description-content {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.description-text {
+    font-size: 1rem;
+    line-height: 1.5;
+    margin-bottom: 0;
+}
+
+/* Ajustes generales de secciones */
+.info-section {
+    background-color: #ffffff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    height: auto;
+}
+
+.section-title {
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .features-grid-compact {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .description-section {
+        max-height: none;
+    }
 }
 </style>
 {% endblock %}
