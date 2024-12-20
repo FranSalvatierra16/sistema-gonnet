@@ -119,6 +119,8 @@ AUTH_USER_MODEL = 'inmobiliaria.Vendedor'
 
 # Redirect to home page after login
 LOGIN_REDIRECT_URL = 'inmobiliaria:index'
+LOGIN_URL = 'login'
+LOGOUT_REDIRECT_URL = 'login'
 
 
 # Password validation

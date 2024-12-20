@@ -1,73 +1,136 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load static %}
-{% block title %}Inmobiliaria - Dashboard{% endblock %}
+
 {% block content %}
-<div class="content-wrapper">
-    Mi nombre es: {{ user.nivel }}
-
-    <h1 class="mb-4">Bienvenido al Dashboard de Inmobiliaria</h1>
-
-    <div class="row mt-4">
-        {% if user.nivel >= 3 %}
-        <div class="col-md-4 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Vendedores</h5>
-                    <p>Gestione la información de los vendedores.</p>
-                    <a href="{% url 'inmobiliaria:vendedores' %}" class="btn btn-primary">Ir a Vendedores</a>
-                   
-                </div>
-            </div>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-12 text-center mb-4">
+            <h1>Sistema Inmobiliario</h1>
         </div>
-        {% endif %}
-
+    </div>
+    
+    <div class="row justify-content-center">
+        <!-- Alquiler por día -->
         <div class="col-md-4 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Inquilinos</h5>
-                    <p>Administre los datos de los inquilinos.</p>
-                    <a href="{% url 'inmobiliaria:inquilinos' %}" class="btn btn-primary">Ir a Inquilinos</a>
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:buscar_propiedades' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-calendar-day"></i>
                 </div>
+                <h3>Alquiler por Día</h3>
+                <p>Gestión de alquileres temporarios</p>
             </div>
         </div>
 
+        <!-- Ventas -->
         <div class="col-md-4 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Propietarios</h5>
-                    <p>Gestione la información de los propietarios.</p>
-                    <a href="{% url 'inmobiliaria:propietarios' %}" class="btn btn-primary">Ir a Propietarios</a>
+            <div class="menu-card">
+                <div class="card-icon">
+                    <i class="fas fa-home"></i>
                 </div>
+                <h3>Ventas</h3>
+                <p>Gestión de ventas de propiedades</p>
             </div>
         </div>
 
+        <!-- 24 Meses -->
         <div class="col-md-4 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Propiedades</h5>
-                    <p>Gestione la información de las propiedades.</p>
-                    <a href="{% url 'inmobiliaria:propiedades' %}" class="btn btn-primary">Ir a Propiedades</a>
+            <div class="menu-card">
+                <div class="card-icon">
+                    <i class="fas fa-calendar-alt"></i>
                 </div>
+                <h3>24 Meses</h3>
+                <p>Alquileres de larga duración</p>
             </div>
         </div>
+
+        <!-- Caja -->
         <div class="col-md-4 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Reservas</h5>
-                    <p>Hacer reservas.</p>
-                    <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-primary">Ir a Reservas</a>
+            <div class="menu-card">
+                <div class="card-icon">
+                    <i class="fas fa-cash-register"></i>
                 </div>
+                <h3>Caja</h3>
+                <p>Control de ingresos y egresos</p>
             </div>
         </div>
+
+        <!-- Estudiantes -->
         <div class="col-md-4 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Operaciones</h5>
-                    <p>Ver operaciones.</p>
-                    <a href="{% url 'inmobiliaria:operaciones' %}" class="btn btn-primary">Ir a Operaciones</a>
+            <div class="menu-card">
+                <div class="card-icon">
+                    <i class="fas fa-graduation-cap"></i>
                 </div>
+                <h3>Estudiantes</h3>
+                <p>Alquileres estudiantiles</p>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+.menu-card {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    height: 100%;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin: 10px;
+}
+
+.menu-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.card-icon {
+    font-size: 3em;
+    margin-bottom: 15px;
+}
+
+/* Colores específicos para cada tarjeta */
+.menu-card:nth-child(1) {
+    border-top: 4px solid #007bff;
+    .card-icon { color: #007bff; }
+}
+
+.menu-card:nth-child(2) {
+    border-top: 4px solid #28a745;
+    .card-icon { color: #28a745; }
+}
+
+.menu-card:nth-child(3) {
+    border-top: 4px solid #ffc107;
+    .card-icon { color: #ffc107; }
+}
+
+.menu-card:nth-child(4) {
+    border-top: 4px solid #dc3545;
+    .card-icon { color: #dc3545; }
+}
+
+.menu-card:nth-child(5) {
+    border-top: 4px solid #6f42c1;
+    .card-icon { color: #6f42c1; }
+}
+
+.menu-card h3 {
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
+.menu-card p {
+    color: #666;
+    margin: 0;
+}
+</style>
 {% endblock %}

@@ -1,43 +1,68 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
 {% load custom_filters %}
+
 {% block content %}
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-md-10">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="text-center">Detalles de la Propiedad</h2>
+                    <h2 class="text-center">{{ propiedad.direccion }}</h2>
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        <!-- Columna de detalles de la propiedad -->
-                        <div class="col-md-6">
-                            <dl class="row">
-                            
-                                
-                                <dt class="col-sm-4">Ficha:</dt>
-                                <dd class="col-sm-8">{{ propiedad.id }}</dd>
-                                <dt class="col-sm-4">Dirección:</dt>
-                                <dd class="col-sm-8">{{ propiedad.direccion }}</dd>
-                                <dt class="col-sm-4">Valoración:</dt>
-                                <dd class="col-sm-8">{{ propiedad.valoracion }}</dd>
-                                <dt class="col-sm-4">Propietario:</dt>
-                                <dd class="col-sm-8">{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</dd>
-                                <dt class="col-sm-4">Piso:</dt>
-                                <dd class="col-sm-8">{{ propiedad.piso }}</dd>
-                                <dt class="col-sm-4">Departamento:</dt>
-                                <dd class="col-sm-8">{{ propiedad.departamento }}</dd>
-                                <dt class="col-sm-4">Ambientes:</dt>
-                                <dd class="col-sm-8">{{ propiedad.ambientes }}</dd>
+                
+                <!-- Pestañas de navegación -->
+                <ul class="nav nav-tabs" id="propertyTabs" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="alquiler-tab" data-toggle="tab" href="#alquiler" role="tab">
+                            <i class="fas fa-calendar-day"></i> Alquiler por Día
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="venta-tab" data-toggle="tab" href="#venta" role="tab">
+                            <i class="fas fa-home"></i> Venta
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="meses-tab" data-toggle="tab" href="#meses" role="tab">
+                            <i class="fas fa-calendar-alt"></i> 24 Meses
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="invierno-tab" data-toggle="tab" href="#invierno" role="tab">
+                            <i class="fas fa-snowflake"></i> Invierno
+                        </a>
+                    </li>
+                </ul>
 
+                <!-- Contenido de las pestañas -->
+                <div class="tab-content" id="propertyTabContent">
+                    <!-- Pestaña de Alquiler por Día -->
+                    <div class="tab-pane fade show active" id="alquiler" role="tabpanel">
+                        <div class="card-body">
+                            <div class="row">
+                                <!-- Columna de detalles -->
+                                <div class="col-md-6">
+                                    <dl class="row">
+                                        <dt class="col-sm-4">Ficha:</dt>
+                                        <dd class="col-sm-8">{{ propiedad.id }}</dd>
+                                        <dt class="col-sm-4">Direcci��n:</dt>
+                                        <dd class="col-sm-8">{{ propiedad.direccion }}</dd>
+                                        <dt class="col-sm-4">Propietario:</dt>
+                                        <dd class="col-sm-8">{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</dd>
+                                        <dt class="col-sm-4">Piso:</dt>
+                                        <dd class="col-sm-8">{{ propiedad.piso }}</dd>
+                                        <dt class="col-sm-4">Departamento:</dt>
+                                        <dd class="col-sm-8">{{ propiedad.departamento }}</dd>
+                                        <dt class="col-sm-4">Ambientes:</dt>
+                                        <dd class="col-sm-8">{{ propiedad.ambientes }}</dd>
+                                    </dl>
+                                </div>
+
+                                <!-- Columna de imágenes -->
                               
-                                <!-- Más campos si es necesario -->
-                            </dl>
-                        </div>
-
                         <!-- Columna de imágenes con carrusel -->
-                        <div class="col-md-6 text-center">
+                       <div class="col-md-6 text-center">
                             {% if imagenes %}
                                 <div id="carouselExampleControls" class="carousel slide" data-ride="carousel">
                                     <div class="carousel-inner">
@@ -61,50 +86,152 @@
                             {% endif %}
                         </div>
                     </div>
+                            <!-- Sección de precios por día con acordeón -->
+                    <div class="mt-4">
+                        <div class="accordion" id="accordionPrecios">
+                            <div class="card">
+                                <div class="card-header" id="headingPrecios">
+                                    <h2 class="mb-0">
+                                        <button class="btn btn-link btn-block text-left" type="button" 
+                                                data-toggle="collapse" data-target="#collapsePrecios" 
+                                                aria-expanded="false" aria-controls="collapsePrecios">
+                                            <i class="fas fa-dollar-sign"></i> Precios por Día
+                                            <i class="fas fa-chevron-down float-right"></i>
+                                        </button>
+                                    </h2>
+                                </div>
 
-                    <!-- Sección de precios -->
-                    <hr>
-                    <h3 class="text-center mt-4">Precios</h3>
-                    <div class="table-responsive">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>Quincena</th>
-                                    <th>Precio por Día</th>
-                                    <th>Precio por Quincena</th>
-                                  
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for precio in precios %}
-                                    <tr>
-                                        <td>{{ precio.get_tipo_precio_display |format_price}}</td>
-                                        <td>${{ precio.precio_por_dia |format_price }}</td>
-                                        <td>${{ precio.precio_total |format_price }}</td>
-                                        
-                                        
-                                    </tr>
-                                {% empty %}
-                                    <tr>
-                                        <td colspan="3" class="text-center">No hay precios registrados para esta propiedad.</td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                                <div id="collapsePrecios" class="collapse" aria-labelledby="headingPrecios" 
+                                     data-parent="#accordionPrecios">
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped">
+                                                <thead class="thead-dark">
+                                                    <tr>
+                                                        <th style="width: 40%">Temporada</th>
+                                                        <th style="width: 30%" class="text-right">Precio por Día</th>
+                                                        <th style="width: 30%" class="text-right">Precio Quincena</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for precio in precios %}
+                                                        <tr>
+                                                            <td>
+                                                                <strong>{{ precio.get_tipo_precio_display }}</strong>
+                                                                {% if precio.descripcion %}
+                                                                    <br>
+                                                                    <small class="text-muted">{{ precio.descripcion }}</small>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td class="text-right precio-celda">
+                                                                <span class="precio-valor">${{ precio.precio_por_dia|format_price }}</span>
+                                                            </td>
+                                                            <td class="text-right precio-celda">
+                                                                <span class="precio-valor">${{ precio.precio_total|format_price }}</span>
+                                                            </td>
+                                                        </tr>
+                                                    {% empty %}
+                                                        <tr>
+                                                            <td colspan="3" class="text-center">
+                                                                <em>No hay precios configurados para esta propiedad</em>
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <!-- Sección de disponibilidades -->
-                    <hr>
-                    <h3 class="text-center mt-4">Disponibilidad</h3>
-                    <div class="row">
-                        <div class="col-md-12">
-                            {% if propiedad.disponibilidades.all %}
-                                <ul class="list-group">
-                                    {% for disponibilidad in propiedad.disponibilidades.all %}
-                                        <li class="list-group-item">
-                                            Disponible del {{ disponibilidad.fecha_inicio }} al {{ disponibilidad.fecha_fin }}
-                                        </li>
-                                    {% endfor %}
-                                </ul>
+
+                    <!-- Sección de disponibilidades con acordeón -->
+                    <div class="mt-4">
+                        <div class="accordion" id="accordionDisponibilidades">
+                            <div class="card">
+                                <div class="card-header" id="headingDisponibilidades">
+                                    <h2 class="mb-0">
+                                        <button class="btn btn-link btn-block text-left" type="button" 
+                                                data-toggle="collapse" data-target="#collapseDisponibilidades" 
+                                                aria-expanded="false" aria-controls="collapseDisponibilidades">
+                                            <i class="fas fa-calendar"></i> Disponibilidades
+                                            <i class="fas fa-chevron-down float-right"></i>
+                                        </button>
+                                    </h2>
+                                </div>
+
+                                <div id="collapseDisponibilidades" class="collapse" aria-labelledby="headingDisponibilidades" 
+                                     data-parent="#accordionDisponibilidades">
+                                    <div class="card-body">
+                                        <table class="table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Fecha Inicio</th>
+                                                    <th>Fecha Fin</th>
+                                                    
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for disponibilidad in disponibilidades %}
+                                                    <tr>
+                                                        <td>{{ disponibilidad.fecha_inicio }}</td>
+                                                        <td>{{ disponibilidad.fecha_fin }}</td>
+                                                       
+                                                    </tr>
+                                                {% empty %}
+                                                    <tr>
+                                                        <td colspan="3" class="text-center">No hay disponibilidades registradas</td>
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pestaña de Venta -->
+                    <div class="tab-pane fade" id="venta" role="tabpanel">
+                        <div class="card-body">
+                            {% if propiedad.habilitar_venta %}
+                                <div class="alert alert-info">
+                                    <h4>Precio de Venta: ${{ propiedad.precio_venta|format_price }}</h4>
+                                </div>
+                                <!-- Aquí puedes agregar más detalles específicos de venta -->
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    Esta propiedad no está disponible para venta.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Pestaña de 24 Meses -->
+                    <div class="tab-pane fade" id="meses" role="tabpanel">
+                        <div class="card-body">
+                            {% if propiedad.habilitar_23_meses %}
+                                <div class="alert alert-info">
+                                    <h4>Precio Mensual: ${{ propiedad.precio_23_meses|format_price }}</h4>
+                                </div>
+                                <!-- Aquí puedes agregar más detalles específicos de alquiler por meses -->
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    Esta propiedad no está disponible para alquiler por 24 meses.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Pestaña de Invierno -->
+                    <div class="tab-pane fade" id="invierno" role="tabpanel">
+                        <div class="card-body">
+                            {% if propiedad.habilitar_invierno %}
+                                <div class="alert alert-info">
+                                    <h4>Precio Invierno: ${{ propiedad.precio_invierno|format_price }}</h4>
+                                </div>
+                                <!-- Aquí puedes agregar más detalles específicos de invierno -->
                             {% else %}
                                 <p class="text-center">No hay disponibilidades registradas para esta propiedad.</p>
                             {% endif %}
@@ -124,4 +251,90 @@
         </div>
     </div>
 </div>
+
+<style>
+.nav-tabs .nav-link {
+    color: #495057;
+}
+.nav-tabs .nav-link.active {
+    color: #007bff;
+    font-weight: bold;
+}
+.tab-content {
+    padding: 20px;
+}
+.alert {
+    margin-bottom: 0;
+}
+
+/* Estilos para los botones del acordeón */
+.accordion .btn-link {
+    color: #333;
+    text-decoration: none;
+    font-weight: bold;
+    padding: 0.75rem 1.25rem;
+}
+
+.accordion .btn-link:hover {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.accordion .btn-link .fa-chevron-down {
+    transition: transform 0.3s ease;
+}
+
+.accordion .btn-link:not(.collapsed) .fa-chevron-down {
+    transform: rotate(180deg);
+}
+
+/* Estilos para la tabla de precios */
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0,0,0,.05);
+}
+
+.thead-dark th {
+    background-color: #343a40;
+    color: white;
+}
+
+.table td, .table th {
+    padding: 0.75rem;
+    vertical-align: middle;
+}
+
+/* Estilos para los precios */
+.table td .h5 {
+    margin-bottom: 0;
+    color: #28a745;
+    font-weight: bold;
+}
+
+/* Estilos para alineación de precios */
+.precio-celda {
+    vertical-align: middle !important;
+    padding-right: 20px !important;
+}
+
+.precio-valor {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #28a745;
+    white-space: nowrap;
+}
+
+/* Ajuste de ancho de columnas */
+.table th {
+    vertical-align: middle;
+    text-align: center;
+}
+
+.table th:first-child {
+    text-align: left;
+}
+
+.table th:not(:first-child) {
+    text-align: right;
+}
+</style>
 {% endblock %}

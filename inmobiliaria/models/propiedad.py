@@ -104,6 +104,34 @@ class Propiedad(models.Model):
     vista_panoramica = models.BooleanField(default=False)
     apto_credito = models.BooleanField(default=False)
 
+    # Campos para habilitar diferentes tipos de alquiler/venta
+    habilitar_venta = models.BooleanField(default=False, verbose_name="Habilitar para Venta")
+    habilitar_23_meses = models.BooleanField(default=False, verbose_name="Habilitar para 24 Meses")
+    habilitar_invierno = models.BooleanField(default=False, verbose_name="Habilitar para Invierno")
+
+    # Precios para cada tipo
+    precio_venta = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="Precio de Venta"
+    )
+    precio_23_meses = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="Precio 23 Meses"
+    )
+    precio_invierno = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="Precio Invierno"
+    )
+
     class Meta:
         verbose_name = "Propiedad"
         verbose_name_plural = "Propiedades"
@@ -129,7 +157,8 @@ class Propiedad(models.Model):
         ).exists()
 
         # La propiedad está disponible si:
-        # 1. No hay disponibilidades específicas definidas (está siempre disponible) O hay una disponibilidad que cubre el período
+        # 1. No hay disponibilidades específicas definidas (está siempre disponible) O hay una 
+        # disponibilidad que cubre el período
         # 2. Y no hay reservas que se superpongan
         return (not self.disponibilidades.exists() or disponibilidades) and not reservas_superpuestas
 
@@ -187,6 +216,16 @@ class Propiedad(models.Model):
 
     def __str__(self):
         return f"{self.direccion}"        
+
+    def clean(self):
+        super().clean()
+        # Validar que si un tipo está habilitado, tenga precio
+        if self.habilitar_venta and not self.precio_venta:
+            raise ValidationError({'precio_venta': 'Debe ingresar un precio de venta si está habilitado.'})
+        if self.habilitar_23_meses and not self.precio_23_meses:
+            raise ValidationError({'precio_23_meses': 'Debe ingresar un precio para 23 meses si está habilitado.'})
+        if self.habilitar_invierno and not self.precio_invierno:
+            raise ValidationError({'precio_invierno': 'Debe ingresar un precio de invierno si está habilitado.'})
 
 class ImagenPropiedad(models.Model):
     propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='imagenes')
@@ -342,7 +381,7 @@ class TipoPrecio(models.TextChoices):
     QUINCENA_2_MARZO = 'QUINCENA_2_MARZO', _('2da quincena Marzo')
     TEMPORADA_BAJA = 'TEMPORADA_BAJA', _('Temporada baja')
     VACACIONES_INVIERNO = 'VACACIONES_INVIERNO', _('Vacaciones Invierno')
-    ESTUDIANTES = 'ESTUDIANTES', _('Estudiantes')
+   
     
     FINDE_LARGO = 'FINDE_LARGO', _('Finde largo')
     DICIEMBRE = 'DICIEMBRE', _('Diciembre')

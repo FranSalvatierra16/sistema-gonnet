@@ -45,9 +45,9 @@ logger = logging.getLogger(__name__)
 # index view
 def index(request):
     if request.user.is_authenticated:
-        return redirect('inmobiliaria:buscar_propiedades')
+        return redirect('inmobiliaria:dashboard')
     else:
-        return redirect('inmobiliaria:login')
+        return redirect('inmobiliaria:index')
 
 # Vendedor views
 @login_required
@@ -299,7 +299,7 @@ def propiedad_detalle(request, propiedad_id):
         When(tipo_precio=TipoPrecio.TEMPORADA_BAJA, then=8),
         When(tipo_precio=TipoPrecio.FINDE_LARGO, then=9),
         When(tipo_precio=TipoPrecio.VACACIONES_INVIERNO, then=10),
-        When(tipo_precio=TipoPrecio.ESTUDIANTES, then=11),
+       
         # Añade más condiciones si es necesario
         output_field=IntegerField(),
     )
