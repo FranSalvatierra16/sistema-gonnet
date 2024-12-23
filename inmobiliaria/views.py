@@ -1205,6 +1205,7 @@ def generar_recibo_pdf(reserva, pago_senia):
     # Crear el PDF
     pdf_buffer = BytesIO()
     pisa_status = pisa.CreatePDF(BytesIO(html.encode("UTF-8")), dest=pdf_buffer)
+    
     if pisa_status.err:
         return None
     else:
@@ -1449,7 +1450,6 @@ def crear_inquilino_ajax(request):
                 'error': str(e)
             })
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
-
 
 
 

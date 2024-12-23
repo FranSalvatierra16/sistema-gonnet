@@ -9,6 +9,7 @@ import datetime
 from .persona import Propietario, Inquilino, Vendedor
 from .sucursal import Sucursal
 import uuid
+import os
 
 # Definiciones de tipos de vista, valoración e inmuebles
 TIPOS_VISTA = [
@@ -663,3 +664,33 @@ class HistorialDisponibilidad(models.Model):
 
     def __str__(self):
         return f"{self.propiedad.id} - {self.fecha_inicio} al {self.fecha_fin} - {self.get_estado_display()}"
+
+class PropiedadImagen(models.Model):
+    propiedad = models.ForeignKey(
+        Propiedad, 
+        related_name='imagenes', 
+        on_delete=models.CASCADE
+    )
+    imagen = models.ImageField(
+        upload_to='propiedades/',
+        verbose_name="Imagen"
+    )
+    orden = models.IntegerField(
+        default=0,
+        verbose_name="Orden de visualización"
+    )
+
+    class Meta:
+        ordering = ['orden']
+        verbose_name = "Imagen de Propiedad"
+        verbose_name_plural = "Imágenes de Propiedad"
+
+    def __str__(self):
+        return f"Imagen {self.orden} de {self.propiedad}"
+
+    def delete(self, *args, **kwargs):
+        # Eliminar el archivo físico cuando se elimina el registro
+        if self.imagen:
+            if os.path.isfile(self.imagen.path):
+                os.remove(self.imagen.path)
+        super().delete(*args, **kwargs)
