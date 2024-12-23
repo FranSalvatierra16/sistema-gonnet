@@ -310,6 +310,13 @@ def propiedad_detalle(request, propiedad_id):
     ).order_by('orden_tipo_precio')
 
     print("Imágenes de la propiedad:", [imagen.imagen.url for imagen in imagenes])
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    imagenes = PropiedadImagen.objects.filter(propiedad=propiedad)
+    
+    # Imprime para debug
+    print("Número de imágenes:", len(imagenes))
+    for imagen in imagenes:
+        print("URL de imagen:", imagen.imagen.url if imagen.imagen else "No hay URL")
 
     return render(request, 'inmobiliaria/propiedades/detalle.html', {
         'propiedad': propiedad,
@@ -1198,7 +1205,6 @@ def generar_recibo_pdf(reserva, pago_senia):
     # Crear el PDF
     pdf_buffer = BytesIO()
     pisa_status = pisa.CreatePDF(BytesIO(html.encode("UTF-8")), dest=pdf_buffer)
-    
     if pisa_status.err:
         return None
     else:
@@ -1443,6 +1449,7 @@ def crear_inquilino_ajax(request):
                 'error': str(e)
             })
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
 
 
 
