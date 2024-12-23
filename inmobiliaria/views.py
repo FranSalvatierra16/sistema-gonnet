@@ -282,22 +282,41 @@ def propiedades(request):
 
 @login_required
 def propiedad_detalle(request, propiedad_id):
-    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-    imagenes = PropiedadImagen.objects.filter(propiedad=propiedad)
-    
-    # Debug
-    print("Propiedad:", propiedad.id)
-    print("Número de imágenes encontradas:", imagenes.count())
-    for imagen in imagenes:
-        print("URL de imagen:", imagen.imagen.url if imagen.imagen else "No hay URL")
-        print("Ruta de imagen:", imagen.imagen.path if imagen.imagen else "No hay path")
-    
-    context = {
-        'propiedad': propiedad,
-        'imagenes': imagenes,
-    }
-    return render(request, 'inmobiliaria/propiedades/detalle.html', context)
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    disponibilidades = propiedad.disponibilidades.all()
+    imagenes = propiedad.imagenes.all()
 
+    # Definir el orden personalizado para los tipos de precio
+    orden_tipo_precio = Case(
+        When(tipo_precio=TipoPrecio.QUINCENA_1_DICIEMBRE, then=0),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_DICIEMBRE, then=1),
+        When(tipo_precio=TipoPrecio.QUINCENA_1_ENERO, then=2),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_ENERO, then=3),
+        When(tipo_precio=TipoPrecio.QUINCENA_1_FEBRERO, then=4),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_FEBRERO, then=5),
+        When(tipo_precio=TipoPrecio.QUINCENA_1_MARZO, then=6),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_MARZO, then=7),
+        When(tipo_precio=TipoPrecio.TEMPORADA_BAJA, then=8),
+        When(tipo_precio=TipoPrecio.FINDE_LARGO, then=9),
+        When(tipo_precio=TipoPrecio.VACACIONES_INVIERNO, then=10),
+       
+        # Añade más condiciones si es necesario
+        output_field=IntegerField(),
+    )
+
+    # Obtener los precios ordenados
+    precios = propiedad.precios.annotate(
+        orden_tipo_precio=orden_tipo_precio
+    ).order_by('orden_tipo_precio')
+
+    print("Imágenes de la propiedad:", [imagen.imagen.url for imagen in imagenes])
+
+    return render(request, 'inmobiliaria/propiedades/detalle.html', {
+        'propiedad': propiedad,
+        'disponibilidades': disponibilidades,
+        'precios': precios,
+        'imagenes': imagenes
+    })
 @login_required
 def propiedad_nuevo(request):
     if request.method == 'POST':
