@@ -14,7 +14,7 @@
 <!-- Tabla de propietarios -->
 <table class="table table-striped">
     <thead>
-        <tr>
+        <tr style="background-color: #007bff; color: white;">
             <th>Nombre</th>
             <th>Apellido</th>
             <th>DNI</th>
@@ -23,7 +23,7 @@
     </thead>
     <tbody id="propietarios-body">
         {% for propietario in propietarios %}
-        <tr>
+        <tr style="background-color: white;">
             <td>{{ propietario.nombre }}</td>
             <td>{{ propietario.apellido }}</td>
             <td>{{ propietario.dni }}</td>
