@@ -146,44 +146,39 @@
 
                                     <!-- Imágenes -->
                                     <div class="mb-4">
+                                        <h4>Debug Info:</h4>
+                                        <p>Número de imágenes: {{ imagenes|length }}</p>
+                                        
                                         {% if imagenes %}
-                                            <div id="carouselExampleControls" class="carousel slide" data-ride="carousel">
+                                            <div id="carouselPropiedad" class="carousel slide" data-bs-ride="carousel">
                                                 <div class="carousel-inner">
                                                     {% for imagen in imagenes %}
                                                         <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                                            {% if imagen.imagen %}
-                                                                <img src="{{ imagen.imagen.url }}" 
-                                                                     class="d-block w-100" 
-                                                                     alt="Imagen de la propiedad"
-                                                                     style="height: 400px; object-fit: cover;"
-                                                                     onerror="this.onerror=null; this.src='/static/images/no-image.jpg';">
-                                                            {% else %}
-                                                                <img src="{% static 'images/no-image.jpg' %}" 
-                                                                     class="d-block w-100" 
-                                                                     alt="Imagen no disponible"
-                                                                     style="height: 400px; object-fit: cover;">
-                                                            {% endif %}
+                                                            <!-- Debug info -->
+                                                            <p>URL de imagen: {{ imagen.imagen.url }}</p>
+                                                            
+                                                            <img src="{{ imagen.imagen.url }}" 
+                                                                 class="d-block w-100" 
+                                                                 alt="Imagen de propiedad"
+                                                                 style="height: 400px; object-fit: cover;">
                                                         </div>
                                                     {% endfor %}
                                                 </div>
+                                                
                                                 {% if imagenes|length > 1 %}
-                                                    <!-- Controles del carrusel -->
-                                                    <button class="carousel-control-prev" type="button" data-target="#carouselExampleControls" data-slide="prev">
+                                                    <button class="carousel-control-prev" type="button" data-bs-target="#carouselPropiedad" data-bs-slide="prev">
                                                         <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                                        <span class="sr-only">Anterior</span>
+                                                        <span class="visually-hidden">Anterior</span>
                                                     </button>
-                                                    <button class="carousel-control-next" type="button" data-target="#carouselExampleControls" data-slide="next">
+                                                    <button class="carousel-control-next" type="button" data-bs-target="#carouselPropiedad" data-bs-slide="next">
                                                         <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                                        <span class="sr-only">Siguiente</span>
+                                                        <span class="visually-hidden">Siguiente</span>
                                                     </button>
                                                 {% endif %}
                                             </div>
                                         {% else %}
-                                            <div class="no-image-placeholder">
-                                                <img src="{% static 'images/no-image.jpg' %}" 
-                                                     class="d-block w-100" 
-                                                     alt="No hay imágenes disponibles"
-                                                     style="height: 400px; object-fit: cover;">
+                                            <div class="alert alert-info">
+                                                No hay imágenes disponibles para esta propiedad
                                             </div>
                                         {% endif %}
                                     </div>

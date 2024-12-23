@@ -9,7 +9,7 @@
 <a href="{% url 'inmobiliaria:vendedor_nuevo' %}" class="btn btn-primary mb-3">Nuevo Vendedor</a>
 <table class="table table-striped">
     <thead>
-        <tr>
+        <tr style="background-color: #007bff; color: white;">
             <th>DNI</th>
             <th>Nombre</th>
             <th>Apellido</th>
@@ -19,7 +19,7 @@
     </thead>
     <tbody>
         {% for vendedor in vendedores %}
-        <tr>
+        <tr style="background-color: white;">
             <td>{{ vendedor.dni }}</td>
             <td>{{ vendedor.nombre }}</td>
             <td>{{ vendedor.apellido }}</td>

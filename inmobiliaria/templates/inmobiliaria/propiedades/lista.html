@@ -22,7 +22,7 @@
 <div class="table-responsive">  
     <table class="table table-hover table-striped">
         <thead class="table-light">
-            <tr>
+            <tr style="background-color: #007bff; color: white;">
                 <th>Ficha</th>
                 <th>Dirección</th>
                 <th>Valoración</th>
@@ -35,7 +35,7 @@
         </thead>
         <tbody>
             {% for propiedad in propiedades %}
-            <tr>
+            <tr  style="background-color: white;"  >
                 <td>{{ propiedad.id }}</td>
                 <td>{{ propiedad.direccion }}</td>
                 <td>{{ propiedad.valoracion }}</td>
