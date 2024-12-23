@@ -229,7 +229,11 @@ class Propiedad(models.Model):
             raise ValidationError({'precio_invierno': 'Debe ingresar un precio de invierno si está habilitado.'})
 
 class ImagenPropiedad(models.Model):
-    propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='imagenes')
+    propiedad = models.ForeignKey(
+        Propiedad, 
+        on_delete=models.CASCADE,
+        related_name='imagenes_propiedad'
+    )
     imagen = models.ImageField(upload_to='propiedades/')
     orden = models.IntegerField(default=0)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
@@ -664,33 +668,3 @@ class HistorialDisponibilidad(models.Model):
 
     def __str__(self):
         return f"{self.propiedad.id} - {self.fecha_inicio} al {self.fecha_fin} - {self.get_estado_display()}"
-
-class PropiedadImagen(models.Model):
-    propiedad = models.ForeignKey(
-        Propiedad, 
-        related_name='imagenes', 
-        on_delete=models.CASCADE
-    )
-    imagen = models.ImageField(
-        upload_to='propiedades/',
-        verbose_name="Imagen"
-    )
-    orden = models.IntegerField(
-        default=0,
-        verbose_name="Orden de visualización"
-    )
-
-    class Meta:
-        ordering = ['orden']
-        verbose_name = "Imagen de Propiedad"
-        verbose_name_plural = "Imágenes de Propiedad"
-
-    def __str__(self):
-        return f"Imagen {self.orden} de {self.propiedad}"
-
-    def delete(self, *args, **kwargs):
-        # Eliminar el archivo físico cuando se elimina el registro
-        if self.imagen:
-            if os.path.isfile(self.imagen.path):
-                os.remove(self.imagen.path)
-        super().delete(*args, **kwargs)
