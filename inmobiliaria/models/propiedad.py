@@ -133,6 +133,20 @@ class Propiedad(models.Model):
         verbose_name="Precio Invierno"
     )
 
+    fichado_por = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='propiedades_fichadas',
+        verbose_name="Fichado por"
+    )
+    fecha_fichado = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de fichado"
+    )
+
     class Meta:
         verbose_name = "Propiedad"
         verbose_name_plural = "Propiedades"
@@ -227,6 +241,18 @@ class Propiedad(models.Model):
             raise ValidationError({'precio_23_meses': 'Debe ingresar un precio para 23 meses si está habilitado.'})
         if self.habilitar_invierno and not self.precio_invierno:
             raise ValidationError({'precio_invierno': 'Debe ingresar un precio de invierno si está habilitado.'})
+
+    def fichar(self, usuario):
+        """Método para fichar una propiedad"""
+        self.fichado_por = usuario
+        self.fecha_fichado = timezone.now()
+        self.save()
+
+    def desfichar(self):
+        """Método para desfichar una propiedad"""
+        self.fichado_por = None
+        self.fecha_fichado = None
+        self.save()
 
 class ImagenPropiedad(models.Model):
     propiedad = models.ForeignKey(
@@ -668,3 +694,59 @@ class HistorialDisponibilidad(models.Model):
 
     def __str__(self):
         return f"{self.propiedad.id} - {self.fecha_inicio} al {self.fecha_fin} - {self.get_estado_display()}"
+
+class VentaPropiedad(models.Model):
+    ESTADO_CHOICES = [
+        ('disponible', 'Disponible'),
+        ('reservado', 'Reservado'),
+        ('vendido', 'Vendido'),
+    ]
+
+    propiedad = models.OneToOneField(
+        Propiedad,
+        on_delete=models.CASCADE,
+        related_name='info_venta'
+    )
+    en_venta = models.BooleanField(
+        default=False,
+        verbose_name="Disponible para venta"
+    )
+    precio_venta = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Precio de venta"
+    )
+    precio_autorizacion = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Precio de autorización"
+    )
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='disponible',
+        verbose_name="Estado de la venta"
+    )
+    precio_expensas = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Precio de expensas"
+    )
+    escribania = models.TextField(
+        blank=True,
+        verbose_name="Información de escribanía"
+    )
+    observaciones = models.TextField(
+        blank=True,
+        verbose_name="Observaciones"
+    )
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Información de venta - {self.propiedad}"

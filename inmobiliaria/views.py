@@ -2,8 +2,8 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad
-from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad
+from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
@@ -1867,4 +1867,23 @@ def ver_historial_disponibilidad(request, propiedad_id):
         'historial': historial
     }
     return render(request, 'inmobiliaria/propiedades/historial_disponibilidad.html', context)
+
+@login_required
+def editar_info_venta(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    info_venta, created = VentaPropiedad.objects.get_or_create(propiedad=propiedad)
+
+    if request.method == 'POST':
+        form = VentaPropiedadForm(request.POST, instance=info_venta)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Información de venta actualizada correctamente')
+            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+    else:
+        form = VentaPropiedadForm(instance=info_venta)
+
+    return render(request, 'inmobiliaria/propiedades/editar_info_venta.html', {
+        'form': form,
+        'propiedad': propiedad
+    })
 

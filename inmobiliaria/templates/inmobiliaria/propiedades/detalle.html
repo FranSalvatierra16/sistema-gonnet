@@ -296,9 +296,9 @@
                             <!-- Pestaña de Venta -->
                             <div class="tab-pane fade" id="venta" role="tabpanel">
                                 <div class="card-body">
-                                    {% if propiedad.habilitar_venta %}
+                                    {% if propiedad.info_venta.en_venta %}
                                         <div class="alert alert-info">
-                                            <h4>Precio de Venta: ${{ propiedad.precio_venta|format_price }}</h4>
+                                            <h4>Precio de Venta: ${{ propiedad.info_venta.precio_venta|floatformat:2 }}</h4>
                                         </div>
                                         <!-- Aquí puedes agregar más detalles específicos de venta -->
                                     {% else %}
@@ -791,4 +791,38 @@
     }
 }
 </style>
+
+{% if propiedad.info_venta.en_venta %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h5>Información de Venta</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Estado:</strong> {{ propiedad.info_venta.get_estado_display }}</p>
+                <p><strong>Precio de venta:</strong> ${{ propiedad.info_venta.precio_venta|floatformat:2 }}</p>
+                {% if request.user.is_staff %}
+                    <p><strong>Precio autorización:</strong> ${{ propiedad.info_venta.precio_autorizacion|floatformat:2 }}</p>
+                {% endif %}
+                <p><strong>Expensas:</strong> ${{ propiedad.info_venta.precio_expensas|floatformat:2 }}</p>
+            </div>
+            <div class="col-md-6">
+                {% if propiedad.info_venta.escribania %}
+                    <p><strong>Escribanía:</strong> {{ propiedad.info_venta.escribania }}</p>
+                {% endif %}
+                {% if propiedad.info_venta.observaciones %}
+                    <p><strong>Observaciones:</strong> {{ propiedad.info_venta.observaciones }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% if perms.inmobiliaria.change_ventapropiedad %}
+    <div class="card-footer">
+        <a href="{% url 'inmobiliaria:editar_info_venta' propiedad_id=propiedad.id %}" 
+           class="btn btn-primary">Editar información de venta</a>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
 {% endblock %}
