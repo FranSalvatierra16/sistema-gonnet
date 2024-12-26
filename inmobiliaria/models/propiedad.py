@@ -214,7 +214,7 @@ class Propiedad(models.Model):
             TipoPrecio.QUINCENA_1_FEBRERO, TipoPrecio.QUINCENA_2_FEBRERO,
             TipoPrecio.QUINCENA_1_MARZO, TipoPrecio.QUINCENA_2_MARZO,
             TipoPrecio.FINDE_LARGO,
-            TipoPrecio.TEMPORADA_BAJA, TipoPrecio.VACACIONES_INVIERNO, TipoPrecio.ESTUDIANTES
+            TipoPrecio.TEMPORADA_BAJA, TipoPrecio.VACACIONES_INVIERNO, 
         ]
         for tipo in tipos_de_precios:
             Precio.objects.get_or_create(
