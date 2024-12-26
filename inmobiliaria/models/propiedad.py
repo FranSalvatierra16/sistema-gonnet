@@ -411,8 +411,6 @@ class TipoPrecio(models.TextChoices):
     QUINCENA_2_MARZO = 'QUINCENA_2_MARZO', _('2da quincena Marzo')
     TEMPORADA_BAJA = 'TEMPORADA_BAJA', _('Temporada baja')
     VACACIONES_INVIERNO = 'VACACIONES_INVIERNO', _('Vacaciones Invierno')
-   
-    
     FINDE_LARGO = 'FINDE_LARGO', _('Finde largo')
     DICIEMBRE = 'DICIEMBRE', _('Diciembre')
     ENERO = 'ENERO', _('Enero')
@@ -482,7 +480,7 @@ class Precio(models.Model):
                     base_price = self.precio_por_dia * 15
             elif self.tipo_precio == 'FINDE_LARGO':
                 base_price = self.precio_por_dia * 4
-            elif self.tipo_precio in ['TEMPORADA_BAJA', 'ESTUDIANTES']:
+            elif self.tipo_precio == 'TEMPORADA_BAJA':
                 base_price = self.precio_por_dia * dias
             else:
                 base_price = self.precio_por_dia * dias
@@ -503,7 +501,7 @@ class Precio(models.Model):
                     base_price = self.precio_por_dia * 15
             elif self.tipo_precio == 'FINDE_LARGO':
                 base_price = self.precio_por_dia * 4
-            elif self.tipo_precio in ['TEMPORADA_BAJA', 'ESTUDIANTES']:
+            elif self.tipo_precio == 'TEMPORADA_BAJA':
                 base_price = None  # No calcular precio total para días individuales
             else:
                 base_price = self.precio_por_dia
