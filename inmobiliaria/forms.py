@@ -146,13 +146,34 @@ class PropiedadForm(forms.ModelForm):
         required=True,
         help_text='Ingrese el ID deseado para la propiedad'
     )
-
+    llave = forms.IntegerField(
+        required=False,
+        label='Número de llave',
+        help_text='Ingrese el número de llave de la propiedad',
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )
+    piso = forms.CharField(
+        max_length=10,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ej: PB, 1, 15'
+        })
+    )
+    departamento = forms.CharField(
+        max_length=10,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ej: 1A, 150, B3'
+        })
+    )
 
     class Meta:
         model = Propiedad
          # Excluir el campo 'id' para que no sea editable
         fields = [
-            'id','direccion','ubicacion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
+            'id', 'llave', 'direccion', 'ubicacion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
 
             # 'habilitar_precio_diario', 'precio_diario', 'habilitar_precio_venta', 'precio_venta',
             # 'habilitar_precio_alquiler', 'precio_alquiler',
@@ -181,11 +202,18 @@ class PropiedadForm(forms.ModelForm):
             propiedad.sucursal = self.user.sucursal  # Asigna la sucursal del vendedor
         if commit:
             propiedad.save()
+            # Guardar imágenes
+            for index, imagen in enumerate(self.cleaned_data['imagenes']):
+                ImagenPropiedad.objects.create(
+                    propiedad=propiedad,
+                    imagen=imagen,
+                    orden=index + 1
+                )
         return propiedad
 class PrecioForm(forms.ModelForm):
     class Meta:
         model = Precio
-        fields = ['tipo_precio', 'precio_por_dia', 'precio_total', 'ajuste_porcentaje']
+        fields = ['tipo_precio','precio_toma', 'precio_dia_toma', 'precio_por_dia', 'precio_total', 'ajuste_porcentaje']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

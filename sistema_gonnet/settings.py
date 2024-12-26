@@ -27,9 +27,12 @@ SECRET_KEY = 'django-insecure-#ry=f1tqj+=1*32^c54&0qk2)1xt02qpg-%r)ae6%-+3ip*fx^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['gonnet-interno-052a6cec3da9.herokuapp.com', '.herokuapp.com']
+ALLOWED_HOSTS = ['gonnet-interno-052a6cec3da9.herokuapp.com', '.herokuapp.com', 'localhost', '127.0.0.1']
 
-
+# Configuración de sesión
+SESSION_COOKIE_AGE = 1200000 # 20 minutos en segundos
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 # Application definition
 
 INSTALLED_APPS = [
@@ -99,6 +102,13 @@ DATABASES = {
     }
 }
 
+# Configuración de Email
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'gonnetinterno@gmail.com'  # Tu correo
+EMAIL_HOST_PASSWORD = 'mfzt dvrp rqmb cbek'  # Contraseña de aplicación de Google
 
 # Configuración para Heroku
 if 'DATABASE_URL' in os.environ:
@@ -109,6 +119,8 @@ AUTH_USER_MODEL = 'inmobiliaria.Vendedor'
 
 # Redirect to home page after login
 LOGIN_REDIRECT_URL = 'inmobiliaria:index'
+LOGIN_URL = 'login'
+LOGOUT_REDIRECT_URL = 'login'
 
 
 # Password validation
@@ -166,3 +178,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap4"
 CRISPY_TEMPLATE_PACK = "bootstrap4"
+
+# Configuración de formato de fecha
+DATE_INPUT_FORMATS = ['%Y-%m-%d', '%d/%m/%Y']

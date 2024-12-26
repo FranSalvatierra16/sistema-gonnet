@@ -1,78 +1,351 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Recibo Inmobiliaria</title>
-    <style>
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+{% load static %}
+{% block title %}Recibo{% endblock %}
+
+{% block content %}
+<div class="printable">
+<script>
+    function abrirRecibo() {
+        window.open('recibo.html', '_blank'); // Abre en nueva ventana/pestaña
+    }
+    </script>
+    
+    <style type="text/css" media="print">
+        @page {
+            size: legal;
+            margin: 0;
+        }
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            font-size: 12px;
+            margin: 1cm;
         }
-        .recibo {
-            border: 1px solid #59ab55;
-            padding: 20px;
-            width: '90%';
-            height: '90%';
-        }
-        .header {
-            width: '100%';
-            height: '100%';
-            background-color: #59ab55;
-        }
-        .logo {
-            width: 200px;
-        }
-        .recibo-info {
-            text-align: right;
-        }
-        .cliente-info {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .propiedad-info {
-            border: 1px solid #000;
-            padding: 10px;
-            margin-bottom: 20px;
-        }
-        .tabla-pagos {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        .tabla-pagos th, .tabla-pagos td {
-            border: 1px solid #000;
-            padding: 5px;
-        }
-        .destacado {
-            background-color: #e0ffe0;
-        }
-        .footer {
-            margin-top: 20px;
-            text-align: center;
-        }
-        .firmas {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 50px;
-        }
-        .firma {
-            width: 200px;
-            text-align: center;
-            border-top: 1px solid #000;
+       
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            .printable, .printable * {
+                visibility: visible;
+            }
+            .printable {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            button {
+                display: none;
+            }
+           
         }
     </style>
-</head>
-<body>
-    <div class="recibo">
-        <div style="width: 33%; height: 100px; background-color: #59ab55; flex-direction: column;">
-            <img src="https://www.gonnet.com.ar/wp-content/uploads/2024/05/logo-gonnet-blanco.png" alt="Logo Gonnet" class="logo">
-            <p>Recibo</p>
-            
+ 
+
+    
+    <!-- Aquí comienza la sección del recibo -->
+    <div style="height: 49%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid;">
+        <!-- Contenido del recibo -->
+        <div style="height: 15%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
+            <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                 <img src="{% static 'images/logo.png' %}" alt="logo" style="height: 30%; width: 60%; margin-top: 0%;">
+                <p style="margin: 0; font-size: 7px;"> de Nestor Oscar Gonnet</p>
+                <p style="margin: 0; font-size: 7px;">Corrientes 1987</p>
+                <p style="margin: 0; font-size: 7px;">(B7600EBO) Mar del Plata - Prov. de Bs. As.</p>
+                <p style="margin: 0; font-size: 7px;">http://www.gonnet.com.ar</p>
+                <p style="margin: 0; font-size: 7px;">email: info@gonnet.com.ar</p>
+            </div>
+            <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
+                <h4 style="margin-top: 15px;">RECIBO</h4>
+                <p style="margin: 0; font-size: 7px;">DOCUMENTO NO VALIDO COMO FACTURA</p>
+            </div>
+            <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; margin-top: 5px;">
+                <div style="width: 80%; text-align: left;">
+                    <h1 style="margin: 0; font-size: 10px;">Nº: {{ numero_recibo }}</h1>    
+                    <h2 style="margin: 0; font-size: 10px;">Fecha: <u>&nbsp;&nbsp;&nbsp;{{ fecha }}&nbsp;&nbsp;&nbsp;</u></h2>
+                    <h2 style="margin: 0; font-size: 7px;">Hora: &nbsp;&nbsp;<u>&nbsp;&nbsp;&nbsp;&nbsp;{{ hora }}&nbsp;&nbsp;&nbsp;&nbsp;</u></h2>
+                    <p style="margin: 0; font-size: 7px;">IVA : RESPONSABLE INSCRIPTO</p>
+                    <p style="margin: 0; font-size: 7px;">CUIT: 20-10757572-4</p>
+                    <p style="margin: 0; font-size: 7px;">ING. BRUTOS: 20-10757572-4</p>
+                    <!-- <p style="margin: 0;">JUB: 60620856 C.P.S.M.C.P.P.B.A Ley 7014</p> -->
+                    <p style="margin: 0; font-size: 7px;">INSC: 120609/8 REG. 1572</p>
+                    <p style="margin: 0; font-size: 7px;">INICIO ACTIVIDAD: 01/01/1977</p>
+                </div>
+            </div>
         </div>
+        <div style="height: 3%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; align-items: center;">
+            <div style="width: 63%; padding-left: 10px;">
+                <h4 style="margin: 0; font-size: 10px;">OPERACION: <u>&nbsp;&nbsp;&nbsp;{{ reserva.id }}&nbsp;&nbsp;&nbsp;</u></h4>
+            </div>
+        </div>
+        <div style="height: 16%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
        
+         
+            <div style="height: 100%; width: 63%; display: flex; flex-direction: column;   text-align: center;margin-top: 5px;">
+                <div style="width: 80%; text-align: left; margin-left: 10px;">
+                    <h4 style="margin: 0; font-size: 10px;">CLIENTE: </h4>    
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
+                        <span style="min-width: 120px; font-size: 8px;">NOMBRE:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.nombre_completo }}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
+                        <span style="min-width: 120px; font-size: 8px;">DOMICILIO:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.domicilio }}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
+                        <span style="min-width: 120px; font-size: 8px;">LOCALIDAD:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.localidad }}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
+                        <span style="min-width: 120px; font-size: 8px;">IVA:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
+                    </div>
+                </div>
+            </div>
+    
+            <div style="height: 100%; width: 36%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
+                <div style="width: 80%; text-align: left; ">
+                    <h4 style="margin: 0; color: transparent; font-size: 10px;      ">CLIENTE: </h4>    
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
+                        <span style="min-width: 120px; font-size: 8px;">D.N.I:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.dni }}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
+                        <span style="min-width: 120px; font-size: 8px;">TEL:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.telefono }}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
+                        <span style="min-width: 120px; font-size: 8px;">PROVINCIA:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.provincia }}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
+                        <span style="min-width: 120px; font-size: 8px;">C.U.I.T:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">
+                            {% if cliente.cuit %}{{ cliente.cuit }}{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="height: 16%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
+       
+         
+            <div style="height: 100%; width: 63%; display: flex; flex-direction: column;   text-align: center;margin-top: 5px;padding-left: 10px;">
+                <div style="width: 80%; text-align: left;   ">
+                    <h4 style="margin: 0; font-size: 10px;">PROPIEDAD: </h4>    
+                    <div style="display: flex; align-items: center;         ">
+                        <span style="min-width: 120px; font-size: 8px;">DIRECCION:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ propiedad.direccion }}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; ">
+                        <span style="min-width: 120px; font-size: 8px;">COMODIDADES:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ descripcion }}</div>
+                    </div>
+    
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; width: 30%;">
+                            <span style="min-width: 40px; font-size: 8px;">WIFI:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">{{propiedad.wifi}}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; width: 30%;">
+                            <span style="min-width: 60px; font-size: 8px;">COCHERA:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">{{propiedad.cochera}}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; width: 35%;">
+                            <span style="min-width: 50px; font-size: 8px;">AMOBLADO PARA:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">{{propiedad.ambientes}}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+    
+            <div style="height: 100%; width: 36%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
+                <div style="width: 80%; text-align: left;    ">     
+                    <h2 style="margin: 0; color: transparent; font-size: 8px;">CLIENTE: </h2>    
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin: 5px 0;">
+                        <div style="display: flex; align-items: center; width: 45%;">
+                            <span style="min-width: 40px; font-size: 8px;   ">FICHA:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">&nbsp; {{reserva.propiedad.id}}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; width: 45%;">
+                            <span style="min-width: 40px; font-size: 8px;">LLAVE:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">{{propiedad.llave}}</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; width: 45%;">
+                            <span style="min-width: 40px; font-size: 8px;">PISO:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">{{propiedad.piso}}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; width: 45%;">
+                            <span style="min-width: 40px; font-size: 8px;">DPTO:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">{{propiedad.departamento}}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; height: 50%;">
+            <!-- Tabla de conceptos -->
+            <div style="width: 100%; display: flex; flex-direction: column; height: 12%;">
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d8524; height: 100%;">
+                    <div style="display: flex; flex-wrap: wrap; width: 72%;">
+                        <div style="width: 18%; text-align: center;">
+                            <h3 style="margin: 0; font-size: 9px;">Precio</h3>
+                            <div style="border-bottom: 1px solid #2d8524;"></div>
+                            <h3 style="margin: 0; font-size: 9px;">{{ reserva.precio_total }}</h3>
+                        </div>
+                        <div style="width: 18%; text-align: center;">
+                            <h3 style="margin: 0; font-size: 9px;">SEÑA</h3>
+                            <div style="border-bottom: 1px solid #2d8524;"></div>
+                            <h3 style="margin: 0; font-size: 9px;">{{ reserva.senia }}</h3>
+                        </div>
+                        <div style="width: 18%; text-align: center;">
+                            <h3 style="margin: 0; font-size: 9px;">SALDO</h3>
+                            <div style="border-bottom: 1px solid #2d8524;"></div>
+                            <h3 style="margin: 0; font-size: 9px;">{{ reserva.cuota_pendiente }}</h3>
+                        </div>
+                        <div style="width: 18%; text-align: center;">
+                            <h3 style="margin: 0; font-size: 9px;">DEPOSITO GARANTIA</h3>
+                            <div style="border-bottom: 1px solid #2d8524;"></div>
+                            <h3 style="margin: 0; font-size: 9px;">{{ reserva.deposito_garantia }}</h3>
+                        </div>
+                    </div>
+    
+                    <div style="width: 28%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                        <h3 style="margin: 0; font-size: 10px; text-align: center;">DESDE: {{ fecha_inicio }} HORA: 14:00 HS.</h3>
+                        <h3 style="margin: 0; font-size: 10px; text-align: center;">HASTA: {{ fecha_fin }} HORA: 09:00 HS.</h3>
+                    </div>
+                </div>
+        
+            </div>
+            
+                <!-- Encabezados -->
+            <div style="display: flex; justify-content: space-between; height: 6%;">
+                <div style="display: flex; border: 1px solid #2d8524;width: 80%;">
+                    <div style="width: 15%; padding: 3px; border-right: 1px solid transparent;margin-left: 5%; font-size: 9px;">FECHA</div>
+                    <div style="width: 15%; padding: 3px; border-right: 1px solid transparent;margin-left: 10px; font-size: 9px;">CÓDIGO</div>
+                    <div style="width: 55%; padding: 3px; border-right: 1px solid transparent;margin-left: 10px; font-size: 9px;">CONCEPTO</div>
+                </div>
+                <div style="display: flex; border-bottom: 1px solid #2d8524;width: 20%; justify-content: center;">
+                    <div style="width: 15%; padding: 3px; border-right: 1px solid transparent; font-size: 9px;">IMPORTE</div>
+                </div>
+            </div>
+            
+            <!-- Espacio para conceptos y pagos -->
+            <div style="display: flex; justify-content: space-between; border: 1px solid #030402; height: 34%;">
+                <div style="display: flex; flex-direction: column; border-right: 1px solid #2d8524; width: 80%;">
+                    {% for pago in pagos %}
+                    <div style="display: flex; padding: 3px; font-size: 9px;">
+                        <div style="width: 15%; margin-left: 5%;">{{ pago.fecha }}</div>
+                        <div style="width: 15%; margin-left: 10px;">{{ pago.codigo }}</div>
+                        <div style="width: 55%; margin-left: 10px;">{{ pago.concepto }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div style="display: flex; flex-direction: column; width: 20%; border-left: 1px solid #2d8524;">
+                    {% for pago in pagos %}
+                    <div style="display: flex; justify-content: center; padding: 3px; font-size: 9px;">
+                        <div style="width: 15%;">{{ pago.monto|format_price }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+           
+            <div style="display: flex; justify-content: space-between; height: 12%;">
+                <div style="display: flex; flex-direction: column; width: 70%; height: 100%;border-bottom: 1px solid transparent;">
+    
+    
+                    <p style=" padding-left: 10px; font-size: 6px;">SR.TURISTA: Si no se presentara a abonar el saldo de locación en la fecha estipulada 
+                    perdera en favor del propietario los importes entregados en este acto. <br> 
+                    Abonara en 
+                    efectivo cualquier faltante de inventario, roturas, limpieza, etc. al desocupar la propiedad. 
+                    La presente seña se recibe ad referendum del propietario.</p>
+                    
+                      
+                   <p style="margin: 0; font-size: 6px; padding-left: 10px;">El presente recibo carece de valor cancelatorio hasta tanto se acredite la totalidad de los valores entregados en este acto.</p>
+                    
+                    
+                    
+                </div>
+                
+               
+                    <!-- Columna de textos -->
+                    <div style="display: flex; flex-direction: column; width: 10%;height: 100%;">
+                    
+                        <div style="padding: 2px; border-bottom: 1px solid #2d8524;height: 100%;border-left: 1px solid #2d8524;display: flex; justify-content: center; align-items: center;">
+                            <span style="font-size: 9px;padding: 3px;">TOTAL</span>
+                        </div>
+                        
+                    </div>
+                    
+                    <!-- Columna de valores -->
+                    <div style="display: flex; flex-direction: column; border: 1px solid #2d8524; width: 20%;height: 100%;">
+                      
+                        <div style="padding: 2px; border-bottom: 1px solid #2d8524; border-left: 1px solid #2d8524;height: 100%;display: flex; justify-content: center; align-items: center;">
+                            <span style="font-size: 9px;padding: 3px;">{{total_pagado}}</span>
+                        </div>
+                     
+                    </div>
+                
+            </div>
+                <!-- Totales -->
+           
+    
+               
+    
+                <!-- La suma de -->
+                <div style="padding: 2; padding-left: 10px; border-top: 1px solid #2d8524; height: 6%;">
+                    <p style="margin: 0; font-size: 9px;">LA SUMA DE: <u>&nbsp;&nbsp;&nbsp;{{ monto_en_palabras }}&nbsp;&nbsp;&nbsp;</u></p>
+                    <div style="border-bottom: 1px dotted black; height: 5px; font-size: 9px;"></div>
+                </div>
+    
+                <!-- Forma de pago -->
+                <div style="padding: 2; padding-left: 10px; border-top: 1px solid #2d8524; height: 6%;">
+                    <p style="margin: 0; font-size: 9px;">FORMA DE PAGO:<u>&nbsp;&nbsp;&nbsp;{{ formas_de_pago }}&nbsp;&nbsp;&nbsp;</u></p></p>
+                    <div style="border-bottom: 1px dotted black; height: 5px;"></div>
+                </div>
+    
+                <!-- Texto legal -->
+                <div style="padding: 2; border-top: 1px solid #2d8524; height: 12%;">
+                
+    
+                <!-- Firmas -->
+                <div style="display: flex; justify-content: space-between; padding: 5px; padding-top: 35px;">
+                    <div style="text-align: center; width: 200px;">
+                        <div style="border-top: 1px solid #2d8524;"></div>
+                        <p style="margin: 0; font-size: 12px;">FIRMA</p>
+                    </div>
+                    <div style="text-align: center; width: 200px;">
+                        <div style="border-top: 1px solid #2d8524;"></div>
+                        <p style="margin: 0; font-size: 12px;">ACLARACION</p>
+                    </div>
+                    <div style="text-align: center; width: 200px;">
+                        <div style="border-top: 1px solid #2d8524;"></div>
+                        <p style="margin: 0; font-size: 12px;">P/GONNET PROPIEDADES</p>
+                    </div>
+                </div>
+            </div>
+    
+                <!-- Pie de página -->
+          
+            </div>
+        </div>
+    
+              <!-- Contenido del recibo -->
+        <!-- ... todo el contenido del recibo ... -->
     </div>
-</body>
-</html>
+</div>
+    <!-- Aquí termina la sección del recibo -->
+</div>
+</div>
+<!-- Botón para imprimir -->
+<button onclick="window.print();" class="btn btn-primary mt-3" style="background-color: #2d8524; border-color: #2d8524; color: white;">Imprimir Recibo</button>
+
+{% endblock %}
+    
+
+    
+      
+    

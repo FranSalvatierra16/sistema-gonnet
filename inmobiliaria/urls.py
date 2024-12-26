@@ -53,6 +53,7 @@ urlpatterns = [
      path('buscar-clientes/', views.buscar_clientes, name='buscar_clientes'),
     path('crear-inquilino-ajax/', views.crear_inquilino_ajax, name='crear_inquilino_ajax'),
     path('disponibilidad-masiva/', views.agregar_disponibilidad_masiva, name='agregar_disponibilidad_masiva'),
+    path('propiedad/<int:propiedad_id>/historial-disponibilidad/', views.ver_historial_disponibilidad, name='historial_disponibilidad'),
 
     # Reserva URLs
     path('reservas/', views.reservas, name='reservas'),
@@ -73,7 +74,30 @@ urlpatterns = [
     path('obtener-inquilino/<int:inquilino_id>/', views.obtener_inquilino, name='obtener_inquilino'),
     path('crear-sucursal/', views.crear_sucursal, name='crear_sucursal'),
     path('actualizar-orden-imagenes/', views.actualizar_orden_imagenes, name='actualizar_orden_imagenes'),
-    path('eliminar-imagen/<int:imagen_id>/', views.eliminar_imagen, name='eliminar_imagen'),
+    path('eliminar-imagen/', views.eliminar_imagen, name='eliminar_imagen'),
+    path('ver-recibo/<int:reserva_id>/', views.ver_recibo, name='ver_recibo'),
+   
+    path('password_reset/done/', 
+         auth_views.PasswordResetDoneView.as_view(
+             template_name='inmobiliaria/autenticacion/password_reset_done.html'
+         ), 
+         name='password_reset_done'),
+    path('reset/<uidb64>/<token>/',
+         auth_views.PasswordResetConfirmView.as_view(
+             template_name='inmobiliaria/autenticacion/password_reset_confirm.html'
+         ),
+         name='password_reset_confirm'),
+    path('reset/done/',
+         auth_views.PasswordResetCompleteView.as_view(
+             template_name='inmobiliaria/autenticacion/password_reset_complete.html'
+         ),
+         name='password_reset_complete'),
+    path('recuperar-password/', views.enviar_recuperacion, name='recuperar_password'),
+    path('cambiar-password/', views.cambiar_password, name='cambiar_password'),
+    path('reserva/<int:reserva_id>/confirmar-pago/', views.confirmar_pago, name='confirmar_pago'),
+    path('reserva/<int:reserva_id>/agregar-pago/', views.agregar_pago, name='agregar_pago'),
+    path('pago/<int:pago_id>/eliminar/', views.eliminar_pago, name='eliminar_pago'),
+    path('reserva/<int:reserva_id>/agregar-deposito/', views.agregar_deposito, name='agregar_deposito'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 

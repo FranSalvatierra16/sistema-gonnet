@@ -10,6 +10,7 @@
     {% bootstrap_javascript jquery='full' %}
     {% block extra_css %}
     <link rel="stylesheet" href="{% static 'style/styles.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
         /* Hacer que el body ocupe el 100% de la pantalla y use flexbox */
         html, body {
@@ -18,14 +19,49 @@
             flex-direction: column;
         }
 
-        /* El contenedor principal debe expandirse para ocupar el espacio disponible */
+        /* Contenedor principal */
         .container {
             flex: 1;
         }
 
-        /* Footer fijo en la parte inferior */
+        /* Estilo del footer */
         .footer {
             background-color: #f8f9fa;
+        }
+
+        body {
+            background-image: url('{% static "images/fondo.jpg" %}');
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+            background-repeat: no-repeat;
+            min-height: 100vh;
+        }
+
+        /* Para asegurar que el contenido sea legible sobre la imagen */
+        .content-wrapper {
+            background-color: rgba(255, 255, 255, 0.9);
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Asegurar que el fondo cubra toda la página */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: inherit;
+            background-attachment: fixed;
+            filter: blur(5px);
+            z-index: -1;
         }
     </style>
     {% endblock %}
@@ -117,5 +153,28 @@
     </footer>
 
     {% block extra_js %}{% endblock %}
+    {% block javascript %}
+    <script>
+        var inactivityTime = function () {
+            var time;
+            window.onload = resetTimer;
+            document.onmousemove = resetTimer;
+            document.onkeypress = resetTimer;
+            document.onscroll = resetTimer;
+            document.onclick = resetTimer;
+
+            function logout() {
+                window.location.href = "{% url 'inmobiliaria:logout' %}";
+            }
+
+            function resetTimer() {
+                clearTimeout(time);
+                time = setTimeout(logout, 1200000)  // 20 minutos en milisegundos
+            }
+        };
+
+        inactivityTime();
+    </script>
+    {% endblock %}
 </body>
 </html>

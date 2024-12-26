@@ -8,6 +8,8 @@ from django.utils.timezone import now
 import datetime
 from .persona import Propietario, Inquilino, Vendedor
 from .sucursal import Sucursal
+import uuid
+import os
 
 # Definiciones de tipos de vista, valoración e inmuebles
 TIPOS_VISTA = [
@@ -46,7 +48,6 @@ TIPOS_INMUEBLES = [
     ('deposito', 'Depósito'), 
 ]
 
-
 class Propiedad(models.Model):
     DIRECCION_MAX_LENGTH = 255
     UBICACION_MAX_LENGTH = 255
@@ -58,13 +59,22 @@ class Propiedad(models.Model):
     descripcion = models.TextField(blank=True)
     tipo_inmueble = models.CharField(max_length=20, choices=TIPOS_INMUEBLES, default='departamento')
     vista = models.CharField(max_length=20, choices=TIPOS_VISTA, default='a_la_calle')
-    piso = models.IntegerField()
-    departamento = models.CharField(max_length=1, choices=DEPARTAMENTO_CHOICES)
+    piso = models.CharField(
+        max_length=10,
+        verbose_name="Piso",
+        help_text="Número o descripción del piso (ej: PB, 1, 15, etc.)"
+    )
+    departamento = models.CharField(
+        max_length=10,
+        verbose_name="Departamento",
+        help_text="Número o letra del departamento"
+    )
     ambientes = models.IntegerField()
     valoracion = models.CharField(max_length=20, choices=TIPOS_VALORACION, default='bueno')
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
     propietario = models.ForeignKey(Propietario, on_delete=models.CASCADE, related_name='propiedades')  
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='propiedades')# Cambiado a obligatorio
+    llave = models.IntegerField(unique=True, null=True, blank=True, verbose_name="Número de llave")
     
     # Resto del código permanece igual
     
@@ -95,6 +105,34 @@ class Propiedad(models.Model):
     vista_panoramica = models.BooleanField(default=False)
     apto_credito = models.BooleanField(default=False)
 
+    # Campos para habilitar diferentes tipos de alquiler/venta
+    habilitar_venta = models.BooleanField(default=False, verbose_name="Habilitar para Venta")
+    habilitar_23_meses = models.BooleanField(default=False, verbose_name="Habilitar para 24 Meses")
+    habilitar_invierno = models.BooleanField(default=False, verbose_name="Habilitar para Invierno")
+
+    # Precios para cada tipo
+    precio_venta = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="Precio de Venta"
+    )
+    precio_23_meses = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="Precio 23 Meses"
+    )
+    precio_invierno = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="Precio Invierno"
+    )
+
     class Meta:
         verbose_name = "Propiedad"
         verbose_name_plural = "Propiedades"
@@ -105,14 +143,25 @@ class Propiedad(models.Model):
     def esta_disponible_en_fecha(self, fecha_inicio, fecha_fin):
         """Verifica si una propiedad está disponible entre las fechas dadas."""
         if not fecha_inicio or not fecha_fin:
-            # Si alguna de las fechas no está definida, considera la propiedad como disponible
-            return True
+            return False
 
+        # Verificar si hay disponibilidades que cubran el período
         disponibilidades = self.disponibilidades.filter(
-            fecha_inicio__lte=fecha_fin, 
+            fecha_inicio__lte=fecha_fin,
             fecha_fin__gte=fecha_inicio
-        )
-        return not disponibilidades.exists()
+        ).exists()
+
+        # Verificar si hay reservas que se superpongan
+        reservas_superpuestas = self.reservas.filter(
+            fecha_inicio__lte=fecha_fin,
+            fecha_fin__gte=fecha_inicio
+        ).exists()
+
+        # La propiedad está disponible si:
+        # 1. No hay disponibilidades específicas definidas (está siempre disponible) O hay una 
+        # disponibilidad que cubre el período
+        # 2. Y no hay reservas que se superpongan
+        return (not self.disponibilidades.exists() or disponibilidades) and not reservas_superpuestas
 
     # def clean(self):
     #     super().clean()
@@ -136,25 +185,29 @@ class Propiedad(models.Model):
     #         raise ValidationError(_('Debe ingresar un precio de alquiler si está habilitado.'))
 
     def save(self, *args, **kwargs):
-        creating = self._state.adding  # Detectar si es una creación
+        creating = self._state.adding 
+        is_new = self._state.adding# Detectar si es una creación
         super().save(*args, **kwargs)
     
         if creating:
             self.crear_precios_iniciales()
+      
 
     @transaction.atomic
     def crear_precios_iniciales(self):
         tipos_de_precios = [
+            TipoPrecio.QUINCENA_1_DICIEMBRE, TipoPrecio.QUINCENA_2_DICIEMBRE,
             TipoPrecio.QUINCENA_1_ENERO, TipoPrecio.QUINCENA_2_ENERO,
             TipoPrecio.QUINCENA_1_FEBRERO, TipoPrecio.QUINCENA_2_FEBRERO,
             TipoPrecio.QUINCENA_1_MARZO, TipoPrecio.QUINCENA_2_MARZO,
-            TipoPrecio.FINDE_LARGO
+            TipoPrecio.FINDE_LARGO,
+            TipoPrecio.TEMPORADA_BAJA, TipoPrecio.VACACIONES_INVIERNO, TipoPrecio.ESTUDIANTES
         ]
         for tipo in tipos_de_precios:
             Precio.objects.get_or_create(
                 propiedad=self,
                 tipo_precio=tipo,
-                defaults={'precio_total': 0, 'precio_por_dia': 0, 'ajuste_porcentaje':0}
+                defaults={'precio_total': 0, 'precio_por_dia': 0, 'ajuste_porcentaje': 0}
             )
   
 
@@ -165,9 +218,22 @@ class Propiedad(models.Model):
     def __str__(self):
         return f"{self.direccion}"        
 
+    def clean(self):
+        super().clean()
+        # Validar que si un tipo está habilitado, tenga precio
+        if self.habilitar_venta and not self.precio_venta:
+            raise ValidationError({'precio_venta': 'Debe ingresar un precio de venta si está habilitado.'})
+        if self.habilitar_23_meses and not self.precio_23_meses:
+            raise ValidationError({'precio_23_meses': 'Debe ingresar un precio para 23 meses si está habilitado.'})
+        if self.habilitar_invierno and not self.precio_invierno:
+            raise ValidationError({'precio_invierno': 'Debe ingresar un precio de invierno si está habilitado.'})
 
 class ImagenPropiedad(models.Model):
-    propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='imagenes')
+    propiedad = models.ForeignKey(
+        Propiedad, 
+        on_delete=models.CASCADE,
+        related_name='imagenes_propiedad'
+    )
     imagen = models.ImageField(upload_to='propiedades/')
     orden = models.IntegerField(default=0)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
@@ -190,10 +256,9 @@ class Reserva(models.Model):
     fecha_creacion = models.DateTimeField(default=now)
     vendedor = models.ForeignKey(Vendedor, on_delete=models.SET_NULL, null=True, related_name='reservas_vendedor')
     cliente = models.ForeignKey(Inquilino, on_delete=models.SET_NULL, null=True, related_name='reservas_cliente')
-    precio_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    senia = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
-    pago_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
-    cuota_pendiente = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
+    precio_total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    senia = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    cuota_pendiente = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     estado = models.CharField(max_length=20, choices=[('en_espera', 'En Espera'), ('confirmada', 'Confirmada'), ('pagada', 'Pagada')], default='en_espera')
     sucursal = models.ForeignKey(
         'Sucursal',  # Asegúrate de que Sucursal esté importado
@@ -202,34 +267,91 @@ class Reserva(models.Model):
         null=True  # Permitimos null temporalmente para la migración
     )
 
+    deposito_garantia = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
     def save(self, *args, **kwargs):
-        # Si no se especificó una sucursal, usar la sucursal de la propiedad
+        # Asegúrate de que la sucursal esté establecida si no está definida
         if not self.sucursal and self.propiedad:
             self.sucursal = self.propiedad.sucursal
+
+        is_new = self._state.adding
+
+        # Verificar disponibilidad antes de guardar
+        if is_new:
+            # Si no hay disponibilidades definidas, asumimos que está disponible
+            if not self.propiedad.disponibilidades.exists():
+                disponible = True
+            else:
+                disponible = self.propiedad.esta_disponible_en_fecha(self.fecha_inicio, self.fecha_fin)
+                
+            if not disponible:
+                raise ValidationError('La propiedad no está disponible para las fechas seleccionadas.')
+
         super().save(*args, **kwargs)
 
-    def calcular_cuota_pendiente(self):
-        if self.precio_total and self.pago_total:
-            self.cuota_pendiente = self.precio_total - self.pago_total
-            self.save()
+        if is_new:
+            self.cuota_pendiente = self.precio_total
+            self.senia = 0
+            
+            # Actualizar el historial de disponibilidad
+            HistorialDisponibilidad.objects.create(
+                propiedad=self.propiedad,
+                fecha_inicio=self.fecha_inicio,
+                fecha_fin=self.fecha_fin,
+                estado='reservado',
+                reserva=self
+            )
 
-    def confirmar_reserva(self, pago_senia):
-        self.senia = pago_senia
-        self.pago_total = pago_senia
-        self.estado = 'confirmada'
-        self.calcular_cuota_pendiente()
+    def actualizar_saldos(self):
+        """Actualiza los saldos basados en los pagos realizados"""
+        from django.db.models import Sum
+        # Calcular el total de pagos
+        total_pagado = self.pagos.aggregate(Sum('monto'))['monto__sum'] or 0
+        
+        # Actualizar seña (total pagado) y cuota pendiente
+        self.senia = total_pagado
+        self.cuota_pendiente = self.precio_total - total_pagado
+        
+        # Guardar los cambios
         self.save()
 
-    def realizar_pago(self, pago):
-        self.pago_total += pago
-        self.calcular_cuota_pendiente()
-        if self.cuota_pendiente <= 0:
-            self.estado = 'pagada'
+    def terminar_reserva(self):
+        """Método para terminar una reserva"""
+        self.estado = 'pagada'
         self.save()
+        
+        # Actualizar el historial de disponibilidad
+        historial = HistorialDisponibilidad.objects.filter(
+            propiedad=self.propiedad,
+            fecha_inicio=self.fecha_inicio,
+            fecha_fin=self.fecha_fin,
+            reserva=self
+        ).first()
+        
+        if historial:
+            historial.estado = 'ocupado'
+            historial.save()
+
+    def __str__(self):
+        return f"Reserva {self.id} - {self.propiedad}"
+
 class Disponibilidad(models.Model):
     propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='disponibilidades')
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
+
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+        
+        if is_new:
+            # Crear o actualizar el historial cuando se crea una nueva disponibilidad
+            HistorialDisponibilidad.objects.create(
+                propiedad=self.propiedad,
+                fecha_inicio=self.fecha_inicio,
+                fecha_fin=self.fecha_fin,
+                estado='libre'
+            )
 
     class Meta:
         verbose_name = _("Disponibilidad")
@@ -264,7 +386,7 @@ class TipoPrecio(models.TextChoices):
     QUINCENA_2_MARZO = 'QUINCENA_2_MARZO', _('2da quincena Marzo')
     TEMPORADA_BAJA = 'TEMPORADA_BAJA', _('Temporada baja')
     VACACIONES_INVIERNO = 'VACACIONES_INVIERNO', _('Vacaciones Invierno')
-    ESTUDIANTES = 'ESTUDIANTES', _('Estudiantes')
+   
     
     FINDE_LARGO = 'FINDE_LARGO', _('Finde largo')
     DICIEMBRE = 'DICIEMBRE', _('Diciembre')
@@ -275,9 +397,50 @@ class TipoPrecio(models.TextChoices):
 class Precio(models.Model):
     propiedad = models.ForeignKey(Propiedad, on_delete=models.CASCADE, related_name='precios')
     tipo_precio = models.CharField(max_length=20, choices=TipoPrecio.choices)
-    precio_total = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    precio_por_dia = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    ajuste_porcentaje = models.DecimalField(max_digits=5, decimal_places=2, default=0)  # Descuento en porcentaje
+    
+    # Precios por día
+
+    precio_toma = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        blank=True, 
+        null=True,
+        verbose_name="Precio Toma"
+    )
+    
+    # Precios por toma
+    precio_dia_toma = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        blank=True, 
+        null=True,
+        verbose_name="Precio dia: Toma"
+    )
+    precio_por_dia = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        blank=True, 
+        null=True,
+        verbose_name="Precio por día"
+    )
+    
+    # Precios por propietario
+  
+    # Precio total (calculado)
+    precio_total = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        blank=True, 
+        null=True,
+        verbose_name="Precio total"
+    )
+    
+    ajuste_porcentaje = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=0,
+        verbose_name="Ajuste (%)"
+    )
 
     class Meta:
         unique_together = ('propiedad', 'tipo_precio')
@@ -286,17 +449,18 @@ class Precio(models.Model):
         dias = (fecha_fin - fecha_inicio).days + 1
         base_price = 0
 
-        if 'QUINCENA' in self.tipo_precio or self.tipo_precio == 'VACACIONES_INVIERNO':
-            if 'ENERO' in self.tipo_precio or 'MARZO' in self.tipo_precio or 'DICIEMBRE' in self.tipo_precio:
-                base_price = self.precio_por_dia * 16  # Multiplicar por 16 en enero, marzo y vacaciones
+        if self.precio_por_dia:
+            if 'QUINCENA' in self.tipo_precio or self.tipo_precio == 'VACACIONES_INVIERNO':
+                if 'ENERO' in self.tipo_precio or 'MARZO' in self.tipo_precio or 'DICIEMBRE' in self.tipo_precio:
+                    base_price = self.precio_por_dia * 16
+                else:
+                    base_price = self.precio_por_dia * 15
+            elif self.tipo_precio == 'FINDE_LARGO':
+                base_price = self.precio_por_dia * 4
+            elif self.tipo_precio in ['TEMPORADA_BAJA', 'ESTUDIANTES']:
+                base_price = self.precio_por_dia * dias
             else:
-                base_price = self.precio_por_dia * 15  # Quincena como 15 días
-        elif self.tipo_precio == 'FINDE_LARGO':
-            base_price = self.precio_por_dia * 4  # Finde largo como 4 días
-        elif self.tipo_precio in ['TEMPORADA_BAJA', 'ESTUDIANTES']:
-            base_price = self.precio_por_dia * dias  # Precio por día individual
-        else:
-            base_price = self.precio_por_dia * dias
+                base_price = self.precio_por_dia * dias
 
         # Aplicar ajuste porcentual si se ha establecido
         if self.ajuste_porcentaje != 0:
@@ -326,3 +490,181 @@ class Precio(models.Model):
             self.precio_total = round(base_price, 2) if base_price is not None else None
 
         super().save(*args, **kwargs)
+
+class ConceptoPago(models.Model):
+    codigo = models.CharField(max_length=10, unique=True)
+    nombre = models.CharField(max_length=255)
+    descripcion = models.TextField(blank=True)
+    
+    class Meta:
+        ordering = ['codigo']
+        verbose_name = "Concepto de Pago"
+        verbose_name_plural = "Conceptos de Pago"
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nombre}"
+
+class Pago(models.Model):
+    FORMA_PAGO_CHOICES = [
+        ('efectivo', 'Efectivo'),
+        ('transferencia', 'Transferencia'),
+        ('tarjeta_credito', 'Tarjeta de Crédito'),
+        ('tarjeta_debito', 'Tarjeta de Débito'),
+        ('cheque', 'Cheque'),
+        ('qr', 'QR'),
+    ]
+
+    reserva = models.ForeignKey('Reserva', on_delete=models.CASCADE, related_name='pagos')
+    codigo = models.CharField(max_length=10, unique=True, editable=False)
+    fecha = models.DateField(auto_now_add=True)
+    forma_pago = models.CharField(max_length=20, choices=FORMA_PAGO_CHOICES)
+    concepto = models.ForeignKey('ConceptoPago', on_delete=models.PROTECT)
+    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    # Nuevos campos para tarjetas
+    numero_tarjeta = models.CharField(
+        max_length=16, 
+        blank=True, 
+        null=True,
+        verbose_name="Número de Tarjeta",
+        help_text="Últimos 4 dígitos de la tarjeta"
+    )
+    tipo_tarjeta = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name="Tipo de Tarjeta",
+        choices=[
+            ('visa', 'Visa'),
+            ('mastercard', 'Mastercard'),
+            ('american_express', 'American Express'),
+            ('otro', 'Otro')
+        ]
+    )
+
+    def clean(self):
+        super().clean()
+        if not self.pk:  # Solo validar al crear un nuevo pago
+            # Verificar que el monto no supere la cuota pendiente
+            if self.monto > self.reserva.cuota_pendiente:
+                raise ValidationError({
+                    'monto': f'El monto del pago (${self.monto}) no puede superar el saldo pendiente (${self.reserva.cuota_pendiente})'
+                })
+        if 'tarjeta' in self.forma_pago and not self.numero_tarjeta:
+            raise ValidationError({
+                'numero_tarjeta': 'El número de tarjeta es requerido para pagos con tarjeta'
+            })
+        if 'tarjeta' in self.forma_pago and not self.tipo_tarjeta:
+            raise ValidationError({
+                'tipo_tarjeta': 'El tipo de tarjeta es requerido para pagos con tarjeta'
+            })
+
+    def save(self, *args, **kwargs):
+        # Si se proporciona un número de tarjeta completo, guardar solo los últimos 4 dígitos
+        self.clean()  # Ejecutar validaciones
+        if not self.pk:  # Si es un nuevo pago
+            ultimo_pago = Pago.objects.order_by('-id').first()
+            numero = (ultimo_pago.id + 1) if ultimo_pago else 1
+            self.codigo = f'PAG{numero:06d}'
+        if self.numero_tarjeta and len(self.numero_tarjeta) > 4:
+            self.numero_tarjeta = self.numero_tarjeta[-4:]
+        super().save(*args, **kwargs)
+        self.reserva.actualizar_saldos()
+
+    def delete(self, *args, **kwargs):
+        reserva = self.reserva
+        super().delete(*args, **kwargs)
+        reserva.actualizar_saldos()  # Actualizar saldos después de eliminar
+
+    class Meta:
+        ordering = ['-fecha']
+
+    def __str__(self):
+        return f"{self.codigo} - {self.concepto.nombre} - ${self.monto}"
+
+class HistorialDisponibilidad(models.Model):
+    ESTADO_CHOICES = [
+        ('libre', 'Libre'),
+        ('reservado', 'Reservado'),
+        ('ocupado', 'Ocupado')
+    ]
+
+    propiedad = models.ForeignKey(
+        Propiedad, 
+        on_delete=models.CASCADE, 
+        related_name='historial_disponibilidad'
+    )
+    fecha_inicio = models.DateField()
+    fecha_fin = models.DateField()
+    estado = models.CharField(
+        max_length=20, 
+        choices=ESTADO_CHOICES, 
+        default='libre'
+    )
+    reserva = models.ForeignKey(
+        'Reserva', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='historial_disponibilidad'
+    )
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def actualizar_historial_con_reserva(cls, reserva):
+        """
+        Actualiza el historial de disponibilidad cuando se crea una nueva reserva
+        """
+        propiedad = reserva.propiedad
+        fecha_inicio_reserva = reserva.fecha_inicio
+        fecha_fin_reserva = reserva.fecha_fin
+
+        # Buscar períodos existentes que se superpongan
+        periodos_afectados = cls.objects.filter(
+            propiedad=propiedad,
+            fecha_fin__gte=fecha_inicio_reserva,
+            fecha_inicio__lte=fecha_fin_reserva
+        ).order_by('fecha_inicio')
+
+        # Si hay períodos afectados
+        if periodos_afectados.exists():
+            primer_periodo = periodos_afectados.first()
+            ultimo_periodo = periodos_afectados.last()
+
+            # Crear período libre antes de la reserva si es necesario
+            if primer_periodo.fecha_inicio < fecha_inicio_reserva:
+                cls.objects.create(
+                    propiedad=propiedad,
+                    fecha_inicio=primer_periodo.fecha_inicio,
+                    fecha_fin=fecha_inicio_reserva - datetime.timedelta(days=1),
+                    estado='libre'
+                )
+
+            # Crear período libre después de la reserva si es necesario
+            if ultimo_periodo.fecha_fin > fecha_fin_reserva:
+                cls.objects.create(
+                    propiedad=propiedad,
+                    fecha_inicio=fecha_fin_reserva + datetime.timedelta(days=1),
+                    fecha_fin=ultimo_periodo.fecha_fin,
+                    estado='libre'
+                )
+
+            # Eliminar períodos afectados
+            periodos_afectados.delete()
+
+        # Crear el nuevo período para la reserva
+        cls.objects.create(
+            propiedad=propiedad,
+            fecha_inicio=fecha_inicio_reserva,
+            fecha_fin=fecha_fin_reserva,
+            estado='reservado',
+            reserva=reserva
+        )
+
+    class Meta:
+        verbose_name = "Historial de Disponibilidad"
+        verbose_name_plural = "Historial de Disponibilidades"
+        ordering = ['fecha_inicio', 'fecha_fin']
+
+    def __str__(self):
+        return f"{self.propiedad.id} - {self.fecha_inicio} al {self.fecha_fin} - {self.get_estado_display()}"

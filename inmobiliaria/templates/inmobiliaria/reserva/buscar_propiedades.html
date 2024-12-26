@@ -114,7 +114,7 @@
         <h3 class="text-center mt-4">Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h3>
         <table id="propiedadesTable" class="table table-hover">
             <thead>
-                <tr>
+                <tr style="background-color: #007bff; color: white;">
                     <th>ID Propiedad</th>
                     <th>Disponibilidad más cercana</th>
                     <th>Dirección</th>
@@ -127,31 +127,27 @@
             <tbody>
                 {% for propiedad in propiedades_disponibles %}
                 {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                <tr data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad( '{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','{{ propiedad.reserva.id }}',)">
-                   <td style="color: red;">{{ propiedad.id }}</td>
-                   <td style="color: red;">
-                    Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
+                <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad( '{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','{{ propiedad.reserva.id }}',)">
+                    <td style="color: red;">{{ propiedad.id }}</td>
+                    <td style="color: red;">
+                        Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
                     </td>
                     <td style="color: red;">{{ propiedad.direccion }}</td>
                     <td style="color: red;">{{ propiedad.piso }}</td>
-                    <td style="color: red;"> {{propiedad.dpto }}</td>
-                    <td style="color: red;">{{ propiedad.propietario.nombre }}</td>
+                    <td style="color: red;"> {{propiedad.departamento }}</td>
+                    <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
                     <td style="color: red;">{{ propiedad.precio_total_reserva }}</td>
-                    
                 </tr>
-               
                 {% else %}
-                <tr data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad( '{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}',)">
+                <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad( '{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}',)">
                     <td>{{ propiedad.id }}</td>
                     <td>
-                        
-                            {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
-                           
+                        {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
                     </td>
                     <td>{{ propiedad.direccion }}</td>
                     <td>{{ propiedad.piso }}</td>
-                    <td>{{ propiedad.dpto }}</td>
-                    <td>{{ propiedad.propietario.nombre }}</td>
+                    <td>{{ propiedad.departamento }}</td>
+                    <td>{{ propiedad.propietario.apellido }}</td>
                     <td>{{ propiedad.precio_total_reserva|format_price }}</td>
                 </tr>
                 {% endif %}
