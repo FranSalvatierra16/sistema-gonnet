@@ -4,6 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import Q
 from django.utils.timezone import now
+from django.conf import settings
 
 import datetime
 from .persona import Propietario, Inquilino, Vendedor
@@ -134,12 +135,10 @@ class Propiedad(models.Model):
     )
 
     fichado_por = models.ForeignKey(
-        'auth.User',
+        settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
-        blank=True,
-        related_name='propiedades_fichadas',
-        verbose_name="Fichado por"
+        related_name='propiedades_fichadas'
     )
     fecha_fichado = models.DateTimeField(
         null=True,
