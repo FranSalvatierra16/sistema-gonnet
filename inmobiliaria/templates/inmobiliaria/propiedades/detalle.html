@@ -792,10 +792,10 @@
 }
 </style>
 
-{% if propiedad.info_venta.en_venta %}
+<!-- Sección de Venta -->
 <div class="card mb-3">
     <div class="card-header">
-        <h5>Información de Venta</h5>
+        <h5>Venta de Propiedad</h5>
     </div>
     <div class="card-body">
         <div class="row">
@@ -832,7 +832,7 @@
         <h5>Información de Venta</h5>
         {% if perms.inmobiliaria.change_ventapropiedad %}
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalVenta">
-                {% if propiedad.info_venta %}
+                {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
                     Editar información de venta
                 {% else %}
                     Habilitar venta
@@ -874,7 +874,13 @@
             <form method="post" action="{% url 'inmobiliaria:editar_info_venta' propiedad_id=propiedad.id %}">
                 {% csrf_token %}
                 <div class="modal-header">
-                    <h5 class="modal-title" id="modalVentaLabel">Información de Venta</h5>
+                    <h5 class="modal-title" id="modalVentaLabel">
+                        {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
+                            Editar información de venta
+                        {% else %}
+                            Habilitar venta
+                        {% endif %}
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -882,28 +888,28 @@
                         <input class="form-check-input" type="checkbox" name="en_venta" id="en_venta" 
                                {% if propiedad.info_venta.en_venta %}checked{% endif %}>
                         <label class="form-check-label" for="en_venta">
-                            Disponible para venta
+                            Habilitar venta de propiedad
                         </label>
                     </div>
                     
                     <div id="info-venta-fields" {% if not propiedad.info_venta.en_venta %}style="display: none;"{% endif %}>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="precio_venta" class="form-label">Precio de venta</label>
+                                <label for="precio_venta" class="form-label">Precio de venta *</label>
                                 <input type="number" class="form-control" id="precio_venta" name="precio_venta" 
-                                       value="{{ propiedad.info_venta.precio_venta|default:'' }}">
+                                       value="{{ propiedad.info_venta.precio_venta|default:'' }}" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label for="precio_autorizacion" class="form-label">Precio de autorización</label>
+                                <label for="precio_autorizacion" class="form-label">Precio de autorización *</label>
                                 <input type="number" class="form-control" id="precio_autorizacion" name="precio_autorizacion"
-                                       value="{{ propiedad.info_venta.precio_autorizacion|default:'' }}">
+                                       value="{{ propiedad.info_venta.precio_autorizacion|default:'' }}" required>
                             </div>
                         </div>
                         
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="estado" class="form-label">Estado</label>
-                                <select class="form-select" id="estado" name="estado">
+                                <label for="estado" class="form-label">Estado *</label>
+                                <select class="form-select" id="estado" name="estado" required>
                                     <option value="disponible" {% if propiedad.info_venta.estado == 'disponible' %}selected{% endif %}>Disponible</option>
                                     <option value="reservado" {% if propiedad.info_venta.estado == 'reservado' %}selected{% endif %}>Reservado</option>
                                     <option value="vendido" {% if propiedad.info_venta.estado == 'vendido' %}selected{% endif %}>Vendido</option>
@@ -936,15 +942,19 @@
     </div>
 </div>
 
-<!-- Script para mostrar/ocultar campos según checkbox -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const enVentaCheckbox = document.getElementById('en_venta');
     const infoVentaFields = document.getElementById('info-venta-fields');
+    const requiredFields = document.querySelectorAll('#info-venta-fields [required]');
     
     if (enVentaCheckbox) {
         enVentaCheckbox.addEventListener('change', function() {
             infoVentaFields.style.display = this.checked ? 'block' : 'none';
+            // Toggle required attributes
+            requiredFields.forEach(field => {
+                field.required = this.checked;
+            });
         });
     }
 });
