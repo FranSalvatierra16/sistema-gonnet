@@ -2,8 +2,8 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad
-from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad
+from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
@@ -284,7 +284,13 @@ def propiedades(request):
 def propiedad_detalle(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
     disponibilidades = propiedad.disponibilidades.all()
-    imagenes = propiedad.imagenes.all()
+    
+    # Obtener imágenes usando el related_name correcto
+    imagenes = propiedad.imagenes_propiedad.all()  # Cambiado a imagenes_propiedad
+    print("Propiedad ID:", propiedad_id)
+    print("Número de imágenes encontradas:", imagenes.count())
+    for imagen in imagenes:
+        print("URL de imagen:", imagen.imagen.url if imagen.imagen else "No hay URL")
 
     # Definir el orden personalizado para los tipos de precio
     orden_tipo_precio = Case(
@@ -299,8 +305,6 @@ def propiedad_detalle(request, propiedad_id):
         When(tipo_precio=TipoPrecio.TEMPORADA_BAJA, then=8),
         When(tipo_precio=TipoPrecio.FINDE_LARGO, then=9),
         When(tipo_precio=TipoPrecio.VACACIONES_INVIERNO, then=10),
-       
-        # Añade más condiciones si es necesario
         output_field=IntegerField(),
     )
 
@@ -309,14 +313,21 @@ def propiedad_detalle(request, propiedad_id):
         orden_tipo_precio=orden_tipo_precio
     ).order_by('orden_tipo_precio')
 
-    print("Imágenes de la propiedad:", [imagen.imagen.url for imagen in imagenes])
+    # Debug de imágenes
+    try:
+        print("Imágenes de la propiedad:", [imagen.imagen.url for imagen in imagenes])
+    except Exception as e:
+        print("Error al acceder a las imágenes:", str(e))
 
-    return render(request, 'inmobiliaria/propiedades/detalle.html', {
+    context = {
         'propiedad': propiedad,
         'disponibilidades': disponibilidades,
         'precios': precios,
         'imagenes': imagenes
-    })
+    }
+    
+    return render(request, 'inmobiliaria/propiedades/detalle.html', context)
+
 @login_required
 def propiedad_nuevo(request):
     if request.method == 'POST':
@@ -1857,3 +1868,21 @@ def ver_historial_disponibilidad(request, propiedad_id):
     }
     return render(request, 'inmobiliaria/propiedades/historial_disponibilidad.html', context)
 
+@login_required
+def editar_info_venta(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    info_venta, created = VentaPropiedad.objects.get_or_create(propiedad=propiedad)
+
+    if request.method == 'POST':
+        form = VentaPropiedadForm(request.POST, instance=info_venta)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Información de venta actualizada correctamente')
+            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+    else:
+        form = VentaPropiedadForm(instance=info_venta)
+
+    return render(request, 'inmobiliaria/propiedades/editar_info_venta.html', {
+        'form': form,
+        'propiedad': propiedad
+    })

@@ -146,46 +146,29 @@
 
                                     <!-- Imágenes -->
                                     <div class="mb-4">
+                                        <h4>Debug Info:</h4>
+                                        <p>Número de imágenes: {{ imagenes|length }}</p>
                                         {% if imagenes %}
-                                            <div id="carouselExampleControls" class="carousel slide" data-ride="carousel">
-                                                <div class="carousel-inner">
-                                                    {% for imagen in imagenes %}
-                                                        <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                                            {% if imagen.imagen %}
-                                                                <img src="{{ imagen.imagen.url }}" 
-                                                                     class="d-block w-100" 
-                                                                     alt="Imagen de la propiedad"
-                                                                     style="height: 400px; object-fit: cover;"
-                                                                     onerror="this.onerror=null; this.src='/static/images/no-image.jpg';">
-                                                            {% else %}
-                                                                <img src="{% static 'images/no-image.jpg' %}" 
-                                                                     class="d-block w-100" 
-                                                                     alt="Imagen no disponible"
-                                                                     style="height: 400px; object-fit: cover;">
-                                                            {% endif %}
-                                                        </div>
-                                                    {% endfor %}
-                                                </div>
-                                                {% if imagenes|length > 1 %}
-                                                    <!-- Controles del carrusel -->
-                                                    <button class="carousel-control-prev" type="button" data-target="#carouselExampleControls" data-slide="prev">
-                                                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                                        <span class="sr-only">Anterior</span>
-                                                    </button>
-                                                    <button class="carousel-control-next" type="button" data-target="#carouselExampleControls" data-slide="next">
-                                                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                                        <span class="sr-only">Siguiente</span>
-                                                    </button>
-                                                {% endif %}
+                                        <div id="carouselExampleControls" class="carousel slide" data-ride="carousel">
+                                            <div class="carousel-inner">
+                                                {% for imagen in imagenes %}
+                                                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                                        <img src="{{ imagen.imagen.url }}" class="d-block w-100" alt="Imagen de la propiedad">
+                                                    </div>
+                                                {% endfor %}
                                             </div>
-                                        {% else %}
-                                            <div class="no-image-placeholder">
-                                                <img src="{% static 'images/no-image.jpg' %}" 
-                                                     class="d-block w-100" 
-                                                     alt="No hay imágenes disponibles"
-                                                     style="height: 400px; object-fit: cover;">
-                                            </div>
-                                        {% endif %}
+                                            <a class="carousel-control-prev" href="#carouselExampleControls" role="button" data-slide="prev">
+                                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                                <span class="sr-only">Previous</span>
+                                            </a>
+                                            <a class="carousel-control-next" href="#carouselExampleControls" role="button" data-slide="next">
+                                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                                <span class="sr-only">Next</span>
+                                            </a>
+                                        </div>
+                                    {% else %}
+                                        <p>No hay imágenes disponibles.</p>
+                                    {% endif %}
                                     </div>
 
                                     <!-- Descripción con tamaño ajustado -->
@@ -313,9 +296,9 @@
                             <!-- Pestaña de Venta -->
                             <div class="tab-pane fade" id="venta" role="tabpanel">
                                 <div class="card-body">
-                                    {% if propiedad.habilitar_venta %}
+                                    {% if propiedad.info_venta.en_venta %}
                                         <div class="alert alert-info">
-                                            <h4>Precio de Venta: ${{ propiedad.precio_venta|format_price }}</h4>
+                                            <h4>Precio de Venta: ${{ propiedad.info_venta.precio_venta|floatformat:2 }}</h4>
                                         </div>
                                         <!-- Aquí puedes agregar más detalles específicos de venta -->
                                     {% else %}
@@ -808,4 +791,38 @@
     }
 }
 </style>
+
+{% if propiedad.info_venta.en_venta %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h5>Información de Venta</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Estado:</strong> {{ propiedad.info_venta.get_estado_display }}</p>
+                <p><strong>Precio de venta:</strong> ${{ propiedad.info_venta.precio_venta|floatformat:2 }}</p>
+                {% if request.user.is_staff %}
+                    <p><strong>Precio autorización:</strong> ${{ propiedad.info_venta.precio_autorizacion|floatformat:2 }}</p>
+                {% endif %}
+                <p><strong>Expensas:</strong> ${{ propiedad.info_venta.precio_expensas|floatformat:2 }}</p>
+            </div>
+            <div class="col-md-6">
+                {% if propiedad.info_venta.escribania %}
+                    <p><strong>Escribanía:</strong> {{ propiedad.info_venta.escribania }}</p>
+                {% endif %}
+                {% if propiedad.info_venta.observaciones %}
+                    <p><strong>Observaciones:</strong> {{ propiedad.info_venta.observaciones }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% if perms.inmobiliaria.change_ventapropiedad %}
+    <div class="card-footer">
+        <a href="{% url 'inmobiliaria:editar_info_venta' propiedad_id=propiedad.id %}" 
+           class="btn btn-primary">Editar información de venta</a>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
 {% endblock %}

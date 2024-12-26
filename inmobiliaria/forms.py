@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserChangeForm
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio,TipoPrecio,TIPOS_INMUEBLES, TIPOS_VISTA, TIPOS_VALORACION, Sucursal
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio,TipoPrecio,TIPOS_INMUEBLES, TIPOS_VISTA, TIPOS_VALORACION, Sucursal, VentaPropiedad
 from datetime import datetime
 from django.forms import modelformset_factory
 from django.core.exceptions import ValidationError
@@ -370,3 +370,19 @@ class PropiedadSearchForm(forms.Form):
         })
     )
 
+class VentaPropiedadForm(forms.ModelForm):
+    class Meta:
+        model = VentaPropiedad
+        fields = [
+            'en_venta',
+            'precio_venta',
+            'precio_autorizacion',
+            'estado',
+            'precio_expensas',
+            'escribania',
+            'observaciones'
+        ]
+        widgets = {
+            'observaciones': forms.Textarea(attrs={'rows': 3}),
+            'escribania': forms.Textarea(attrs={'rows': 3}),
+        }
