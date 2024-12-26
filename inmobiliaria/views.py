@@ -1874,15 +1874,21 @@ def editar_info_venta(request, propiedad_id):
     info_venta, created = VentaPropiedad.objects.get_or_create(propiedad=propiedad)
 
     if request.method == 'POST':
-        form = VentaPropiedadForm(request.POST, instance=info_venta)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Información de venta actualizada correctamente')
-            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
-    else:
-        form = VentaPropiedadForm(instance=info_venta)
+        # Actualizar en_venta
+        en_venta = request.POST.get('en_venta') == 'on'
+        info_venta.en_venta = en_venta
 
-    return render(request, 'inmobiliaria/propiedades/editar_info_venta.html', {
-        'form': form,
-        'propiedad': propiedad
-    })
+        if en_venta:
+            # Solo actualizar otros campos si está en venta
+            info_venta.precio_venta = request.POST.get('precio_venta') or None
+            info_venta.precio_autorizacion = request.POST.get('precio_autorizacion') or None
+            info_venta.estado = request.POST.get('estado', 'disponible')
+            info_venta.precio_expensas = request.POST.get('precio_expensas') or None
+            info_venta.escribania = request.POST.get('escribania', '')
+            info_venta.observaciones = request.POST.get('observaciones', '')
+
+        info_venta.save()
+        messages.success(request, 'Información de venta actualizada correctamente')
+        return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)

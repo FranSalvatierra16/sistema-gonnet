@@ -825,4 +825,128 @@
     {% endif %}
 </div>
 {% endif %}
+
+<!-- Sección de Venta -->
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>Información de Venta</h5>
+        {% if perms.inmobiliaria.change_ventapropiedad %}
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalVenta">
+                {% if propiedad.info_venta %}
+                    Editar información de venta
+                {% else %}
+                    Habilitar venta
+                {% endif %}
+            </button>
+        {% endif %}
+    </div>
+    
+    <div class="card-body">
+        {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Estado:</strong> {{ propiedad.info_venta.get_estado_display }}</p>
+                    <p><strong>Precio de venta:</strong> ${{ propiedad.info_venta.precio_venta|floatformat:2 }}</p>
+                    {% if request.user.is_staff %}
+                        <p><strong>Precio autorización:</strong> ${{ propiedad.info_venta.precio_autorizacion|floatformat:2 }}</p>
+                    {% endif %}
+                    <p><strong>Expensas:</strong> ${{ propiedad.info_venta.precio_expensas|default:"No especificado" }}</p>
+                </div>
+                <div class="col-md-6">
+                    {% if propiedad.info_venta.escribania %}
+                        <p><strong>Escribanía:</strong> {{ propiedad.info_venta.escribania }}</p>
+                    {% endif %}
+                    {% if propiedad.info_venta.observaciones %}
+                        <p><strong>Observaciones:</strong> {{ propiedad.info_venta.observaciones }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        {% else %}
+            <p class="text-muted">Esta propiedad no está disponible para venta.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal de Venta -->
+<div class="modal fade" id="modalVenta" tabindex="-1" aria-labelledby="modalVentaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" action="{% url 'inmobiliaria:editar_info_venta' propiedad_id=propiedad.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalVentaLabel">Información de Venta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="en_venta" id="en_venta" 
+                               {% if propiedad.info_venta.en_venta %}checked{% endif %}>
+                        <label class="form-check-label" for="en_venta">
+                            Disponible para venta
+                        </label>
+                    </div>
+                    
+                    <div id="info-venta-fields" {% if not propiedad.info_venta.en_venta %}style="display: none;"{% endif %}>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="precio_venta" class="form-label">Precio de venta</label>
+                                <input type="number" class="form-control" id="precio_venta" name="precio_venta" 
+                                       value="{{ propiedad.info_venta.precio_venta|default:'' }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="precio_autorizacion" class="form-label">Precio de autorización</label>
+                                <input type="number" class="form-control" id="precio_autorizacion" name="precio_autorizacion"
+                                       value="{{ propiedad.info_venta.precio_autorizacion|default:'' }}">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="estado" class="form-label">Estado</label>
+                                <select class="form-select" id="estado" name="estado">
+                                    <option value="disponible" {% if propiedad.info_venta.estado == 'disponible' %}selected{% endif %}>Disponible</option>
+                                    <option value="reservado" {% if propiedad.info_venta.estado == 'reservado' %}selected{% endif %}>Reservado</option>
+                                    <option value="vendido" {% if propiedad.info_venta.estado == 'vendido' %}selected{% endif %}>Vendido</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="precio_expensas" class="form-label">Precio de expensas</label>
+                                <input type="number" class="form-control" id="precio_expensas" name="precio_expensas"
+                                       value="{{ propiedad.info_venta.precio_expensas|default:'' }}">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="escribania" class="form-label">Escribanía</label>
+                            <textarea class="form-control" id="escribania" name="escribania" rows="2">{{ propiedad.info_venta.escribania|default:'' }}</textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="observaciones" class="form-label">Observaciones</label>
+                            <textarea class="form-control" id="observaciones" name="observaciones" rows="3">{{ propiedad.info_venta.observaciones|default:'' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Script para mostrar/ocultar campos según checkbox -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const enVentaCheckbox = document.getElementById('en_venta');
+    const infoVentaFields = document.getElementById('info-venta-fields');
+    
+    if (enVentaCheckbox) {
+        enVentaCheckbox.addEventListener('change', function() {
+            infoVentaFields.style.display = this.checked ? 'block' : 'none';
+        });
+    }
+});
+</script>
 {% endblock %}
