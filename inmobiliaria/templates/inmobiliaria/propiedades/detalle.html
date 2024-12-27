@@ -301,38 +301,75 @@
                             </div>
 
                     <!-- Pestaña de Venta -->
-                    <div class="tab-pane fade {% if active_tab == 'venta' %}show active{% endif %}" 
-                         id="venta" role="tabpanel">
-                        {% if active_tab == 'venta' %}
-                            <div class="card-body">
-                                <div class="row justify-content-center">
-                                    <div class="col-md-8">
-                                        <div class="text-center mb-4">
-                                            {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
-                                                <div class="alert alert-info">
-                                                    <h4>Información de Venta</h4>
-                                                    <p><strong>Precio de venta:</strong> ${{ propiedad.info_venta.precio_venta|format_price }}</p>
-                                                    <p><strong>Estado:</strong> {{ propiedad.info_venta.get_estado_display }}</p>
+                    <div class="tab-pane fade {% if active_tab == 'venta' %}show active{% endif %}" id="venta" role="tabpanel">
+                        <div class="card-body">
+                            <div class="row justify-content-center">
+                                <div class="col-md-8">
+                                    {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
+                                        <!-- Si la venta está habilitada -->
+                                        <div class="card">
+                                            <div class="card-header bg-primary text-white">
+                                                <h4 class="mb-0">Información de Venta</h4>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="info-grid">
+                                                    <div class="info-item">
+                                                        <strong><i class="fas fa-tag"></i> Precio de venta:</strong>
+                                                        <span>${{ propiedad.info_venta.precio_venta|format_price }}</span>
+                                                    </div>
+                                                    <div class="info-item">
+                                                        <strong><i class="fas fa-check-circle"></i> Estado:</strong>
+                                                        <span class="badge {% if propiedad.info_venta.estado == 'disponible' %}badge-success{% elif propiedad.info_venta.estado == 'reservado' %}badge-warning{% else %}badge-danger{% endif %}">
+                                                            {{ propiedad.info_venta.get_estado_display }}
+                                                        </span>
+                                                    </div>
                                                     {% if propiedad.info_venta.precio_expensas %}
-                                                        <p><strong>Expensas:</strong> ${{ propiedad.info_venta.precio_expensas|format_price }}</p>
+                                                        <div class="info-item">
+                                                            <strong><i class="fas fa-receipt"></i> Expensas:</strong>
+                                                            <span>${{ propiedad.info_venta.precio_expensas|format_price }}</span>
+                                                        </div>
+                                                    {% endif %}
+                                                    {% if propiedad.info_venta.escribania %}
+                                                        <div class="info-item">
+                                                            <strong><i class="fas fa-file-contract"></i> Escribanía:</strong>
+                                                            <p class="mb-0">{{ propiedad.info_venta.escribania }}</p>
+                                                        </div>
+                                                    {% endif %}
+                                                    {% if propiedad.info_venta.observaciones %}
+                                                        <div class="info-item">
+                                                            <strong><i class="fas fa-comment"></i> Observaciones:</strong>
+                                                            <p class="mb-0">{{ propiedad.info_venta.observaciones }}</p>
+                                                        </div>
                                                     {% endif %}
                                                 </div>
-                                            {% endif %}
-                                            
-                                            {% if perms.inmobiliaria.change_ventapropiedad %}
-                                                <button type="button" class="btn btn-primary btn-lg mt-3" data-bs-toggle="modal" data-bs-target="#modalVenta">
-                                                    {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
-                                                        Editar información de venta
-                                                    {% else %}
-                                                        Habilitar venta
-                                                    {% endif %}
-                                                </button>
-                                            {% endif %}
+                                                
+                                                {% if perms.inmobiliaria.change_ventapropiedad %}
+                                                    <div class="text-center mt-4">
+                                                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalVenta">
+                                                            <i class="fas fa-edit"></i> Editar información de venta
+                                                        </button>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
                                         </div>
-                                    </div>
+                                    {% else %}
+                                        <!-- Si la venta no está habilitada -->
+                                        <div class="text-center">
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle fa-3x mb-3"></i>
+                                                <h4>Venta no habilitada</h4>
+                                                <p>Esta propiedad actualmente no está disponible para la venta.</p>
+                                                {% if perms.inmobiliaria.change_ventapropiedad %}
+                                                    <button type="button" class="btn btn-primary btn-lg mt-3" data-bs-toggle="modal" data-bs-target="#modalVenta">
+                                                        <i class="fas fa-plus-circle"></i> Habilitar venta
+                                                    </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
                                 </div>
                             </div>
-                        {% endif %}
+                        </div>
                     </div>
 
                     <!-- Pestaña de 24 Meses -->
@@ -799,6 +836,47 @@
     .description-section {
         max-height: none;
     }
+}
+
+.info-grid {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.info-item {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.info-item strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #495057;
+}
+
+.info-item i {
+    margin-right: 0.5rem;
+    color: #007bff;
+}
+
+.badge {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+.badge-success {
+    background-color: #28a745;
+}
+
+.badge-warning {
+    background-color: #ffc107;
+    color: #000;
+}
+
+.badge-danger {
+    background-color: #dc3545;
 }
 </style>
 
