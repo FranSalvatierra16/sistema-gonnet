@@ -14,22 +14,26 @@
                 <!-- Pestañas de navegación -->
                 <ul class="nav nav-tabs" id="propertyTabs" role="tablist">
                     <li class="nav-item">
-                        <a class="nav-link active" id="alquiler-tab" data-toggle="tab" href="#alquiler" role="tab">
+                        <a class="nav-link {% if active_tab == 'alquiler' %}active{% endif %}" 
+                           id="alquiler-tab" data-toggle="tab" href="#alquiler" role="tab">
                             <i class="fas fa-calendar-day"></i> Alquiler por Día
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" id="venta-tab" data-toggle="tab" href="#venta" role="tab">
+                        <a class="nav-link {% if active_tab == 'venta' %}active{% endif %}" 
+                           id="venta-tab" data-toggle="tab" href="#venta" role="tab">
                             <i class="fas fa-money-bill"></i> Venta
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" id="meses-tab" data-toggle="tab" href="#meses" role="tab">
+                        <a class="nav-link {% if active_tab == 'meses' %}active{% endif %}" 
+                           id="meses-tab" data-toggle="tab" href="#meses" role="tab">
                             <i class="fas fa-calendar-alt"></i> 24 Meses
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" id="invierno-tab" data-toggle="tab" href="#invierno" role="tab">
+                        <a class="nav-link {% if active_tab == 'invierno' %}active{% endif %}" 
+                           id="invierno-tab" data-toggle="tab" href="#invierno" role="tab">
                             <i class="fas fa-snowflake"></i> Invierno
                         </a>
                     </li>
@@ -37,6 +41,9 @@
 
                 <!-- Contenido de las pestañas -->
                 <div class="tab-content" id="propertyTabContent">
+                    <div class="tab-pane fade {% if active_tab == 'alquiler' %}show active{% endif %}" 
+                    id="alquiler" role="tabpanel">
+                   {% if active_tab == 'alquiler' %}
                     <!-- Pestaña de Alquiler por Día -->
                     <div class="tab-pane fade show active" id="alquiler" role="tabpanel">
                         <div class="card-body">
@@ -293,80 +300,65 @@
                                 </div>
                             </div>
 
-                            <!-- Pestaña de Venta -->
-                            <div class="tab-pane fade" id="venta" role="tabpanel">
-                                <div class="card-body">
-                                    <div class="row justify-content-center">
-                                        <div class="col-md-8">
-                                            <div class="text-center mb-4">
-                                                {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
-                                                    <div class="alert alert-info">
-                                                        <h4>Información de Venta</h4>
-                                                        <p><strong>Precio de venta:</strong> ${{ propiedad.info_venta.precio_venta|format_price }}</p>
-                                                        <p><strong>Estado:</strong> {{ propiedad.info_venta.get_estado_display }}</p>
-                                                        {% if propiedad.info_venta.precio_expensas %}
-                                                            <p><strong>Expensas:</strong> ${{ propiedad.info_venta.precio_expensas|format_price }}</p>
-                                                        {% endif %}
-                                                    </div>
-                                                {% endif %}
-                                                
-                                                {% if perms.inmobiliaria.change_ventapropiedad %}
-                                                    <button type="button" class="btn btn-primary btn-lg mt-3" data-bs-toggle="modal" data-bs-target="#modalVenta">
-                                                        {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
-                                                            Editar información de venta
-                                                        {% else %}
-                                                            Habilitar venta
-                                                        {% endif %}
-                                                    </button>
-                                                {% else %}
-                                                    <p class="text-muted">No tienes permisos para gestionar la venta de esta propiedad.</p>
-                                                {% endif %}
-                                            </div>
+                    <!-- Pestaña de Venta -->
+                    <div class="tab-pane fade {% if active_tab == 'venta' %}show active{% endif %}" 
+                         id="venta" role="tabpanel">
+                        {% if active_tab == 'venta' %}
+                            <div class="card-body">
+                                <div class="row justify-content-center">
+                                    <div class="col-md-8">
+                                        <div class="text-center mb-4">
+                                            {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
+                                                <div class="alert alert-info">
+                                                    <h4>Información de Venta</h4>
+                                                    <p><strong>Precio de venta:</strong> ${{ propiedad.info_venta.precio_venta|format_price }}</p>
+                                                    <p><strong>Estado:</strong> {{ propiedad.info_venta.get_estado_display }}</p>
+                                                    {% if propiedad.info_venta.precio_expensas %}
+                                                        <p><strong>Expensas:</strong> ${{ propiedad.info_venta.precio_expensas|format_price }}</p>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                            
+                                            {% if perms.inmobiliaria.change_ventapropiedad %}
+                                                <button type="button" class="btn btn-primary btn-lg mt-3" data-bs-toggle="modal" data-bs-target="#modalVenta">
+                                                    {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
+                                                        Editar información de venta
+                                                    {% else %}
+                                                        Habilitar venta
+                                                    {% endif %}
+                                                </button>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Pestaña de 24 Meses -->
-                            <div class="tab-pane fade" id="meses" role="tabpanel">
-                                <div class="card-body">
-                                    {% if propiedad.habilitar_23_meses %}
-                                        <div class="alert alert-info">
-                                            <h4>Precio Mensual: ${{ propiedad.precio_23_meses|format_price }}</h4>
-                                        </div>
-                                        <!-- Aquí puedes agregar más detalles específicos de alquiler por meses -->
-                                    {% else %}
-                                        <div class="alert alert-warning">
-                                            Esta propiedad no está disponible para alquiler por 24 meses.
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                            <!-- Pestaña de Invierno -->
-                            <div class="tab-pane fade" id="invierno" role="tabpanel">
-                                <div class="card-body">
-                                    {% if propiedad.habilitar_invierno %}
-                                        <div class="alert alert-info">
-                                            <h4>Precio Invierno: ${{ propiedad.precio_invierno|format_price }}</h4>
-                                        </div>
-                                        <!-- Aquí puedes agregar más detalles específicos de invierno -->
-                                    {% else %}
-                                        <p class="text-center">No hay disponibilidades registradas para esta propiedad.</p>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Botones de acciones -->
-                        <div class="card-footer text-center">
-                            <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" class="btn btn-primary">Editar</a>
-                            <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad_id=propiedad.id %}" class="btn btn-danger">Eliminar</a>
-                            <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-success">Agregar Disponibilidad</a>
-                            <a href="{% url 'inmobiliaria:gestionar_precios' propiedad_id=propiedad.id %}" class="btn btn-success">Gestionar Precios</a>
-                            <a href="{% url 'inmobiliaria:historial_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-info">Historial</a>
-                        </div>
+                        {% endif %}
                     </div>
+
+                    <!-- Pestaña de 24 Meses -->
+                    <div class="tab-pane fade {% if active_tab == 'meses' %}show active{% endif %}" 
+                         id="meses" role="tabpanel">
+                        {% if active_tab == 'meses' %}
+                            <!-- Contenido de meses -->
+                        {% endif %}
+                    </div>
+
+                    <!-- Pestaña de Invierno -->
+                    <div class="tab-pane fade {% if active_tab == 'invierno' %}show active{% endif %}" 
+                         id="invierno" role="tabpanel">
+                        {% if active_tab == 'invierno' %}
+                            <!-- Contenido de invierno -->
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Botones de acciones -->
+                <div class="card-footer text-center">
+                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" class="btn btn-primary">Editar</a>
+                    <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad_id=propiedad.id %}" class="btn btn-danger">Eliminar</a>
+                    <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-success">Agregar Disponibilidad</a>
+                    <a href="{% url 'inmobiliaria:gestionar_precios' propiedad_id=propiedad.id %}" class="btn btn-success">Gestionar Precios</a>
+                    <a href="{% url 'inmobiliaria:historial_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-info">Historial</a>
                 </div>
             </div>
         </div>
@@ -900,6 +892,29 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Manejar el cambio de pestañas
+    const tabs = document.querySelectorAll('[data-toggle="tab"]');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault();
+            // Remover active de todas las pestañas
+            tabs.forEach(t => {
+                t.classList.remove('active');
+                const pane = document.querySelector(t.getAttribute('href'));
+                pane.classList.remove('show', 'active');
+            });
+            
+            // Activar la pestaña seleccionada
+            this.classList.add('active');
+            const target = document.querySelector(this.getAttribute('href'));
+            target.classList.add('show', 'active');
+        });
+    });
 });
 </script>
 {% endblock %}

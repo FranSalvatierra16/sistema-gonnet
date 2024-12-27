@@ -323,7 +323,8 @@ def propiedad_detalle(request, propiedad_id):
         'propiedad': propiedad,
         'disponibilidades': disponibilidades,
         'precios': precios,
-        'imagenes': imagenes
+        'imagenes': imagenes,
+        'active_tab': request.GET.get('tab', 'alquiler'),  # default a 'alquiler'
     }
     
     return render(request, 'inmobiliaria/propiedades/detalle.html', context)
