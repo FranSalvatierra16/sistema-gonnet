@@ -18,10 +18,8 @@
                             <i class="fas fa-calendar-day"></i> Alquiler por Día
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" id="venta-tab" data-toggle="tab" href="#venta" role="tab">
-                            <i class="fas fa-home"></i> Venta
-                        </a>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="venta-tab" data-bs-toggle="tab" data-bs-target="#venta" type="button" role="tab" aria-controls="venta" aria-selected="false">Venta</button>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" id="meses-tab" data-toggle="tab" href="#meses" role="tab">
@@ -294,18 +292,22 @@
                             </div>
 
                             <!-- Pestaña de Venta -->
-                            <div class="tab-pane fade" id="venta" role="tabpanel">
-                                <div class="card-body">
-                                    {% if propiedad.info_venta.en_venta %}
-                                        <div class="alert alert-info">
-                                            <h4>Precio de Venta: ${{ propiedad.info_venta.precio_venta|floatformat:2 }}</h4>
-                                        </div>
-                                        <!-- Aquí puedes agregar más detalles específicos de venta -->
-                                    {% else %}
-                                        <div class="alert alert-warning">
-                                            Esta propiedad no está disponible para venta.
-                                        </div>
-                                    {% endif %}
+                            <div class="tab-pane fade" id="venta" role="tabpanel" aria-labelledby="venta-tab">
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h5>Información de Venta</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        {% if perms.inmobiliaria.change_ventapropiedad %}
+                                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalVenta">
+                                                {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
+                                                    Editar información de venta
+                                                {% else %}
+                                                    Habilitar venta
+                                                {% endif %}
+                                            </button>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
 
@@ -791,86 +793,6 @@
     }
 }
 </style>
-
-<!-- Sección de Venta -->
-<div class="card mb-3">
-    <div class="card-header">
-        <h5>Información de Venta</h5>
-    </div>
-    <div class="card-body">
-        {% if propiedad.info_venta.en_venta %}
-            <!-- Contenido de la información de venta -->
-            <div class="row">
-                <div class="col-md-6">
-                    <p><strong>Estado:</strong> {{ propiedad.info_venta.get_estado_display }}</p>
-                    <p><strong>Precio de venta:</strong> ${{ propiedad.info_venta.precio_venta|floatformat:2 }}</p>
-                    {% if request.user.is_staff %}
-                        <p><strong>Precio autorización:</strong> ${{ propiedad.info_venta.precio_autorizacion|floatformat:2 }}</p>
-                    {% endif %}
-                    <p><strong>Expensas:</strong> ${{ propiedad.info_venta.precio_expensas|default:"No especificado" }}</p>
-                </div>
-                <div class="col-md-6">
-                    {% if propiedad.info_venta.escribania %}
-                        <p><strong>Escribanía:</strong> {{ propiedad.info_venta.escribania }}</p>
-                    {% endif %}
-                    {% if propiedad.info_venta.observaciones %}
-                        <p><strong>Observaciones:</strong> {{ propiedad.info_venta.observaciones }}</p>
-                    {% endif %}
-                </div>
-            </div>
-        {% else %}
-            <p class="text-muted">Esta propiedad no está disponible para venta.</p>
-        {% endif %}
-    </div>
-    {% if perms.inmobiliaria.change_ventapropiedad %}
-    <div class="card-footer">
-        <a href="{% url 'inmobiliaria:editar_info_venta' propiedad_id=propiedad.id %}" 
-           class="btn btn-primary">Editar información de venta</a>
-    </div>
-  
-</div>
-{% endif %}
-
-<!-- Sección de Venta -->
-<div class="card mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5>Información de Venta</h5>
-        {% if perms.inmobiliaria.change_ventapropiedad %}
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalVenta">
-                {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
-                    Editar información de venta
-                {% else %}
-                    Habilitar venta
-                {% endif %}
-            </button>
-        {% endif %}
-    </div>
-    
-    <div class="card-body">
-        {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
-            <div class="row">
-                <div class="col-md-6">
-                    <p><strong>Estado:</strong> {{ propiedad.info_venta.get_estado_display }}</p>
-                    <p><strong>Precio de venta:</strong> ${{ propiedad.info_venta.precio_venta|floatformat:2 }}</p>
-                    {% if request.user.is_staff %}
-                        <p><strong>Precio autorización:</strong> ${{ propiedad.info_venta.precio_autorizacion|floatformat:2 }}</p>
-                    {% endif %}
-                    <p><strong>Expensas:</strong> ${{ propiedad.info_venta.precio_expensas|default:"No especificado" }}</p>
-                </div>
-                <div class="col-md-6">
-                    {% if propiedad.info_venta.escribania %}
-                        <p><strong>Escribanía:</strong> {{ propiedad.info_venta.escribania }}</p>
-                    {% endif %}
-                    {% if propiedad.info_venta.observaciones %}
-                        <p><strong>Observaciones:</strong> {{ propiedad.info_venta.observaciones }}</p>
-                    {% endif %}
-                </div>
-            </div>
-        {% else %}
-            <p class="text-muted">Esta propiedad no está disponible para venta.</p>
-        {% endif %}
-    </div>
-</div>
 
 <!-- Modal de Venta -->
 <div class="modal fade" id="modalVenta" tabindex="-1" aria-labelledby="modalVentaLabel" aria-hidden="true">
