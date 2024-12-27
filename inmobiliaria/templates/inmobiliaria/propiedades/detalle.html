@@ -18,8 +18,10 @@
                             <i class="fas fa-calendar-day"></i> Alquiler por Día
                         </a>
                     </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="venta-tab" data-bs-toggle="tab" data-bs-target="#venta" type="button" role="tab" aria-controls="venta" aria-selected="false">Venta</button>
+                    <li class="nav-item">
+                        <a class="nav-link" id="venta-tab" data-toggle="tab" href="#venta" role="tab">
+                            <i class="fas fa-money-bill"></i> Venta
+                        </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" id="meses-tab" data-toggle="tab" href="#meses" role="tab">
@@ -292,20 +294,19 @@
                             </div>
 
                             <!-- Pestaña de Venta -->
-                            <div class="tab-pane fade" id="venta" role="tabpanel" aria-labelledby="venta-tab">
-                                <div class="card mb-3">
-                                    <div class="card-header">
-                                        <h5>Información de Venta</h5>
-                                    </div>
-                                    <div class="card-body">
+                            <div class="tab-pane fade" id="venta" role="tabpanel">
+                                <div class="card">
+                                    <div class="card-body text-center">
                                         {% if perms.inmobiliaria.change_ventapropiedad %}
-                                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalVenta">
+                                            <button type="button" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#modalVenta">
                                                 {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
                                                     Editar información de venta
                                                 {% else %}
                                                     Habilitar venta
                                                 {% endif %}
                                             </button>
+                                        {% else %}
+                                            <p class="text-muted">No tienes permisos para gestionar la venta de esta propiedad.</p>
                                         {% endif %}
                                     </div>
                                 </div>
