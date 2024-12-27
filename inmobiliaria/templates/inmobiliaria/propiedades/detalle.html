@@ -295,19 +295,34 @@
 
                             <!-- Pestaña de Venta -->
                             <div class="tab-pane fade" id="venta" role="tabpanel">
-                                <div class="card">
-                                    <div class="card-body text-center">
-                                        {% if perms.inmobiliaria.change_ventapropiedad %}
-                                            <button type="button" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#modalVenta">
+                                <div class="card-body">
+                                    <div class="row justify-content-center">
+                                        <div class="col-md-8">
+                                            <div class="text-center mb-4">
                                                 {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
-                                                    Editar información de venta
-                                                {% else %}
-                                                    Habilitar venta
+                                                    <div class="alert alert-info">
+                                                        <h4>Información de Venta</h4>
+                                                        <p><strong>Precio de venta:</strong> ${{ propiedad.info_venta.precio_venta|format_price }}</p>
+                                                        <p><strong>Estado:</strong> {{ propiedad.info_venta.get_estado_display }}</p>
+                                                        {% if propiedad.info_venta.precio_expensas %}
+                                                            <p><strong>Expensas:</strong> ${{ propiedad.info_venta.precio_expensas|format_price }}</p>
+                                                        {% endif %}
+                                                    </div>
                                                 {% endif %}
-                                            </button>
-                                        {% else %}
-                                            <p class="text-muted">No tienes permisos para gestionar la venta de esta propiedad.</p>
-                                        {% endif %}
+                                                
+                                                {% if perms.inmobiliaria.change_ventapropiedad %}
+                                                    <button type="button" class="btn btn-primary btn-lg mt-3" data-bs-toggle="modal" data-bs-target="#modalVenta">
+                                                        {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
+                                                            Editar información de venta
+                                                        {% else %}
+                                                            Habilitar venta
+                                                        {% endif %}
+                                                    </button>
+                                                {% else %}
+                                                    <p class="text-muted">No tienes permisos para gestionar la venta de esta propiedad.</p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
