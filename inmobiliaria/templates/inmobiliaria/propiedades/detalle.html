@@ -305,21 +305,7 @@
                         <div class="card-body">
                             <div class="row justify-content-center">
                                 <div class="col-md-8">
-                                    {% if not propiedad.info_venta or not propiedad.info_venta.en_venta %}
-                                        <!-- Cartel inicial cuando la venta no está activada -->
-                                        <div class="text-center">
-                                            <div class="alert alert-info">
-                                                <i class="fas fa-home fa-3x mb-3"></i>
-                                                <h4>¿Quieres activar la venta de esta propiedad?</h4>
-                                                <p class="mb-4">Al activar la venta, podrás establecer el precio y demás detalles necesarios.</p>
-                                                {% if perms.inmobiliaria.change_ventapropiedad %}
-                                                    <button type="button" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#modalVenta">
-                                                        <i class="fas fa-check-circle"></i> Sí, activar venta
-                                                    </button>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    {% else %}
+                                    {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
                                         <!-- Información de venta cuando está activada -->
                                         <div class="card">
                                             <div class="card-header bg-primary text-white">
@@ -375,15 +361,15 @@
                                             </div>
                                         </div>
                                     {% else %}
-                                        <!-- Si la venta no está habilitada -->
+                                        <!-- Cartel inicial cuando la venta no está activada -->
                                         <div class="text-center">
                                             <div class="alert alert-info">
-                                                <i class="fas fa-info-circle fa-3x mb-3"></i>
-                                                <h4>Venta no habilitada</h4>
-                                                <p>Esta propiedad actualmente no está disponible para la venta.</p>
+                                                <i class="fas fa-home fa-3x mb-3"></i>
+                                                <h4>¿Quieres activar la venta de esta propiedad?</h4>
+                                                <p class="mb-4">Al activar la venta, podrás establecer el precio y demás detalles necesarios.</p>
                                                 {% if perms.inmobiliaria.change_ventapropiedad %}
-                                                    <button type="button" class="btn btn-primary btn-lg mt-3" data-bs-toggle="modal" data-bs-target="#modalVenta">
-                                                        <i class="fas fa-plus-circle"></i> Habilitar venta
+                                                    <button type="button" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#modalVenta">
+                                                        <i class="fas fa-check-circle"></i> Sí, activar venta
                                                     </button>
                                                 {% endif %}
                                             </div>
