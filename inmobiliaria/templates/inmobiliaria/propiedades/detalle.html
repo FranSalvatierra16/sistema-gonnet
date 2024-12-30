@@ -305,8 +305,22 @@
                         <div class="card-body">
                             <div class="row justify-content-center">
                                 <div class="col-md-8">
-                                    {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
-                                        <!-- Si la venta está habilitada -->
+                                    {% if not propiedad.info_venta or not propiedad.info_venta.en_venta %}
+                                        <!-- Cartel inicial cuando la venta no está activada -->
+                                        <div class="text-center">
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-home fa-3x mb-3"></i>
+                                                <h4>¿Quieres activar la venta de esta propiedad?</h4>
+                                                <p class="mb-4">Al activar la venta, podrás establecer el precio y demás detalles necesarios.</p>
+                                                {% if perms.inmobiliaria.change_ventapropiedad %}
+                                                    <button type="button" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#modalVenta">
+                                                        <i class="fas fa-check-circle"></i> Sí, activar venta
+                                                    </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <!-- Información de venta cuando está activada -->
                                         <div class="card">
                                             <div class="card-header bg-primary text-white">
                                                 <h4 class="mb-0">Información de Venta</h4>
@@ -316,6 +330,10 @@
                                                     <div class="info-item">
                                                         <strong><i class="fas fa-tag"></i> Precio de venta:</strong>
                                                         <span>${{ propiedad.info_venta.precio_venta|format_price }}</span>
+                                                    </div>
+                                                    <div class="info-item">
+                                                        <strong><i class="fas fa-key"></i> Precio de autorización:</strong>
+                                                        <span>${{ propiedad.info_venta.precio_autorizacion|format_price }}</span>
                                                     </div>
                                                     <div class="info-item">
                                                         <strong><i class="fas fa-check-circle"></i> Estado:</strong>
@@ -341,12 +359,16 @@
                                                             <p class="mb-0">{{ propiedad.info_venta.observaciones }}</p>
                                                         </div>
                                                     {% endif %}
+                                                    <div class="info-item">
+                                                        <strong><i class="fas fa-clock"></i> Última actualización:</strong>
+                                                        <span>{{ propiedad.info_venta.fecha_actualizacion|date:"d/m/Y H:i" }}</span>
+                                                    </div>
                                                 </div>
                                                 
                                                 {% if perms.inmobiliaria.change_ventapropiedad %}
                                                     <div class="text-center mt-4">
                                                         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalVenta">
-                                                            <i class="fas fa-edit"></i> Editar información de venta
+                                                            <i class="fas fa-edit"></i> Editar información
                                                         </button>
                                                     </div>
                                                 {% endif %}
@@ -838,6 +860,7 @@
     }
 }
 
+
 .info-grid {
     display: grid;
     gap: 1.5rem;
@@ -880,7 +903,7 @@
 }
 </style>
 
-<!-- Modal de Venta -->
+<!-- Modal para activar/editar venta -->
 <div class="modal fade" id="modalVenta" tabindex="-1" aria-labelledby="modalVentaLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -891,7 +914,7 @@
                         {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
                             Editar información de venta
                         {% else %}
-                            Habilitar venta
+                            Activar venta de propiedad
                         {% endif %}
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -923,9 +946,11 @@
                             <div class="col-md-6 mb-3">
                                 <label for="estado" class="form-label">Estado *</label>
                                 <select class="form-select" id="estado" name="estado" required>
-                                    <option value="disponible" {% if propiedad.info_venta.estado == 'disponible' %}selected{% endif %}>Disponible</option>
-                                    <option value="reservado" {% if propiedad.info_venta.estado == 'reservado' %}selected{% endif %}>Reservado</option>
-                                    <option value="vendido" {% if propiedad.info_venta.estado == 'vendido' %}selected{% endif %}>Vendido</option>
+                                    {% for value, label in propiedad.info_venta.ESTADO_CHOICES %}
+                                        <option value="{{ value }}" {% if propiedad.info_venta.estado == value %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                    {% endfor %}
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
