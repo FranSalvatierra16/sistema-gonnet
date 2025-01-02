@@ -1910,6 +1910,15 @@ def editar_info_meses(request, propiedad_id):
                 info_meses.fecha_fin = request.POST.get('fecha_fin')
                 info_meses.precio_expensas = request.POST.get('precio_expensas') or None
                 info_meses.observaciones = request.POST.get('observaciones', '')
+                
+                # Si el estado es 'disponible', limpiamos las fechas
+                if info_meses.estado == 'disponible':
+                    info_meses.fecha_inicio = None
+                    info_meses.fecha_fin = None
+                # Solo establecemos fechas si el estado no es 'disponible'
+                elif info_meses.estado in ['reservado', 'ocupado']:
+                    info_meses.fecha_inicio = request.POST.get('fecha_inicio')
+                    info_meses.fecha_fin = request.POST.get('fecha_fin')
             
             info_meses.save()
             messages.success(request, 'Información de alquiler 24 meses actualizada correctamente.')
