@@ -372,7 +372,153 @@
 
                     <!-- Pestaña de 24 Meses -->
                     <div class="tab-pane fade" id="meses" role="tabpanel">
-                        <!-- Contenido de 24 meses -->
+                        <div class="container mt-4">
+                            {% if propiedad.info_meses and propiedad.info_meses.disponible %}
+                                <div class="card">
+                                    <div class="card-header bg-primary text-white">
+                                        <h4 class="mb-0">Información de Alquiler 24 Meses</h4>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="info-item mb-3">
+                                                    <i class="fas fa-dollar-sign"></i>
+                                                    <strong>Precio mensual:</strong>
+                                                    <span class="h5">${{ propiedad.info_meses.precio_mensual|format_price }}</span>
+                                                </div>
+                                                <div class="info-item mb-3">
+                                                    <i class="fas fa-check-circle"></i>
+                                                    <strong>Estado:</strong>
+                                                    <span class="badge {% if propiedad.info_meses.estado == 'disponible' %}bg-success{% elif propiedad.info_meses.estado == 'reservado' %}bg-warning{% else %}bg-danger{% endif %}">
+                                                        {{ propiedad.info_meses.get_estado_display }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="info-item mb-3">
+                                                    <i class="fas fa-calendar-alt"></i>
+                                                    <strong>Fecha inicio:</strong>
+                                                    <span>{{ propiedad.info_meses.fecha_inicio|date:"d/m/Y" }}</span>
+                                                </div>
+                                                <div class="info-item mb-3">
+                                                    <i class="fas fa-calendar-check"></i>
+                                                    <strong>Fecha fin:</strong>
+                                                    <span>{{ propiedad.info_meses.fecha_fin|date:"d/m/Y" }}</span>
+                                                </div>
+                                                {% if propiedad.info_meses.precio_expensas %}
+                                                    <div class="info-item mb-3">
+                                                        <i class="fas fa-receipt"></i>
+                                                        <strong>Expensas:</strong>
+                                                        <span>${{ propiedad.info_meses.precio_expensas|format_price }}</span>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                                {% if propiedad.info_meses.observaciones %}
+                                                    <div class="info-item mt-3">
+                                                        <i class="fas fa-comment"></i>
+                                                        <strong>Observaciones:</strong>
+                                                        <p class="mb-0">{{ propiedad.info_meses.observaciones }}</p>
+                                                    </div>
+                                                {% endif %}
+                                                <div class="text-center mt-4">
+                                                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalMeses">
+                                                        <i class="fas fa-edit"></i> Editar información
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="text-center">
+                                    <div class="alert alert-info p-4">
+                                        <i class="fas fa-calendar-alt fa-3x mb-3 d-block"></i>
+                                        <h4>¿Quieres activar el alquiler por 24 meses de esta propiedad?</h4>
+                                        <p>Al activar esta opción, podrás establecer el precio mensual y las fechas de disponibilidad.</p>
+                                        <button type="button" class="btn btn-primary btn-lg mt-3" data-bs-toggle="modal" data-bs-target="#modalMeses">
+                                            <i class="fas fa-check-circle"></i> Sí, activar alquiler por 24 meses
+                                        </button>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Modal para 24 Meses -->
+                    <div class="modal fade" id="modalMeses" tabindex="-1" aria-labelledby="modalMesesLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <form method="post" action="{% url 'inmobiliaria:editar_info_meses' propiedad_id=propiedad.id %}">
+                                    {% csrf_token %}
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="modalMesesLabel">
+                                            {% if propiedad.info_meses and propiedad.info_meses.disponible %}
+                                                Editar información de alquiler 24 meses
+                                            {% else %}
+                                                Activar alquiler por 24 meses
+                                            {% endif %}
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input" type="checkbox" name="disponible" id="disponible_meses" 
+                                                   {% if propiedad.info_meses.disponible %}checked{% endif %}>
+                                            <label class="form-check-label" for="disponible_meses">
+                                                Habilitar alquiler por 24 meses
+                                            </label>
+                                        </div>
+                                        
+                                        <div id="info-meses-fields">
+                                            <div class="row">
+                                                <div class="col-md-6 mb-3">
+                                                    <label for="precio_mensual" class="form-label">Precio mensual *</label>
+                                                    <input type="number" class="form-control" id="precio_mensual" name="precio_mensual" 
+                                                           value="{{ propiedad.info_meses.precio_mensual|default:'' }}">
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <label for="precio_expensas" class="form-label">Precio de expensas</label>
+                                                    <input type="number" class="form-control" id="precio_expensas" name="precio_expensas"
+                                                           value="{{ propiedad.info_meses.precio_expensas|default:'' }}">
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="row">
+                                                <div class="col-md-6 mb-3">
+                                                    <label for="fecha_inicio" class="form-label">Fecha inicio *</label>
+                                                    <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio"
+                                                           value="{{ propiedad.info_meses.fecha_inicio|date:'Y-m-d' }}">
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <label for="fecha_fin" class="form-label">Fecha fin *</label>
+                                                    <input type="date" class="form-control" id="fecha_fin" name="fecha_fin"
+                                                           value="{{ propiedad.info_meses.fecha_fin|date:'Y-m-d' }}">
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="estado" class="form-label">Estado *</label>
+                                                <select class="form-select" id="estado" name="estado">
+                                                    <option value="disponible" {% if propiedad.info_meses.estado == 'disponible' %}selected{% endif %}>Disponible</option>
+                                                    <option value="reservado" {% if propiedad.info_meses.estado == 'reservado' %}selected{% endif %}>Reservado</option>
+                                                    <option value="ocupado" {% if propiedad.info_meses.estado == 'ocupado' %}selected{% endif %}>Ocupado</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="observaciones" class="form-label">Observaciones</label>
+                                                <textarea class="form-control" id="observaciones" name="observaciones" rows="3">{{ propiedad.info_meses.observaciones|default:'' }}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Pestaña de Invierno -->

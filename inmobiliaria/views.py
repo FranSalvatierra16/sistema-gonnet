@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
@@ -1892,4 +1892,30 @@ def editar_info_venta(request, propiedad_id):
         messages.success(request, 'Información de venta actualizada correctamente')
         return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
 
+    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+@login_required
+def editar_info_meses(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    
+    if request.method == 'POST':
+        try:
+            info_meses, created = AlquilerMeses.objects.get_or_create(propiedad=propiedad)
+            
+            info_meses.disponible = 'disponible' in request.POST
+            if info_meses.disponible:
+                info_meses.precio_mensual = request.POST.get('precio_mensual')
+                info_meses.estado = request.POST.get('estado')
+                info_meses.fecha_inicio = request.POST.get('fecha_inicio')
+                info_meses.fecha_fin = request.POST.get('fecha_fin')
+                info_meses.precio_expensas = request.POST.get('precio_expensas') or None
+                info_meses.observaciones = request.POST.get('observaciones', '')
+            
+            info_meses.save()
+            messages.success(request, 'Información de alquiler 24 meses actualizada correctamente.')
+        except Exception as e:
+            messages.error(request, f'Error al actualizar la información: {str(e)}')
+        
+        return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+    
     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)

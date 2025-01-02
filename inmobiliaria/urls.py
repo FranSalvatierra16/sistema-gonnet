@@ -1,4 +1,3 @@
-
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from django.views.generic.base import RedirectView
@@ -102,4 +101,5 @@ urlpatterns = [
     path('propiedades/<str:propiedad_id>/editar-venta/', 
          views.editar_info_venta, 
          name='editar_info_venta'),
+    path('propiedades/<int:propiedad_id>/editar-meses/', views.editar_info_meses, name='editar_info_meses'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
