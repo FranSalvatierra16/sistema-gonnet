@@ -1928,3 +1928,32 @@ def editar_info_meses(request, propiedad_id):
         return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
     
     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+@login_required
+def ventas(request):
+    # Filtrar propiedades que tienen info de venta y están disponibles o reservadas
+    propiedades_venta = Propiedad.objects.filter(
+        info_venta__en_venta=True,
+        info_venta__estado__in=['disponible', 'reservado']
+    ).select_related('info_venta', 'sucursal')
+
+    # Aplicar filtros de búsqueda si existen
+    busqueda = request.GET.get('busqueda', '')
+    if busqueda:
+        propiedades_venta = propiedades_venta.filter(
+            Q(direccion__icontains=busqueda) |
+            Q(id__icontains=busqueda)
+        )
+
+    estado = request.GET.get('estado', '')
+    if estado:
+        propiedades_venta = propiedades_venta.filter(info_venta__estado=estado)
+
+    context = {
+        'propiedades': propiedades_venta,
+        'busqueda': busqueda,
+        'estado_filtro': estado,
+        'estados': VentaPropiedad.ESTADO_CHOICES,
+    }
+    
+    return render(request, 'inmobiliaria/propiedades/ventas.html', context)
