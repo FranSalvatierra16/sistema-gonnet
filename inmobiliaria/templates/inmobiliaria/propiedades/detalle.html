@@ -393,18 +393,6 @@
                                                         {{ propiedad.info_meses.get_estado_display }}
                                                     </span>
                                                 </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="info-item mb-3">
-                                                    <i class="fas fa-calendar-alt"></i>
-                                                    <strong>Fecha inicio:</strong>
-                                                    <span>{{ propiedad.info_meses.fecha_inicio|date:"d/m/Y" }}</span>
-                                                </div>
-                                                <div class="info-item mb-3">
-                                                    <i class="fas fa-calendar-check"></i>
-                                                    <strong>Fecha fin:</strong>
-                                                    <span>{{ propiedad.info_meses.fecha_fin|date:"d/m/Y" }}</span>
-                                                </div>
                                                 {% if propiedad.info_meses.precio_expensas %}
                                                     <div class="info-item mb-3">
                                                         <i class="fas fa-receipt"></i>
@@ -413,18 +401,37 @@
                                                     </div>
                                                 {% endif %}
                                             </div>
-                                        </div>
-                                                {% if propiedad.info_meses.observaciones %}
-                                                    <div class="info-item mt-3">
-                                                        <i class="fas fa-comment"></i>
-                                                        <strong>Observaciones:</strong>
-                                                        <p class="mb-0">{{ propiedad.info_meses.observaciones }}</p>
+                                            <div class="col-md-6">
+                                                {% if propiedad.info_meses.estado != 'disponible' %}
+                                                    <div class="info-item mb-3">
+                                                        <i class="fas fa-calendar-alt"></i>
+                                                        <strong>Fecha inicio:</strong>
+                                                        <span>{{ propiedad.info_meses.fecha_inicio|date:"d/m/Y" }}</span>
+                                                    </div>
+                                                    <div class="info-item mb-3">
+                                                        <i class="fas fa-calendar-check"></i>
+                                                        <strong>Fecha fin:</strong>
+                                                        <span>{{ propiedad.info_meses.fecha_fin|date:"d/m/Y" }}</span>
                                                     </div>
                                                 {% endif %}
+                                            </div>
+                                        </div>
+                                        {% if propiedad.info_meses.observaciones %}
+                                            <div class="info-item mt-3">
+                                                <i class="fas fa-comment"></i>
+                                                <strong>Observaciones:</strong>
+                                                <p class="mb-0">{{ propiedad.info_meses.observaciones }}</p>
+                                            </div>
+                                        {% endif %}
                                                 <div class="text-center mt-4">
                                                     <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalMeses">
                                                         <i class="fas fa-edit"></i> Editar información
                                                     </button>
+                                                    {% if propiedad.info_meses.estado == 'disponible' %}
+                                                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalReservaMeses">
+                                                            <i class="fas fa-calendar-plus"></i> Hacer reserva
+                                                        </button>
+                                                    {% endif %}
                                                 </div>
                                             </div>
                                         </div>
@@ -435,7 +442,7 @@
                                     <div class="alert alert-info p-4">
                                         <i class="fas fa-calendar-alt fa-3x mb-3 d-block"></i>
                                         <h4>¿Quieres activar el alquiler por 24 meses de esta propiedad?</h4>
-                                        <p>Al activar esta opción, podrás establecer el precio mensual y las fechas de disponibilidad.</p>
+                                        <p>Al activar esta opción, podrás establecer el precio mensual.</p>
                                         <button type="button" class="btn btn-primary btn-lg mt-3" data-bs-toggle="modal" data-bs-target="#modalMeses">
                                             <i class="fas fa-check-circle"></i> Sí, activar alquiler por 24 meses
                                         </button>

@@ -798,6 +798,17 @@ class AlquilerMeses(models.Model):
         blank=True,
         verbose_name="Observaciones"
     )
+    # Fechas opcionales que se establecerán al hacer la reserva
+    fecha_inicio = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de inicio"
+    )
+    fecha_fin = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de fin"
+    )
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
     def __str__(self):
