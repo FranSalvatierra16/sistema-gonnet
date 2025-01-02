@@ -146,6 +146,18 @@ class Propiedad(models.Model):
         verbose_name="Fecha de fichado"
     )
 
+    TIPO_CLIENTE_CHOICES = [
+        ('PARTICULAR', 'Particular'),
+        ('EMPRESA', 'Empresa'),
+        ('ESTUDIANTE', 'Estudiante'),
+    ]
+    
+    tipo_cliente = models.CharField(
+        max_length=20,
+        choices=TIPO_CLIENTE_CHOICES,
+        default='PARTICULAR'
+    )
+
     class Meta:
         verbose_name = "Propiedad"
         verbose_name_plural = "Propiedades"
