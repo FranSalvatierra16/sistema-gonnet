@@ -1,0 +1,185 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Encabezado y Resumen -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Ingresos Totales</h5>
+                    <h3 class="mb-0">${{ ingresos|format_price }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Egresos Totales</h5>
+                    <h3 class="mb-0">${{ egresos|format_price }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card {% if balance >= 0 %}bg-primary{% else %}bg-warning{% endif %} text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Balance</h5>
+                    <h3 class="mb-0">${{ balance|format_price }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros y Nuevo Movimiento -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Filtros</h5>
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <input type="date" class="form-control" name="fecha_inicio" value="{{ request.GET.fecha_inicio }}">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="date" class="form-control" name="fecha_fin" value="{{ request.GET.fecha_fin }}">
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" name="tipo">
+                                <option value="">Tipo</option>
+                                {% for value, label in tipos %}
+                                    <option value="{{ value }}" {% if request.GET.tipo == value %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" name="categoria">
+                                <option value="">Categoría</option>
+                                {% for value, label in categorias %}
+                                    <option value="{{ value }}" {% if request.GET.categoria == value %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Nuevo Movimiento</h5>
+                    <button type="button" class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#modalMovimiento">
+                        <i class="fas fa-plus"></i> Registrar Movimiento
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Movimientos -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Categoría</th>
+                            <th>Descripción</th>
+                            <th>Monto</th>
+                            <th>Usuario</th>
+                            <th>Sucursal</th>
+                            <th>Comprobante</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for movimiento in movimientos %}
+                        <tr>
+                            <td>{{ movimiento.fecha|date:"d/m/Y" }}</td>
+                            <td>
+                                <span class="badge {% if movimiento.tipo == 'ingreso' %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ movimiento.get_tipo_display }}
+                                </span>
+                            </td>
+                            <td>{{ movimiento.get_categoria_display }}</td>
+                            <td>{{ movimiento.descripcion }}</td>
+                            <td>${{ movimiento.monto|format_price }}</td>
+                            <td>{{ movimiento.usuario.username }}</td>
+                            <td>{{ movimiento.sucursal.nombre }}</td>
+                            <td>
+                                {% if movimiento.comprobante %}
+                                    <a href="{{ movimiento.comprobante.url }}" target="_blank" class="btn btn-sm btn-info">
+                                        <i class="fas fa-file-download"></i>
+                                    </a>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4">
+                                <div class="alert alert-info mb-0">
+                                    No se encontraron movimientos
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nuevo Movimiento -->
+<div class="modal fade" id="modalMovimiento" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Nuevo Movimiento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ field.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.form-control, .form-select {
+    border-radius: 0.25rem;
+}
+.card {
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+</style>
+{% endblock %}

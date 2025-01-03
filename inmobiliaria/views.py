@@ -2,12 +2,12 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses
-from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Movimiento
+from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
-from django.db.models import Q, Prefetch, Case, When, IntegerField
+from django.db.models import Q, Prefetch, Case, When, IntegerField, Sum
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
 from django.contrib.auth.signals import user_logged_in
@@ -2036,3 +2036,52 @@ def reservar_alquiler_meses(request, propiedad_id):
             messages.error(request, f'Error al procesar la reserva: {str(e)}')
     
     return redirect('inmobiliaria:alquileres_24_meses')
+
+@login_required
+def caja(request):
+    # Obtener fechas para filtrar
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
+    tipo = request.GET.get('tipo')
+    categoria = request.GET.get('categoria')
+    
+    # Filtrar movimientos
+    movimientos = Movimiento.objects.all()
+    
+    if fecha_inicio:
+        movimientos = movimientos.filter(fecha__gte=fecha_inicio)
+    if fecha_fin:
+        movimientos = movimientos.filter(fecha__lte=fecha_fin)
+    if tipo:
+        movimientos = movimientos.filter(tipo=tipo)
+    if categoria:
+        movimientos = movimientos.filter(categoria=categoria)
+        
+    # Calcular totales
+    ingresos = movimientos.filter(tipo='ingreso').aggregate(total=Sum('monto'))['total'] or Decimal('0')
+    egresos = movimientos.filter(tipo='egreso').aggregate(total=Sum('monto'))['total'] or Decimal('0')
+    balance = ingresos - egresos
+    
+    # Procesar nuevo movimiento
+    if request.method == 'POST':
+        form = MovimientoForm(request.POST, request.FILES)
+        if form.is_valid():
+            movimiento = form.save(commit=False)
+            movimiento.usuario = request.user
+            movimiento.save()
+            messages.success(request, 'Movimiento registrado exitosamente.')
+            return redirect('inmobiliaria:caja')
+    else:
+        form = MovimientoForm()
+    
+    context = {
+        'movimientos': movimientos,
+        'form': form,
+        'ingresos': ingresos,
+        'egresos': egresos,
+        'balance': balance,
+        'tipos': Movimiento.TIPO_CHOICES,
+        'categorias': Movimiento.CATEGORIA_CHOICES,
+    }
+    
+    return render(request, 'inmobiliaria/caja/caja.html', context)

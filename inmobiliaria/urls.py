@@ -105,4 +105,5 @@ urlpatterns = [
     path('ventas/', views.ventas, name='ventas'),
     path('alquileres-24-meses/', views.alquileres_24_meses, name='alquileres_24_meses'),
     path('propiedades/<int:propiedad_id>/reservar-meses/', views.reservar_alquiler_meses, name='reservar_alquiler_meses'),
+    path('caja/', views.caja, name='caja'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

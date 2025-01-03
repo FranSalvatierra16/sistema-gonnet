@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserChangeForm
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio,TipoPrecio,TIPOS_INMUEBLES, TIPOS_VISTA, TIPOS_VALORACION, Sucursal, VentaPropiedad
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio,TipoPrecio,TIPOS_INMUEBLES, TIPOS_VISTA, TIPOS_VALORACION, Sucursal, VentaPropiedad, Movimiento
 from datetime import datetime
 from django.forms import modelformset_factory
 from django.core.exceptions import ValidationError
@@ -385,4 +385,13 @@ class VentaPropiedadForm(forms.ModelForm):
         widgets = {
             'observaciones': forms.Textarea(attrs={'rows': 3}),
             'escribania': forms.Textarea(attrs={'rows': 3}),
+        }
+
+class MovimientoForm(forms.ModelForm):
+    class Meta:
+        model = Movimiento
+        fields = ['tipo', 'categoria', 'descripcion', 'monto', 'comprobante', 'sucursal']
+        widgets = {
+            'descripcion': forms.Textarea(attrs={'rows': 3}),
+            'monto': forms.NumberInput(attrs={'step': '0.01'}),
         }
