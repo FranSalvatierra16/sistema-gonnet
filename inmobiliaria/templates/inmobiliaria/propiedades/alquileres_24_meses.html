@@ -168,8 +168,8 @@ function mostrarModalReserva(propiedadId) {
     const modal = document.getElementById('modalReserva');
     const form = document.getElementById('formReserva');
     
-    // Configurar la acción del formulario
-    form.action = `/inmobiliaria/propiedades/${propiedadId}/reservar-meses/`;
+    // Usar la URL con el namespace correcto
+    form.action = `/propiedades/${propiedadId}/reservar-meses/`;
     
     // Limpiar campos anteriores
     form.reset();
@@ -182,7 +182,10 @@ function mostrarModalReserva(propiedadId) {
     const modalInstance = new bootstrap.Modal(modal);
     modalInstance.show();
 }
+</script>
 
+<!-- Agregar este script al final del archivo -->
+<script>
 document.addEventListener('DOMContentLoaded', function() {
     const formReserva = document.getElementById('formReserva');
     const fechaInicio = document.getElementById('fecha_inicio');
