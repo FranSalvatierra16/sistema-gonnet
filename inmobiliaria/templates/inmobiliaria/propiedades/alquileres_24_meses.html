@@ -127,7 +127,18 @@
             <form id="formReserva" method="post">
                 {% csrf_token %}
                 <div class="modal-body">
-                    <!-- El contenido se cargará dinámicamente -->
+                    <div class="mb-3">
+                        <label for="fecha_inicio" class="form-label">Fecha de Inicio *</label>
+                        <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fecha_fin" class="form-label">Fecha de Fin *</label>
+                        <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="observaciones" class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="observaciones" name="observaciones" rows="3"></textarea>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -161,6 +172,42 @@ function mostrarModalReserva(propiedadId) {
     const modalBootstrap = new bootstrap.Modal(modal);
     modalBootstrap.show();
 }
+</script>
+
+<!-- Agregar este script al final del archivo -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formReserva = document.getElementById('formReserva');
+    const fechaInicio = document.getElementById('fecha_inicio');
+    const fechaFin = document.getElementById('fecha_fin');
+
+    // Establecer fecha mínima como hoy
+    const today = new Date().toISOString().split('T')[0];
+    fechaInicio.min = today;
+
+    // Actualizar fecha mínima de fin cuando cambia fecha de inicio
+    fechaInicio.addEventListener('change', function() {
+        fechaFin.min = fechaInicio.value;
+        if (fechaFin.value && fechaFin.value < fechaInicio.value) {
+            fechaFin.value = fechaInicio.value;
+        }
+    });
+
+    // Validar el formulario antes de enviar
+    formReserva.addEventListener('submit', function(e) {
+        if (!fechaInicio.value || !fechaFin.value) {
+            e.preventDefault();
+            alert('Por favor, seleccione las fechas de inicio y fin.');
+            return;
+        }
+
+        if (fechaFin.value <= fechaInicio.value) {
+            e.preventDefault();
+            alert('La fecha de fin debe ser posterior a la fecha de inicio.');
+            return;
+        }
+    });
+});
 </script>
 
 {% endblock %}

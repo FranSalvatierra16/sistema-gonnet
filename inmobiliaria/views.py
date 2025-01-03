@@ -1986,3 +1986,40 @@ def alquileres_24_meses(request):
     }
     
     return render(request, 'inmobiliaria/propiedades/alquileres_24_meses.html', context)
+
+@login_required
+def reservar_alquiler_meses(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    
+    if request.method == 'POST':
+        if propiedad.info_meses and propiedad.info_meses.estado == 'disponible':
+            try:
+                # Obtener las fechas del formulario
+                fecha_inicio = request.POST.get('fecha_inicio')
+                fecha_fin = request.POST.get('fecha_fin')
+                observaciones = request.POST.get('observaciones', '')
+
+                # Validar las fechas
+                fecha_inicio = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+                fecha_fin = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+
+                if fecha_fin <= fecha_inicio:
+                    messages.error(request, 'La fecha de fin debe ser posterior a la fecha de inicio.')
+                    return redirect('inmobiliaria:alquileres_24_meses')
+
+                # Actualizar la información del alquiler
+                propiedad.info_meses.estado = 'reservado'
+                propiedad.info_meses.fecha_inicio = fecha_inicio
+                propiedad.info_meses.fecha_fin = fecha_fin
+                propiedad.info_meses.observaciones = observaciones
+                propiedad.info_meses.save()
+
+                messages.success(request, 'Alquiler reservado exitosamente.')
+            except ValueError:
+                messages.error(request, 'Las fechas proporcionadas no son válidas.')
+            except Exception as e:
+                messages.error(request, f'Error al reservar el alquiler: {str(e)}')
+        else:
+            messages.error(request, 'La propiedad no está disponible para reserva.')
+    
+    return redirect('inmobiliaria:alquileres_24_meses')
