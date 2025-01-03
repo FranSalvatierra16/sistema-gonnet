@@ -1957,3 +1957,32 @@ def ventas(request):
     }
     
     return render(request, 'inmobiliaria/propiedades/ventas.html', context)
+
+@login_required
+def alquileres_24_meses(request):
+    # Filtrar propiedades que tienen info de alquiler por meses y están disponibles o reservadas
+    propiedades_meses = Propiedad.objects.filter(
+        info_meses__disponible=True,
+        info_meses__estado__in=['disponible', 'reservado']
+    ).select_related('info_meses', 'sucursal')
+
+    # Aplicar filtros de búsqueda si existen
+    busqueda = request.GET.get('busqueda', '')
+    if busqueda:
+        propiedades_meses = propiedades_meses.filter(
+            Q(direccion__icontains=busqueda) |
+            Q(id__icontains=busqueda)
+        )
+
+    estado = request.GET.get('estado', '')
+    if estado:
+        propiedades_meses = propiedades_meses.filter(info_meses__estado=estado)
+
+    context = {
+        'propiedades': propiedades_meses,
+        'busqueda': busqueda,
+        'estado_filtro': estado,
+        'estados': AlquilerMeses.ESTADO_CHOICES,
+    }
+    
+    return render(request, 'inmobiliaria/propiedades/alquileres_24_meses.html', context)
