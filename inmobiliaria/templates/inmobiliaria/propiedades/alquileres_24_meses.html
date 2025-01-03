@@ -89,7 +89,9 @@
                                             </a>
                                             <button type="button" 
                                                     class="btn btn-sm btn-success"
-                                                    
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#modalReserva"
+                                                    onclick="mostrarModalReserva({{ propiedad.id }})"
                                                     {% if propiedad.info_meses.estado != 'disponible' %}disabled{% endif %}>
                                                 <i class="fas fa-calendar-check"></i>
                                             </button>
@@ -163,19 +165,24 @@
 <!-- Script para manejar la reserva -->
 <script>
 function mostrarModalReserva(propiedadId) {
-    // Configurar el formulario
     const modal = document.getElementById('modalReserva');
     const form = document.getElementById('formReserva');
+    
+    // Configurar la acción del formulario
     form.action = `/inmobiliaria/propiedades/${propiedadId}/reservar-meses/`;
     
-    // Mostrar el modal
-    const modalBootstrap = new bootstrap.Modal(modal);
-    modalBootstrap.show();
+    // Limpiar campos anteriores
+    form.reset();
+    
+    // Establecer fecha mínima como hoy
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha_inicio').min = today;
+    
+    // Mostrar el modal usando Bootstrap
+    const modalInstance = new bootstrap.Modal(modal);
+    modalInstance.show();
 }
-</script>
 
-<!-- Agregar este script al final del archivo -->
-<script>
 document.addEventListener('DOMContentLoaded', function() {
     const formReserva = document.getElementById('formReserva');
     const fechaInicio = document.getElementById('fecha_inicio');
