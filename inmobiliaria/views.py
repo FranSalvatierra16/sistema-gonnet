@@ -2,8 +2,8 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad
-from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses
+from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
@@ -284,7 +284,13 @@ def propiedades(request):
 def propiedad_detalle(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
     disponibilidades = propiedad.disponibilidades.all()
-    imagenes = propiedad.imagenes.all()
+    
+    # Obtener imágenes usando el related_name correcto
+    imagenes = propiedad.imagenes_propiedad.all()  # Cambiado a imagenes_propiedad
+    print("Propiedad ID:", propiedad_id)
+    print("Número de imágenes encontradas:", imagenes.count())
+    for imagen in imagenes:
+        print("URL de imagen:", imagen.imagen.url if imagen.imagen else "No hay URL")
 
     # Definir el orden personalizado para los tipos de precio
     orden_tipo_precio = Case(
@@ -299,8 +305,6 @@ def propiedad_detalle(request, propiedad_id):
         When(tipo_precio=TipoPrecio.TEMPORADA_BAJA, then=8),
         When(tipo_precio=TipoPrecio.FINDE_LARGO, then=9),
         When(tipo_precio=TipoPrecio.VACACIONES_INVIERNO, then=10),
-       
-        # Añade más condiciones si es necesario
         output_field=IntegerField(),
     )
 
@@ -309,14 +313,22 @@ def propiedad_detalle(request, propiedad_id):
         orden_tipo_precio=orden_tipo_precio
     ).order_by('orden_tipo_precio')
 
-    print("Imágenes de la propiedad:", [imagen.imagen.url for imagen in imagenes])
+    # Debug de imágenes
+    try:
+        print("Imágenes de la propiedad:", [imagen.imagen.url for imagen in imagenes])
+    except Exception as e:
+        print("Error al acceder a las imágenes:", str(e))
 
-    return render(request, 'inmobiliaria/propiedades/detalle.html', {
+    context = {
         'propiedad': propiedad,
         'disponibilidades': disponibilidades,
         'precios': precios,
-        'imagenes': imagenes
-    })
+        'imagenes': imagenes,
+        'active_tab': request.GET.get('tab', 'alquiler'),  # default a 'alquiler'
+    }
+    
+    return render(request, 'inmobiliaria/propiedades/detalle.html', context)
+
 @login_required
 def propiedad_nuevo(request):
     if request.method == 'POST':
@@ -1857,3 +1869,120 @@ def ver_historial_disponibilidad(request, propiedad_id):
     }
     return render(request, 'inmobiliaria/propiedades/historial_disponibilidad.html', context)
 
+@login_required
+def editar_info_venta(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    info_venta, created = VentaPropiedad.objects.get_or_create(propiedad=propiedad)
+
+    if request.method == 'POST':
+        # Actualizar en_venta
+        en_venta = request.POST.get('en_venta') == 'on'
+        info_venta.en_venta = en_venta
+
+        if en_venta:
+            # Solo actualizar otros campos si está en venta
+            info_venta.precio_venta = request.POST.get('precio_venta') or None
+            info_venta.precio_autorizacion = request.POST.get('precio_autorizacion') or None
+            info_venta.estado = request.POST.get('estado', 'disponible')
+            info_venta.precio_expensas = request.POST.get('precio_expensas') or None
+            info_venta.escribania = request.POST.get('escribania', '')
+            info_venta.observaciones = request.POST.get('observaciones', '')
+
+        info_venta.save()
+        messages.success(request, 'Información de venta actualizada correctamente')
+        return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+@login_required
+def editar_info_meses(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    
+    if request.method == 'POST':
+        try:
+            info_meses, created = AlquilerMeses.objects.get_or_create(propiedad=propiedad)
+            
+            info_meses.disponible = 'disponible' in request.POST
+            if info_meses.disponible:
+                info_meses.precio_mensual = request.POST.get('precio_mensual')
+                info_meses.estado = request.POST.get('estado')
+                info_meses.fecha_inicio = request.POST.get('fecha_inicio')
+                info_meses.fecha_fin = request.POST.get('fecha_fin')
+                info_meses.precio_expensas = request.POST.get('precio_expensas') or None
+                info_meses.observaciones = request.POST.get('observaciones', '')
+                
+                # Si el estado es 'disponible', limpiamos las fechas
+                if info_meses.estado == 'disponible':
+                    info_meses.fecha_inicio = None
+                    info_meses.fecha_fin = None
+                # Solo establecemos fechas si el estado no es 'disponible'
+                elif info_meses.estado in ['reservado', 'ocupado']:
+                    info_meses.fecha_inicio = request.POST.get('fecha_inicio')
+                    info_meses.fecha_fin = request.POST.get('fecha_fin')
+            
+            info_meses.save()
+            messages.success(request, 'Información de alquiler 24 meses actualizada correctamente.')
+        except Exception as e:
+            messages.error(request, f'Error al actualizar la información: {str(e)}')
+        
+        return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+    
+    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+@login_required
+def ventas(request):
+    # Filtrar propiedades que tienen info de venta y están disponibles o reservadas
+    propiedades_venta = Propiedad.objects.filter(
+        info_venta__en_venta=True,
+        info_venta__estado__in=['disponible', 'reservado']
+    ).select_related('info_venta', 'sucursal')
+
+    # Aplicar filtros de búsqueda si existen
+    busqueda = request.GET.get('busqueda', '')
+    if busqueda:
+        propiedades_venta = propiedades_venta.filter(
+            Q(direccion__icontains=busqueda) |
+            Q(id__icontains=busqueda)
+        )
+
+    estado = request.GET.get('estado', '')
+    if estado:
+        propiedades_venta = propiedades_venta.filter(info_venta__estado=estado)
+
+    context = {
+        'propiedades': propiedades_venta,
+        'busqueda': busqueda,
+        'estado_filtro': estado,
+        'estados': VentaPropiedad.ESTADO_CHOICES,
+    }
+    
+    return render(request, 'inmobiliaria/propiedades/ventas.html', context)
+
+@login_required
+def alquileres_24_meses(request):
+    # Filtrar propiedades que tienen info de alquiler por meses y están disponibles o reservadas
+    propiedades_meses = Propiedad.objects.filter(
+        info_meses__disponible=True,
+        info_meses__estado__in=['disponible', 'reservado']
+    ).select_related('info_meses', 'sucursal')
+
+    # Aplicar filtros de búsqueda si existen
+    busqueda = request.GET.get('busqueda', '')
+    if busqueda:
+        propiedades_meses = propiedades_meses.filter(
+            Q(direccion__icontains=busqueda) |
+            Q(id__icontains=busqueda)
+        )
+
+    estado = request.GET.get('estado', '')
+    if estado:
+        propiedades_meses = propiedades_meses.filter(info_meses__estado=estado)
+
+    context = {
+        'propiedades': propiedades_meses,
+        'busqueda': busqueda,
+        'estado_filtro': estado,
+        'estados': AlquilerMeses.ESTADO_CHOICES,
+    }
+    
+    return render(request, 'inmobiliaria/propiedades/alquileres_24_meses.html', context)

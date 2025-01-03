@@ -1,0 +1,166 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="fas fa-calendar-alt text-primary"></i> Alquileres 24 Meses
+        </h2>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-search"></i>
+                        </span>
+                        <input type="text" class="form-control" name="busqueda" 
+                               placeholder="Buscar por dirección o ficha..." 
+                               value="{{ busqueda }}">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <select class="form-select" name="estado">
+                        <option value="">Todos los estados</option>
+                        {% for value, label in estados %}
+                            <option value="{{ value }}" {% if estado_filtro == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter"></i> Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de propiedades -->
+    <div class="row">
+        <div class="col">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Ficha</th>
+                                    <th>Dirección</th>
+                                    <th>Sucursal</th>
+                                    <th>Precio Mensual</th>
+                                    <th>Estado</th>
+                                    <th>Expensas</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for propiedad in propiedades %}
+                                <tr>
+                                    <td>#{{ propiedad.id }}</td>
+                                    <td>{{ propiedad.direccion }}</td>
+                                    <td>{{ propiedad.sucursal.nombre }}</td>
+                                    <td>${{ propiedad.info_meses.precio_mensual|format_price }}</td>
+                                    <td>
+                                        <span class="badge {% if propiedad.info_meses.estado == 'disponible' %}bg-success{% else %}bg-warning{% endif %}">
+                                            {{ propiedad.info_meses.get_estado_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if propiedad.info_meses.precio_expensas %}
+                                            ${{ propiedad.info_meses.precio_expensas|format_price }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" 
+                                               class="btn btn-sm btn-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-success"
+                                                    
+                                                    {% if propiedad.info_meses.estado != 'disponible' %}disabled{% endif %}>
+                                                <i class="fas fa-calendar-check"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">
+                                        <div class="alert alert-info mb-0">
+                                            <i class="fas fa-info-circle fa-2x mb-3 d-block"></i>
+                                            <h4>No se encontraron propiedades</h4>
+                                            <p>No hay propiedades en alquiler por 24 meses que coincidan con los criterios de búsqueda.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Reserva -->
+<div class="modal fade" id="modalReserva" tabindex="-1" aria-labelledby="modalReservaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalReservaLabel">Reservar Alquiler 24 Meses</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formReserva" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <!-- El contenido se cargará dinámicamente -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Confirmar Reserva</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Estilos adicionales -->
+<style>
+.table td, .table th {
+    vertical-align: middle;
+}
+.btn-group {
+    display: flex;
+    gap: 5px;
+}
+</style>
+
+<!-- Script para manejar la reserva -->
+<script>
+function mostrarModalReserva(propiedadId) {
+    // Configurar el formulario
+    const modal = document.getElementById('modalReserva');
+    const form = document.getElementById('formReserva');
+    form.action = `/inmobiliaria/propiedades/${propiedadId}/reservar-meses/`;
+    
+    // Mostrar el modal
+    const modalBootstrap = new bootstrap.Modal(modal);
+    modalBootstrap.show();
+}
+</script>
+
+{% endblock %}

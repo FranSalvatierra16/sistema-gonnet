@@ -4,6 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import Q
 from django.utils.timezone import now
+from django.conf import settings
 
 import datetime
 from .persona import Propietario, Inquilino, Vendedor
@@ -133,6 +134,30 @@ class Propiedad(models.Model):
         verbose_name="Precio Invierno"
     )
 
+    fichado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='propiedades_fichadas'
+    )
+    fecha_fichado = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de fichado"
+    )
+
+    TIPO_CLIENTE_CHOICES = [
+        ('PARTICULAR', 'Particular'),
+        ('EMPRESA', 'Empresa'),
+        ('ESTUDIANTE', 'Estudiante'),
+    ]
+    
+    tipo_cliente = models.CharField(
+        max_length=20,
+        choices=TIPO_CLIENTE_CHOICES,
+        default='PARTICULAR'
+    )
+
     class Meta:
         verbose_name = "Propiedad"
         verbose_name_plural = "Propiedades"
@@ -201,7 +226,7 @@ class Propiedad(models.Model):
             TipoPrecio.QUINCENA_1_FEBRERO, TipoPrecio.QUINCENA_2_FEBRERO,
             TipoPrecio.QUINCENA_1_MARZO, TipoPrecio.QUINCENA_2_MARZO,
             TipoPrecio.FINDE_LARGO,
-            TipoPrecio.TEMPORADA_BAJA, TipoPrecio.VACACIONES_INVIERNO, TipoPrecio.ESTUDIANTES
+            TipoPrecio.TEMPORADA_BAJA, TipoPrecio.VACACIONES_INVIERNO, 
         ]
         for tipo in tipos_de_precios:
             Precio.objects.get_or_create(
@@ -227,6 +252,18 @@ class Propiedad(models.Model):
             raise ValidationError({'precio_23_meses': 'Debe ingresar un precio para 23 meses si está habilitado.'})
         if self.habilitar_invierno and not self.precio_invierno:
             raise ValidationError({'precio_invierno': 'Debe ingresar un precio de invierno si está habilitado.'})
+
+    def fichar(self, usuario):
+        """Método para fichar una propiedad"""
+        self.fichado_por = usuario
+        self.fecha_fichado = timezone.now()
+        self.save()
+
+    def desfichar(self):
+        """Método para desfichar una propiedad"""
+        self.fichado_por = None
+        self.fecha_fichado = None
+        self.save()
 
 class ImagenPropiedad(models.Model):
     propiedad = models.ForeignKey(
@@ -386,8 +423,6 @@ class TipoPrecio(models.TextChoices):
     QUINCENA_2_MARZO = 'QUINCENA_2_MARZO', _('2da quincena Marzo')
     TEMPORADA_BAJA = 'TEMPORADA_BAJA', _('Temporada baja')
     VACACIONES_INVIERNO = 'VACACIONES_INVIERNO', _('Vacaciones Invierno')
-   
-    
     FINDE_LARGO = 'FINDE_LARGO', _('Finde largo')
     DICIEMBRE = 'DICIEMBRE', _('Diciembre')
     ENERO = 'ENERO', _('Enero')
@@ -457,7 +492,7 @@ class Precio(models.Model):
                     base_price = self.precio_por_dia * 15
             elif self.tipo_precio == 'FINDE_LARGO':
                 base_price = self.precio_por_dia * 4
-            elif self.tipo_precio in ['TEMPORADA_BAJA', 'ESTUDIANTES']:
+            elif self.tipo_precio == 'TEMPORADA_BAJA':
                 base_price = self.precio_por_dia * dias
             else:
                 base_price = self.precio_por_dia * dias
@@ -478,7 +513,7 @@ class Precio(models.Model):
                     base_price = self.precio_por_dia * 15
             elif self.tipo_precio == 'FINDE_LARGO':
                 base_price = self.precio_por_dia * 4
-            elif self.tipo_precio in ['TEMPORADA_BAJA', 'ESTUDIANTES']:
+            elif self.tipo_precio == 'TEMPORADA_BAJA':
                 base_price = None  # No calcular precio total para días individuales
             else:
                 base_price = self.precio_por_dia
@@ -668,3 +703,129 @@ class HistorialDisponibilidad(models.Model):
 
     def __str__(self):
         return f"{self.propiedad.id} - {self.fecha_inicio} al {self.fecha_fin} - {self.get_estado_display()}"
+
+class VentaPropiedad(models.Model):
+    ESTADO_CHOICES = [
+        ('disponible', 'Disponible'),
+        ('reservado', 'Reservado'),
+        ('vendido', 'Vendido'),
+    ]
+
+    propiedad = models.OneToOneField(
+        Propiedad,
+        on_delete=models.CASCADE,
+        related_name='info_venta'
+    )
+    en_venta = models.BooleanField(
+        default=False,
+        verbose_name="Disponible para venta"
+    )
+    precio_venta = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Precio de venta"
+    )
+    precio_autorizacion = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Precio de autorización"
+    )
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='disponible',
+        verbose_name="Estado de la venta"
+    )
+    precio_expensas = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Precio de expensas"
+    )
+    escribania = models.TextField(
+        blank=True,
+        verbose_name="Información de escribanía"
+    )
+    observaciones = models.TextField(
+        blank=True,
+        verbose_name="Observaciones"
+    )
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Información de venta - {self.propiedad}"
+
+class AlquilerMeses(models.Model):
+    ESTADO_CHOICES = [
+        ('disponible', 'Disponible'),
+        ('reservado', 'Reservado'),
+        ('ocupado', 'Ocupado'),
+    ]
+
+    propiedad = models.OneToOneField(
+        Propiedad,
+        on_delete=models.CASCADE,
+        related_name='info_meses'
+    )
+    disponible = models.BooleanField(
+        default=False,
+        verbose_name="Disponible para alquiler 24 meses"
+    )
+    precio_mensual = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Precio mensual"
+    )
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='disponible',
+        verbose_name="Estado del alquiler"
+    )
+    fecha_inicio = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de inicio"
+    )
+    fecha_fin = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de fin"
+    )
+    precio_expensas = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Precio de expensas"
+    )
+    observaciones = models.TextField(
+        blank=True,
+        verbose_name="Observaciones"
+    )
+    # Fechas opcionales que se establecerán al hacer la reserva
+    fecha_inicio = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de inicio"
+    )
+    fecha_fin = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de fin"
+    )
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Alquiler 24 meses - {self.propiedad}"
+
+    class Meta:
+        verbose_name = "Alquiler 24 meses"
+        verbose_name_plural = "Alquileres 24 meses"
