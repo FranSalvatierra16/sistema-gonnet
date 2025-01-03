@@ -102,4 +102,5 @@ urlpatterns = [
          views.editar_info_venta, 
          name='editar_info_venta'),
     path('propiedades/<int:propiedad_id>/editar-meses/', views.editar_info_meses, name='editar_info_meses'),
+    path('ventas/', views.ventas, name='ventas'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
