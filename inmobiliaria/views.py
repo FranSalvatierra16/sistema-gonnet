@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Movimiento
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja, TipoMovimientoCaja
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login

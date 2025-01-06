@@ -1,34 +1,35 @@
 from django.db import models
-from django.contrib.auth.models import User
 
-class Movimiento(models.Model):
-    TIPO_CHOICES = [
-        ('ingreso', 'Ingreso'),
-        ('egreso', 'Egreso'),
-    ]
-    
-    CATEGORIA_CHOICES = [
-        ('alquiler', 'Alquiler'),
-        ('venta', 'Venta'),
-        ('comision', 'Comisión'),
-        ('servicios', 'Servicios'),
-        ('mantenimiento', 'Mantenimiento'),
-        ('impuestos', 'Impuestos'),
-        ('otros', 'Otros'),
-    ]
+class TipoMovimientoCajaEnum(models.TextChoices):
+    INGRESO = 'IN', 'Ingreso'
+    EGRESO = 'EG', 'Egreso'
 
-    fecha = models.DateField(auto_now_add=True)
-    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
-    categoria = models.CharField(max_length=20, choices=CATEGORIA_CHOICES)
-    descripcion = models.TextField()
-    monto = models.DecimalField(max_digits=10, decimal_places=2)
-    comprobante = models.FileField(upload_to='comprobantes/', null=True, blank=True)
-    usuario = models.ForeignKey(User, on_delete=models.CASCADE)
-    sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        ordering = ['-fecha', '-fecha_creacion']
+class Caja(models.Model):
+    saldo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.fecha} - {self.get_tipo_display()} - ${self.monto}"
+        return f"Caja - Saldo: ${self.saldo}"
+
+class TipoMovimientoCaja(models.Model):
+    nombre = models.CharField(max_length=100)
+    tipo = models.CharField(
+        max_length=2,
+        choices=TipoMovimientoCajaEnum.choices,
+        default=TipoMovimientoCajaEnum.INGRESO
+    )
+
+    def __str__(self):
+        return self.nombre
+
+class MovimientoCaja(models.Model):
+    fecha = models.DateTimeField(auto_now_add=True)
+    tipo = models.ForeignKey(TipoMovimientoCaja, on_delete=models.PROTECT)
+    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    descripcion = models.TextField(blank=True)
+    categoria = models.CharField(max_length=100, blank=True)
+    comprobante = models.CharField(max_length=100, blank=True)
+    sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.tipo} - ${self.monto} - {self.fecha.strftime('%d/%m/%Y')}"
