@@ -428,6 +428,7 @@ class TipoPrecio(models.TextChoices):
     ENERO = 'ENERO', _('Enero')
     FEBRERO = 'FEBRERO', _('Febrero')
     MARZO = 'MARZO', _('Marzo')
+    ESTUDIANTE = 'ESTUDIANTE', _('Estudiante')
 
 class Precio(models.Model):
     propiedad = models.ForeignKey(Propiedad, on_delete=models.CASCADE, related_name='precios')
