@@ -303,27 +303,35 @@ class BuscarPropiedadesForm(forms.Form):
 class DisponibilidadForm(forms.ModelForm):
     class Meta:
         model = Disponibilidad
-        fields = ['propiedad', 'fecha_inicio', 'fecha_fin']
+        fields = ['fecha_inicio', 'fecha_fin']
         widgets = {
-            'propiedad': forms.HiddenInput(),
-            'fecha_inicio': forms.DateInput(attrs={'type': 'date'}),
-            'fecha_fin': forms.DateInput(attrs={'type': 'date'}),
+            'fecha_inicio': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'fecha_fin': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
         }
 
-    def __init__(self, *args, **kwargs):
-        propiedad = kwargs.pop('propiedad', None)
+    def __init__(self, propiedad=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if propiedad:
-            self.fields['propiedad'].initial = propiedad.id
-            self.fields['propiedad'].widget = forms.HiddenInput()
+        self.propiedad = propiedad
 
     def clean(self):
         cleaned_data = super().clean()
         fecha_inicio = cleaned_data.get('fecha_inicio')
         fecha_fin = cleaned_data.get('fecha_fin')
 
-        if fecha_inicio and fecha_fin and fecha_inicio >= fecha_fin:
-            raise forms.ValidationError("La fecha de inicio debe ser anterior a la fecha de fin.")
+        if fecha_inicio and fecha_fin:
+            if fecha_fin < fecha_inicio:
+                raise forms.ValidationError('La fecha de fin debe ser posterior a la fecha de inicio')
+
+            if self.propiedad:
+                # Verificar solapamiento
+                solapamiento = Disponibilidad.objects.filter(
+                    propiedad=self.propiedad,
+                    fecha_fin__gte=fecha_inicio,
+                    fecha_inicio__lte=fecha_fin
+                ).exists()
+                
+                if solapamiento:
+                    raise forms.ValidationError('Ya existe una disponibilidad para estas fechas')
 
         return cleaned_data
 

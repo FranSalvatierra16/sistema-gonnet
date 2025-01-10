@@ -924,25 +924,8 @@ def crear_disponibilidad(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, id=propiedad_id)
     
     if request.method == 'POST':
-        form = DisponibilidadForm(request.POST)
+        form = DisponibilidadForm(propiedad=propiedad, data=request.POST)
         if form.is_valid():
-            fecha_inicio = form.cleaned_data['fecha_inicio']
-            fecha_fin = form.cleaned_data['fecha_fin']
-            
-            # Verificar si hay solapamiento de fechas
-            disponibilidades_existentes = Disponibilidad.objects.filter(
-                propiedad=propiedad,
-                fecha_fin__gte=fecha_inicio,
-                fecha_inicio__lte=fecha_fin
-            )
-            
-            if disponibilidades_existentes.exists():
-                messages.error(request, 'Ya existe una disponibilidad para el rango de fechas seleccionado.')
-                return render(request, 'inmobiliaria/propiedades/crear_disponibilidad.html', {
-                    'form': form,
-                    'propiedad': propiedad
-                })
-            
             try:
                 disponibilidad = form.save(commit=False)
                 disponibilidad.propiedad = propiedad
@@ -952,10 +935,9 @@ def crear_disponibilidad(request, propiedad_id):
             except Exception as e:
                 messages.error(request, f'Error al crear la disponibilidad: {str(e)}')
     else:
-        form = DisponibilidadForm()
+        form = DisponibilidadForm(propiedad=propiedad)
     
-    # Obtener disponibilidades existentes
-    disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad).order_by('fecha_inicio')
+    disponibilidades = propiedad.disponibilidades.all().order_by('fecha_inicio')
     
     return render(request, 'inmobiliaria/propiedades/crear_disponibilidad.html', {
         'form': form,
