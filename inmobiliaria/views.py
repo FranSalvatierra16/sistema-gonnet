@@ -943,17 +943,24 @@ def crear_disponibilidad(request, propiedad_id):
                     'propiedad': propiedad
                 })
             
-            disponibilidad = form.save(commit=False)
-            disponibilidad.propiedad = propiedad
-            disponibilidad.save()
-            messages.success(request, 'Disponibilidad creada exitosamente.')
-            return redirect('inmobiliaria:detalle_propiedad', propiedad_id=propiedad.id)
+            try:
+                disponibilidad = form.save(commit=False)
+                disponibilidad.propiedad = propiedad
+                disponibilidad.save()
+                messages.success(request, 'Disponibilidad creada exitosamente.')
+                return redirect('inmobiliaria:detalle_propiedad', propiedad_id=propiedad.id)
+            except Exception as e:
+                messages.error(request, f'Error al crear la disponibilidad: {str(e)}')
     else:
         form = DisponibilidadForm()
     
+    # Obtener disponibilidades existentes
+    disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad).order_by('fecha_inicio')
+    
     return render(request, 'inmobiliaria/propiedades/crear_disponibilidad.html', {
         'form': form,
-        'propiedad': propiedad
+        'propiedad': propiedad,
+        'disponibilidades': disponibilidades
     })
 
 def reserva_exitosa(request, reserva_id):

@@ -373,16 +373,22 @@ class Reserva(models.Model):
         return f"Reserva {self.id} - {self.propiedad}"
 
 class Disponibilidad(models.Model):
-    propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='disponibilidades')
+    propiedad = models.ForeignKey(
+        'Propiedad', 
+        on_delete=models.CASCADE, 
+        related_name='disponibilidades'
+    )
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
 
     def save(self, *args, **kwargs):
+        self.full_clean()  # Validar antes de guardar
         is_new = self._state.adding
         super().save(*args, **kwargs)
         
         if is_new:
-            # Crear o actualizar el historial cuando se crea una nueva disponibilidad
+            # Crear historial solo si es una nueva disponibilidad
+            from .historial import HistorialDisponibilidad  # Importación local para evitar circular imports
             HistorialDisponibilidad.objects.create(
                 propiedad=self.propiedad,
                 fecha_inicio=self.fecha_inicio,
@@ -390,27 +396,40 @@ class Disponibilidad(models.Model):
                 estado='libre'
             )
 
+    def clean(self):
+        super().clean()
+        
+        if not self.fecha_inicio or not self.fecha_fin:
+            return  # No validar si faltan fechas
+            
+        if self.fecha_inicio > self.fecha_fin:
+            raise ValidationError({
+                'fecha_inicio': _('La fecha de inicio no puede ser posterior a la fecha de fin.')
+            })
+
+        # Verificar solapamiento con otras disponibilidades
+        solapamiento = Disponibilidad.objects.filter(
+            propiedad=self.propiedad,
+            fecha_fin__gte=self.fecha_inicio,
+            fecha_inicio__lte=self.fecha_fin
+        )
+        
+        # Excluir la disponibilidad actual en caso de edición
+        if self.pk:
+            solapamiento = solapamiento.exclude(pk=self.pk)
+            
+        if solapamiento.exists():
+            raise ValidationError(_('Ya existe una disponibilidad para el rango de fechas seleccionado.'))
+
     class Meta:
         verbose_name = _("Disponibilidad")
         verbose_name_plural = _("Disponibilidades")
+        ordering = ['fecha_inicio']
 
-    def clean(self):
-        super().clean()
-
-        if self.fecha_inicio and self.fecha_fin and self.fecha_inicio > self.fecha_fin:
-            raise ValidationError(_('La fecha de inicio no puede ser posterior a la fecha de fin.'))
-
-        if self.fecha_inicio and self.fecha_fin:
-            if not self.propiedad.esta_disponible_en_fecha(self.fecha_inicio, self.fecha_fin):
-                raise ValidationError(_('La propiedad no está disponible para las fechas seleccionadas.'))
-        else:
-            # No verificamos disponibilidad si alguna de las fechas no está definida
-            pass
+    def __str__(self):
+        return f"{self.propiedad} - {self.fecha_inicio} al {self.fecha_fin}"
 
 
-
-from django.db import models
-from django.utils.translation import gettext_lazy as _
 
 class TipoPrecio(models.TextChoices):
     QUINCENA_1_DICIEMBRE = 'QUINCENA_1_DICIEMBRE', _('1ra quincena Diciembre')
