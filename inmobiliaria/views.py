@@ -919,28 +919,42 @@ def buscar_propiedades(request):
         'total_dias': total_dias_reserva,
     })
 
+@login_required
 def crear_disponibilidad(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, id=propiedad_id)
     
     if request.method == 'POST':
-        form = DisponibilidadForm(request.POST, propiedad=propiedad)
+        form = DisponibilidadForm(request.POST)
         if form.is_valid():
-            try:
-                disponibilidad = form.save(commit=False)
-                disponibilidad.propiedad = propiedad
-                disponibilidad.save()
-                messages.success(request, 'Disponibilidad creada exitosamente.')
-                return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
-            except ValidationError as e:
-                form.add_error(None, e)  # Agrega errores globales
+            fecha_inicio = form.cleaned_data['fecha_inicio']
+            fecha_fin = form.cleaned_data['fecha_fin']
+            
+            # Verificar si hay solapamiento de fechas
+            disponibilidades_existentes = Disponibilidad.objects.filter(
+                propiedad=propiedad,
+                fecha_fin__gte=fecha_inicio,
+                fecha_inicio__lte=fecha_fin
+            )
+            
+            if disponibilidades_existentes.exists():
+                messages.error(request, 'Ya existe una disponibilidad para el rango de fechas seleccionado.')
+                return render(request, 'inmobiliaria/propiedades/crear_disponibilidad.html', {
+                    'form': form,
+                    'propiedad': propiedad
+                })
+            
+            disponibilidad = form.save(commit=False)
+            disponibilidad.propiedad = propiedad
+            disponibilidad.save()
+            messages.success(request, 'Disponibilidad creada exitosamente.')
+            return redirect('inmobiliaria:detalle_propiedad', propiedad_id=propiedad.id)
     else:
-        form = DisponibilidadForm(propiedad=propiedad)
-
+        form = DisponibilidadForm()
+    
     return render(request, 'inmobiliaria/propiedades/crear_disponibilidad.html', {
         'form': form,
         'propiedad': propiedad
     })
-
 
 def reserva_exitosa(request, reserva_id):
     

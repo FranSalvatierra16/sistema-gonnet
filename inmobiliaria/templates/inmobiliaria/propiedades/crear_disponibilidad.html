@@ -5,14 +5,72 @@
 {% block title %}Crear Disponibilidad{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Crear Disponibilidad para {{ propiedad.direccion }}</h1>
-<form method="post">
-    {% csrf_token %}
-    {% bootstrap_form form %}
+<div class="container">
+    <h1 class="mb-4">Crear Disponibilidad para {{ propiedad.direccion }}</h1>
 
-    <div class="form-group">
-        <button type="submit" class="btn btn-primary">Guardar</button>
-        <a href="{% url 'inmobiliaria:propiedades' %}" class="btn btn-secondary">Cancelar</a>
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
     </div>
-</form>
+    {% endif %}
+
+    <!-- Mostrar disponibilidades existentes -->
+    {% if propiedad.disponibilidad_set.exists %}
+    <div class="card mb-4">
+        <div class="card-header">
+            Disponibilidades Existentes
+        </div>
+        <div class="card-body">
+            <ul class="list-group">
+                {% for disponibilidad in propiedad.disponibilidad_set.all %}
+                <li class="list-group-item">
+                    Del {{ disponibilidad.fecha_inicio|date:"d/m/Y" }} 
+                    al {{ disponibilidad.fecha_fin|date:"d/m/Y" }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Formulario -->
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                {% bootstrap_form form %}
+
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <a href="{% url 'inmobiliaria:detalle_propiedad' propiedad.id %}" 
+                       class="btn btn-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configurar fecha mínima como hoy
+    var today = new Date().toISOString().split('T')[0];
+    document.querySelector('input[name="fecha_inicio"]').min = today;
+    document.querySelector('input[name="fecha_fin"]').min = today;
+    
+    // Validar que fecha fin sea posterior a fecha inicio
+    document.querySelector('form').addEventListener('submit', function(e) {
+        var fechaInicio = document.querySelector('input[name="fecha_inicio"]').value;
+        var fechaFin = document.querySelector('input[name="fecha_fin"]').value;
+        
+        if (fechaFin < fechaInicio) {
+            e.preventDefault();
+            alert('La fecha de fin debe ser posterior a la fecha de inicio');
+        }
+    });
+});
+</script>
 {% endblock %}
