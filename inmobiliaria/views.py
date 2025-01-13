@@ -927,17 +927,34 @@ def crear_disponibilidad(request, propiedad_id):
         form = DisponibilidadForm(propiedad=propiedad, data=request.POST)
         if form.is_valid():
             try:
-                disponibilidad = form.save(commit=False)
-                disponibilidad.propiedad = propiedad
-                disponibilidad.save()
-                messages.success(request, 'Disponibilidad creada exitosamente.')
-                return redirect('inmobiliaria:detalle_propiedad', propiedad_id=propiedad.id)
+                # Crear una nueva instancia de Disponibilidad
+                nueva_disponibilidad = Disponibilidad(
+                    propiedad=propiedad,
+                    fecha_inicio=form.cleaned_data['fecha_inicio'],
+                    fecha_fin=form.cleaned_data['fecha_fin']
+                )
+                
+                # Verificar solapamiento manualmente
+                solapamiento = Disponibilidad.objects.filter(
+                    propiedad=propiedad,
+                    fecha_fin__gte=nueva_disponibilidad.fecha_inicio,
+                    fecha_inicio__lte=nueva_disponibilidad.fecha_fin
+                ).exists()
+                
+                if solapamiento:
+                    messages.error(request, 'Ya existe una disponibilidad para estas fechas')
+                else:
+                    nueva_disponibilidad.save()
+                    messages.success(request, 'Disponibilidad creada exitosamente')
+                    return redirect('inmobiliaria:detalle_propiedad', propiedad_id=propiedad.id)
+                    
             except Exception as e:
                 messages.error(request, f'Error al crear la disponibilidad: {str(e)}')
     else:
         form = DisponibilidadForm(propiedad=propiedad)
     
-    disponibilidades = propiedad.disponibilidades.all().order_by('fecha_inicio')
+    # Obtener disponibilidades existentes
+    disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad).order_by('fecha_inicio')
     
     return render(request, 'inmobiliaria/propiedades/crear_disponibilidad.html', {
         'form': form,

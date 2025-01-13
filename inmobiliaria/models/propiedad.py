@@ -382,44 +382,38 @@ class Disponibilidad(models.Model):
     fecha_fin = models.DateField()
 
     def save(self, *args, **kwargs):
-        self.full_clean()  # Validar antes de guardar
-        is_new = self._state.adding
-        super().save(*args, **kwargs)
-        
-        if is_new:
-            # Crear historial solo si es una nueva disponibilidad
-            from .historial import HistorialDisponibilidad  # Importación local para evitar circular imports
-            HistorialDisponibilidad.objects.create(
-                propiedad=self.propiedad,
-                fecha_inicio=self.fecha_inicio,
-                fecha_fin=self.fecha_fin,
-                estado='libre'
-            )
-
-    def clean(self):
-        super().clean()
-        
-        if not self.fecha_inicio or not self.fecha_fin:
-            return  # No validar si faltan fechas
+        if not hasattr(self, 'propiedad') or not self.propiedad:
+            raise ValidationError(_('La propiedad es requerida.'))
             
-        if self.fecha_inicio > self.fecha_fin:
-            raise ValidationError({
-                'fecha_inicio': _('La fecha de inicio no puede ser posterior a la fecha de fin.')
-            })
+        if self.fecha_inicio and self.fecha_fin and self.fecha_inicio > self.fecha_fin:
+            raise ValidationError(_('La fecha de inicio no puede ser posterior a la fecha de fin.'))
 
-        # Verificar solapamiento con otras disponibilidades
+        is_new = self._state.adding
+        
+        # Verificar solapamiento
         solapamiento = Disponibilidad.objects.filter(
             propiedad=self.propiedad,
             fecha_fin__gte=self.fecha_inicio,
             fecha_inicio__lte=self.fecha_fin
         )
         
-        # Excluir la disponibilidad actual en caso de edición
-        if self.pk:
+        if self.pk:  # Si es una edición
             solapamiento = solapamiento.exclude(pk=self.pk)
             
         if solapamiento.exists():
             raise ValidationError(_('Ya existe una disponibilidad para el rango de fechas seleccionado.'))
+
+        super().save(*args, **kwargs)
+        
+        if is_new:
+            # Crear historial solo si es una nueva disponibilidad
+            from .historial import HistorialDisponibilidad
+            HistorialDisponibilidad.objects.create(
+                propiedad=self.propiedad,
+                fecha_inicio=self.fecha_inicio,
+                fecha_fin=self.fecha_fin,
+                estado='libre'
+            )
 
     class Meta:
         verbose_name = _("Disponibilidad")
