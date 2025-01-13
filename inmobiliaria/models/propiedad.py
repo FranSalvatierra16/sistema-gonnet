@@ -11,7 +11,6 @@ from .persona import Propietario, Inquilino, Vendedor
 from .sucursal import Sucursal
 import uuid
 import os
-from .historial import HistorialDisponibilidad
 
 # Definiciones de tipos de vista, valoración e inmuebles
 TIPOS_VISTA = [
@@ -49,6 +48,35 @@ TIPOS_INMUEBLES = [
     ('casaquinta', 'Casa Quinta'),
     ('deposito', 'Depósito'), 
 ]
+
+class HistorialDisponibilidad(models.Model):
+    ESTADO_CHOICES = [
+        ('libre', 'Libre'),
+        ('reservado', 'Reservado'),
+        ('ocupado', 'Ocupado')
+    ]
+
+    propiedad = models.ForeignKey(
+        'Propiedad', 
+        on_delete=models.CASCADE, 
+        related_name='historial_disponibilidad'
+    )
+    fecha_inicio = models.DateField()
+    fecha_fin = models.DateField()
+    estado = models.CharField(
+        max_length=20, 
+        choices=ESTADO_CHOICES, 
+        default='libre'
+    )
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Historial de Disponibilidad")
+        verbose_name_plural = _("Historial de Disponibilidades")
+        ordering = ['-fecha_actualizacion']
+
+    def __str__(self):
+        return f"{self.propiedad} - {self.estado} - {self.fecha_inicio} al {self.fecha_fin}"
 
 class Propiedad(models.Model):
     DIRECCION_MAX_LENGTH = 255
