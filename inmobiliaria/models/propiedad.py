@@ -11,6 +11,7 @@ from .persona import Propietario, Inquilino, Vendedor
 from .sucursal import Sucursal
 import uuid
 import os
+from .historial import HistorialDisponibilidad
 
 # Definiciones de tipos de vista, valoración e inmuebles
 TIPOS_VISTA = [
@@ -406,8 +407,7 @@ class Disponibilidad(models.Model):
         super().save(*args, **kwargs)
         
         if is_new:
-            # Crear historial solo si es una nueva disponibilidad
-            from .historial import HistorialDisponibilidad
+            # Crear historial
             HistorialDisponibilidad.objects.create(
                 propiedad=self.propiedad,
                 fecha_inicio=self.fecha_inicio,
@@ -631,93 +631,6 @@ class Pago(models.Model):
 
     def __str__(self):
         return f"{self.codigo} - {self.concepto.nombre} - ${self.monto}"
-
-class HistorialDisponibilidad(models.Model):
-    ESTADO_CHOICES = [
-        ('libre', 'Libre'),
-        ('reservado', 'Reservado'),
-        ('ocupado', 'Ocupado')
-    ]
-
-    propiedad = models.ForeignKey(
-        Propiedad, 
-        on_delete=models.CASCADE, 
-        related_name='historial_disponibilidad'
-    )
-    fecha_inicio = models.DateField()
-    fecha_fin = models.DateField()
-    estado = models.CharField(
-        max_length=20, 
-        choices=ESTADO_CHOICES, 
-        default='libre'
-    )
-    reserva = models.ForeignKey(
-        'Reserva', 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True,
-        related_name='historial_disponibilidad'
-    )
-    fecha_actualizacion = models.DateTimeField(auto_now=True)
-
-    @classmethod
-    def actualizar_historial_con_reserva(cls, reserva):
-        """
-        Actualiza el historial de disponibilidad cuando se crea una nueva reserva
-        """
-        propiedad = reserva.propiedad
-        fecha_inicio_reserva = reserva.fecha_inicio
-        fecha_fin_reserva = reserva.fecha_fin
-
-        # Buscar períodos existentes que se superpongan
-        periodos_afectados = cls.objects.filter(
-            propiedad=propiedad,
-            fecha_fin__gte=fecha_inicio_reserva,
-            fecha_inicio__lte=fecha_fin_reserva
-        ).order_by('fecha_inicio')
-
-        # Si hay períodos afectados
-        if periodos_afectados.exists():
-            primer_periodo = periodos_afectados.first()
-            ultimo_periodo = periodos_afectados.last()
-
-            # Crear período libre antes de la reserva si es necesario
-            if primer_periodo.fecha_inicio < fecha_inicio_reserva:
-                cls.objects.create(
-                    propiedad=propiedad,
-                    fecha_inicio=primer_periodo.fecha_inicio,
-                    fecha_fin=fecha_inicio_reserva - datetime.timedelta(days=1),
-                    estado='libre'
-                )
-
-            # Crear período libre después de la reserva si es necesario
-            if ultimo_periodo.fecha_fin > fecha_fin_reserva:
-                cls.objects.create(
-                    propiedad=propiedad,
-                    fecha_inicio=fecha_fin_reserva + datetime.timedelta(days=1),
-                    fecha_fin=ultimo_periodo.fecha_fin,
-                    estado='libre'
-                )
-
-            # Eliminar períodos afectados
-            periodos_afectados.delete()
-
-        # Crear el nuevo período para la reserva
-        cls.objects.create(
-            propiedad=propiedad,
-            fecha_inicio=fecha_inicio_reserva,
-            fecha_fin=fecha_fin_reserva,
-            estado='reservado',
-            reserva=reserva
-        )
-
-    class Meta:
-        verbose_name = "Historial de Disponibilidad"
-        verbose_name_plural = "Historial de Disponibilidades"
-        ordering = ['fecha_inicio', 'fecha_fin']
-
-    def __str__(self):
-        return f"{self.propiedad.id} - {self.fecha_inicio} al {self.fecha_fin} - {self.get_estado_display()}"
 
 class VentaPropiedad(models.Model):
     ESTADO_CHOICES = [
