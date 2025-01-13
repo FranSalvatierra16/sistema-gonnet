@@ -320,18 +320,28 @@ class DisponibilidadForm(forms.ModelForm):
 
         if fecha_inicio and fecha_fin:
             if fecha_fin < fecha_inicio:
-                raise forms.ValidationError('La fecha de fin debe ser posterior a la fecha de inicio')
+                raise ValidationError('La fecha de fin debe ser posterior a la fecha de inicio')
 
             if self.propiedad:
-                # Verificar solapamiento
+                # Verificar solapamiento solo con fechas que se superponen
                 solapamiento = Disponibilidad.objects.filter(
                     propiedad=self.propiedad,
                     fecha_fin__gte=fecha_inicio,
                     fecha_inicio__lte=fecha_fin
-                ).exists()
+                )
                 
-                if solapamiento:
-                    raise forms.ValidationError('Ya existe una disponibilidad para estas fechas')
+                # Si estamos editando, excluir la disponibilidad actual
+                if self.instance.pk:
+                    solapamiento = solapamiento.exclude(pk=self.instance.pk)
+                
+                if solapamiento.exists():
+                    fechas_ocupadas = [
+                        f"({d.fecha_inicio.strftime('%d/%m/%Y')} - {d.fecha_fin.strftime('%d/%m/%Y')})"
+                        for d in solapamiento
+                    ]
+                    raise ValidationError(
+                        f'Las fechas se solapan con disponibilidades existentes: {", ".join(fechas_ocupadas)}'
+                    )
 
         return cleaned_data
 
