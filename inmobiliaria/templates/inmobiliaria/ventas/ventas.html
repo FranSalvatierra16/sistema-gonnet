@@ -1,0 +1,105 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">Dashboard de Ventas</h1>
+
+    <!-- Resumen -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Propiedades en Venta</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_propiedades }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-home fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Propiedades -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Propiedades en Venta</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Imagen</th>
+                            <th>Propiedad</th>
+                            <th>Precio USD</th>
+                            <th>Vendedor</th>
+                            <th>Días Publicada</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in propiedades %}
+                        <tr>
+                            <td class="text-center">
+                                {% if item.imagen_principal %}
+                                    <img src="{{ item.imagen_principal.imagen.url }}" alt="Imagen" style="max-height: 50px;">
+                                {% else %}
+                                    <i class="fas fa-home fa-2x text-gray-300"></i>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ item.propiedad.direccion }}</strong><br>
+                                <small>{{ item.propiedad.get_tipo_inmueble_display }} - {{ item.propiedad.ambientes }} amb.</small>
+                            </td>
+                            <td class="text-right">
+                                {% if item.precio_usd %}
+                                    U$D {{ item.precio_usd|floatformat:2|intcomma }}
+                                {% else %}
+                                    <span class="text-danger">Sin precio</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ item.vendedor.get_full_name }}</td>
+                            <td class="text-center">{{ item.dias_publicada }}</td>
+                            <td class="text-center">
+                                <a href="{% url 'inmobiliaria:detalle_propiedad' item.propiedad.id %}" 
+                                   class="btn btn-sm btn-info">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'inmobiliaria:editar_propiedad' item.propiedad.id %}" 
+                                   class="btn btn-sm btn-primary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">No hay propiedades en venta disponibles</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#dataTable').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json"
+        },
+        "order": [[4, "desc"]]  // Ordenar por días publicada de forma descendente
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}
