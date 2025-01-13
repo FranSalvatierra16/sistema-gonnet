@@ -946,7 +946,7 @@ def crear_disponibilidad(request, propiedad_id):
                 else:
                     nueva_disponibilidad.save()
                     messages.success(request, 'Disponibilidad creada exitosamente')
-                    return redirect('inmobiliaria:detalle_propiedad', propiedad_id=propiedad.id)
+                    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
                     
             except Exception as e:
                 messages.error(request, f'Error al crear la disponibilidad: {str(e)}')
