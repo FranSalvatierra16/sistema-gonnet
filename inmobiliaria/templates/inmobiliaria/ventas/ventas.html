@@ -76,10 +76,14 @@
                                    class="btn btn-sm btn-primary">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <a href="https://wa.me/549{{ telefono_empresa }}?text={{ item.propiedad|generar_mensaje_whatsapp }}" 
+                                <a href="https://wa.me/549{{ telefono_empresa }}?text={% spaceless %}
+                                    Consulta por propiedad: {{ item.propiedad.direccion }}%0A
+                                    {% if item.precio_usd %}Precio: U$D {{ item.precio_usd|floatformat:2|intcomma }}%0A{% endif %}
+                                    Más información: https://{{ request.get_host }}/propiedad/{{ item.propiedad.id }}
+                                    {% endspaceless %}"
                                    target="_blank" 
-                                   class="btn btn-sm btn-success">
-                                    <i class="fab fa-whatsapp"></i>
+                                   class="btn btn-success btn-sm">
+                                    <i class="fab fa-whatsapp"></i> Compartir
                                 </a>
                             </td>
                         </tr>

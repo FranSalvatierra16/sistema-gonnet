@@ -509,6 +509,19 @@
                     <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-success">Agregar Disponibilidad</a>
                     <a href="{% url 'inmobiliaria:gestionar_precios' propiedad_id=propiedad.id %}" class="btn btn-success">Gestionar Precios</a>
                     <a href="{% url 'inmobiliaria:historial_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-info">Historial</a>
+                    <!-- Botón de WhatsApp con más información -->
+                    <a href="https://wa.me/549{{ telefono_empresa }}?text={% spaceless %}
+                        *Consulta por propiedad en {{ propiedad.direccion }}*%0A
+                        {% if propiedad.tipo_inmueble %}Tipo: {{ propiedad.get_tipo_inmueble_display }}%0A{% endif %}
+                        {% if propiedad.ambientes %}Ambientes: {{ propiedad.ambientes }}%0A{% endif %}
+                        {% if propiedad.metros_cuadrados %}Superficie: {{ propiedad.metros_cuadrados }}m²%0A{% endif %}
+                        {% if propiedad.precio_usd %}Precio: U$D {{ propiedad.precio_usd|floatformat:2|intcomma }}%0A{% endif %}
+                        %0AMás información: https://{{ request.get_host }}/propiedad/{{ propiedad.id }}
+                        {% endspaceless %}"
+                       target="_blank" 
+                       class="btn btn-success">
+                        <i class="fab fa-whatsapp"></i> Consultar por WhatsApp
+                    </a>
                 </div>
             
 
