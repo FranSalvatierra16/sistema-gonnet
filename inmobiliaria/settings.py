@@ -14,9 +14,30 @@ STATICFILES_DIRS = [
 # Configuración para servir archivos estáticos en producción
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-MIDDLEWARE = [
-    # ...
-    'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Agregar después de SecurityMiddleware
-    # ... resto de middleware
+# Configuración de seguridad
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = True  # Cambia a False si el error persiste
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
+# Configuración de hosts permitidos
+ALLOWED_HOSTS = [
+    'gonnet-interno-052a6cec3da9.herokuapp.com',
+    'localhost',
+    '127.0.0.1',
 ]
+
+# Configuración de middleware
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+# Configuración de Debug
+DEBUG = False  # Asegúrate de que esté en False en producción
