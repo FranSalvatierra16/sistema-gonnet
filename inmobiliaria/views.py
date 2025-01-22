@@ -1974,7 +1974,7 @@ def ventas(request):
         'busqueda': busqueda,
         'estado_filtro': estado,
         'estados': VentaPropiedad.ESTADO_CHOICES,
-        'telefono_empresa': '2235029881',  # Reemplaza con tu número real
+        'telefono_empresa': '2235916229',  # Reemplaza con tu número real
     }
     
     return render(request, 'inmobiliaria/propiedades/ventas.html', context)
