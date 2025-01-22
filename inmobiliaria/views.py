@@ -2006,3 +2006,19 @@ def alquileres_24_meses(request):
     }
     
     return render(request, 'inmobiliaria/propiedades/alquileres_24_meses.html', context)
+
+def generar_mensaje_whatsapp(propiedad):
+    # Formatear el mensaje
+    mensaje = f"""
+*Propiedad en {propiedad.direccion}*
+{propiedad.get_tipo_inmueble_display()}
+{propiedad.ambientes} ambientes
+{propiedad.metros_cuadrados}m²
+
+Precio: U$D {propiedad.precios.filter(tipo_precio='VENTA').first().monto if propiedad.precios.filter(tipo_precio='VENTA').exists() else 'Consultar'}
+
+Para más información: https://tu-sitio.com/propiedad/{propiedad.id}
+"""
+    # Codificar el mensaje para URL
+    from urllib.parse import quote
+    return quote(mensaje)

@@ -104,5 +104,5 @@ urlpatterns = [
     path('propiedades/<int:propiedad_id>/editar-meses/', views.editar_info_meses, name='editar_info_meses'),
     path('ventas/', views.ventas, name='ventas'),
     path('alquileres-24-meses/', views.alquileres_24_meses, name='alquileres_24_meses'),
-    path('dashboard/ventas/', views.dashboard_ventas, name='dashboard_ventas'),
+    path('dashboard/ventas/', views.ventas, name='dashboard_ventas'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

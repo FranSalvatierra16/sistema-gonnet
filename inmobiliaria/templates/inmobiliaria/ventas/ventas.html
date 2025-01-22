@@ -76,6 +76,11 @@
                                    class="btn btn-sm btn-primary">
                                     <i class="fas fa-edit"></i>
                                 </a>
+                                <a href="https://wa.me/549{{ telefono_empresa }}?text={{ item.propiedad|generar_mensaje_whatsapp }}" 
+                                   target="_blank" 
+                                   class="btn btn-sm btn-success">
+                                    <i class="fab fa-whatsapp"></i>
+                                </a>
                             </td>
                         </tr>
                         {% empty %}
