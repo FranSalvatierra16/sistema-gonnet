@@ -78,7 +78,7 @@
                                 </a>
                                 <a href="https://wa.me/549{{ telefono_empresa }}?text={% spaceless %}
                                     Consulta por propiedad: {{ item.propiedad.direccion }}%0A
-                                    {% if item.precio_usd %}Precio: U$D {{ item.precio_usd|floatformat:2|intcomma }}%0A{% endif %}
+                                    {% if item.precio_usd %}Precio: U$D {{ item.precio_usd }}%0A{% endif %}
                                     Más información: https://{{ request.get_host }}/propiedad/{{ item.propiedad.id }}
                                     {% endspaceless %}"
                                    target="_blank" 
