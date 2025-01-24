@@ -98,7 +98,7 @@
                                     <td class="text-center">
                                         <a href="https://api.whatsapp.com/send?phone=5492235916229&text={% spaceless %}
                                             Consulta por propiedad: {{ propiedad.direccion }}%0A
-                                            {% if propiedad.info_venta.precio %}Precio: U$D {{ propiedad.info_venta.precio|floatformat:2|intcomma }}%0A{% endif %}
+                                            {% if propiedad.info_venta.precio %}Precio: U$D {{ propiedad.info_venta.precio}}%0A{% endif %}
                                             Estado: {{ propiedad.info_venta.get_estado_display }}%0A
                                             Más información: https://{{ request.get_host }}/propiedad/{{ propiedad.id }}
                                             {% endspaceless %}"
