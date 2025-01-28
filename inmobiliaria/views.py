@@ -2023,3 +2023,37 @@ Para más información: https://tu-sitio.com/propiedad/{propiedad.id}
     # Codificar el mensaje para URL
     from urllib.parse import quote
     return quote(mensaje)
+
+@login_required
+def iniciar_compra(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    
+    if request.method == 'POST':
+        try:
+            # Verificar que la propiedad esté disponible
+            if propiedad.info_venta.estado != 'disponible':
+                messages.error(request, 'La propiedad no está disponible para la compra.')
+                return redirect('inmobiliaria:detalle_propiedad', propiedad_id=propiedad_id)
+            
+            # Crear la venta
+            venta = VentaPropiedad.objects.create(
+                propiedad=propiedad,
+                comprador=request.user,
+                precio_venta=propiedad.info_venta.precio,
+                estado='pendiente'
+            )
+            
+            # Actualizar estado de la propiedad
+            propiedad.info_venta.estado = 'reservado'
+            propiedad.info_venta.save()
+            
+            messages.success(request, 'Se ha iniciado el proceso de compra correctamente.')
+            return redirect('inmobiliaria:detalle_venta', venta_id=venta.id)
+            
+        except Exception as e:
+            messages.error(request, f'Error al iniciar la compra: {str(e)}')
+            return redirect('inmobiliaria:detalle_propiedad', propiedad_id=propiedad_id)
+    
+    return render(request, 'inmobiliaria/propiedades/iniciar_compra.html', {
+        'propiedad': propiedad
+    })

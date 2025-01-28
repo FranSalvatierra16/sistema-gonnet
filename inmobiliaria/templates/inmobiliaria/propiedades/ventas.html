@@ -93,6 +93,12 @@
                                                     {% if propiedad.info_venta.estado != 'disponible' %}disabled{% endif %}>
                                                 <i class="fas fa-calendar-check"></i>
                                             </button>
+                                            {% if propiedad.info_venta.estado == 'disponible' %}
+                                                <a href="{% url 'inmobiliaria:iniciar_compra' propiedad.id %}" 
+                                                   class="btn btn-primary btn-sm">
+                                                    <i class="fas fa-shopping-cart"></i> Comprar
+                                                </a>
+                                            {% endif %}
                                         </div>
                                     </td>
                                     <td class="text-center">

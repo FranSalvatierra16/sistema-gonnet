@@ -1,0 +1,68 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h3 class="m-0 font-weight-bold text-primary">Iniciar Compra</h3>
+                </div>
+                <div class="card-body">
+                    <h5>Detalles de la Propiedad</h5>
+                    <hr>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <p><strong>Dirección:</strong> {{ propiedad.direccion }}</p>
+                            <p><strong>Tipo:</strong> {{ propiedad.get_tipo_inmueble_display }}</p>
+                            <p><strong>Ambientes:</strong> {{ propiedad.ambientes }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Precio:</strong> U$D {{ propiedad.info_venta.precio|floatformat:2|intcomma }}</p>
+                            <p><strong>Estado:</strong> {{ propiedad.info_venta.get_estado_display }}</p>
+                        </div>
+                    </div>
+
+                    <h5>Términos y Condiciones</h5>
+                    <hr>
+                    <div class="alert alert-info">
+                        <ul>
+                            <li>Al iniciar la compra, la propiedad quedará reservada a su nombre.</li>
+                            <li>Deberá completar la documentación necesaria en las próximas 48 horas.</li>
+                            <li>El precio puede variar según el método de pago elegido.</li>
+                        </ul>
+                    </div>
+
+                    <form method="post" class="mt-4">
+                        {% csrf_token %}
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="aceptar_terminos" required>
+                            <label class="form-check-label" for="aceptar_terminos">
+                                Acepto los términos y condiciones
+                            </label>
+                        </div>
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary" id="btn_iniciar_compra" disabled>
+                                Iniciar Proceso de Compra
+                            </button>
+                            <a href="{% url 'inmobiliaria:detalle_propiedad' propiedad.id %}" class="btn btn-secondary">
+                                Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.getElementById('aceptar_terminos').addEventListener('change', function() {
+    document.getElementById('btn_iniciar_compra').disabled = !this.checked;
+});
+</script>
+{% endblock %}
+{% endblock %} 
