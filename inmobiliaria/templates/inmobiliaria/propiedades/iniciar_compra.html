@@ -1,6 +1,6 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load static %}
-{% load humanize %}
+{% load crispy_forms_tags %}
 
 {% block content %}
 <div class="container">
@@ -20,7 +20,7 @@
                             <p><strong>Ambientes:</strong> {{ propiedad.ambientes }}</p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>Precio:</strong> U$D {{ propiedad.info_venta.precio|floatformat:2|intcomma }}</p>
+                            <p><strong>Precio:</strong> U$D {{ propiedad.info_venta.precio }}</p>
                             <p><strong>Estado:</strong> {{ propiedad.info_venta.get_estado_display }}</p>
                         </div>
                     </div>

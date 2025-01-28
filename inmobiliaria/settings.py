@@ -41,3 +41,9 @@ MIDDLEWARE = [
 
 # Configuración de Debug
 DEBUG = False  # Asegúrate de que esté en False en producción
+
+INSTALLED_APPS = [
+    # ... otras apps ...
+    'django.contrib.humanize',
+    # ... resto de las apps ...
+]
