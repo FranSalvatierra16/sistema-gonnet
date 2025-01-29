@@ -6,7 +6,7 @@ from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Dispon
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from django.db.models import Q, Prefetch, Case, When, IntegerField
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
@@ -2038,8 +2038,9 @@ def iniciar_compra(request, propiedad_id):
             # Crear la venta usando los campos correctos del modelo
             venta = VentaPropiedad.objects.create(
                 propiedad=propiedad,
-                cliente=request.user,  # Cambiado de comprador a cliente
+                vendedor=request.user,  # Cambiado a vendedor
                 precio_venta=propiedad.info_venta.precio_venta,
+                fecha_venta=timezone.now(),
                 estado='pendiente'
             )
             
