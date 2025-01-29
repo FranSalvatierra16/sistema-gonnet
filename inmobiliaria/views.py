@@ -2033,7 +2033,7 @@ def iniciar_compra(request, propiedad_id):
             # Verificar que la propiedad esté disponible
             if propiedad.info_venta.estado != 'disponible':
                 messages.error(request, 'La propiedad no está disponible para la compra.')
-                return redirect('inmobiliaria:detalle_propiedad', propiedad_id=propiedad_id)
+                return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
             
             # Crear la venta usando los campos correctos del modelo
             venta = VentaPropiedad.objects.create(
@@ -2052,7 +2052,7 @@ def iniciar_compra(request, propiedad_id):
             
         except Exception as e:
             messages.error(request, f'Error al iniciar la compra: {str(e)}')
-            return redirect('inmobiliaria:detalle_propiedad', propiedad_id=propiedad_id)
+            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
     
     return render(request, 'inmobiliaria/propiedades/iniciar_compra.html', {
         'propiedad': propiedad
