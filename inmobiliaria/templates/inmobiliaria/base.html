@@ -76,7 +76,8 @@
         <div class="container-fluid">
             {% if user.is_authenticated %}
             <div class="navbar-nav me-auto">
-                
+
+                <a class="nav-link" href="{% url 'inmobiliaria:dashboard' %}">Inicio</a>
                 <a class="nav-link" href="{% url 'inmobiliaria:crear_reserva' %}">Reservas</a>
                 <div class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="utilidadesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
