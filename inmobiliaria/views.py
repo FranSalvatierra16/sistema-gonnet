@@ -6,7 +6,7 @@ from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Dispon
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, date, timedelta
 from django.db.models import Q, Prefetch, Case, When, IntegerField
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
@@ -2035,12 +2035,10 @@ def iniciar_compra(request, propiedad_id):
                 messages.error(request, 'La propiedad no está disponible para la compra.')
                 return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
             
-            # Crear la venta usando los campos correctos del modelo
+            # Crear la venta inicial sin cliente
             venta = VentaPropiedad.objects.create(
                 propiedad=propiedad,
-                vendedor=request.user,  # Cambiado a vendedor
                 precio_venta=propiedad.info_venta.precio_venta,
-                fecha_venta=timezone.now(),
                 estado='pendiente'
             )
             
@@ -2049,11 +2047,12 @@ def iniciar_compra(request, propiedad_id):
             propiedad.info_venta.save()
             
             messages.success(request, 'Se ha iniciado el proceso de compra correctamente.')
-            return redirect('inmobiliaria:detalle_venta', venta_id=venta.id)
+            # Redirigir a una vista donde se pueda cargar el cliente
+            return redirect('inmobiliaria:cargar_cliente_venta', venta_id=venta.id)
             
         except Exception as e:
             messages.error(request, f'Error al iniciar la compra: {str(e)}')
-            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+            return redirect('inmobiliaria:detalle_propiedad', propiedad_id=propiedad_id)
     
     return render(request, 'inmobiliaria/propiedades/iniciar_compra.html', {
         'propiedad': propiedad
