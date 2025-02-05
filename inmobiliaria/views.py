@@ -2035,17 +2035,13 @@ def iniciar_compra(request, propiedad_id):
                 messages.error(request, 'La propiedad no está disponible para la compra.')
                 return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
             
-            # Verificar si ya existe una venta pendiente para esta propiedad
-            venta_existente = VentaPropiedad.objects.filter(
+            # Eliminar cualquier venta pendiente anterior
+            VentaPropiedad.objects.filter(
                 propiedad=propiedad,
                 estado='pendiente'
-            ).exists()
+            ).delete()
             
-            if venta_existente:
-                messages.error(request, 'Ya existe un proceso de venta iniciado para esta propiedad.')
-                return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
-            
-            # Crear la venta inicial sin cliente
+            # Crear la nueva venta
             venta = VentaPropiedad.objects.create(
                 propiedad=propiedad,
                 precio_venta=propiedad.info_venta.precio_venta,
