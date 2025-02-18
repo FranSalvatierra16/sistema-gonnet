@@ -1,0 +1,157 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Estado de Caja -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Estado de Caja</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% if caja_actual %}
+                                    <span class="text-success">ABIERTA</span>
+                                {% else %}
+                                    <span class="text-danger">CERRADA</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-cash-register fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Saldo Actual</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                ${{ saldo_actual|floatformat:2 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Acciones Rápidas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Acciones Rápidas</h6>
+                </div>
+                <div class="card-body">
+                    {% if caja_actual %}
+                        <a href="{% url 'inmobiliaria:nuevo_movimiento' %}" class="btn btn-primary mr-2">
+                            <i class="fas fa-plus"></i> Nuevo Movimiento
+                        </a>
+                        <a href="{% url 'inmobiliaria:cerrar_caja' %}" class="btn btn-danger mr-2">
+                            <i class="fas fa-lock"></i> Cerrar Caja
+                        </a>
+                    {% else %}
+                        <a href="{% url 'inmobiliaria:abrir_caja' %}" class="btn btn-success">
+                            <i class="fas fa-lock-open"></i> Abrir Caja
+                        </a>
+                    {% endif %}
+                    <a href="{% url 'inmobiliaria:nuevo_vale' %}" class="btn btn-info mr-2">
+                        <i class="fas fa-hand-holding-usd"></i> Nuevo Vale
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Últimos Movimientos -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Últimos Movimientos</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Concepto</th>
+                                    <th>Monto</th>
+                                    <th>Estado</th>
+                                    <th>Empleado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for movimiento in ultimos_movimientos %}
+                                <tr>
+                                    <td>{{ movimiento.fecha|date:"d/m/Y H:i" }}</td>
+                                    <td>{{ movimiento.concepto }}</td>
+                                    <td class="{% if movimiento.concepto.tipo == 'ingreso' %}text-success{% else %}text-danger{% endif %}">
+                                        ${{ movimiento.monto|floatformat:2 }}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{{ movimiento.estado|lower }}">
+                                            {{ movimiento.get_estado_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ movimiento.empleado }}</td>
+                                    <td>
+                                        <a href="{% url 'inmobiliaria:detalle_movimiento' movimiento.id %}" 
+                                           class="btn btn-info btn-sm">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% if movimiento.estado == 'pendiente' %}
+                                        <a href="{% url 'inmobiliaria:editar_movimiento' movimiento.id %}" 
+                                           class="btn btn-primary btn-sm">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'inmobiliaria:duplicar_movimiento' movimiento.id %}" 
+                                           class="btn btn-warning btn-sm">
+                                            <i class="fas fa-copy"></i>
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center">No hay movimientos registrados</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#dataTable').DataTable({
+        "order": [[0, "desc"]],
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json"
+        }
+    });
+});
+</script>
+{% endblock %}
+{% endblock %} 
