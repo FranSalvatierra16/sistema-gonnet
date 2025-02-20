@@ -106,4 +106,15 @@ urlpatterns = [
     path('alquileres-24-meses/', views.alquileres_24_meses, name='alquileres_24_meses'),
     path('dashboard/ventas/', views.ventas, name='dashboard_ventas'),
     path('propiedad/<int:propiedad_id>/iniciar-compra/', views.iniciar_compra, name='iniciar_compra'),
+
+    # URLs del sistema de caja
+    path('caja/', views.caja_dashboard, name='caja_dashboard'),
+    path('caja/abrir/', views.abrir_caja, name='abrir_caja'),
+    path('caja/cerrar/', views.cerrar_caja, name='cerrar_caja'),
+    path('caja/movimiento/nuevo/', views.nuevo_movimiento, name='nuevo_movimiento'),
+    path('caja/movimiento/<int:movimiento_id>/', views.detalle_movimiento, name='detalle_movimiento'),
+    path('caja/movimiento/<int:movimiento_id>/editar/', views.editar_movimiento, name='editar_movimiento'),
+    path('caja/movimiento/<int:movimiento_id>/duplicar/', views.duplicar_movimiento, name='duplicar_movimiento'),
+    path('caja/vale/nuevo/', views.nuevo_vale, name='nuevo_vale'),
+    path('caja/reportes/', views.reportes_caja, name='reportes_caja'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
