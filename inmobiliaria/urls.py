@@ -107,14 +107,35 @@ urlpatterns = [
     path('dashboard/ventas/', views.ventas, name='dashboard_ventas'),
     path('propiedad/<int:propiedad_id>/iniciar-compra/', views.iniciar_compra, name='iniciar_compra'),
 
-    # URLs del sistema de caja
+    # Sistema de Caja - Dashboard
     path('caja/', views.caja_dashboard, name='caja_dashboard'),
+    
+    # Apertura y Cierre de Caja
     path('caja/abrir/', views.abrir_caja, name='abrir_caja'),
     path('caja/cerrar/', views.cerrar_caja, name='cerrar_caja'),
+    
+    # Movimientos de Caja
+    path('caja/movimientos/', views.lista_movimientos, name='lista_movimientos'),
     path('caja/movimiento/nuevo/', views.nuevo_movimiento, name='nuevo_movimiento'),
     path('caja/movimiento/<int:movimiento_id>/', views.detalle_movimiento, name='detalle_movimiento'),
     path('caja/movimiento/<int:movimiento_id>/editar/', views.editar_movimiento, name='editar_movimiento'),
     path('caja/movimiento/<int:movimiento_id>/duplicar/', views.duplicar_movimiento, name='duplicar_movimiento'),
+    path('caja/movimiento/<int:movimiento_id>/anular/', views.anular_movimiento, name='anular_movimiento'),
+    
+    # Vales de Personal
+    path('caja/vales/', views.lista_vales, name='lista_vales'),
     path('caja/vale/nuevo/', views.nuevo_vale, name='nuevo_vale'),
+    path('caja/vale/<int:vale_id>/', views.detalle_vale, name='detalle_vale'),
+    path('caja/vale/<int:vale_id>/aprobar/', views.aprobar_vale, name='aprobar_vale'),
+    path('caja/vale/<int:vale_id>/rechazar/', views.rechazar_vale, name='rechazar_vale'),
+    
+    # Reportes de Caja
     path('caja/reportes/', views.reportes_caja, name='reportes_caja'),
+    path('caja/reportes/movimientos/', views.reporte_movimientos, name='reporte_movimientos'),
+    path('caja/reportes/alquileres/', views.reporte_alquileres, name='reporte_alquileres'),
+    path('caja/reportes/comisiones/', views.reporte_comisiones, name='reporte_comisiones'),
+    
+    # API para AJAX
+    path('api/caja/saldo/', views.api_saldo_caja, name='api_saldo_caja'),
+    path('api/caja/movimientos/', views.api_movimientos, name='api_movimientos'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

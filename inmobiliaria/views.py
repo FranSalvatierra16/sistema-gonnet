@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja, ValePersonal, ConceptoMovimiento
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
@@ -38,6 +38,7 @@ from django.utils.encoding import force_bytes
 from django.contrib.auth import get_user_model
 from django.contrib.auth import update_session_auth_hash
 from .utils import numero_a_palabras
+from django.utils import timezone
 
 import logging
 logger = logging.getLogger(__name__)
@@ -2062,3 +2063,242 @@ def iniciar_compra(request, propiedad_id):
     return render(request, 'inmobiliaria/propiedades/iniciar_compra.html', {
         'propiedad': propiedad
     })
+
+@login_required
+def caja_dashboard(request):
+    try:
+        # Obtener la caja actual si está abierta
+        caja_actual = Caja.objects.filter(estado='abierta').first()
+        
+        # Obtener últimos movimientos
+        ultimos_movimientos = MovimientoCaja.objects.all().order_by('-fecha')[:10]
+        
+        # Calcular saldo actual
+        saldo_actual = 0
+        if caja_actual:
+            saldo_actual = caja_actual.saldo_inicial
+            for mov in caja_actual.movimientos.filter(estado='confirmado'):
+                if mov.concepto.tipo == 'ingreso':
+                    saldo_actual += mov.monto
+                else:
+                    saldo_actual -= mov.monto
+        
+        context = {
+            'caja_actual': caja_actual,
+            'ultimos_movimientos': ultimos_movimientos,
+            'saldo_actual': saldo_actual,
+        }
+        
+        return render(request, 'inmobiliaria/caja/dashboard.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Error: {str(e)}')
+        return redirect('inmobiliaria:dashboard')
+
+@login_required
+def abrir_caja(request):
+    try:
+        if request.method == 'POST':
+            saldo_inicial = request.POST.get('saldo_inicial', 0)
+            Caja.objects.create(
+                empleado_apertura=request.user,
+                saldo_inicial=saldo_inicial,
+                estado='abierta'
+            )
+            messages.success(request, 'Caja abierta correctamente')
+            return redirect('inmobiliaria:caja_dashboard')
+        return render(request, 'inmobiliaria/caja/abrir_caja.html')
+    except Exception as e:
+        messages.error(request, f'Error al abrir caja: {str(e)}')
+        return redirect('inmobiliaria:caja_dashboard')
+
+@login_required
+def cerrar_caja(request):
+    try:
+        caja_actual = get_object_or_404(Caja, estado='abierta')
+        if request.method == 'POST':
+            caja_actual.estado = 'cerrada'
+            caja_actual.empleado_cierre = request.user
+            caja_actual.fecha_cierre = timezone.now()
+            caja_actual.saldo_final = request.POST.get('saldo_final', 0)
+            caja_actual.save()
+            messages.success(request, 'Caja cerrada correctamente')
+            return redirect('inmobiliaria:caja_dashboard')
+        return render(request, 'inmobiliaria/caja/cerrar_caja.html', {'caja': caja_actual})
+    except Exception as e:
+        messages.error(request, f'Error al cerrar caja: {str(e)}')
+        return redirect('inmobiliaria:caja_dashboard')
+
+@login_required
+def nuevo_movimiento(request):
+    try:
+        if request.method == 'POST':
+            # Aquí irá la lógica para crear un nuevo movimiento
+            pass
+        conceptos = ConceptoMovimiento.objects.filter(activo=True)
+        return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
+            'conceptos': conceptos
+        })
+    except Exception as e:
+        messages.error(request, f'Error: {str(e)}')
+        return redirect('inmobiliaria:caja_dashboard')
+
+@login_required
+def detalle_movimiento(request, movimiento_id):
+    try:
+        movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id)
+        return render(request, 'inmobiliaria/caja/detalle_movimiento.html', {
+            'movimiento': movimiento
+        })
+    except Exception as e:
+        messages.error(request, f'Error: {str(e)}')
+        return redirect('inmobiliaria:caja_dashboard')
+
+@login_required
+def editar_movimiento(request, movimiento_id):
+    try:
+        movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id)
+        if request.method == 'POST':
+            # Aquí irá la lógica para editar el movimiento
+            pass
+        return render(request, 'inmobiliaria/caja/editar_movimiento.html', {
+            'movimiento': movimiento
+        })
+    except Exception as e:
+        messages.error(request, f'Error: {str(e)}')
+        return redirect('inmobiliaria:caja_dashboard')
+
+@login_required
+def duplicar_movimiento(request, movimiento_id):
+    try:
+        movimiento_original = get_object_or_404(MovimientoCaja, id=movimiento_id)
+        nuevo_movimiento = MovimientoCaja.objects.create(
+            caja=Caja.objects.filter(estado='abierta').first(),
+            concepto=movimiento_original.concepto,
+            monto=movimiento_original.monto,
+            descripcion=f"Duplicado de movimiento #{movimiento_original.id}",
+            empleado=request.user,
+            estado='pendiente',
+            referencia=f"Duplicado-{movimiento_original.id}"
+        )
+        messages.success(request, 'Movimiento duplicado correctamente')
+        return redirect('inmobiliaria:detalle_movimiento', movimiento_id=nuevo_movimiento.id)
+    except Exception as e:
+        messages.error(request, f'Error: {str(e)}')
+        return redirect('inmobiliaria:caja_dashboard')
+
+@login_required
+def nuevo_vale(request):
+    try:
+        if request.method == 'POST':
+            # Aquí irá la lógica para crear un nuevo vale
+            pass
+        return render(request, 'inmobiliaria/caja/nuevo_vale.html')
+    except Exception as e:
+        messages.error(request, f'Error: {str(e)}')
+        return redirect('inmobiliaria:caja_dashboard')
+
+@login_required
+def reportes_caja(request):
+    try:
+        return render(request, 'inmobiliaria/caja/reportes.html')
+    except Exception as e:
+        messages.error(request, f'Error: {str(e)}')
+        return redirect('inmobiliaria:caja_dashboard')
+
+@login_required
+def lista_movimientos(request):
+    movimientos = MovimientoCaja.objects.all().order_by('-fecha')
+    return render(request, 'inmobiliaria/caja/lista_movimientos.html', {
+        'movimientos': movimientos
+    })
+
+@login_required
+def anular_movimiento(request, movimiento_id):
+    try:
+        movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id)
+        movimiento.estado = 'anulado'
+        movimiento.save()
+        messages.success(request, 'Movimiento anulado correctamente')
+    except Exception as e:
+        messages.error(request, f'Error al anular movimiento: {str(e)}')
+    return redirect('inmobiliaria:detalle_movimiento', movimiento_id=movimiento_id)
+
+@login_required
+def lista_vales(request):
+    vales = ValePersonal.objects.all().order_by('-fecha_solicitud')
+    return render(request, 'inmobiliaria/caja/lista_vales.html', {
+        'vales': vales
+    })
+
+@login_required
+def detalle_vale(request, vale_id):
+    vale = get_object_or_404(ValePersonal, id=vale_id)
+    return render(request, 'inmobiliaria/caja/detalle_vale.html', {
+        'vale': vale
+    })
+
+@login_required
+def aprobar_vale(request, vale_id):
+    try:
+        vale = get_object_or_404(ValePersonal, id=vale_id)
+        vale.estado = 'aprobado'
+        vale.aprobado_por = request.user
+        vale.fecha_aprobacion = timezone.now()
+        vale.save()
+        messages.success(request, 'Vale aprobado correctamente')
+    except Exception as e:
+        messages.error(request, f'Error al aprobar vale: {str(e)}')
+    return redirect('inmobiliaria:detalle_vale', vale_id=vale_id)
+
+@login_required
+def rechazar_vale(request, vale_id):
+    try:
+        vale = get_object_or_404(ValePersonal, id=vale_id)
+        vale.estado = 'rechazado'
+        vale.save()
+        messages.success(request, 'Vale rechazado')
+    except Exception as e:
+        messages.error(request, f'Error al rechazar vale: {str(e)}')
+    return redirect('inmobiliaria:detalle_vale', vale_id=vale_id)
+
+@login_required
+def reporte_movimientos(request):
+    return render(request, 'inmobiliaria/caja/reportes/movimientos.html')
+
+@login_required
+def reporte_alquileres(request):
+    return render(request, 'inmobiliaria/caja/reportes/alquileres.html')
+
+@login_required
+def reporte_comisiones(request):
+    return render(request, 'inmobiliaria/caja/reportes/comisiones.html')
+
+# API Views
+from django.http import JsonResponse
+
+@login_required
+def api_saldo_caja(request):
+    try:
+        caja = Caja.objects.filter(estado='abierta').first()
+        return JsonResponse({
+            'saldo': float(caja.saldo_actual) if caja else 0,
+            'estado': 'abierta' if caja else 'cerrada'
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def api_movimientos(request):
+    try:
+        movimientos = MovimientoCaja.objects.all().order_by('-fecha')[:10]
+        data = [{
+            'id': m.id,
+            'concepto': m.concepto.nombre,
+            'monto': float(m.monto),
+            'fecha': m.fecha.strftime('%Y-%m-%d %H:%M'),
+            'estado': m.estado
+        } for m in movimientos]
+        return JsonResponse({'movimientos': data})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
