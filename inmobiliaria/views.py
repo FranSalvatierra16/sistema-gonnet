@@ -2085,8 +2085,9 @@ def iniciar_compra(request, propiedad_id):
 @login_required
 def caja_dashboard(request):
     try:
-        # Obtener la sucursal del vendedor logueado
-        sucursal = request.user.vendedor.sucursal
+        # Obtener el vendedor y su sucursal
+        vendedor = Vendedor.objects.get(usuario=request.user)
+        sucursal = vendedor.sucursal
         
         # Obtener la caja actual de la sucursal si está abierta
         caja_actual = Caja.objects.filter(
@@ -2114,6 +2115,7 @@ def caja_dashboard(request):
             'ultimos_movimientos': ultimos_movimientos,
             'saldo_actual': saldo_actual,
             'sucursal': sucursal,
+            'vendedor': vendedor,
         }
         
         return render(request, 'inmobiliaria/caja/dashboard.html', context)
@@ -2125,7 +2127,8 @@ def caja_dashboard(request):
 @login_required
 def abrir_caja(request):
     try:
-        sucursal = request.user.vendedor.sucursal
+        vendedor = Vendedor.objects.get(usuario=request.user)
+        sucursal = vendedor.sucursal
         
         # Verificar que no haya otra caja abierta en la sucursal
         if Caja.objects.filter(sucursal=sucursal, estado='abierta').exists():
