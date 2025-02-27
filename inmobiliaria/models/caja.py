@@ -2,6 +2,11 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from decimal import Decimal
+from django.conf import settings
+
+class TipoMovimientoCajaEnum(models.TextChoices):
+    INGRESO = 'IN', 'Ingreso'
+    EGRESO = 'EG', 'Egreso'
 
 class Caja(models.Model):
     ESTADO_CHOICES = [
@@ -9,41 +14,41 @@ class Caja(models.Model):
         ('cerrada', 'Cerrada')
     ]
     
+    sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
     fecha_apertura = models.DateTimeField(auto_now_add=True)
     fecha_cierre = models.DateTimeField(null=True, blank=True)
     empleado_apertura = models.ForeignKey(
-        User, 
-        on_delete=models.PROTECT,
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
         related_name='cajas_abiertas'
     )
     empleado_cierre = models.ForeignKey(
-        User, 
-        on_delete=models.PROTECT,
-        related_name='cajas_cerradas',
-        null=True, 
-        blank=True
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='cajas_cerradas'
     )
     saldo_inicial = models.DecimalField(max_digits=10, decimal_places=2)
     saldo_final = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='abierta')
     observaciones = models.TextField(blank=True)
+    saldo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Caja #{self.id} - {self.fecha_apertura.strftime('%d/%m/%Y')}"
+        return f"Caja {self.sucursal} - Saldo: ${self.saldo}"
 
 class ConceptoMovimiento(models.Model):
-    TIPO_CHOICES = [
-        ('ingreso', 'Ingreso'),
-        ('egreso', 'Egreso')
-    ]
-    
     nombre = models.CharField(max_length=100)
-    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
-    descripcion = models.TextField(blank=True)
-    activo = models.BooleanField(default=True)
+    tipo = models.CharField(
+        max_length=2,
+        choices=TipoMovimientoCajaEnum.choices,
+        default=TipoMovimientoCajaEnum.INGRESO
+    )
 
     def __str__(self):
-        return f"{self.nombre} ({self.get_tipo_display()})"
+        return self.nombre
 
 class MovimientoCaja(models.Model):
     ESTADO_CHOICES = [
@@ -52,18 +57,22 @@ class MovimientoCaja(models.Model):
         ('anulado', 'Anulado')
     ]
     
-    caja = models.ForeignKey(Caja, on_delete=models.PROTECT, related_name='movimientos')
-    concepto = models.ForeignKey(ConceptoMovimiento, on_delete=models.PROTECT)
+    sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
     fecha = models.DateTimeField(auto_now_add=True)
+    tipo = models.ForeignKey(ConceptoMovimiento, on_delete=models.PROTECT)
     monto = models.DecimalField(max_digits=10, decimal_places=2)
-    descripcion = models.TextField()
-    comprobante = models.FileField(upload_to='comprobantes/', null=True, blank=True)
-    empleado = models.ForeignKey(User, on_delete=models.PROTECT)
+    descripcion = models.TextField(blank=True)
+    comprobante = models.CharField(max_length=100, blank=True)
+    empleado = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True
+    )
     estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='pendiente')
     referencia = models.CharField(max_length=100, blank=True)  # Para duplicados/referencias
     
     def __str__(self):
-        return f"{self.concepto} - ${self.monto} - {self.fecha.strftime('%d/%m/%Y')}"
+        return f"{self.tipo} - ${self.monto} - {self.fecha.strftime('%d/%m/%Y')}"
 
 class ValePersonal(models.Model):
     ESTADO_CHOICES = [
@@ -73,19 +82,23 @@ class ValePersonal(models.Model):
         ('pagado', 'Pagado')
     ]
     
-    empleado = models.ForeignKey(User, on_delete=models.PROTECT, related_name='vales')
+    sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
+    fecha = models.DateTimeField(auto_now_add=True)
     monto = models.DecimalField(max_digits=10, decimal_places=2)
-    fecha_solicitud = models.DateTimeField(auto_now_add=True)
-    fecha_aprobacion = models.DateTimeField(null=True, blank=True)
+    descripcion = models.TextField()
+    estado = models.CharField(max_length=20, default='pendiente')
+    empleado = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='vales_solicitados'
+    )
     aprobado_por = models.ForeignKey(
-        User, 
-        on_delete=models.PROTECT, 
-        related_name='vales_aprobados',
-        null=True, 
-        blank=True
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='vales_aprobados'
     )
     motivo = models.TextField()
-    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='pendiente')
     movimiento_caja = models.OneToOneField(
         MovimientoCaja, 
         on_delete=models.SET_NULL, 
@@ -97,11 +110,16 @@ class ValePersonal(models.Model):
         return f"Vale {self.empleado} - ${self.monto}"
 
 class ComisionVenta(models.Model):
-    venta = models.ForeignKey('VentaPropiedad', on_delete=models.PROTECT)
-    vendedor = models.ForeignKey(User, on_delete=models.PROTECT)
-    porcentaje = models.DecimalField(max_digits=5, decimal_places=2)
+    fecha = models.DateTimeField(auto_now_add=True)
     monto = models.DecimalField(max_digits=10, decimal_places=2)
-    fecha_calculo = models.DateTimeField(auto_now_add=True)
+    vendedor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='comisiones'
+    )
+    propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE)
+    venta = models.ForeignKey('VentaPropiedad', on_delete=models.PROTECT)
+    porcentaje = models.DecimalField(max_digits=5, decimal_places=2)
     pagada = models.BooleanField(default=False)
     movimiento_caja = models.OneToOneField(
         MovimientoCaja, 

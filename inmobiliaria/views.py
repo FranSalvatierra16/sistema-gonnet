@@ -2,7 +2,25 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja, ValePersonal, ConceptoMovimiento
+from .models import (
+    Vendedor, 
+    Inquilino, 
+    Propietario, 
+    Propiedad, 
+    Reserva, 
+    Disponibilidad, 
+    ImagenPropiedad,
+    Precio, 
+    TipoPrecio, 
+    Pago,  # Quitar ConceptoPago de aquí
+    HistorialDisponibilidad, 
+    VentaPropiedad, 
+    AlquilerMeses, 
+    Caja, 
+    MovimientoCaja, 
+    ValePersonal, 
+    ConceptoMovimiento  # Este reemplaza a ConceptoPago
+)
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
@@ -976,7 +994,7 @@ def reserva_exitosa(request, reserva_id):
 @login_required
 def terminar_reserva(request, reserva_id):
     reserva = get_object_or_404(Reserva, id=reserva_id)
-    conceptos_pago = ConceptoPago.objects.all()
+    conceptos_pago = ConceptoMovimiento.objects.all()
     pagos_previos = Pago.objects.filter(reserva=reserva).order_by('-fecha')
     
     # Verificar si hay pagos y actualizar el estado
@@ -1006,7 +1024,7 @@ def terminar_reserva(request, reserva_id):
                     raise ValueError('El monto no puede ser mayor al saldo pendiente')
                 
                 # Obtener el concepto
-                concepto = get_object_or_404(ConceptoPago, id=concepto_id)
+                concepto = get_object_or_404(ConceptoMovimiento, id=concepto_id)
                 
                 # Obtener datos adicionales de tarjeta si es necesario
                 numero_tarjeta = None
@@ -1802,7 +1820,7 @@ def cambiar_password(request):
 @login_required
 def confirmar_pago(request, reserva_id):
     reserva = get_object_or_404(Reserva, id=reserva_id)
-    conceptos_pago = ConceptoPago.objects.all()
+    conceptos_pago = ConceptoMovimiento.objects.all()
     
     context = {
         'reserva': reserva,
