@@ -9,42 +9,12 @@ class TipoMovimientoCajaEnum(models.TextChoices):
     EGRESO = 'EG', 'Egreso'
 
 class Caja(models.Model):
-    ESTADO_CHOICES = [
-        ('abierta', 'Abierta'),
-        ('cerrada', 'Cerrada')
-    ]
-    
-    sucursal = models.ForeignKey(
-        'Sucursal',
-        on_delete=models.PROTECT,
-        related_name='cajas'
-    )
-    fecha_apertura = models.DateTimeField(auto_now_add=True)
-    fecha_cierre = models.DateTimeField(null=True, blank=True)
-    empleado_apertura = models.ForeignKey(
-        User, 
-        on_delete=models.PROTECT,
-        related_name='cajas_abiertas'
-    )
-    empleado_cierre = models.ForeignKey(
-        User, 
-        on_delete=models.PROTECT,
-        related_name='cajas_cerradas',
-        null=True, 
-        blank=True
-    )
-    saldo_inicial = models.DecimalField(max_digits=10, decimal_places=2)
-    saldo_final = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='abierta')
-    observaciones = models.TextField(blank=True)
+    sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
     saldo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        unique_together = ['sucursal', 'estado']  # Solo una caja abierta por sucursal
-
     def __str__(self):
-        return f"Caja {self.sucursal} - {self.fecha_apertura.strftime('%d/%m/%Y')}"
+        return f"Caja {self.sucursal} - Saldo: ${self.saldo}"
 
 class ConceptoMovimiento(models.Model):
     nombre = models.CharField(max_length=100)
@@ -58,26 +28,14 @@ class ConceptoMovimiento(models.Model):
         return self.nombre
 
 class MovimientoCaja(models.Model):
-    ESTADO_CHOICES = [
-        ('pendiente', 'Pendiente'),
-        ('confirmado', 'Confirmado'),
-        ('anulado', 'Anulado')
-    ]
-    
-    sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
     fecha = models.DateTimeField(auto_now_add=True)
     tipo = models.ForeignKey(ConceptoMovimiento, on_delete=models.PROTECT)
     monto = models.DecimalField(max_digits=10, decimal_places=2)
     descripcion = models.TextField(blank=True)
+    sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
     comprobante = models.CharField(max_length=100, blank=True)
-    empleado = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True
-    )
-    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='pendiente')
-    referencia = models.CharField(max_length=100, blank=True)  # Para duplicados/referencias
-    
+    empleado = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+
     def __str__(self):
         return f"{self.tipo} - ${self.monto} - {self.fecha.strftime('%d/%m/%Y')}"
 
