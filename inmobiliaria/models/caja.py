@@ -14,24 +14,20 @@ class Caja(models.Model):
         ('cerrada', 'Cerrada')
     ]
     
-    sucursal = models.ForeignKey(
-        'Sucursal',  # Asegúrate de que tienes el modelo Sucursal
-        on_delete=models.PROTECT,
-        related_name='cajas'
-    )
+    sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
     fecha_apertura = models.DateTimeField(auto_now_add=True)
     fecha_cierre = models.DateTimeField(null=True, blank=True)
     empleado_apertura = models.ForeignKey(
-        User, 
-        on_delete=models.PROTECT,
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
         related_name='cajas_abiertas'
     )
     empleado_cierre = models.ForeignKey(
-        User, 
-        on_delete=models.PROTECT,
-        related_name='cajas_cerradas',
-        null=True, 
-        blank=True
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='cajas_cerradas'
     )
     saldo_inicial = models.DecimalField(max_digits=10, decimal_places=2)
     saldo_final = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -44,7 +40,7 @@ class Caja(models.Model):
         unique_together = ['sucursal', 'estado']  # Solo una caja abierta por sucursal
 
     def __str__(self):
-        return f"Caja {self.sucursal} - {self.fecha_apertura.strftime('%d/%m/%Y')}"
+        return f"Caja {self.sucursal} - Saldo: ${self.saldo}"
 
 class ConceptoMovimiento(models.Model):
     nombre = models.CharField(max_length=100)
