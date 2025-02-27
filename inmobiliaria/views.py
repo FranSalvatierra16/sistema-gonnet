@@ -2085,11 +2085,19 @@ def iniciar_compra(request, propiedad_id):
 @login_required
 def caja_dashboard(request):
     try:
-        # Obtener la caja actual si está abierta
-        caja_actual = Caja.objects.filter(estado='abierta').first()
+        # Obtener la sucursal del usuario logueado
+        sucursal = request.user.empleado.sucursal
         
-        # Obtener últimos movimientos
-        ultimos_movimientos = MovimientoCaja.objects.all().order_by('-fecha')[:10]
+        # Obtener la caja actual de la sucursal si está abierta
+        caja_actual = Caja.objects.filter(
+            sucursal=sucursal,
+            estado='abierta'
+        ).first()
+        
+        # Obtener últimos movimientos de la sucursal
+        ultimos_movimientos = MovimientoCaja.objects.filter(
+            caja__sucursal=sucursal
+        ).order_by('-fecha')[:10]
         
         # Calcular saldo actual
         saldo_actual = 0
@@ -2105,6 +2113,7 @@ def caja_dashboard(request):
             'caja_actual': caja_actual,
             'ultimos_movimientos': ultimos_movimientos,
             'saldo_actual': saldo_actual,
+            'sucursal': sucursal,
         }
         
         return render(request, 'inmobiliaria/caja/dashboard.html', context)
@@ -2116,9 +2125,17 @@ def caja_dashboard(request):
 @login_required
 def abrir_caja(request):
     try:
+        sucursal = request.user.empleado.sucursal
+        
+        # Verificar que no haya otra caja abierta en la sucursal
+        if Caja.objects.filter(sucursal=sucursal, estado='abierta').exists():
+            messages.error(request, 'Ya existe una caja abierta en esta sucursal')
+            return redirect('inmobiliaria:caja_dashboard')
+        
         if request.method == 'POST':
             saldo_inicial = request.POST.get('saldo_inicial', 0)
             Caja.objects.create(
+                sucursal=sucursal,
                 empleado_apertura=request.user,
                 saldo_inicial=saldo_inicial,
                 estado='abierta'
