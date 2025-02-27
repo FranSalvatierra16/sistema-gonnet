@@ -2085,8 +2085,8 @@ def iniciar_compra(request, propiedad_id):
 @login_required
 def caja_dashboard(request):
     try:
-        # Obtener el vendedor y su sucursal
-        vendedor = Vendedor.objects.get(usuario=request.user)
+        # Obtener el vendedor y su sucursal usando el campo correcto
+        vendedor = Vendedor.objects.get(id=request.user.id)
         sucursal = vendedor.sucursal
         
         # Obtener la caja actual de la sucursal si está abierta
@@ -2127,7 +2127,7 @@ def caja_dashboard(request):
 @login_required
 def abrir_caja(request):
     try:
-        vendedor = Vendedor.objects.get(usuario=request.user)
+        vendedor = Vendedor.objects.get(id=request.user.id)
         sucursal = vendedor.sucursal
         
         # Verificar que no haya otra caja abierta en la sucursal
