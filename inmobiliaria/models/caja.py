@@ -9,12 +9,37 @@ class TipoMovimientoCajaEnum(models.TextChoices):
     EGRESO = 'EG', 'Egreso'
 
 class Caja(models.Model):
-    sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
-    saldo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    fecha_actualizacion = models.DateTimeField(auto_now=True)
+    ESTADO_CHOICES = [
+        ('abierta', 'Abierta'),
+        ('cerrada', 'Cerrada')
+    ]
+    
+    sucursal = models.ForeignKey(
+        'Sucursal',
+        on_delete=models.PROTECT,
+        related_name='cajas'
+    )
+    fecha_apertura = models.DateTimeField(auto_now_add=True)
+    fecha_cierre = models.DateTimeField(null=True, blank=True)
+    empleado_apertura = models.ForeignKey(
+        User, 
+        on_delete=models.PROTECT,
+        related_name='cajas_abiertas'
+    )
+    empleado_cierre = models.ForeignKey(
+        User, 
+        on_delete=models.PROTECT,
+        related_name='cajas_cerradas',
+        null=True, 
+        blank=True
+    )
+    saldo_inicial = models.DecimalField(max_digits=10, decimal_places=2)
+    saldo_final = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='abierta')
+    observaciones = models.TextField(blank=True)
 
     def __str__(self):
-        return f"Caja {self.sucursal} - Saldo: ${self.saldo}"
+        return f"Caja {self.sucursal} - {self.fecha_apertura.strftime('%d/%m/%Y')}"
 
 class ConceptoMovimiento(models.Model):
     nombre = models.CharField(max_length=100)
