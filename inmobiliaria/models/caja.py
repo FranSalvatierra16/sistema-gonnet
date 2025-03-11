@@ -21,17 +21,19 @@ class Caja(models.Model):
     )
     fecha_apertura = models.DateTimeField(auto_now_add=True)
     fecha_cierre = models.DateTimeField(null=True, blank=True)
+    saldo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
     empleado_apertura = models.ForeignKey(
-        User, 
-        on_delete=models.PROTECT,
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
         related_name='cajas_abiertas'
     )
     empleado_cierre = models.ForeignKey(
-        User, 
-        on_delete=models.PROTECT,
-        related_name='cajas_cerradas',
-        null=True, 
-        blank=True
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='cajas_cerradas'
     )
     saldo_inicial = models.DecimalField(max_digits=10, decimal_places=2)
     saldo_final = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
