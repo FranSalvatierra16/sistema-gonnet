@@ -25,7 +25,7 @@ from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm,
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
-from django.db.models import Q, Prefetch, Case, When, IntegerField
+from django.db.models import Q, Prefetch, Case, When, IntegerField, Sum
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
 from django.contrib.auth.signals import user_logged_in
@@ -2340,3 +2340,60 @@ def api_movimientos(request):
         return JsonResponse({'movimientos': data})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def caja(request):
+    # Obtener la sucursal del usuario logueado
+    sucursal = request.user.sucursal
+    
+    # Obtener o crear la caja para esta sucursal
+    caja_obj, created = Caja.objects.get_or_create(
+        sucursal=sucursal,
+        defaults={'saldo': 0}
+    )
+    
+    # Obtener los movimientos solo de esta sucursal
+    movimientos = MovimientoCaja.objects.filter(
+        sucursal=sucursal
+    ).order_by('-fecha')
+    
+    if request.method == 'POST':
+        form = MovimientoForm(request.POST)
+        if form.is_valid():
+            movimiento = form.save(commit=False)
+            movimiento.sucursal = sucursal  # Asignar la sucursal del usuario
+            movimiento.empleado = request.user  # Registrar quién hizo el movimiento
+            
+            # Actualizar saldo
+            if movimiento.tipo.tipo == TipoMovimientoCajaEnum.INGRESO:
+                caja_obj.saldo += movimiento.monto
+            else:
+                caja_obj.saldo -= movimiento.monto
+            
+            caja_obj.save()
+            movimiento.save()
+            
+            messages.success(request, 'Movimiento registrado correctamente.')
+            return redirect('caja')
+    else:
+        form = MovimientoForm()
+
+    # Calcular totales solo para esta sucursal
+    ingresos = movimientos.filter(
+        tipo__tipo=TipoMovimientoCajaEnum.INGRESO
+    ).aggregate(total=Sum('monto'))['total'] or 0
+    
+    egresos = movimientos.filter(
+        tipo__tipo=TipoMovimientoCajaEnum.EGRESO
+    ).aggregate(total=Sum('monto'))['total'] or 0
+
+    context = {
+        'caja': caja_obj,
+        'movimientos': movimientos,
+        'form': form,
+        'saldo_actual': caja_obj.saldo,
+        'total_ingresos': ingresos,
+        'total_egresos': egresos,
+    }
+    
+    return render(request, 'inmobiliaria/caja/caja.html', context)
