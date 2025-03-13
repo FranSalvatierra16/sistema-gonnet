@@ -22,12 +22,12 @@ class Caja(models.Model):
     fecha_apertura = models.DateTimeField(auto_now_add=True)
     fecha_cierre = models.DateTimeField(null=True, blank=True)
     empleado_apertura = models.ForeignKey(
-        User, 
+        settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name='cajas_abiertas'
     )
     empleado_cierre = models.ForeignKey(
-        User, 
+        settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name='cajas_cerradas',
         null=True, 
