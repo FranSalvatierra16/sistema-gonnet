@@ -2085,41 +2085,36 @@ def iniciar_compra(request, propiedad_id):
 @login_required
 def caja_dashboard(request):
     try:
-        # Obtener el vendedor y su sucursal usando el campo correcto
-        vendedor = Vendedor.objects.get(id=request.user.id)
+        # Obtener el vendedor logueado y su sucursal
+        vendedor = get_object_or_404(Vendedor, id=request.user.id)
         sucursal = vendedor.sucursal
         
-        # Obtener la caja actual de la sucursal si está abierta
+        # Obtener la caja de la sucursal del vendedor
         caja_actual = Caja.objects.filter(
             sucursal=sucursal,
             estado='abierta'
         ).first()
         
-        # Obtener últimos movimientos de la sucursal
-        ultimos_movimientos = MovimientoCaja.objects.filter(
-            caja__sucursal=sucursal
-        ).order_by('-fecha')[:10]
-        
-        # Calcular saldo actual
+        # Obtener movimientos de la caja de esta sucursal
+        ultimos_movimientos = []
         saldo_actual = 0
+        
         if caja_actual:
-            saldo_actual = caja_actual.saldo_inicial
-            for mov in caja_actual.movimientos.filter(estado='confirmado'):
-                if mov.concepto.tipo == 'ingreso':
-                    saldo_actual += mov.monto
-                else:
-                    saldo_actual -= mov.monto
+            ultimos_movimientos = MovimientoCaja.objects.filter(
+                caja=caja_actual
+            ).order_by('-fecha')[:10]
+            saldo_actual = caja_actual.get_saldo_actual()
         
         context = {
             'caja_actual': caja_actual,
             'ultimos_movimientos': ultimos_movimientos,
             'saldo_actual': saldo_actual,
             'sucursal': sucursal,
-            'vendedor': vendedor,
+            'vendedor': vendedor
         }
         
         return render(request, 'inmobiliaria/caja/dashboard.html', context)
-        
+    
     except Exception as e:
         messages.error(request, f'Error: {str(e)}')
         return redirect('inmobiliaria:dashboard')
@@ -2127,25 +2122,30 @@ def caja_dashboard(request):
 @login_required
 def abrir_caja(request):
     try:
-        vendedor = Vendedor.objects.get(id=request.user.id)
+        vendedor = get_object_or_404(Vendedor, id=request.user.id)
         sucursal = vendedor.sucursal
         
-        # Verificar que no haya otra caja abierta en la sucursal
+        # Verificar que no haya otra caja abierta en esta sucursal
         if Caja.objects.filter(sucursal=sucursal, estado='abierta').exists():
             messages.error(request, 'Ya existe una caja abierta en esta sucursal')
             return redirect('inmobiliaria:caja_dashboard')
         
         if request.method == 'POST':
             saldo_inicial = request.POST.get('saldo_inicial', 0)
+            
+            # Crear nueva caja
             Caja.objects.create(
                 sucursal=sucursal,
                 empleado_apertura=request.user,
                 saldo_inicial=saldo_inicial,
                 estado='abierta'
             )
+            
             messages.success(request, 'Caja abierta correctamente')
             return redirect('inmobiliaria:caja_dashboard')
+            
         return render(request, 'inmobiliaria/caja/abrir_caja.html')
+        
     except Exception as e:
         messages.error(request, f'Error al abrir caja: {str(e)}')
         return redirect('inmobiliaria:caja_dashboard')
@@ -2153,16 +2153,31 @@ def abrir_caja(request):
 @login_required
 def cerrar_caja(request):
     try:
-        caja_actual = get_object_or_404(Caja, estado='abierta')
+        vendedor = get_object_or_404(Vendedor, id=request.user.id)
+        sucursal = vendedor.sucursal
+        
+        caja_actual = get_object_or_404(
+            Caja, 
+            sucursal=sucursal,
+            estado='abierta'
+        )
+        
         if request.method == 'POST':
+            saldo_final = request.POST.get('saldo_final', 0)
+            caja_actual.saldo_final = saldo_final
             caja_actual.estado = 'cerrada'
             caja_actual.empleado_cierre = request.user
             caja_actual.fecha_cierre = timezone.now()
-            caja_actual.saldo_final = request.POST.get('saldo_final', 0)
             caja_actual.save()
+            
             messages.success(request, 'Caja cerrada correctamente')
             return redirect('inmobiliaria:caja_dashboard')
-        return render(request, 'inmobiliaria/caja/cerrar_caja.html', {'caja': caja_actual})
+            
+        return render(request, 'inmobiliaria/caja/cerrar_caja.html', {
+            'caja': caja_actual,
+            'saldo_actual': caja_actual.get_saldo_actual()
+        })
+        
     except Exception as e:
         messages.error(request, f'Error al cerrar caja: {str(e)}')
         return redirect('inmobiliaria:caja_dashboard')
