@@ -718,11 +718,6 @@ def confirmar_reserva(request):
                     cliente=inquilino,
                     precio_total=precio_total
                 )
-                
-                # Actualizar estado de la propiedad
-                propiedad.estado = 'reservada'
-                propiedad.save()
-                
                 print("la reserva es ",reserva)
 
             messages.success(request, 'Reserva creada exitosamente')
@@ -989,12 +984,12 @@ def crear_disponibilidad(request, propiedad_id):
 def reserva_exitosa(request, reserva_id):
     try:
         reserva = get_object_or_404(Reserva, id=reserva_id)
-                
-                # Actualizar estado de la propiedad
+        
+        # Actualizar estado de la propiedad
         propiedad = reserva.propiedad
-                propiedad.estado = 'reservada'
-                propiedad.save()
-                
+        propiedad.estado = 'reservada'
+        propiedad.save()
+        
         context = {
             'reserva': reserva,
             'propiedad': propiedad,
@@ -1344,7 +1339,7 @@ def gestionar_precios(request, propiedad_id):
         tipos_de_precios = ['quincena', 'fin_de_semana_largo', 'dia']
         for tipo in tipos_de_precios:
             Precio.objects.create(
-                        propiedad=propiedad,
+                propiedad=propiedad,
                 tipo_precio=tipo,
                 precio_por_dia=0,
                 precio_total=0,
@@ -1504,7 +1499,7 @@ def crear_inquilino_ajax(request):
                     'dni': inquilino.dni
                 }
             })
-                except Exception as e:
+        except Exception as e:
             return JsonResponse({
                 'success': False,
                 'error': str(e)
