@@ -1840,32 +1840,40 @@ def agregar_pago(request, reserva_id):
     if request.method == 'POST':
         reserva = get_object_or_404(Reserva, id=reserva_id)
         try:
+            # Obtener y validar el concepto
             concepto_id = request.POST.get('concepto')
-            if not concepto_id:
-                raise ValueError('Debe seleccionar un concepto')
+            print(f"Concepto ID recibido: {concepto_id}")  # Debug
             
-            # Verificar que el concepto existe
-            concepto = get_object_or_404(ConceptoMovimiento, id=concepto_id)
+            # Convertir el monto a Decimal
+            monto_str = request.POST.get('monto', '0')
+            monto = Decimal(monto_str.replace('.', '').replace(',', '.'))
+            print(f"Monto procesado: {monto}")  # Debug
             
-            monto_str = request.POST.get('monto', '0').replace('.', '').replace(',', '.')
-            monto = Decimal(monto_str)
+            # Obtener forma de pago
+            forma_pago = request.POST.get('forma_pago')
+            print(f"Forma de pago: {forma_pago}")  # Debug
             
+            # Crear el pago
             pago = Pago.objects.create(
                 reserva=reserva,
-                concepto=concepto,  # Usar el objeto concepto en lugar de concepto_id
-                forma_pago=request.POST.get('forma_pago', 'efectivo'),
+                concepto_id=concepto_id,
+                forma_pago=forma_pago,
                 monto=monto
             )
             
+            # Forzar la actualización de saldos
             reserva.actualizar_saldos()
+            
             messages.success(request, 'Pago registrado exitosamente.')
             
         except ValueError as e:
             messages.error(request, f'Error al procesar el pago: {str(e)}')
+            print(f"Error de valor: {str(e)}")  # Debug
         except Exception as e:
             messages.error(request, f'Error inesperado: {str(e)}')
+            print(f"Error inesperado: {str(e)}")  # Debug
         
-        return redirect('inmobiliaria:confirmar_pago', reserva_id=reserva_id)
+    return redirect('inmobiliaria:confirmar_pago', reserva_id=reserva_id)
 
 @login_required
 def eliminar_pago(request, pago_id):
