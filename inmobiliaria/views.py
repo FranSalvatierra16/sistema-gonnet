@@ -21,7 +21,7 @@ from .models import (
     ValePersonal, 
     ConceptoMovimiento  # Este reemplaza a ConceptoPago
 )
-from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm
+from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, ImagenPropiedadFormSet
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
@@ -57,6 +57,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth import update_session_auth_hash
 from .utils import numero_a_palabras
 from django.utils import timezone
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 
 import logging
 logger = logging.getLogger(__name__)
@@ -351,30 +353,50 @@ def propiedad_detalle(request, propiedad_id):
 @login_required
 def propiedad_nuevo(request):
     if request.method == 'POST':
-        form = PropiedadForm(request.POST, request.FILES, user=request.user)
-        propietario_form = PropietarioForm(user=request.user)
-        if form.is_valid():
-            propiedad = form.save()
+        try:
+            # Asegurarse de que el directorio media existe
+            if not os.path.exists(settings.MEDIA_ROOT):
+                os.makedirs(settings.MEDIA_ROOT)
+
+            form = PropiedadForm(request.POST, request.FILES)
+            imagenes_formset = ImagenPropiedadFormSet(request.POST, request.FILES)
             
-            # Procesar imágenes
-            imagenes = request.FILES.getlist('imagenes')
-            for index, imagen in enumerate(imagenes):
-                ImagenPropiedad.objects.create(
-                    propiedad=propiedad,
-                    imagen=imagen,
-                    orden=index + 1
-                )
-            
-            messages.success(request, 'Propiedad creada exitosamente.')
-            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+            if form.is_valid() and imagenes_formset.is_valid():
+                propiedad = form.save(commit=False)
+                propiedad.sucursal = request.user.sucursal
+                propiedad.save()
+                
+                # Procesar imágenes
+                if request.FILES:
+                    for imagen in request.FILES.getlist('imagenes'):
+                        try:
+                            # Usar default_storage para manejar el archivo
+                            path = default_storage.save(
+                                os.path.join('propiedades', imagen.name),
+                                ContentFile(imagen.read())
+                            )
+                            ImagenPropiedad.objects.create(
+                                propiedad=propiedad,
+                                imagen=path
+                            )
+                        except Exception as e:
+                            print(f"Error al guardar imagen: {str(e)}")
+                            continue
+                
+                messages.success(request, 'Propiedad creada exitosamente.')
+                return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+            else:
+                messages.error(request, 'Por favor corrija los errores en el formulario.')
+        except Exception as e:
+            print(f"Error al crear propiedad: {str(e)}")
+            messages.error(request, f'Error al crear la propiedad: {str(e)}')
     else:
         form = PropiedadForm()
-        propietario_form = PropietarioForm(user=request.user)
+        imagenes_formset = ImagenPropiedadFormSet()
     
-    return render(request, 'inmobiliaria/propiedades/formulario.html', {
+    return render(request, 'inmobiliaria/propiedades/crear_propiedad.html', {
         'form': form,
-        'propietario_form': propietario_form,
-        'titulo': 'Nueva Propiedad'
+        'imagenes_formset': imagenes_formset
     })
 
 @login_required
@@ -1820,25 +1842,18 @@ def cambiar_password(request):
 def confirmar_pago(request, reserva_id):
     try:
         reserva = get_object_or_404(Reserva, id=reserva_id)
-        # Obtener todos los conceptos y hacer un print para debug
-        conceptos = ConceptoMovimiento.objects.all()
-        print(f"Conceptos encontrados: {conceptos.count()}")  # Debug
-        for concepto in conceptos:
-            print(f"Concepto: {concepto.id} - {concepto.nombre}")  # Debug
+        # Usar ConceptoMovimiento en lugar de ConceptoPago
+        conceptos = ConceptoMovimiento.objects.all().order_by('nombre')
         
         context = {
             'reserva': reserva,
-            'conceptos_pago': conceptos,
             'conceptos': conceptos,
+            'conceptos_pago': conceptos,  # Para mantener compatibilidad
         }
-        
-        # Debug del contexto
-        print("Contexto:", context)
         
         return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
         
     except Exception as e:
-        print(f"Error en confirmar_pago: {str(e)}")  # Debug
         messages.error(request, f'Error inesperado: {str(e)}')
         return redirect('inmobiliaria:reservas')
 

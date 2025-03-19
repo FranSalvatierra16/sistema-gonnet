@@ -47,3 +47,11 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     # ... resto de las apps ...
 ]
+
+# Configuración de medios
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Para Heroku, usar almacenamiento temporal
+if not os.path.exists(MEDIA_ROOT):
+    os.makedirs(MEDIA_ROOT)
