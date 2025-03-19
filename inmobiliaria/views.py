@@ -1538,6 +1538,9 @@ def obtener_vendedor(request, vendedor_id):
 
 
 def agregar_disponibilidad_masiva(request):
+    # Obtener la sucursal del usuario logueado
+    sucursal = request.user.sucursal
+    
     if request.method == 'POST':
         propiedad_ids = request.POST.getlist('propiedades[]')
         fecha_inicio = request.POST.get('fecha_inicio')
@@ -1552,7 +1555,7 @@ def agregar_disponibilidad_masiva(request):
                 try:
                     propiedad = Propiedad.objects.get(
                         id=propiedad_id,
-                        sucursal=sucursal  # Filtrar por sucursal
+                        sucursal=sucursal  # Usar la sucursal del usuario
                     )
                     Disponibilidad.objects.create(
                         propiedad=propiedad,
