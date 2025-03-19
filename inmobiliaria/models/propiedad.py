@@ -69,20 +69,13 @@ class HistorialDisponibilidad(models.Model):
         choices=ESTADO_CHOICES,
         default='disponible'
     )
-    fecha_cambio = models.DateTimeField(auto_now_add=True)
     observaciones = models.TextField(blank=True)
 
-    class Meta:
-        ordering = ['-fecha_cambio']
-
     def __str__(self):
-        return f"{self.propiedad} - {self.estado} - {self.fecha_cambio.strftime('%d/%m/%Y')}"
+        return f"{self.propiedad} - {self.estado}"
 
     @classmethod
     def registrar_cambio(cls, propiedad, estado, observaciones=''):
-        """
-        Método de clase para registrar un cambio de disponibilidad
-        """
         return cls.objects.create(
             propiedad=propiedad,
             estado=estado,
