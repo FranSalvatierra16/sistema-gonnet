@@ -57,8 +57,6 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth import update_session_auth_hash
 from .utils import numero_a_palabras
 from django.utils import timezone
-from django.core.files.storage import default_storage
-from django.core.files.base import ContentFile
 
 import logging
 logger = logging.getLogger(__name__)
@@ -354,41 +352,36 @@ def propiedad_detalle(request, propiedad_id):
 def propiedad_nuevo(request):
     if request.method == 'POST':
         try:
-            # Asegurarse de que el directorio media existe
-            if not os.path.exists(settings.MEDIA_ROOT):
-                os.makedirs(settings.MEDIA_ROOT)
-
+            # Debug
+            print("POST data:", request.POST)
+            print("FILES:", request.FILES)
+            
             form = PropiedadForm(request.POST, request.FILES)
             imagenes_formset = ImagenPropiedadFormSet(request.POST, request.FILES)
             
             if form.is_valid() and imagenes_formset.is_valid():
+                # Crear la propiedad
                 propiedad = form.save(commit=False)
                 propiedad.sucursal = request.user.sucursal
                 propiedad.save()
                 
-                # Procesar imágenes
+                # Guardar imágenes si hay
                 if request.FILES:
                     for imagen in request.FILES.getlist('imagenes'):
-                        try:
-                            # Usar default_storage para manejar el archivo
-                            path = default_storage.save(
-                                os.path.join('propiedades', imagen.name),
-                                ContentFile(imagen.read())
-                            )
-                            ImagenPropiedad.objects.create(
-                                propiedad=propiedad,
-                                imagen=path
-                            )
-                        except Exception as e:
-                            print(f"Error al guardar imagen: {str(e)}")
-                            continue
+                        ImagenPropiedad.objects.create(
+                            propiedad=propiedad,
+                            imagen=imagen
+                        )
                 
                 messages.success(request, 'Propiedad creada exitosamente.')
                 return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
             else:
+                print("Errores del form:", form.errors)
+                print("Errores del formset:", imagenes_formset.errors)
                 messages.error(request, 'Por favor corrija los errores en el formulario.')
         except Exception as e:
-            print(f"Error al crear propiedad: {str(e)}")
+            import traceback
+            print("Error completo:", traceback.format_exc())
             messages.error(request, f'Error al crear la propiedad: {str(e)}')
     else:
         form = PropiedadForm()
