@@ -980,27 +980,15 @@ def crear_disponibilidad(request, propiedad_id):
         'disponibilidades': disponibilidades
     })
 
-@login_required
 def reserva_exitosa(request, reserva_id):
-    try:
-        reserva = get_object_or_404(Reserva, id=reserva_id)
-        
-        # Actualizar estado de la propiedad
-        propiedad = reserva.propiedad
-        propiedad.estado = 'reservada'
-        propiedad.save()
-        
-        context = {
-            'reserva': reserva,
-            'propiedad': propiedad,
-            'cliente': reserva.cliente
-        }
-        
-        return render(request, 'inmobiliaria/reservas/reserva_exitosa.html', context)
-        
-    except Exception as e:
-        messages.error(request, f'Error inesperado: {str(e)}')
-        return redirect('inmobiliaria:buscar_propiedades')
+    
+    reserva = Reserva.objects.get(id=reserva_id)
+    print("la reserva es ",reserva.precio_total)
+    
+    context = {
+        'reserva': reserva
+    }
+    return render(request, 'inmobiliaria/reserva/reserva_exitosa.html', context)
 
 @login_required
 def terminar_reserva(request, reserva_id):
