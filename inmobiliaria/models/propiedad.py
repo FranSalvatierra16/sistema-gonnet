@@ -5,6 +5,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import Q
 from django.utils.timezone import now
 from django.conf import settings
+from django.utils import timezone
 
 import datetime
 from .persona import Propietario, Inquilino, Vendedor
@@ -51,32 +52,42 @@ TIPOS_INMUEBLES = [
 
 class HistorialDisponibilidad(models.Model):
     ESTADO_CHOICES = [
-        ('libre', 'Libre'),
-        ('reservado', 'Reservado'),
-        ('ocupado', 'Ocupado')
+        ('disponible', 'Disponible'),
+        ('reservada', 'Reservada'),
+        ('alquilada', 'Alquilada'),
+        ('vendida', 'Vendida'),
+        ('no_disponible', 'No Disponible')
     ]
 
     propiedad = models.ForeignKey(
-        'Propiedad', 
-        on_delete=models.CASCADE, 
+        'Propiedad',
+        on_delete=models.CASCADE,
         related_name='historial_disponibilidad'
     )
-    fecha_inicio = models.DateField()
-    fecha_fin = models.DateField()
     estado = models.CharField(
-        max_length=20, 
-        choices=ESTADO_CHOICES, 
-        default='libre'
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='disponible'
     )
-    fecha_actualizacion = models.DateTimeField(auto_now=True)
+    fecha_cambio = models.DateTimeField(auto_now_add=True)
+    observaciones = models.TextField(blank=True)
 
     class Meta:
-        verbose_name = _("Historial de Disponibilidad")
-        verbose_name_plural = _("Historial de Disponibilidades")
-        ordering = ['-fecha_actualizacion']
+        ordering = ['-fecha_cambio']
 
     def __str__(self):
-        return f"{self.propiedad} - {self.estado} - {self.fecha_inicio} al {self.fecha_fin}"
+        return f"{self.propiedad} - {self.estado} - {self.fecha_cambio.strftime('%d/%m/%Y')}"
+
+    @classmethod
+    def registrar_cambio(cls, propiedad, estado, observaciones=''):
+        """
+        Método de clase para registrar un cambio de disponibilidad
+        """
+        return cls.objects.create(
+            propiedad=propiedad,
+            estado=estado,
+            observaciones=observaciones
+        )
 
 class Propiedad(models.Model):
     DIRECCION_MAX_LENGTH = 255
@@ -360,12 +371,10 @@ class Reserva(models.Model):
             self.senia = 0
             
             # Actualizar el historial de disponibilidad
-            HistorialDisponibilidad.objects.create(
+            HistorialDisponibilidad.registrar_cambio(
                 propiedad=self.propiedad,
-                fecha_inicio=self.fecha_inicio,
-                fecha_fin=self.fecha_fin,
-                estado='reservado',
-                reserva=self
+                estado='reservada',
+                observaciones=f"Reserva creada. Fecha inicio: {self.fecha_inicio}, Fecha fin: {self.fecha_fin}"
             )
 
     def actualizar_saldos(self):
@@ -391,11 +400,11 @@ class Reserva(models.Model):
             propiedad=self.propiedad,
             fecha_inicio=self.fecha_inicio,
             fecha_fin=self.fecha_fin,
-            reserva=self
+            estado='reservada'
         ).first()
         
         if historial:
-            historial.estado = 'ocupado'
+            historial.estado = 'alquilada'
             historial.save()
 
     def __str__(self):
@@ -434,14 +443,12 @@ class Disponibilidad(models.Model):
 
         super().save(*args, **kwargs)
         
-        if is_new:
-            # Crear historial
-            HistorialDisponibilidad.objects.create(
-                propiedad=self.propiedad,
-                fecha_inicio=self.fecha_inicio,
-                fecha_fin=self.fecha_fin,
-                estado='libre'
-            )
+        # Actualizar el historial de disponibilidad
+        HistorialDisponibilidad.registrar_cambio(
+            propiedad=self.propiedad,
+            estado='disponible',
+            observaciones=f"Disponibilidad creada. Fecha inicio: {self.fecha_inicio}, Fecha fin: {self.fecha_fin}"
+        )
 
     class Meta:
         verbose_name = _("Disponibilidad")
