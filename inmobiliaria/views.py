@@ -1832,7 +1832,7 @@ def confirmar_pago(request, reserva_id):
         
     except Exception as e:
         messages.error(request, f'Error inesperado: {str(e)}')
-        return redirect('inmobiliaria:lista_reservas')
+        return redirect('inmobiliaria:reservas')  # Cambiado de lista_reservas a reservas
 
 @login_required
 def agregar_pago(request, reserva_id):
