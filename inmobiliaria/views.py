@@ -1873,7 +1873,7 @@ def agregar_pago(request, reserva_id):
             
             # Obtener forma de pago
             forma_pago = request.POST.get('forma_pago')
-            print(f"Forma de pago: {forma_pago}")  # Debug
+            print(f"Forma de pago: {fora_pago}")  # Debug
             
             # Crear el pago
             pago = Pago.objects.create(
