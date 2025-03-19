@@ -69,17 +69,15 @@ class HistorialDisponibilidad(models.Model):
         choices=ESTADO_CHOICES,
         default='disponible'
     )
-    observaciones = models.TextField(blank=True)
 
     def __str__(self):
         return f"{self.propiedad} - {self.estado}"
 
     @classmethod
-    def registrar_cambio(cls, propiedad, estado, observaciones=''):
+    def registrar_cambio(cls, propiedad, estado):
         return cls.objects.create(
             propiedad=propiedad,
-            estado=estado,
-            observaciones=observaciones
+            estado=estado
         )
 
 class Propiedad(models.Model):
@@ -366,8 +364,7 @@ class Reserva(models.Model):
             # Actualizar el historial de disponibilidad
             HistorialDisponibilidad.registrar_cambio(
                 propiedad=self.propiedad,
-                estado='reservada',
-                observaciones=f"Reserva creada. Fecha inicio: {self.fecha_inicio}, Fecha fin: {self.fecha_fin}"
+                estado='reservada'
             )
 
     def actualizar_saldos(self):
@@ -439,8 +436,7 @@ class Disponibilidad(models.Model):
         # Actualizar el historial de disponibilidad
         HistorialDisponibilidad.registrar_cambio(
             propiedad=self.propiedad,
-            estado='disponible',
-            observaciones=f"Disponibilidad creada. Fecha inicio: {self.fecha_inicio}, Fecha fin: {self.fecha_fin}"
+            estado='disponible'
         )
 
     class Meta:
