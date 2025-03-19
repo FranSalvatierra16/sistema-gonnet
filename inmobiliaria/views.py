@@ -1818,14 +1818,21 @@ def cambiar_password(request):
 
 @login_required
 def confirmar_pago(request, reserva_id):
-    reserva = get_object_or_404(Reserva, id=reserva_id)
-    conceptos_pago = ConceptoPago.objects.all()
-    
-    context = {
-        'reserva': reserva,
-        'conceptos_pago': conceptos_pago,
-    }
-    return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
+    try:
+        reserva = get_object_or_404(Reserva, id=reserva_id)
+        conceptos_pago = ConceptoMovimiento.objects.filter(activo=True).order_by('codigo')  # Cambiado de ConceptoPago a ConceptoMovimiento
+        
+        context = {
+            'reserva': reserva,
+            'conceptos_pago': conceptos_pago,
+            'conceptos': conceptos_pago,
+        }
+        
+        return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Error inesperado: {str(e)}')
+        return redirect('inmobiliaria:reservas')
 
 @login_required
 def agregar_pago(request, reserva_id):
