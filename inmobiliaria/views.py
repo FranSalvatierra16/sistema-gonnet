@@ -19,7 +19,8 @@ from .models import (
     Caja, 
     MovimientoCaja, 
     ValePersonal, 
-    ConceptoMovimiento  # Este reemplaza a ConceptoPago
+    ConceptoMovimiento,  # Este reemplaza a ConceptoPago
+    ConceptoPago  # Cambiado a ConceptoPago
 )
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
@@ -1820,11 +1821,14 @@ def cambiar_password(request):
 def confirmar_pago(request, reserva_id):
     try:
         reserva = get_object_or_404(Reserva, id=reserva_id)
-        # Obtener todos los conceptos y hacer un print para debug
-        conceptos = ConceptoMovimiento.objects.all()
-        print(f"Conceptos encontrados: {conceptos.count()}")  # Debug
+        
+        # Obtener conceptos de pago ordenados por código
+        conceptos = ConceptoPago.objects.all().order_by('codigo')
+        print(f"Cantidad de conceptos: {conceptos.count()}")
+        
+        # Debug de conceptos
         for concepto in conceptos:
-            print(f"Concepto: {concepto.id} - {concepto.nombre}")  # Debug
+            print(f"Concepto: {concepto.codigo} - {concepto.nombre}")
         
         context = {
             'reserva': reserva,
@@ -1832,13 +1836,10 @@ def confirmar_pago(request, reserva_id):
             'conceptos': conceptos,
         }
         
-        # Debug del contexto
-        print("Contexto:", context)
-        
         return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
         
     except Exception as e:
-        print(f"Error en confirmar_pago: {str(e)}")  # Debug
+        print(f"Error: {str(e)}")
         messages.error(request, f'Error inesperado: {str(e)}')
         return redirect('inmobiliaria:reservas')
 
@@ -1847,24 +1848,19 @@ def agregar_pago(request, reserva_id):
     if request.method == 'POST':
         reserva = get_object_or_404(Reserva, id=reserva_id)
         try:
-            # Obtener y validar el concepto
             concepto_id = request.POST.get('concepto')
-            print(f"Concepto ID recibido: {concepto_id}")  # Debug
+            if not concepto_id:
+                raise ValueError('Debe seleccionar un concepto')
             
             # Convertir el monto a Decimal
             monto_str = request.POST.get('monto', '0')
             monto = Decimal(monto_str.replace('.', '').replace(',', '.'))
-            print(f"Monto procesado: {monto}")  # Debug
-            
-            # Obtener forma de pago
-            forma_pago = request.POST.get('forma_pago')
-            print(f"Forma de pago: {forma_pago}")  # Debug
             
             # Crear el pago
             pago = Pago.objects.create(
                 reserva=reserva,
                 concepto_id=concepto_id,
-                forma_pago=forma_pago,
+                forma_pago=request.POST.get('forma_pago'),
                 monto=monto
             )
             
@@ -1875,10 +1871,8 @@ def agregar_pago(request, reserva_id):
             
         except ValueError as e:
             messages.error(request, f'Error al procesar el pago: {str(e)}')
-            print(f"Error de valor: {str(e)}")  # Debug
         except Exception as e:
             messages.error(request, f'Error inesperado: {str(e)}')
-            print(f"Error inesperado: {str(e)}")  # Debug
         
     return redirect('inmobiliaria:confirmar_pago', reserva_id=reserva_id)
 
