@@ -1839,14 +1839,25 @@ def agregar_pago(request, reserva_id):
     if request.method == 'POST':
         reserva = get_object_or_404(Reserva, id=reserva_id)
         try:
-            # Convertir el monto a Decimal
-            monto = Decimal(request.POST['monto'])
+            # Limpiar y convertir el monto a Decimal
+            monto_str = request.POST['monto'].replace('.', '').replace(',', '.')
+            monto = Decimal(monto_str)
+            
+            # Validar que el concepto exista
+            concepto_id = request.POST.get('concepto')
+            if not concepto_id:
+                raise ValueError('Debe seleccionar un concepto')
+            
+            # Validar forma de pago
+            forma_pago = request.POST.get('forma_pago')
+            if not forma_pago:
+                raise ValueError('Debe seleccionar una forma de pago')
             
             # Crear el pago
             pago = Pago.objects.create(
                 reserva=reserva,
-                concepto_id=request.POST['concepto'],
-                forma_pago=request.POST['forma_pago'],
+                concepto_id=concepto_id,
+                forma_pago=forma_pago,
                 monto=monto
             )
             
@@ -1854,12 +1865,27 @@ def agregar_pago(request, reserva_id):
             reserva.actualizar_saldos()
             
             messages.success(request, 'Pago registrado exitosamente.')
+            
         except ValueError as e:
             messages.error(request, f'Error al procesar el pago: {str(e)}')
         except Exception as e:
             messages.error(request, f'Error inesperado: {str(e)}')
         
-    return redirect('inmobiliaria:confirmar_pago', reserva_id=reserva_id)
+        return redirect('inmobiliaria:confirmar_pago', reserva_id=reserva_id)
+        
+    else:
+        # Si es GET, mostrar el formulario con los conceptos
+        conceptos_pago = ConceptoMovimiento.objects.filter(activo=True).order_by('codigo')
+        reserva = get_object_or_404(Reserva, id=reserva_id)
+        
+        context = {
+            'reserva': reserva,
+            'conceptos_pago': conceptos_pago,
+            'conceptos': conceptos_pago,  # Por compatibilidad
+            'formas_pago': Pago.FORMAS_PAGO_CHOICES
+        }
+        
+        return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
 
 @login_required
 def eliminar_pago(request, pago_id):
