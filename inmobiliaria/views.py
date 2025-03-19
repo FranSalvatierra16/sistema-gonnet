@@ -1820,18 +1820,25 @@ def cambiar_password(request):
 def confirmar_pago(request, reserva_id):
     try:
         reserva = get_object_or_404(Reserva, id=reserva_id)
-        # Usar ConceptoMovimiento en lugar de ConceptoPago
-        conceptos = ConceptoMovimiento.objects.all().order_by('nombre')
+        # Obtener todos los conceptos y hacer un print para debug
+        conceptos = ConceptoMovimiento.objects.all()
+        print(f"Conceptos encontrados: {conceptos.count()}")  # Debug
+        for concepto in conceptos:
+            print(f"Concepto: {concepto.id} - {concepto.nombre}")  # Debug
         
         context = {
             'reserva': reserva,
+            'conceptos_pago': conceptos,
             'conceptos': conceptos,
-            'conceptos_pago': conceptos,  # Para mantener compatibilidad
         }
+        
+        # Debug del contexto
+        print("Contexto:", context)
         
         return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
         
     except Exception as e:
+        print(f"Error en confirmar_pago: {str(e)}")  # Debug
         messages.error(request, f'Error inesperado: {str(e)}')
         return redirect('inmobiliaria:reservas')
 

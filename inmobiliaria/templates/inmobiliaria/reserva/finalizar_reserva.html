@@ -144,7 +144,11 @@
                         <select name="concepto" id="concepto" class="form-control" required>
                             <option value="">Seleccione un concepto</option>
                             {% for concepto in conceptos_pago %}
-                                <option value="{{ concepto.id }}">{{ concepto.nombre }}</option>
+                                <option value="{{ concepto.id }}">
+                                    {{ concepto.nombre }}
+                                    <!-- Debug info -->
+                                    (ID: {{ concepto.id }})
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -316,4 +320,11 @@ document.addEventListener('DOMContentLoaded', function() {
     flex: 1;
 }
 </style>
+
+<!-- Debug info -->
+{% if conceptos_pago %}
+    <p>Hay {{ conceptos_pago|length }} conceptos disponibles</p>
+{% else %}
+    <p>No hay conceptos disponibles</p>
+{% endif %}
 {% endblock %}
