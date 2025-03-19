@@ -564,7 +564,6 @@ class Precio(models.Model):
             self.precio_total = round(base_price, 2) if base_price is not None else None
 
         super().save(*args, **kwargs)
-
 class ConceptoPago(models.Model):
     codigo = models.CharField(max_length=10, unique=True)
     nombre = models.CharField(max_length=255)
@@ -655,7 +654,6 @@ class Pago(models.Model):
 
     def __str__(self):
         return f"{self.codigo} - {self.concepto.nombre} - ${self.monto}"
-
 class VentaPropiedad(models.Model):
     ESTADO_CHOICES = [
         ('disponible', 'Disponible'),

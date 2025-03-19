@@ -1818,46 +1818,28 @@ def cambiar_password(request):
 
 @login_required
 def confirmar_pago(request, reserva_id):
-    try:
-        reserva = get_object_or_404(Reserva, id=reserva_id)
-        conceptos_pago = ConceptoMovimiento.objects.filter(activo=True).order_by('codigo')
-        
-        context = {
-            'reserva': reserva,
-            'conceptos_pago': conceptos_pago,  # Este nombre debe coincidir con el que usas en el template
-            'conceptos': conceptos_pago,  # Por si acaso el template usa este nombre
-        }
-        
-        return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
-        
-    except Exception as e:
-        messages.error(request, f'Error inesperado: {str(e)}')
-        return redirect('inmobiliaria:reservas')  # Cambiado de lista_reservas a reservas
+    reserva = get_object_or_404(Reserva, id=reserva_id)
+    conceptos_pago = ConceptoPago.objects.all()
+    
+    context = {
+        'reserva': reserva,
+        'conceptos_pago': conceptos_pago,
+    }
+    return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
 
 @login_required
 def agregar_pago(request, reserva_id):
     if request.method == 'POST':
         reserva = get_object_or_404(Reserva, id=reserva_id)
         try:
-            # Limpiar y convertir el monto a Decimal
-            monto_str = request.POST['monto'].replace('.', '').replace(',', '.')
-            monto = Decimal(monto_str)
-            
-            # Validar que el concepto exista
-            concepto_id = request.POST.get('concepto')
-            if not concepto_id:
-                raise ValueError('Debe seleccionar un concepto')
-            
-            # Validar forma de pago
-            forma_pago = request.POST.get('forma_pago')
-            if not forma_pago:
-                raise ValueError('Debe seleccionar una forma de pago')
+            # Convertir el monto a Decimal
+            monto = Decimal(request.POST['monto'])
             
             # Crear el pago
             pago = Pago.objects.create(
                 reserva=reserva,
-                concepto_id=concepto_id,
-                forma_pago=forma_pago,
+                concepto_id=request.POST['concepto'],
+                forma_pago=request.POST['forma_pago'],
                 monto=monto
             )
             
@@ -1865,27 +1847,12 @@ def agregar_pago(request, reserva_id):
             reserva.actualizar_saldos()
             
             messages.success(request, 'Pago registrado exitosamente.')
-            
         except ValueError as e:
             messages.error(request, f'Error al procesar el pago: {str(e)}')
         except Exception as e:
             messages.error(request, f'Error inesperado: {str(e)}')
         
-        return redirect('inmobiliaria:confirmar_pago', reserva_id=reserva_id)
-        
-    else:
-        # Si es GET, mostrar el formulario con los conceptos
-        conceptos_pago = ConceptoMovimiento.objects.filter(activo=True).order_by('codigo')
-        reserva = get_object_or_404(Reserva, id=reserva_id)
-        
-        context = {
-            'reserva': reserva,
-            'conceptos_pago': conceptos_pago,
-            'conceptos': conceptos_pago,  # Por compatibilidad
-            'formas_pago': Pago.FORMAS_PAGO_CHOICES
-        }
-        
-        return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
+    return redirect('inmobiliaria:confirmar_pago', reserva_id=reserva_id)
 
 @login_required
 def eliminar_pago(request, pago_id):
@@ -1922,7 +1889,12 @@ def agregar_deposito(request, reserva_id):
     except Exception as e:
         messages.error(request, f'Error al agregar el depósito: {str(e)}')
         return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva_id)
+from django.contrib.auth import logout
+from django.shortcuts import redirect
 
+def logout_view(request):
+    logout(request)
+    return redirect('inmobiliaria:login')
 from django.contrib.auth import logout
 from django.shortcuts import redirect
 
