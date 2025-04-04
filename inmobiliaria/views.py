@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
@@ -2065,3 +2065,34 @@ def iniciar_compra(request, propiedad_id):
     return render(request, 'inmobiliaria/propiedades/iniciar_compra.html', {
         'propiedad': propiedad
     })
+
+@login_required
+def abrir_caja(request):
+    try:
+        # Verificar si ya hay una caja abierta para esta sucursal
+        caja_abierta = Caja.objects.filter(
+            sucursal=request.user.sucursal,
+            estado='abierta'
+        ).first()
+        
+        if caja_abierta:
+            messages.warning(request, 'Ya existe una caja abierta para esta sucursal')
+            return redirect('inmobiliaria:ver_caja', caja_id=caja_abierta.id)
+        
+        if request.method == 'POST':
+            saldo_inicial = Decimal(request.POST.get('saldo_inicial', '0'))
+            
+            # Crear nueva caja
+            caja = Caja.objects.create(
+                sucursal=request.user.sucursal,
+                saldo_inicial=saldo_inicial
+            )
+            
+            messages.success(request, f'Caja #{caja.id} abierta exitosamente')
+            return redirect('inmobiliaria:ver_caja', caja_id=caja.id)
+            
+        return render(request, 'inmobiliaria/caja/abrir_caja.html')
+        
+    except Exception as e:
+        messages.error(request, f'Error al abrir caja: {str(e)}')
+        return redirect('inmobiliaria:dashboard')
