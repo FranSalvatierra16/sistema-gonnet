@@ -15,7 +15,7 @@
 <!-- Tabla de inquilinos -->
 <table class="table table-striped">
     <thead>
-        <tr>
+        <tr style="background-color: #007bff; color: white;">
             <th>DNI</th>
             <th>Nombre</th>
             <th>Apellido</th>
@@ -25,7 +25,7 @@
     </thead>
     <tbody id="inquilinos-body">
         {% for inquilino in inquilinos %}
-        <tr>
+        <tr style="background-color: white;">
             <td>{{ inquilino.dni }}</td>
             <td>{{ inquilino.nombre }}</td>
             <td>{{ inquilino.apellido }}</td>

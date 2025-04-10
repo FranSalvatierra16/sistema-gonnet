@@ -1,5 +1,6 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
+{% load custom_filters %}
 
 {% block title %}Reservas Pendientes{% endblock %}
 
@@ -24,7 +25,7 @@
                 <td>{{ reserva.propiedad }}</td>
                 <td>{{ reserva.fecha_inicio }}</td>
                 <td>{{ reserva.fecha_fin }}</td>
-                <td>{{ reserva.precio_total }}</td>
+                <td>{{ reserva.precio_total|format_price }}</td>
               
           
                 <td>

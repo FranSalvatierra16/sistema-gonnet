@@ -10,6 +10,7 @@
     {% bootstrap_javascript jquery='full' %}
     {% block extra_css %}
     <link rel="stylesheet" href="{% static 'style/styles.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
         /* Hacer que el body ocupe el 100% de la pantalla y use flexbox */
         html, body {
@@ -18,14 +19,49 @@
             flex-direction: column;
         }
 
-        /* El contenedor principal debe expandirse para ocupar el espacio disponible */
+        /* Contenedor principal */
         .container {
             flex: 1;
         }
 
-        /* Footer fijo en la parte inferior */
+        /* Estilo del footer */
         .footer {
             background-color: #f8f9fa;
+        }
+
+        body {
+            background-image: url('{% static "images/fondo.jpg" %}');
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+            background-repeat: no-repeat;
+            min-height: 100vh;
+        }
+
+        /* Para asegurar que el contenido sea legible sobre la imagen */
+        .content-wrapper {
+            background-color: rgba(255, 255, 255, 0.9);
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Asegurar que el fondo cubra toda la página */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: inherit;
+            background-attachment: fixed;
+            filter: blur(5px);
+            z-index: -1;
         }
     </style>
     {% endblock %}
@@ -36,19 +72,21 @@
 
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container-fluid">
+            {% if user.is_authenticated %}
             <div class="navbar-nav me-auto">
+                
                 <a class="nav-link" href="{% url 'inmobiliaria:crear_reserva' %}">Reservas</a>
                 <div class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="utilidadesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         Utilidades
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="utilidadesDropdown">
-                        {% if user.is_authenticated %}
+                    
                             <li>
                                 <a class="dropdown-item" href="{% url 'inmobiliaria:vendedores' %}">Vendedores</a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{% url 'inmobiliaria:inquilinos' %}">Inquilinos</a>
+                                <a class="dropdown-item" href="{% url 'inmobiliaria:inquilinos' %}">Turistas</a>
                             </li>
                             <li>
                                 <a class="dropdown-item" href="{% url 'inmobiliaria:propietarios' %}">Propietarios</a>
@@ -62,10 +100,36 @@
                             <li>
                                 <a class="dropdown-item" href="{% url 'inmobiliaria:operaciones' %}">Operaciones</a>
                             </li>
-                        {% endif %}
+
+                            <li>
+                                <a class="dropdown-item" href="{% url 'inmobiliaria:crear_sucursal' %}">Crear Sucursal</a>
+                            </li> 
+                        
+                        <a class="dropdown-item" href="{% url 'inmobiliaria:crear_sucursal' %}">Crear Sucursal</a>
+
+                      
                     </ul>
                 </div>
             </div>
+            {% else %}
+            <div class="navbar-nav me-auto">
+                
+               
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="utilidadesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Utilidades
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="utilidadesDropdown">
+                  
+                  
+                        
+                        <a class="dropdown-item" href="{% url 'inmobiliaria:crear_sucursal' %}">Crear Sucursal</a>
+
+                      
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
             <div class="navbar-nav ms-auto">  <!-- Cambia 'ml-auto' por 'ms-auto' -->
                 {% if user.is_authenticated %}
                     <a class="nav-link" href="{% url 'inmobiliaria:logout' %}">Cerrar sesión</a>
@@ -89,5 +153,28 @@
     </footer>
 
     {% block extra_js %}{% endblock %}
+    {% block javascript %}
+    <script>
+        var inactivityTime = function () {
+            var time;
+            window.onload = resetTimer;
+            document.onmousemove = resetTimer;
+            document.onkeypress = resetTimer;
+            document.onscroll = resetTimer;
+            document.onclick = resetTimer;
+
+            function logout() {
+                window.location.href = "{% url 'inmobiliaria:logout' %}";
+            }
+
+            function resetTimer() {
+                clearTimeout(time);
+                time = setTimeout(logout, 1200000)  // 20 minutos en milisegundos
+            }
+        };
+
+        inactivityTime();
+    </script>
+    {% endblock %}
 </body>
 </html>
