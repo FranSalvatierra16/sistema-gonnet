@@ -68,7 +68,7 @@ class MovimientoCaja(models.Model):
     monto = models.DecimalField(max_digits=10, decimal_places=2)
     comprobante = models.CharField(max_length=50, blank=True)
     usuario = models.ForeignKey(
-        'auth.User',
+        settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT
     )
     observaciones = models.TextField(blank=True)
