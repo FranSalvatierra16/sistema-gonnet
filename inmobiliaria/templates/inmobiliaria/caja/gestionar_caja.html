@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2>Caja - {{ sucursal.nombre }}</h2>
+            <hr>
+        </div>
+    </div>
+
+    {% if caja_actual %}
+        <!-- Caja Abierta -->
+        <div class="alert alert-success">
+            <h4>Caja #{{ caja_actual.numero }} - Abierta</h4>
+            <p>Abierta el: {{ caja_actual.fecha_apertura|date:"d/m/Y H:i" }}</p>
+            <p>Saldo inicial: ${{ caja_actual.saldo_inicial|floatformat:2 }}</p>
+        </div>
+        
+        <!-- Botones de Acción -->
+        <div class="mb-4">
+            <a href="{% url 'inmobiliaria:nuevo_movimiento' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Nuevo Movimiento
+            </a>
+            <a href="{% url 'inmobiliaria:cerrar_caja' caja_actual.numero %}" class="btn btn-danger">
+                <i class="fas fa-lock"></i> Cerrar Caja
+            </a>
+        </div>
+
+        <!-- Últimos Movimientos -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Últimos Movimientos</h5>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Concepto</th>
+                            <th>Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mov in movimientos %}
+                        <tr>
+                            <td>{{ mov.fecha|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <span class="badge {% if mov.tipo == 'ingreso' %}badge-success{% else %}badge-danger{% endif %}">
+                                    {{ mov.get_tipo_display }}
+                                </span>
+                            </td>
+                            <td>{{ mov.concepto }}</td>
+                            <td>${{ mov.monto|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center">No hay movimientos registrados</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% else %}
+        <!-- No hay caja abierta -->
+        <div class="alert alert-warning">
+            <h4>No hay caja abierta</h4>
+            <a href="{% url 'inmobiliaria:abrir_caja' %}" class="btn btn-success mt-2">
+                <i class="fas fa-lock-open"></i> Abrir Nueva Caja
+            </a>
+        </div>
+    {% endif %}
+
+    <!-- Historial de Cajas -->
+    <div class="card">
+        <div class="card-header">
+            <h5>Historial de Cajas</h5>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Número</th>
+                        <th>Apertura</th>
+                        <th>Cierre</th>
+                        <th>Estado</th>
+                        <th>Saldo Final</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for caja in historial_cajas %}
+                    <tr>
+                        <td>{{ caja.numero }}</td>
+                        <td>{{ caja.fecha_apertura|date:"d/m/Y H:i" }}</td>
+                        <td>{{ caja.fecha_cierre|default:"-"|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <span class="badge {% if caja.estado == 'abierta' %}badge-success{% else %}badge-secondary{% endif %}">
+                                {{ caja.get_estado_display }}
+                            </span>
+                        </td>
+                        <td>${{ caja.saldo_final|default:"-"|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center">No hay historial de cajas</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %} 

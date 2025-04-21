@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
@@ -2103,6 +2103,7 @@ def abrir_caja(request):
     except Exception as e:
         print("Error en abrir_caja:")
         print(traceback.format_exc())
+        
         messages.error(request, f'Error al abrir caja: {str(e)}')
         return redirect('inmobiliaria:dashboard')
 
@@ -2146,4 +2147,41 @@ def lista_cajas(request):
         print("Error en lista_cajas:")
         print(traceback.format_exc())
         messages.error(request, f'Error: {str(e)}')
+        return redirect('inmobiliaria:dashboard')
+
+@login_required
+def gestionar_caja(request):
+    try:
+        # Obtener la sucursal del usuario logueado
+        sucursal = request.user.sucursal
+        
+        # Verificar si hay una caja abierta para esta sucursal
+        caja_actual = Caja.objects.filter(
+            sucursal=sucursal,
+            estado='abierta'
+        ).first()
+        
+        # Obtener últimos movimientos si hay caja abierta
+        movimientos = []
+        if caja_actual:
+            movimientos = MovimientoCaja.objects.filter(
+                caja=caja_actual
+            ).order_by('-fecha')[:10]  # Últimos 10 movimientos
+        
+        # Obtener historial de cajas de la sucursal
+        historial_cajas = Caja.objects.filter(
+            sucursal=sucursal
+        ).order_by('-fecha_apertura')[:5]  # Últimas 5 cajas
+        
+        context = {
+            'sucursal': sucursal,
+            'caja_actual': caja_actual,
+            'movimientos': movimientos,
+            'historial_cajas': historial_cajas,
+        }
+        
+        return render(request, 'inmobiliaria/caja/gestionar_caja.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Error al acceder a la caja: {str(e)}')
         return redirect('inmobiliaria:dashboard')
