@@ -42,6 +42,8 @@ from .utils import numero_a_palabras
 import logging
 logger = logging.getLogger(__name__)
 
+import traceback  # Agregada esta importación
+
 # index view
 def index(request):
     if request.user.is_authenticated:

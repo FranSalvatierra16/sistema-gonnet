@@ -45,7 +45,7 @@
 
         <!-- Caja -->
         <div class="col-md-4 mb-4">
-            <div class="menu-card">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:lista_cajas' %}'">
                 <div class="card-icon">
                     <i class="fas fa-cash-register"></i>
                 </div>
@@ -134,7 +134,4 @@
 }
 </style>
 
-<a href="{% url 'inmobiliaria:lista_cajas' %}" class="btn btn-primary">
-    <i class="fas fa-cash-register"></i> Gestión de Caja
-</a>
 {% endblock %}
