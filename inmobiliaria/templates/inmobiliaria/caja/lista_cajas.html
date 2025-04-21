@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Gestión de Caja</h2>
+    
+    {% if caja_abierta %}
+        <div class="alert alert-info">
+            Hay una caja abierta: Caja #{{ caja_abierta.id }}
+            <a href="{% url 'inmobiliaria:ver_caja' caja_id=caja_abierta.id %}" class="btn btn-primary btn-sm ml-2">
+                Ver Caja
+            </a>
+        </div>
+    {% else %}
+        <div class="mb-3">
+            <a href="{% url 'inmobiliaria:abrir_caja' %}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Abrir Nueva Caja
+            </a>
+        </div>
+    {% endif %}
+    
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Fecha Apertura</th>
+                <th>Estado</th>
+                <th>Saldo Inicial</th>
+                <th>Saldo Final</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for caja in cajas %}
+            <tr>
+                <td>{{ caja.id }}</td>
+                <td>{{ caja.fecha_apertura|date:"d/m/Y H:i" }}</td>
+                <td>
+                    <span class="badge {% if caja.estado == 'abierta' %}badge-success{% else %}badge-secondary{% endif %}">
+                        {{ caja.get_estado_display }}
+                    </span>
+                </td>
+                <td>${{ caja.saldo_inicial|floatformat:2 }}</td>
+                <td>${{ caja.saldo_final|default:'-'|floatformat:2 }}</td>
+                <td>
+                    <a href="{% url 'inmobiliaria:ver_caja' caja_id=caja.id %}" class="btn btn-sm btn-info">
+                        Ver Detalles
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center">No hay cajas registradas</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %} 

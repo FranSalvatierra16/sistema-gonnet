@@ -2096,3 +2096,18 @@ def abrir_caja(request):
     except Exception as e:
         messages.error(request, f'Error al abrir caja: {str(e)}')
         return redirect('inmobiliaria:dashboard')
+
+@login_required
+def lista_cajas(request):
+    # Obtener cajas de la sucursal del usuario
+    cajas = Caja.objects.filter(sucursal=request.user.sucursal).order_by('-fecha_apertura')
+    
+    # Verificar si hay una caja abierta
+    caja_abierta = cajas.filter(estado='abierta').first()
+    
+    context = {
+        'cajas': cajas,
+        'caja_abierta': caja_abierta,
+    }
+    
+    return render(request, 'inmobiliaria/caja/lista_cajas.html', context)
