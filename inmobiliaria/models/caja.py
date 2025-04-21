@@ -3,6 +3,10 @@ from django.conf import settings
 from django.utils import timezone
 from decimal import Decimal
 
+class TipoMovimientoCajaEnum(models.TextChoices):
+    INGRESO = 'IN', 'Ingreso'
+    EGRESO = 'EG', 'Egreso'
+
 class Caja(models.Model):
     ESTADO_CHOICES = [
         ('abierta', 'Abierta'),
@@ -21,12 +25,12 @@ class Caja(models.Model):
     saldo_final = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='abierta')
     usuario_apertura = models.ForeignKey(
-        'auth.User',
+        settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name='cajas_abiertas'
     )
     usuario_cierre = models.ForeignKey(
-        'auth.User',
+        settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name='cajas_cerradas',
         null=True,

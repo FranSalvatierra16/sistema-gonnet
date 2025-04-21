@@ -76,6 +76,7 @@ urlpatterns = [
     path('actualizar-orden-imagenes/', views.actualizar_orden_imagenes, name='actualizar_orden_imagenes'),
     path('eliminar-imagen/', views.eliminar_imagen, name='eliminar_imagen'),
     path('ver-recibo/<int:reserva_id>/', views.ver_recibo, name='ver_recibo'),
+    path('reserva/<int:reserva_id>/recibo/', views.ver_recibo, name='ver_recibo'),
    
     path('password_reset/done/', 
          auth_views.PasswordResetDoneView.as_view(
@@ -110,4 +111,7 @@ urlpatterns = [
     path('caja/abrir/', views.abrir_caja, name='abrir_caja'),
     path('caja/<int:numero>/cerrar/', views.cerrar_caja, name='cerrar_caja'),
     path('caja/movimiento/nuevo/', views.nuevo_movimiento, name='nuevo_movimiento'),
+    path('caja/', views.caja, name='caja'),
+    path('caja/nuevo/', views.nuevo_movimiento, name='nuevo_movimiento'),
+    path('caja/eliminar/<int:movimiento_id>/', views.eliminar_movimiento, name='eliminar_movimiento'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,0 +1,20 @@
+{% extends 'inmobiliaria/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Cerrar Caja #{{ caja.id }}</h2>
+    
+    <div class="card">
+        <div class="card-body">
+            <h5>Saldo actual: ${{ saldo_actual }}</h5>
+            <p>¿Está seguro que desea cerrar esta caja?</p>
+            
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Cerrar Caja</button>
+                <a href="{% url 'inmobiliaria:caja' %}" class="btn btn-secondary">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

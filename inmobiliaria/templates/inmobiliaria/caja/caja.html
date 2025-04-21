@@ -1,0 +1,57 @@
+{% extends 'inmobiliaria/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Caja</h2>
+    
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5>Saldo actual: ${{ saldo_actual }}</h5>
+            <p>Total ingresos: ${{ total_ingresos }}</p>
+            <p>Total egresos: ${{ total_egresos }}</p>
+            
+            <a href="{% url 'inmobiliaria:nuevo_movimiento' %}" class="btn btn-primary">
+                Nuevo Movimiento
+            </a>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            <h5>Movimientos</h5>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Monto</th>
+                        <th>Descripción</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for movimiento in movimientos %}
+                    <tr>
+                        <td>{{ movimiento.fecha|date:"d/m/Y H:i" }}</td>
+                        <td>{{ movimiento.get_tipo_display }}</td>
+                        <td>${{ movimiento.monto }}</td>
+                        <td>{{ movimiento.descripcion }}</td>
+                        <td>
+                            <a href="{% url 'inmobiliaria:eliminar_movimiento' movimiento.id %}" 
+                               class="btn btn-sm btn-danger"
+                               onclick="return confirm('¿Está seguro de eliminar este movimiento?')">
+                                Eliminar
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center">No hay movimientos registrados</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %} 

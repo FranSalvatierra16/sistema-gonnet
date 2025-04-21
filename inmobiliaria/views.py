@@ -3,11 +3,11 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja
-from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm
+from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
-from django.db.models import Q, Prefetch, Case, When, IntegerField
+from django.db.models import Q, Prefetch, Case, When, IntegerField, Sum
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
 from django.contrib.auth.signals import user_logged_in
@@ -2185,3 +2185,100 @@ def gestionar_caja(request):
     except Exception as e:
         messages.error(request, f'Error al acceder a la caja: {str(e)}')
         return redirect('inmobiliaria:dashboard')
+
+@login_required
+def cerrar_caja(request, numero):
+    caja = get_object_or_404(Caja, id=numero, sucursal=request.user.sucursal)
+    
+    if request.method == 'POST':
+        caja.empleado_cierre = request.user
+        caja.fecha_cierre = timezone.now()
+        caja.estado = 'cerrada'
+        caja.save()
+        
+        messages.success(request, 'Caja cerrada correctamente.')
+        return redirect('inmobiliaria:caja')
+    
+    return render(request, 'inmobiliaria/caja/cerrar_caja.html', {
+        'caja': caja,
+        'saldo_actual': caja.saldo,
+    })
+
+@login_required
+def nuevo_movimiento(request):
+    if request.method == 'POST':
+        form = MovimientoCajaForm(request.POST)
+        if form.is_valid():
+            movimiento = form.save(commit=False)
+            movimiento.sucursal = request.user.sucursal
+            movimiento.empleado = request.user
+            
+            # Actualizar saldo de la caja
+            caja = Caja.objects.get(sucursal=request.user.sucursal)
+            if movimiento.tipo.tipo == TipoMovimientoCajaEnum.INGRESO:
+                caja.saldo += movimiento.monto
+            else:
+                caja.saldo -= movimiento.monto
+            
+            caja.save()
+            movimiento.save()
+            
+            messages.success(request, 'Movimiento registrado correctamente.')
+            return redirect('inmobiliaria:caja')
+    else:
+        form = MovimientoCajaForm()
+    
+    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
+        'form': form
+    })
+
+@login_required
+def eliminar_movimiento(request, movimiento_id):
+    movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
+    
+    # Actualizar saldo de la caja
+    caja = Caja.objects.get(sucursal=request.user.sucursal)
+    if movimiento.tipo.tipo == TipoMovimientoCajaEnum.INGRESO:
+        caja.saldo -= movimiento.monto
+    else:
+        caja.saldo += movimiento.monto
+    
+    caja.save()
+    movimiento.delete()
+    
+    messages.success(request, 'Movimiento eliminado correctamente.')
+    return redirect('inmobiliaria:caja')
+
+@login_required
+def caja(request):
+    try:
+        # Obtener o crear la caja para la sucursal del usuario
+        caja_obj, created = Caja.objects.get_or_create(
+            sucursal=request.user.sucursal,
+            defaults={'saldo': 0}
+        )
+        
+        # Obtener los movimientos
+        movimientos = MovimientoCaja.objects.filter(
+            caja=caja_obj
+        ).order_by('-fecha')
+        
+        # Calcular totales
+        ingresos = movimientos.filter(tipo='IN').aggregate(
+            total=Sum('monto'))['total'] or 0
+        egresos = movimientos.filter(tipo='EG').aggregate(
+            total=Sum('monto'))['total'] or 0
+        
+        context = {
+            'caja': caja_obj,
+            'movimientos': movimientos,
+            'saldo_actual': caja_obj.saldo,
+            'total_ingresos': ingresos,
+            'total_egresos': egresos,
+        }
+        
+        return render(request, 'inmobiliaria/caja/caja.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Error: {str(e)}')
+        return redirect('inmobiliaria:index')
