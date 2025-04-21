@@ -2069,7 +2069,10 @@ def iniciar_compra(request, propiedad_id):
 @login_required
 def abrir_caja(request):
     try:
-        # Verificar si ya hay una caja abierta para esta sucursal
+        print(f"Usuario: {request.user}")
+        print(f"Sucursal: {request.user.sucursal}")
+        
+        # Verificar si ya hay una caja abierta
         caja_abierta = Caja.objects.filter(
             sucursal=request.user.sucursal,
             estado='abierta'
@@ -2080,12 +2083,14 @@ def abrir_caja(request):
             return redirect('inmobiliaria:ver_caja', caja_id=caja_abierta.id)
         
         if request.method == 'POST':
-            saldo_inicial = Decimal(request.POST.get('saldo_inicial', '0'))
+            saldo_inicial = request.POST.get('saldo_inicial', '0')
+            print(f"Saldo inicial recibido: {saldo_inicial}")
             
             # Crear nueva caja
             caja = Caja.objects.create(
                 sucursal=request.user.sucursal,
-                saldo_inicial=saldo_inicial
+                saldo_inicial=saldo_inicial,
+                estado='abierta'
             )
             
             messages.success(request, f'Caja #{caja.id} abierta exitosamente')
@@ -2094,20 +2099,49 @@ def abrir_caja(request):
         return render(request, 'inmobiliaria/caja/abrir_caja.html')
         
     except Exception as e:
+        print("Error en abrir_caja:")
+        print(traceback.format_exc())
         messages.error(request, f'Error al abrir caja: {str(e)}')
         return redirect('inmobiliaria:dashboard')
 
 @login_required
+def ver_caja(request, caja_id):
+    try:
+        caja = Caja.objects.get(id=caja_id, sucursal=request.user.sucursal)
+        return render(request, 'inmobiliaria/caja/ver_caja.html', {'caja': caja})
+    except Caja.DoesNotExist:
+        messages.error(request, 'Caja no encontrada')
+        return redirect('inmobiliaria:lista_cajas')
+    except Exception as e:
+        print("Error en ver_caja:")
+        print(traceback.format_exc())
+        messages.error(request, f'Error: {str(e)}')
+        return redirect('inmobiliaria:lista_cajas')
+
+@login_required
 def lista_cajas(request):
-    # Obtener cajas de la sucursal del usuario
-    cajas = Caja.objects.filter(sucursal=request.user.sucursal).order_by('-fecha_apertura')
-    
-    # Verificar si hay una caja abierta
-    caja_abierta = cajas.filter(estado='abierta').first()
-    
-    context = {
-        'cajas': cajas,
-        'caja_abierta': caja_abierta,
-    }
-    
-    return render(request, 'inmobiliaria/caja/lista_cajas.html', context)
+    try:
+        # Debug info
+        print(f"Usuario: {request.user}")
+        print(f"Sucursal: {request.user.sucursal}")
+        
+        # Obtener cajas de la sucursal del usuario
+        cajas = Caja.objects.filter(sucursal=request.user.sucursal).order_by('-fecha_apertura')
+        print(f"Cajas encontradas: {cajas.count()}")
+        
+        # Verificar si hay una caja abierta
+        caja_abierta = cajas.filter(estado='abierta').first()
+        print(f"Caja abierta: {caja_abierta}")
+        
+        context = {
+            'cajas': cajas,
+            'caja_abierta': caja_abierta,
+        }
+        
+        return render(request, 'inmobiliaria/caja/lista_cajas.html', context)
+        
+    except Exception as e:
+        print("Error en lista_cajas:")
+        print(traceback.format_exc())
+        messages.error(request, f'Error: {str(e)}')
+        return redirect('inmobiliaria:dashboard')

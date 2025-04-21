@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Caja #{{ caja.id }}</h2>
+    
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Detalles de la Caja</h5>
+            <p><strong>Estado:</strong> {{ caja.get_estado_display }}</p>
+            <p><strong>Fecha Apertura:</strong> {{ caja.fecha_apertura|date:"d/m/Y H:i" }}</p>
+            <p><strong>Saldo Inicial:</strong> ${{ caja.saldo_inicial|floatformat:2 }}</p>
+            {% if caja.estado == 'cerrada' %}
+                <p><strong>Fecha Cierre:</strong> {{ caja.fecha_cierre|date:"d/m/Y H:i" }}</p>
+                <p><strong>Saldo Final:</strong> ${{ caja.saldo_final|floatformat:2 }}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 
