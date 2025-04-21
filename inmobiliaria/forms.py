@@ -408,4 +408,17 @@ class VentaPropiedadForm(forms.ModelForm):
 class MovimientoCajaForm(forms.ModelForm):
     class Meta:
         model = MovimientoCaja
-        fields = ['tipo', 'monto', 'descripcion', 'comprobante']
+        fields = [
+            'tipo',
+            'concepto',
+            'monto',
+            'comprobante',
+            'observaciones'
+        ]
+        widgets = {
+            'tipo': forms.Select(attrs={'class': 'form-control'}),
+            'concepto': forms.TextInput(attrs={'class': 'form-control'}),
+            'monto': forms.NumberInput(attrs={'class': 'form-control'}),
+            'comprobante': forms.TextInput(attrs={'class': 'form-control'}),
+            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3})
+        }
