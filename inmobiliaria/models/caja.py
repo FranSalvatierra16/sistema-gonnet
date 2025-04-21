@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from decimal import Decimal
 
 class Caja(models.Model):
     ESTADO_CHOICES = [
@@ -27,16 +28,17 @@ class Caja(models.Model):
         null=True, 
         blank=True
     )
-    saldo_inicial = models.DecimalField(max_digits=10, decimal_places=2)
+    saldo_inicial = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     saldo_final = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='abierta')
     observaciones = models.TextField(blank=True)
 
     class Meta:
-        unique_together = ['sucursal', 'estado']
+        db_table = 'inmobiliaria_caja'
+        ordering = ['-fecha_apertura']
 
     def __str__(self):
-        return f"Caja {self.sucursal} - {self.fecha_apertura.strftime('%d/%m/%Y')}"
+        return f"Caja {self.id} - {self.sucursal} - {self.estado}"
 
     def get_saldo_actual(self):
         saldo = self.saldo_inicial
