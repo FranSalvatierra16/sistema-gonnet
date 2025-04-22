@@ -2070,42 +2070,30 @@ def iniciar_compra(request, propiedad_id):
 
 @login_required
 def abrir_caja(request):
-    try:
-        print(f"Usuario: {request.user}")
-        print(f"Sucursal: {request.user.sucursal}")
+    sucursal = request.user.sucursal
+    
+    # Verificar si ya existe una caja abierta
+    if Caja.objects.filter(sucursal=sucursal, estado='abierta').exists():
+        messages.error(request, 'Ya existe una caja abierta para esta sucursal')
+        return redirect('inmobiliaria:lista_cajas')
+    
+    if request.method == 'POST':
+        saldo_inicial = Decimal(request.POST.get('saldo_inicial', '0'))
+        observaciones = request.POST.get('observaciones', '')
         
-        # Verificar si ya hay una caja abierta
-        caja_abierta = Caja.objects.filter(
-            sucursal=request.user.sucursal,
-            estado='abierta'
-        ).first()
+        # Crear nueva caja
+        caja = Caja.objects.create(
+            sucursal=sucursal,
+            saldo_inicial=saldo_inicial,
+            estado='abierta',
+            usuario_apertura=request.user,
+            observaciones_apertura=observaciones
+        )
         
-        if caja_abierta:
-            messages.warning(request, 'Ya existe una caja abierta para esta sucursal')
-            return redirect('inmobiliaria:ver_caja', caja_id=caja_abierta.id)
-        
-        if request.method == 'POST':
-            saldo_inicial = request.POST.get('saldo_inicial', '0')
-            print(f"Saldo inicial recibido: {saldo_inicial}")
-            
-            # Crear nueva caja
-            caja = Caja.objects.create(
-                sucursal=request.user.sucursal,
-                saldo_inicial=saldo_inicial,
-                estado='abierta'
-            )
-            
-            messages.success(request, f'Caja #{caja.id} abierta exitosamente')
-            return redirect('inmobiliaria:ver_caja', caja_id=caja.id)
-            
-        return render(request, 'inmobiliaria/caja/abrir_caja.html')
-        
-    except Exception as e:
-        print("Error en abrir_caja:")
-        print(traceback.format_exc())
-        
-        messages.error(request, f'Error al abrir caja: {str(e)}')
-        return redirect('inmobiliaria:dashboard')
+        messages.success(request, f'Caja #{caja.numero} abierta exitosamente')
+        return redirect('inmobiliaria:lista_cajas')
+    
+    return render(request, 'inmobiliaria/caja/abrir_caja.html')
 
 @login_required
 def ver_caja(request, caja_id):

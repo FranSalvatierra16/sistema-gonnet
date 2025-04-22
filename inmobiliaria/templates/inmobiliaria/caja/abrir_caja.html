@@ -1,24 +1,39 @@
-{% extends 'base.html' %}
+{% extends 'inmobiliaria/base.html' %}
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Abrir Nueva Caja</h2>
-    
-    <form method="POST">
-        {% csrf_token %}
-        <div class="form-group">
-            <label for="saldo_inicial">Saldo Inicial:</label>
-            <input type="number" 
-                   step="0.01" 
-                   name="saldo_inicial" 
-                   id="saldo_inicial" 
-                   class="form-control" 
-                   required>
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Abrir Nueva Caja</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="form-group mb-3">
+                            <label for="saldo_inicial">Saldo Inicial</label>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="saldo_inicial" 
+                                   name="saldo_inicial" 
+                                   step="0.01" 
+                                   value="0.00" 
+                                   required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label for="observaciones">Observaciones</label>
+                            <textarea class="form-control" 
+                                      id="observaciones" 
+                                      name="observaciones" 
+                                      rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Abrir Caja</button>
+                        <a href="{% url 'inmobiliaria:lista_cajas' %}" class="btn btn-secondary">Cancelar</a>
+                    </form>
+                </div>
+            </div>
         </div>
-        
-        <button type="submit" class="btn btn-primary mt-3">
-            Abrir Caja
-        </button>
-    </form>
+    </div>
 </div>
 {% endblock %} 
