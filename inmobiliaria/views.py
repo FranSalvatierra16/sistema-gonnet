@@ -2123,31 +2123,21 @@ def ver_caja(request, caja_id):
 
 @login_required
 def lista_cajas(request):
-    try:
-        # Debug info
-        print(f"Usuario: {request.user}")
-        print(f"Sucursal: {request.user.sucursal}")
-        
-        # Obtener cajas de la sucursal del usuario
-        cajas = Caja.objects.filter(sucursal=request.user.sucursal).order_by('-fecha_apertura')
-        print(f"Cajas encontradas: {cajas.count()}")
-        
-        # Verificar si hay una caja abierta
-        caja_abierta = cajas.filter(estado='abierta').first()
-        print(f"Caja abierta: {caja_abierta}")
-        
-        context = {
-            'cajas': cajas,
-            'caja_abierta': caja_abierta,
-        }
-        
-        return render(request, 'inmobiliaria/caja/lista_cajas.html', context)
-        
-    except Exception as e:
-        print("Error en lista_cajas:")
-        print(traceback.format_exc())
-        messages.error(request, f'Error: {str(e)}')
-        return redirect('inmobiliaria:dashboard')
+    # Obtener la sucursal del usuario logueado
+    sucursal = request.user.sucursal
+    
+    # Obtener las cajas de la sucursal
+    cajas = Caja.objects.filter(sucursal=sucursal).order_by('-fecha_apertura')
+    
+    # Obtener la caja abierta actual (si existe)
+    caja_actual = cajas.filter(estado='abierta').first()
+    
+    context = {
+        'cajas': cajas,
+        'caja_actual': caja_actual,
+    }
+    
+    return render(request, 'inmobiliaria/caja/lista_cajas.html', context)
 
 @login_required
 def gestionar_caja(request):
