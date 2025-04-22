@@ -21,50 +21,36 @@ class TipoDescuentoEnum(models.TextChoices):
 class Caja(models.Model):
     ESTADO_CHOICES = [
         ('abierta', 'Abierta'),
-        ('cerrada', 'Cerrada')
+        ('cerrada', 'Cerrada'),
     ]
     
     numero = models.AutoField(primary_key=True)
-    sucursal = models.ForeignKey(
-        'Sucursal',
-        on_delete=models.PROTECT,
-        related_name='cajas'
-    )
-    fecha_apertura = models.DateTimeField(default=timezone.now)
+    sucursal = models.ForeignKey('Sucursal', on_delete=models.PROTECT)
+    fecha_apertura = models.DateTimeField(auto_now_add=True)
     fecha_cierre = models.DateTimeField(null=True, blank=True)
-    saldo_inicial = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    saldo_inicial = models.DecimalField(max_digits=10, decimal_places=2)
     saldo_final = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='abierta')
-    usuario_apertura = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name='cajas_abiertas'
-    )
-    usuario_cierre = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name='cajas_cerradas',
-        null=True,
-        blank=True
-    )
+    usuario_apertura = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='cajas_abiertas')
+    usuario_cierre = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='cajas_cerradas', null=True, blank=True)
     observaciones_apertura = models.TextField(blank=True)
     observaciones_cierre = models.TextField(blank=True)
-    
+
+    def get_saldo_actual(self):
+        saldo = self.saldo_inicial
+        for movimiento in self.movimientos.all():
+            if movimiento.tipo == 'ingreso':
+                saldo += movimiento.monto_total
+            else:
+                saldo -= movimiento.monto_total
+        return saldo
+
     def __str__(self):
-        return f"Caja #{self.numero} - {self.sucursal} - {self.estado}"
+        return f"Caja #{self.numero} - {self.sucursal}"
     
     class Meta:
         db_table = 'inmobiliaria_caja'
         ordering = ['-fecha_apertura']
-
-    def get_saldo_actual(self):
-        saldo = self.saldo_inicial
-        for movimiento in self.movimientos.filter(estado='confirmado'):
-            if movimiento.tipo == 'ingreso':
-                saldo += movimiento.monto
-            else:
-                saldo -= movimiento.monto
-        return saldo
 
 class MovimientoCaja(models.Model):
     fecha = models.DateTimeField(auto_now_add=True)
