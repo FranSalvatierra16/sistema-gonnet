@@ -98,6 +98,7 @@ class MovimientoCaja(models.Model):
     fecha_hasta = models.DateField(null=True, blank=True)
     
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    observaciones = models.TextField(blank=True)
     
     @property
     def monto_total(self):

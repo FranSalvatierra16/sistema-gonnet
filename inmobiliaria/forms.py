@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserChangeForm
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio,TipoPrecio,TIPOS_INMUEBLES, TIPOS_VISTA, TIPOS_VALORACION, Sucursal, VentaPropiedad, MovimientoCaja
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio,TipoPrecio,TIPOS_INMUEBLES, TIPOS_VISTA, TIPOS_VALORACION, Sucursal, VentaPropiedad, MovimientoCaja, Concepto, Banco
 from datetime import datetime
 from django.forms import modelformset_factory
 from django.core.exceptions import ValidationError
@@ -409,16 +409,40 @@ class MovimientoCajaForm(forms.ModelForm):
     class Meta:
         model = MovimientoCaja
         fields = [
-            'tipo',
+            'tipo', 
+            'tipo_comprobante',
+            'numero_liquidacion',
+            'cuenta',
+            'propiedad',
             'concepto',
-            'monto',
-            'comprobante',
+            'monto_efectivo',
+            'monto_cheque',
+            'monto_tarjeta',
+            'monto_deposito',
+            'monto_qr',
+            'banco',
+            'a_descontar',
+            'con_iva',
+            'pasa_liquidaciones',
+            'fecha_desde',
+            'fecha_hasta',
             'observaciones'
         ]
         widgets = {
-            'tipo': forms.Select(attrs={'class': 'form-control'}),
-            'concepto': forms.TextInput(attrs={'class': 'form-control'}),
-            'monto': forms.NumberInput(attrs={'class': 'form-control'}),
-            'comprobante': forms.TextInput(attrs={'class': 'form-control'}),
-            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3})
+            'tipo': forms.RadioSelect(),
+            'tipo_comprobante': forms.RadioSelect(),
+            'numero_liquidacion': forms.TextInput(attrs={'class': 'form-control'}),
+            'cuenta': forms.Select(attrs={'class': 'form-control select2'}),
+            'propiedad': forms.Select(attrs={'class': 'form-control select2'}),
+            'concepto': forms.Select(attrs={'class': 'form-control select2'}),
+            'monto_efectivo': forms.NumberInput(attrs={'class': 'form-control importe'}),
+            'monto_cheque': forms.NumberInput(attrs={'class': 'form-control importe'}),
+            'monto_tarjeta': forms.NumberInput(attrs={'class': 'form-control importe'}),
+            'monto_deposito': forms.NumberInput(attrs={'class': 'form-control importe'}),
+            'monto_qr': forms.NumberInput(attrs={'class': 'form-control importe'}),
+            'banco': forms.Select(attrs={'class': 'form-control'}),
+            'a_descontar': forms.RadioSelect(),
+            'fecha_desde': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'fecha_hasta': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
