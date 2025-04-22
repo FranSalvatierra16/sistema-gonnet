@@ -2,52 +2,155 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Cajas - {{ request.user.sucursal }}</h2>
-    
-    {% if caja_actual %}
-        <div class="alert alert-info">
-            <h4>Caja Actual Abierta</h4>
-            <p>Número: {{ caja_actual.numero }}</p>
-            <p>Saldo Actual: ${{ caja_actual.get_saldo_actual }}</p>
-            <p>Abierta el: {{ caja_actual.fecha_apertura }}</p>
-        </div>
-    {% else %}
-        <div class="alert alert-warning">
-            No hay caja abierta actualmente.
-        </div>
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endfor %}
     {% endif %}
-    
-    <div class="table-responsive">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Número</th>
-                    <th>Fecha Apertura</th>
-                    <th>Estado</th>
-                    <th>Saldo Inicial</th>
-                    <th>Saldo Final</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for caja in cajas %}
-                <tr>
-                    <td>{{ caja.numero }}</td>
-                    <td>{{ caja.fecha_apertura }}</td>
-                    <td>{{ caja.get_estado_display }}</td>
-                    <td>${{ caja.saldo_inicial }}</td>
-                    <td>${{ caja.saldo_final|default:"-" }}</td>
-                    <td>
-                        <a href="#" class="btn btn-sm btn-primary">Ver Detalles</a>
-                        {% if caja.estado == 'abierta' %}
-                            <a href="#" class="btn btn-sm btn-success">Nuevo Movimiento</a>
-                            <a href="#" class="btn btn-sm btn-danger">Cerrar Caja</a>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title mb-0">Estado de Caja - {{ request.user.sucursal }}</h3>
+                </div>
+                <div class="card-body">
+                    {% if caja_actual %}
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="info-box bg-success text-white">
+                                    <h5>Caja #{{ caja_actual.numero }}</h5>
+                                    <p>Abierta el: {{ caja_actual.fecha_apertura|date:"d/m/Y H:i" }}</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="info-box bg-info text-white">
+                                    <h5>Saldo Inicial</h5>
+                                    <p>${{ caja_actual.saldo_inicial|floatformat:2 }}</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="info-box bg-warning text-dark">
+                                    <h5>Saldo Actual</h5>
+                                    <p>${{ caja_actual.get_saldo_actual|floatformat:2 }}</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="d-grid gap-2">
+                                    <a href="{% url 'inmobiliaria:nuevo_movimiento' caja_actual.numero %}" class="btn btn-primary mb-2">
+                                        <i class="fas fa-plus"></i> Nuevo Movimiento
+                                    </a>
+                                    <a href="{% url 'inmobiliaria:cerrar_caja' caja_actual.numero %}" class="btn btn-danger">
+                                        <i class="fas fa-lock"></i> Cerrar Caja
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center">
+                            <p class="lead">No hay caja abierta actualmente</p>
+                            <a href="{% url 'inmobiliaria:abrir_caja' %}" class="btn btn-primary">
+                                <i class="fas fa-lock-open"></i> Abrir Nueva Caja
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Historial de Cajas</h4>
+            <div>
+                <button class="btn btn-light" data-bs-toggle="collapse" data-bs-target="#filtros">
+                    <i class="fas fa-filter"></i> Filtros
+                </button>
+            </div>
+        </div>
+        <div id="filtros" class="collapse">
+            <div class="card-body bg-light">
+                <form method="get" class="row g-3">
+                    <div class="col-md-3">
+                        <label>Fecha Desde</label>
+                        <input type="date" name="fecha_desde" class="form-control" value="{{ request.GET.fecha_desde }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label>Fecha Hasta</label>
+                        <input type="date" name="fecha_hasta" class="form-control" value="{{ request.GET.fecha_hasta }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label>Estado</label>
+                        <select name="estado" class="form-control">
+                            <option value="">Todos</option>
+                            <option value="abierta">Abierta</option>
+                            <option value="cerrada">Cerrada</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary">Filtrar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Número</th>
+                        <th>Fecha Apertura</th>
+                        <th>Fecha Cierre</th>
+                        <th>Saldo Inicial</th>
+                        <th>Saldo Final</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for caja in cajas %}
+                    <tr>
+                        <td>{{ caja.numero }}</td>
+                        <td>{{ caja.fecha_apertura|date:"d/m/Y H:i" }}</td>
+                        <td>{{ caja.fecha_cierre|date:"d/m/Y H:i"|default:"-" }}</td>
+                        <td>${{ caja.saldo_inicial|floatformat:2 }}</td>
+                        <td>${{ caja.saldo_final|floatformat:2|default:"-" }}</td>
+                        <td>
+                            <span class="badge bg-{% if caja.estado == 'abierta' %}success{% else %}secondary{% endif %}">
+                                {{ caja.get_estado_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{% url 'inmobiliaria:detalle_caja' caja.numero %}" class="btn btn-sm btn-info">
+                                <i class="fas fa-eye"></i> Ver Detalles
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center">No hay registros de caja</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
+
+<style>
+.info-box {
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+.info-box h5 {
+    margin-bottom: 5px;
+}
+.info-box p {
+    margin-bottom: 0;
+    font-size: 1.2em;
+    font-weight: bold;
+}
+</style>
 {% endblock %} 

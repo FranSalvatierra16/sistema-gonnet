@@ -2260,3 +2260,57 @@ def caja(request):
     except Exception as e:
         messages.error(request, f'Error: {str(e)}')
         return redirect('inmobiliaria:index')
+
+@login_required
+def detalle_caja(request, numero):
+    caja = get_object_or_404(Caja, numero=numero, sucursal=request.user.sucursal)
+    movimientos = caja.movimientos.all().order_by('-fecha')
+    
+    context = {
+        'caja': caja,
+        'movimientos': movimientos,
+    }
+    return render(request, 'inmobiliaria/caja/detalle_caja.html', context)
+
+@login_required
+def nuevo_movimiento(request, numero_caja):
+    caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
+    
+    if request.method == 'POST':
+        # Lógica para crear nuevo movimiento
+        tipo = request.POST.get('tipo')
+        monto = Decimal(request.POST.get('monto'))
+        concepto = request.POST.get('concepto')
+        
+        MovimientoCaja.objects.create(
+            caja=caja,
+            tipo=tipo,
+            monto=monto,
+            concepto=concepto,
+            usuario=request.user
+        )
+        
+        messages.success(request, 'Movimiento registrado exitosamente')
+        return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+    
+    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {'caja': caja})
+
+@login_required
+def cerrar_caja(request, numero_caja):
+    caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
+    
+    if request.method == 'POST':
+        observaciones = request.POST.get('observaciones', '')
+        saldo_final = caja.get_saldo_actual()
+        
+        caja.fecha_cierre = timezone.now()
+        caja.estado = 'cerrada'
+        caja.saldo_final = saldo_final
+        caja.usuario_cierre = request.user
+        caja.observaciones_cierre = observaciones
+        caja.save()
+        
+        messages.success(request, f'Caja #{caja.numero} cerrada exitosamente')
+        return redirect('inmobiliaria:lista_cajas')
+    
+    return render(request, 'inmobiliaria/caja/cerrar_caja.html', {'caja': caja})

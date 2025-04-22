@@ -116,4 +116,7 @@ urlpatterns = [
     path('caja/eliminar/<int:movimiento_id>/', views.eliminar_movimiento, name='eliminar_movimiento'),
     path('cajas/', views.lista_cajas, name='lista_cajas'),
     path('cajas/abrir/', views.abrir_caja, name='abrir_caja'),
+    path('cajas/<int:numero>/', views.detalle_caja, name='detalle_caja'),
+    path('cajas/<int:numero_caja>/movimiento/', views.nuevo_movimiento, name='nuevo_movimiento'),
+    path('cajas/<int:numero_caja>/cerrar/', views.cerrar_caja, name='cerrar_caja'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
