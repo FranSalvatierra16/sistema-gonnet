@@ -13,13 +13,13 @@ class Caja(models.Model):
         ('cerrada', 'Cerrada')
     ]
     
-    numero = models.AutoField(primary_key=True)  # Número único de caja
+    numero = models.AutoField(primary_key=True)
     sucursal = models.ForeignKey(
         'Sucursal',
         on_delete=models.PROTECT,
         related_name='cajas'
     )
-    fecha_apertura = models.DateTimeField(auto_now_add=True)
+    fecha_apertura = models.DateTimeField(default=timezone.now)
     fecha_cierre = models.DateTimeField(null=True, blank=True)
     saldo_inicial = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     saldo_final = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -76,6 +76,11 @@ class MovimientoCaja(models.Model):
         on_delete=models.PROTECT
     )
     observaciones = models.TextField(blank=True)
+    estado = models.CharField(
+        max_length=20,
+        choices=[('pendiente', 'Pendiente'), ('confirmado', 'Confirmado')],
+        default='confirmado'
+    )
     
     def __str__(self):
         return f"{self.get_tipo_display()} - ${self.monto} - {self.concepto}"
