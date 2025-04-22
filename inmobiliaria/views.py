@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja, Cuenta
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
@@ -2314,3 +2314,58 @@ def cerrar_caja(request, numero_caja):
         return redirect('inmobiliaria:lista_cajas')
     
     return render(request, 'inmobiliaria/caja/cerrar_caja.html', {'caja': caja})
+
+@login_required
+def nuevo_registro(request):
+    if request.method == 'POST':
+        form = RegistroForm(request.POST)
+        if form.is_valid():
+            registro = form.save(commit=False)
+            registro.sucursal = request.user.sucursal
+            registro.empleado = request.user
+            registro.interno_caja = f"IC-{timezone.now().strftime('%Y%m%d')}-{Registro.objects.count() + 1}"
+            registro.save()
+            
+            messages.success(request, 'Registro creado correctamente.')
+            return redirect('inmobiliaria:caja')
+    else:
+        form = RegistroForm()
+    
+    return render(request, 'inmobiliaria/caja/nuevo_registro.html', {
+        'form': form,
+        'caja_actual': request.user.sucursal.caja_set.filter(estado='abierta').first()
+    })
+
+@login_required
+def nuevo_concepto(request):
+    if request.method == 'POST':
+        form = ConceptoForm(request.POST)
+        if form.is_valid():
+            concepto = form.save()
+            return JsonResponse({
+                'id': concepto.id,
+                'nombre': concepto.nombre
+            })
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+@login_required
+def buscar_cuentas(request):
+    search = request.GET.get('term', '')
+    cuentas = Cuenta.objects.filter(
+        Q(numero__icontains=search) | 
+        Q(nombre__icontains=search)
+    )[:10]
+    
+    results = [{'id': c.id, 'text': f"{c.numero} - {c.nombre}"} for c in cuentas]
+    return JsonResponse({'results': results})
+
+@login_required
+def buscar_propiedades(request):
+    search = request.GET.get('term', '')
+    propiedades = Propiedad.objects.filter(
+        Q(id__icontains=search) | 
+        Q(direccion__icontains=search)
+    )[:10]
+    
+    results = [{'id': p.id, 'text': f"{p.id} - {p.direccion}"} for p in propiedades]
+    return JsonResponse({'results': results})

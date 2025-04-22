@@ -1,0 +1,185 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h3>Nuevo Registro - Interno de Caja: {{ caja_actual.id }}</h3>
+        </div>
+        <div class="card-body">
+            <form method="post" id="registroForm">
+                {% csrf_token %}
+                
+                <!-- Tipo de Movimiento -->
+                <div class="form-group">
+                    <label>Tipo de Movimiento:</label>
+                    {{ form.tipo }}
+                </div>
+
+                <!-- Comprobante -->
+                <div class="form-group">
+                    <label>Tipo de Comprobante:</label>
+                    {{ form.tipo_comprobante }}
+                </div>
+
+                <!-- Fecha -->
+                <div class="form-group">
+                    <label>Fecha:</label>
+                    {{ form.fecha_comprobante }}
+                </div>
+
+                <!-- Montos -->
+                <div class="card mt-3">
+                    <div class="card-header">Importes</div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-2">
+                                <label>Efectivo:</label>
+                                {{ form.efectivo }}
+                            </div>
+                            <div class="col-md-2">
+                                <label>Cheques:</label>
+                                {{ form.cheques }}
+                            </div>
+                            <div class="col-md-2">
+                                <label>Tarjeta:</label>
+                                {{ form.tarjeta }}
+                            </div>
+                            <div class="col-md-2">
+                                <label>Depósito:</label>
+                                {{ form.deposito }}
+                            </div>
+                            <div class="col-md-2">
+                                <label>QR:</label>
+                                {{ form.qr }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Referencias -->
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <label>Cuenta:</label>
+                        {{ form.cuenta }}
+                    </div>
+                    <div class="col-md-4">
+                        <label>Propiedad:</label>
+                        {{ form.propiedad }}
+                    </div>
+                    <div class="col-md-4">
+                        <label>Concepto:</label>
+                        <div class="input-group">
+                            {{ form.concepto }}
+                            <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#nuevoConceptoModal">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Período -->
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <label>Desde:</label>
+                        {{ form.fecha_desde }}
+                    </div>
+                    <div class="col-md-6">
+                        <label>Hasta:</label>
+                        {{ form.fecha_hasta }}
+                    </div>
+                </div>
+
+                <!-- Opciones adicionales -->
+                <div class="card mt-3">
+                    <div class="card-header">Opciones adicionales</div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label>A descontar de:</label>
+                            {{ form.tipo_descuento }}
+                        </div>
+                        <div class="form-check">
+                            {{ form.con_iva }}
+                            <label class="form-check-label">Con IVA</label>
+                        </div>
+                        <div class="form-check">
+                            {{ form.pasa_liquidaciones }}
+                            <label class="form-check-label">Pasa a caja liquidaciones</label>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary mt-3">Guardar Registro</button>
+                <a href="{% url 'inmobiliaria:caja' %}" class="btn btn-secondary mt-3">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para nuevo concepto -->
+<div class="modal fade" id="nuevoConceptoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nuevo Concepto</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="conceptoForm">
+                    <div class="form-group">
+                        <label>Nombre:</label>
+                        <input type="text" class="form-control" name="nombre" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="guardarConcepto">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Inicializar Select2 para búsquedas
+    $('#id_cuenta').select2({
+        placeholder: 'Buscar cuenta...',
+        minimumInputLength: 2,
+        ajax: {
+            url: '{% url "inmobiliaria:buscar_cuentas" %}',
+            dataType: 'json',
+            delay: 250,
+        }
+    });
+
+    $('#id_propiedad').select2({
+        placeholder: 'Buscar propiedad...',
+        minimumInputLength: 2,
+        ajax: {
+            url: '{% url "inmobiliaria:buscar_propiedades" %}',
+            dataType: 'json',
+            delay: 250,
+        }
+    });
+
+    // Manejar nuevo concepto
+    $('#guardarConcepto').click(function() {
+        $.post('{% url "inmobiliaria:nuevo_concepto" %}', 
+            $('#conceptoForm').serialize(),
+            function(data) {
+                var newOption = new Option(data.nombre, data.id, true, true);
+                $('#id_concepto').append(newOption).trigger('change');
+                $('#nuevoConceptoModal').modal('hide');
+            }
+        );
+    });
+});
+</script>
+{% endblock %} 
