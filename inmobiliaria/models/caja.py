@@ -58,33 +58,72 @@ class Caja(models.Model):
 class MovimientoCaja(models.Model):
     TIPO_CHOICES = [
         ('ingreso', 'Ingreso'),
-        ('egreso', 'Egreso')
+        ('egreso', 'Egreso'),
     ]
     
-    caja = models.ForeignKey(
-        Caja,
-        on_delete=models.PROTECT,
-        related_name='movimientos'
-    )
-    fecha = models.DateTimeField(auto_now_add=True)
-    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
-    concepto = models.CharField(max_length=200)
-    monto = models.DecimalField(max_digits=10, decimal_places=2)
-    comprobante = models.CharField(max_length=50, blank=True)
-    usuario = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT
-    )
-    observaciones = models.TextField(blank=True)
-    estado = models.CharField(
-        max_length=20,
-        choices=[('pendiente', 'Pendiente'), ('confirmado', 'Confirmado')],
-        default='confirmado'
-    )
+    TIPO_COMPROBANTE_CHOICES = [
+        ('recibo', 'Recibo'),
+        ('liquidacion', 'Liquidación'),
+        ('gasto', 'Gasto'),
+        ('otro', 'Otro'),
+    ]
     
+    A_DESCONTAR_CHOICES = [
+        ('propietario', 'Propietario'),
+        ('inquilino', 'Inquilino'),
+        ('oficina', 'Oficina'),
+    ]
+    
+    caja = models.ForeignKey('Caja', on_delete=models.PROTECT, related_name='movimientos')
+    fecha = models.DateTimeField(default=timezone.now)
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
+    tipo_comprobante = models.CharField(max_length=20, choices=TIPO_COMPROBANTE_CHOICES)
+    numero_liquidacion = models.CharField(max_length=50, blank=True)
+    cuenta = models.ForeignKey('Cuenta', on_delete=models.PROTECT, null=True, blank=True)
+    propiedad = models.ForeignKey('Propiedad', on_delete=models.PROTECT, null=True, blank=True)
+    concepto = models.ForeignKey('Concepto', on_delete=models.PROTECT)
+    
+    monto_efectivo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    monto_cheque = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    monto_tarjeta = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    monto_deposito = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    monto_qr = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    banco = models.ForeignKey('Banco', on_delete=models.PROTECT, null=True, blank=True)
+    a_descontar = models.CharField(max_length=20, choices=A_DESCONTAR_CHOICES, null=True, blank=True)
+    con_iva = models.BooleanField(default=False)
+    pasa_liquidaciones = models.BooleanField(default=False)
+    
+    fecha_desde = models.DateField(null=True, blank=True)
+    fecha_hasta = models.DateField(null=True, blank=True)
+    
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    
+    @property
+    def monto_total(self):
+        return (
+            self.monto_efectivo +
+            self.monto_cheque +
+            self.monto_tarjeta +
+            self.monto_deposito +
+            self.monto_qr
+        )
+
     def __str__(self):
-        return f"{self.get_tipo_display()} - ${self.monto} - {self.concepto}"
+        return f"{self.get_tipo_display()} - ${self.monto_total} - {self.concepto}"
     
     class Meta:
         db_table = 'inmobiliaria_movimientocaja'
         ordering = ['-fecha']
+
+class Concepto(models.Model):
+    nombre = models.CharField(max_length=200)
+    
+    def __str__(self):
+        return self.nombre
+
+class Banco(models.Model):
+    nombre = models.CharField(max_length=100)
+    
+    def __str__(self):
+        return self.nombre
