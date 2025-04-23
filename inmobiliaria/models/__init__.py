@@ -10,7 +10,8 @@ from .caja import (
     Concepto,
     Registro,
     Cuenta,
-    BancoTarjeta
+    BancoTarjeta,
+    Banco
 )
 
 __all__ = [

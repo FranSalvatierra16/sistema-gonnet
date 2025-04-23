@@ -37,8 +37,11 @@ class Caja(models.Model):
     observaciones_cierre = models.TextField(blank=True)
 
     def get_saldo_actual(self):
-        saldo = self.saldo_inicial
-        for movimiento in self.movimientos.all():
+        from .models import MovimientoCaja  # Importación local para evitar importación circular
+        saldo = Decimal(str(self.saldo_inicial))
+        movimientos = MovimientoCaja.objects.filter(caja=self) 
+        
+        for movimiento in movimientos:
             if movimiento.tipo == 'ingreso':
                 saldo += movimiento.monto_total
             else:
