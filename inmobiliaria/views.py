@@ -2183,32 +2183,27 @@ def cerrar_caja(request, numero):
     })
 
 @login_required
-def nuevo_movimiento(request):
+def nuevo_movimiento(request, numero_caja):
+    caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
+    
     if request.method == 'POST':
         form = MovimientoCajaForm(request.POST)
         if form.is_valid():
             movimiento = form.save(commit=False)
-            movimiento.sucursal = request.user.sucursal
-            movimiento.empleado = request.user
-            
-            # Actualizar saldo de la caja
-            caja = Caja.objects.get(sucursal=request.user.sucursal)
-            if movimiento.tipo.tipo == TipoMovimientoCajaEnum.INGRESO:
-                caja.saldo += movimiento.monto
-            else:
-                caja.saldo -= movimiento.monto
-            
-            caja.save()
+            movimiento.caja = caja
+            movimiento.usuario = request.user
             movimiento.save()
-            
-            messages.success(request, 'Movimiento registrado correctamente.')
-            return redirect('inmobiliaria:caja')
+            messages.success(request, 'Registro creado exitosamente.')
+            return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
     else:
-        form = MovimientoCajaForm()
+        form = MovimientoCajaForm(initial={'fecha': timezone.now()})
     
-    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
-        'form': form
-    })
+    context = {
+        'form': form,
+        'caja': caja,
+        'titulo': f'Nuevo Registro - Caja #{caja.numero}',
+    }
+    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
 
 @login_required
 def eliminar_movimiento(request, movimiento_id):

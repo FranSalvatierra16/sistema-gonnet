@@ -1,18 +1,239 @@
 {% extends 'inmobiliaria/base.html' %}
+{% load static %}
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Nuevo Movimiento de Caja</h2>
-    
     <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3 class="card-title mb-0">{{ titulo }}</h3>
+        </div>
         <div class="card-body">
-            <form method="post">
+            <form method="post" id="registroForm">
                 {% csrf_token %}
-                {{ form.as_p }}
-                <button type="submit" class="btn btn-primary">Guardar</button>
-                <a href="{% url 'inmobiliaria:caja' %}" class="btn btn-secondary">Cancelar</a>
+                
+                <!-- Tipo de Movimiento -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Tipo de Movimiento</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="tipo" value="ingreso" id="tipoIngreso" required>
+                            <label class="form-check-label" for="tipoIngreso">Ingreso</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="tipo" value="egreso" id="tipoEgreso">
+                            <label class="form-check-label" for="tipoEgreso">Egreso</label>
+                        </div>
+                    </div>
+                    
+                    <!-- Tipo de Comprobante -->
+                    <div class="col-md-6">
+                        <label class="form-label">Tipo de Comprobante</label>
+                        {% for value, label in form.tipo_comprobante.field.choices %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="tipo_comprobante" 
+                                   value="{{ value }}" id="comprobante{{ value }}" required>
+                            <label class="form-check-label" for="comprobante{{ value }}">{{ label }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Fecha y Liquidación -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Fecha</label>
+                        {{ form.fecha }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Número Liquidación</label>
+                        {{ form.numero_liquidacion }}
+                    </div>
+                </div>
+
+                <!-- Cuenta y Propiedad -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Cuenta</label>
+                        {{ form.cuenta }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Propiedad</label>
+                        {{ form.propiedad }}
+                    </div>
+                </div>
+
+                <!-- Concepto -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label">Concepto</label>
+                        <div class="input-group">
+                            {{ form.concepto }}
+                            <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#nuevoConceptoModal">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Importes -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5 class="mb-0">Importes</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Efectivo</label>
+                                {{ form.monto_efectivo }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Cheque</label>
+                                {{ form.monto_cheque }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Tarjeta</label>
+                                <div class="input-group">
+                                    {{ form.monto_tarjeta }}
+                                    {{ form.banco }}
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Depósito</label>
+                                {{ form.monto_deposito }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">QR</label>
+                                {{ form.monto_qr }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Total</label>
+                                <input type="text" class="form-control" id="total" readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- A descontar -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label">A descontar de</label>
+                        {% for value, label in form.a_descontar.field.choices %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="a_descontar" 
+                                   value="{{ value }}" id="descontar{{ value }}">
+                            <label class="form-check-label" for="descontar{{ value }}">{{ label }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Fechas y Opciones -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Fecha Desde</label>
+                        {{ form.fecha_desde }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Fecha Hasta</label>
+                        {{ form.fecha_hasta }}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            {{ form.con_iva }}
+                            <label class="form-check-label" for="{{ form.con_iva.id_for_label }}">
+                                Con IVA
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            {{ form.pasa_liquidaciones }}
+                            <label class="form-check-label" for="{{ form.pasa_liquidaciones.id_for_label }}">
+                                Pasa a Liquidaciones
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Observaciones -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label">Observaciones</label>
+                        {{ form.observaciones }}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Guardar Registro
+                        </button>
+                        <a href="{% url 'inmobiliaria:detalle_caja' caja.numero %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancelar
+                        </a>
+                    </div>
+                </div>
             </form>
         </div>
     </div>
 </div>
+
+<!-- Modal para nuevo concepto -->
+<div class="modal fade" id="nuevoConceptoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nuevo Concepto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Nombre del Concepto</label>
+                    <input type="text" class="form-control" id="nombreConcepto">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="guardarConcepto">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Inicializar Select2
+    $('.select2').select2({
+        theme: 'bootstrap4',
+        width: '100%'
+    });
+
+    // Calcular total
+    $('.importe').on('input', function() {
+        let total = 0;
+        $('.importe').each(function() {
+            total += parseFloat($(this).val() || 0);
+        });
+        $('#total').val(total.toFixed(2));
+    });
+
+    // Guardar nuevo concepto
+    $('#guardarConcepto').click(function() {
+        $.post('{% url "inmobiliaria:crear_concepto" %}', {
+            nombre: $('#nombreConcepto').val(),
+            csrfmiddlewaretoken: '{{ csrf_token }}'
+        })
+        .done(function(response) {
+            let newOption = new Option(response.nombre, response.id, true, true);
+            $('#id_concepto').append(newOption).trigger('change');
+            $('#nuevoConceptoModal').modal('hide');
+        });
+    });
+});
+</script>
 {% endblock %} 
