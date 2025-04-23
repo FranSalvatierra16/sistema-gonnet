@@ -53,66 +53,43 @@ class Caja(models.Model):
         ordering = ['-fecha_apertura']
 
 class MovimientoCaja(models.Model):
-    TIPO_CHOICES = [
-        ('ingreso', 'Ingreso'),
-        ('egreso', 'Egreso'),
-    ]
-    
-    TIPO_COMPROBANTE_CHOICES = [
-        ('recibo', 'Recibo'),
-        ('liquidacion', 'Liquidación'),
-        ('gasto', 'Gasto'),
-        ('otro', 'Otro'),
-    ]
-    
-    A_DESCONTAR_CHOICES = [
-        ('propietario', 'Propietario'),
-        ('inquilino', 'Inquilino'),
-        ('oficina', 'Oficina'),
-    ]
-    
-    # Campos básicos
-    caja = models.ForeignKey(Caja, on_delete=models.PROTECT, related_name='movimientos')
-    fecha = models.DateTimeField(default=timezone.now)
-    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
-    tipo_comprobante = models.CharField(max_length=20, choices=TIPO_COMPROBANTE_CHOICES)
+    fecha = models.DateTimeField(auto_now_add=True)
+    tipo = models.CharField(
+        max_length=2,
+        choices=TipoMovimientoCajaEnum.choices,
+        default=TipoMovimientoCajaEnum.INGRESO
+    )
+    tipo_comprobante = models.CharField(
+        max_length=2,
+        choices=TipoComprobanteEnum.choices,
+        default=TipoComprobanteEnum.RECIBO
+    )
     numero_liquidacion = models.CharField(max_length=50, blank=True)
-    
-    # Referencias
-    cuenta = models.ForeignKey('Cuenta', on_delete=models.PROTECT, null=True, blank=True)
-    propiedad = models.ForeignKey('Propiedad', on_delete=models.PROTECT, null=True, blank=True)
-    concepto = models.ForeignKey('Concepto', on_delete=models.PROTECT)
-    
-    # Montos por tipo de pago
+    concepto = models.CharField(max_length=200, blank=True)
+    cuenta = models.ForeignKey('Cuenta', on_delete=models.SET_NULL, null=True, blank=True)
+    propiedad = models.ForeignKey('Propiedad', on_delete=models.SET_NULL, null=True, blank=True)
+    fecha_desde = models.DateField(null=True, blank=True)
+    fecha_hasta = models.DateField(null=True, blank=True)
     monto_efectivo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     monto_cheque = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     monto_tarjeta = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    banco = models.ForeignKey('BancoTarjeta', on_delete=models.SET_NULL, null=True, blank=True)
     monto_deposito = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     monto_qr = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
-    # Campos adicionales
-    banco = models.ForeignKey('Banco', on_delete=models.PROTECT, null=True, blank=True)
-    a_descontar = models.CharField(max_length=20, choices=A_DESCONTAR_CHOICES, null=True, blank=True)
+    a_descontar = models.CharField(
+        max_length=20, 
+        choices=[
+            ('propietario', 'Propietario'),
+            ('inquilino', 'Inquilino'),
+            ('oficina', 'Oficina')
+        ],
+        blank=True
+    )
     con_iva = models.BooleanField(default=False)
     pasa_liquidaciones = models.BooleanField(default=False)
-    
-    # Fechas
-    fecha_desde = models.DateField(null=True, blank=True)
-    fecha_hasta = models.DateField(null=True, blank=True)
-    
-    # Metadata
-    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
-    observaciones = models.TextField(blank=True)
-    
-    @property
-    def monto_total(self):
-        return (
-            self.monto_efectivo +
-            self.monto_cheque +
-            self.monto_tarjeta +
-            self.monto_deposito +
-            self.monto_qr
-        )
+    sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
+    empleado = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    caja = models.ForeignKey('Caja', on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return f"{self.get_tipo_display()} - ${self.monto_efectivo + self.monto_cheque + self.monto_tarjeta + self.monto_deposito + self.monto_qr}"
