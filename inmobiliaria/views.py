@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
@@ -43,6 +43,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import traceback  # Agregada esta importación
+from django.utils import timezone
 
 # index view
 def index(request):
@@ -545,40 +546,41 @@ def reservas(request):
 def operaciones(request):
     reservas = Reserva.objects.filter(sucursal=request.user.sucursal)
     return render(request, 'inmobiliaria/reserva/operaciones.html', {'reservas': reservas})
-def crear_reserva(request):
-
-    if request.method == 'POST':
-        propiedad_id = request.POST.get('propiedad_id')
-        fecha_inicio_str = request.POST.get('fecha_inicio')
-        fecha_fin_str = request.POST.get('fecha_fin')
-
-        try:
-            fecha_inicio = parse_date(fecha_inicio_str)
-            fecha_fin = parse_date(fecha_fin_str)
-
-            if not fecha_inicio or not fecha_fin:
-                raise ValidationError('Las fechas proporcionadas no son válidas.')
-
-            if fecha_inicio > fecha_fin:
-                raise ValidationError('La fecha de inicio no puede ser posterior a la fecha de fin.')
-
-            propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+@login_required
+def crear_reserva(request, propiedad_id):
+    try:
+        propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+        
+        if request.method == 'POST':
+            fecha_inicio = datetime.strptime(request.POST.get('fecha_inicio'), '%Y-%m-%d').date()
+            fecha_fin = datetime.strptime(request.POST.get('fecha_fin'), '%Y-%m-%d').date()
             
-            # Aquí puedes añadir la lógica para crear la reserva o validar disponibilidad
-            reserva = form.save(commit=False)
-            reserva.propiedad_id = propiedad_id
-            reserva.vendedor = request.user
-            # Asegúrate de que precio_total tenga un valor
-            reserva.precio_total = form.cleaned_data.get('precio_total', 0)
-            # La cuota_pendiente se establecerá automáticamente en el save()
-            reserva.save()
+            # Verificar si hay disponibilidad para las fechas
+            disponibilidad = Disponibilidad.objects.filter(
+                propiedad=propiedad,
+                fecha_inicio__lte=fecha_inicio,
+                fecha_fin__gte=fecha_fin
+            ).first()
+            
+            if not disponibilidad:
+                messages.error(request, 'No hay disponibilidad para las fechas seleccionadas')
+                return redirect('inmobiliaria:detalle_propiedad', propiedad_id=propiedad_id)
+            
+            # Crear la reserva sin modificar la disponibilidad
+            reserva = Reserva.objects.create(
+                propiedad=propiedad,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=fecha_fin,
+                # ... otros campos de la reserva ...
+            )
+            
+            messages.success(request, 'Reserva creada exitosamente')
+            return redirect('inmobiliaria:detalle_propiedad', propiedad_id=propiedad_id)
+            
+    except Exception as e:
+        messages.error(request, f'Error al crear la reserva: {str(e)}')
+        return redirect('inmobiliaria:detalle_propiedad', propiedad_id=propiedad_id)
 
-        except (ValueError, ValidationError) as e:
-            return render(request, 'inmobiliaria/reserva/error.html', {'error': str(e)})
-
-        return redirect('inmobiliaria:confirmar_reserva')
-
-    return redirect('inmobiliaria:buscar_propiedades')
 def reserva_editar(request, reserva_id):
     reserva = get_object_or_404(Reserva, pk=reserva_id)
     
@@ -635,7 +637,7 @@ def parse_fecha(fecha_str):
         raise ValidationError('El formato de fecha debe ser DD/MM/YYYY')
 
 def confirmar_reserva(request):
-    if request.method == 'POST':
+        if request.method == 'POST':
         try:
             # Obtener datos del formulario
             propiedad_id = request.POST.get('propiedad_id')
@@ -690,13 +692,13 @@ def confirmar_reserva(request):
                 return redirect('inmobiliaria:buscar_propiedades')
 
             print("el precio total es ",precio_total)
-
+            
             # Crear la reserva
             with transaction.atomic():
-                reserva = Reserva.objects.create(
-                    propiedad=propiedad,
-                    fecha_inicio=fecha_inicio,
-                    fecha_fin=fecha_fin,
+            reserva = Reserva.objects.create(
+                propiedad=propiedad,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=fecha_fin,
                     vendedor=vendedor,
                     cliente=inquilino,
                     precio_total=precio_total
@@ -794,7 +796,7 @@ def buscar_propiedades(request):
         # Filtrar propiedades que están disponibles en las fechas indicadas
         for propiedad in propiedades:
             disponibilidades = Disponibilidad.objects.filter(
-                propiedad=propiedad,
+                    propiedad=propiedad,
                 fecha_inicio__lte=fecha_fin,
                 fecha_fin__gte=fecha_inicio,
             )
@@ -1338,16 +1340,7 @@ def gestionar_precios(request, propiedad_id):
         'formset': formset,
         'nivel_vendedor': vendedor.nivel  # Pasamos el nivel a la plantilla
     })
-def buscar_propiedades_23(request):
-    # Aquí filtramos directamente las propiedades habilitadas para alquiler
-    propiedades_disponibles = Propiedad.objects.filter(habilitar_precio_alquiler=True)
 
-    # Contexto para la plantilla
-    context = {
-        'propiedades_disponibles': propiedades_disponibles,
-    }
-    
-    return render(request, 'inmobiliaria/reservas/buscar_propiedades.html', context)
 def historial_reservas_vendedor(request, vendedor_id):
     reservas = Reserva.objects.filter(vendedor_id=vendedor_id)
 
@@ -1559,8 +1552,8 @@ def agregar_disponibilidad_masiva(request):
                         id=propiedad_id,
                         sucursal=sucursal  # Usar la sucursal del usuario
                     )
-                    Disponibilidad.objects.create(
-                        propiedad=propiedad,
+                Disponibilidad.objects.create(
+                    propiedad=propiedad,
                         fecha_inicio=fecha_inicio,
                         fecha_fin=fecha_fin
                     )
@@ -1680,7 +1673,7 @@ def actualizar_orden_imagenes(request):
                     imagen.save()
             except ImagenPropiedad.DoesNotExist:
                 logger.error(f"No se encontró la imagen con ID: {item['id']}")
-            except Exception as e:
+    except Exception as e:
                 logger.error(f"Error al actualizar imagen {item['id']}: {str(e)}")
         
         return JsonResponse({'success': True})
@@ -2070,42 +2063,30 @@ def iniciar_compra(request, propiedad_id):
 
 @login_required
 def abrir_caja(request):
-    try:
-        print(f"Usuario: {request.user}")
-        print(f"Sucursal: {request.user.sucursal}")
+    sucursal = request.user.sucursal
+    
+    # Verificar si ya existe una caja abierta
+    if Caja.objects.filter(sucursal=sucursal, estado='abierta').exists():
+        messages.error(request, 'Ya existe una caja abierta para esta sucursal')
+        return redirect('inmobiliaria:lista_cajas')
+    
+    if request.method == 'POST':
+        saldo_inicial = Decimal(request.POST.get('saldo_inicial', '0'))
+        observaciones = request.POST.get('observaciones', '')
         
-        # Verificar si ya hay una caja abierta
-        caja_abierta = Caja.objects.filter(
-            sucursal=request.user.sucursal,
-            estado='abierta'
-        ).first()
+        # Crear nueva caja
+        caja = Caja.objects.create(
+            sucursal=sucursal,
+            saldo_inicial=saldo_inicial,
+            estado='abierta',
+            usuario_apertura=request.user,
+            observaciones_apertura=observaciones
+        )
         
-        if caja_abierta:
-            messages.warning(request, 'Ya existe una caja abierta para esta sucursal')
-            return redirect('inmobiliaria:ver_caja', caja_id=caja_abierta.id)
-        
-        if request.method == 'POST':
-            saldo_inicial = request.POST.get('saldo_inicial', '0')
-            print(f"Saldo inicial recibido: {saldo_inicial}")
-            
-            # Crear nueva caja
-            caja = Caja.objects.create(
-                sucursal=request.user.sucursal,
-                saldo_inicial=saldo_inicial,
-                estado='abierta'
-            )
-            
-            messages.success(request, f'Caja #{caja.id} abierta exitosamente')
-            return redirect('inmobiliaria:ver_caja', caja_id=caja.id)
-            
-        return render(request, 'inmobiliaria/caja/abrir_caja.html')
-        
-    except Exception as e:
-        print("Error en abrir_caja:")
-        print(traceback.format_exc())
-        
-        messages.error(request, f'Error al abrir caja: {str(e)}')
-        return redirect('inmobiliaria:dashboard')
+        messages.success(request, f'Caja #{caja.numero} abierta exitosamente')
+        return redirect('inmobiliaria:lista_cajas')
+    
+    return render(request, 'inmobiliaria/caja/abrir_caja.html')
 
 @login_required
 def ver_caja(request, caja_id):
@@ -2123,31 +2104,21 @@ def ver_caja(request, caja_id):
 
 @login_required
 def lista_cajas(request):
-    try:
-        # Debug info
-        print(f"Usuario: {request.user}")
-        print(f"Sucursal: {request.user.sucursal}")
-        
-        # Obtener cajas de la sucursal del usuario
-        cajas = Caja.objects.filter(sucursal=request.user.sucursal).order_by('-fecha_apertura')
-        print(f"Cajas encontradas: {cajas.count()}")
-        
-        # Verificar si hay una caja abierta
-        caja_abierta = cajas.filter(estado='abierta').first()
-        print(f"Caja abierta: {caja_abierta}")
-        
-        context = {
-            'cajas': cajas,
-            'caja_abierta': caja_abierta,
-        }
-        
-        return render(request, 'inmobiliaria/caja/lista_cajas.html', context)
-        
-    except Exception as e:
-        print("Error en lista_cajas:")
-        print(traceback.format_exc())
-        messages.error(request, f'Error: {str(e)}')
-        return redirect('inmobiliaria:dashboard')
+    # Obtener la sucursal del usuario logueado
+    sucursal = request.user.sucursal
+    
+    # Obtener las cajas de la sucursal
+    cajas = Caja.objects.filter(sucursal=sucursal).order_by('-fecha_apertura')
+    
+    # Obtener la caja abierta actual (si existe)
+    caja_actual = cajas.filter(estado='abierta').first()
+    
+    context = {
+        'cajas': cajas,
+        'caja_actual': caja_actual,
+    }
+    
+    return render(request, 'inmobiliaria/caja/lista_cajas.html', context)
 
 @login_required
 def gestionar_caja(request):
@@ -2187,50 +2158,48 @@ def gestionar_caja(request):
         return redirect('inmobiliaria:dashboard')
 
 @login_required
-def cerrar_caja(request, numero):
-    caja = get_object_or_404(Caja, id=numero, sucursal=request.user.sucursal)
-    
-    if request.method == 'POST':
-        caja.empleado_cierre = request.user
-        caja.fecha_cierre = timezone.now()
-        caja.estado = 'cerrada'
-        caja.save()
+def cerrar_caja(request, numero_caja):
+    try:
+        caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal)
         
-        messages.success(request, 'Caja cerrada correctamente.')
-        return redirect('inmobiliaria:caja')
-    
-    return render(request, 'inmobiliaria/caja/cerrar_caja.html', {
-        'caja': caja,
-        'saldo_actual': caja.saldo,
-    })
+        if request.method == 'POST':
+            if caja.estado == 'abierta':
+                caja.estado = 'cerrada'
+                caja.fecha_cierre = timezone.now()
+                caja.save()
+                messages.success(request, f'Caja #{caja.numero} cerrada exitosamente.')
+            else:
+                messages.error(request, 'La caja ya está cerrada.')
+            return redirect('inmobiliaria:lista_cajas')
+        
+        return render(request, 'inmobiliaria/caja/cerrar_caja.html', {'caja': caja})
+        
+    except Exception as e:
+        messages.error(request, f'Error al cerrar la caja: {str(e)}')
+        return redirect('inmobiliaria:lista_cajas')
 
 @login_required
-def nuevo_movimiento(request):
+def nuevo_movimiento(request, numero_caja):
+    caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
+    
     if request.method == 'POST':
         form = MovimientoCajaForm(request.POST)
         if form.is_valid():
             movimiento = form.save(commit=False)
-            movimiento.sucursal = request.user.sucursal
-            movimiento.empleado = request.user
-            
-            # Actualizar saldo de la caja
-            caja = Caja.objects.get(sucursal=request.user.sucursal)
-            if movimiento.tipo.tipo == TipoMovimientoCajaEnum.INGRESO:
-                caja.saldo += movimiento.monto
-            else:
-                caja.saldo -= movimiento.monto
-            
-            caja.save()
+            movimiento.caja = caja
+            movimiento.usuario = request.user
             movimiento.save()
-            
-            messages.success(request, 'Movimiento registrado correctamente.')
-            return redirect('inmobiliaria:caja')
+            messages.success(request, 'Registro creado exitosamente.')
+            return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
     else:
-        form = MovimientoCajaForm()
+        form = MovimientoCajaForm(initial={'fecha': timezone.now()})
     
-    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
-        'form': form
-    })
+    context = {
+        'form': form,
+        'caja': caja,
+        'titulo': f'Nuevo Registro - Caja #{caja.numero}',
+    }
+    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
 
 @login_required
 def eliminar_movimiento(request, movimiento_id):
@@ -2282,3 +2251,144 @@ def caja(request):
     except Exception as e:
         messages.error(request, f'Error: {str(e)}')
         return redirect('inmobiliaria:index')
+
+@login_required
+def detalle_caja(request, numero):
+    caja = get_object_or_404(Caja, numero=numero, sucursal=request.user.sucursal)
+    movimientos = caja.movimientos.all().order_by('-fecha')
+    
+    context = {
+        'caja': caja,
+        'movimientos': movimientos,
+    }
+    return render(request, 'inmobiliaria/caja/detalle_caja.html', context)
+
+@login_required
+def nuevo_movimiento(request, numero_caja):
+    caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
+    
+    if request.method == 'POST':
+        # Lógica para crear nuevo movimiento
+        tipo = request.POST.get('tipo')
+        monto = Decimal(request.POST.get('monto'))
+        concepto = request.POST.get('concepto')
+        
+        MovimientoCaja.objects.create(
+            caja=caja,
+            tipo=tipo,
+            monto=monto,
+            concepto=concepto,
+            usuario=request.user
+        )
+        
+        messages.success(request, 'Movimiento registrado exitosamente')
+        return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+    
+    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {'caja': caja})
+
+@login_required
+def cerrar_caja(request, numero_caja):
+    caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
+    
+    if request.method == 'POST':
+        observaciones = request.POST.get('observaciones', '')
+        saldo_final = caja.get_saldo_actual()
+        
+        caja.fecha_cierre = timezone.now()
+        caja.estado = 'cerrada'
+        caja.saldo_final = saldo_final
+        caja.usuario_cierre = request.user
+        caja.observaciones_cierre = observaciones
+        caja.save()
+        
+        messages.success(request, f'Caja #{caja.numero} cerrada exitosamente')
+        return redirect('inmobiliaria:lista_cajas')
+    
+    return render(request, 'inmobiliaria/caja/cerrar_caja.html', {'caja': caja})
+
+@login_required
+def nuevo_registro(request):
+    if request.method == 'POST':
+        form = RegistroForm(request.POST)
+        if form.is_valid():
+            registro = form.save(commit=False)
+            registro.sucursal = request.user.sucursal
+            registro.empleado = request.user
+            registro.interno_caja = f"IC-{timezone.now().strftime('%Y%m%d')}-{Registro.objects.count() + 1}"
+            registro.save()
+            
+            messages.success(request, 'Registro creado correctamente.')
+            return redirect('inmobiliaria:caja')
+    else:
+        form = RegistroForm()
+    
+    return render(request, 'inmobiliaria/caja/nuevo_registro.html', {
+        'form': form,
+        'caja_actual': request.user.sucursal.caja_set.filter(estado='abierta').first()
+    })
+
+@login_required
+def nuevo_concepto(request):
+    if request.method == 'POST':
+        form = ConceptoForm(request.POST)
+        if form.is_valid():
+            concepto = form.save()
+            return JsonResponse({
+                'id': concepto.id,
+                'nombre': concepto.nombre
+            })
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+@login_required
+def buscar_cuentas(request):
+    search = request.GET.get('term', '')
+    cuentas = Cuenta.objects.filter(
+        Q(numero__icontains=search) | 
+        Q(nombre__icontains=search)
+    )[:10]
+    
+    results = [{'id': c.id, 'text': f"{c.numero} - {c.nombre}"} for c in cuentas]
+    return JsonResponse({'results': results})
+
+@login_required
+def buscar_propiedades(request):
+    search = request.GET.get('term', '')
+    propiedades = Propiedad.objects.filter(
+        Q(id__icontains=search) | 
+        Q(direccion__icontains=search)
+    )[:10]
+    
+    results = [{'id': p.id, 'text': f"{p.id} - {p.direccion}"} for p in propiedades]
+    return JsonResponse({'results': results})
+
+@login_required
+@require_POST
+def crear_concepto(request):
+    try:
+        nombre = request.POST.get('nombre')
+        if not nombre:
+            return JsonResponse({'error': 'El nombre es requerido'}, status=400)
+        
+        concepto = Concepto.objects.create(nombre=nombre)
+        return JsonResponse({
+            'id': concepto.id,
+            'nombre': concepto.nombre
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+@require_POST
+def crear_propiedad(request):
+    try:
+        direccion = request.POST.get('direccion')
+        if not direccion:
+            return JsonResponse({'error': 'La dirección es requerida'}, status=400)
+        
+        propiedad = Propiedad.objects.create(direccion=direccion)
+        return JsonResponse({
+            'id': propiedad.id,
+            'direccion': propiedad.direccion
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
