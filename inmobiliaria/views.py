@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja, Cuenta
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
@@ -2364,3 +2364,35 @@ def buscar_propiedades(request):
     
     results = [{'id': p.id, 'text': f"{p.id} - {p.direccion}"} for p in propiedades]
     return JsonResponse({'results': results})
+
+@login_required
+@require_POST
+def crear_concepto(request):
+    try:
+        nombre = request.POST.get('nombre')
+        if not nombre:
+            return JsonResponse({'error': 'El nombre es requerido'}, status=400)
+        
+        concepto = Concepto.objects.create(nombre=nombre)
+        return JsonResponse({
+            'id': concepto.id,
+            'nombre': concepto.nombre
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+@require_POST
+def crear_propiedad(request):
+    try:
+        direccion = request.POST.get('direccion')
+        if not direccion:
+            return JsonResponse({'error': 'La dirección es requerida'}, status=400)
+        
+        propiedad = Propiedad.objects.create(direccion=direccion)
+        return JsonResponse({
+            'id': propiedad.id,
+            'direccion': propiedad.direccion
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

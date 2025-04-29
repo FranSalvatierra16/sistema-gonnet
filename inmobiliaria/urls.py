@@ -123,4 +123,6 @@ urlpatterns = [
     path('caja/nuevo-concepto/', views.nuevo_concepto, name='nuevo_concepto'),
     path('caja/buscar-cuentas/', views.buscar_cuentas, name='buscar_cuentas'),
     path('caja/buscar-propiedades/', views.buscar_propiedades, name='buscar_propiedades'),
+    path('crear-concepto/', views.crear_concepto, name='crear_concepto'),
+    path('crear-propiedad/', views.crear_propiedad, name='crear_propiedad'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
