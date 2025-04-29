@@ -207,32 +207,59 @@
 {% block extra_js %}
 <script>
 $(document).ready(function() {
-    // Inicializar Select2
-    $('.select2').select2({
+    // Inicializar Select2 para conceptos
+    $('#id_concepto').select2({
         theme: 'bootstrap4',
-        width: '100%'
+        width: '100%',
+        placeholder: 'Seleccione o busque un concepto',
+        allowClear: true
     });
 
-    // Calcular total
+    // Calcular total cuando cambian los importes
     $('.importe').on('input', function() {
         let total = 0;
         $('.importe').each(function() {
-            total += parseFloat($(this).val() || 0);
+            let valor = parseFloat($(this).val() || 0);
+            if (!isNaN(valor)) {
+                total += valor;
+            }
         });
         $('#total').val(total.toFixed(2));
     });
 
     // Guardar nuevo concepto
     $('#guardarConcepto').click(function() {
-        $.post('{% url "inmobiliaria:crear_concepto" %}', {
-            nombre: $('#nombreConcepto').val(),
-            csrfmiddlewaretoken: '{{ csrf_token }}'
-        })
-        .done(function(response) {
-            let newOption = new Option(response.nombre, response.id, true, true);
-            $('#id_concepto').append(newOption).trigger('change');
-            $('#nuevoConceptoModal').modal('hide');
+        let nombreConcepto = $('#nombreConcepto').val();
+        if (!nombreConcepto) {
+            alert('Por favor ingrese un nombre para el concepto');
+            return;
+        }
+
+        $.ajax({
+            url: '{% url "inmobiliaria:crear_concepto" %}',
+            type: 'POST',
+            data: {
+                nombre: nombreConcepto,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.id && response.nombre) {
+                    let newOption = new Option(response.nombre, response.id, true, true);
+                    $('#id_concepto').append(newOption).trigger('change');
+                    $('#nuevoConceptoModal').modal('hide');
+                    $('#nombreConcepto').val('');
+                    alert('Concepto creado exitosamente');
+                }
+            },
+            error: function(xhr, status, error) {
+                alert('Error al crear el concepto: ' + error);
+            }
         });
+    });
+
+    // Limpiar modal cuando se cierra
+    $('#nuevoConceptoModal').on('hidden.bs.modal', function () {
+        $('#nombreConcepto').val('');
     });
 });
 </script>
