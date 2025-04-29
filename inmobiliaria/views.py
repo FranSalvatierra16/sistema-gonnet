@@ -43,6 +43,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import traceback  # Agregada esta importación
+from django.utils import timezone
 
 # index view
 def index(request):
@@ -2165,22 +2166,25 @@ def gestionar_caja(request):
         return redirect('inmobiliaria:dashboard')
 
 @login_required
-def cerrar_caja(request, numero):
-    caja = get_object_or_404(Caja, id=numero, sucursal=request.user.sucursal)
-    
-    if request.method == 'POST':
-        caja.empleado_cierre = request.user
-        caja.fecha_cierre = timezone.now()
-        caja.estado = 'cerrada'
-        caja.save()
+def cerrar_caja(request, numero_caja):
+    try:
+        caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal)
         
-        messages.success(request, 'Caja cerrada correctamente.')
-        return redirect('inmobiliaria:caja')
-    
-    return render(request, 'inmobiliaria/caja/cerrar_caja.html', {
-        'caja': caja,
-        'saldo_actual': caja.saldo,
-    })
+        if request.method == 'POST':
+            if caja.estado == 'abierta':
+                caja.estado = 'cerrada'
+                caja.fecha_cierre = timezone.now()
+                caja.save()
+                messages.success(request, f'Caja #{caja.numero} cerrada exitosamente.')
+            else:
+                messages.error(request, 'La caja ya está cerrada.')
+            return redirect('inmobiliaria:lista_cajas')
+        
+        return render(request, 'inmobiliaria/caja/cerrar_caja.html', {'caja': caja})
+        
+    except Exception as e:
+        messages.error(request, f'Error al cerrar la caja: {str(e)}')
+        return redirect('inmobiliaria:lista_cajas')
 
 @login_required
 def nuevo_movimiento(request, numero_caja):
