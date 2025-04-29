@@ -1339,16 +1339,7 @@ def gestionar_precios(request, propiedad_id):
         'formset': formset,
         'nivel_vendedor': vendedor.nivel  # Pasamos el nivel a la plantilla
     })
-def buscar_propiedades_23(request):
-    # Aquí filtramos directamente las propiedades habilitadas para alquiler
-    propiedades_disponibles = Propiedad.objects.filter(habilitar_precio_alquiler=True)
 
-    # Contexto para la plantilla
-    context = {
-        'propiedades_disponibles': propiedades_disponibles,
-    }
-    
-    return render(request, 'inmobiliaria/reservas/buscar_propiedades.html', context)
 def historial_reservas_vendedor(request, vendedor_id):
     reservas = Reserva.objects.filter(vendedor_id=vendedor_id)
 
