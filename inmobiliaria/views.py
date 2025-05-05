@@ -2392,3 +2392,25 @@ def crear_propiedad(request):
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def buscar_propiedades_select2(request):
+    """Vista para el autocompletado de Select2"""
+    term = request.GET.get('term', '')
+    sucursal_vendedor = request.user.sucursal
+    
+    propiedades = Propiedad.objects.filter(
+        sucursal=sucursal_vendedor
+    ).filter(
+        Q(direccion__icontains=term) | 
+        Q(id__icontains=term)
+    )[:10]
+    
+    results = []
+    for prop in propiedades:
+        results.append({
+            'id': prop.id,
+            'text': f"{prop.direccion}"
+        })
+    
+    return JsonResponse({'results': results})
