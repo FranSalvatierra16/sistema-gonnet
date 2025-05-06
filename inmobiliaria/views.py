@@ -2396,21 +2396,26 @@ def crear_propiedad(request):
 @login_required
 def buscar_propiedades_select2(request):
     """Vista para el autocompletado de Select2"""
-    term = request.GET.get('term', '')
-    sucursal_vendedor = request.user.sucursal
-    
-    propiedades = Propiedad.objects.filter(
-        sucursal=sucursal_vendedor
-    ).filter(
-        Q(direccion__icontains=term) | 
-        Q(id__icontains=term)
-    )[:10]
-    
-    results = []
-    for prop in propiedades:
-        results.append({
-            'id': prop.id,
-            'text': f"{prop.direccion}"
-        })
-    
-    return JsonResponse({'results': results})
+    try:
+        term = request.GET.get('term', '')
+        sucursal_vendedor = request.user.sucursal
+        
+        propiedades = Propiedad.objects.filter(
+            sucursal=sucursal_vendedor
+        ).filter(
+            Q(direccion__icontains=term) | 
+            Q(id__icontains=term)
+        )[:10]
+        
+        results = []
+        for prop in propiedades:
+            results.append({
+                'id': prop.id,
+                'text': f"{prop.direccion}"
+            })
+        
+        return JsonResponse({'results': results})
+    except Exception as e:
+        # Registrar el error y devolver una respuesta vacía
+        print(f"Error en buscar_propiedades_select2: {str(e)}")
+        return JsonResponse({'results': []})
