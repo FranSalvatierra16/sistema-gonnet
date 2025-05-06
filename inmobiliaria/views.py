@@ -2398,8 +2398,14 @@ def buscar_propiedades_select2(request):
     """Vista para el autocompletado de Select2"""
     try:
         term = request.GET.get('term', '')
+        
+        # Verificar que el usuario tenga sucursal asignada
+        if not hasattr(request.user, 'sucursal') or request.user.sucursal is None:
+            return JsonResponse({'results': [], 'error': 'Usuario sin sucursal asignada'})
+            
         sucursal_vendedor = request.user.sucursal
         
+        # Realizar la búsqueda filtrando por sucursal
         propiedades = Propiedad.objects.filter(
             sucursal=sucursal_vendedor
         ).filter(
@@ -2407,6 +2413,7 @@ def buscar_propiedades_select2(request):
             Q(id__icontains=term)
         )[:10]
         
+        # Preparar los resultados
         results = []
         for prop in propiedades:
             results.append({
@@ -2416,6 +2423,8 @@ def buscar_propiedades_select2(request):
         
         return JsonResponse({'results': results})
     except Exception as e:
-        # Registrar el error y devolver una respuesta vacía
+        # Registrar el error detalladamente y devolver una respuesta vacía
+        import traceback
         print(f"Error en buscar_propiedades_select2: {str(e)}")
-        return JsonResponse({'results': []})
+        print(traceback.format_exc())
+        return JsonResponse({'results': [], 'error': str(e)})
