@@ -126,5 +126,5 @@ urlpatterns = [
     path('crear-concepto/', views.crear_concepto, name='crear_concepto'),
     path('crear-propiedad/', views.crear_propiedad, name='crear_propiedad'),
     path('buscar-propiedades/', views.buscar_propiedades, name='buscar_propiedades'),
-    path('buscar-propiedades-select2/', views.buscar_propiedades_select2, name='buscar_propiedades_select2'),
+    path('api/propiedades/select2/', views.buscar_propiedades_select2, name='buscar_propiedades_select2'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -2391,3 +2391,22 @@ def crear_propiedad(request):
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+# Función para búsqueda de propiedades en Select2 (nueva función)
+@login_required
+def buscar_propiedades_select2(request):
+    """Esta función SOLO debe manejar solicitudes AJAX para Select2"""
+    # Verifica que sea una solicitud AJAX
+    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # Si no es AJAX, redirige a la vista normal
+        return redirect('inmobiliaria:buscar_propiedades')
+        
+    try:
+        term = request.GET.get('term', '')
+        # ... resto del código para devolver JSON ...
+        return JsonResponse({'results': results})
+    except Exception as e:
+        return JsonResponse({'results': []})
+
+# Asegúrate de que tu función original de alquiler por día siga intacta
+# Mantén su nombre y comportamiento original
