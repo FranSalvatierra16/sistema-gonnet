@@ -2395,18 +2395,41 @@ def crear_propiedad(request):
 # Función para búsqueda de propiedades en Select2 (nueva función)
 @login_required
 def buscar_propiedades_select2(request):
-    """Esta función SOLO debe manejar solicitudes AJAX para Select2"""
-    # Verifica que sea una solicitud AJAX
-    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        # Si no es AJAX, redirige a la vista normal
-        return redirect('inmobiliaria:buscar_propiedades')
-        
+    """Vista para el autocompletado de Select2"""
     try:
         term = request.GET.get('term', '')
-        # ... resto del código para devolver JSON ...
+        
+        # En caso de que user.sucursal cause problemas
+        sucursal_vendedor = None
+        if hasattr(request.user, 'sucursal'):
+            sucursal_vendedor = request.user.sucursal
+            
+        # Consulta más segura
+        propiedades = Propiedad.objects.all()
+        if sucursal_vendedor:
+            propiedades = propiedades.filter(sucursal=sucursal_vendedor)
+            
+        if term:
+            propiedades = propiedades.filter(
+                Q(direccion__icontains=term) | 
+                Q(id__icontains=term)
+            )
+        
+        propiedades = propiedades[:10]
+        
+        results = []
+        for prop in propiedades:
+            results.append({
+                'id': prop.id,
+                'text': f"{prop.direccion}"
+            })
+        
         return JsonResponse({'results': results})
     except Exception as e:
-        return JsonResponse({'results': []})
+        import traceback
+        print(f"Error en buscar_propiedades_select2: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({'results': [], 'error': str(e)})
 
 # Asegúrate de que tu función original de alquiler por día siga intacta
 # Mantén su nombre y comportamiento original
