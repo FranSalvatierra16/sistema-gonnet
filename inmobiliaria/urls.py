@@ -122,9 +122,9 @@ urlpatterns = [
     path('caja/nuevo-registro/', views.nuevo_registro, name='nuevo_registro'),
     path('caja/nuevo-concepto/', views.nuevo_concepto, name='nuevo_concepto'),
     path('caja/buscar-cuentas/', views.buscar_cuentas, name='buscar_cuentas'),
-    path('reserva/buscar-propiedades/', RedirectView.as_view(pattern_name='inmobiliaria:buscar_propiedades', permanent=False)),
-    path('buscar-propiedades/', RedirectView.as_view(pattern_name='inmobiliaria:buscar_propiedades', permanent=False)),
+    # path('reserva/buscar-propiedades/', RedirectView.as_view(pattern_name='inmobiliaria:buscar_propiedades', permanent=False)),
+    # path('buscar-propiedades/', RedirectView.as_view(pattern_name='inmobiliaria:buscar_propiedades', permanent=False)),
     path('crear-concepto/', views.crear_concepto, name='crear_concepto'),
     path('crear-propiedad/', views.crear_propiedad, name='crear_propiedad'),
-    path('api/propiedades/select2/', views.buscar_propiedades_select2, name='buscar_propiedades_select2'),
+    # path('api/propiedades/select2/', views.buscar_propiedades_select2, name='buscar_propiedades_select2'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
