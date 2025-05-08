@@ -2433,3 +2433,8 @@ def buscar_propiedades_select2(request):
 
 # Asegúrate de que tu función original de alquiler por día siga intacta
 # Mantén su nombre y comportamiento original
+
+# Una versión súper simple que no debería fallar
+def simple_select2(request):
+    """Versión simplificada para debuggear"""
+    return JsonResponse({'results': []})

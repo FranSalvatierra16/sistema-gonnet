@@ -268,7 +268,7 @@ $(document).ready(function() {
         placeholder: 'Buscar propiedad...',
         allowClear: true,
         ajax: {
-            url: '{% url "inmobiliaria:buscar_propiedades_select2" %}',
+            url: '{% url "inmobiliaria:simple_select2" %}',
             dataType: 'json',
             delay: 250,
             data: function(params) {
