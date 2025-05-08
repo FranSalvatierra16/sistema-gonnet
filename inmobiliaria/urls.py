@@ -48,9 +48,9 @@ urlpatterns = [
     path('propiedades/<int:propiedad_id>/eliminar/', views.propiedad_eliminar, name='propiedad_eliminar'),
     path('propiedades/nuevo/', views.propiedad_nuevo, name='propiedad_nuevo'),
     path('propiedad/<int:propiedad_id>/crear-disponibilidad/', views.crear_disponibilidad, name='crear_disponibilidad'),
-    path('buscar-propiedades-23/', views.buscar_propiedades_23, name='buscar_propiedades_23'),
+ 
     path('propietario/nuevo/ajax/', views.propietario_nuevo_ajax, name='propietario_nuevo_ajax'),
-     path('buscar-clientes/', views.buscar_clientes, name='buscar_clientes'),
+    path('buscar-clientes/', views.buscar_clientes, name='buscar_clientes'),
     path('crear-inquilino-ajax/', views.crear_inquilino_ajax, name='crear_inquilino_ajax'),
     path('disponibilidad-masiva/', views.agregar_disponibilidad_masiva, name='agregar_disponibilidad_masiva'),
     path('propiedad/<int:propiedad_id>/historial-disponibilidad/', views.ver_historial_disponibilidad, name='historial_disponibilidad'),
