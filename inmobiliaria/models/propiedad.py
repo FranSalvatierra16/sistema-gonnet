@@ -69,6 +69,13 @@ class HistorialDisponibilidad(models.Model):
         default='libre'
     )
     fecha_actualizacion = models.DateTimeField(auto_now=True)
+    reserva = models.ForeignKey(
+        'Reserva', 
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historiales_disponibilidad'
+    )
 
     class Meta:
         verbose_name = _("Historial de Disponibilidad")
