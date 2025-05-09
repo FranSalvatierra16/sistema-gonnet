@@ -2349,16 +2349,7 @@ def buscar_cuentas(request):
     results = [{'id': c.id, 'text': f"{c.numero} - {c.nombre}"} for c in cuentas]
     return JsonResponse({'results': results})
 
-@login_required
-def buscar_propiedades(request):
-    search = request.GET.get('term', '')
-    propiedades = Propiedad.objects.filter(
-        Q(id__icontains=search) | 
-        Q(direccion__icontains=search)
-    )[:10]
-    
-    results = [{'id': p.id, 'text': f"{p.id} - {p.direccion}"} for p in propiedades]
-    return JsonResponse({'results': results})
+
 
 @login_required
 @require_POST

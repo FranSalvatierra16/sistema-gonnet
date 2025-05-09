@@ -58,8 +58,7 @@ urlpatterns = [
     # Reserva URLs
     path('reservas/', views.reservas, name='reservas'),
     path('operaciones/', views.operaciones, name='operaciones'),
-    path('reservas/', views.buscar_propiedades, name='buscar_propiedades'),
-    path('reservas/nuevo/', views.buscar_propiedades, name='buscar_propiedades_nuevo'),
+    path('reservas/nuevo/', views.buscar_propiedades, name='buscar_propiedades'),
     path('reservas/<int:reserva_id>/', views.reserva_detalle, name='reserva_detalle'),
     path('confirmar_reserva/', views.confirmar_reserva, name='confirmar_reserva'),
     path('reserva_exitosa/<int:reserva_id>/', views.reserva_exitosa, name='reserva_exitosa'),
