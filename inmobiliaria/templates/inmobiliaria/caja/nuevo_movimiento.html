@@ -376,55 +376,37 @@
                             </div>
                             
                             <!-- Modal para búsqueda de vendedores -->
-                            <div class="modal fade" id="vendedoresModal" tabindex="-1" role="dialog">
+                            <div class="modal fade" id="vendedoresModal" tabindex="-1" role="dialog" aria-labelledby="vendedoresModalLabel">
                                 <div class="modal-dialog modal-lg" role="document">
                                     <div class="modal-content">
-                                        <div class="modal-header bg-primary text-white">
-                                            <h5 class="modal-title"><i class="fas fa-users mr-2"></i>Buscar Vendedor</h5>
-                                            <button type="button" class="close text-white" data-dismiss="modal">
-                                                <span>&times;</span>
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="vendedoresModalLabel">Seleccionar Vendedor</h5>
+                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                <span aria-hidden="true">&times;</span>
                                             </button>
                                         </div>
                                         <div class="modal-body">
                                             <div class="form-group">
-                                                <div class="input-group mb-3">
-                                                    <div class="input-group-prepend">
-                                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                                    </div>
-                                                    <input type="text" id="busquedaVendedor" class="form-control" 
-                                                           placeholder="Buscar por nombre...">
-                                                </div>
+                                                <input type="text" id="busquedaVendedor" class="form-control" placeholder="Buscar por nombre...">
                                             </div>
-                                            
                                             <div class="table-responsive">
-                                                <table class="table table-hover" id="tablaVendedores">
-                                                    <thead class="thead-light">
+                                                <table id="tablaVendedores" class="table table-striped">
+                                                    <thead>
                                                         <tr>
                                                             <th>ID</th>
                                                             <th>Nombre</th>
-                                                            <th>Email</th>
                                                             <th>Teléfono</th>
                                                             <th>Acción</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {% for vendedor in vendedores %}
-                                                        <tr>
-                                                            <td>{{ vendedor.id }}</td>
-                                                            <td>{{ vendedor.nombre }}</td>
-                                                            <td>{{ vendedor.email }}</td>
-                                                            <td>{{ vendedor.telefono }}</td>
-                                                            <td>
-                                                                <button type="button" class="btn btn-sm btn-primary seleccionar-vendedor"
-                                                                        data-id="{{ vendedor.id }}" data-nombre="{{ vendedor.nombre }}">
-                                                                    Seleccionar
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                        {% endfor %}
+                                                        <!-- Aquí se cargarán los vendedores -->
                                                     </tbody>
                                                 </table>
                                             </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
                                         </div>
                                     </div>
                                 </div>
@@ -544,37 +526,96 @@
     </div>
 </div>
 
-<!-- Modal para Crear Concepto -->
-<div class="modal fade" id="nuevoConceptoModal" tabindex="-1" role="dialog" aria-labelledby="conceptoModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="conceptoModalLabel">Nuevo Concepto</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="nombreConcepto">Nombre del Concepto</label>
-                    <input type="text" class="form-control" id="nombreConcepto" placeholder="Ingrese nombre">
-                </div>
-                <div class="form-group">
-                    <label for="tipoConcepto">Tipo de Concepto</label>
-                    <select class="form-control" id="tipoConcepto">
-                        <option value="general">General</option>
-                        <option value="ingreso">Ingreso</option>
-                        <option value="egreso">Egreso</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal" id="btnCancelarConcepto">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="guardarConcepto">Guardar</button>
-            </div>
-        </div>
+<!-- Modal para crear conceptos (HTML simple, sin complicaciones) -->
+<div class="modal" id="nuevoConceptoModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Nuevo Concepto</h5>
+        <button type="button" class="btn-close" onclick="$('#nuevoConceptoModal').hide();">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="formNuevoConcepto">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label for="nombreConcepto" class="form-label">Nombre del Concepto *</label>
+            <input type="text" class="form-control" id="nombreConcepto" required>
+          </div>
+          <div class="mb-3">
+            <label for="tipoConcepto" class="form-label">Tipo</label>
+            <select class="form-control" id="tipoConcepto">
+              <option value="general">General</option>
+              <option value="ingreso">Ingreso</option>
+              <option value="egreso">Egreso</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="$('#nuevoConceptoModal').hide();">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="guardarConceptoSimple()">Guardar</button>
+      </div>
     </div>
+  </div>
 </div>
+
+<!-- Script simplificado para el modal -->
+<script>
+// Función para abrir el modal de concepto
+function abrirModalConcepto() {
+    $('#nombreConcepto').val('');
+    $('#tipoConcepto').val('general');
+    $('#nuevoConceptoModal').show();
+}
+
+// Función simple para guardar concepto
+function guardarConceptoSimple() {
+    var nombre = $('#nombreConcepto').val();
+    var tipo = $('#tipoConcepto').val();
+    
+    if (!nombre) {
+        alert("Por favor ingrese un nombre para el concepto");
+        return;
+    }
+    
+    // Enviar mediante AJAX simple
+    $.post('/inmobiliaria/crear_concepto/', {
+        nombre: nombre,
+        tipo: tipo,
+        csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+    })
+    .done(function(response) {
+        if (response.id) {
+            // Ocultar modal
+            $('#nuevoConceptoModal').hide();
+            
+            // Agregar nueva opción al select
+            var texto = response.codigo ? 
+                response.codigo + ' - ' + response.nombre : 
+                response.nombre;
+                
+            var newOption = new Option(texto, response.id, true, true);
+            $('#id_concepto').append(newOption).trigger('change');
+            
+            // Mensaje de éxito
+            alert("Concepto creado con éxito: " + texto);
+        } else {
+            alert("Error al crear el concepto");
+        }
+    })
+    .fail(function() {
+        alert("Error al conectar con el servidor");
+    });
+}
+
+// Inicializar botón
+$(document).ready(function() {
+    // Asignar evento al botón
+    $('#btnNuevoConcepto').off('click').on('click', function() {
+        abrirModalConcepto();
+    });
+});
+</script>
 
 <!-- Modal para nueva cuenta -->
 <div class="modal fade" id="nuevaCuentaModal" tabindex="-1" role="dialog">
@@ -663,6 +704,179 @@
         </div>
     </div>
 </div>
+
+<script>
+$(document).ready(function() {
+    // Función directa para buscar propietarios
+    function buscarPropietariosDirecto() {
+        var termino = $('#id_busqueda_propietario').val();
+        console.log("Buscando propietarios con término:", termino);
+        
+        // Mostrar estado de carga
+        $('#lista_propietarios').html('<div class="p-3 text-center"><i class="fas fa-spinner fa-spin"></i> Buscando...</div>');
+        $('#resultados_propietarios').show();
+        
+        // Hacer la petición AJAX con URL completa
+        $.ajax({
+            url: '/inmobiliaria/buscar/propietarios/',
+            method: 'GET',
+            data: { term: termino },
+            success: function(data) {
+                console.log("Respuesta búsqueda propietarios:", data);
+                $('#lista_propietarios').empty();
+                
+                // Verificar si hay resultados
+                if (data.results && data.results.length > 0) {
+                    // Mostrar cada propietario
+                    data.results.forEach(function(prop) {
+                        $('#lista_propietarios').append(`
+                            <a href="#" class="list-group-item list-group-item-action seleccionar-propietario" 
+                               data-id="${prop.id}" data-text="${prop.text}">
+                               ${prop.text}
+                            </a>
+                        `);
+                    });
+                } else {
+                    $('#lista_propietarios').html('<div class="alert alert-info">No se encontraron propietarios</div>');
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.error("Error en búsqueda:", textStatus, errorThrown);
+                $('#lista_propietarios').html('<div class="alert alert-danger">Error al buscar propietarios</div>');
+            }
+        });
+    }
+    
+    // Asignar evento al campo de búsqueda
+    $('#id_busqueda_propietario').off('input').on('input', function() {
+        buscarPropietariosDirecto();
+    });
+    
+    // También buscar al hacer foco en el campo
+    $('#id_busqueda_propietario').off('focus').on('focus', function() {
+        if (this.value.length < 2) {
+            this.value = '  '; // Dos espacios para activar la búsqueda
+            buscarPropietariosDirecto();
+        }
+    });
+    
+    // Selector de propietarios
+    $(document).on('click', '.seleccionar-propietario', function(e) {
+        e.preventDefault();
+        var id = $(this).data('id');
+        var texto = $(this).data('text');
+        
+        console.log("Propietario seleccionado:", id, texto);
+        
+        // Crear opción y seleccionarla
+        if (!$('#id_cuenta option[value="' + id + '"]').length) {
+            var newOption = new Option(texto, id, true, true);
+            $('#id_cuenta').append(newOption);
+        }
+        
+        // Establecer valor
+        $('#id_cuenta').val(id).trigger('change');
+        $('#resultados_propietarios').hide();
+    });
+});
+</script>
+
+<!-- Código para modal y búsqueda de vendedores -->
+<script>
+$(document).ready(function() {
+    // Cargar vendedores al abrir el modal
+    $('#buscarVendedor').off('click').on('click', function() {
+        console.log("Abriendo modal de vendedores");
+        
+        // Limpiar y mostrar tabla
+        $('#tablaVendedores tbody').html('<tr><td colspan="4" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
+        $('#vendedoresModal').modal('show');
+        
+        // Obtener vendedores
+        $.ajax({
+            url: '/inmobiliaria/buscar/productores/',
+            method: 'GET',
+            data: { term: '' },
+            success: function(data) {
+                console.log("Respuesta vendedores:", data);
+                $('#tablaVendedores tbody').empty();
+                
+                if (data.success && data.resultados && data.resultados.length > 0) {
+                    // Mostrar cada vendedor
+                    data.resultados.forEach(function(v) {
+                        $('#tablaVendedores tbody').append(`
+                            <tr>
+                                <td>${v.id}</td>
+                                <td>${v.nombre}</td>
+                                <td>${v.telefono || ''}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary seleccionar-vendedor" 
+                                            data-id="${v.id}" data-nombre="${v.nombre}">
+                                        Seleccionar
+                                    </button>
+                                </td>
+                            </tr>
+                        `);
+                    });
+                } else {
+                    $('#tablaVendedores tbody').html('<tr><td colspan="4" class="text-center">No se encontraron vendedores</td></tr>');
+                }
+            },
+            error: function() {
+                $('#tablaVendedores tbody').html('<tr><td colspan="4" class="text-center text-danger">Error al cargar vendedores</td></tr>');
+            }
+        });
+    });
+    
+    // Buscar vendedor por ID directo
+    $('#id_productor_numero').on('blur', function() {
+        var idProductor = $(this).val().trim();
+        if (idProductor) {
+            console.log("Buscando productor por ID:", idProductor);
+            
+            $.ajax({
+                url: '/inmobiliaria/buscar/productores/',
+                data: { numero: idProductor },
+                success: function(data) {
+                    if (data.success) {
+                        // Agregar opción si no existe
+                        if (!$('#id_productor option[value="' + data.id + '"]').length) {
+                            var newOption = new Option(data.nombre, data.id, true, true);
+                            $('#id_productor').append(newOption);
+                        }
+                        
+                        // Seleccionar
+                        $('#id_productor').val(data.id).trigger('change');
+                    } else {
+                        alert("No se encontró un productor con el ID: " + idProductor);
+                    }
+                },
+                error: function() {
+                    alert("Error al buscar el productor");
+                }
+            });
+        }
+    });
+    
+    // Seleccionar vendedor desde la tabla
+    $(document).on('click', '.seleccionar-vendedor', function() {
+        var id = $(this).data('id');
+        var nombre = $(this).data('nombre');
+        
+        console.log("Vendedor seleccionado:", id, nombre);
+        
+        // Crear opción si no existe
+        if (!$('#id_productor option[value="' + id + '"]').length) {
+            var newOption = new Option(nombre, id, true, true);
+            $('#id_productor').append(newOption);
+        }
+        
+        // Seleccionar y cerrar
+        $('#id_productor').val(id).trigger('change');
+        $('#vendedoresModal').modal('hide');
+    });
+});
+</script>
 {% endblock %}
 
 {% block extra_js %}
@@ -961,101 +1175,6 @@ $(document).ready(function() {
         
         calcularMontoTotal();
     });
-    
-    // Abrir modal para crear concepto
-    $('#btnNuevoConcepto').click(function() {
-        console.log('Botón Nuevo Concepto clickeado');
-        // Limpiar el formulario antes de mostrar
-        $('#nombreConcepto').val('');
-        $('#tipoConcepto').val('general');
-        
-        // Mostrar el modal
-        $('#nuevoConceptoModal').modal('show');
-    });
-    
-    // Guardar concepto
-    $('#guardarConcepto').off('click').on('click', function() {
-        console.log('Botón guardar concepto clickeado');
-        guardarNuevoConcepto();
-    });
-    
-    // Botones para cerrar el modal
-    $(document).on('click', '[data-dismiss="modal"]', function() {
-        console.log('Cerrar modal (delegado) clickeado');
-        $(this).closest('.modal').modal('hide');
-    });
-    
-    // Función para guardar el concepto
-    function guardarNuevoConcepto() {
-        let nombreConcepto = $('#nombreConcepto').val();
-        let tipoConcepto = $('#tipoConcepto').val();
-        
-        console.log("Guardando concepto:", nombreConcepto, tipoConcepto);
-        
-        if (!nombreConcepto) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Por favor ingrese un nombre para el concepto'
-            });
-            return;
-        }
-        
-        $.ajax({
-            url: '/inmobiliaria/crear_concepto/',
-            type: 'POST',
-            data: {
-                nombre: nombreConcepto,
-                tipo: tipoConcepto,
-                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-            },
-            success: function(response) {
-                console.log("Respuesta:", response);
-                
-                // Cerrar el modal explícitamente
-                try {
-                    $('#nuevoConceptoModal').modal('hide');
-                    $('.modal-backdrop').remove();
-                    $('body').removeClass('modal-open').css('padding-right', '');
-                } catch(e) {
-                    console.error("Error al cerrar modal:", e);
-                }
-                
-                if (response.id) {
-                    // Mostrar código si está disponible
-                    const displayText = response.codigo ? 
-                        `${response.codigo} - ${response.nombre}` : 
-                        response.nombre;
-                    
-                    const newOption = new Option(displayText, response.id, true, true);
-                    $('#id_concepto').append(newOption).trigger('change');
-                    $('#nombreConcepto').val('');
-                    
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Éxito',
-                        text: 'Concepto creado exitosamente' + 
-                              (response.codigo ? ` (Código: ${response.codigo})` : ''),
-                        timer: 1500,
-                        showConfirmButton: false
-                    });
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error("Error:", xhr, status, error);
-                
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Error al crear el concepto: ' + (xhr.responseJSON?.error || error)
-                });
-            }
-        });
-    }
-    
-    // Para depuración
-    console.log('¿El modal existe?', $('#nuevoConceptoModal').length);
-    console.log('¿El botón guardar existe?', $('#guardarConcepto').length);
 });
 </script>
 {% endblock %} 
