@@ -126,4 +126,6 @@ urlpatterns = [
     path('crear-propiedad/', views.crear_propiedad, name='crear_propiedad'),
     path('api/simple-select2/', views.simple_select2, name='simple_select2'),
     path('caja/crear-cuenta/', views.crear_cuenta, name='crear_cuenta'),
+    path('buscar/propietarios/', views.buscar_propietarios, name='buscar_propietarios'),
+    path('buscar/operacion/', views.buscar_operacion, name='buscar_operacion'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
