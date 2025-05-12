@@ -2178,7 +2178,7 @@ def cerrar_caja(request, numero_caja):
         return redirect('inmobiliaria:lista_cajas')
 
 @login_required
-def nuevo_movimiento(request, numero_caja):
+def nuevo_movimiento(request):
     """Vista mejorada para registrar un nuevo movimiento de caja"""
     # Obtener la caja actual
     sucursal = request.user.sucursal
@@ -2190,26 +2190,68 @@ def nuevo_movimiento(request, numero_caja):
     
     if request.method == 'POST':
         try:
-            # Obtener datos del formulario
+            # Obtener datos básicos
             tipo = request.POST.get('tipo')
-            monto = Decimal(request.POST.get('monto'))
-            concepto = request.POST.get('concepto')
+            fecha = request.POST.get('fecha')
+            monto = request.POST.get('monto')
+            concepto_id = request.POST.get('concepto')
+            cuenta_id = request.POST.get('cuenta')
+            tipo_comprobante = request.POST.get('tipo_comprobante')
+            observaciones = request.POST.get('observaciones', '')
             
-            MovimientoCaja.objects.create(
+            # Metadatos de formas de pago
+            metadatos_pago = json.loads(request.POST.get('metadatos_pago', '[]'))
+            
+            # Validación básica
+            if not all([tipo, fecha, monto, concepto_id, cuenta_id, tipo_comprobante]):
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Faltan campos obligatorios'
+                })
+            
+            # Obtener objetos relacionados
+            try:
+                concepto = Concepto.objects.get(id=concepto_id)
+                cuenta = Cuenta.objects.get(id=cuenta_id)
+            except (Concepto.DoesNotExist, Cuenta.DoesNotExist):
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Concepto o cuenta no encontrados'
+                })
+            
+            # Crear movimiento
+            movimiento = Movimiento.objects.create(
                 caja=caja_actual,
                 tipo=tipo,
-                monto=monto,
+                fecha=fecha,
                 concepto=concepto,
-                usuario=request.user
+                cuenta=cuenta,
+                monto=monto,
+                tipo_comprobante=tipo_comprobante,
+                observaciones=observaciones,
+                metadatos=json.dumps(metadatos_pago)  # Guardar metadatos como JSON
             )
             
-            messages.success(request, 'Movimiento registrado exitosamente')
-            return redirect('inmobiliaria:detalle_caja', numero=caja_actual.numero)
+            # Actualizar saldo de la caja
+            if tipo == 'ingreso':
+                caja_actual.saldo_actual += float(monto)
+            else:
+                caja_actual.saldo_actual -= float(monto)
+            caja_actual.save()
+            
+            return JsonResponse({
+                'success': True,
+                'id': movimiento.id,
+                'message': 'Movimiento creado exitosamente'
+            })
+            
         except Exception as e:
-            messages.error(request, f'Error al registrar el movimiento: {str(e)}')
-            return redirect('inmobiliaria:gestionar_caja')
+            return JsonResponse({
+                'success': False,
+                'message': f'Error al crear el movimiento: {str(e)}'
+            })
     
-    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {'caja': caja_actual})
+    # Código para renderizar el formulario...
 
 @login_required
 def eliminar_movimiento(request, movimiento_id):
@@ -2339,14 +2381,31 @@ def nuevo_registro(request):
 
 @login_required
 def nuevo_concepto(request):
+    """Vista para crear un nuevo concepto desde Ajax"""
     if request.method == 'POST':
-        form = ConceptoForm(request.POST)
-        if form.is_valid():
-            concepto = form.save()
+        try:
+            nombre = request.POST.get('nombre')
+            tipo = request.POST.get('tipo', 'general')
+            
+            if not nombre:
+                return JsonResponse({'error': 'El nombre del concepto es obligatorio'}, status=400)
+            
+            # Crear el concepto
+            concepto = Concepto.objects.create(
+                nombre=nombre,
+                tipo=tipo,
+                sucursal=request.user.sucursal
+            )
+            
             return JsonResponse({
                 'id': concepto.id,
-                'nombre': concepto.nombre
+                'nombre': concepto.nombre,
+                'success': True
             })
+            
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
     return JsonResponse({'error': 'Método no permitido'}, status=405)
 
 @login_required

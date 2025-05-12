@@ -179,68 +179,71 @@
                             <div class="col-md-6">
                                 <!-- Sección Monto y Cuenta -->
                                 <div class="form-section">
-                                    <h5><i class="fas fa-dollar-sign mr-2"></i>Detalles Financieros</h5>
+                                    <h5><i class="fas fa-dollar-sign mr-2"></i>Detalles de Pago</h5>
                                     
                                     <div class="form-group">
-                                        <label>Monto</label>
+                                        <label>Monto Total</label>
                                         <div class="input-group">
                                             <div class="input-group-prepend">
                                                 <span class="input-group-text">$</span>
                                             </div>
-                                            <input type="number" name="monto" id="id_monto" 
-                                                   class="form-control monto-input" step="0.01" min="0.01" 
-                                                   placeholder="0.00" required>
+                                            <input type="number" id="montoTotal" class="form-control monto-input" 
+                                                   step="0.01" min="0.01" placeholder="0.00" readonly>
                                         </div>
+                                        <small class="form-text text-muted">Total de todas las formas de pago</small>
                                     </div>
                                     
-                                    <div class="form-group">
-                                        <label>Cuenta</label>
-                                        <div class="input-group">
-                                            <div class="input-group-prepend">
-                                                <span class="input-group-text"><i class="fas fa-wallet"></i></span>
-                                            </div>
-                                            <select name="cuenta" id="id_cuenta" class="form-control" required>
-                                                <option value="">Seleccione una cuenta</option>
-                                                {% for cuenta in cuentas %}
-                                                <option value="{{ cuenta.id }}">{{ cuenta.nombre }}</option>
-                                                {% endfor %}
-                                            </select>
-                                            <div class="input-group-append">
-                                                <button type="button" class="btn btn-outline-primary" 
-                                                        data-toggle="modal" data-target="#nuevaCuentaModal">
-                                                    <i class="fas fa-plus"></i>
+                                    <div id="formasPagoContainer">
+                                        <div class="card mb-3 forma-pago-card">
+                                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-0">Forma de Pago #1</h6>
+                                                <button type="button" class="btn btn-sm btn-outline-danger eliminar-forma-pago" 
+                                                        style="display:none;">
+                                                    <i class="fas fa-trash"></i>
                                                 </button>
                                             </div>
+                                            <div class="card-body">
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label>Método de Pago</label>
+                                                            <select name="metodo_pago[]" class="form-control metodo-pago" required>
+                                                                <option value="efectivo">Efectivo</option>
+                                                                <option value="tarjeta_debito">Tarjeta de Débito</option>
+                                                                <option value="tarjeta_credito">Tarjeta de Crédito</option>
+                                                                <option value="transferencia">Transferencia Bancaria</option>
+                                                                <option value="mercado_pago">Mercado Pago</option>
+                                                                <option value="codigo_qr">Código QR</option>
+                                                                <option value="otro">Otro</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label>Monto</label>
+                                                            <div class="input-group">
+                                                                <div class="input-group-prepend">
+                                                                    <span class="input-group-text">$</span>
+                                                                </div>
+                                                                <input type="number" name="monto_pago[]" class="form-control monto-pago" 
+                                                                       step="0.01" min="0.01" required>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="form-group detalles-adicionales" style="display:none;">
+                                                    <label>Detalles Adicionales</label>
+                                                    <input type="text" name="detalles_pago[]" class="form-control" 
+                                                           placeholder="Número de operación, últimos 4 dígitos, etc.">
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     
-                                    <div class="form-group">
-                                        <label>Concepto</label>
-                                        <div class="input-group">
-                                            <div class="input-group-prepend">
-                                                <span class="input-group-text"><i class="fas fa-tag"></i></span>
-                                            </div>
-                                            <select name="concepto" id="id_concepto" class="form-control" required>
-                                                <option value="">Seleccione un concepto</option>
-                                                {% for concepto in conceptos %}
-                                                <option value="{{ concepto.id }}">{{ concepto.nombre }}</option>
-                                                {% endfor %}
-                                            </select>
-                                            <div class="input-group-append">
-                                                <button type="button" class="btn btn-outline-primary" 
-                                                        data-toggle="modal" data-target="#nuevoConceptoModal">
-                                                    <i class="fas fa-plus"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label>Propiedad (opcional)</label>
-                                        <select name="propiedad" id="id_propiedad" class="form-control">
-                                            <option value="">Seleccione una propiedad</option>
-                                        </select>
-                                    </div>
+                                    <button type="button" id="agregarFormaPago" class="btn btn-secondary btn-block">
+                                        <i class="fas fa-plus mr-1"></i> Agregar Otra Forma de Pago
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -604,6 +607,75 @@ $(document).ready(function() {
         $('#datos').addClass('show active');
     });
     
+    // Gestión de formas de pago
+    let formaPagoCount = 1;
+    
+    // Calcular el monto total
+    function calcularMontoTotal() {
+        let total = 0;
+        $('.monto-pago').each(function() {
+            let monto = parseFloat($(this).val()) || 0;
+            total += monto;
+        });
+        $('#montoTotal').val(total.toFixed(2));
+        $('#id_monto').val(total.toFixed(2)).trigger('input');
+    }
+    
+    // Mostrar/ocultar campos adicionales según método de pago
+    $(document).on('change', '.metodo-pago', function() {
+        const metodo = $(this).val();
+        const detallesDiv = $(this).closest('.forma-pago-card').find('.detalles-adicionales');
+        
+        if (metodo === 'efectivo') {
+            detallesDiv.slideUp();
+        } else {
+            detallesDiv.slideDown();
+        }
+    });
+    
+    // Actualizar monto total cuando cambia cualquier monto individual
+    $(document).on('input', '.monto-pago', function() {
+        calcularMontoTotal();
+    });
+    
+    // Agregar nueva forma de pago
+    $('#agregarFormaPago').click(function() {
+        formaPagoCount++;
+        const newFormaPago = $('.forma-pago-card').first().clone();
+        
+        // Actualizar título y limpiar valores
+        newFormaPago.find('h6').text('Forma de Pago #' + formaPagoCount);
+        newFormaPago.find('input[type=number]').val('');
+        newFormaPago.find('input[type=text]').val('');
+        newFormaPago.find('.eliminar-forma-pago').show();
+        
+        // Agregar al contenedor
+        $('#formasPagoContainer').append(newFormaPago);
+        
+        // Si hay más de una forma de pago, mostrar los botones de eliminar
+        if (formaPagoCount > 1) {
+            $('.eliminar-forma-pago').show();
+        }
+    });
+    
+    // Eliminar forma de pago
+    $(document).on('click', '.eliminar-forma-pago', function() {
+        $(this).closest('.forma-pago-card').remove();
+        formaPagoCount--;
+        
+        // Renumerar formas de pago
+        $('.forma-pago-card').each(function(index) {
+            $(this).find('h6').text('Forma de Pago #' + (index + 1));
+        });
+        
+        // Si solo queda una forma de pago, ocultar botón de eliminar
+        if (formaPagoCount <= 1) {
+            $('.eliminar-forma-pago').hide();
+        }
+        
+        calcularMontoTotal();
+    });
+    
     // Validar formulario antes de enviar
     function validarFormulario() {
         const tipo = $('input[name="tipo"]:checked').val();
@@ -767,6 +839,23 @@ $(document).ready(function() {
         
         // Preparar datos para enviar
         const formData = new FormData(form[0]);
+        
+        // Agregar metadatos de formas de pago
+        let metadatos = [];
+        $('.forma-pago-card').each(function(index) {
+            const metodo = $(this).find('.metodo-pago').val();
+            const monto = $(this).find('.monto-pago').val();
+            const detalles = $(this).find('input[name="detalles_pago[]"]').val();
+            
+            metadatos.push({
+                metodo: metodo,
+                monto: monto,
+                detalles: detalles || ''
+            });
+        });
+        
+        // Agregar metadatos como JSON
+        formData.append('metadatos_pago', JSON.stringify(metadatos));
         
         $.ajax({
             url: '{% url "inmobiliaria:nuevo_movimiento" %}',
