@@ -877,6 +877,236 @@ $(document).ready(function() {
     });
 });
 </script>
+
+<!-- BOTÓN PARA DEPURACIÓN -->
+<div class="row mb-4">
+    <div class="col-12">
+        <button type="button" class="btn btn-warning w-100" onclick="depurarProblemas()">
+            <i class="fas fa-bug"></i> DEPURAR PROBLEMAS DE CONEXIÓN
+        </button>
+    </div>
+</div>
+
+<!-- SCRIPT DE DEPURACIÓN - COLOCA ESTO AL FINAL DEL ARCHIVO -->
+<script>
+function depurarProblemas() {
+    // Verificar jQuery
+    if (typeof $ === 'undefined') {
+        alert("ERROR CRÍTICO: jQuery no está disponible");
+        return;
+    }
+    
+    // Mostrar información básica
+    var info = "DIAGNÓSTICO DEL SISTEMA:\n\n";
+    info += "jQuery versión: " + $.fn.jquery + "\n";
+    info += "Bootstrap versión: " + (typeof bootstrap !== 'undefined' ? bootstrap.Tooltip.VERSION : "No disponible") + "\n";
+    info += "CSRF Token: " + ($('input[name="csrfmiddlewaretoken"]').length ? "Presente" : "AUSENTE") + "\n";
+    info += "URL base: " + window.location.origin + "\n";
+    
+    // Probar AJAX básico
+    info += "\nPROBANDO CONEXIONES AJAX...\n";
+    
+    // Crear ventana de depuración
+    var debugWin = window.open("", "debugWin", "width=800,height=600");
+    debugWin.document.write('<html><head><title>Diagnóstico de Sistema</title>' +
+                          '<style>body{font-family:monospace;padding:20px;}</style></head>' +
+                          '<body><h2>Diagnóstico en curso...</h2>' +
+                          '<pre id="results">' + info + '</pre>' +
+                          '</body></html>');
+    
+    var resultsEl = debugWin.document.getElementById('results');
+    
+    // Probar conexión a propietarios
+    $.ajax({
+        url: '/inmobiliaria/buscar/propietarios/',
+        method: 'GET',
+        data: { term: ' ' },
+        success: function(data) {
+            resultsEl.innerHTML += "\n✅ CONEXIÓN A PROPIETARIOS EXITOSA\n";
+            resultsEl.innerHTML += "Respuesta: " + JSON.stringify(data, null, 2) + "\n";
+            
+            // Mostrar cantidad de resultados
+            if (data.results) {
+                resultsEl.innerHTML += "Total propietarios: " + data.results.length + "\n";
+                
+                // Mostrar primeros 3 propietarios
+                if (data.results.length > 0) {
+                    resultsEl.innerHTML += "\nEjemplos de propietarios encontrados:\n";
+                    for (var i = 0; i < Math.min(3, data.results.length); i++) {
+                        resultsEl.innerHTML += "- " + data.results[i].text + " (ID: " + data.results[i].id + ")\n";
+                    }
+                }
+            }
+        },
+        error: function(xhr, status, error) {
+            resultsEl.innerHTML += "\n❌ ERROR EN PROPIETARIOS: " + error + "\n";
+            resultsEl.innerHTML += "Status: " + status + "\n";
+            resultsEl.innerHTML += "Respuesta: " + xhr.responseText + "\n";
+        }
+    });
+    
+    // Probar conexión a productores
+    $.ajax({
+        url: '/inmobiliaria/buscar/productores/',
+        method: 'GET',
+        data: { term: ' ' },
+        success: function(data) {
+            resultsEl.innerHTML += "\n✅ CONEXIÓN A PRODUCTORES EXITOSA\n";
+            resultsEl.innerHTML += "Respuesta: " + JSON.stringify(data, null, 2) + "\n";
+            
+            // Mostrar cantidad de resultados
+            if (data.resultados) {
+                resultsEl.innerHTML += "Total productores: " + data.resultados.length + "\n";
+                
+                // Mostrar primeros 3 productores
+                if (data.resultados.length > 0) {
+                    resultsEl.innerHTML += "\nEjemplos de productores encontrados:\n";
+                    for (var i = 0; i < Math.min(3, data.resultados.length); i++) {
+                        resultsEl.innerHTML += "- " + data.resultados[i].nombre + " (ID: " + data.resultados[i].id + ")\n";
+                    }
+                }
+            }
+        },
+        error: function(xhr, status, error) {
+            resultsEl.innerHTML += "\n❌ ERROR EN PRODUCTORES: " + error + "\n";
+            resultsEl.innerHTML += "Status: " + status + "\n";
+            resultsEl.innerHTML += "Respuesta: " + xhr.responseText + "\n";
+        }
+    });
+    
+    // Verificar estructura HTML
+    resultsEl.innerHTML += "\nESTRUCTURA DE LOS ELEMENTOS:\n";
+    resultsEl.innerHTML += "Modal vendedores: " + ($('#vendedoresModal').length ? "Presente" : "AUSENTE") + "\n";
+    resultsEl.innerHTML += "Modal conceptos: " + ($('#nuevoConceptoModal').length ? "Presente" : "AUSENTE") + "\n";
+    resultsEl.innerHTML += "Selector de propietarios: " + ($('#id_cuenta').length ? "Presente" : "AUSENTE") + "\n";
+    resultsEl.innerHTML += "Selector de productores: " + ($('#id_productor').length ? "Presente" : "AUSENTE") + "\n";
+    
+    // Sugerir soluciones
+    resultsEl.innerHTML += "\n\nSOLUCIONES RECOMENDADAS:\n";
+    resultsEl.innerHTML += "1. Revisa la consola del navegador (F12) para ver errores JavaScript\n";
+    resultsEl.innerHTML += "2. Verifica que las URLs estén correctamente definidas en urls.py\n";
+    resultsEl.innerHTML += "3. Prueba acceder directamente a las URLs de búsqueda\n";
+    resultsEl.innerHTML += "4. Revisa los logs del servidor Django\n";
+    resultsEl.innerHTML += "5. Limpia la caché del navegador\n";
+}
+</script>
+
+<!-- Formulario Simple para Productores -->
+<div class="form-group">
+    <label for="id_productor_directo">Productor/Vendedor (simple)</label>
+    <select class="form-control" id="id_productor_directo" name="productor">
+        <option value="">Seleccione un productor</option>
+    </select>
+    <button type="button" class="btn btn-primary mt-2" id="cargarProductores">
+        Cargar todos los productores
+    </button>
+</div>
+
+<!-- Formulario Simple para Propietarios -->
+<div class="form-group">
+    <label for="id_cuenta_directo">Cuenta/Propietario (simple)</label>
+    <select class="form-control" id="id_cuenta_directo" name="cuenta">
+        <option value="">Seleccione un propietario</option>
+    </select>
+    <button type="button" class="btn btn-primary mt-2" id="cargarPropietarios">
+        Cargar todos los propietarios
+    </button>
+</div>
+
+<!-- Script para cargar opciones directamente -->
+<script>
+$(document).ready(function() {
+    // Cargar todos los productores directamente
+    $('#cargarProductores').click(function() {
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Cargando...');
+        
+        $.ajax({
+            url: '/inmobiliaria/buscar/productores/',
+            method: 'GET',
+            data: { term: '' },
+            success: function(data) {
+                $('#id_productor_directo').empty().append('<option value="">Seleccione un productor</option>');
+                
+                if (data.success && data.resultados && data.resultados.length > 0) {
+                    data.resultados.forEach(function(p) {
+                        $('#id_productor_directo').append(`<option value="${p.id}">${p.nombre}</option>`);
+                    });
+                    alert(`Se cargaron ${data.resultados.length} productores`);
+                } else {
+                    alert("No se encontraron productores");
+                }
+            },
+            error: function(xhr, status, error) {
+                alert("Error al cargar productores: " + error);
+            },
+            complete: function() {
+                $('#cargarProductores').prop('disabled', false).html('Cargar todos los productores');
+            }
+        });
+    });
+    
+    // Cargar todos los propietarios directamente
+    $('#cargarPropietarios').click(function() {
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Cargando...');
+        
+        $.ajax({
+            url: '/inmobiliaria/buscar/propietarios/',
+            method: 'GET',
+            data: { term: ' ' },
+            success: function(data) {
+                $('#id_cuenta_directo').empty().append('<option value="">Seleccione un propietario</option>');
+                
+                if (data.results && data.results.length > 0) {
+                    data.results.forEach(function(p) {
+                        $('#id_cuenta_directo').append(`<option value="${p.id}">${p.text}</option>`);
+                    });
+                    alert(`Se cargaron ${data.results.length} propietarios`);
+                } else {
+                    alert("No se encontraron propietarios");
+                }
+            },
+            error: function(xhr, status, error) {
+                alert("Error al cargar propietarios: " + error);
+            },
+            complete: function() {
+                $('#cargarPropietarios').prop('disabled', false).html('Cargar todos los propietarios');
+            }
+        });
+    });
+    
+    // Guardar concepto simple sin modal
+    $('#guardarConceptoSimpleDirecto').click(function() {
+        var nombre = $('#nombreConceptoDirecto').val();
+        var tipo = $('#tipoConceptoDirecto').val();
+        
+        if (!nombre) {
+            alert("Ingrese un nombre para el concepto");
+            return;
+        }
+        
+        $.ajax({
+            url: '/inmobiliaria/crear_concepto/',
+            method: 'POST',
+            data: {
+                nombre: nombre,
+                tipo: tipo,
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+            },
+            success: function(data) {
+                if (data.id) {
+                    alert("Concepto creado exitosamente: " + data.nombre);
+                    $('#nombreConceptoDirecto').val('');
+                } else {
+                    alert("Error al crear concepto");
+                }
+            },
+            error: function(xhr, status, error) {
+                alert("Error de conexión: " + error);
+            }
+        });
+    });
+});
+</script>
 {% endblock %}
 
 {% block extra_js %}
