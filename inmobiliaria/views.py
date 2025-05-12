@@ -2190,34 +2190,48 @@ def nuevo_movimiento(request):
     
     if request.method == 'POST':
         try:
+            # Para debugging
+            print("Datos recibidos:", request.POST)
+            
             # Obtener datos básicos
             tipo = request.POST.get('tipo')
-            fecha = request.POST.get('fecha')
+            fecha = request.POST.get('fecha', datetime.now().strftime('%Y-%m-%d'))
             monto = request.POST.get('monto')
             concepto_id = request.POST.get('concepto')
-            cuenta_id = request.POST.get('cuenta')
-            tipo_comprobante = request.POST.get('tipo_comprobante')
+            cuenta_id = request.POST.get('cuenta', None)
             observaciones = request.POST.get('observaciones', '')
             
-            # Metadatos de formas de pago
-            metadatos_pago = json.loads(request.POST.get('metadatos_pago', '[]'))
+            # Metadatos de formas de pago (puede ser que no estén presentes en la solicitud)
+            metadatos_pago = []
+            try:
+                metadatos_pago = json.loads(request.POST.get('metadatos_pago', '[]'))
+            except json.JSONDecodeError:
+                # Si hay error al decodificar el JSON, usar una lista vacía
+                metadatos_pago = []
             
             # Validación básica
-            if not all([tipo, fecha, monto, concepto_id, cuenta_id, tipo_comprobante]):
+            if not all([tipo, monto, concepto_id]):
                 return JsonResponse({
                     'success': False,
-                    'message': 'Faltan campos obligatorios'
+                    'message': 'Faltan campos obligatorios: tipo, monto y concepto son requeridos'
                 })
             
-            # Obtener objetos relacionados
+            # Obtener objeto concepto
             try:
                 concepto = Concepto.objects.get(id=concepto_id)
-                cuenta = Cuenta.objects.get(id=cuenta_id)
-            except (Concepto.DoesNotExist, Cuenta.DoesNotExist):
+            except Concepto.DoesNotExist:
                 return JsonResponse({
                     'success': False,
-                    'message': 'Concepto o cuenta no encontrados'
+                    'message': 'Concepto no encontrado'
                 })
+            
+            # Obtener objeto cuenta (si se proporcionó)
+            cuenta = None
+            if cuenta_id:
+                try:
+                    cuenta = Cuenta.objects.get(id=cuenta_id)
+                except Cuenta.DoesNotExist:
+                    pass  # No es obligatorio
             
             # Crear movimiento
             movimiento = Movimiento.objects.create(
@@ -2226,17 +2240,16 @@ def nuevo_movimiento(request):
                 fecha=fecha,
                 concepto=concepto,
                 cuenta=cuenta,
-                monto=monto,
-                tipo_comprobante=tipo_comprobante,
+                monto=Decimal(monto),
                 observaciones=observaciones,
-                metadatos=json.dumps(metadatos_pago)  # Guardar metadatos como JSON
+                metadatos=json.dumps(metadatos_pago) if metadatos_pago else None
             )
             
             # Actualizar saldo de la caja
             if tipo == 'ingreso':
-                caja_actual.saldo_actual += float(monto)
+                caja_actual.saldo_actual += Decimal(monto)
             else:
-                caja_actual.saldo_actual -= float(monto)
+                caja_actual.saldo_actual -= Decimal(monto)
             caja_actual.save()
             
             return JsonResponse({
@@ -2246,12 +2259,37 @@ def nuevo_movimiento(request):
             })
             
         except Exception as e:
+            import traceback
+            print("Error:", str(e))
+            print(traceback.format_exc())
             return JsonResponse({
                 'success': False,
                 'message': f'Error al crear el movimiento: {str(e)}'
             })
     
-    # Código para renderizar el formulario...
+    # Código para GET
+    conceptos = Concepto.objects.filter(
+        Q(sucursal=sucursal) | Q(sucursal__isnull=True)
+    ).order_by('nombre')
+    
+    cuentas = Cuenta.objects.filter(
+        Q(sucursal=sucursal) | Q(sucursal__isnull=True)
+    ).order_by('nombre')
+    
+    # Obtener últimos movimientos para la pestaña de historial
+    ultimos_movimientos = Movimiento.objects.filter(
+        caja__sucursal=sucursal
+    ).order_by('-fecha', '-id')[:10]
+    
+    context = {
+        'conceptos': conceptos,
+        'cuentas': cuentas,
+        'caja_actual': caja_actual,
+        'ultimos_movimientos': ultimos_movimientos,
+        'fecha_actual': datetime.now().strftime('%Y-%m-%d')
+    }
+    
+    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
 
 @login_required
 def eliminar_movimiento(request, movimiento_id):

@@ -257,6 +257,24 @@
                                           placeholder="Detalles adicionales sobre este movimiento..."></textarea>
                             </div>
                         </div>
+
+                        <!-- Concepto -->
+                        <div class="form-group">
+                            <label for="id_concepto">Concepto <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <select class="form-control" id="id_concepto" name="concepto" required>
+                                    <option value="">Seleccione un concepto</option>
+                                    {% for concepto in conceptos %}
+                                        <option value="{{ concepto.id }}">{{ concepto.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="input-group-append">
+                                    <button type="button" class="btn btn-outline-primary" id="btnNuevoConcepto">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </form>
                 </div>
                 
@@ -371,39 +389,37 @@
     </div>
 </div>
 
-<!-- Modal para nuevo concepto -->
-<div class="modal fade" id="nuevoConceptoModal" tabindex="-1" role="dialog">
+<!-- Modal para Crear Concepto -->
+<div class="modal fade" id="nuevoConceptoModal" tabindex="-1" role="dialog" aria-labelledby="nuevoConceptoModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="fas fa-tag mr-2"></i>Nuevo Concepto</h5>
-                <button type="button" class="close text-white" data-dismiss="modal">
-                    <span>&times;</span>
+                <h5 class="modal-title" id="nuevoConceptoModalLabel">
+                    <i class="fas fa-tag mr-2"></i>Crear Nuevo Concepto
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
                 </button>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label for="nombreConcepto">Nombre del Concepto</label>
-                    <input type="text" id="nombreConcepto" class="form-control" 
-                           placeholder="Ej: Alquiler, Expensas, Servicio de limpieza..." required>
-                </div>
-                <div class="form-group">
-                    <label for="tipoConcepto">Tipo más común</label>
-                    <select id="tipoConcepto" class="form-control">
-                        <option value="ingreso">Ingreso</option>
-                        <option value="egreso">Egreso</option>
-                        <option value="ambos">Ambos</option>
-                    </select>
-                    <small class="form-text text-muted">
-                        Esto ayudará a categorizar el concepto para futuras operaciones
-                    </small>
-                </div>
+                <form id="nuevoConceptoForm">
+                    <div class="form-group">
+                        <label for="nombreConcepto">Nombre del Concepto *</label>
+                        <input type="text" class="form-control" id="nombreConcepto" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="tipoConcepto">Tipo de Concepto</label>
+                        <select class="form-control" id="tipoConcepto">
+                            <option value="ingreso">Ingreso</option>
+                            <option value="egreso">Egreso</option>
+                            <option value="general">General (Ambos)</option>
+                        </select>
+                    </div>
+                </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-                <button type="button" id="guardarConcepto" class="btn btn-primary">
-                    <i class="fas fa-save mr-1"></i> Guardar Concepto
-                </button>
+                <button type="button" class="btn btn-primary" id="guardarConcepto">Guardar Concepto</button>
             </div>
         </div>
     </div>
@@ -453,39 +469,45 @@
 </div>
 
 <!-- Modal de confirmación -->
-<div class="modal fade" id="confirmacionModal" tabindex="-1" role="dialog">
+<div class="modal fade" id="confirmacionModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title"><i class="fas fa-check-circle mr-2"></i>Confirmar Movimiento</h5>
-                <button type="button" class="close text-white" data-dismiss="modal">
-                    <span>&times;</span>
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle mr-2"></i>Confirmar Movimiento
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
                 </button>
             </div>
             <div class="modal-body">
-                <p>¿Está seguro que desea registrar el siguiente movimiento?</p>
+                <p class="lead">¿Está seguro de registrar este movimiento?</p>
                 
-                <div class="card">
+                <div class="card mb-3">
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-6">
-                                <p><strong>Tipo:</strong> <span id="confirm-tipo"></span></p>
-                                <p><strong>Fecha:</strong> <span id="confirm-fecha"></span></p>
-                                <p><strong>Concepto:</strong> <span id="confirm-concepto"></span></p>
-                            </div>
-                            <div class="col-6">
-                                <p><strong>Cuenta:</strong> <span id="confirm-cuenta"></span></p>
-                                <p><strong>Monto:</strong> <span id="confirm-monto" class="text-success"></span></p>
-                            </div>
+                            <div class="col-5 text-muted">Tipo:</div>
+                            <div class="col-7 font-weight-bold" id="confirmacionTipo">INGRESO</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-5 text-muted">Monto:</div>
+                            <div class="col-7 font-weight-bold" id="confirmacionMonto">$0.00</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-5 text-muted">Concepto:</div>
+                            <div class="col-7" id="confirmacionConcepto">-</div>
                         </div>
                     </div>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    Esta acción no se puede deshacer.
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-                <button type="button" id="confirmarMovimiento" class="btn btn-success">
-                    <i class="fas fa-check mr-1"></i> Confirmar y Guardar
-                </button>
+                <button type="button" class="btn btn-primary" id="confirmarMovimiento">Confirmar</button>
             </div>
         </div>
     </div>
@@ -676,46 +698,12 @@ $(document).ready(function() {
         calcularMontoTotal();
     });
     
-    // Validar formulario antes de enviar
-    function validarFormulario() {
-        const tipo = $('input[name="tipo"]:checked').val();
-        const fecha = $('#id_fecha').val();
-        const tipoComprobante = $('select[name="tipo_comprobante"]').val();
-        const monto = $('#id_monto').val();
-        const cuenta = $('#id_cuenta').val();
-        const concepto = $('#id_concepto').val();
-        
-        // Validar campos requeridos
-        if (!tipo || !fecha || !tipoComprobante || !monto || !cuenta || !concepto) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error de validación',
-                text: 'Por favor complete todos los campos requeridos'
-            });
-            return false;
-        }
-        
-        return true;
-    }
+    // Abrir modal para crear concepto
+    $('#btnNuevoConcepto').click(function() {
+        $('#nuevoConceptoModal').modal('show');
+    });
     
-    // Mostrar modal de confirmación con datos
-    function mostrarConfirmacion() {
-        const tipo = $('input[name="tipo"]:checked').val();
-        const fecha = new Date($('#id_fecha').val()).toLocaleDateString('es-AR');
-        const monto = parseFloat($('#id_monto').val()).toFixed(2);
-        const conceptoText = $('#id_concepto option:selected').text();
-        const cuentaText = $('#id_cuenta option:selected').text();
-        
-        $('#confirm-tipo').text(tipo === 'ingreso' ? 'Ingreso' : 'Egreso');
-        $('#confirm-fecha').text(fecha);
-        $('#confirm-monto').text('$' + monto);
-        $('#confirm-concepto').text(conceptoText);
-        $('#confirm-cuenta').text(cuentaText);
-        
-        $('#confirmacionModal').modal('show');
-    }
-    
-    // Guardar nuevo concepto
+    // Guardar concepto
     $('#guardarConcepto').click(function() {
         let nombreConcepto = $('#nombreConcepto').val();
         let tipoConcepto = $('#tipoConcepto').val();
@@ -763,147 +751,59 @@ $(document).ready(function() {
         });
     });
     
-    // Guardar nueva cuenta
-    $('#guardarCuenta').click(function() {
-        let nombreCuenta = $('#nombreCuenta').val();
-        let tipoCuenta = $('#tipoCuenta').val();
-        let numeroCuenta = $('#numeroCuenta').val();
-        let cbu = $('#cbu').val();
+    // Función para validar el formulario
+    function validarFormulario() {
+        // Verificar campos obligatorios
+        const concepto = $('#id_concepto').val();
+        const montoTotal = parseFloat($('#montoTotal').val());
         
-        if (!nombreCuenta) {
+        if (!concepto) {
             Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Por favor ingrese un nombre para la cuenta'
+                icon: 'warning',
+                title: 'Campos incompletos',
+                text: 'Por favor seleccione un concepto'
             });
-            return;
+            return false;
         }
         
-        $.ajax({
-            url: '{% url "inmobiliaria:crear_cuenta" %}',
-            type: 'POST',
-            data: {
-                nombre: nombreCuenta,
-                tipo: tipoCuenta,
-                numero_cuenta: numeroCuenta,
-                cbu: cbu,
-                csrfmiddlewaretoken: '{{ csrf_token }}'
-            },
-            success: function(response) {
-                if (response.id && response.nombre) {
-                    let newOption = new Option(response.nombre, response.id, true, true);
-                    $('#id_cuenta').append(newOption).trigger('change');
-                    $('#nuevaCuentaModal').modal('hide');
-                    $('#nombreCuenta').val('');
-                    $('#numeroCuenta').val('');
-                    $('#cbu').val('');
-                    
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Éxito',
-                        text: 'Cuenta creada exitosamente',
-                        timer: 1500,
-                        showConfirmButton: false
-                    });
-                }
-            },
-            error: function(xhr, status, error) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Error al crear la cuenta: ' + error
-                });
-            }
-        });
-    });
+        if (isNaN(montoTotal) || montoTotal <= 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Monto inválido',
+                text: 'Por favor ingrese un monto válido mayor a cero'
+            });
+            return false;
+        }
+        
+        return true;
+    }
     
-    // Guardar movimiento
-    $('#guardarMovimiento').click(function() {
+    // Función para mostrar confirmación
+    function mostrarConfirmacion() {
+        const tipo = $('input[name="tipo"]:checked').val();
+        const tipoTexto = tipo === 'ingreso' ? 'INGRESO' : 'EGRESO';
+        const monto = $('#montoTotal').val();
+        const concepto = $('#id_concepto option:selected').text();
+        
+        $('#confirmacionTipo').text(tipoTexto);
+        $('#confirmacionMonto').text('$' + monto);
+        $('#confirmacionConcepto').text(concepto);
+        
+        $('#confirmacionModal').modal('show');
+    }
+    
+    // Guardar movimiento - asegúrate de que este evento esté correctamente definido
+    $('#guardarMovimiento').on('click', function() {
+        console.log("Botón guardar movimiento clickeado");
         if (validarFormulario()) {
             mostrarConfirmacion();
         }
     });
     
-    // Guardar y crear otro
-    $('#guardarYNuevo').click(function() {
-        if (validarFormulario()) {
-            $('#confirmarMovimiento').data('nuevo', true);
-            mostrarConfirmacion();
-        }
-    });
-    
-    // Confirmar y enviar movimiento
-    $('#confirmarMovimiento').click(function() {
-        const crearNuevo = $(this).data('nuevo') || false;
-        const form = $('#movimientoForm');
-        
-        // Preparar datos para enviar
-        const formData = new FormData(form[0]);
-        
-        // Agregar metadatos de formas de pago
-        let metadatos = [];
-        $('.forma-pago-card').each(function(index) {
-            const metodo = $(this).find('.metodo-pago').val();
-            const monto = $(this).find('.monto-pago').val();
-            const detalles = $(this).find('input[name="detalles_pago[]"]').val();
-            
-            metadatos.push({
-                metodo: metodo,
-                monto: monto,
-                detalles: detalles || ''
-            });
-        });
-        
-        // Agregar metadatos como JSON
-        formData.append('metadatos_pago', JSON.stringify(metadatos));
-        
-        $.ajax({
-            url: '{% url "inmobiliaria:nuevo_movimiento" %}',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function(response) {
-                $('#confirmacionModal').modal('hide');
-                
-                if (response.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Éxito',
-                        text: 'Movimiento registrado correctamente',
-                        timer: 1500,
-                        showConfirmButton: false
-                    }).then(() => {
-                        if (crearNuevo) {
-                            // Resetear formulario para nuevo ingreso
-                            $('#id_monto').val('');
-                            $('#id_observaciones').val('');
-                            $('#id_propiedad').val(null).trigger('change');
-                            $('#montoSummary').text('$0.00');
-                        } else {
-                            // Redirigir a la página de gestión de caja
-                            window.location.href = '{% url "inmobiliaria:gestionar_caja" %}';
-                        }
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: response.message || 'Ha ocurrido un error al guardar el movimiento'
-                    });
-                }
-            },
-            error: function(xhr, status, error) {
-                $('#confirmacionModal').modal('hide');
-                
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Ha ocurrido un error al procesar la solicitud: ' + error
-                });
-            }
-        });
-    });
+    // Para debugging
+    console.log("Script cargado. Elementos encontrados:");
+    console.log("Botón guardar: ", $('#guardarMovimiento').length);
+    console.log("Botón nuevo concepto: ", $('#btnNuevoConcepto').length);
 });
 </script>
 {% endblock %} 
