@@ -1357,24 +1357,27 @@ def buscar_propietarios(request):
     term = request.GET.get('term', '')
     sucursal = request.user.sucursal
     
+    # Para depuración
+    print(f"Buscar propietarios con término: '{term}', sucursal: {sucursal}")
+    
     # Si no hay término, devolver los primeros 10 propietarios por defecto
     if not term:
-        propietarios = Cuenta.objects.filter(
-            sucursal=sucursal
-        ).order_by('nombre')[:10]
+        propietarios = Cuenta.objects.all()[:10]
     else:
         # Buscar propietarios que coincidan con el término (por nombre o ID)
         propietarios = Cuenta.objects.filter(
-            Q(nombre__icontains=term) | Q(id__icontains=term),
-            sucursal=sucursal
+            Q(nombre__icontains=term) | Q(id__icontains=term)
         )[:10]
+    
+    # Para depuración
+    print(f"Encontrados {propietarios.count()} propietarios")
     
     # Formatear resultados para Select2
     results = [
         {
             'id': p.id,
             'text': f"{p.nombre} (ID: {p.id})", 
-            'descripcion': f"{p.tipo if hasattr(p, 'tipo') else ''} - {p.numero_cuenta if hasattr(p, 'numero_cuenta') else ''}"
+            'descripcion': f"{p.tipo if hasattr(p, 'tipo') else ''} - {p.numero_cuenta if hasattr(p, 'numero_cuenta') and p.numero_cuenta else ''}"
         } 
         for p in propietarios
     ]

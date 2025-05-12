@@ -545,36 +545,32 @@
 </div>
 
 <!-- Modal para Crear Concepto -->
-<div class="modal fade" id="nuevoConceptoModal" tabindex="-1" role="dialog" aria-labelledby="nuevoConceptoModalLabel" aria-hidden="true">
+<div class="modal fade" id="nuevoConceptoModal" tabindex="-1" role="dialog" aria-labelledby="conceptoModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="nuevoConceptoModalLabel">
-                    <i class="fas fa-tag mr-2"></i>Crear Nuevo Concepto
-                </h5>
-                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+            <div class="modal-header">
+                <h5 class="modal-title" id="conceptoModalLabel">Nuevo Concepto</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
             <div class="modal-body">
-                <form id="nuevoConceptoForm">
-                    <div class="form-group">
-                        <label for="nombreConcepto">Nombre del Concepto *</label>
-                        <input type="text" class="form-control" id="nombreConcepto" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="tipoConcepto">Tipo de Concepto</label>
-                        <select class="form-control" id="tipoConcepto">
-                            <option value="ingreso">Ingreso</option>
-                            <option value="egreso">Egreso</option>
-                            <option value="general">General (Ambos)</option>
-                        </select>
-                    </div>
-                </form>
+                <div class="form-group">
+                    <label for="nombreConcepto">Nombre del Concepto</label>
+                    <input type="text" class="form-control" id="nombreConcepto" placeholder="Ingrese nombre">
+                </div>
+                <div class="form-group">
+                    <label for="tipoConcepto">Tipo de Concepto</label>
+                    <select class="form-control" id="tipoConcepto">
+                        <option value="general">General</option>
+                        <option value="ingreso">Ingreso</option>
+                        <option value="egreso">Egreso</option>
+                    </select>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="guardarConcepto">Guardar Concepto</button>
+                <button type="button" class="btn btn-primary" id="guardarConcepto">Guardar</button>
             </div>
         </div>
     </div>
@@ -972,9 +968,11 @@ $(document).ready(function() {
     });
     
     // Guardar concepto
-    $('#guardarConcepto').click(function() {
+    $('#guardarConcepto').off('click').on('click', function() {
         let nombreConcepto = $('#nombreConcepto').val();
         let tipoConcepto = $('#tipoConcepto').val();
+        
+        console.log("Guardando concepto:", nombreConcepto, tipoConcepto);
         
         if (!nombreConcepto) {
             Swal.fire({
@@ -994,6 +992,11 @@ $(document).ready(function() {
                 csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
             },
             success: function(response) {
+                console.log("Respuesta:", response);
+                
+                // Cerrar el modal primero
+                $('#nuevoConceptoModal').modal('hide');
+                
                 if (response.id) {
                     // Mostrar código si está disponible
                     const displayText = response.codigo ? 
@@ -1002,7 +1005,6 @@ $(document).ready(function() {
                     
                     const newOption = new Option(displayText, response.id, true, true);
                     $('#id_concepto').append(newOption).trigger('change');
-                    $('#nuevoConceptoModal').modal('hide');
                     $('#nombreConcepto').val('');
                     
                     Swal.fire({
@@ -1016,10 +1018,12 @@ $(document).ready(function() {
                 }
             },
             error: function(xhr, status, error) {
+                console.error("Error:", xhr, status, error);
+                
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Error al crear el concepto: ' + error
+                    text: 'Error al crear el concepto: ' + (xhr.responseJSON?.error || error)
                 });
             }
         });
