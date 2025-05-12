@@ -298,7 +298,7 @@
                                 </select>
                                 <div class="input-group-append">
                                     <button type="button" class="btn btn-outline-primary" id="btnNuevoConcepto">
-                                        <i class="fas fa-plus"></i>
+                                        <i class="fas fa-plus"></i> Nuevo Concepto
                                     </button>
                                 </div>
                             </div>
@@ -569,7 +569,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" id="btnCancelarConcepto">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="guardarConcepto">Guardar</button>
             </div>
         </div>
@@ -678,47 +678,47 @@ $(document).ready(function() {
     // Búsqueda de propietario/cuenta
     $('#id_busqueda_propietario').on('input', function() {
         const term = $(this).val();
-        if (term.length < 2) {
-            $('#resultados_propietarios').hide();
-            return;
-        }
+        console.log("Buscando propietario:", term);
         
         $.ajax({
             url: '/inmobiliaria/buscar/propietarios/',
             data: { term: term },
             dataType: 'json',
             success: function(data) {
+                console.log("Resultados propietarios:", data.results);
                 $('#lista_propietarios').empty();
                 
                 if (data.results && data.results.length > 0) {
                     data.results.forEach(function(item) {
-                        $('#lista_propietarios').append(
-                            `<a href="#" class="list-group-item list-group-item-action seleccionar-propietario" 
-                                data-id="${item.id}" data-text="${item.text}">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">${item.text}</h6>
-                                </div>
-                                <p class="mb-1">${item.descripcion || ''}</p>
-                            </a>`
-                        );
+                        $('#lista_propietarios').append(`
+                            <a href="#" class="list-group-item list-group-item-action seleccionar-propietario" 
+                               data-id="${item.id}" data-text="${item.text}">
+                               ${item.text}
+                            </a>
+                        `);
                     });
-                    $('#resultados_propietarios').show();
                 } else {
-                    $('#lista_propietarios').append(
-                        '<div class="alert alert-info">No se encontraron resultados</div>'
-                    );
-                    $('#resultados_propietarios').show();
+                    $('#lista_propietarios').append(`
+                        <div class="alert alert-info">No se encontraron propietarios</div>
+                    `);
                 }
+                $('#resultados_propietarios').show();
+            },
+            error: function(xhr, status, error) {
+                console.error("Error al buscar propietarios:", error);
+                $('#lista_propietarios').html(`
+                    <div class="alert alert-danger">Error al buscar propietarios</div>
+                `);
+                $('#resultados_propietarios').show();
             }
         });
     });
     
-    // Mostrar propietarios automáticamente al hacer focus
+    // Mostrar todos los propietarios al hacer click en el campo
     $('#id_busqueda_propietario').on('focus', function() {
-        if ($('#lista_propietarios').is(':empty')) {
-            $(this).trigger('input');
+        if (!$(this).val()) {
+            $(this).val(' ').trigger('input');
         }
-        $('#resultados_propietarios').show();
     });
     
     // Seleccionar propietario de la lista
@@ -964,11 +964,29 @@ $(document).ready(function() {
     
     // Abrir modal para crear concepto
     $('#btnNuevoConcepto').click(function() {
+        console.log('Botón Nuevo Concepto clickeado');
+        // Limpiar el formulario antes de mostrar
+        $('#nombreConcepto').val('');
+        $('#tipoConcepto').val('general');
+        
+        // Mostrar el modal
         $('#nuevoConceptoModal').modal('show');
     });
     
     // Guardar concepto
     $('#guardarConcepto').off('click').on('click', function() {
+        console.log('Botón guardar concepto clickeado');
+        guardarNuevoConcepto();
+    });
+    
+    // Botones para cerrar el modal
+    $(document).on('click', '[data-dismiss="modal"]', function() {
+        console.log('Cerrar modal (delegado) clickeado');
+        $(this).closest('.modal').modal('hide');
+    });
+    
+    // Función para guardar el concepto
+    function guardarNuevoConcepto() {
         let nombreConcepto = $('#nombreConcepto').val();
         let tipoConcepto = $('#tipoConcepto').val();
         
@@ -994,8 +1012,14 @@ $(document).ready(function() {
             success: function(response) {
                 console.log("Respuesta:", response);
                 
-                // Cerrar el modal primero
-                $('#nuevoConceptoModal').modal('hide');
+                // Cerrar el modal explícitamente
+                try {
+                    $('#nuevoConceptoModal').modal('hide');
+                    $('.modal-backdrop').remove();
+                    $('body').removeClass('modal-open').css('padding-right', '');
+                } catch(e) {
+                    console.error("Error al cerrar modal:", e);
+                }
                 
                 if (response.id) {
                     // Mostrar código si está disponible
@@ -1027,61 +1051,11 @@ $(document).ready(function() {
                 });
             }
         });
-    });
-    
-    // Función para validar el formulario
-    function validarFormulario() {
-        // Verificar campos obligatorios
-        const concepto = $('#id_concepto').val();
-        const montoTotal = parseFloat($('#montoTotal').val());
-        
-        if (!concepto) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Campos incompletos',
-                text: 'Por favor seleccione un concepto'
-            });
-            return false;
-        }
-        
-        if (isNaN(montoTotal) || montoTotal <= 0) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Monto inválido',
-                text: 'Por favor ingrese un monto válido mayor a cero'
-            });
-            return false;
-        }
-        
-        return true;
     }
     
-    // Función para mostrar confirmación
-    function mostrarConfirmacion() {
-        const tipo = $('input[name="tipo"]:checked').val();
-        const tipoTexto = tipo === 'ingreso' ? 'INGRESO' : 'EGRESO';
-        const monto = $('#montoTotal').val();
-        const concepto = $('#id_concepto option:selected').text();
-        
-        $('#confirmacionTipo').text(tipoTexto);
-        $('#confirmacionMonto').text('$' + monto);
-        $('#confirmacionConcepto').text(concepto);
-        
-        $('#confirmacionModal').modal('show');
-    }
-    
-    // Guardar movimiento - asegúrate de que este evento esté correctamente definido
-    $('#guardarMovimiento').on('click', function() {
-        console.log("Botón guardar movimiento clickeado");
-        if (validarFormulario()) {
-            mostrarConfirmacion();
-        }
-    });
-    
-    // Para debugging
-    console.log("Script cargado. Elementos encontrados:");
-    console.log("Botón guardar: ", $('#guardarMovimiento').length);
-    console.log("Botón nuevo concepto: ", $('#btnNuevoConcepto').length);
+    // Para depuración
+    console.log('¿El modal existe?', $('#nuevoConceptoModal').length);
+    console.log('¿El botón guardar existe?', $('#guardarConcepto').length);
 });
 </script>
 {% endblock %} 

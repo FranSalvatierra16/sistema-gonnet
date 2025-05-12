@@ -1355,34 +1355,41 @@ def historial_reservas_inquilino(request, inquilino_id):
 def buscar_propietarios(request):
     """Vista para buscar propietarios/cuentas mediante AJAX"""
     term = request.GET.get('term', '')
-    sucursal = request.user.sucursal
     
-    # Para depuración
-    print(f"Buscar propietarios con término: '{term}', sucursal: {sucursal}")
+    # IMPORTANTE: Depuración para verificar la consulta
+    print(f"Buscando propiedades con término: '{term}'")
     
-    # Si no hay término, devolver los primeros 10 propietarios por defecto
-    if not term:
-        propietarios = Cuenta.objects.all()[:10]
-    else:
-        # Buscar propietarios que coincidan con el término (por nombre o ID)
-        propietarios = Cuenta.objects.filter(
-            Q(nombre__icontains=term) | Q(id__icontains=term)
-        )[:10]
+    try:
+        # Buscar TODAS las cuentas/propietarios sin filtros de sucursal
+        if not term or len(term) < 2:
+            propietarios = Cuenta.objects.all()[:15]
+        else:
+            propietarios = Cuenta.objects.filter(
+                Q(nombre__icontains=term) | 
+                Q(id__icontains=term)
+            )[:15]
+        
+        # Imprimir resultados para depuración
+        print(f"Encontrados {propietarios.count()} propietarios")
+        for p in propietarios:
+            print(f"Propietario: ID={p.id}, Nombre={p.nombre}")
+        
+        # Formatear resultados simplificados
+        results = []
+        for p in propietarios:
+            results.append({
+                'id': p.id,
+                'text': f"{p.nombre} (ID: {p.id})" 
+            })
+        
+        return JsonResponse({'results': results})
     
-    # Para depuración
-    print(f"Encontrados {propietarios.count()} propietarios")
-    
-    # Formatear resultados para Select2
-    results = [
-        {
-            'id': p.id,
-            'text': f"{p.nombre} (ID: {p.id})", 
-            'descripcion': f"{p.tipo if hasattr(p, 'tipo') else ''} - {p.numero_cuenta if hasattr(p, 'numero_cuenta') and p.numero_cuenta else ''}"
-        } 
-        for p in propietarios
-    ]
-    
-    return JsonResponse({'results': results})
+    except Exception as e:
+        print(f"Error en buscar_propietarios: {str(e)}")
+        return JsonResponse({
+            'results': [],
+            'error': str(e)
+        })
 
 @login_required
 def buscar_operacion(request):
@@ -2595,44 +2602,44 @@ def crear_cuenta(request):
 
 @login_required
 def buscar_productores(request):
-    """Vista para buscar productores (vendedores) de la sucursal"""
+    """Vista para buscar vendedores/productores"""
     term = request.GET.get('term', '')
-    numero = request.GET.get('numero', None)
-    sucursal = request.user.sucursal
     
-    # Si se proporciona un número, buscar por ID directamente
-    if numero:
-        try:
-            productor = Vendedor.objects.get(id=numero, sucursal=sucursal)
-            return JsonResponse({
-                'success': True,
-                'id': productor.id,
-                'nombre': productor.nombre,
-                'email': productor.email if hasattr(productor, 'email') else '',
-                'telefono': productor.telefono if hasattr(productor, 'telefono') else ''
+    # IMPORTANTE: Depuración para verificar la consulta
+    print(f"Buscando vendedores con término: '{term}'")
+    
+    try:
+        # Buscar TODOS los vendedores sin filtros de sucursal
+        if not term or len(term) < 2:
+            vendedores = Vendedor.objects.all()[:15]
+        else:
+            vendedores = Vendedor.objects.filter(
+                Q(nombre__icontains=term) | 
+                Q(id__icontains=term)
+            )[:15]
+        
+        # Imprimir resultados para depuración
+        print(f"Encontrados {vendedores.count()} vendedores")
+        for v in vendedores:
+            print(f"Vendedor: ID={v.id}, Nombre={v.nombre}")
+        
+        # Formatear resultados
+        resultados = []
+        for v in vendedores:
+            resultados.append({
+                'id': v.id,
+                'nombre': v.nombre,
+                'telefono': getattr(v, 'telefono', '')
             })
-        except Vendedor.DoesNotExist:
-            return JsonResponse({'success': False, 'message': 'Productor no encontrado'})
+        
+        return JsonResponse({
+            'success': True,
+            'resultados': resultados
+        })
     
-    # Si no hay término, devolver todos los vendedores de la sucursal
-    if not term:
-        productores = Vendedor.objects.filter(sucursal=sucursal).order_by('nombre')
-    else:
-        # Buscar productores que coincidan con el término
-        productores = Vendedor.objects.filter(
-            Q(nombre__icontains=term) | Q(id__icontains=term),
-            sucursal=sucursal
-        )
-    
-    # Formatear resultados
-    results = [
-        {
-            'id': p.id,
-            'nombre': p.nombre,
-            'email': p.email if hasattr(p, 'email') else '',
-            'telefono': p.telefono if hasattr(p, 'telefono') else ''
-        }
-        for p in productores
-    ]
-    
-    return JsonResponse({'success': True, 'resultados': results})
+    except Exception as e:
+        print(f"Error en buscar_productores: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
