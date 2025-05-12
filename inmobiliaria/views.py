@@ -1355,21 +1355,26 @@ def historial_reservas_inquilino(request, inquilino_id):
 def buscar_propietarios(request):
     """Vista para buscar propietarios/cuentas mediante AJAX"""
     term = request.GET.get('term', '')
+    sucursal = request.user.sucursal
     
-    if len(term) < 2:
-        return JsonResponse({'results': []})
-    
-    # Buscar propietarios que coincidan con el término (por nombre o ID)
-    propietarios = Cuenta.objects.filter(
-        Q(nombre__icontains=term) | Q(id__icontains=term)
-    )[:10]
+    # Si no hay término, devolver los primeros 10 propietarios por defecto
+    if not term:
+        propietarios = Cuenta.objects.filter(
+            sucursal=sucursal
+        ).order_by('nombre')[:10]
+    else:
+        # Buscar propietarios que coincidan con el término (por nombre o ID)
+        propietarios = Cuenta.objects.filter(
+            Q(nombre__icontains=term) | Q(id__icontains=term),
+            sucursal=sucursal
+        )[:10]
     
     # Formatear resultados para Select2
     results = [
         {
             'id': p.id,
-            'text': p.nombre, 
-            'descripcion': f"{p.tipo} - {p.numero_cuenta if p.numero_cuenta else ''}"
+            'text': f"{p.nombre} (ID: {p.id})", 
+            'descripcion': f"{p.tipo if hasattr(p, 'tipo') else ''} - {p.numero_cuenta if hasattr(p, 'numero_cuenta') else ''}"
         } 
         for p in propietarios
     ]
@@ -2218,8 +2223,8 @@ def cerrar_caja(request, numero_caja):
 
 @login_required
 def nuevo_movimiento(request):
-    """Vista mejorada para registrar un nuevo movimiento de caja"""
-    # Obtener la caja actual
+    """Vista mejorada para registrar un nuevo movimiento con número automático"""
+    # Obtener la caja actual y sucursal
     sucursal = request.user.sucursal
     caja_actual = Caja.objects.filter(sucursal=sucursal, estado='abierta').first()
     
@@ -2229,106 +2234,74 @@ def nuevo_movimiento(request):
     
     if request.method == 'POST':
         try:
-            # Para debugging
-            print("Datos recibidos:", request.POST)
-            
             # Obtener datos básicos
             tipo = request.POST.get('tipo')
             fecha = request.POST.get('fecha', datetime.now().strftime('%Y-%m-%d'))
-            monto = request.POST.get('monto')
             concepto_id = request.POST.get('concepto')
             cuenta_id = request.POST.get('cuenta', None)
+            monto = Decimal(request.POST.get('monto', '0'))
             observaciones = request.POST.get('observaciones', '')
             
-            # Metadatos de formas de pago (puede ser que no estén presentes en la solicitud)
-            metadatos_pago = []
-            try:
-                metadatos_pago = json.loads(request.POST.get('metadatos_pago', '[]'))
-            except json.JSONDecodeError:
-                # Si hay error al decodificar el JSON, usar una lista vacía
-                metadatos_pago = []
+            # Obtener o generar número de operación
+            numero_operacion = request.POST.get('operacion')
+            if not numero_operacion:
+                # Buscar el último número y asignar el siguiente
+                ultimo_movimiento = Movimiento.objects.filter(caja__sucursal=sucursal).order_by('-numero').first()
+                numero_operacion = (int(ultimo_movimiento.numero) + 1 if ultimo_movimiento and ultimo_movimiento.numero else 1)
             
-            # Validación básica
-            if not all([tipo, monto, concepto_id]):
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Faltan campos obligatorios: tipo, monto y concepto son requeridos'
-                })
-            
-            # Obtener objeto concepto
-            try:
-                concepto = Concepto.objects.get(id=concepto_id)
-            except Concepto.DoesNotExist:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Concepto no encontrado'
-                })
-            
-            # Obtener objeto cuenta (si se proporcionó)
-            cuenta = None
-            if cuenta_id:
-                try:
-                    cuenta = Cuenta.objects.get(id=cuenta_id)
-                except Cuenta.DoesNotExist:
-                    pass  # No es obligatorio
-            
-            # Crear movimiento
+            # Crear el movimiento con el número generado
             movimiento = Movimiento.objects.create(
-                caja=caja_actual,
                 tipo=tipo,
                 fecha=fecha,
-                concepto=concepto,
-                cuenta=cuenta,
-                monto=Decimal(monto),
+                concepto_id=concepto_id,
+                cuenta_id=cuenta_id if cuenta_id else None,
+                caja=caja_actual,
+                monto=monto,
                 observaciones=observaciones,
-                metadatos=json.dumps(metadatos_pago) if metadatos_pago else None
+                numero=numero_operacion,
+                # Otros campos...
             )
             
-            # Actualizar saldo de la caja
-            if tipo == 'ingreso':
-                caja_actual.saldo_actual += Decimal(monto)
-            else:
-                caja_actual.saldo_actual -= Decimal(monto)
-            caja_actual.save()
-            
-            return JsonResponse({
-                'success': True,
-                'id': movimiento.id,
-                'message': 'Movimiento creado exitosamente'
-            })
+            messages.success(request, f'Movimiento #{movimiento.numero} creado exitosamente')
+            return redirect('inmobiliaria:detalle_caja', numero=caja_actual.numero)
             
         except Exception as e:
-            import traceback
-            print("Error:", str(e))
-            print(traceback.format_exc())
-            return JsonResponse({
-                'success': False,
-                'message': f'Error al crear el movimiento: {str(e)}'
-            })
-    
+            messages.error(request, f'Error al crear el movimiento: {str(e)}')
+            
     # Código para GET
-    conceptos = Concepto.objects.filter(
-        Q(sucursal=sucursal) | Q(sucursal__isnull=True)
-    ).order_by('nombre')
-    
-    cuentas = Cuenta.objects.filter(
-        Q(sucursal=sucursal) | Q(sucursal__isnull=True)
-    ).order_by('nombre')
-    
-    # Obtener últimos movimientos para la pestaña de historial
-    ultimos_movimientos = Movimiento.objects.filter(
-        caja__sucursal=sucursal
-    ).order_by('-fecha', '-id')[:10]
-    
-    context = {
-        'conceptos': conceptos,
-        'cuentas': cuentas,
-        'caja_actual': caja_actual,
-        'ultimos_movimientos': ultimos_movimientos,
-        'fecha_actual': datetime.now().strftime('%Y-%m-%d')
-    }
-    
-    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
+    try:
+        # Obtener datos para los formularios
+        conceptos = Concepto.objects.filter(sucursal=sucursal).order_by('nombre')
+        cuentas = Cuenta.objects.filter(sucursal=sucursal).order_by('nombre')
+        vendedores = Vendedor.objects.filter(sucursal=sucursal).order_by('nombre')
+        
+        # Obtener últimos movimientos para referencia
+        ultimos_movimientos = Movimiento.objects.filter(
+            caja__sucursal=sucursal
+        ).order_by('-fecha', '-id')[:5]
+        
+        # Generar número sugerido para la operación
+        ultimo_movimiento = Movimiento.objects.filter(
+            caja__sucursal=sucursal
+        ).order_by('-numero').first()
+        
+        numero_sugerido = int(ultimo_movimiento.numero) + 1 if ultimo_movimiento and ultimo_movimiento.numero else 1
+        
+        context = {
+            'caja': caja_actual,
+            'conceptos': conceptos,
+            'cuentas': cuentas,
+            'vendedores': vendedores,
+            'ultimos_movimientos': ultimos_movimientos,
+            'numero_sugerido': numero_sugerido,
+            'fecha_actual': datetime.now().strftime('%Y-%m-%d')
+        }
+        
+        return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Error al cargar el formulario: {str(e)}')
+        return redirect('inmobiliaria:gestionar_caja')
 
 @login_required
 def eliminar_movimiento(request, movimiento_id):
@@ -2458,25 +2431,32 @@ def nuevo_registro(request):
 
 @login_required
 def nuevo_concepto(request):
-    """Vista para crear un nuevo concepto desde Ajax"""
+    """Vista para crear un nuevo concepto desde Ajax con código único"""
     if request.method == 'POST':
         try:
             nombre = request.POST.get('nombre')
             tipo = request.POST.get('tipo', 'general')
+            sucursal = request.user.sucursal
             
             if not nombre:
                 return JsonResponse({'error': 'El nombre del concepto es obligatorio'}, status=400)
+            
+            # Generar código único para el concepto (puedes personalizar esto)
+            ultimo_concepto = Concepto.objects.filter(sucursal=sucursal).order_by('-id').first()
+            codigo = f"C{(ultimo_concepto.id + 1 if ultimo_concepto else 1):04d}"
             
             # Crear el concepto
             concepto = Concepto.objects.create(
                 nombre=nombre,
                 tipo=tipo,
-                sucursal=request.user.sucursal
+                codigo=codigo,
+                sucursal=sucursal
             )
             
             return JsonResponse({
                 'id': concepto.id,
                 'nombre': concepto.nombre,
+                'codigo': concepto.codigo,
                 'success': True
             })
             
@@ -2609,3 +2589,47 @@ def crear_cuenta(request):
             return JsonResponse({'error': str(e)}, status=500)
     
     return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+@login_required
+def buscar_productores(request):
+    """Vista para buscar productores (vendedores) de la sucursal"""
+    term = request.GET.get('term', '')
+    numero = request.GET.get('numero', None)
+    sucursal = request.user.sucursal
+    
+    # Si se proporciona un número, buscar por ID directamente
+    if numero:
+        try:
+            productor = Vendedor.objects.get(id=numero, sucursal=sucursal)
+            return JsonResponse({
+                'success': True,
+                'id': productor.id,
+                'nombre': productor.nombre,
+                'email': productor.email if hasattr(productor, 'email') else '',
+                'telefono': productor.telefono if hasattr(productor, 'telefono') else ''
+            })
+        except Vendedor.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Productor no encontrado'})
+    
+    # Si no hay término, devolver todos los vendedores de la sucursal
+    if not term:
+        productores = Vendedor.objects.filter(sucursal=sucursal).order_by('nombre')
+    else:
+        # Buscar productores que coincidan con el término
+        productores = Vendedor.objects.filter(
+            Q(nombre__icontains=term) | Q(id__icontains=term),
+            sucursal=sucursal
+        )
+    
+    # Formatear resultados
+    results = [
+        {
+            'id': p.id,
+            'nombre': p.nombre,
+            'email': p.email if hasattr(p, 'email') else '',
+            'telefono': p.telefono if hasattr(p, 'telefono') else ''
+        }
+        for p in productores
+    ]
+    
+    return JsonResponse({'success': True, 'resultados': results})

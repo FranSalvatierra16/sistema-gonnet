@@ -347,18 +347,30 @@
                             <h5><i class="fas fa-user-tag mr-2"></i>Datos del Productor/Vendedor</h5>
                             
                             <div class="form-group">
-                                <label for="id_productor">Productor</label>
-                                <div class="input-group">
-                                    <select class="form-control" id="id_productor" name="productor">
-                                        <option value="">Seleccione un productor</option>
-                                        {% for vendedor in vendedores %}
-                                            <option value="{{ vendedor.id }}">{{ vendedor.nombre }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    <div class="input-group-append">
-                                        <button type="button" class="btn btn-outline-secondary" id="buscarVendedor">
-                                            <i class="fas fa-search"></i>
-                                        </button>
+                                <label for="id_productor">Productor/Vendedor</label>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="input-group mb-2">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">ID</span>
+                                            </div>
+                                            <input type="text" id="id_productor_numero" class="form-control" placeholder="Nº">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <div class="input-group">
+                                            <select class="form-control" id="id_productor" name="productor">
+                                                <option value="">Seleccione un productor</option>
+                                                {% for vendedor in vendedores %}
+                                                    <option value="{{ vendedor.id }}">{{ vendedor.nombre }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <div class="input-group-append">
+                                                <button type="button" class="btn btn-outline-secondary" id="buscarVendedor">
+                                                    <i class="fas fa-search"></i>
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -676,7 +688,7 @@ $(document).ready(function() {
         }
         
         $.ajax({
-            url: '{% url "inmobiliaria:buscar_propietarios" %}',  // Necesitas implementar esta URL
+            url: '/inmobiliaria/buscar/propietarios/',
             data: { term: term },
             dataType: 'json',
             success: function(data) {
@@ -689,7 +701,6 @@ $(document).ready(function() {
                                 data-id="${item.id}" data-text="${item.text}">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1">${item.text}</h6>
-                                    <small>ID: ${item.id}</small>
                                 </div>
                                 <p class="mb-1">${item.descripcion || ''}</p>
                             </a>`
@@ -706,7 +717,15 @@ $(document).ready(function() {
         });
     });
     
-    // Seleccionar propietario/cuenta
+    // Mostrar propietarios automáticamente al hacer focus
+    $('#id_busqueda_propietario').on('focus', function() {
+        if ($('#lista_propietarios').is(':empty')) {
+            $(this).trigger('input');
+        }
+        $('#resultados_propietarios').show();
+    });
+    
+    // Seleccionar propietario de la lista
     $(document).on('click', '.seleccionar-propietario', function(e) {
         e.preventDefault();
         const id = $(this).data('id');
@@ -720,7 +739,6 @@ $(document).ready(function() {
         
         $('#id_cuenta').val(id).trigger('change');
         $('#resultados_propietarios').hide();
-        $('#id_busqueda_propietario').val('');
     });
     
     // Botón buscar vendedor
@@ -732,12 +750,8 @@ $(document).ready(function() {
     $('#busquedaVendedor').on('input', function() {
         const term = $(this).val().toLowerCase();
         $('#tablaVendedores tbody tr').each(function() {
-            const nombre = $(this).find('td:nth-child(2)').text().toLowerCase();
-            if (nombre.includes(term)) {
-                $(this).show();
-            } else {
-                $(this).hide();
-            }
+            const nombre = $(this).find('td:eq(1)').text().toLowerCase();
+            $(this).toggle(nombre.includes(term));
         });
     });
     
@@ -972,16 +986,21 @@ $(document).ready(function() {
         }
         
         $.ajax({
-            url: '{% url "inmobiliaria:crear_concepto" %}',
+            url: '/inmobiliaria/crear_concepto/',
             type: 'POST',
             data: {
                 nombre: nombreConcepto,
                 tipo: tipoConcepto,
-                csrfmiddlewaretoken: '{{ csrf_token }}'
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
             },
             success: function(response) {
-                if (response.id && response.nombre) {
-                    let newOption = new Option(response.nombre, response.id, true, true);
+                if (response.id) {
+                    // Mostrar código si está disponible
+                    const displayText = response.codigo ? 
+                        `${response.codigo} - ${response.nombre}` : 
+                        response.nombre;
+                    
+                    const newOption = new Option(displayText, response.id, true, true);
                     $('#id_concepto').append(newOption).trigger('change');
                     $('#nuevoConceptoModal').modal('hide');
                     $('#nombreConcepto').val('');
@@ -989,7 +1008,8 @@ $(document).ready(function() {
                     Swal.fire({
                         icon: 'success',
                         title: 'Éxito',
-                        text: 'Concepto creado exitosamente',
+                        text: 'Concepto creado exitosamente' + 
+                              (response.codigo ? ` (Código: ${response.codigo})` : ''),
                         timer: 1500,
                         showConfirmButton: false
                     });

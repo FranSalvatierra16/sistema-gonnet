@@ -128,4 +128,5 @@ urlpatterns = [
     path('caja/crear-cuenta/', views.crear_cuenta, name='crear_cuenta'),
     path('buscar/propietarios/', views.buscar_propietarios, name='buscar_propietarios'),
     path('buscar/operacion/', views.buscar_operacion, name='buscar_operacion'),
+    path('buscar/productores/', views.buscar_productores, name='buscar_productores'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
