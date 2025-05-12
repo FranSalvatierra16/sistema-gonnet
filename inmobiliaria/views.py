@@ -2440,3 +2440,36 @@ def buscar_propiedades_select2(request):
 def simple_select2(request):
     """Versión simplificada para debuggear"""
     return JsonResponse({'results': []})
+
+@login_required
+def crear_cuenta(request):
+    """Vista para crear una nueva cuenta desde Ajax"""
+    if request.method == 'POST':
+        try:
+            nombre = request.POST.get('nombre')
+            tipo = request.POST.get('tipo')
+            numero_cuenta = request.POST.get('numero_cuenta', '')
+            cbu = request.POST.get('cbu', '')
+            
+            if not nombre:
+                return JsonResponse({'error': 'El nombre de la cuenta es obligatorio'}, status=400)
+            
+            # Crear la cuenta
+            cuenta = Cuenta.objects.create(
+                nombre=nombre,
+                tipo=tipo,
+                numero_cuenta=numero_cuenta,
+                cbu=cbu,
+                sucursal=request.user.sucursal
+            )
+            
+            return JsonResponse({
+                'id': cuenta.id,
+                'nombre': cuenta.nombre,
+                'success': True
+            })
+            
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Método no permitido'}, status=405)

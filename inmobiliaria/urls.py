@@ -125,4 +125,5 @@ urlpatterns = [
     path('crear-concepto/', views.crear_concepto, name='crear_concepto'),
     path('crear-propiedad/', views.crear_propiedad, name='crear_propiedad'),
     path('api/simple-select2/', views.simple_select2, name='simple_select2'),
+    path('caja/crear-cuenta/', views.crear_cuenta, name='crear_cuenta'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
