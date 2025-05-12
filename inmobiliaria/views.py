@@ -2179,26 +2179,37 @@ def cerrar_caja(request, numero_caja):
 
 @login_required
 def nuevo_movimiento(request, numero_caja):
-    caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
+    """Vista mejorada para registrar un nuevo movimiento de caja"""
+    # Obtener la caja actual
+    sucursal = request.user.sucursal
+    caja_actual = Caja.objects.filter(sucursal=sucursal, estado='abierta').first()
+    
+    if not caja_actual:
+        messages.error(request, "No hay una caja abierta para registrar movimientos")
+        return redirect('inmobiliaria:gestionar_caja')
     
     if request.method == 'POST':
-        form = MovimientoCajaForm(request.POST)
-        if form.is_valid():
-            movimiento = form.save(commit=False)
-            movimiento.caja = caja
-            movimiento.usuario = request.user
-            movimiento.save()
-            messages.success(request, 'Registro creado exitosamente.')
-            return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
-    else:
-        form = MovimientoCajaForm(initial={'fecha': timezone.now()})
+        try:
+            # Obtener datos del formulario
+            tipo = request.POST.get('tipo')
+            monto = Decimal(request.POST.get('monto'))
+            concepto = request.POST.get('concepto')
+            
+            MovimientoCaja.objects.create(
+                caja=caja_actual,
+                tipo=tipo,
+                monto=monto,
+                concepto=concepto,
+                usuario=request.user
+            )
+            
+            messages.success(request, 'Movimiento registrado exitosamente')
+            return redirect('inmobiliaria:detalle_caja', numero=caja_actual.numero)
+        except Exception as e:
+            messages.error(request, f'Error al registrar el movimiento: {str(e)}')
+            return redirect('inmobiliaria:gestionar_caja')
     
-    context = {
-        'form': form,
-        'caja': caja,
-        'titulo': f'Nuevo Registro - Caja #{caja.numero}',
-    }
-    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
+    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {'caja': caja_actual})
 
 @login_required
 def eliminar_movimiento(request, movimiento_id):

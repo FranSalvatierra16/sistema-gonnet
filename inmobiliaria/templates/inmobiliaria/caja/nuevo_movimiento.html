@@ -1,203 +1,488 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load static %}
+{% load bootstrap4 %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap4-theme@1.0.0/dist/select2-bootstrap4.min.css">
+<style>
+    .card-header-tabs .nav-link.active {
+        background-color: #fff;
+        border-bottom-color: #fff;
+    }
+    .form-section {x
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        border-radius: 0.25rem;
+        background-color: #f8f9fa;
+        border-left: 4px solid #007bff;
+    }
+    .monto-input {
+        font-size: 1.5rem;
+        height: 3rem;
+        text-align: right;
+        font-weight: bold;
+    }
+    .concepto-card {
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .concepto-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .concepto-card.selected {
+        border-color: #007bff;
+        background-color: #f0f7ff;
+    }
+    .summary-box {
+        background-color: #f8f9fa;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    .summary-value {
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+    .action-buttons {
+        position: sticky;
+        bottom: 0;
+        background-color: white;
+        padding: 1rem;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        z-index: 100;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid mt-4">
     <div class="card">
-        <div class="card-header bg-primary text-white">
-            <h3 class="card-title mb-0">{{ titulo }}</h3>
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h3 class="card-title mb-0">
+                <i class="fas fa-money-bill-wave mr-2"></i> Nuevo Movimiento de Caja
+            </h3>
+            <span class="badge badge-light">Caja #{{ caja_actual.numero }}</span>
         </div>
+        
+        <div class="card-header">
+            <ul class="nav nav-tabs card-header-tabs" id="movimientoTabs" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active" id="datos-tab" data-toggle="tab" href="#datos" role="tab">
+                        <i class="fas fa-info-circle mr-1"></i> Datos del Movimiento
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="conceptos-tab" data-toggle="tab" href="#conceptos" role="tab">
+                        <i class="fas fa-tags mr-1"></i> Conceptos Frecuentes
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="historial-tab" data-toggle="tab" href="#historial" role="tab">
+                        <i class="fas fa-history mr-1"></i> Últimos Movimientos
+                    </a>
+                </li>
+            </ul>
+        </div>
+        
         <div class="card-body">
-            <form method="post" id="registroForm">
-                {% csrf_token %}
-                
-                <!-- Tipo de Movimiento -->
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Tipo de Movimiento</label>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="tipo" value="ingreso" id="tipoIngreso" required>
-                            <label class="form-check-label" for="tipoIngreso">Ingreso</label>
+            <div class="tab-content" id="movimientoTabsContent">
+                <!-- Pestaña de datos del movimiento -->
+                <div class="tab-pane fade show active" id="datos" role="tabpanel">
+                    <form method="post" id="movimientoForm">
+                        {% csrf_token %}
+                        
+                        <!-- Resumen del movimiento -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <div class="summary-box">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span class="text-muted">Tipo:</span>
+                                            <span class="summary-value text-primary" id="tipoSummary">Ingreso</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-muted">Fecha:</span>
+                                            <span class="summary-value" id="fechaSummary">{% now "d/m/Y" %}</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-muted">Monto:</span>
+                                            <span class="summary-value text-success" id="montoSummary">$0.00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="tipo" value="egreso" id="tipoEgreso">
-                            <label class="form-check-label" for="tipoEgreso">Egreso</label>
+                        
+                        <div class="row">
+                            <!-- Columna Izquierda -->
+                            <div class="col-md-6">
+                                <!-- Sección Tipo y Fecha -->
+                                <div class="form-section">
+                                    <h5><i class="fas fa-info-circle mr-2"></i>Información Básica</h5>
+                                    
+                                    <div class="form-group">
+                                        <label>Tipo de Movimiento</label>
+                                        <div class="btn-group btn-group-toggle w-100" data-toggle="buttons">
+                                            <label class="btn btn-outline-success active">
+                                                <input type="radio" name="tipo" value="ingreso" checked> 
+                                                <i class="fas fa-arrow-down mr-1"></i> Ingreso
+                                            </label>
+                                            <label class="btn btn-outline-danger">
+                                                <input type="radio" name="tipo" value="egreso"> 
+                                                <i class="fas fa-arrow-up mr-1"></i> Egreso
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Fecha</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text"><i class="fas fa-calendar"></i></span>
+                                            </div>
+                                            <input type="date" name="fecha" id="id_fecha" class="form-control" 
+                                                   value="{% now 'Y-m-d' %}" required>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Tipo de Comprobante</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text"><i class="fas fa-receipt"></i></span>
+                                            </div>
+                                            <select name="tipo_comprobante" class="form-control" required>
+                                                <option value="">Seleccione un tipo</option>
+                                                {% for value, label in form.tipo_comprobante.field.choices %}
+                                                <option value="{{ value }}">{{ label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Nº Liquidación/Comprobante (opcional)</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text"><i class="fas fa-hashtag"></i></span>
+                                            </div>
+                                            <input type="text" name="numero_liquidacion" id="id_numero_liquidacion" 
+                                                   class="form-control" placeholder="Nº de comprobante">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Columna Derecha -->
+                            <div class="col-md-6">
+                                <!-- Sección Monto y Cuenta -->
+                                <div class="form-section">
+                                    <h5><i class="fas fa-dollar-sign mr-2"></i>Detalles Financieros</h5>
+                                    
+                                    <div class="form-group">
+                                        <label>Monto</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">$</span>
+                                            </div>
+                                            <input type="number" name="monto" id="id_monto" 
+                                                   class="form-control monto-input" step="0.01" min="0.01" 
+                                                   placeholder="0.00" required>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Cuenta</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text"><i class="fas fa-wallet"></i></span>
+                                            </div>
+                                            <select name="cuenta" id="id_cuenta" class="form-control" required>
+                                                <option value="">Seleccione una cuenta</option>
+                                                {% for cuenta in cuentas %}
+                                                <option value="{{ cuenta.id }}">{{ cuenta.nombre }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <div class="input-group-append">
+                                                <button type="button" class="btn btn-outline-primary" 
+                                                        data-toggle="modal" data-target="#nuevaCuentaModal">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Concepto</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text"><i class="fas fa-tag"></i></span>
+                                            </div>
+                                            <select name="concepto" id="id_concepto" class="form-control" required>
+                                                <option value="">Seleccione un concepto</option>
+                                                {% for concepto in conceptos %}
+                                                <option value="{{ concepto.id }}">{{ concepto.nombre }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <div class="input-group-append">
+                                                <button type="button" class="btn btn-outline-primary" 
+                                                        data-toggle="modal" data-target="#nuevoConceptoModal">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Propiedad (opcional)</label>
+                                        <select name="propiedad" id="id_propiedad" class="form-control">
+                                            <option value="">Seleccione una propiedad</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Observaciones -->
+                        <div class="form-section mt-3">
+                            <h5><i class="fas fa-comment mr-2"></i>Observaciones</h5>
+                            <div class="form-group">
+                                <textarea name="observaciones" id="id_observaciones" 
+                                          class="form-control" rows="3" 
+                                          placeholder="Detalles adicionales sobre este movimiento..."></textarea>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Pestaña de conceptos frecuentes -->
+                <div class="tab-pane fade" id="conceptos" role="tabpanel">
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <h5>Conceptos Frecuentes</h5>
+                            <p class="text-muted">Seleccione un concepto para usar en el movimiento actual</p>
+                            <div class="input-group mb-3">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                </div>
+                                <input type="text" id="conceptoSearch" class="form-control" 
+                                       placeholder="Buscar concepto...">
+                            </div>
                         </div>
                     </div>
                     
-                    <!-- Tipo de Comprobante -->
-                    <div class="col-md-6">
-                        <label class="form-label">Tipo de Comprobante</label>
-                        {% for value, label in form.tipo_comprobante.field.choices %}
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="tipo_comprobante" 
-                                   value="{{ value }}" id="comprobante{{ value }}" required>
-                            <label class="form-check-label" for="comprobante{{ value }}">{{ label }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <!-- Fecha y Liquidación -->
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <label class="form-label">Fecha</label>
-                        {{ form.fecha }}
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Número Liquidación</label>
-                        {{ form.numero_liquidacion }}
-                    </div>
-                </div>
-
-                <!-- Cuenta y Propiedad -->
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Cuenta</label>
-                        {{ form.cuenta }}
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Propiedad</label>
-                        {{ form.propiedad }}
-                    </div>
-                </div>
-
-                <!-- Concepto -->
-                <div class="row mb-3">
-                    <div class="col-md-12">
-                        <label class="form-label">Concepto</label>
-                        <div class="input-group">
-                            {{ form.concepto }}
-                            <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#nuevoConceptoModal">
-                                <i class="fas fa-plus"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Importes -->
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h5 class="mb-0">Importes</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Efectivo</label>
-                                {{ form.monto_efectivo }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Cheque</label>
-                                {{ form.monto_cheque }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Tarjeta</label>
-                                <div class="input-group">
-                                    {{ form.monto_tarjeta }}
-                                    {{ form.banco }}
+                    <div class="row" id="conceptosList">
+                        {% for concepto in conceptos_frecuentes %}
+                        <div class="col-md-4 mb-3 concepto-item">
+                            <div class="card concepto-card" data-id="{{ concepto.id }}" 
+                                 data-nombre="{{ concepto.nombre }}">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ concepto.nombre }}</h5>
+                                    <p class="card-text text-muted small">
+                                        Usado {{ concepto.frecuencia }} veces
+                                    </p>
                                 </div>
                             </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Depósito</label>
-                                {{ form.monto_deposito }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">QR</label>
-                                {{ form.monto_qr }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Total</label>
-                                <input type="text" class="form-control" id="total" readonly>
-                            </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- A descontar -->
-                <div class="row mb-3">
-                    <div class="col-md-12">
-                        <label class="form-label">A descontar de</label>
-                        {% for value, label in form.a_descontar.field.choices %}
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="a_descontar" 
-                                   value="{{ value }}" id="descontar{{ value }}">
-                            <label class="form-check-label" for="descontar{{ value }}">{{ label }}</label>
+                        {% empty %}
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                No hay conceptos frecuentes disponibles
+                            </div>
                         </div>
                         {% endfor %}
                     </div>
                 </div>
-
-                <!-- Fechas y Opciones -->
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Fecha Desde</label>
-                        {{ form.fecha_desde }}
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Fecha Hasta</label>
-                        {{ form.fecha_hasta }}
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <div class="form-check">
-                            {{ form.con_iva }}
-                            <label class="form-check-label" for="{{ form.con_iva.id_for_label }}">
-                                Con IVA
-                            </label>
+                
+                <!-- Pestaña de historial reciente -->
+                <div class="tab-pane fade" id="historial" role="tabpanel">
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <h5>Últimos Movimientos de Caja</h5>
+                            <p class="text-muted">Movimientos registrados en la caja actual</p>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="form-check">
-                            {{ form.pasa_liquidaciones }}
-                            <label class="form-check-label" for="{{ form.pasa_liquidaciones.id_for_label }}">
-                                Pasa a Liquidaciones
-                            </label>
-                        </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Tipo</th>
+                                    <th>Concepto</th>
+                                    <th>Cuenta</th>
+                                    <th class="text-right">Monto</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for mov in ultimos_movimientos %}
+                                <tr>
+                                    <td>{{ mov.fecha|date:"d/m/Y" }}</td>
+                                    <td>
+                                        <span class="badge {% if mov.tipo == 'ingreso' %}badge-success{% else %}badge-danger{% endif %}">
+                                            {{ mov.get_tipo_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ mov.concepto.nombre }}</td>
+                                    <td>{{ mov.cuenta.nombre }}</td>
+                                    <td class="text-right font-weight-bold">
+                                        ${{ mov.monto|floatformat:2 }}
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-primary duplicar-movimiento"
+                                                data-id="{{ mov.id }}" data-tipo="{{ mov.tipo }}"
+                                                data-concepto="{{ mov.concepto.id }}"
+                                                data-cuenta="{{ mov.cuenta.id }}"
+                                                data-monto="{{ mov.monto }}">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center">No hay movimientos recientes</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-
-                <!-- Observaciones -->
-                <div class="row mb-3">
-                    <div class="col-md-12">
-                        <label class="form-label">Observaciones</label>
-                        {{ form.observaciones }}
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-12">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Guardar Registro
-                        </button>
-                        <a href="{% url 'inmobiliaria:detalle_caja' caja.numero %}" class="btn btn-secondary">
-                            <i class="fas fa-times"></i> Cancelar
-                        </a>
-                    </div>
-                </div>
-            </form>
+            </div>
+        </div>
+        
+        <!-- Botones de acción fijos en la parte inferior -->
+        <div class="action-buttons text-right">
+            <a href="{% url 'inmobiliaria:gestionar_caja' %}" class="btn btn-secondary">
+                <i class="fas fa-times mr-1"></i> Cancelar
+            </a>
+            <button type="button" id="guardarMovimiento" class="btn btn-success ml-2">
+                <i class="fas fa-save mr-1"></i> Guardar Movimiento
+            </button>
+            <button type="button" id="guardarYNuevo" class="btn btn-primary ml-2">
+                <i class="fas fa-plus mr-1"></i> Guardar y Crear Otro
+            </button>
         </div>
     </div>
 </div>
 
 <!-- Modal para nuevo concepto -->
-<div class="modal fade" id="nuevoConceptoModal" tabindex="-1">
-    <div class="modal-dialog">
+<div class="modal fade" id="nuevoConceptoModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Nuevo Concepto</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-tag mr-2"></i>Nuevo Concepto</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Nombre del Concepto</label>
-                    <input type="text" class="form-control" id="nombreConcepto">
+                <div class="form-group">
+                    <label for="nombreConcepto">Nombre del Concepto</label>
+                    <input type="text" id="nombreConcepto" class="form-control" 
+                           placeholder="Ej: Alquiler, Expensas, Servicio de limpieza..." required>
+                </div>
+                <div class="form-group">
+                    <label for="tipoConcepto">Tipo más común</label>
+                    <select id="tipoConcepto" class="form-control">
+                        <option value="ingreso">Ingreso</option>
+                        <option value="egreso">Egreso</option>
+                        <option value="ambos">Ambos</option>
+                    </select>
+                    <small class="form-text text-muted">
+                        Esto ayudará a categorizar el concepto para futuras operaciones
+                    </small>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="guardarConcepto">Guardar</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" id="guardarConcepto" class="btn btn-primary">
+                    <i class="fas fa-save mr-1"></i> Guardar Concepto
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para nueva cuenta -->
+<div class="modal fade" id="nuevaCuentaModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-wallet mr-2"></i>Nueva Cuenta</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="nombreCuenta">Nombre de la Cuenta</label>
+                    <input type="text" id="nombreCuenta" class="form-control" 
+                           placeholder="Ej: Efectivo, Banco Provincia, Mercado Pago..." required>
+                </div>
+                <div class="form-group">
+                    <label for="tipoCuenta">Tipo de Cuenta</label>
+                    <select id="tipoCuenta" class="form-control">
+                        <option value="efectivo">Efectivo</option>
+                        <option value="banco">Cuenta Bancaria</option>
+                        <option value="virtual">Billetera Virtual</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                </div>
+                <div class="form-group" id="datosBancarios" style="display: none;">
+                    <label>Datos Bancarios (opcional)</label>
+                    <input type="text" id="numeroCuenta" class="form-control mb-2" 
+                           placeholder="Número de cuenta">
+                    <input type="text" id="cbu" class="form-control" 
+                           placeholder="CBU/Alias">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" id="guardarCuenta" class="btn btn-primary">
+                    <i class="fas fa-save mr-1"></i> Guardar Cuenta
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación -->
+<div class="modal fade" id="confirmacionModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-check-circle mr-2"></i>Confirmar Movimiento</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>¿Está seguro que desea registrar el siguiente movimiento?</p>
+                
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <p><strong>Tipo:</strong> <span id="confirm-tipo"></span></p>
+                                <p><strong>Fecha:</strong> <span id="confirm-fecha"></span></p>
+                                <p><strong>Concepto:</strong> <span id="confirm-concepto"></span></p>
+                            </div>
+                            <div class="col-6">
+                                <p><strong>Cuenta:</strong> <span id="confirm-cuenta"></span></p>
+                                <p><strong>Monto:</strong> <span id="confirm-monto" class="text-success"></span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" id="confirmarMovimiento" class="btn btn-success">
+                    <i class="fas fa-check mr-1"></i> Confirmar y Guardar
+                </button>
             </div>
         </div>
     </div>
@@ -205,63 +490,16 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
 $(document).ready(function() {
-    // Inicializar Select2 para conceptos
-    $('#id_concepto').select2({
+    // Inicializar Select2 para los campos
+    $('#id_concepto, #id_cuenta').select2({
         theme: 'bootstrap4',
-        width: '100%',
-        placeholder: 'Seleccione o busque un concepto',
-        allowClear: true
+        width: '100%'
     });
-
-    // Calcular total cuando cambian los importes
-    $('.importe').on('input', function() {
-        let total = 0;
-        $('.importe').each(function() {
-            let valor = parseFloat($(this).val() || 0);
-            if (!isNaN(valor)) {
-                total += valor;
-            }
-        });
-        $('#total').val(total.toFixed(2));
-    });
-
-    // Guardar nuevo concepto
-    $('#guardarConcepto').click(function() {
-        let nombreConcepto = $('#nombreConcepto').val();
-        if (!nombreConcepto) {
-            alert('Por favor ingrese un nombre para el concepto');
-            return;
-        }
-
-        $.ajax({
-            url: '{% url "inmobiliaria:crear_concepto" %}',
-            type: 'POST',
-            data: {
-                nombre: nombreConcepto,
-                csrfmiddlewaretoken: '{{ csrf_token }}'
-            },
-            success: function(response) {
-                if (response.id && response.nombre) {
-                    let newOption = new Option(response.nombre, response.id, true, true);
-                    $('#id_concepto').append(newOption).trigger('change');
-                    $('#nuevoConceptoModal').modal('hide');
-                    $('#nombreConcepto').val('');
-                    alert('Concepto creado exitosamente');
-                }
-            },
-            error: function(xhr, status, error) {
-                alert('Error al crear el concepto: ' + error);
-            }
-        });
-    });
-
-    // Limpiar modal cuando se cierra
-    $('#nuevoConceptoModal').on('hidden.bs.modal', function () {
-        $('#nombreConcepto').val('');
-    });
-
+    
+    // Select2 para propiedades con búsqueda AJAX
     $('#id_propiedad').select2({
         theme: 'bootstrap4',
         width: '100%',
@@ -285,6 +523,297 @@ $(document).ready(function() {
             cache: true
         },
         minimumInputLength: 2
+    });
+    
+    // Mostrar/ocultar campos bancarios
+    $('#tipoCuenta').change(function() {
+        if ($(this).val() === 'banco') {
+            $('#datosBancarios').slideDown();
+        } else {
+            $('#datosBancarios').slideUp();
+        }
+    });
+    
+    // Actualizar tipo de movimiento
+    $('input[name="tipo"]').change(function() {
+        const tipo = $(this).val();
+        $('#tipoSummary').text(tipo === 'ingreso' ? 'Ingreso' : 'Egreso');
+        $('#tipoSummary').removeClass('text-success text-danger')
+            .addClass(tipo === 'ingreso' ? 'text-success' : 'text-danger');
+    });
+    
+    // Actualizar monto en tiempo real
+    $('#id_monto').on('input', function() {
+        const monto = parseFloat($(this).val()) || 0;
+        $('#montoSummary').text('$' + monto.toFixed(2));
+    });
+    
+    // Actualizar fecha en tiempo real
+    $('#id_fecha').change(function() {
+        const fecha = new Date($(this).val());
+        const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
+        $('#fechaSummary').text(fecha.toLocaleDateString('es-AR', options));
+    });
+    
+    // Búsqueda de conceptos
+    $('#conceptoSearch').on('input', function() {
+        const searchText = $(this).val().toLowerCase();
+        $('.concepto-item').each(function() {
+            const conceptoNombre = $(this).find('.card-title').text().toLowerCase();
+            if (conceptoNombre.includes(searchText)) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    });
+    
+    // Seleccionar concepto desde la lista de frecuentes
+    $('.concepto-card').click(function() {
+        const id = $(this).data('id');
+        const nombre = $(this).data('nombre');
+        
+        $('#id_concepto').val(id).trigger('change');
+        $('#conceptos-tab').removeClass('active');
+        $('#datos-tab').addClass('active');
+        $('#conceptos').removeClass('show active');
+        $('#datos').addClass('show active');
+        
+        // Resaltar el concepto seleccionado
+        $('.concepto-card').removeClass('selected');
+        $(this).addClass('selected');
+    });
+    
+    // Duplicar movimiento desde el historial
+    $('.duplicar-movimiento').click(function() {
+        const tipo = $(this).data('tipo');
+        const conceptoId = $(this).data('concepto');
+        const cuentaId = $(this).data('cuenta');
+        const monto = $(this).data('monto');
+        
+        // Establecer los valores en el formulario
+        $(`input[name="tipo"][value="${tipo}"]`).prop('checked', true).trigger('change');
+        $('#id_concepto').val(conceptoId).trigger('change');
+        $('#id_cuenta').val(cuentaId).trigger('change');
+        $('#id_monto').val(monto).trigger('input');
+        
+        // Cambiar a la pestaña de datos
+        $('#historial-tab').removeClass('active');
+        $('#datos-tab').addClass('active');
+        $('#historial').removeClass('show active');
+        $('#datos').addClass('show active');
+    });
+    
+    // Validar formulario antes de enviar
+    function validarFormulario() {
+        const tipo = $('input[name="tipo"]:checked').val();
+        const fecha = $('#id_fecha').val();
+        const tipoComprobante = $('select[name="tipo_comprobante"]').val();
+        const monto = $('#id_monto').val();
+        const cuenta = $('#id_cuenta').val();
+        const concepto = $('#id_concepto').val();
+        
+        // Validar campos requeridos
+        if (!tipo || !fecha || !tipoComprobante || !monto || !cuenta || !concepto) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error de validación',
+                text: 'Por favor complete todos los campos requeridos'
+            });
+            return false;
+        }
+        
+        return true;
+    }
+    
+    // Mostrar modal de confirmación con datos
+    function mostrarConfirmacion() {
+        const tipo = $('input[name="tipo"]:checked').val();
+        const fecha = new Date($('#id_fecha').val()).toLocaleDateString('es-AR');
+        const monto = parseFloat($('#id_monto').val()).toFixed(2);
+        const conceptoText = $('#id_concepto option:selected').text();
+        const cuentaText = $('#id_cuenta option:selected').text();
+        
+        $('#confirm-tipo').text(tipo === 'ingreso' ? 'Ingreso' : 'Egreso');
+        $('#confirm-fecha').text(fecha);
+        $('#confirm-monto').text('$' + monto);
+        $('#confirm-concepto').text(conceptoText);
+        $('#confirm-cuenta').text(cuentaText);
+        
+        $('#confirmacionModal').modal('show');
+    }
+    
+    // Guardar nuevo concepto
+    $('#guardarConcepto').click(function() {
+        let nombreConcepto = $('#nombreConcepto').val();
+        let tipoConcepto = $('#tipoConcepto').val();
+        
+        if (!nombreConcepto) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Por favor ingrese un nombre para el concepto'
+            });
+            return;
+        }
+        
+        $.ajax({
+            url: '{% url "inmobiliaria:crear_concepto" %}',
+            type: 'POST',
+            data: {
+                nombre: nombreConcepto,
+                tipo: tipoConcepto,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.id && response.nombre) {
+                    let newOption = new Option(response.nombre, response.id, true, true);
+                    $('#id_concepto').append(newOption).trigger('change');
+                    $('#nuevoConceptoModal').modal('hide');
+                    $('#nombreConcepto').val('');
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Éxito',
+                        text: 'Concepto creado exitosamente',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al crear el concepto: ' + error
+                });
+            }
+        });
+    });
+    
+    // Guardar nueva cuenta
+    $('#guardarCuenta').click(function() {
+        let nombreCuenta = $('#nombreCuenta').val();
+        let tipoCuenta = $('#tipoCuenta').val();
+        let numeroCuenta = $('#numeroCuenta').val();
+        let cbu = $('#cbu').val();
+        
+        if (!nombreCuenta) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Por favor ingrese un nombre para la cuenta'
+            });
+            return;
+        }
+        
+        $.ajax({
+            url: '{% url "inmobiliaria:crear_cuenta" %}',
+            type: 'POST',
+            data: {
+                nombre: nombreCuenta,
+                tipo: tipoCuenta,
+                numero_cuenta: numeroCuenta,
+                cbu: cbu,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.id && response.nombre) {
+                    let newOption = new Option(response.nombre, response.id, true, true);
+                    $('#id_cuenta').append(newOption).trigger('change');
+                    $('#nuevaCuentaModal').modal('hide');
+                    $('#nombreCuenta').val('');
+                    $('#numeroCuenta').val('');
+                    $('#cbu').val('');
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Éxito',
+                        text: 'Cuenta creada exitosamente',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al crear la cuenta: ' + error
+                });
+            }
+        });
+    });
+    
+    // Guardar movimiento
+    $('#guardarMovimiento').click(function() {
+        if (validarFormulario()) {
+            mostrarConfirmacion();
+        }
+    });
+    
+    // Guardar y crear otro
+    $('#guardarYNuevo').click(function() {
+        if (validarFormulario()) {
+            $('#confirmarMovimiento').data('nuevo', true);
+            mostrarConfirmacion();
+        }
+    });
+    
+    // Confirmar y enviar movimiento
+    $('#confirmarMovimiento').click(function() {
+        const crearNuevo = $(this).data('nuevo') || false;
+        const form = $('#movimientoForm');
+        
+        // Preparar datos para enviar
+        const formData = new FormData(form[0]);
+        
+        $.ajax({
+            url: '{% url "inmobiliaria:nuevo_movimiento" %}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                $('#confirmacionModal').modal('hide');
+                
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Éxito',
+                        text: 'Movimiento registrado correctamente',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        if (crearNuevo) {
+                            // Resetear formulario para nuevo ingreso
+                            $('#id_monto').val('');
+                            $('#id_observaciones').val('');
+                            $('#id_propiedad').val(null).trigger('change');
+                            $('#montoSummary').text('$0.00');
+                        } else {
+                            // Redirigir a la página de gestión de caja
+                            window.location.href = '{% url "inmobiliaria:gestionar_caja" %}';
+                        }
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.message || 'Ha ocurrido un error al guardar el movimiento'
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                $('#confirmacionModal').modal('hide');
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Ha ocurrido un error al procesar la solicitud: ' + error
+                });
+            }
+        });
     });
 });
 </script>
