@@ -1353,16 +1353,55 @@ def historial_reservas_inquilino(request, inquilino_id):
         'reservas': reservas,
     })    
 def buscar_propietarios(request):
-    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-        query = request.GET.get('term', '')
-        propietarios = Propietario.objects.filter(
-            Q(nombre__icontains=query) | 
-            Q(apellido__icontains=query) |
-            Q(dni__icontains=query)
-        )[:10]
-        results = [{'id': p.id, 'text': f"{p.nombre} {p.apellido} (DNI: {p.dni})"} for p in propietarios]
-        return JsonResponse({'results': results})
-    return JsonResponse({'results': []})
+    """Vista para buscar propietarios/cuentas mediante AJAX"""
+    term = request.GET.get('term', '')
+    
+    if len(term) < 2:
+        return JsonResponse({'results': []})
+    
+    # Buscar propietarios que coincidan con el término (por nombre o ID)
+    propietarios = Cuenta.objects.filter(
+        Q(nombre__icontains=term) | Q(id__icontains=term)
+    )[:10]
+    
+    # Formatear resultados para Select2
+    results = [
+        {
+            'id': p.id,
+            'text': p.nombre, 
+            'descripcion': f"{p.tipo} - {p.numero_cuenta if p.numero_cuenta else ''}"
+        } 
+        for p in propietarios
+    ]
+    
+    return JsonResponse({'results': results})
+
+@login_required
+def buscar_operacion(request):
+    """Vista para buscar operación por número y autocompletar campos"""
+    operacion = request.GET.get('operacion', '')
+    
+    if not operacion:
+        return JsonResponse({'success': False, 'message': 'Número de operación requerido'})
+    
+    try:
+        # Buscar el movimiento por número (ajusta esto según tu modelo)
+        movimiento = Movimiento.objects.get(numero=operacion)
+        
+        # Preparar datos para autocompletar
+        return JsonResponse({
+            'success': True,
+            'concepto_id': movimiento.concepto_id,
+            'cuenta_id': movimiento.cuenta_id if movimiento.cuenta else None,
+            'productor_id': movimiento.productor_id if hasattr(movimiento, 'productor') else None,
+            'monto': str(movimiento.monto),
+            'tipo_comprobante': movimiento.tipo_comprobante if hasattr(movimiento, 'tipo_comprobante') else None
+        })
+    except Movimiento.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Operación no encontrada'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
 def buscar_inquilinos(request):
     query = request.GET.get('term', '')
     inquilinos = Inquilino.objects.filter(
