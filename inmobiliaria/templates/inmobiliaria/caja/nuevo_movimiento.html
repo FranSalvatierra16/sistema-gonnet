@@ -361,9 +361,6 @@
                                         <div class="input-group">
                                             <select class="form-control" id="id_productor" name="productor">
                                                 <option value="">Seleccione un productor</option>
-                                                {% for vendedor in vendedores %}
-                                                    <option value="{{ vendedor.id }}">{{ vendedor.nombre }}</option>
-                                                {% endfor %}
                                             </select>
                                             <div class="input-group-append">
                                                 <button type="button" class="btn btn-outline-secondary" id="buscarVendedor">
@@ -784,34 +781,63 @@ $(document).ready(function() {
 <!-- Código para modal y búsqueda de vendedores -->
 <script>
 $(document).ready(function() {
-    // Cargar vendedores al abrir el modal
-    $('#buscarVendedor').off('click').on('click', function() {
-        console.log("Abriendo modal de vendedores");
-        
-        // Limpiar y mostrar tabla
-        $('#tablaVendedores tbody').html('<tr><td colspan="4" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
-        $('#vendedoresModal').modal('show');
-        
-        // URL CORREGIDA: quitar "inmobiliaria/"
+    // Cargar productores al cargar la página
+    function cargarProductoresAutomatico() {
+        // URL correcta que ya sabemos que funciona
         $.ajax({
             url: '/buscar/productores/',
             method: 'GET',
             data: { term: '' },
             success: function(data) {
-                console.log("Respuesta vendedores:", data);
+                console.log("Productores automáticos:", data);
+                
+                if (data.success && data.resultados && data.resultados.length > 0) {
+                    // Limpiar selector actual
+                    $('#id_productor').empty().append('<option value="">Seleccione un productor</option>');
+                    
+                    // Agregar cada productor al selector
+                    data.resultados.forEach(function(p) {
+                        $('#id_productor').append(`<option value="${p.id}">${p.nombre}</option>`);
+                    });
+                    
+                    console.log("Productores cargados automáticamente");
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error("Error al cargar productores:", error);
+            }
+        });
+    }
+    
+    // Cargar inmediatamente
+    cargarProductoresAutomatico();
+    
+    // Bind al botón de buscar para que muestre los productores disponibles
+    $('#buscarVendedor').off('click').on('click', function() {
+        // Abrir modal
+        $('#vendedoresModal').modal('show');
+        
+        // Cargar datos en la tabla
+        $('#tablaVendedores tbody').html('<tr><td colspan="3" class="text-center">Cargando...</td></tr>');
+        
+        $.ajax({
+            url: '/buscar/productores/',
+            method: 'GET',
+            data: { term: '' },
+            success: function(data) {
+                // Limpiar tabla
                 $('#tablaVendedores tbody').empty();
                 
                 if (data.success && data.resultados && data.resultados.length > 0) {
-                    // Mostrar cada vendedor
-                    data.resultados.forEach(function(v) {
+                    // Agregar cada productor
+                    data.resultados.forEach(function(p) {
                         $('#tablaVendedores tbody').append(`
                             <tr>
-                                <td>${v.id}</td>
-                                <td>${v.nombre}</td>
-                                <td>${v.telefono || ''}</td>
+                                <td>${p.id}</td>
+                                <td>${p.nombre}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-primary seleccionar-vendedor" 
-                                            data-id="${v.id}" data-nombre="${v.nombre}">
+                                    <button class="btn btn-sm btn-primary seleccionar-productor" 
+                                            data-id="${p.id}" data-nombre="${p.nombre}">
                                         Seleccionar
                                     </button>
                                 </td>
@@ -819,61 +845,29 @@ $(document).ready(function() {
                         `);
                     });
                 } else {
-                    $('#tablaVendedores tbody').html('<tr><td colspan="4" class="text-center">No se encontraron vendedores</td></tr>');
+                    $('#tablaVendedores tbody').html('<tr><td colspan="3" class="text-center">No hay productores disponibles</td></tr>');
                 }
             },
             error: function() {
-                $('#tablaVendedores tbody').html('<tr><td colspan="4" class="text-center text-danger">Error al cargar vendedores</td></tr>');
+                $('#tablaVendedores tbody').html('<tr><td colspan="3" class="text-center">Error al cargar productores</td></tr>');
             }
         });
     });
     
-    // Buscar vendedor por ID directo
-    $('#id_productor_numero').on('blur', function() {
-        var idProductor = $(this).val().trim();
-        if (idProductor) {
-            console.log("Buscando productor por ID:", idProductor);
-            
-            // URL CORREGIDA: quitar "inmobiliaria/"
-            $.ajax({
-                url: '/buscar/productores/',
-                data: { numero: idProductor },
-                success: function(data) {
-                    if (data.success) {
-                        // Agregar opción si no existe
-                        if (!$('#id_productor option[value="' + data.id + '"]').length) {
-                            var newOption = new Option(data.nombre, data.id, true, true);
-                            $('#id_productor').append(newOption);
-                        }
-                        
-                        // Seleccionar
-                        $('#id_productor').val(data.id).trigger('change');
-                    } else {
-                        alert("No se encontró un productor con el ID: " + idProductor);
-                    }
-                },
-                error: function() {
-                    alert("Error al buscar el productor");
-                }
-            });
-        }
-    });
-    
-    // Seleccionar vendedor desde la tabla
-    $(document).on('click', '.seleccionar-vendedor', function() {
-        var id = $(this).data('id');
-        var nombre = $(this).data('nombre');
+    // Manejar selección de productor
+    $(document).on('click', '.seleccionar-productor', function() {
+        const id = $(this).data('id');
+        const nombre = $(this).data('nombre');
         
-        console.log("Vendedor seleccionado:", id, nombre);
-        
-        // Crear opción si no existe
+        // Actualizar el selector
         if (!$('#id_productor option[value="' + id + '"]').length) {
-            var newOption = new Option(nombre, id, true, true);
-            $('#id_productor').append(newOption);
+            $('#id_productor').append(`<option value="${id}">${nombre}</option>`);
         }
         
-        // Seleccionar y cerrar
-        $('#id_productor').val(id).trigger('change');
+        // Seleccionar el valor
+        $('#id_productor').val(id);
+        
+        // Cerrar modal
         $('#vendedoresModal').modal('hide');
     });
 });
@@ -992,99 +986,118 @@ function depurarProblemas() {
 }
 </script>
 
-<!-- Formulario Simple para Productores -->
-<div class="form-group">
-    <label for="id_productor_directo">Productor/Vendedor (simple)</label>
-    <select class="form-control" id="id_productor_directo" name="productor">
-        <option value="">Seleccione un productor</option>
-    </select>
-    <button type="button" class="btn btn-primary mt-2" id="cargarProductores">
-        Cargar todos los productores
-    </button>
+<!-- Formulario directo para crear propietario/cuenta cuando no hay ninguno -->
+<div class="card mb-4" id="crearPropietarioCard">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fas fa-plus-circle"></i> Crear Nuevo Propietario/Cuenta</h5>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> No se encontraron propietarios/cuentas en el sistema. 
+            Complete este formulario para crear uno nuevo.
+        </div>
+        
+        <div class="form-group">
+            <label for="nuevoPropietarioNombre"><strong>Nombre del Propietario/Cuenta *</strong></label>
+            <input type="text" id="nuevoPropietarioNombre" class="form-control" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="nuevoPropietarioTelefono">Teléfono</label>
+            <input type="tel" id="nuevoPropietarioTelefono" class="form-control">
+        </div>
+        
+        <div class="form-group">
+            <label for="nuevoPropietarioEmail">Email</label>
+            <input type="email" id="nuevoPropietarioEmail" class="form-control">
+        </div>
+        
+        <button type="button" class="btn btn-success" id="btnCrearPropietario">
+            <i class="fas fa-save"></i> Crear Propietario/Cuenta
+        </button>
+    </div>
 </div>
 
-<!-- Formulario Simple para Propietarios -->
-<div class="form-group">
-    <label for="id_cuenta_directo">Cuenta/Propietario (simple)</label>
-    <select class="form-control" id="id_cuenta_directo" name="cuenta">
-        <option value="">Seleccione un propietario</option>
-    </select>
-    <button type="button" class="btn btn-primary mt-2" id="cargarPropietarios">
-        Cargar todos los propietarios
-    </button>
-</div>
-
-<!-- Script para cargar opciones directamente -->
+<!-- Script para crear propietarios -->
 <script>
 $(document).ready(function() {
-    // Cargar todos los productores directamente
-    $('#cargarProductores').click(function() {
-        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Cargando...');
-        
-        $.ajax({
-            url: '/buscar/productores/',
-            method: 'GET',
-            data: { term: '' },
-            success: function(data) {
-                $('#id_productor_directo').empty().append('<option value="">Seleccione un productor</option>');
-                
-                if (data.success && data.resultados && data.resultados.length > 0) {
-                    data.resultados.forEach(function(p) {
-                        $('#id_productor_directo').append(`<option value="${p.id}">${p.nombre}</option>`);
-                    });
-                    alert(`Se cargaron ${data.resultados.length} productores`);
-                } else {
-                    alert("No se encontraron productores");
-                }
-            },
-            error: function(xhr, status, error) {
-                alert("Error al cargar productores: " + error);
-            },
-            complete: function() {
-                $('#cargarProductores').prop('disabled', false).html('Cargar todos los productores');
-            }
-        });
-    });
-    
-    // Cargar todos los propietarios directamente
-    $('#cargarPropietarios').click(function() {
-        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Cargando...');
-        
-        $.ajax({
-            url: '/buscar/propietarios/',
-            method: 'GET',
-            data: { term: ' ' },
-            success: function(data) {
-                $('#id_cuenta_directo').empty().append('<option value="">Seleccione un propietario</option>');
-                
-                if (data.results && data.results.length > 0) {
-                    data.results.forEach(function(p) {
-                        $('#id_cuenta_directo').append(`<option value="${p.id}">${p.text}</option>`);
-                    });
-                    alert(`Se cargaron ${data.results.length} propietarios`);
-                } else {
-                    alert("No se encontraron propietarios");
-                }
-            },
-            error: function(xhr, status, error) {
-                alert("Error al cargar propietarios: " + error);
-            },
-            complete: function() {
-                $('#cargarPropietarios').prop('disabled', false).html('Cargar todos los propietarios');
-            }
-        });
-    });
-    
-    // Guardar concepto simple sin modal
-    $('#guardarConceptoSimpleDirecto').click(function() {
-        var nombre = $('#nombreConceptoDirecto').val();
-        var tipo = $('#tipoConceptoDirecto').val();
+    // Botón para crear propietario
+    $('#btnCrearPropietario').click(function() {
+        const nombre = $('#nuevoPropietarioNombre').val();
+        const telefono = $('#nuevoPropietarioTelefono').val();
+        const email = $('#nuevoPropietarioEmail').val();
         
         if (!nombre) {
-            alert("Ingrese un nombre para el concepto");
+            alert('Por favor ingrese un nombre para el propietario/cuenta');
             return;
         }
         
+        // Mostrar estado
+        $('#btnCrearPropietario').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Creando...');
+        
+        // Enviar datos
+        $.ajax({
+            url: '/crear-propietario/',  // URL para crear propietarios
+            method: 'POST',
+            data: {
+                nombre: nombre,
+                telefono: telefono,
+                email: email,
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+            },
+            success: function(data) {
+                if (data.id) {
+                    // Éxito
+                    alert('Propietario/cuenta creado correctamente: ' + data.nombre);
+                    
+                    // Agregar al selector
+                    $('#id_cuenta').append(`<option value="${data.id}">${data.nombre}</option>`);
+                    $('#id_cuenta').val(data.id);
+                    
+                    // Limpiar formulario
+                    $('#nuevoPropietarioNombre').val('');
+                    $('#nuevoPropietarioTelefono').val('');
+                    $('#nuevoPropietarioEmail').val('');
+                    
+                    // Ocultar card
+                    $('#crearPropietarioCard').hide();
+                } else {
+                    alert('Error al crear propietario: ' + (data.message || 'Error desconocido'));
+                }
+            },
+            error: function(xhr, status, error) {
+                alert('Error al procesar la solicitud: ' + error);
+            },
+            complete: function() {
+                $('#btnCrearPropietario').prop('disabled', false).html('<i class="fas fa-save"></i> Crear Propietario/Cuenta');
+            }
+        });
+    });
+});
+</script>
+
+<!-- Script para crear conceptos -->
+<script>
+$(document).ready(function() {
+    // Botón para nuevo concepto
+    $('#btnNuevoConcepto').click(function() {
+        $('#nuevoConceptoModal').modal('show');
+    });
+    
+    // Guardar concepto directo
+    $('#guardarConcepto').click(function() {
+        const nombre = $('#nombreConcepto').val();
+        const tipo = $('#tipoConcepto').val();
+        
+        if (!nombre) {
+            alert('Por favor ingrese un nombre para el concepto');
+            return;
+        }
+        
+        // Mostrar estado
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
+        
+        // Enviar datos
         $.ajax({
             url: '/caja/crear-concepto/',
             method: 'POST',
@@ -1095,14 +1108,24 @@ $(document).ready(function() {
             },
             success: function(data) {
                 if (data.id) {
-                    alert("Concepto creado exitosamente: " + data.nombre);
-                    $('#nombreConceptoDirecto').val('');
+                    // Éxito
+                    alert('Concepto creado correctamente: ' + data.nombre);
+                    
+                    // Agregar al selector
+                    $('#id_concepto').append(`<option value="${data.id}">${data.nombre}</option>`);
+                    $('#id_concepto').val(data.id);
+                    
+                    // Cerrar modal
+                    $('#nuevoConceptoModal').modal('hide');
                 } else {
-                    alert("Error al crear concepto");
+                    alert('Error al crear concepto: ' + (data.message || 'Error desconocido'));
                 }
             },
             error: function(xhr, status, error) {
-                alert("Error de conexión: " + error);
+                alert('Error al procesar la solicitud: ' + error);
+            },
+            complete: function() {
+                $('#guardarConcepto').prop('disabled', false).html('Guardar');
             }
         });
     });
