@@ -526,34 +526,34 @@
     </div>
 </div>
 
-<!-- Modal para crear conceptos (HTML simple, sin complicaciones) -->
-<div class="modal" id="nuevoConceptoModal" tabindex="-1">
-  <div class="modal-dialog">
+<!-- Modal para crear conceptos (estructura simple) -->
+<div class="modal fade" id="nuevoConceptoModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">Nuevo Concepto</h5>
-        <button type="button" class="btn-close" onclick="$('#nuevoConceptoModal').hide();">×</button>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
       </div>
       <div class="modal-body">
-        <form id="formNuevoConcepto">
-          {% csrf_token %}
-          <div class="mb-3">
-            <label for="nombreConcepto" class="form-label">Nombre del Concepto *</label>
-            <input type="text" class="form-control" id="nombreConcepto" required>
-          </div>
-          <div class="mb-3">
-            <label for="tipoConcepto" class="form-label">Tipo</label>
-            <select class="form-control" id="tipoConcepto">
-              <option value="general">General</option>
-              <option value="ingreso">Ingreso</option>
-              <option value="egreso">Egreso</option>
-            </select>
-          </div>
-        </form>
+        <div class="mb-3">
+          <label for="nombreConcepto" class="form-label">Nombre del Concepto *</label>
+          <input type="text" class="form-control" id="nombreConcepto" required>
+        </div>
+        <div class="mb-3">
+          <label for="tipoConcepto" class="form-label">Tipo</label>
+          <select class="form-control" id="tipoConcepto">
+            <option value="general">General</option>
+            <option value="ingreso">Ingreso</option>
+            <option value="egreso">Egreso</option>
+          </select>
+        </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="$('#nuevoConceptoModal').hide();">Cancelar</button>
-        <button type="button" class="btn btn-primary" onclick="guardarConceptoSimple()">Guardar</button>
+        <!-- Botón simple con onclick -->
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="guardarConcepto">Guardar</button>
       </div>
     </div>
   </div>
@@ -579,7 +579,7 @@ function guardarConceptoSimple() {
     }
     
     // Enviar mediante AJAX simple
-    $.post('/inmobiliaria/crear_concepto/', {
+    $.post('/caja/crear-concepto/', {
         nombre: nombre,
         tipo: tipo,
         csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
@@ -716,9 +716,9 @@ $(document).ready(function() {
         $('#lista_propietarios').html('<div class="p-3 text-center"><i class="fas fa-spinner fa-spin"></i> Buscando...</div>');
         $('#resultados_propietarios').show();
         
-        // Hacer la petición AJAX con URL completa
+        // URL CORREGIDA: quitar "inmobiliaria/"
         $.ajax({
-            url: '/inmobiliaria/buscar/propietarios/',
+            url: '/buscar/propietarios/',
             method: 'GET',
             data: { term: termino },
             success: function(data) {
@@ -792,9 +792,9 @@ $(document).ready(function() {
         $('#tablaVendedores tbody').html('<tr><td colspan="4" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
         $('#vendedoresModal').modal('show');
         
-        // Obtener vendedores
+        // URL CORREGIDA: quitar "inmobiliaria/"
         $.ajax({
-            url: '/inmobiliaria/buscar/productores/',
+            url: '/buscar/productores/',
             method: 'GET',
             data: { term: '' },
             success: function(data) {
@@ -834,8 +834,9 @@ $(document).ready(function() {
         if (idProductor) {
             console.log("Buscando productor por ID:", idProductor);
             
+            // URL CORREGIDA: quitar "inmobiliaria/"
             $.ajax({
-                url: '/inmobiliaria/buscar/productores/',
+                url: '/buscar/productores/',
                 data: { numero: idProductor },
                 success: function(data) {
                     if (data.success) {
@@ -918,7 +919,7 @@ function depurarProblemas() {
     
     // Probar conexión a propietarios
     $.ajax({
-        url: '/inmobiliaria/buscar/propietarios/',
+        url: '/buscar/propietarios/',
         method: 'GET',
         data: { term: ' ' },
         success: function(data) {
@@ -947,7 +948,7 @@ function depurarProblemas() {
     
     // Probar conexión a productores
     $.ajax({
-        url: '/inmobiliaria/buscar/productores/',
+        url: '/buscar/productores/',
         method: 'GET',
         data: { term: ' ' },
         success: function(data) {
@@ -1021,7 +1022,7 @@ $(document).ready(function() {
         $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Cargando...');
         
         $.ajax({
-            url: '/inmobiliaria/buscar/productores/',
+            url: '/buscar/productores/',
             method: 'GET',
             data: { term: '' },
             success: function(data) {
@@ -1050,7 +1051,7 @@ $(document).ready(function() {
         $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Cargando...');
         
         $.ajax({
-            url: '/inmobiliaria/buscar/propietarios/',
+            url: '/buscar/propietarios/',
             method: 'GET',
             data: { term: ' ' },
             success: function(data) {
@@ -1085,7 +1086,7 @@ $(document).ready(function() {
         }
         
         $.ajax({
-            url: '/inmobiliaria/crear_concepto/',
+            url: '/caja/crear-concepto/',
             method: 'POST',
             data: {
                 nombre: nombre,
@@ -1125,7 +1126,7 @@ $(document).ready(function() {
         console.log("Buscando propietario:", term);
         
         $.ajax({
-            url: '/inmobiliaria/buscar/propietarios/',
+            url: '/buscar/propietarios/',
             data: { term: term },
             dataType: 'json',
             success: function(data) {
