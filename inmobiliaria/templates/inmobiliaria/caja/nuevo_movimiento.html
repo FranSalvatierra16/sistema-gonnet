@@ -1131,6 +1131,332 @@ $(document).ready(function() {
     });
 });
 </script>
+
+<!-- MEJORAS PARA PRODUCTORES, PROPIETARIOS Y CONCEPTOS -->
+
+<!-- 1. MEJORAS PARA PRODUCTORES - BUSCAR POR ID -->
+<script>
+$(document).ready(function() {
+    // Buscar productor por ID
+    $('#id_productor_id').on('change keyup', function() {
+        var idBuscado = $(this).val().trim();
+        if (idBuscado) {
+            console.log("Buscando productor con ID:", idBuscado);
+            
+            // Buscar productor por ID
+            $.ajax({
+                url: '/buscar/productores/',
+                method: 'GET',
+                data: { id: idBuscado },
+                success: function(data) {
+                    if (data.success && data.resultados && data.resultados.length > 0) {
+                        // Encontramos al menos un productor
+                        var productor = data.resultados[0]; // Tomamos el primero que coincida
+                        
+                        // Actualizar selector
+                        if (!$('#id_productor option[value="' + productor.id + '"]').length) {
+                            $('#id_productor').append(`<option value="${productor.id}">${productor.nombre}</option>`);
+                        }
+                        
+                        // Seleccionar
+                        $('#id_productor').val(productor.id);
+                        
+                        // Mostrar mensaje
+                        $('#productor_info').html(`<div class="alert alert-success">Productor encontrado: ${productor.nombre}</div>`);
+                    } else {
+                        $('#productor_info').html(`<div class="alert alert-warning">No se encontró productor con ID: ${idBuscado}</div>`);
+                    }
+                },
+                error: function() {
+                    $('#productor_info').html(`<div class="alert alert-danger">Error al buscar productor</div>`);
+                }
+            });
+        } else {
+            $('#productor_info').html('');
+        }
+    });
+
+    // Mostrar ID en lista de productores
+    function cargarProductoresConId() {
+        $.ajax({
+            url: '/buscar/productores/',
+            method: 'GET',
+            data: { term: '' },
+            success: function(data) {
+                if (data.success && data.resultados && data.resultados.length > 0) {
+                    // Limpiar selector
+                    $('#id_productor').empty().append('<option value="">Seleccione un productor</option>');
+                    
+                    // Agregar cada productor CON ID
+                    data.resultados.forEach(function(p) {
+                        $('#id_productor').append(`<option value="${p.id}">[ID: ${p.id}] ${p.nombre}</option>`);
+                    });
+                    
+                    console.log("Productores con ID cargados correctamente");
+                }
+            }
+        });
+    }
+    
+    // Cargar al inicio
+    cargarProductoresConId();
+});
+</script>
+
+<!-- 2. AGREGAR CAMPO PARA BUSCAR PRODUCTOR POR ID -->
+<div class="form-group mb-3">
+    <label for="id_productor_id"><strong>Buscar Productor por ID:</strong></label>
+    <input type="number" id="id_productor_id" class="form-control" placeholder="Ingrese el ID del productor">
+    <div id="productor_info"></div>
+</div>
+
+<!-- 3. MEJORAS PARA PROPIETARIOS - CREAR Y LISTAR -->
+<script>
+$(document).ready(function() {
+    // Función para listar propietarios disponibles
+    function listarPropietariosDisponibles() {
+        $.ajax({
+            url: '/buscar-propietarios/',  // Probamos otra URL
+            method: 'GET',
+            data: { term: '' },
+            success: function(data) {
+                console.log("Respuesta propietarios:", data);
+                
+                // Verificar formato de respuesta
+                var propietarios = data.results || data.resultados || [];
+                
+                if (propietarios.length > 0) {
+                    // Limpiar y mostrar lista
+                    var $lista = $('#listaPropietariosDisponibles').empty();
+                    
+                    propietarios.forEach(function(prop) {
+                        // Extraer id y texto según la estructura
+                        var id = prop.id;
+                        var texto = prop.text || prop.nombre;
+                        
+                        $lista.append(`
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>[ID: ${id}]</strong> ${texto}
+                                </div>
+                                <button class="btn btn-sm btn-primary usar-propietario" 
+                                        data-id="${id}" data-nombre="${texto}">
+                                    Usar
+                                </button>
+                            </div>
+                        `);
+                    });
+                    
+                    $('#propietariosDisponiblesCard').show();
+                } else {
+                    // No hay propietarios
+                    $('#listaPropietariosDisponibles').html(
+                        '<div class="alert alert-info">No hay propietarios disponibles. Cree uno nuevo.</div>'
+                    );
+                    $('#propietariosDisponiblesCard').show();
+                }
+            },
+            error: function(xhr) {
+                console.error("Error al listar propietarios:", xhr.responseText);
+                
+                // Intentar con otra URL alternativa
+                $.ajax({
+                    url: '/buscar/propietarios/',
+                    method: 'GET',
+                    data: { term: ' ' },
+                    success: function(data) {
+                        console.log("Propietarios (URL alternativa):", data);
+                        // Procesar igual que antes...
+                    },
+                    error: function() {
+                        $('#listaPropietariosDisponibles').html(
+                            '<div class="alert alert-danger">Error al cargar propietarios</div>'
+                        );
+                    }
+                });
+            }
+        });
+    }
+    
+    // Usar propietario seleccionado
+    $(document).on('click', '.usar-propietario', function() {
+        var id = $(this).data('id');
+        var nombre = $(this).data('nombre');
+        
+        if (!$('#id_cuenta option[value="' + id + '"]').length) {
+            $('#id_cuenta').append(`<option value="${id}">[ID: ${id}] ${nombre}</option>`);
+        }
+        
+        $('#id_cuenta').val(id);
+    });
+    
+    // Botón para listar propietarios
+    $('#btnListarPropietarios').click(function() {
+        listarPropietariosDisponibles();
+    });
+    
+    // Buscar propietario por ID
+    $('#buscarPropietarioPorId').click(function() {
+        var idBuscado = $('#id_propietario_id').val().trim();
+        
+        if (!idBuscado) {
+            alert('Ingrese un ID de propietario');
+            return;
+        }
+        
+        $.ajax({
+            url: '/buscar-propietarios/',
+            method: 'GET',
+            data: { id: idBuscado },
+            success: function(data) {
+                var encontrado = false;
+                
+                // Buscar en los resultados
+                if (data.results) {
+                    data.results.forEach(function(prop) {
+                        if (prop.id == idBuscado) {
+                            encontrado = true;
+                            
+                            // Agregar al selector si no existe
+                            if (!$('#id_cuenta option[value="' + prop.id + '"]').length) {
+                                $('#id_cuenta').append(`<option value="${prop.id}">[ID: ${prop.id}] ${prop.text}</option>`);
+                            }
+                            
+                            // Seleccionar
+                            $('#id_cuenta').val(prop.id);
+                            
+                            // Mostrar mensaje
+                            $('#propietario_info').html(`<div class="alert alert-success">Propietario encontrado: ${prop.text}</div>`);
+                        }
+                    });
+                }
+                
+                if (!encontrado) {
+                    $('#propietario_info').html(`<div class="alert alert-warning">No se encontró propietario con ID: ${idBuscado}</div>`);
+                }
+            },
+            error: function() {
+                $('#propietario_info').html(`<div class="alert alert-danger">Error al buscar propietario</div>`);
+            }
+        });
+    });
+    
+    // Intentar listar al cargar la página
+    listarPropietariosDisponibles();
+});
+</script>
+
+<!-- 4. AGREGAR CAMPO PARA BUSCAR PROPIETARIO POR ID -->
+<div class="form-group mb-3">
+    <label for="id_propietario_id"><strong>Buscar Propietario por ID:</strong></label>
+    <div class="input-group">
+        <input type="number" id="id_propietario_id" class="form-control" placeholder="Ingrese el ID">
+        <div class="input-group-append">
+            <button class="btn btn-primary" id="buscarPropietarioPorId">Buscar</button>
+        </div>
+    </div>
+    <div id="propietario_info"></div>
+</div>
+
+<!-- 5. TARJETA PARA LISTAR PROPIETARIOS DISPONIBLES -->
+<div class="card mb-4" id="propietariosDisponiblesCard" style="display: none;">
+    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-list"></i> Propietarios Disponibles</h5>
+        <button type="button" class="btn btn-light btn-sm" id="btnListarPropietarios">
+            <i class="fas fa-sync"></i> Actualizar
+        </button>
+    </div>
+    <div class="card-body">
+        <div id="listaPropietariosDisponibles" class="list-group">
+            <!-- Aquí se cargan los propietarios -->
+        </div>
+    </div>
+</div>
+
+<!-- 6. MEJORAR CONCEPTOS PARA MOSTRAR ID -->
+<script>
+$(document).ready(function() {
+    // Cargar conceptos con ID
+    function cargarConceptosConId() {
+        $.ajax({
+            url: '/caja/buscar-conceptos/',  // URL para buscar conceptos
+            method: 'GET',
+            data: { term: '' },
+            success: function(data) {
+                console.log("Conceptos disponibles:", data);
+                
+                // Identificar el formato de respuesta
+                var conceptos = data.results || data.resultados || [];
+                
+                if (conceptos.length > 0) {
+                    // Limpiar selector
+                    $('#id_concepto').empty().append('<option value="">Seleccione un concepto</option>');
+                    
+                    // Agregar cada concepto CON ID
+                    conceptos.forEach(function(c) {
+                        var id = c.id;
+                        var nombre = c.text || c.nombre;
+                        $('#id_concepto').append(`<option value="${id}">[ID: ${id}] ${nombre}</option>`);
+                    });
+                }
+            },
+            error: function(xhr) {
+                console.error("Error al cargar conceptos:", xhr.responseText);
+            }
+        });
+    }
+    
+    // Intentar cargar conceptos
+    cargarConceptosConId();
+    
+    // Agregar ID al crear nuevo concepto
+    var originalGuardarConcepto = $('#guardarConcepto').click;
+    $('#guardarConcepto').off('click').on('click', function() {
+        const nombre = $('#nombreConcepto').val();
+        const tipo = $('#tipoConcepto').val();
+        
+        if (!nombre) {
+            alert('Por favor ingrese un nombre para el concepto');
+            return;
+        }
+        
+        // Mostrar estado
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
+        
+        // Enviar datos
+        $.ajax({
+            url: '/caja/crear-concepto/',
+            method: 'POST',
+            data: {
+                nombre: nombre,
+                tipo: tipo,
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+            },
+            success: function(data) {
+                if (data.id) {
+                    // Éxito
+                    alert('Concepto creado correctamente: ' + data.nombre);
+                    
+                    // Agregar al selector CON ID
+                    $('#id_concepto').append(`<option value="${data.id}">[ID: ${data.id}] ${data.nombre}</option>`);
+                    $('#id_concepto').val(data.id);
+                    
+                    // Cerrar modal
+                    $('#nuevoConceptoModal').modal('hide');
+                } else {
+                    alert('Error al crear concepto: ' + (data.message || 'Error desconocido'));
+                }
+            },
+            error: function(xhr, status, error) {
+                alert('Error al procesar la solicitud: ' + error);
+            },
+            complete: function() {
+                $('#guardarConcepto').prop('disabled', false).html('Guardar');
+            }
+        });
+    });
+});
+</script>
 {% endblock %}
 
 {% block extra_js %}
