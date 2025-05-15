@@ -1395,7 +1395,7 @@ $(document).ready(function() {
                     // Agregar cada concepto CON ID
                     conceptos.forEach(function(c) {
                         var id = c.id;
-                        var nombre = c.text || c.nombre;
+                        var nombre = c.text || c.nombre || c.name;
                         $('#id_concepto').append(`<option value="${id}">[ID: ${id}] ${nombre}</option>`);
                     });
                 }
@@ -1455,6 +1455,242 @@ $(document).ready(function() {
             }
         });
     });
+});
+</script>
+
+<!-- SOLUCIÓN DIRECTA PARA PROPIETARIOS Y CONCEPTOS -->
+
+<!-- 1. PANEL CON LISTA DE PROPIETARIOS -->
+<div class="card mb-4" id="propietariosPanel">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fas fa-users"></i> Lista de Propietarios</h5>
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <button type="button" class="btn btn-info w-100" id="btnCargarPropietariosDirecto">
+                <i class="fas fa-sync"></i> CARGAR TODOS LOS PROPIETARIOS
+            </button>
+        </div>
+        
+        <div id="propietariosLista" class="list-group">
+            <div class="text-center p-3">
+                <i class="fas fa-spinner fa-spin"></i> Haga clic en el botón para cargar propietarios...
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2. PANEL CON LISTA DE CONCEPTOS -->
+<div class="card mb-4" id="conceptosPanel">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="fas fa-tag"></i> Lista de Conceptos</h5>
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <button type="button" class="btn btn-info w-100" id="btnCargarConceptosDirecto">
+                <i class="fas fa-sync"></i> CARGAR TODOS LOS CONCEPTOS
+            </button>
+        </div>
+        
+        <div id="conceptosLista" class="list-group">
+            <div class="text-center p-3">
+                <i class="fas fa-spinner fa-spin"></i> Haga clic en el botón para cargar conceptos...
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SCRIPT PARA CARGAR PROPIETARIOS Y CONCEPTOS -->
+<script>
+$(document).ready(function() {
+    // 1. CARGAR PROPIETARIOS
+    $('#btnCargarPropietariosDirecto').click(function() {
+        var $lista = $('#propietariosLista');
+        $lista.html('<div class="text-center p-3"><i class="fas fa-spinner fa-spin"></i> Cargando propietarios...</div>');
+        
+        // Intentar con diferentes URLs para encontrar propietarios
+        var urls = [
+            '/buscar-propietarios/',
+            '/buscar/propietarios/',
+            '/propietarios/listar/',
+            '/api/propietarios/',
+            '/inmobiliaria/propietarios/listar/',
+            '/caja/buscar-cuentas/'
+        ];
+        
+        // Probar cada URL
+        function probarSiguienteURL(index) {
+            if (index >= urls.length) {
+                $lista.html('<div class="alert alert-danger">No se encontraron propietarios en ninguna URL.</div>');
+                return;
+            }
+            
+            var url = urls[index];
+            console.log("Probando URL para propietarios:", url);
+            
+            $.ajax({
+                url: url,
+                method: 'GET',
+                data: { term: '' },
+                success: function(data) {
+                    console.log("Respuesta de " + url + ":", data);
+                    
+                    // Determinar el formato de la respuesta
+                    var propietarios = [];
+                    if (data.results) propietarios = data.results;
+                    else if (data.resultados) propietarios = data.resultados;
+                    else if (Array.isArray(data)) propietarios = data;
+                    
+                    if (propietarios.length > 0) {
+                        // Éxito! Mostrar la lista
+                        $lista.empty();
+                        
+                        propietarios.forEach(function(prop) {
+                            // Determinar id y nombre según estructura
+                            var id = prop.id;
+                            var nombre = prop.text || prop.nombre || prop.name;
+                            
+                            $lista.append(`
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>[ID: ${id}]</strong> ${nombre}
+                                    </div>
+                                    <button class="btn btn-sm btn-primary usar-propietario" 
+                                            data-id="${id}" data-nombre="${nombre}">
+                                        Usar
+                                    </button>
+                                </div>
+                            `);
+                        });
+                        
+                        // Agregar evento para usar propietario
+                        $('.usar-propietario').click(function() {
+                            var id = $(this).data('id');
+                            var nombre = $(this).data('nombre');
+                            
+                            // Actualizar el selector
+                            var option = new Option(nombre, id, true, true);
+                            $('#id_cuenta').append(option).trigger('change');
+                            $('#id_cuenta').val(id);
+                            
+                            alert("Propietario seleccionado: " + nombre);
+                        });
+                    } else {
+                        // Intentar con la siguiente URL
+                        probarSiguienteURL(index + 1);
+                    }
+                },
+                error: function() {
+                    // Intentar con la siguiente URL
+                    probarSiguienteURL(index + 1);
+                }
+            });
+        }
+        
+        // Comenzar a probar URLs
+        probarSiguienteURL(0);
+    });
+    
+    // 2. CARGAR CONCEPTOS
+    $('#btnCargarConceptosDirecto').click(function() {
+        var $lista = $('#conceptosLista');
+        $lista.html('<div class="text-center p-3"><i class="fas fa-spinner fa-spin"></i> Cargando conceptos...</div>');
+        
+        // Intentar con diferentes URLs para encontrar conceptos
+        var urls = [
+            '/caja/buscar-conceptos/',
+            '/caja/conceptos/',
+            '/buscar/conceptos/',
+            '/api/conceptos/',
+            '/inmobiliaria/caja/conceptos/'
+        ];
+        
+        // Probar cada URL
+        function probarSiguienteURLConceptos(index) {
+            if (index >= urls.length) {
+                $lista.html('<div class="alert alert-danger">No se encontraron conceptos en ninguna URL.</div>');
+                return;
+            }
+            
+            var url = urls[index];
+            console.log("Probando URL para conceptos:", url);
+            
+            $.ajax({
+                url: url,
+                method: 'GET',
+                data: { term: '' },
+                success: function(data) {
+                    console.log("Respuesta de " + url + ":", data);
+                    
+                    // Determinar el formato de la respuesta
+                    var conceptos = [];
+                    if (data.results) conceptos = data.results;
+                    else if (data.resultados) conceptos = data.resultados;
+                    else if (Array.isArray(data)) conceptos = data;
+                    
+                    if (conceptos.length > 0) {
+                        // Éxito! Mostrar la lista
+                        $lista.empty();
+                        
+                        conceptos.forEach(function(concepto) {
+                            // Determinar id y nombre según estructura
+                            var id = concepto.id;
+                            var nombre = concepto.text || concepto.nombre || concepto.name;
+                            
+                            $lista.append(`
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>[ID: ${id}]</strong> ${nombre}
+                                    </div>
+                                    <button class="btn btn-sm btn-success usar-concepto" 
+                                            data-id="${id}" data-nombre="${nombre}">
+                                        Usar
+                                    </button>
+                                </div>
+                            `);
+                        });
+                        
+                        // Agregar evento para usar concepto
+                        $('.usar-concepto').click(function() {
+                            var id = $(this).data('id');
+                            var nombre = $(this).data('nombre');
+                            
+                            // Actualizar el selector
+                            var option = new Option(nombre, id, true, true);
+                            $('#id_concepto').append(option).trigger('change');
+                            $('#id_concepto').val(id);
+                            
+                            alert("Concepto seleccionado: " + nombre);
+                        });
+                        
+                        // También actualizar el selector original con todos los conceptos
+                        $('#id_concepto').empty().append('<option value="">Seleccione un concepto</option>');
+                        conceptos.forEach(function(concepto) {
+                            var id = concepto.id;
+                            var nombre = concepto.text || concepto.nombre || concepto.name;
+                            $('#id_concepto').append(`<option value="${id}">[ID: ${id}] ${nombre}</option>`);
+                        });
+                    } else {
+                        // Intentar con la siguiente URL
+                        probarSiguienteURLConceptos(index + 1);
+                    }
+                },
+                error: function() {
+                    // Intentar con la siguiente URL
+                    probarSiguienteURLConceptos(index + 1);
+                }
+            });
+        }
+        
+        // Comenzar a probar URLs
+        probarSiguienteURLConceptos(0);
+    });
+    
+    // Auto-cargar al inicio
+    setTimeout(function() {
+        $('#btnCargarPropietariosDirecto').click();
+        $('#btnCargarConceptosDirecto').click();
+    }, 1000);
 });
 </script>
 {% endblock %}
