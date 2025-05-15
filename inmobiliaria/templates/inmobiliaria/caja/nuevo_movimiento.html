@@ -1751,7 +1751,20 @@ $(document).ready(function() {
                 actualizarTablaPropietarios(data.propietarios || []);
             },
             error: function() {
-                $('#propietarios-body').html('<tr><td colspan="5" class="text-center">Error al cargar propietarios</td></tr>');
+                // Si falla, intentar con otra URL
+                $.ajax({
+                    url: '/buscar-propietarios/',
+                    method: 'GET',
+                    data: { term: termino },
+                    success: function(data) {
+                        console.log("Datos propietarios (URL alternativa):", data);
+                        var propietarios = data.results || [];
+                        actualizarTablaPropietarios(propietarios);
+                    },
+                    error: function() {
+                        $('#propietarios-body').html('<tr><td colspan="5" class="text-center">Error al cargar propietarios</td></tr>');
+                    }
+                });
             }
         });
     }
@@ -1762,22 +1775,29 @@ $(document).ready(function() {
         tbody.empty();
         
         if (propietarios.length === 0) {
-            tbody.html('<tr><td colspan="5" class="text-center">No se encontraron propietarios.</td></tr>');
+            tbody.html('<tr><td colspan="5" class="text-center">No se encontraron propietarios. <a href="{% url "inmobiliaria:propietario_nuevo" %}" target="_blank">Crear nuevo propietario</a></td></tr>');
             return;
         }
         
         $.each(propietarios, function(i, propietario) {
+            // Determinar los campos según la estructura
+            var id = propietario.id;
+            var nombre = propietario.nombre || '';
+            var apellido = propietario.apellido || '';
+            var dni = propietario.dni || '';
+            var cuenta = propietario.cuenta_bancaria || '';
+            
             tbody.append(
                 '<tr style="background-color: white;">' +
-                '<td>' + propietario.nombre + '</td>' +
-                '<td>' + propietario.apellido + '</td>' +
-                '<td>' + propietario.dni + '</td>' +
-                '<td>' + (propietario.cuenta_bancaria || '') + '</td>' +
+                '<td>' + nombre + '</td>' +
+                '<td>' + apellido + '</td>' +
+                '<td>' + dni + '</td>' +
+                '<td>' + cuenta + '</td>' +
                 '<td>' +
                 '<button class="btn btn-sm btn-success seleccionar-propietario" ' +
-                'data-id="' + propietario.id + '" ' +
-                'data-nombre="' + propietario.nombre + ' ' + propietario.apellido + '" ' +
-                'data-cuenta="' + (propietario.cuenta_bancaria || '') + '">' +
+                'data-id="' + id + '" ' +
+                'data-nombre="' + nombre + ' ' + apellido + '" ' +
+                'data-cuenta="' + cuenta + '">' +
                 '<i class="fas fa-check"></i> Seleccionar</button> ' +
                 '</td>' +
                 '</tr>'
@@ -1800,16 +1820,18 @@ $(document).ready(function() {
         var nombre = $(this).data('nombre');
         var cuenta = $(this).data('cuenta');
         
-        // Mostrar información
-        alert('Propietario seleccionado: ' + nombre + '\nCuenta: ' + cuenta);
+        // Actualizar selector 
+        var textoOpcion = nombre + (cuenta ? ' - Cuenta: ' + cuenta : '');
         
-        // Actualizar selector
         if (!$('#id_cuenta option[value="' + id + '"]').length) {
-            $('#id_cuenta').append(new Option(nombre + ' - Cuenta: ' + cuenta, id));
+            $('#id_cuenta').append(new Option(textoOpcion, id));
         }
         
         // Seleccionar
         $('#id_cuenta').val(id).trigger('change');
+        
+        // Mostrar mensaje
+        alert('Propietario seleccionado: ' + nombre);
     });
     
     // Cargar propietarios al inicio

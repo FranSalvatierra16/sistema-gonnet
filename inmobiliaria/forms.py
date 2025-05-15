@@ -93,10 +93,14 @@ class PropietarioForm(forms.ModelForm):
         model = Propietario
         fields = ['nombre', 'apellido', 'fecha_nacimiento', 'email', 'celular', 
                  'tipo_doc', 'dni', 'tipo_ins', 'cuit', 'localidad', 'provincia', 
-                 'domicilio', 'codigo_postal', 'observaciones']
+                 'domicilio', 'codigo_postal', 'observaciones', 'cuenta_bancaria']
         widgets = {
             'fecha_nacimiento': forms.DateInput(attrs={'type': 'date'}),
             'observaciones': forms.Textarea(attrs={'rows': 3}),
+            'cuenta_bancaria': forms.TextInput(attrs={
+                'placeholder': 'Ingrese CBU o número de cuenta bancaria',
+                'class': 'form-control'
+            }),
         }
 
     def __init__(self, *args, **kwargs):
@@ -108,6 +112,10 @@ class PropietarioForm(forms.ModelForm):
         self.fields['apellido'].required = True
         self.fields['dni'].required = True
         self.fields['cuit'].required = False
+        self.fields['cuenta_bancaria'].required = False
+        
+        # Agregar ayuda para cuenta bancaria
+        self.fields['cuenta_bancaria'].help_text = 'Número de cuenta bancaria para depósitos'
         
         # Agregar clases de Bootstrap
         for field in self.fields:
