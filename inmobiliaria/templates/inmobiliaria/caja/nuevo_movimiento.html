@@ -1693,6 +1693,129 @@ $(document).ready(function() {
     }, 1000);
 });
 </script>
+
+<!-- TABLA DE PROPIETARIOS EXACTAMENTE COMO EN LA LISTA ORIGINAL -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">Lista de Propietarios</h5>
+    </div>
+    <div class="card-body">
+        <!-- Formulario de búsqueda similar al original -->
+        <div class="form-group mb-3">
+            <input type="text" id="id_termino" class="form-control" placeholder="Buscar propietario...">
+        </div>
+        
+        <!-- Tabla de propietarios exactamente como el original -->
+        <table class="table table-striped">
+            <thead>
+                <tr style="background-color: #007bff; color: white;">
+                    <th>Nombre</th>
+                    <th>Apellido</th>
+                    <th>DNI</th>
+                    <th>Cuenta Bancaria</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="propietarios-body">
+                <tr>
+                    <td colspan="5" class="text-center">
+                        <button id="btn-cargar-propietarios" class="btn btn-info">
+                            <i class="fas fa-sync"></i> Cargar Propietarios
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- SCRIPT PARA MOSTRAR PROPIETARIOS EXACTAMENTE COMO EN EL ORIGINAL -->
+<script>
+$(document).ready(function() {
+    // Cargar propietarios al hacer clic en el botón
+    $('#btn-cargar-propietarios').click(function() {
+        cargarPropietarios();
+    });
+    
+    // Función para cargar propietarios
+    function cargarPropietarios(termino = '') {
+        $('#propietarios-body').html('<tr><td colspan="5" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando propietarios...</td></tr>');
+        
+        $.ajax({
+            url: '/propietarios/',
+            method: 'GET',
+            data: { termino: termino },
+            dataType: 'json',
+            success: function(data) {
+                console.log("Datos propietarios:", data);
+                actualizarTablaPropietarios(data.propietarios || []);
+            },
+            error: function() {
+                $('#propietarios-body').html('<tr><td colspan="5" class="text-center">Error al cargar propietarios</td></tr>');
+            }
+        });
+    }
+    
+    // Actualizar tabla con los propietarios
+    function actualizarTablaPropietarios(propietarios) {
+        var tbody = $('#propietarios-body');
+        tbody.empty();
+        
+        if (propietarios.length === 0) {
+            tbody.html('<tr><td colspan="5" class="text-center">No se encontraron propietarios.</td></tr>');
+            return;
+        }
+        
+        $.each(propietarios, function(i, propietario) {
+            tbody.append(
+                '<tr style="background-color: white;">' +
+                '<td>' + propietario.nombre + '</td>' +
+                '<td>' + propietario.apellido + '</td>' +
+                '<td>' + propietario.dni + '</td>' +
+                '<td>' + (propietario.cuenta_bancaria || '') + '</td>' +
+                '<td>' +
+                '<button class="btn btn-sm btn-success seleccionar-propietario" ' +
+                'data-id="' + propietario.id + '" ' +
+                'data-nombre="' + propietario.nombre + ' ' + propietario.apellido + '" ' +
+                'data-cuenta="' + (propietario.cuenta_bancaria || '') + '">' +
+                '<i class="fas fa-check"></i> Seleccionar</button> ' +
+                '</td>' +
+                '</tr>'
+            );
+        });
+    }
+    
+    // Buscar propietarios al escribir
+    $('#id_termino').on('input', function() {
+        var searchTerm = $(this).val();
+        clearTimeout(window.typingTimer);
+        window.typingTimer = setTimeout(function() {
+            cargarPropietarios(searchTerm);
+        }, 300);
+    });
+    
+    // Seleccionar propietario
+    $(document).on('click', '.seleccionar-propietario', function() {
+        var id = $(this).data('id');
+        var nombre = $(this).data('nombre');
+        var cuenta = $(this).data('cuenta');
+        
+        // Mostrar información
+        alert('Propietario seleccionado: ' + nombre + '\nCuenta: ' + cuenta);
+        
+        // Actualizar selector
+        if (!$('#id_cuenta option[value="' + id + '"]').length) {
+            $('#id_cuenta').append(new Option(nombre + ' - Cuenta: ' + cuenta, id));
+        }
+        
+        // Seleccionar
+        $('#id_cuenta').val(id).trigger('change');
+    });
+    
+    // Cargar propietarios al inicio
+    cargarPropietarios();
+});
+</script>
 {% endblock %}
 
 {% block extra_js %}
