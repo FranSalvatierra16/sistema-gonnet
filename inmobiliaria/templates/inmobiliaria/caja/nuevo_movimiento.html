@@ -1594,22 +1594,12 @@ $(document).ready(function() {
     
     // Seleccionar propietario
     $(document).on('click', '.seleccionar-propietario', function() {
-        var id = $(this).data('id');
         var nombre = $(this).data('nombre');
         var cuenta = $(this).data('cuenta');
-        
-        // Actualizar selector 
-        var textoOpcion = nombre + (cuenta ? ' - Cuenta: ' + cuenta : '');
-        
-        if (!$('#id_cuenta option[value="' + id + '"]').length) {
-            $('#id_cuenta').append(new Option(textoOpcion, id));
-        }
-        
-        // Seleccionar
-        $('#id_cuenta').val(id).trigger('change');
-        
-        // Mostrar mensaje
-        alert('Propietario seleccionado: ' + nombre);
+        $('#id_cuenta').val(cuenta); // <-- Esto debe funcionar si 'cuenta' tiene valor
+        $('#id_nombre_propietario').val(nombre);
+        $('#resultados_propietarios').hide();
+        $('#lista_propietarios').empty();
     });
     
     // Cargar propietarios al inicio
