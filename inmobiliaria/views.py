@@ -212,6 +212,7 @@ def propietarios(request):
             'nombre': p.nombre,
             'apellido': p.apellido,
             'dni': p.dni,
+            'cuenta_bancaria': p.cuenta_bancaria if hasattr(p, 'cuenta_bancaria') else '',
             'sucursal': p.sucursal.nombre  # Agregar el nombre de la sucursal si lo necesitas en la respuesta
         } for p in propietarios]
         return JsonResponse({'propietarios': propietarios_data})
