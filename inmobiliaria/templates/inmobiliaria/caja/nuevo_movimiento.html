@@ -1935,10 +1935,11 @@ $(document).ready(function() {
     </div>
     <div class="card-body">
         <div class="form-group mb-3">
-            <label for="buscar-vendedor-unificado"><strong>Buscar por ID o nombre (escriba para buscar)</strong></label>
+            <label for="buscar-vendedor-unificado"><strong>Buscar vendedor por ID o nombre</strong></label>
             <select id="buscar-vendedor-unificado" class="form-control select2-vendedores" style="width: 100%;">
                 <option value="">Escriba para buscar un vendedor</option>
             </select>
+            <input type="hidden" id="id_vendedor" name="vendedor" value="">
         </div>
         
         <div id="vendedor-seleccionado" class="alert alert-info d-none">
@@ -1948,9 +1949,314 @@ $(document).ready(function() {
     </div>
 </div>
 
-<!-- SCRIPT PARA SELECT2 DE VENDEDORES -->
+<!-- SCRIPTS PARA CADA COMPONENTE -->
 <script>
 $(document).ready(function() {
+    
+    //=============================================
+    // 1. FUNCIONES PARA CONCEPTOS
+    //=============================================
+    function cargarConceptos(termino = '') {
+        $('#conceptos-lista').html('<tr><td colspan="3" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
+        
+        // Primero intentamos con URL /conceptos/
+        $.ajax({
+            url: '/conceptos/',
+            type: 'GET',
+            data: { termino: termino },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(data) {
+                if (data.conceptos && Array.isArray(data.conceptos)) {
+                    actualizarListaConceptos(data.conceptos);
+                } else if (Array.isArray(data)) {
+                    actualizarListaConceptos(data);
+                } else {
+                    // Si no se encontraron conceptos en el formato esperado, intentamos otra URL
+                    intentarSegundaURLConceptos(termino);
+                }
+            },
+            error: function() {
+                // Si hay error, intentamos con la segunda URL
+                intentarSegundaURLConceptos(termino);
+            }
+        });
+    }
+    
+    function intentarSegundaURLConceptos(termino) {
+        $.ajax({
+            url: '/api/conceptos/',
+            type: 'GET',
+            data: { term: termino },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(data) {
+                if (data.results && Array.isArray(data.results)) {
+                    actualizarListaConceptos(data.results);
+                } else if (Array.isArray(data)) {
+                    actualizarListaConceptos(data);
+                } else {
+                    $('#conceptos-lista').html('<tr><td colspan="3" class="text-center">No se encontraron conceptos</td></tr>');
+                }
+            },
+            error: function() {
+                $('#conceptos-lista').html('<tr><td colspan="3" class="text-center">No se pudieron cargar los conceptos</td></tr>');
+            }
+        });
+    }
+    
+    function actualizarListaConceptos(conceptos) {
+        var html = '';
+        
+        if (!conceptos || conceptos.length === 0) {
+            html = '<tr><td colspan="3" class="text-center">No se encontraron conceptos</td></tr>';
+        } else {
+            conceptos.forEach(function(concepto) {
+                var id = concepto.id;
+                var nombre = concepto.nombre || '';
+                
+                html += '<tr>' +
+                        '<td>' + id + '</td>' +
+                        '<td>' + nombre + '</td>' +
+                        '<td><button class="btn btn-sm btn-success seleccionar-concepto" ' +
+                        'data-id="' + id + '" data-nombre="' + nombre + '">' +
+                        '<i class="fas fa-check"></i> Seleccionar</button></td>' +
+                        '</tr>';
+            });
+        }
+        
+        $('#conceptos-lista').html(html);
+    }
+    
+    function crearConcepto(nombre) {
+        if (!nombre || nombre.trim() === '') {
+            alert('Por favor ingrese un nombre para el concepto');
+            return;
+        }
+        
+        $('#btn-crear-concepto').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Creando...');
+        
+        $.ajax({
+            url: '/concepto/nuevo/',
+            type: 'POST',
+            data: {
+                nombre: nombre,
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+            },
+            success: function(data) {
+                $('#nuevo-concepto-nombre').val('');
+                $('#btn-crear-concepto').prop('disabled', false).html('<i class="fas fa-plus"></i> Crear');
+                
+                if (data.success) {
+                    alert('Concepto creado correctamente');
+                    
+                    // Actualizar select
+                    if (!$('#id_concepto option[value="' + data.id + '"]').length) {
+                        $('#id_concepto').append(new Option(nombre, data.id));
+                    }
+                    $('#id_concepto').val(data.id).trigger('change');
+                    
+                    // Recargar lista
+                    cargarConceptos();
+                } else {
+                    alert('Error al crear concepto: ' + (data.error || 'Error desconocido'));
+                }
+            },
+            error: function() {
+                $('#btn-crear-concepto').prop('disabled', false).html('<i class="fas fa-plus"></i> Crear');
+                alert('Error al crear concepto');
+            }
+        });
+    }
+    
+    //=============================================
+    // 2. FUNCIONES PARA PROPIETARIOS
+    //=============================================
+    function cargarPropietarios(termino = '') {
+        $('#propietarios-lista').html('<tr><td colspan="5" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
+        
+        // Usar la vista de propietarios existente con AJAX
+        $.ajax({
+            url: '/propietarios/',  // URL de la vista de propietarios
+            method: 'GET',
+            data: { termino: termino },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'  // Indicar que es una solicitud AJAX
+            },
+            success: function(data) {
+                if (data.propietarios && Array.isArray(data.propietarios)) {
+                    actualizarListaPropietarios(data.propietarios);
+                } else {
+                    $('#propietarios-lista').html('<tr><td colspan="5" class="text-center">No se encontraron propietarios</td></tr>');
+                }
+            },
+            error: function() {
+                $('#propietarios-lista').html('<tr><td colspan="5" class="text-center">No se pudieron cargar los propietarios</td></tr>');
+            }
+        });
+    }
+    
+    function actualizarListaPropietarios(propietarios) {
+        var html = '';
+        
+        if (!propietarios || propietarios.length === 0) {
+            html = '<tr><td colspan="5" class="text-center">No se encontraron propietarios</td></tr>';
+        } else {
+            propietarios.forEach(function(propietario) {
+                var id = propietario.id;
+                var nombre = propietario.nombre || '';
+                var apellido = propietario.apellido || '';
+                var cuenta = propietario.cuenta_bancaria || '';
+                
+                html += '<tr>' +
+                        '<td>' + id + '</td>' +
+                        '<td>' + nombre + '</td>' +
+                        '<td>' + apellido + '</td>' +
+                        '<td>' + cuenta + '</td>' +
+                        '<td><button class="btn btn-sm btn-success seleccionar-propietario" ' +
+                        'data-id="' + id + '" data-nombre="' + nombre + ' ' + apellido + '" ' +
+                        'data-cuenta="' + cuenta + '">' +
+                        '<i class="fas fa-check"></i> Seleccionar</button></td>' +
+                        '</tr>';
+            });
+        }
+        
+        $('#propietarios-lista').html(html);
+    }
+    
+    //=============================================
+    // 3. FUNCIONES PARA VENDEDORES
+    //=============================================
+    function cargarVendedores(termino = '') {
+        $('#vendedores-lista').html('<tr><td colspan="4" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
+        
+        $.ajax({
+            url: '/vendedores/',
+            type: 'GET',
+            data: { termino: termino },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(data) {
+                actualizarListaVendedores(data.vendedores || []);
+            },
+            error: function() {
+                $('#vendedores-lista').html('<tr><td colspan="4" class="text-center">No se pudieron cargar los vendedores</td></tr>');
+            }
+        });
+    }
+    
+    function actualizarListaVendedores(vendedores) {
+        var html = '';
+        
+        if (!vendedores || vendedores.length === 0) {
+            html = '<tr><td colspan="4" class="text-center">No se encontraron vendedores</td></tr>';
+        } else {
+            vendedores.forEach(function(vendedor) {
+                var id = vendedor.id;
+                var nombre = vendedor.nombre || '';
+                var apellido = vendedor.apellido || '';
+                
+                html += '<tr>' +
+                        '<td>' + id + '</td>' +
+                        '<td>' + nombre + '</td>' +
+                        '<td>' + apellido + '</td>' +
+                        '<td><button class="btn btn-sm btn-success seleccionar-vendedor" ' +
+                        'data-id="' + id + '" data-nombre="' + nombre + ' ' + apellido + '">' +
+                        '<i class="fas fa-check"></i> Seleccionar</button></td>' +
+                        '</tr>';
+            });
+        }
+        
+        $('#vendedores-lista').html(html);
+    }
+    
+    //=============================================
+    // EVENTOS PARA CARGAR DATOS
+    //=============================================
+    
+    // Cargar todos los conceptos
+    $('#btn-cargar-conceptos').click(function() {
+        cargarConceptos();
+    });
+    
+    // Buscar conceptos
+    $('#buscar-concepto').on('keyup', function() {
+        var termino = $(this).val();
+        if (termino.length >= 2 || termino.length === 0) {
+            cargarConceptos(termino);
+        }
+    });
+    
+    // Crear nuevo concepto
+    $('#btn-crear-concepto').click(function() {
+        var nombre = $('#nuevo-concepto-nombre').val();
+        crearConcepto(nombre);
+    });
+    
+    // Cargar todos los propietarios
+    $('#btn-cargar-propietarios').click(function() {
+        cargarPropietarios();
+    });
+    
+    // Buscar propietarios
+    $('#buscar-propietario').on('keyup', function() {
+        var termino = $(this).val();
+        if (termino.length >= 2 || termino.length === 0) {
+            cargarPropietarios(termino);
+        }
+    });
+    
+    //=============================================
+    // EVENTOS PARA SELECCIONAR ELEMENTOS
+    //=============================================
+    
+    // Seleccionar concepto
+    $(document).on('click', '.seleccionar-concepto', function() {
+        var id = $(this).data('id');
+        var nombre = $(this).data('nombre');
+        
+        // Actualizar select
+        if (!$('#id_concepto option[value="' + id + '"]').length) {
+            $('#id_concepto').append(new Option(nombre, id));
+        }
+        $('#id_concepto').val(id).trigger('change');
+        
+        alert('Concepto seleccionado: ' + nombre);
+    });
+    
+    // Seleccionar propietario
+    $(document).on('click', '.seleccionar-propietario', function() {
+        var id = $(this).data('id');
+        var nombre = $(this).data('nombre');
+        var cuenta = $(this).data('cuenta');
+        
+        // Actualizar select 
+        var textoOpcion = nombre + (cuenta ? ' - Cuenta: ' + cuenta : '');
+        
+        if (!$('#id_cuenta option[value="' + id + '"]').length) {
+            $('#id_cuenta').append(new Option(textoOpcion, id));
+        }
+        
+        // Seleccionar
+        $('#id_cuenta').val(id).trigger('change');
+        
+        // Mostrar mensaje
+        alert('Propietario seleccionado: ' + nombre);
+    });
+    
+    //=============================================
+    // CARGAR DATOS AL INICIO
+    //=============================================
+    // Ejecutar la carga inicial de datos con un pequeño retraso
+    // para asegurar que todos los elementos del DOM estén cargados
+    setTimeout(function() {
+        cargarConceptos();
+        cargarPropietarios();
+    }, 500);
+    
     // Inicializar Select2 para vendedores
     $('.select2-vendedores').select2({
         placeholder: "Escriba ID o nombre del vendedor...",
@@ -2026,8 +2332,6 @@ $(document).ready(function() {
         // Mostrar información del vendedor seleccionado
         $('#vendedor-nombre-display').text(data.text);
         $('#vendedor-seleccionado').removeClass('d-none');
-        
-        console.log("Vendedor seleccionado:", data);
     });
     
     // Botón para cambiar vendedor
@@ -2041,7 +2345,7 @@ $(document).ready(function() {
     // Si ya hay un vendedor seleccionado al cargar la página
     if ($('#id_vendedor').val()) {
         var vendedorId = $('#id_vendedor').val();
-        var vendedorNombre = $('#id_vendedor option:selected').text();
+        var vendedorNombre = $('#id_vendedor').attr('data-nombre') || 'Vendedor #' + vendedorId;
         
         // Crear la opción en select2
         var newOption = new Option(vendedorNombre, vendedorId, true, true);
@@ -2055,5 +2359,26 @@ $(document).ready(function() {
 </script>
 
 <!-- ASEGURARSE DE INCLUIR SELECT2 -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<style>
+.select2-container .select2-selection--single {
+    height: 38px!important;
+    padding: 6px 12px;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 38px;
+}
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 24px;
+}
+.select2-result-vendedor {
+    padding: 6px 0;
+}
+.select2-result-vendedor__id {
+    color: #007bff;
+}
+</style>
 {% endblock %} 
