@@ -328,19 +328,7 @@
                             
                             <div class="form-group">
                                 <label for="id_cuenta">Cuenta/Propietario <span class="text-danger">*</span></label>
-                                <div class="input-group">
-                                    <select class="form-control" id="id_cuenta" name="cuenta" required>
-                                        <option value="">Seleccione una cuenta</option>
-                                        {% for cuenta in cuentas %}
-                                            <option value="{{ cuenta.id }}">{{ cuenta.nombre }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    <div class="input-group-append">
-                                        <button type="button" class="btn btn-outline-primary" id="btnNuevaCuenta">
-                                            <i class="fas fa-plus"></i>
-                                        </button>
-                                    </div>
-                                </div>
+                                <input type="text" class="form-control" id="id_cuenta" name="cuenta" readonly required placeholder="Seleccione un propietario...">
                             </div>
                             
                             <div class="form-group">
@@ -362,19 +350,12 @@
 
                         <!-- Sección para productor/vendedor -->
                         <div class="form-section mt-3">
-                            <h5><i class="fas fa-user-tag mr-2"></i>Datos del Productor/Vendedor</h5>
+                            <h5><i class="fas fa-user-tag mr-2"></i>Datos del Productor</h5>
                             
                             <div class="form-group">
-                                <label for="id_productor">Productor/Vendedor</label>
+                                <label for="id_productor">Productor</label>
                                 <div class="row">
-                                    <div class="col-md-4">
-                                        <div class="input-group mb-2">
-                                            <div class="input-group-prepend">
-                                                <span class="input-group-text">ID</span>
-                                            </div>
-                                            <input type="text" id="id_productor_numero" class="form-control" placeholder="Nº">
-                                        </div>
-                                    </div>
+                                 
                                     <div class="col-md-8">
                                         <div class="input-group">
                                             <select class="form-control" id="id_productor" name="productor">
@@ -722,76 +703,47 @@ $(document).ready(function() {
 
 <script>
 $(document).ready(function() {
-    // Función directa para buscar propietarios
-    function buscarPropietariosDirecto() {
-        var termino = $('#id_busqueda_propietario').val();
-        console.log("Buscando propietarios con término:", termino);
-        
-        // Mostrar estado de carga
-        $('#lista_propietarios').html('<div class="p-3 text-center"><i class="fas fa-spinner fa-spin"></i> Buscando...</div>');
-        $('#resultados_propietarios').show();
-        
-        // URL CORREGIDA: quitar "inmobiliaria/"
+    // Buscar propietarios al escribir
+    $('#id_busqueda_propietario').on('keyup', function() {
+        var termino = $(this).val();
+        if (termino.length < 2) {
+            $('#resultados_propietarios').hide();
+            $('#lista_propietarios').empty();
+            return;
+        }
         $.ajax({
-            url: '/buscar/propietarios/',
+            url: '/propietarios/',
             method: 'GET',
-            data: { term: termino },
+            data: { termino: termino },
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
             success: function(data) {
-                console.log("Respuesta búsqueda propietarios:", data);
-                $('#lista_propietarios').empty();
-                
-                // Verificar si hay resultados
-                if (data.results && data.results.length > 0) {
-                    // Mostrar cada propietario
-                    data.results.forEach(function(prop) {
-                        $('#lista_propietarios').append(`
-                            <a href="#" class="list-group-item list-group-item-action seleccionar-propietario" 
-                               data-id="${prop.id}" data-text="${prop.text}">
-                               ${prop.text}
-                            </a>
-                        `);
-                    });
+                var propietarios = data.propietarios || [];
+                var html = '';
+                if (propietarios.length === 0) {
+                    html = '<div class="list-group-item text-center text-muted">No se encontraron propietarios</div>';
                 } else {
-                    $('#lista_propietarios').html('<div class="alert alert-info">No se encontraron propietarios</div>');
+                    propietarios.forEach(function(p) {
+                        html += '<button type="button" class="list-group-item list-group-item-action seleccionar-propietario" ' +
+                                'data-nombre="' + p.nombre + ' ' + p.apellido + '" ' +
+                                'data-cuenta="' + (p.cuenta_bancaria || '') + '">' +
+                                '<strong>' + p.nombre + ' ' + p.apellido + '</strong> - ' +
+                                'Cuenta: <span class="text-primary">' + (p.cuenta_bancaria || 'Sin cuenta') + '</span>' +
+                                '</button>';
+                    });
                 }
-            },
-            error: function(jqXHR, textStatus, errorThrown) {
-                console.error("Error en búsqueda:", textStatus, errorThrown);
-                $('#lista_propietarios').html('<div class="alert alert-danger">Error al buscar propietarios</div>');
+                $('#lista_propietarios').html(html);
+                $('#resultados_propietarios').show();
             }
         });
-    }
-    
-    // Asignar evento al campo de búsqueda
-    $('#id_busqueda_propietario').off('input').on('input', function() {
-        buscarPropietariosDirecto();
     });
-    
-    // También buscar al hacer foco en el campo
-    $('#id_busqueda_propietario').off('focus').on('focus', function() {
-        if (this.value.length < 2) {
-            this.value = '  '; // Dos espacios para activar la búsqueda
-            buscarPropietariosDirecto();
-        }
-    });
-    
-    // Selector de propietarios
-    $(document).on('click', '.seleccionar-propietario', function(e) {
-        e.preventDefault();
-        var id = $(this).data('id');
-        var texto = $(this).data('text');
-        
-        console.log("Propietario seleccionado:", id, texto);
-        
-        // Crear opción y seleccionarla
-        if (!$('#id_cuenta option[value="' + id + '"]').length) {
-            var newOption = new Option(texto, id, true, true);
-            $('#id_cuenta').append(newOption);
-        }
-        
-        // Establecer valor
-        $('#id_cuenta').val(id).trigger('change');
+
+    // Al seleccionar un propietario de la lista
+    $(document).on('click', '.seleccionar-propietario', function() {
+        var nombre = $(this).data('nombre');
+        var cuenta = $(this).data('cuenta');
+        $('#id_cuenta').val(nombre + (cuenta ? ' - ' + cuenta : ''));
         $('#resultados_propietarios').hide();
+        $('#lista_propietarios').empty();
     });
 });
 </script>
@@ -1004,95 +956,7 @@ function depurarProblemas() {
 }
 </script>
 
-<!-- Formulario directo para crear propietario/cuenta cuando no hay ninguno -->
-<div class="card mb-4" id="crearPropietarioCard">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0"><i class="fas fa-plus-circle"></i> Crear Nuevo Propietario/Cuenta</h5>
-    </div>
-    <div class="card-body">
-        <div class="alert alert-info">
-            <i class="fas fa-info-circle"></i> No se encontraron propietarios/cuentas en el sistema. 
-            Complete este formulario para crear uno nuevo.
-        </div>
-        
-        <div class="form-group">
-            <label for="nuevoPropietarioNombre"><strong>Nombre del Propietario/Cuenta *</strong></label>
-            <input type="text" id="nuevoPropietarioNombre" class="form-control" required>
-        </div>
-        
-        <div class="form-group">
-            <label for="nuevoPropietarioTelefono">Teléfono</label>
-            <input type="tel" id="nuevoPropietarioTelefono" class="form-control">
-        </div>
-        
-        <div class="form-group">
-            <label for="nuevoPropietarioEmail">Email</label>
-            <input type="email" id="nuevoPropietarioEmail" class="form-control">
-        </div>
-        
-        <button type="button" class="btn btn-success" id="btnCrearPropietario">
-            <i class="fas fa-save"></i> Crear Propietario/Cuenta
-        </button>
-    </div>
-</div>
 
-<!-- Script para crear propietarios -->
-<script>
-$(document).ready(function() {
-    // Botón para crear propietario
-    $('#btnCrearPropietario').click(function() {
-        const nombre = $('#nuevoPropietarioNombre').val();
-        const telefono = $('#nuevoPropietarioTelefono').val();
-        const email = $('#nuevoPropietarioEmail').val();
-        
-        if (!nombre) {
-            alert('Por favor ingrese un nombre para el propietario/cuenta');
-            return;
-        }
-        
-        // Mostrar estado
-        $('#btnCrearPropietario').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Creando...');
-        
-        // Enviar datos
-        $.ajax({
-            url: '/crear-propietario/',  // URL para crear propietarios
-            method: 'POST',
-            data: {
-                nombre: nombre,
-                telefono: telefono,
-                email: email,
-                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-            },
-            success: function(data) {
-                if (data.id) {
-                    // Éxito
-                    alert('Propietario/cuenta creado correctamente: ' + data.nombre);
-                    
-                    // Agregar al selector
-                    $('#id_cuenta').append(`<option value="${data.id}">${data.nombre}</option>`);
-                    $('#id_cuenta').val(data.id);
-                    
-                    // Limpiar formulario
-                    $('#nuevoPropietarioNombre').val('');
-                    $('#nuevoPropietarioTelefono').val('');
-                    $('#nuevoPropietarioEmail').val('');
-                    
-                    // Ocultar card
-                    $('#crearPropietarioCard').hide();
-                } else {
-                    alert('Error al crear propietario: ' + (data.message || 'Error desconocido'));
-                }
-            },
-            error: function(xhr, status, error) {
-                alert('Error al procesar la solicitud: ' + error);
-            },
-            complete: function() {
-                $('#btnCrearPropietario').prop('disabled', false).html('<i class="fas fa-save"></i> Crear Propietario/Cuenta');
-            }
-        });
-    });
-});
-</script>
 
 <!-- Script para crear conceptos -->
 <script>
@@ -1220,13 +1084,6 @@ $(document).ready(function() {
     cargarProductoresConId();
 });
 </script>
-
-<!-- 2. AGREGAR CAMPO PARA BUSCAR PRODUCTOR POR ID -->
-<div class="form-group mb-3">
-    <label for="id_productor_id"><strong>Buscar Productor por ID:</strong></label>
-    <input type="number" id="id_productor_id" class="form-control" placeholder="Ingrese el ID del productor">
-    <div id="productor_info"></div>
-</div>
 
 <!-- 3. MEJORAS PARA PROPIETARIOS - CREAR Y LISTAR -->
 <script>
@@ -1364,32 +1221,7 @@ $(document).ready(function() {
 });
 </script>
 
-<!-- 4. AGREGAR CAMPO PARA BUSCAR PROPIETARIO POR ID -->
-<div class="form-group mb-3">
-    <label for="id_propietario_id"><strong>Buscar Propietario por ID:</strong></label>
-    <div class="input-group">
-        <input type="number" id="id_propietario_id" class="form-control" placeholder="Ingrese el ID">
-        <div class="input-group-append">
-            <button class="btn btn-primary" id="buscarPropietarioPorId">Buscar</button>
-        </div>
-    </div>
-    <div id="propietario_info"></div>
-</div>
 
-<!-- 5. TARJETA PARA LISTAR PROPIETARIOS DISPONIBLES -->
-<div class="card mb-4" id="propietariosDisponiblesCard" style="display: none;">
-    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fas fa-list"></i> Propietarios Disponibles</h5>
-        <button type="button" class="btn btn-light btn-sm" id="btnListarPropietarios">
-            <i class="fas fa-sync"></i> Actualizar
-        </button>
-    </div>
-    <div class="card-body">
-        <div id="listaPropietariosDisponibles" class="list-group">
-            <!-- Aquí se cargan los propietarios -->
-        </div>
-    </div>
-</div>
 
 <!-- 6. MEJORAR CONCEPTOS PARA MOSTRAR ID -->
 <script>
@@ -1478,25 +1310,7 @@ $(document).ready(function() {
 
 <!-- SOLUCIÓN DIRECTA PARA PROPIETARIOS Y CONCEPTOS -->
 
-<!-- 1. PANEL CON LISTA DE PROPIETARIOS -->
-<div class="card mb-4" id="propietariosPanel">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0"><i class="fas fa-users"></i> Lista de Propietarios</h5>
-    </div>
-    <div class="card-body">
-        <div class="mb-3">
-            <button type="button" class="btn btn-info w-100" id="btnCargarPropietariosDirecto">
-                <i class="fas fa-sync"></i> CARGAR TODOS LOS PROPIETARIOS
-            </button>
-        </div>
-        
-        <div id="propietariosLista" class="list-group">
-            <div class="text-center p-3">
-                <i class="fas fa-spinner fa-spin"></i> Haga clic en el botón para cargar propietarios...
-            </div>
-        </div>
-    </div>
-</div>
+
 
 <!-- 2. PANEL CON LISTA DE CONCEPTOS -->
 <div class="card mb-4" id="conceptosPanel">
@@ -1712,40 +1526,6 @@ $(document).ready(function() {
 });
 </script>
 
-<!-- TABLA DE PROPIETARIOS EXACTAMENTE COMO EN LA LISTA ORIGINAL -->
-<div class="card mb-4">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0">Lista de Propietarios</h5>
-    </div>
-    <div class="card-body">
-        <!-- Formulario de búsqueda similar al original -->
-        <div class="form-group mb-3">
-            <input type="text" id="id_termino" class="form-control" placeholder="Buscar propietario...">
-        </div>
-        
-        <!-- Tabla de propietarios exactamente como el original -->
-        <table class="table table-striped">
-            <thead>
-                <tr style="background-color: #007bff; color: white;">
-                    <th>Nombre</th>
-                    <th>Apellido</th>
-                    <th>DNI</th>
-                    <th>Cuenta Bancaria</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="propietarios-body">
-                <tr>
-                    <td colspan="5" class="text-center">
-                        <button id="btn-cargar-propietarios" class="btn btn-info">
-                            <i class="fas fa-sync"></i> Cargar Propietarios
-                        </button>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-</div>
 
 <!-- SCRIPT PARA MOSTRAR PROPIETARIOS EXACTAMENTE COMO EN EL ORIGINAL -->
 <script>
@@ -1855,189 +1635,50 @@ $(document).ready(function() {
 
 <!-- COMPONENTES MEJORADOS PARA BÚSQUEDA DE CONCEPTOS, PROPIETARIOS Y VENDEDORES -->
 
-<!-- 1. COMPONENTE DE BÚSQUEDA DE CONCEPTOS -->
-<div class="card mb-4">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0"><i class="fas fa-tags"></i> Buscar y Seleccionar Concepto</h5>
-    </div>
-    <div class="card-body">
-        <div class="form-group mb-3">
-            <div class="input-group">
-                <input type="text" id="buscar-concepto" class="form-control" placeholder="Buscar concepto por ID o nombre...">
-                <button class="btn btn-info" id="btn-cargar-conceptos"><i class="fas fa-sync"></i> Ver Todos</button>
-            </div>
-        </div>
-        
-        <div class="table-responsive mt-3">
-            <table class="table table-sm table-striped table-hover">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Nombre</th>
-                        <th>Acción</th>
-                    </tr>
-                </thead>
-                <tbody id="conceptos-lista">
-                    <tr><td colspan="3" class="text-center">Cargando conceptos...</td></tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <hr>
-        
-        <!-- Formulario rápido para crear conceptos -->
-        <div class="form-group">
-            <label for="nuevo-concepto-nombre"><strong>Crear Nuevo Concepto</strong></label>
-            <div class="input-group mb-2">
-                <input type="text" id="nuevo-concepto-nombre" class="form-control" placeholder="Nombre del nuevo concepto">
-                <button class="btn btn-success" id="btn-crear-concepto"><i class="fas fa-plus"></i> Crear</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 2. COMPONENTE DE BÚSQUEDA DE PROPIETARIOS -->
-<div class="card mb-4">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0"><i class="fas fa-user-tie"></i> Buscar y Seleccionar Propietario</h5>
-    </div>
-    <div class="card-body">
-        <div class="form-group mb-3">
-            <div class="input-group">
-                <input type="text" id="buscar-propietario" class="form-control" placeholder="Buscar propietario por ID, nombre o apellido...">
-                <button class="btn btn-info" id="btn-cargar-propietarios"><i class="fas fa-sync"></i> Ver Todos</button>
-            </div>
-        </div>
-        
-        <div class="table-responsive mt-3">
-            <table class="table table-sm table-striped table-hover">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Nombre</th>
-                        <th>Apellido</th>
-                        <th>Cuenta Bancaria</th>
-                        <th>Acción</th>
-                    </tr>
-                </thead>
-                <tbody id="propietarios-lista">
-                    <tr><td colspan="5" class="text-center">Cargando propietarios...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- 3. COMPONENTE DE BÚSQUEDA DE VENDEDORES (UNIFICADO) -->
-<div class="card mb-4">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0"><i class="fas fa-user"></i> Buscar y Seleccionar Vendedor</h5>
-    </div>
-    <div class="card-body">
-        <div class="form-group mb-3">
-            <label for="buscar-vendedor-unificado"><strong>Buscar vendedor por ID o nombre</strong></label>
-            <select id="buscar-vendedor-unificado" class="form-control select2-vendedores" style="width: 100%;">
-                <option value="">Escriba para buscar un vendedor</option>
-            </select>
-            <input type="hidden" id="id_vendedor" name="vendedor" value="">
-        </div>
-        
-        <div id="vendedor-seleccionado" class="alert alert-info d-none">
-            <p class="mb-0"><strong>Vendedor seleccionado:</strong> <span id="vendedor-nombre-display"></span></p>
-            <button class="btn btn-sm btn-outline-secondary mt-2" id="btn-cambiar-vendedor">Cambiar</button>
-        </div>
-    </div>
-</div>
-
 <!-- SCRIPTS PARA CADA COMPONENTE -->
 <script>
 $(document).ready(function() {
-    
-    //=============================================
-    // 1. FUNCIONES PARA CONCEPTOS
-    //=============================================
+    // =========================
+    // 1. CONCEPTOS
+    // =========================
     function cargarConceptos(termino = '') {
-        $('#conceptos-lista').html('<tr><td colspan="3" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
-        
-        // Primero intentamos con URL /conceptos/
+        $('#conceptos-lista').html('<tr><td colspan="3" class="text-center">Cargando conceptos...</td></tr>');
         $.ajax({
             url: '/conceptos/',
             type: 'GET',
             data: { termino: termino },
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            },
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
             success: function(data) {
-                if (data.conceptos && Array.isArray(data.conceptos)) {
-                    actualizarListaConceptos(data.conceptos);
-                } else if (Array.isArray(data)) {
-                    actualizarListaConceptos(data);
-                } else {
-                    // Si no se encontraron conceptos en el formato esperado, intentamos otra URL
-                    intentarSegundaURLConceptos(termino);
-                }
-            },
-            error: function() {
-                // Si hay error, intentamos con la segunda URL
-                intentarSegundaURLConceptos(termino);
-            }
-        });
-    }
-    
-    function intentarSegundaURLConceptos(termino) {
-        $.ajax({
-            url: '/api/conceptos/',
-            type: 'GET',
-            data: { term: termino },
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            success: function(data) {
-                if (data.results && Array.isArray(data.results)) {
-                    actualizarListaConceptos(data.results);
-                } else if (Array.isArray(data)) {
-                    actualizarListaConceptos(data);
-                } else {
+                var conceptos = data.conceptos || [];
+                if (Array.isArray(data)) conceptos = data;
+                if (!conceptos.length) {
                     $('#conceptos-lista').html('<tr><td colspan="3" class="text-center">No se encontraron conceptos</td></tr>');
+                    return;
                 }
+                var html = '';
+                conceptos.forEach(function(concepto) {
+                    html += '<tr>' +
+                        '<td>' + concepto.id + '</td>' +
+                        '<td>' + (concepto.nombre || '') + '</td>' +
+                        '<td><button class="btn btn-sm btn-success seleccionar-concepto" data-id="' + concepto.id + '" data-nombre="' + (concepto.nombre || '') + '"><i class="fas fa-check"></i> Seleccionar</button></td>' +
+                        '</tr>';
+                });
+                $('#conceptos-lista').html(html);
             },
             error: function() {
                 $('#conceptos-lista').html('<tr><td colspan="3" class="text-center">No se pudieron cargar los conceptos</td></tr>');
             }
         });
     }
-    
-    function actualizarListaConceptos(conceptos) {
-        var html = '';
-        
-        if (!conceptos || conceptos.length === 0) {
-            html = '<tr><td colspan="3" class="text-center">No se encontraron conceptos</td></tr>';
-        } else {
-            conceptos.forEach(function(concepto) {
-                var id = concepto.id;
-                var nombre = concepto.nombre || '';
-                
-                html += '<tr>' +
-                        '<td>' + id + '</td>' +
-                        '<td>' + nombre + '</td>' +
-                        '<td><button class="btn btn-sm btn-success seleccionar-concepto" ' +
-                        'data-id="' + id + '" data-nombre="' + nombre + '">' +
-                        '<i class="fas fa-check"></i> Seleccionar</button></td>' +
-                        '</tr>';
-            });
-        }
-        
-        $('#conceptos-lista').html(html);
-    }
-    
-    function crearConcepto(nombre) {
-        if (!nombre || nombre.trim() === '') {
-            alert('Por favor ingrese un nombre para el concepto');
-            return;
-        }
-        
-        $('#btn-crear-concepto').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Creando...');
-        
+    $('#btn-cargar-conceptos').click(function() { cargarConceptos(); });
+    $('#buscar-concepto').on('keyup', function() {
+        var termino = $(this).val();
+        if (termino.length >= 2 || termino.length === 0) cargarConceptos(termino);
+    });
+    $('#btn-crear-concepto').click(function() {
+        var nombre = $('#nuevo-concepto-nombre').val();
+        if (!nombre.trim()) { alert('Ingrese un nombre'); return; }
+        $('#btn-crear-concepto').prop('disabled', true);
         $.ajax({
             url: '/concepto/nuevo/',
             type: 'POST',
@@ -2047,314 +1688,134 @@ $(document).ready(function() {
             },
             success: function(data) {
                 $('#nuevo-concepto-nombre').val('');
-                $('#btn-crear-concepto').prop('disabled', false).html('<i class="fas fa-plus"></i> Crear');
-                
+                $('#btn-crear-concepto').prop('disabled', false);
                 if (data.success) {
-                    alert('Concepto creado correctamente');
-                    
-                    // Actualizar select
-                    if (!$('#id_concepto option[value="' + data.id + '"]').length) {
-                        $('#id_concepto').append(new Option(nombre, data.id));
-                    }
-                    $('#id_concepto').val(data.id).trigger('change');
-                    
-                    // Recargar lista
                     cargarConceptos();
                 } else {
-                    alert('Error al crear concepto: ' + (data.error || 'Error desconocido'));
+                    alert('Error al crear concepto');
                 }
             },
             error: function() {
-                $('#btn-crear-concepto').prop('disabled', false).html('<i class="fas fa-plus"></i> Crear');
+                $('#btn-crear-concepto').prop('disabled', false);
                 alert('Error al crear concepto');
             }
         });
-    }
-    
-    //=============================================
-    // 2. FUNCIONES PARA PROPIETARIOS
-    //=============================================
+    });
+    $(document).on('click', '.seleccionar-concepto', function() {
+        var id = $(this).data('id');
+        var nombre = $(this).data('nombre');
+        if (!$('#id_concepto option[value="' + id + '"]').length) {
+            $('#id_concepto').append(new Option(nombre, id));
+        }
+        $('#id_concepto').val(id).trigger('change');
+        alert('Concepto seleccionado: ' + nombre);
+    });
+    cargarConceptos();
+
+    // =========================
+    // 2. PROPIETARIOS
+    // =========================
     function cargarPropietarios(termino = '') {
-        $('#propietarios-lista').html('<tr><td colspan="5" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
-        
-        // Usar la vista de propietarios existente con AJAX
+        $('#propietarios-lista').html('<tr><td colspan="5" class="text-center">Cargando propietarios...</td></tr>');
         $.ajax({
-            url: '/propietarios/',  // URL de la vista de propietarios
+            url: '/propietarios/',
             method: 'GET',
             data: { termino: termino },
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'  // Indicar que es una solicitud AJAX
-            },
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
             success: function(data) {
-                if (data.propietarios && Array.isArray(data.propietarios)) {
-                    actualizarListaPropietarios(data.propietarios);
-                } else {
+                var propietarios = data.propietarios || [];
+                if (!propietarios.length) {
                     $('#propietarios-lista').html('<tr><td colspan="5" class="text-center">No se encontraron propietarios</td></tr>');
+                    return;
                 }
+                var html = '';
+                propietarios.forEach(function(p) {
+                    html += '<tr>' +
+                        '<td>' + p.id + '</td>' +
+                        '<td>' + (p.nombre || '') + '</td>' +
+                        '<td>' + (p.apellido || '') + '</td>' +
+                        '<td>' + (p.cuenta_bancaria || '') + '</td>' +
+                        '<td><button class="btn btn-sm btn-success seleccionar-propietario" data-id="' + p.id + '" data-nombre="' + p.nombre + ' ' + p.apellido + '" data-cuenta="' + (p.cuenta_bancaria || '') + '"><i class="fas fa-check"></i> Seleccionar</button></td>' +
+                        '</tr>';
+                });
+                $('#propietarios-lista').html(html);
             },
             error: function() {
                 $('#propietarios-lista').html('<tr><td colspan="5" class="text-center">No se pudieron cargar los propietarios</td></tr>');
             }
         });
     }
-    
-    function actualizarListaPropietarios(propietarios) {
-        var html = '';
-        
-        if (!propietarios || propietarios.length === 0) {
-            html = '<tr><td colspan="5" class="text-center">No se encontraron propietarios</td></tr>';
-        } else {
-            propietarios.forEach(function(propietario) {
-                var id = propietario.id;
-                var nombre = propietario.nombre || '';
-                var apellido = propietario.apellido || '';
-                var cuenta = propietario.cuenta_bancaria || '';
-                
-                html += '<tr>' +
-                        '<td>' + id + '</td>' +
-                        '<td>' + nombre + '</td>' +
-                        '<td>' + apellido + '</td>' +
-                        '<td>' + cuenta + '</td>' +
-                        '<td><button class="btn btn-sm btn-success seleccionar-propietario" ' +
-                        'data-id="' + id + '" data-nombre="' + nombre + ' ' + apellido + '" ' +
-                        'data-cuenta="' + cuenta + '">' +
-                        '<i class="fas fa-check"></i> Seleccionar</button></td>' +
-                        '</tr>';
-            });
-        }
-        
-        $('#propietarios-lista').html(html);
-    }
-    
-    //=============================================
-    // 3. FUNCIONES PARA VENDEDORES
-    //=============================================
-    function cargarVendedores(termino = '') {
-        $('#vendedores-lista').html('<tr><td colspan="4" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
-        
-        $.ajax({
-            url: '/vendedores/',
-            type: 'GET',
-            data: { termino: termino },
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            success: function(data) {
-                actualizarListaVendedores(data.vendedores || []);
-            },
-            error: function() {
-                $('#vendedores-lista').html('<tr><td colspan="4" class="text-center">No se pudieron cargar los vendedores</td></tr>');
-            }
-        });
-    }
-    
-    function actualizarListaVendedores(vendedores) {
-        var html = '';
-        
-        if (!vendedores || vendedores.length === 0) {
-            html = '<tr><td colspan="4" class="text-center">No se encontraron vendedores</td></tr>';
-        } else {
-            vendedores.forEach(function(vendedor) {
-                var id = vendedor.id;
-                var nombre = vendedor.nombre || '';
-                var apellido = vendedor.apellido || '';
-                
-                html += '<tr>' +
-                        '<td>' + id + '</td>' +
-                        '<td>' + nombre + '</td>' +
-                        '<td>' + apellido + '</td>' +
-                        '<td><button class="btn btn-sm btn-success seleccionar-vendedor" ' +
-                        'data-id="' + id + '" data-nombre="' + nombre + ' ' + apellido + '">' +
-                        '<i class="fas fa-check"></i> Seleccionar</button></td>' +
-                        '</tr>';
-            });
-        }
-        
-        $('#vendedores-lista').html(html);
-    }
-    
-    //=============================================
-    // EVENTOS PARA CARGAR DATOS
-    //=============================================
-    
-    // Cargar todos los conceptos
-    $('#btn-cargar-conceptos').click(function() {
-        cargarConceptos();
-    });
-    
-    // Buscar conceptos
-    $('#buscar-concepto').on('keyup', function() {
-        var termino = $(this).val();
-        if (termino.length >= 2 || termino.length === 0) {
-            cargarConceptos(termino);
-        }
-    });
-    
-    // Crear nuevo concepto
-    $('#btn-crear-concepto').click(function() {
-        var nombre = $('#nuevo-concepto-nombre').val();
-        crearConcepto(nombre);
-    });
-    
-    // Cargar todos los propietarios
-    $('#btn-cargar-propietarios').click(function() {
-        cargarPropietarios();
-    });
-    
-    // Buscar propietarios
+    $('#btn-cargar-propietarios').click(function() { cargarPropietarios(); });
     $('#buscar-propietario').on('keyup', function() {
         var termino = $(this).val();
-        if (termino.length >= 2 || termino.length === 0) {
-            cargarPropietarios(termino);
-        }
+        if (termino.length >= 2 || termino.length === 0) cargarPropietarios(termino);
     });
-    
-    //=============================================
-    // EVENTOS PARA SELECCIONAR ELEMENTOS
-    //=============================================
-    
-    // Seleccionar concepto
-    $(document).on('click', '.seleccionar-concepto', function() {
-        var id = $(this).data('id');
-        var nombre = $(this).data('nombre');
-        
-        // Actualizar select
-        if (!$('#id_concepto option[value="' + id + '"]').length) {
-            $('#id_concepto').append(new Option(nombre, id));
-        }
-        $('#id_concepto').val(id).trigger('change');
-        
-        alert('Concepto seleccionado: ' + nombre);
-    });
-    
-    // Seleccionar propietario
     $(document).on('click', '.seleccionar-propietario', function() {
         var id = $(this).data('id');
         var nombre = $(this).data('nombre');
         var cuenta = $(this).data('cuenta');
-        
-        // Actualizar select 
         var textoOpcion = nombre + (cuenta ? ' - Cuenta: ' + cuenta : '');
-        
         if (!$('#id_cuenta option[value="' + id + '"]').length) {
             $('#id_cuenta').append(new Option(textoOpcion, id));
         }
-        
-        // Seleccionar
         $('#id_cuenta').val(id).trigger('change');
-        
-        // Mostrar mensaje
         alert('Propietario seleccionado: ' + nombre);
     });
-    
-    //=============================================
-    // CARGAR DATOS AL INICIO
-    //=============================================
-    // Ejecutar la carga inicial de datos con un pequeño retraso
-    // para asegurar que todos los elementos del DOM estén cargados
-    setTimeout(function() {
-        cargarConceptos();
-        cargarPropietarios();
-    }, 500);
-    
-    // Inicializar Select2 para vendedores
+    cargarPropietarios();
+
+    // =========================
+    // 3. VENDEDORES (SELECT2)
+    // =========================
     $('.select2-vendedores').select2({
         placeholder: "Escriba ID o nombre del vendedor...",
         allowClear: true,
         minimumInputLength: 1,
         language: {
-            inputTooShort: function() {
-                return "Escriba al menos 1 carácter para buscar...";
-            },
-            noResults: function() {
-                return "No se encontraron vendedores";
-            },
-            searching: function() {
-                return "Buscando...";
-            }
+            inputTooShort: function() { return "Escriba al menos 1 carácter para buscar..."; },
+            noResults: function() { return "No se encontraron vendedores"; },
+            searching: function() { return "Buscando..."; }
         },
         ajax: {
             url: '/vendedores/',
             dataType: 'json',
             delay: 250,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            },
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
             data: function(params) {
-                return {
-                    termino: params.term,
-                    page: params.page
-                };
+                return { termino: params.term, page: params.page };
             },
-            processResults: function(data, params) {
+            processResults: function(data) {
                 var vendedores = data.vendedores || [];
                 return {
-                    results: $.map(vendedores, function(vendedor) {
+                    results: $.map(vendedores, function(v) {
                         return {
-                            id: vendedor.id,
-                            text: '[ID: ' + vendedor.id + '] ' + vendedor.nombre + ' ' + (vendedor.apellido || ''),
-                            nombre: vendedor.nombre,
-                            apellido: vendedor.apellido || ''
+                            id: v.id,
+                            text: '[ID: ' + v.id + '] ' + v.nombre + ' ' + (v.apellido || ''),
+                            nombre: v.nombre,
+                            apellido: v.apellido || ''
                         };
-                    }),
-                    pagination: {
-                        more: false
-                    }
+                    })
                 };
             },
             cache: true
         },
-        escapeMarkup: function(markup) {
-            return markup;
+        escapeMarkup: function(markup) { return markup; },
+        templateResult: function(v) {
+            if (v.loading) return v.text;
+            return '<div><strong>ID: ' + v.id + '</strong> ' + v.nombre + ' ' + (v.apellido || '') + '</div>';
         },
-        templateResult: function(vendedor) {
-            if (vendedor.loading) return vendedor.text;
-            
-            var markup = '<div class="select2-result-vendedor">' +
-                '<div class="select2-result-vendedor__id"><strong>ID: ' + vendedor.id + '</strong></div>' +
-                '<div class="select2-result-vendedor__nombre">' + vendedor.nombre + ' ' + (vendedor.apellido || '') + '</div>' +
-                '</div>';
-            
-            return markup;
-        },
-        templateSelection: function(vendedor) {
-            return vendedor.text || vendedor.id;
-        }
+        templateSelection: function(v) { return v.text || v.id; }
     });
-    
-    // Al seleccionar un vendedor
     $('.select2-vendedores').on('select2:select', function(e) {
         var data = e.params.data;
-        
-        // Actualizar el campo original
         $('#id_vendedor').val(data.id);
-        
-        // Mostrar información del vendedor seleccionado
         $('#vendedor-nombre-display').text(data.text);
         $('#vendedor-seleccionado').removeClass('d-none');
     });
-    
-    // Botón para cambiar vendedor
     $('#btn-cambiar-vendedor').click(function() {
-        // Limpiar selección
         $('.select2-vendedores').val(null).trigger('change');
         $('#vendedor-seleccionado').addClass('d-none');
         $('#id_vendedor').val('');
     });
-    
-    // Si ya hay un vendedor seleccionado al cargar la página
-    if ($('#id_vendedor').val()) {
-        var vendedorId = $('#id_vendedor').val();
-        var vendedorNombre = $('#id_vendedor').attr('data-nombre') || 'Vendedor #' + vendedorId;
-        
-        // Crear la opción en select2
-        var newOption = new Option(vendedorNombre, vendedorId, true, true);
-        $('.select2-vendedores').append(newOption).trigger('change');
-        
-        // Mostrar información
-        $('#vendedor-nombre-display').text(vendedorNombre);
-        $('#vendedor-seleccionado').removeClass('d-none');
-    }
 });
 </script>
 
