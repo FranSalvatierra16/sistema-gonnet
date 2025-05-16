@@ -2644,3 +2644,15 @@ def buscar_productores(request):
             'success': False,
             'message': str(e)
         })
+
+def conceptos_list(request):
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        conceptos = Concepto.objects.all().order_by('id')
+        data = {
+            'conceptos': [
+                {'id': c.id, 'nombre': c.nombre}
+                for c in conceptos
+            ]
+        }
+        return JsonResponse(data)
+    # Si acceden por navegador normal, puedes devolver una plantilla o un error

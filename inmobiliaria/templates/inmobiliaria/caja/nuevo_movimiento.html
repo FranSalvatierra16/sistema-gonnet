@@ -327,8 +327,12 @@
                             <h5><i class="fas fa-user mr-2"></i>Datos del Propietario/Cuenta</h5>
                             
                             <div class="form-group">
-                                <label for="id_cuenta">Cuenta/Propietario <span class="text-danger">*</span></label>
+                                <label for="id_cuenta">Cuenta Bancaria <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="id_cuenta" name="cuenta" readonly required placeholder="Seleccione un propietario...">
+                            </div>
+                            <div class="form-group">
+                                <label for="id_nombre_propietario">Nombre del Propietario</label>
+                                <input type="text" class="form-control" id="id_nombre_propietario" name="nombre_propietario" readonly>
                             </div>
                             
                             <div class="form-group">
@@ -741,7 +745,8 @@ $(document).ready(function() {
     $(document).on('click', '.seleccionar-propietario', function() {
         var nombre = $(this).data('nombre');
         var cuenta = $(this).data('cuenta');
-        $('#id_cuenta').val(nombre + (cuenta ? ' - ' + cuenta : ''));
+        $('#id_cuenta').val(cuenta);
+        $('#id_nombre_propietario').val(nombre);
         $('#resultados_propietarios').hide();
         $('#lista_propietarios').empty();
     });
@@ -1311,27 +1316,6 @@ $(document).ready(function() {
 <!-- SOLUCIÓN DIRECTA PARA PROPIETARIOS Y CONCEPTOS -->
 
 
-
-<!-- 2. PANEL CON LISTA DE CONCEPTOS -->
-<div class="card mb-4" id="conceptosPanel">
-    <div class="card-header bg-success text-white">
-        <h5 class="mb-0"><i class="fas fa-tag"></i> Lista de Conceptos</h5>
-    </div>
-    <div class="card-body">
-        <div class="mb-3">
-            <button type="button" class="btn btn-info w-100" id="btnCargarConceptosDirecto">
-                <i class="fas fa-sync"></i> CARGAR TODOS LOS CONCEPTOS
-            </button>
-        </div>
-        
-        <div id="conceptosLista" class="list-group">
-            <div class="text-center p-3">
-                <i class="fas fa-spinner fa-spin"></i> Haga clic en el botón para cargar conceptos...
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- SCRIPT PARA CARGAR PROPIETARIOS Y CONCEPTOS -->
 <script>
 $(document).ready(function() {
@@ -1644,13 +1628,12 @@ $(document).ready(function() {
     function cargarConceptos(termino = '') {
         $('#conceptos-lista').html('<tr><td colspan="3" class="text-center">Cargando conceptos...</td></tr>');
         $.ajax({
-            url: '/conceptos/',
+            url: '/conceptos/', // Esta URL debe coincidir con la de Django
             type: 'GET',
             data: { termino: termino },
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             success: function(data) {
                 var conceptos = data.conceptos || [];
-                if (Array.isArray(data)) conceptos = data;
                 if (!conceptos.length) {
                     $('#conceptos-lista').html('<tr><td colspan="3" class="text-center">No se encontraron conceptos</td></tr>');
                     return;
