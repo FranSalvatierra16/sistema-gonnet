@@ -1868,24 +1868,33 @@ def agregar_pago(request, reserva_id):
         try:
             # Convertir el monto a Decimal
             monto = Decimal(request.POST['monto'])
-            
+
+            # Obtener el valor del concepto (puede ser ID o nombre)
+            concepto_valor = request.POST.get('concepto')
+
+            # Buscar por ID si es número, o crear/buscar por nombre si es texto
+            if concepto_valor.isdigit():
+                concepto = get_object_or_404(ConceptoPago, id=concepto_valor)
+            else:
+                concepto, creado = ConceptoPago.objects.get_or_create(nombre=concepto_valor)
+
             # Crear el pago
             pago = Pago.objects.create(
                 reserva=reserva,
-                concepto_id=request.POST['concepto'],
+                concepto=concepto,
                 forma_pago=request.POST['forma_pago'],
                 monto=monto
             )
-            
+
             # Forzar la actualización de saldos
             reserva.actualizar_saldos()
-            
+
             messages.success(request, 'Pago registrado exitosamente.')
         except ValueError as e:
             messages.error(request, f'Error al procesar el pago: {str(e)}')
         except Exception as e:
             messages.error(request, f'Error inesperado: {str(e)}')
-        
+
     return redirect('inmobiliaria:confirmar_pago', reserva_id=reserva_id)
 
 @login_required
