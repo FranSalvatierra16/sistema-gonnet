@@ -12,15 +12,13 @@
     <div class="row justify-content-center">
         <!-- Alquiler por día -->
         <div class="col-md-4 mb-4">
-            <a href="/reservas/nuevo/" class="text-decoration-none">
-                <div class="menu-card">
-                    <div class="card-icon">
-                        <i class="fas fa-calendar-day"></i>
-                    </div>
-                    <h3>Alquiler por Día</h3>
-                    <p>Gestión de alquileres temporarios</p>
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:buscar_propiedades' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-calendar-day"></i>
                 </div>
-            </a>
+                <h3>Alquiler por Día</h3>
+                <p>Gestión de alquileres temporarios</p>
+            </div>
         </div>
 
         <!-- Ventas -->
