@@ -129,4 +129,5 @@ urlpatterns = [
     path('buscar/operacion/', views.buscar_operacion, name='buscar_operacion'),
     path('buscar/productores/', views.buscar_productores, name='buscar_productores'),
     path('conceptos/', views.conceptos_list, name='conceptos_list'),
+    path('propietario_cuentas/', views.propietario_cuentas, name='propietario_cuentas'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
