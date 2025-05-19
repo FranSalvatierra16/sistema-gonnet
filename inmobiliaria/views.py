@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto, CuentaBancaria, Movimiento  # Added CuentaBancaria import and Movimiento import
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
@@ -2656,3 +2656,49 @@ def conceptos_list(request):
         }
         return JsonResponse(data)
     # Si acceden por navegador normal, puedes devolver una plantilla o un error
+
+def propietario_cuentas(request):
+    propietario_id = request.GET.get('propietario_id')
+    if not propietario_id:
+        return JsonResponse({'cuentas': []})
+    cuentas = CuentaBancaria.objects.filter(propietario_id=propietario_id)
+    data = {
+        'cuentas': [
+            {'id': c.id, 'numero': c.numero, 'alias': getattr(c, 'alias', '')}
+            for c in cuentas
+        ]
+    }
+    return JsonResponse(data)
+
+def guardar_movimiento(request):
+    if request.method == 'POST':
+        propietario_id = request.POST.get('propietario')
+        cuenta_bancaria = request.POST.get('cuenta')
+        concepto_id = request.POST.get('concepto')
+        monto = request.POST.get('monto')
+        # ...otros campos...
+
+        # 1. Actualizar la cuenta bancaria del propietario
+        if propietario_id and cuenta_bancaria is not None:
+            try:
+                propietario = Propietario.objects.get(id=propietario_id)
+                propietario.cuenta_bancaria = cuenta_bancaria
+                propietario.save()
+            except Propietario.DoesNotExist:
+                messages.error(request, "No se encontró el propietario seleccionado.")
+                return redirect('inmobiliaria:nuevo_movimiento')
+
+        # 2. Guardar el movimiento (ajusta los campos según tu modelo)
+        movimiento = Movimiento.objects.create(
+            propietario_id=propietario_id,
+            cuenta=cuenta_bancaria,
+            concepto_id=concepto_id,
+            monto=monto,
+            # ...otros campos...
+        )
+
+        messages.success(request, "Movimiento y cuenta bancaria guardados correctamente.")
+        return redirect('inmobiliaria:gestionar_caja')  # O la URL que corresponda
+
+    # Si GET, muestra el formulario normalmente
+    # ...código para mostrar el formulario...

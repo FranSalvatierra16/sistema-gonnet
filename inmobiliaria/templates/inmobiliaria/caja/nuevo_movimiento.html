@@ -328,22 +328,13 @@
                             
                             <div class="form-group">
                                 <label for="id_cuenta">Cuenta Bancaria <span class="text-danger">*</span></label>
-                                <div class="input-group">
-                                    <select class="form-control" id="id_cuenta" name="cuenta" required>
-                                        <option value="">Seleccione una cuenta</option>
-                                        <!-- Las opciones se cargarán dinámicamente -->
-                                    </select>
-                                    <div class="input-group-append">
-                                        <button type="button" class="btn btn-outline-primary" id="btnNuevaCuenta">
-                                            <i class="fas fa-plus"></i>
-                                        </button>
-                                    </div>
-                                </div>
+                                <input type="text" class="form-control" id="id_cuenta" name="cuenta" required placeholder="Ingrese o edite la cuenta bancaria">
                             </div>
                             <div class="form-group">
                                 <label for="id_nombre_propietario">Nombre del Propietario</label>
                                 <input type="text" class="form-control" id="id_nombre_propietario" name="nombre_propietario" readonly>
                             </div>
+                            <input type="hidden" id="id_propietario" name="propietario">
                             
                             <div class="form-group">
                                 <label for="id_busqueda_propietario">Buscar por nombre o ID</label>
@@ -739,8 +730,10 @@ $(document).ready(function() {
                     propietarios.forEach(function(p) {
                         html += '<button type="button" class="list-group-item list-group-item-action seleccionar-propietario" ' +
                                 'data-id="' + p.id + '" ' +
-                                'data-nombre="' + p.nombre + ' ' + p.apellido + '">' +
-                                '<strong>' + p.nombre + ' ' + p.apellido + '</strong>' +
+                                'data-nombre="' + p.nombre + ' ' + p.apellido + '" ' +
+                                'data-cuenta="' + (p.cuenta_bancaria || '') + '">' +
+                                '<strong>' + p.nombre + ' ' + p.apellido + '</strong> - ' +
+                                'Cuenta: <span class="text-primary">' + (p.cuenta_bancaria || 'Sin cuenta') + '</span>' +
                                 '</button>';
                     });
                 }
@@ -753,32 +746,11 @@ $(document).ready(function() {
     // Al seleccionar un propietario de la lista
     $(document).on('click', '.seleccionar-propietario', function() {
         var nombre = $(this).data('nombre');
-        var propietario_id = $(this).data('id'); // Asegúrate de pasar el id en el botón
+        var cuenta = $(this).data('cuenta');
+        var id = $(this).data('id');
+        $('#id_cuenta').val(cuenta); // editable
         $('#id_nombre_propietario').val(nombre);
-
-        // Limpiar y deshabilitar el select mientras carga
-        $('#id_cuenta').html('<option value="">Cargando cuentas...</option>').prop('disabled', true);
-
-        // AJAX para traer las cuentas del propietario
-        $.ajax({
-            url: '/propietario_cuentas/',
-            method: 'GET',
-            data: { propietario_id: propietario_id },
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            success: function(data) {
-                var cuentas = data.cuentas || [];
-                var html = '<option value="">Seleccione una cuenta</option>';
-                cuentas.forEach(function(c) {
-                    html += '<option value="' + c.id + '">' + c.numero + (c.alias ? ' (' + c.alias + ')' : '') + '</option>';
-                });
-                html += '<option value="nueva">+ Agregar nueva cuenta</option>';
-                $('#id_cuenta').html(html).prop('disabled', false);
-            },
-            error: function() {
-                $('#id_cuenta').html('<option value="">Error al cargar cuentas</option>').prop('disabled', false);
-            }
-        });
-
+        $('#id_propietario').val(id);
         $('#resultados_propietarios').hide();
         $('#lista_propietarios').empty();
     });
@@ -1627,32 +1599,11 @@ $(document).ready(function() {
     // Seleccionar propietario
     $(document).on('click', '.seleccionar-propietario', function() {
         var nombre = $(this).data('nombre');
-        var propietario_id = $(this).data('id'); // Asegúrate de pasar el id en el botón
+        var cuenta = $(this).data('cuenta');
+        var id = $(this).data('id');
+        $('#id_cuenta').val(cuenta); // editable
         $('#id_nombre_propietario').val(nombre);
-
-        // Limpiar y deshabilitar el select mientras carga
-        $('#id_cuenta').html('<option value="">Cargando cuentas...</option>').prop('disabled', true);
-
-        // AJAX para traer las cuentas del propietario
-        $.ajax({
-            url: '/propietario_cuentas/',
-            method: 'GET',
-            data: { propietario_id: propietario_id },
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            success: function(data) {
-                var cuentas = data.cuentas || [];
-                var html = '<option value="">Seleccione una cuenta</option>';
-                cuentas.forEach(function(c) {
-                    html += '<option value="' + c.id + '">' + c.numero + (c.alias ? ' (' + c.alias + ')' : '') + '</option>';
-                });
-                html += '<option value="nueva">+ Agregar nueva cuenta</option>';
-                $('#id_cuenta').html(html).prop('disabled', false);
-            },
-            error: function() {
-                $('#id_cuenta').html('<option value="">Error al cargar cuentas</option>').prop('disabled', false);
-            }
-        });
-
+        $('#id_propietario').val(id);
         $('#resultados_propietarios').hide();
         $('#lista_propietarios').empty();
     });
