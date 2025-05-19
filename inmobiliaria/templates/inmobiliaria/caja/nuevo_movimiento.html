@@ -745,6 +745,7 @@ $(document).ready(function() {
     $(document).on('click', '.seleccionar-propietario', function() {
         var nombre = $(this).data('nombre');
         var cuenta = $(this).data('cuenta');
+        console.log('Cuenta seleccionada:', cuenta); // <-- ¿Qué ves aquí?
         $('#id_cuenta').val(cuenta);
         $('#id_nombre_propietario').val(nombre);
         $('#resultados_propietarios').hide();
@@ -1596,7 +1597,8 @@ $(document).ready(function() {
     $(document).on('click', '.seleccionar-propietario', function() {
         var nombre = $(this).data('nombre');
         var cuenta = $(this).data('cuenta');
-        $('#id_cuenta').val(cuenta); // <-- Esto debe funcionar si 'cuenta' tiene valor
+        console.log('Cuenta seleccionada:', cuenta); // <-- ¿Qué ves aquí?
+        $('#id_cuenta').val(cuenta);
         $('#id_nombre_propietario').val(nombre);
         $('#resultados_propietarios').hide();
         $('#lista_propietarios').empty();
