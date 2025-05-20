@@ -1,4 +1,5 @@
 import os
+import dj_database_url
 
 # Configuración de sesión
 SESSION_COOKIE_AGE = 600  # 10 minutos en segundos
@@ -57,7 +58,5 @@ MEDIA_URL = '/media/'
 DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
 
 DATABASES = {
-    'default': {
-        'CONN_MAX_AGE': 60,  # o 0 para cerrar cada vez, pero 60 es razonable
-    }
+    'default': dj_database_url.parse(os.environ.get('JAWSDB_NAVY_URL'))
 }
