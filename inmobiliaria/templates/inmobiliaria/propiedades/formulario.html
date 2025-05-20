@@ -553,4 +553,37 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Asegúrate de incluir SweetAlert2 en el head del template -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+$(function() {
+    $('#formNuevoPropietario').on('submit', function(e) {
+        e.preventDefault();
+        var $form = $(this);
+        $.ajax({
+            url: $form.attr('action'),
+            method: 'POST',
+            data: $form.serialize(),
+            success: function(data) {
+                if (data.success) {
+                    // Agregar el nuevo propietario al select
+                    var $select = $('#id_propietario');
+                    $select.append($('<option>', {
+                        value: data.id,
+                        text: data.nombre,
+                        selected: true
+                    }));
+                    // Cerrar el modal
+                    $('#nuevoPropietarioModal').modal('hide');
+                    // Limpiar el formulario del modal
+                    $form[0].reset();
+                }
+            },
+            error: function(xhr) {
+                // Puedes mostrar los errores en el modal si quieres
+                alert('Error al crear propietario. Verifica los datos.');
+            }
+        });
+    });
+});
+</script>
 {% endblock %}
