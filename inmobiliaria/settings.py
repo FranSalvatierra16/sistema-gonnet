@@ -47,3 +47,5 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     # ... resto de las apps ...
 ]
+
+FILE_UPLOAD_MAX_MEMORY_SIZE = 26214400  # 25 MB

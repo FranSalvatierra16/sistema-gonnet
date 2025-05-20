@@ -229,13 +229,15 @@ class PropiedadForm(forms.ModelForm):
             propiedad.sucursal = self.user.sucursal  # Asigna la sucursal del vendedor
         if commit:
             propiedad.save()
-            # Guardar imágenes
-            for index, imagen in enumerate(self.cleaned_data['imagenes']):
-                ImagenPropiedad.objects.create(
-                    propiedad=propiedad,
-                    imagen=imagen,
-                    orden=index + 1
-                )
+            # Guardar imágenes solo si existen
+            imagenes = self.cleaned_data.get('imagenes')
+            if imagenes:
+                for index, imagen in enumerate(imagenes):
+                    ImagenPropiedad.objects.create(
+                        propiedad=propiedad,
+                        imagen=imagen,
+                        orden=index + 1
+                    )
         return propiedad
 class PrecioForm(forms.ModelForm):
     class Meta:

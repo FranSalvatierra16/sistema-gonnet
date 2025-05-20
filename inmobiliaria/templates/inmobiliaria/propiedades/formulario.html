@@ -3,135 +3,178 @@
 
 {% block title %}{% if propiedad %}Editar{% else %}Nueva{% endif %} Propiedad{% endblock %}
 {% block content %}
-<div class="container-fluid">
-    <h1 class="mb-4">{% if propiedad %}Editar{% else %}Nueva{% endif %} Propiedad</h1>
-    
-    <!-- Formulario principal de la propiedad -->
-    <form method="post" enctype="multipart/form-data">
+<style>
+    body {
+        /* Si tienes una imagen de fondo, puedes definirla aquí o en tu base.html */
+        /* background: url('/static/img/tu-fondo.jpg') no-repeat center center fixed; */
+        /* background-size: cover; */
+    }
+    .form-container {
+        background: rgba(255,255,255,0.92);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        padding: 2.5rem 2rem;
+        max-width: 700px;
+        margin: 3rem auto;
+    }
+    .form-title {
+        font-weight: 700;
+        letter-spacing: 1px;
+        margin-bottom: 1.5rem;
+        text-align: center;
+        color: #2c3e50;
+    }
+    .form-label {
+        font-weight: 500;
+        color: #34495e;
+    }
+    .btn-primary {
+        width: 100%;
+        font-weight: 600;
+        letter-spacing: 1px;
+    }
+    .custom-file-input ~ .custom-file-label::after {
+        content: "Elegir";
+    }
+</style>
+
+<div class="form-container">
+    <h2 class="form-title">{{ titulo }}</h2>
+    <form method="post" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
         <div class="row">
-            <!-- Información básica -->
-            <div class="col-md-6">
-                <h3>Información básica</h3>
-               
-                {% bootstrap_field form.id layout='horizontal' %}
-                {% bootstrap_field form.llave layout='horizontal' %}
-                
-
-                {% bootstrap_field form.direccion layout='horizontal' %}
-                {% bootstrap_field form.ubicacion layout='horizontal' %}
-                {% bootstrap_field form.tipo_inmueble layout='horizontal' %}
-                {% bootstrap_field form.vista layout='horizontal' %}
-                {% bootstrap_field form.piso layout='horizontal' %}
-                {% bootstrap_field form.departamento layout='horizontal' %}
-                {% bootstrap_field form.ambientes layout='horizontal' %}
-                {% bootstrap_field form.valoracion layout='horizontal' %}
+            <div class="col-md-6 mb-3">
+                {{ form.id.label_tag }} {{ form.id }}
+                {% if form.id.help_text %}<small class="form-text text-muted">{{ form.id.help_text }}</small>{% endif %}
+                {{ form.id.errors }}
             </div>
-            
-            <!-- Información del propietario -->
-            <div class="col-md-6">
-                <h3>Propietario</h3>
-                <div class="form-group">
-                    <label for="id_propietario">Seleccionar Propietario:</label>
-                    {{ form.propietario }}
-                </div>
-                
-                <!-- <div class="form-check">
-                    {{ form.nuevo_propietario }}
-                    <label class="form-check-label" for="id_nuevo_propietario">Crear nuevo propietario<
-                        /label>
-                </div> -->
-                
-                <div id="nuevo-propietario-fields">
-                    <!-- Botón para abrir el modal de crear propietario -->
-                    <button id="abrir-modal-propietario-btn" type="button" class="btn btn-success" data-toggle="modal" data-target="#modal-propietario">Crear Nuevo Propietario</button>
-                </div>
-            </div>
-            
-  
-        </div>
-        
-        <!-- Imágenes -->
-        <div class="row mt-4">
-            <div class="col-md-12">
-                <h3>Imágenes de la Propiedad</h3>
-                
-                <!-- Input para subir imágenes -->
-                <div class="form-group mb-4">
-                    <label for="id_imagenes" class="form-label">Agregar nuevas imágenes:</label>
-                    <input type="file" id="id_imagenes" name="imagenes" multiple accept="image/*" class="form-control">
-                    <small class="text-muted">Puede seleccionar múltiples imágenes</small>
-                </div>
-
-                <!-- Contenedor de imágenes existentes -->
-                <div class="row" id="imagenes-container">
-                    {% for imagen in imagenes %}
-                    <div class="col-md-3 mb-4">
-                        <div class="imagen-item card" data-id="{{ imagen.id }}">
-                            <div class="position-relative">
-                                <img src="{{ imagen.imagen.url }}" 
-                                     class="card-img-top" 
-                                     style="height: 200px; object-fit: cover;"
-                                     onerror="this.src='/static/images/placeholder.jpg'">
-                                <button type="button" 
-                                        class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 eliminar-imagen" 
-                                        data-imagen-id="{{ imagen.id }}">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                                <div class="position-absolute bottom-0 start-0 w-100 p-2 bg-dark bg-opacity-50">
-                                    <span class="text-white">
-                                        <i class="fas fa-arrows-alt me-2"></i>
-                                        Orden: {{ imagen.orden }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
+            <div class="col-md-6 mb-3">
+                {{ form.llave.label_tag }} {{ form.llave }}
+                {% if form.llave.help_text %}<small class="form-text text-muted">{{ form.llave.help_text }}</small>{% endif %}
+                {{ form.llave.errors }}
             </div>
         </div>
-        
-        <!-- Características -->
-        <div class="row mt-4">
-            <div class="col-md-12">
-                <h3>Características</h3>
+        <div class="row">
+            <div class="col-md-8 mb-3">
+                {{ form.direccion.label_tag }} {{ form.direccion }}
+                {{ form.direccion.errors }}
+            </div>
+            <div class="col-md-4 mb-3">
+                {{ form.ubicacion.label_tag }} {{ form.ubicacion }}
+                {{ form.ubicacion.errors }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                {{ form.tipo_inmueble.label_tag }} {{ form.tipo_inmueble }}
+                {{ form.tipo_inmueble.errors }}
+            </div>
+            <div class="col-md-4 mb-3">
+                {{ form.piso.label_tag }} {{ form.piso }}
+                {{ form.piso.errors }}
+            </div>
+            <div class="col-md-4 mb-3">
+                {{ form.departamento.label_tag }} {{ form.departamento }}
+                {{ form.departamento.errors }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                {{ form.ambientes.label_tag }} {{ form.ambientes }}
+                {{ form.ambientes.errors }}
+            </div>
+            <div class="col-md-4 mb-3">
+                {{ form.valoracion.label_tag }} {{ form.valoracion }}
+                {{ form.valoracion.errors }}
+            </div>
+            <div class="col-md-4 mb-3">
+                {{ form.cuenta_bancaria.label_tag }} {{ form.cuenta_bancaria }}
+                {{ form.cuenta_bancaria.errors }}
+            </div>
+        </div>
+        <div class="mb-3">
+            {{ form.descripcion.label_tag }} {{ form.descripcion }}
+            {{ form.descripcion.errors }}
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                {{ form.propietario.label_tag }} {{ form.propietario }}
+                {{ form.propietario.errors }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="id_imagenes" class="form-label">Imágenes</label>
+                <input type="file" name="imagenes" id="id_imagenes" class="form-control" multiple>
+                <small class="form-text text-muted">Puede seleccionar varias imágenes</small>
+            </div>
+        </div>
+        <div class="row">
+            <!-- Puedes agrupar los campos booleanos en columnas para mejor visualización -->
+            <div class="col-md-12 mb-3">
                 <div class="row">
-                    {% for field in form %}
-                        {% if field.field.widget.input_type == 'checkbox' and field.name not in 'habilitar_precio_diario,habilitar_precio_venta,habilitar_precio_alquiler' %}
-                            <div class="col-md-3 mb-2">
-                                <div class="form-check">
-                                    {{ field }}
-                                    <label class="form-check-label" for="{{ field.id_for_label }}">
-                                        {{ field.label }}
-                                    </label>
-                                </div>
-                            </div>
-                        {% endif %}
-                    {% endfor %}
+                    <div class="col-6 col-md-4">
+                        {{ form.amoblado }} {{ form.amoblado.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.cochera }} {{ form.cochera.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.tv_smart }} {{ form.tv_smart.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.wifi }} {{ form.wifi.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.dependencia }} {{ form.dependencia.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.patio }} {{ form.patio.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.parrilla }} {{ form.parrilla.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.piscina }} {{ form.piscina.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.reciclado }} {{ form.reciclado.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.a_estrenar }} {{ form.a_estrenar.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.terraza }} {{ form.terraza.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.balcon }} {{ form.balcon.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.baulera }} {{ form.baulera.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.lavadero }} {{ form.lavadero.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.seguridad }} {{ form.seguridad.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.vista_al_Mar }} {{ form.vista_al_Mar.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.vista_panoramica }} {{ form.vista_panoramica.label_tag }}
+                    </div>
+                    <div class="col-6 col-md-4">
+                        {{ form.apto_credito }} {{ form.apto_credito.label_tag }}
+                    </div>
                 </div>
             </div>
         </div>
-        
-        <!-- Descripción -->
-        <div class="row mt-4">
-            <div class="col-md-12">
-                <h3>Descripción</h3>
-                {% bootstrap_field form.descripcion %}
-            </div>
-        </div>
-        
-        <!-- Botón para guardar -->
-        <div class="row mt-4">
-            <div class="col-md-12">
-                <button type="submit" class="btn btn-primary">Guardar</button>
-            </div>
-        </div>
+        <button type="submit" class="btn btn-primary mt-3">Guardar Propiedad</button>
     </form>
+</div>
 
-    <!-- Modal para crear nuevo propietario -->
-
-<!-- Modal para agregar propietario -->
+<!-- Modal para crear nuevo propietario -->
 <div id="modal-propietario" class="modal fade" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -153,11 +196,6 @@
             </div>
         </div>
     </div>
-</div>
-
-
-
-
 </div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
