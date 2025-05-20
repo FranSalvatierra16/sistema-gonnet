@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 import traceback  # Agregada esta importación
 from django.utils import timezone
+from django.core.serializers.json import DjangoJSONEncoder
 
 # index view
 def index(request):
@@ -904,6 +905,12 @@ def buscar_propiedades(request):
                     # Asegúrate de que todos los precios estén disponibles
                     propiedad.todos_precios = sorted(propiedad.todos_precios, key=lambda x: TipoPrecio[x.tipo_precio].value)
 
+                    # --- NUEVO: Agregar imágenes de la propiedad al diccionario ---
+                    propiedades_imagenes[propiedad.id] = [
+                        {'url': img.imagen.url} for img in propiedad.imagenes_propiedad.all()
+                    ]
+                    # -------------------------------------------------------------
+
     # Alerta si hay propiedades sin precio
     alerta_sin_precio = len(propiedades_sin_precio) > 0
     print("las fechas de inicio y fin son ",fecha_inicio,fecha_fin)
@@ -920,6 +927,8 @@ def buscar_propiedades(request):
         'tipos_precio': TipoPrecio,
         'inquilino_form': inquilino_form,
         'total_dias': total_dias_reserva,
+        # --- NUEVO: Pasar el JSON de imágenes al template ---
+        'propiedades_imagenes_json': json.dumps(propiedades_imagenes, cls=DjangoJSONEncoder),
     })
 
 @login_required

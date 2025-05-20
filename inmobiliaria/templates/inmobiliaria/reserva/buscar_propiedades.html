@@ -122,7 +122,6 @@
                     <th>Dpto</th>
                     <th>Propietario</th>
                     <th>Precio</th>
-                    <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -138,9 +137,6 @@
                     <td style="color: red;"> {{propiedad.departamento }}</td>
                     <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
                     <td style="color: red;">{{ propiedad.precio_total_reserva }}</td>
-                    <td>
-                        <button class="btn btn-info" onclick="mostrarInfoPropiedad({{ propiedad.id }})">Ver propiedades</button>
-                    </td>
                 </tr>
                 {% else %}
                 <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad( '{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}',)">
@@ -153,9 +149,6 @@
                     <td>{{ propiedad.departamento }}</td>
                     <td>{{ propiedad.propietario.apellido }}</td>
                     <td>{{ propiedad.precio_total_reserva|format_price }}</td>
-                    <td>
-                        <button class="btn btn-info" onclick="mostrarInfoPropiedad({{ propiedad.id }})">Ver propiedades</button>
-                    </td>
                 </tr>
                 {% endif %}
                 {% endfor %}
@@ -202,11 +195,7 @@
     </div>
 </div>
 
-<div id="info-propiedad" style="display:none; margin-top:20px;">
-    <h4 id="titulo-propiedad"></h4>
-    <p id="detalle-propiedad"></p>
-    <button class="btn btn-primary" id="btn-ver-imagenes" style="display:none;" data-toggle="modal" data-target="#modalImagenes">Ver imágenes</button>
-</div>
+
 
 <!-- Modal Confirmar Reserva -->
 <div class="modal fade" id="modalConfirmarReserva" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
@@ -367,71 +356,32 @@
     </div>
 </div>
 
-<!-- Modales para ver detalles de la propiedad -->
-{% for propiedad in propiedades_disponibles %}
-<div class="modal fade" id="modalDetalles{{ propiedad.id }}" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Detalles de la Propiedad</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <!-- Carrusel de imágenes -->
-                {% if propiedad.imagenes.all %}
-                    <div id="carousel{{ propiedad.id }}" class="carousel slide mb-4" data-ride="carousel">
-                        <div class="carousel-inner">
-                            {% for imagen in propiedad.imagenes.all %}
-                                <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                    <img src="{{ imagen.imagen.url }}" class="d-block w-100" alt="Imagen de la propiedad" style="height: 300px; object-fit: cover;">
-                                </div>
-                            {% endfor %}
-                        </div>
-                        {% if propiedad.imagenes.all|length > 1 %}
-                            <a class="carousel-control-prev" href="#carousel{{ propiedad.id }}" role="button" data-slide="prev">
-                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                <span class="sr-only">Anterior</span>
-                            </a>
-                            <a class="carousel-control-next" href="#carousel{{ propiedad.id }}" role="button" data-slide="next">
-                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                <span class="sr-only">Siguiente</span>
-                            </a>
-                        {% endif %}
-                    </div>
-                {% else %}
-                    <div class="alert alert-info">No hay imágenes disponibles para esta propiedad.</div>
-                {% endif %}
-
-                <!-- Detalles de la propiedad -->
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>Dirección:</strong> {{ propiedad.direccion }}</p>
-                        <p><strong>Piso:</strong> {{ propiedad.piso }}</p>
-                        <p><strong>Departamento:</strong> {{ propiedad.dpto }}</p>
-                        <p><strong>Tipo de Inmueble:</strong> {{ propiedad.tipo_inmueble }}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>Ambientes:</strong> {{ propiedad.ambientes }}</p>
-                        <p><strong>Valoración:</strong> {{ propiedad.valoracion }}</p>
-                        <p><strong>Características:</strong> {{ propiedad.caracteristicas }}</p>
-                        <p><strong>Precio Final:</strong> {{ propiedad.precio_total_reserva }}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-            </div>
-        </div>
+<!-- Modal de detalles de la propiedad -->
+<div class="modal fade" id="modalDetallesPropiedad" tabindex="-1" role="dialog" aria-labelledby="modalDetallesLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalDetallesLabel">Detalles de la Propiedad</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="detallesPropiedadBody">
+        <!-- Aquí van los detalles de la propiedad -->
+      </div>
+      <div class="modal-footer">
+        <!-- Otros botones -->
+        <button type="button" class="btn btn-info" id="ver-imagenes-btn" data-toggle="modal" data-target="#modalImagenesPropiedad" style="display:none;">
+          Ver Imágenes
+        </button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+      </div>
     </div>
+  </div>
 </div>
 
-<!-- Modal de Precios -->
-
-{% endfor %}
-
-<div class="modal fade" id="modalImagenes" tabindex="-1" role="dialog" aria-labelledby="modalImagenesLabel" aria-hidden="true">
+<!-- Modal para las imágenes de la propiedad -->
+<div class="modal fade" id="modalImagenesPropiedad" tabindex="-1" role="dialog" aria-labelledby="modalImagenesLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
@@ -440,8 +390,8 @@
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
-      <div class="modal-body" id="imagenes-propiedad">
-        <!-- Aquí se insertarán las imágenes dinámicamente -->
+      <div class="modal-body" id="imagenesPropiedadBody">
+        <!-- Aquí se cargará el carrusel de imágenes -->
       </div>
     </div>
   </div>
@@ -1283,69 +1233,55 @@ function getCookie(name) {
 
 <!-- Modal para crear nuevo cliente -->
 
+{% endblock %}
+
 <script>
-    // Supón que tienes un objeto JS con la info de las propiedades (puedes generarlo en el template)
-    const propiedades = {
-        {% for propiedad in propiedades_disponibles %}
-        {{ propiedad.id }}: {
-            titulo: "{{ propiedad.direccion|escapejs }}",
-            detalle: "Piso: {{ propiedad.piso }} - Dpto: {{ propiedad.departamento }} - Propietario: {{ propiedad.propietario.apellido }}",
-            imagenes: [
-                {% for imagen in propiedad.imagenes.all %}
-                "{{ imagen.imagen.url }}",
-                {% endfor %}
-            ]
-        },
-        {% endfor %}
-    };
+    // Este objeto lo pasas desde Django (ver punto 4)
+    const PROPIEDADES_IMAGENES = {{ propiedades_imagenes_json|safe }};
 
-    function mostrarInfoPropiedad(id) {
-        const prop = propiedades[id];
-        document.getElementById('info-propiedad').style.display = 'block';
-        document.getElementById('titulo-propiedad').innerText = prop.titulo;
-        document.getElementById('detalle-propiedad').innerText = prop.detalle;
-
-        // Mostrar el botón de imágenes solo si hay imágenes
-        if (prop.imagenes.length > 0) {
-            document.getElementById('btn-ver-imagenes').style.display = 'inline-block';
-            document.getElementById('btn-ver-imagenes').onclick = function() {
-                mostrarImagenesPropiedad(id);
-            };
-        } else {
-            document.getElementById('btn-ver-imagenes').style.display = 'none';
-        }
-    }
-
-    function mostrarImagenesPropiedad(id) {
-        const prop = propiedades[id];
+    function mostrarImagenesPropiedad(propiedadId) {
+        const imagenes = PROPIEDADES_IMAGENES[propiedadId] || [];
         let html = '';
-        if (prop.imagenes.length > 0) {
-            html += '<div id="carouselPropiedad" class="carousel slide" data-ride="carousel"><div class="carousel-inner">';
-            prop.imagenes.forEach((img, idx) => {
-                html += `<div class="carousel-item${idx === 0 ? ' active' : ''}"><img src="${img}" class="d-block w-100" style="height:300px;object-fit:cover;"></div>`;
+        if (imagenes.length > 0) {
+            html += `<div id="carouselImagenesPropiedad" class="carousel slide" data-ride="carousel">
+                        <div class="carousel-inner">`;
+            imagenes.forEach((img, idx) => {
+                html += `<div class="carousel-item ${idx === 0 ? 'active' : ''}">
+                            <img src="${img.url}" class="d-block w-100" style="height:300px;object-fit:cover;">
+                         </div>`;
             });
-            html += '</div>';
-            if (prop.imagenes.length > 1) {
-                html += `
-                    <a class="carousel-control-prev" href="#carouselPropiedad" role="button" data-slide="prev">
+            html += `</div>
+                    <a class="carousel-control-prev" href="#carouselImagenesPropiedad" role="button" data-slide="prev">
                         <span class="carousel-control-prev-icon" aria-hidden="true"></span>
                         <span class="sr-only">Anterior</span>
                     </a>
-                    <a class="carousel-control-next" href="#carouselPropiedad" role="button" data-slide="next">
+                    <a class="carousel-control-next" href="#carouselImagenesPropiedad" role="button" data-slide="next">
                         <span class="carousel-control-next-icon" aria-hidden="true"></span>
                         <span class="sr-only">Siguiente</span>
                     </a>
-                `;
-            }
-            html += '</div>';
+                </div>`;
         } else {
-            html = '<p>No hay imágenes disponibles.</p>';
+            html = '<div class="alert alert-info">No hay imágenes disponibles para esta propiedad.</div>';
         }
-        document.getElementById('imagenes-propiedad').innerHTML = html;
+        document.getElementById('imagenesPropiedadBody').innerHTML = html;
+    }
+
+    // Cuando selecciones una propiedad, muestra el botón y configura el evento
+    function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id) {
+        // ... tu código para mostrar detalles ...
+        // Mostrar el botón solo si hay imágenes
+        if ((PROPIEDADES_IMAGENES[id] || []).length > 0) {
+            document.getElementById('ver-imagenes-btn').style.display = 'inline-block';
+            document.getElementById('ver-imagenes-btn').onclick = function() {
+                mostrarImagenesPropiedad(id);
+            };
+        } else {
+            document.getElementById('ver-imagenes-btn').style.display = 'none';
+        }
+        // ... tu código para mostrar el modal de detalles ...
+        $('#modalDetallesPropiedad').modal('show');
     }
 </script>
-
-{% endblock %}
 
 
 

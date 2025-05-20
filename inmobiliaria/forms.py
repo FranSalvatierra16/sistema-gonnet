@@ -165,7 +165,7 @@ class PropiedadForm(forms.ModelForm):
     )
     propietario = forms.ModelChoiceField(
         queryset=Propietario.objects.all(),
-        widget=forms.Select(attrs={'class': 'select2-propietario'}),
+        widget=forms.Select(attrs={'class': 'select2-propietario form-control'}),
         required=False
     )
     id = forms.IntegerField(

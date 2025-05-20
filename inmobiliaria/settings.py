@@ -45,5 +45,6 @@ DEBUG = False  # Asegúrate de que esté en False en producción
 INSTALLED_APPS = [
     # ... otras apps ...
     'django.contrib.humanize',
+    'widget_tweaks',
     # ... resto de las apps ...
 ]
