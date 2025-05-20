@@ -122,6 +122,7 @@
                     <th>Dpto</th>
                     <th>Propietario</th>
                     <th>Precio</th>
+                    <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -137,6 +138,9 @@
                     <td style="color: red;"> {{propiedad.departamento }}</td>
                     <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
                     <td style="color: red;">{{ propiedad.precio_total_reserva }}</td>
+                    <td>
+                        <button class="btn btn-info" onclick="mostrarInfoPropiedad({{ propiedad.id }})">Ver propiedades</button>
+                    </td>
                 </tr>
                 {% else %}
                 <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad( '{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}',)">
@@ -149,6 +153,9 @@
                     <td>{{ propiedad.departamento }}</td>
                     <td>{{ propiedad.propietario.apellido }}</td>
                     <td>{{ propiedad.precio_total_reserva|format_price }}</td>
+                    <td>
+                        <button class="btn btn-info" onclick="mostrarInfoPropiedad({{ propiedad.id }})">Ver propiedades</button>
+                    </td>
                 </tr>
                 {% endif %}
                 {% endfor %}
@@ -195,7 +202,11 @@
     </div>
 </div>
 
-
+<div id="info-propiedad" style="display:none; margin-top:20px;">
+    <h4 id="titulo-propiedad"></h4>
+    <p id="detalle-propiedad"></p>
+    <button class="btn btn-primary" id="btn-ver-imagenes" style="display:none;" data-toggle="modal" data-target="#modalImagenes">Ver imágenes</button>
+</div>
 
 <!-- Modal Confirmar Reserva -->
 <div class="modal fade" id="modalConfirmarReserva" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
@@ -420,7 +431,21 @@
 
 {% endfor %}
 
-
+<div class="modal fade" id="modalImagenes" tabindex="-1" role="dialog" aria-labelledby="modalImagenesLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalImagenesLabel">Imágenes de la Propiedad</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="imagenes-propiedad">
+        <!-- Aquí se insertarán las imágenes dinámicamente -->
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
     // Añade esto al principio de tus scripts
@@ -1257,6 +1282,68 @@ function getCookie(name) {
 
 
 <!-- Modal para crear nuevo cliente -->
+
+<script>
+    // Supón que tienes un objeto JS con la info de las propiedades (puedes generarlo en el template)
+    const propiedades = {
+        {% for propiedad in propiedades_disponibles %}
+        {{ propiedad.id }}: {
+            titulo: "{{ propiedad.direccion|escapejs }}",
+            detalle: "Piso: {{ propiedad.piso }} - Dpto: {{ propiedad.departamento }} - Propietario: {{ propiedad.propietario.apellido }}",
+            imagenes: [
+                {% for imagen in propiedad.imagenes.all %}
+                "{{ imagen.imagen.url }}",
+                {% endfor %}
+            ]
+        },
+        {% endfor %}
+    };
+
+    function mostrarInfoPropiedad(id) {
+        const prop = propiedades[id];
+        document.getElementById('info-propiedad').style.display = 'block';
+        document.getElementById('titulo-propiedad').innerText = prop.titulo;
+        document.getElementById('detalle-propiedad').innerText = prop.detalle;
+
+        // Mostrar el botón de imágenes solo si hay imágenes
+        if (prop.imagenes.length > 0) {
+            document.getElementById('btn-ver-imagenes').style.display = 'inline-block';
+            document.getElementById('btn-ver-imagenes').onclick = function() {
+                mostrarImagenesPropiedad(id);
+            };
+        } else {
+            document.getElementById('btn-ver-imagenes').style.display = 'none';
+        }
+    }
+
+    function mostrarImagenesPropiedad(id) {
+        const prop = propiedades[id];
+        let html = '';
+        if (prop.imagenes.length > 0) {
+            html += '<div id="carouselPropiedad" class="carousel slide" data-ride="carousel"><div class="carousel-inner">';
+            prop.imagenes.forEach((img, idx) => {
+                html += `<div class="carousel-item${idx === 0 ? ' active' : ''}"><img src="${img}" class="d-block w-100" style="height:300px;object-fit:cover;"></div>`;
+            });
+            html += '</div>';
+            if (prop.imagenes.length > 1) {
+                html += `
+                    <a class="carousel-control-prev" href="#carouselPropiedad" role="button" data-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="sr-only">Anterior</span>
+                    </a>
+                    <a class="carousel-control-next" href="#carouselPropiedad" role="button" data-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="sr-only">Siguiente</span>
+                    </a>
+                `;
+            }
+            html += '</div>';
+        } else {
+            html = '<p>No hay imágenes disponibles.</p>';
+        }
+        document.getElementById('imagenes-propiedad').innerHTML = html;
+    }
+</script>
 
 {% endblock %}
 

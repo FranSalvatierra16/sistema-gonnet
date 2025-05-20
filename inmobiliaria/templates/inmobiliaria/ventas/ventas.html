@@ -6,6 +6,90 @@
 <div class="container-fluid">
     <h1 class="h3 mb-4 text-gray-800">Dashboard de Ventas</h1>
 
+    <!-- FILTROS DESTACADOS -->
+    <form method="get" class="mb-4">
+      <div class="form-row align-items-end">
+        <div class="col-md-3 mb-2">
+          <input type="text" name="busqueda" class="form-control" placeholder="Buscar dirección o ID" value="{{ request.GET.busqueda }}">
+        </div>
+        <div class="col-md-2 mb-2">
+          <select name="estado" class="form-control">
+            <option value="">Estado</option>
+            {% for key, value in estados %}
+              <option value="{{ key }}" {% if estado_filtro == key %}selected{% endif %}>{{ value }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2 mb-2">
+          <select name="ambientes" class="form-control">
+            <option value="">Ambientes</option>
+            {% for n in "123456789"|make_list %}
+              <option value="{{ n }}" {% if request.GET.ambientes == n %}selected{% endif %}>{{ n }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2 mb-2">
+          <button type="submit" class="btn btn-primary btn-block">Buscar</button>
+        </div>
+        <div class="col-md-2 mb-2">
+          <button type="button" class="btn btn-secondary btn-block" id="toggle-filtros" onclick="mostrarOcultarFiltros()">Más filtros</button>
+        </div>
+      </div>
+
+      <!-- FILTROS AVANZADOS OCULTABLES -->
+      <div id="filtros-completos" style="display: none; margin-top: 10px;">
+        <div class="form-row">
+          <div class="col-md-3 mb-2">
+            <select name="tipo_inmueble" class="form-control">
+              <option value="">Tipo de inmueble</option>
+              {% for key, value in tipos_inmuebles %}
+                <option value="{{ key }}" {% if request.GET.tipo_inmueble == key %}selected{% endif %}>{{ value }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3 mb-2">
+            <input type="text" name="ubicacion" class="form-control" placeholder="Ubicación" value="{{ request.GET.ubicacion }}">
+          </div>
+          <div class="col-md-3 mb-2">
+            <select name="vista" class="form-control">
+              <option value="">Vista</option>
+              {% for key, value in tipos_vista %}
+                <option value="{{ key }}" {% if request.GET.vista == key %}selected{% endif %}>{{ value }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <!-- Puedes agregar más filtros avanzados aquí -->
+        <div class="form-row">
+          <div class="col-md-2 mb-2">
+            <button type="button" class="btn btn-warning btn-block" id="reset-filtros" onclick="resetearFiltros()">Resetear Filtros</button>
+          </div>
+        </div>
+      </div>
+    </form>
+
+    <script>
+      function mostrarOcultarFiltros() {
+        var filtros = document.getElementById('filtros-completos');
+        var btn = document.getElementById('toggle-filtros');
+        if (filtros.style.display === "none") {
+          filtros.style.display = "block";
+          btn.innerText = "Ocultar filtros";
+        } else {
+          filtros.style.display = "none";
+          btn.innerText = "Más filtros";
+        }
+      }
+      function resetearFiltros() {
+        // Limpia todos los campos del formulario
+        var form = document.querySelector('form');
+        form.querySelectorAll('input, select').forEach(function(el) {
+          if (el.type === 'text' || el.tagName === 'SELECT') el.value = '';
+        });
+        form.submit();
+      }
+    </script>
+
     <!-- Resumen -->
     <div class="row mb-4">
         <div class="col-xl-3 col-md-6 mb-4">
@@ -68,10 +152,11 @@
                             <td>{{ item.vendedor.get_full_name }}</td>
                             <td class="text-center">{{ item.dias_publicada }}</td>
                             <td class="text-center">
-                                <a href="{% url 'inmobiliaria:detalle_propiedad' item.propiedad.id %}" 
-                                   class="btn btn-sm btn-info">
-                                    <i class="fas fa-eye"></i>
-                                </a>
+                                <!-- Botón para abrir el modal -->
+                                <button class="btn btn-sm btn-info" 
+                                        onclick="mostrarModalPropiedad({{ item.propiedad.id }})">
+                                    <i class="fas fa-eye"></i> Ver
+                                </button>
                                 <a href="{% url 'inmobiliaria:editar_propiedad' item.propiedad.id %}" 
                                    class="btn btn-sm btn-primary">
                                     <i class="fas fa-edit"></i>
@@ -99,6 +184,24 @@
     </div>
 </div>
 
+<!-- Modal para mostrar info y fotos de la propiedad -->
+<div class="modal fade" id="modalPropiedad" tabindex="-1" role="dialog" aria-labelledby="modalPropiedadLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalPropiedadLabel">Detalle de la Propiedad</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="info-propiedad-modal"></div>
+        <div id="carousel-propiedad-modal" class="mt-3"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% block extra_js %}
 <script>
 $(document).ready(function() {
@@ -109,6 +212,75 @@ $(document).ready(function() {
         "order": [[4, "desc"]]  // Ordenar por días publicada de forma descendente
     });
 });
+
+// Crea un objeto JS con la info de las propiedades
+const propiedades = {
+    {% for item in propiedades %}
+    {{ item.propiedad.id }}: {
+        direccion: "{{ item.propiedad.direccion|escapejs }}",
+        tipo: "{{ item.propiedad.get_tipo_inmueble_display|escapejs }}",
+        ambientes: "{{ item.propiedad.ambientes }}",
+        precio: "{% if item.precio_usd %}U$D {{ item.precio_usd|floatformat:2|intcomma }}{% else %}Sin precio{% endif %}",
+        vendedor: "{{ item.vendedor.get_full_name|escapejs }}",
+        dias: "{{ item.dias_publicada }}",
+        imagenes: [
+            {% for img in item.propiedad.imagenes.all %}
+            "{{ img.imagen.url }}",
+            {% endfor %}
+        ]
+    },
+    {% endfor %}
+};
+
+function mostrarModalPropiedad(id) {
+    const prop = propiedades[id];
+    // Info
+    let info = `
+        <strong>Dirección:</strong> ${prop.direccion}<br>
+        <strong>Tipo:</strong> ${prop.tipo}<br>
+        <strong>Ambientes:</strong> ${prop.ambientes}<br>
+        <strong>Precio:</strong> ${prop.precio}<br>
+        <strong>Vendedor:</strong> ${prop.vendedor}<br>
+        <strong>Días publicada:</strong> ${prop.dias}
+    `;
+    document.getElementById('info-propiedad-modal').innerHTML = info;
+
+    // Carrusel de imágenes
+    let html = '';
+    if (prop.imagenes.length > 0) {
+        html += `
+        <div id="carouselPropiedadModalInner" class="carousel slide" data-ride="carousel">
+          <div class="carousel-inner">
+        `;
+        prop.imagenes.forEach((img, idx) => {
+            html += `
+              <div class="carousel-item${idx === 0 ? ' active' : ''}">
+                <img src="${img}" class="d-block w-100" style="max-height:350px;object-fit:cover;">
+              </div>
+            `;
+        });
+        html += `
+          </div>
+          ${prop.imagenes.length > 1 ? `
+          <a class="carousel-control-prev" href="#carouselPropiedadModalInner" role="button" data-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="sr-only">Anterior</span>
+          </a>
+          <a class="carousel-control-next" href="#carouselPropiedadModalInner" role="button" data-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="sr-only">Siguiente</span>
+          </a>
+          ` : ''}
+        </div>
+        `;
+    } else {
+        html = '<p class="text-center">No hay imágenes disponibles.</p>';
+    }
+    document.getElementById('carousel-propiedad-modal').innerHTML = html;
+
+    // Mostrar el modal
+    $('#modalPropiedad').modal('show');
+}
 </script>
 {% endblock %}
 {% endblock %}

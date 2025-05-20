@@ -344,15 +344,11 @@ def propiedad_nuevo(request):
             # Guardar imágenes si se subieron
             imagenes = request.FILES.getlist('imagenes')
             for index, imagen in enumerate(imagenes):
-                try:
-                    ImagenPropiedad.objects.create(
-                        propiedad=propiedad,
-                        imagen=imagen,
-                        orden=index + 1
-                    )
-                except FileNotFoundError:
-                    # Opcional: puedes registrar el error si quieres
-                    pass
+                ImagenPropiedad.objects.create(
+                    propiedad=propiedad,
+                    imagen=imagen,
+                    orden=index + 1
+                )
             
             messages.success(request, 'Propiedad creada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
@@ -2021,24 +2017,43 @@ def ventas(request):
         info_venta__estado__in=['disponible', 'reservado']
     ).select_related('info_venta', 'sucursal')
 
-    # Aplicar filtros de búsqueda si existen
+    # Filtros destacados y avanzados
     busqueda = request.GET.get('busqueda', '')
+    estado = request.GET.get('estado', '')
+    ambientes = request.GET.get('ambientes', '')
+    tipo_inmueble = request.GET.get('tipo_inmueble', '')
+    ubicacion = request.GET.get('ubicacion', '')
+    vista = request.GET.get('vista', '')
+
     if busqueda:
         propiedades_venta = propiedades_venta.filter(
             Q(direccion__icontains=busqueda) |
             Q(id__icontains=busqueda)
         )
-
-    estado = request.GET.get('estado', '')
     if estado:
         propiedades_venta = propiedades_venta.filter(info_venta__estado=estado)
+    if ambientes:
+        propiedades_venta = propiedades_venta.filter(ambientes=ambientes)
+    if tipo_inmueble:
+        propiedades_venta = propiedades_venta.filter(tipo_inmueble=tipo_inmueble)
+    if ubicacion:
+        propiedades_venta = propiedades_venta.filter(ubicacion__icontains=ubicacion)
+    if vista:
+        propiedades_venta = propiedades_venta.filter(vista=vista)
+
+    # Importa los choices para los filtros avanzados
+    from inmobiliaria.models.propiedad import TIPOS_INMUEBLES, TIPOS_VISTA
 
     context = {
         'propiedades': propiedades_venta,
         'busqueda': busqueda,
         'estado_filtro': estado,
         'estados': VentaPropiedad.ESTADO_CHOICES,
+        'tipos_inmuebles': TIPOS_INMUEBLES,
+        'tipos_vista': TIPOS_VISTA,
         'telefono_empresa': '5492235916229',  # Reemplaza con tu número real
+        # request se pasa automáticamente, pero si lo necesitas explícito:
+        'request': request,
     }
     
     return render(request, 'inmobiliaria/propiedades/ventas.html', context)
