@@ -39,9 +39,9 @@
                 <div class="col-md-3">
                     <select class="form-select" name="ambientes">
                         <option value="">Todos los ambientes</option>
-                        {% for num in "1,2,3,4,5,6,7,8,9,10".split(',') %}
-                            <option value="{{ num }}" {% if request.GET.ambientes == num %}selected{% endif %}>
-                                {{ num }} ambiente{% if num|int > 1 %}s{% endif %}
+                        {% for num in ambientes_opciones %}
+                            <option value="{{ num }}" {% if request.GET.ambientes == num|stringformat:"s" %}selected{% endif %}>
+                                {{ num }} ambiente{% if num > 1 %}s{% endif %}
                             </option>
                         {% endfor %}
                     </select>
