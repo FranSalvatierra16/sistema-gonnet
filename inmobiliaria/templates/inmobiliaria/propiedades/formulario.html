@@ -100,7 +100,13 @@
         </div>
         <div class="row">
             <div class="col-md-6 mb-3">
-                {{ form.propietario.label_tag }} {{ form.propietario }}
+                {{ form.propietario.label_tag }} 
+                <div class="input-group">
+                    {{ form.propietario }}
+                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#nuevoPropietarioModal">
+                        <i class="fas fa-user-plus"></i> Nuevo
+                    </button>
+                </div>
                 {{ form.propietario.errors }}
             </div>
             <div class="col-md-6 mb-3">
@@ -174,28 +180,31 @@
     </form>
 </div>
 
-<!-- Modal para crear nuevo propietario -->
-<div id="modal-propietario" class="modal fade" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalPropietarioLabel">Agregar Nuevo Propietario</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="form-nuevo-propietario" method="post">
-                    {% csrf_token %}
-                    {{ propietario_form.as_p }}
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-                <button type="button" id="guardar-propietario-btn" data-dismiss="modal" class="btn btn-primary">Guardar Propietario</button>
-            </div>
+<!-- Modal para crear propietario -->
+<div class="modal fade" id="nuevoPropietarioModal" tabindex="-1" aria-labelledby="nuevoPropietarioModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{% url 'inmobiliaria:propietario_nuevo' %}" id="formNuevoPropietario">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="nuevoPropietarioModalLabel">Nuevo Propietario</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
+        <div class="modal-body">
+          {% for field in propietario_form %}
+            <div class="mb-3">
+              {{ field.label_tag }} {{ field }}
+              {{ field.errors }}
+            </div>
+          {% endfor %}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Crear Propietario</button>
+        </div>
+      </form>
     </div>
+  </div>
 </div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
