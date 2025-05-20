@@ -100,7 +100,7 @@
         </div>
         <div class="row">
             <div class="col-md-6 mb-3">
-                {{ form.propietario.label_tag }} 
+                {{ form.propietario.label_tag }}
                 <div class="input-group">
                     {{ form.propietario }}
                     <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#nuevoPropietarioModal">
@@ -339,34 +339,34 @@
             allowClear: true
         });
     });
-    </script>
-    <script>
-        $(document).ready(function() {
-            $('#guardar-propietario-btn').click(function() {
-                var form = $('#form-nuevo-propietario');
+</script>
+<script>
+    $(document).ready(function() {
+        $('#guardar-propietario-btn').click(function() {
+            var form = $('#form-nuevo-propietario');
     
-                $.ajax({
-                    type: form.attr('method'),
-                    url: form.attr('action'),  // O la URL a la que enviarás la solicitud
-                    data: form.serialize(),
-                    success: function(response) {
-                        if (response.success) {
-                            alert(response.mensaje);  // Mensaje de éxito
-                            $('#modal-propietario').modal('hide');  // Cierra el modal
-                            form[0].reset();  // Limpia el formulario
-                        } else {
-                            alert(response.mensaje);  // Mensaje de éxito
-                            $('#modal-propietario').modal('hide');  // Cierra el modal
-                            form[0].reset();  
-                        }
-                    },
-                    error: function(xhr, textStatus, errorThrown) {
-                        alert('Error en la solicitud: ' + errorThrown);
+            $.ajax({
+                type: form.attr('method'),
+                url: form.attr('action'),  // O la URL a la que enviarás la solicitud
+                data: form.serialize(),
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.mensaje);  // Mensaje de éxito
+                        $('#modal-propietario').modal('hide');  // Cierra el modal
+                        form[0].reset();  // Limpia el formulario
+                    } else {
+                        alert(response.mensaje);  // Mensaje de éxito
+                        $('#modal-propietario').modal('hide');  // Cierra el modal
+                        form[0].reset();  
                     }
-                });
+                },
+                error: function(xhr, textStatus, errorThrown) {
+                    alert('Error en la solicitud: ' + errorThrown);
+                }
             });
         });
-    </script>
+    });
+</script>
 
 <!-- Estilos para las imágenes -->
 <style>
