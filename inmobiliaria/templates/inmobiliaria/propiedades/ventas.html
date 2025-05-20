@@ -15,7 +15,7 @@
     <div class="card mb-4">
         <div class="card-body">
             <form method="get" class="row g-3">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="input-group">
                         <span class="input-group-text">
                             <i class="fas fa-search"></i>
@@ -25,7 +25,7 @@
                                value="{{ busqueda }}">
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <select class="form-select" name="estado">
                         <option value="">Todos los estados</option>
                         {% for value, label in estados %}
@@ -35,10 +35,38 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">
+                <!-- Filtro por ambientes (siempre visible) -->
+                <div class="col-md-3">
+                    <select class="form-select" name="ambientes">
+                        <option value="">Todos los ambientes</option>
+                        {% for num in "1,2,3,4,5,6,7,8,9,10".split(',') %}
+                            <option value="{{ num }}" {% if request.GET.ambientes == num %}selected{% endif %}>
+                                {{ num }} ambiente{% if num|int > 1 %}s{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="button" class="btn btn-link" id="btn-mas-filtros">
+                        <i class="fas fa-sliders-h"></i> Más filtros
+                    </button>
+                    <button type="submit" class="btn btn-primary ms-2">
                         <i class="fas fa-filter"></i> Filtrar
                     </button>
+                </div>
+                <!-- Filtros de características (oculto por defecto) -->
+                <div class="row mt-3" id="filtros-caracteristicas" style="display: none;">
+                    {% for caracteristica in "amoblado,cochera,tv_smart,wifi,dependencia,patio,parrilla,piscina,reciclado,a_estrenar,terraza,balcon,baulera,lavadero,seguridad,vista_al_Mar,vista_panoramica,apto_credito".split(',') %}
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="{{ caracteristica }}" id="id_{{ caracteristica }}"
+                                    {% if request.GET.caracteristica %}checked{% endif %}>
+                                <label class="form-check-label" for="id_{{ caracteristica }}">
+                                    {{ caracteristica|capfirst|replace:"_"," " }}
+                                </label>
+                            </div>
+                        </div>
+                    {% endfor %}
                 </div>
             </form>
         </div>
@@ -180,6 +208,16 @@ function mostrarModalReserva(propiedadId) {
     const modalBootstrap = new bootstrap.Modal(modal);
     modalBootstrap.show();
 }
+
+document.getElementById('btn-mas-filtros').onclick = function() {
+    var filtros = document.getElementById('filtros-caracteristicas');
+    if (filtros.style.display === "none") {
+        filtros.style.display = "flex";
+        filtros.style.flexWrap = "wrap";
+    } else {
+        filtros.style.display = "none";
+    }
+};
 </script>
 
 {% endblock %}
