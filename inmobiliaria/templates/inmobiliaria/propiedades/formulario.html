@@ -44,6 +44,11 @@
     <h2 class="form-title">{% if propiedad %}Editar{% else %}Nueva{% endif %} Propiedad</h2>
     <form method="post" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
         <div class="row">
             <div class="col-md-6 mb-3">
                 {{ form.id.label_tag }} {{ form.id }}
