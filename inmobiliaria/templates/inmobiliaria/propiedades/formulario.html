@@ -3,138 +3,108 @@
 
 {% block title %}{% if propiedad %}Editar{% else %}Nueva{% endif %} Propiedad{% endblock %}
 {% block content %}
-<style>
-    body {
-        /* Si tienes una imagen de fondo, puedes definirla aquí o en tu base.html */
-        /* background: url('/static/img/tu-fondo.jpg') no-repeat center center fixed; */
-        /* background-size: cover; */
-    }
-    .form-container {
-        background: rgba(255,255,255,0.92);
-        border-radius: 16px;
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
-        padding: 2.5rem 2rem;
-        max-width: 800px;
-        margin: 3rem auto;
-    }
-    .form-title {
-        font-weight: 700;
-        letter-spacing: 1px;
-        margin-bottom: 1.5rem;
-        text-align: center;
-        color: #2c3e50;
-    }
-    .form-label {
-        font-weight: 500;
-        color: #34495e;
-    }
-    .btn-primary {
-        width: 100%;
-        font-weight: 600;
-        letter-spacing: 1px;
-    }
-    .input-group .btn {
-        min-width: 120px;
-    }
-</style>
-
-<div class="form-container">
-    <h2 class="form-title">{% if propiedad %}Editar{% else %}Nueva{% endif %} Propiedad</h2>
-    <form method="post" enctype="multipart/form-data" novalidate>
+<div class="container-fluid">
+    <h1 class="mb-4">{% if propiedad %}Editar{% else %}Nueva{% endif %} Propiedad</h1>
+    
+    <!-- Formulario principal de la propiedad -->
+    <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        {% if form.non_field_errors %}
-            <div class="alert alert-danger">
-                {{ form.non_field_errors }}
-            </div>
-        {% endif %}
         <div class="row">
-            <div class="col-md-6 mb-3">
-                {{ form.id.label_tag }} {{ form.id }}
-                {% if form.id.help_text %}<small class="form-text text-muted">{{ form.id.help_text }}</small>{% endif %}
-                {{ form.id.errors }}
+            <!-- Información básica -->
+            <div class="col-md-6">
+                <h3>Información básica</h3>
+               
+                {% bootstrap_field form.id layout='horizontal' %}
+                {% bootstrap_field form.llave layout='horizontal' %}
+                
+
+                {% bootstrap_field form.direccion layout='horizontal' %}
+                {% bootstrap_field form.ubicacion layout='horizontal' %}
+                {% bootstrap_field form.tipo_inmueble layout='horizontal' %}
+                {% bootstrap_field form.vista layout='horizontal' %}
+                {% bootstrap_field form.piso layout='horizontal' %}
+                {% bootstrap_field form.departamento layout='horizontal' %}
+                {% bootstrap_field form.ambientes layout='horizontal' %}
+                {% bootstrap_field form.valoracion layout='horizontal' %}
             </div>
-            <div class="col-md-6 mb-3">
-                {{ form.llave.label_tag }} {{ form.llave }}
-                {% if form.llave.help_text %}<small class="form-text text-muted">{{ form.llave.help_text }}</small>{% endif %}
-                {{ form.llave.errors }}
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-8 mb-3">
-                {{ form.direccion.label_tag }} {{ form.direccion }}
-                {{ form.direccion.errors }}
-            </div>
-            <div class="col-md-4 mb-3">
-                {{ form.ubicacion.label_tag }} {{ form.ubicacion }}
-                {{ form.ubicacion.errors }}
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                {{ form.tipo_inmueble.label_tag }} {{ form.tipo_inmueble }}
-                {{ form.tipo_inmueble.errors }}
-            </div>
-            <div class="col-md-6 mb-3">
-                {{ form.vista.label_tag }} {{ form.vista }}
-                {{ form.vista.errors }}
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-4 mb-3">
-                {{ form.piso.label_tag }} {{ form.piso }}
-                {{ form.piso.errors }}
-            </div>
-            <div class="col-md-4 mb-3">
-                {{ form.departamento.label_tag }} {{ form.departamento }}
-                {{ form.departamento.errors }}
-            </div>
-            <div class="col-md-4 mb-3">
-                {{ form.ambientes.label_tag }} {{ form.ambientes }}
-                {{ form.ambientes.errors }}
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                {{ form.valoracion.label_tag }} {{ form.valoracion }}
-                {{ form.valoracion.errors }}
-            </div>
-            <div class="col-md-6 mb-3">
-                <label for="id_propietario" class="form-label">Propietario</label>
-                <div class="input-group">
+            
+            <!-- Información del propietario -->
+            <div class="col-md-6">
+                <h3>Propietario</h3>
+                <div class="form-group">
+                    <label for="id_propietario">Seleccionar Propietario:</label>
                     {{ form.propietario }}
-                    <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#modal-propietario">
-                        <i class="fas fa-user-plus"></i> Nuevo
-                    </button>
                 </div>
-                {{ form.propietario.errors }}
+                
+                <!-- <div class="form-check">
+                    {{ form.nuevo_propietario }}
+                    <label class="form-check-label" for="id_nuevo_propietario">Crear nuevo propietario<
+                        /label>
+                </div> -->
+                
+                <div id="nuevo-propietario-fields">
+                    <!-- Botón para abrir el modal de crear propietario -->
+                    <button id="abrir-modal-propietario-btn" type="button" class="btn btn-success" data-toggle="modal" data-target="#modal-propietario">Crear Nuevo Propietario</button>
+                </div>
             </div>
+            
+  
         </div>
-        <div class="row">
-            <div class="col-md-12 mb-3">
-                <label for="id_imagenes" class="form-label">Imágenes</label>
-                <input type="file" name="imagenes" id="id_imagenes" multiple>
-                <small class="form-text text-muted">Puede seleccionar varias imágenes</small>
-            </div>
-        </div>
-        <!-- Aquí puedes agregar la previsualización de imágenes si lo deseas -->
-        <div class="row">
-            <div class="col-md-12 mb-3">
-                {{ form.descripcion.label_tag }} {{ form.descripcion }}
-                {{ form.descripcion.errors }}
-            </div>
-        </div>
-        <!-- Características booleanas -->
-        <div class="row">
+        
+        <!-- Imágenes -->
+        <div class="row mt-4">
             <div class="col-md-12">
-                <label class="form-label">Características</label>
+                <h3>Imágenes de la Propiedad</h3>
+                
+                <!-- Input para subir imágenes -->
+                <div class="form-group mb-4">
+                    <label for="id_imagenes" class="form-label">Agregar nuevas imágenes:</label>
+                    <input type="file" id="id_imagenes" name="imagenes" multiple accept="image/*" class="form-control">
+                    <small class="text-muted">Puede seleccionar múltiples imágenes</small>
+                </div>
+
+                <!-- Contenedor de imágenes existentes -->
+                <div class="row" id="imagenes-container">
+                    {% for imagen in imagenes %}
+                    <div class="col-md-3 mb-4">
+                        <div class="imagen-item card" data-id="{{ imagen.id }}">
+                            <div class="position-relative">
+                                <img src="{{ imagen.imagen.url }}" 
+                                     class="card-img-top" 
+                                     style="height: 200px; object-fit: cover;"
+                                     onerror="this.src='/static/images/placeholder.jpg'">
+                                <button type="button" 
+                                        class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 eliminar-imagen" 
+                                        data-imagen-id="{{ imagen.id }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                <div class="position-absolute bottom-0 start-0 w-100 p-2 bg-dark bg-opacity-50">
+                                    <span class="text-white">
+                                        <i class="fas fa-arrows-alt me-2"></i>
+                                        Orden: {{ imagen.orden }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Características -->
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <h3>Características</h3>
                 <div class="row">
                     {% for field in form %}
                         {% if field.field.widget.input_type == 'checkbox' and field.name not in 'habilitar_precio_diario,habilitar_precio_venta,habilitar_precio_alquiler' %}
-                            <div class="col-6 col-md-4 mb-2">
+                            <div class="col-md-3 mb-2">
                                 <div class="form-check">
-                                    {{ field }} {{ field.label_tag }}
+                                    {{ field }}
+                                    <label class="form-check-label" for="{{ field.id_for_label }}">
+                                        {{ field.label }}
+                                    </label>
                                 </div>
                             </div>
                         {% endif %}
@@ -142,44 +112,59 @@
                 </div>
             </div>
         </div>
-        <button type="submit" class="btn btn-primary mt-3">Guardar Propiedad</button>
-    </form>
-</div>
-
-<!-- Modal para crear propietario -->
-<div class="modal fade" id="modal-propietario" tabindex="-1" aria-labelledby="modalPropietarioLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <form method="post" action="{% url 'inmobiliaria:crear_propietario_ajax' %}" id="form-nuevo-propietario">
-        {% csrf_token %}
-        <div class="modal-header">
-          <h5 class="modal-title" id="modalPropietarioLabel">Agregar Nuevo Propietario</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-        </div>
-        <div class="modal-body">
-          {% for field in propietario_form %}
-            <div class="mb-3">
-              {{ field.label_tag }} {{ field }}
-              {{ field.errors }}
+        
+        <!-- Descripción -->
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <h3>Descripción</h3>
+                {% bootstrap_field form.descripcion %}
             </div>
-          {% endfor %}
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary" id="guardar-propietario-btn">Guardar Propietario</button>
+        
+        <!-- Botón para guardar -->
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
         </div>
-      </form>
+    </form>
+
+    <!-- Modal para crear nuevo propietario -->
+
+<!-- Modal para agregar propietario -->
+<div id="modal-propietario" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalPropietarioLabel">Agregar Nuevo Propietario</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="form-nuevo-propietario" method="post">
+                    {% csrf_token %}
+                    {{ propietario_form.as_p }}
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" id="guardar-propietario-btn" data-dismiss="modal" class="btn btn-primary">Guardar Propietario</button>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 
-<!-- SCRIPTS -->
+
+
+
+</div>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
     $(document).ready(function() {
-        // Tu script original para crear propietario
         const guardarPropietarioBtn = $('#guardar-propietario-btn');
         
         function resetearBoton() {
@@ -199,13 +184,16 @@
         guardarPropietarioBtn.click(function(e) {
             e.preventDefault();
             
+            // Verificar si el botón está en estado de carga
             if ($(this).hasClass('loading')) {
                 return false;
             }
 
+            // Limpiar errores previos
             $('.is-invalid').removeClass('is-invalid');
             $('.invalid-feedback').remove();
             
+            // Mostrar estado de carga
             mostrarBotonCargando();
             
             var formData = $('#form-nuevo-propietario').serialize();
@@ -217,7 +205,9 @@
                 dataType: 'json'
             })
             .done(function(response) {
+                console.log(response); // Verificar la respuesta del servidor
                 if (response.success) {
+                    // Crear nueva opción para el select
                     var newOption = new Option(
                         response.propietario_nombre,
                         response.propietario_id,
@@ -225,19 +215,26 @@
                         true
                     );
                     $('#id_propietario').append(newOption).trigger('change');
+                    
+                    // Limpiar formulario y cerrar modal
                     $('#form-nuevo-propietario')[0].reset();
                     $('#modal-propietario').modal('hide');
+                    
+                    // Mostrar mensaje de éxito
                     alert('Propietario creado exitosamente');
                 } else {
+                    // Mostrar errores en los campos
                     if (response.errors) {
                         Object.keys(response.errors).forEach(function(fieldName) {
                             const field = $('#id_' + fieldName);
                             field.addClass('is-invalid');
+                            
                             const errorDiv = $('<div>')
                                 .addClass('invalid-feedback d-block')
                                 .text(response.errors[fieldName].join(', '));
                             field.after(errorDiv);
                         });
+                        
                         alert('Por favor, complete todos los campos requeridos');
                     } else {
                         alert(response.error || 'Error al crear el propietario');
@@ -248,10 +245,12 @@
                 alert('Error en la solicitud: ' + error);
             })
             .always(function() {
+                // Siempre restaurar el botón, sin importar el resultado
                 resetearBoton();
             });
         });
 
+        // Limpiar validaciones al cerrar el modal
         $('#modal-propietario').on('hidden.bs.modal', function () {
             $('#form-nuevo-propietario')[0].reset();
             $('.is-invalid').removeClass('is-invalid');
@@ -259,14 +258,17 @@
             resetearBoton();
         });
 
+        // Prevenir múltiples envíos
         $('#form-nuevo-propietario').on('submit', function(e) {
             e.preventDefault();
             if (!guardarPropietarioBtn.hasClass('loading')) {
                 guardarPropietarioBtn.click();
             }
         });
-
-        // Inicialización de Select2 para propietario
+    });
+</script>
+<script>
+    $(document).ready(function() {
         $('.select2-propietario').select2({
             ajax: {
                 url: '{% url "inmobiliaria:buscar_propietarios" %}',
@@ -290,5 +292,218 @@
             allowClear: true
         });
     });
+    </script>
+    <script>
+        $(document).ready(function() {
+            $('#guardar-propietario-btn').click(function() {
+                var form = $('#form-nuevo-propietario');
+    
+                $.ajax({
+                    type: form.attr('method'),
+                    url: form.attr('action'),  // O la URL a la que enviarás la solicitud
+                    data: form.serialize(),
+                    success: function(response) {
+                        if (response.success) {
+                            alert(response.mensaje);  // Mensaje de éxito
+                            $('#modal-propietario').modal('hide');  // Cierra el modal
+                            form[0].reset();  // Limpia el formulario
+                        } else {
+                            alert(response.mensaje);  // Mensaje de éxito
+                            $('#modal-propietario').modal('hide');  // Cierra el modal
+                            form[0].reset();  
+                        }
+                    },
+                    error: function(xhr, textStatus, errorThrown) {
+                        alert('Error en la solicitud: ' + errorThrown);
+                    }
+                });
+            });
+        });
+    </script>
+
+<!-- Estilos para las imágenes -->
+<style>
+.imagen-item {
+    cursor: move;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.imagen-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+.imagen-item.dragging {
+    opacity: 0.5;
+    border: 2px dashed #007bff;
+}
+
+.eliminar-imagen {
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.imagen-item:hover .eliminar-imagen {
+    opacity: 1;
+}
+</style>
+
+<!-- Scripts para el manejo de imágenes -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('imagenes-container');
+    
+    // Inicializar Sortable con opciones mejoradas
+    new Sortable(container, {
+        animation: 150,
+        ghostClass: 'dragging',
+        onEnd: function(evt) {
+            const item = evt.item;
+            const newIndex = evt.newIndex;
+            const oldIndex = evt.oldIndex;
+            
+            if (newIndex !== oldIndex) {
+                const ordenData = [];
+                // Solo actualizar las dos imágenes involucradas en el intercambio
+                const items = container.querySelectorAll('.imagen-item');
+                items.forEach((el, index) => {
+                    if (index === newIndex || index === oldIndex) {
+                        ordenData.push({
+                            id: el.dataset.id,
+                            orden: index + 1
+                        });
+                    }
+                });
+                
+                actualizarOrdenImagenes(ordenData);
+            }
+        }
+    });
+
+    // Función mejorada para actualizar orden
+    function actualizarOrdenImagenes(ordenData) {
+        fetch('{% url "inmobiliaria:actualizar_orden_imagenes" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({ imagenes: ordenData })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Actualizar solo los números de orden de las imágenes afectadas
+                ordenData.forEach(item => {
+                    const imagen = document.querySelector(`.imagen-item[data-id="${item.id}"]`);
+                    if (imagen) {
+                        imagen.querySelector('.text-white').innerHTML = 
+                            `<i class="fas fa-arrows-alt me-2"></i>Orden: ${item.orden}`;
+                    }
+                });
+            } else {
+                console.error('Error al actualizar el orden:', data.error);
+                alert('Error al actualizar el orden de las imágenes');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al actualizar el orden de las imágenes');
+        });
+    }
+
+    // Mejorar el manejo de eliminación de imágenes
+    container.addEventListener('click', function(e) {
+        const deleteBtn = e.target.closest('.eliminar-imagen');
+        if (deleteBtn) {
+            const imagenId = deleteBtn.dataset.imagenId;
+            if (confirm('¿Está seguro de que desea eliminar esta imagen?')) {
+                eliminarImagen(imagenId);
+            }
+        }
+    });
+
+    function eliminarImagen(imagenId) {
+        fetch('{% url "inmobiliaria:eliminar_imagen" %}?imagen_id=' + imagenId, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const imagenElement = document.querySelector(`.imagen-item[data-id="${imagenId}"]`).closest('.col-md-3');
+                imagenElement.remove();
+                
+                // Actualizar el orden de las imágenes restantes
+                const items = container.querySelectorAll('.imagen-item');
+                items.forEach((item, index) => {
+                    item.querySelector('.text-white').innerHTML = 
+                        `<i class="fas fa-arrows-alt me-2"></i>Orden: ${index + 1}`;
+                });
+            } else {
+                console.error('Error al eliminar la imagen:', data.error);
+                alert('Error al eliminar la imagen');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al eliminar la imagen');
+        });
+    }
+
+    // Prevenir duplicados al subir imágenes
+    const inputImagenes = document.querySelector('input[name="imagenes"]');
+    inputImagenes.addEventListener('change', function(e) {
+        const files = Array.from(this.files);
+        const existingImages = Array.from(document.querySelectorAll('.imagen-item img'))
+            .map(img => img.src.split('/').pop());
+
+        const duplicados = files.filter(file => 
+            existingImages.includes(file.name));
+
+        if (duplicados.length > 0) {
+            alert('Algunas imágenes ya existen y no se subirán nuevamente');
+            // Limpiar el input
+            this.value = '';
+        }
+    });
+});
 </script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const propietarioSelect = document.querySelector('#id_propietario');
+    const idField = document.querySelector('#id_id');  // Campo ID de la propiedad
+    
+    // Si estamos en modo edición (la propiedad ya existe)
+    if (idField && idField.value) {
+        idField.readOnly = true;  // Hacer el campo de solo lectura
+        idField.style.backgroundColor = '#e9ecef';  // Fondo gris claro para indicar que no es editable
+    }
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!propietarioSelect.value) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Debe seleccionar un propietario',
+                confirmButtonColor: '#3085d6',
+            });
+            return false;
+        }
+        
+        form.submit();
+    });
+});
+</script>
+
+<!-- Asegúrate de incluir SweetAlert2 en el head del template -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 {% endblock %}
