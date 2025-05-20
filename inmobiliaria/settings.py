@@ -55,3 +55,9 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
 
 DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+
+DATABASES = {
+    'default': {
+        'CONN_MAX_AGE': 60,  # o 0 para cerrar cada vez, pero 60 es razonable
+    }
+}
