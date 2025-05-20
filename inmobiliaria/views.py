@@ -499,8 +499,7 @@ def crear_propietario_ajax(request):
         form = PropietarioForm(request.POST, user=request.user)
         if form.is_valid():
             propietario = form.save()
-            print('Propietario creado exitosamente.')
-            print('Propietario', propietario)
+           
             messages.success(request, 'Propietario creado exitosamente.')
 
             return JsonResponse({

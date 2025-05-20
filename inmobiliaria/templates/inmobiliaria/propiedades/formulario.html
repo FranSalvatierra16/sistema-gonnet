@@ -184,7 +184,7 @@
 <div class="modal fade" id="nuevoPropietarioModal" tabindex="-1" aria-labelledby="nuevoPropietarioModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
-      <form method="post" action="{% url 'inmobiliaria:propietario_nuevo' %}" id="formNuevoPropietario">
+      <form method="post" action="{% url 'inmobiliaria:crear_propietario_ajax' %}" id="formNuevoPropietario">
         {% csrf_token %}
         <div class="modal-header">
           <h5 class="modal-title" id="nuevoPropietarioModalLabel">Nuevo Propietario</h5>
@@ -568,8 +568,8 @@ $(function() {
                     // Agregar el nuevo propietario al select
                     var $select = $('#id_propietario');
                     $select.append($('<option>', {
-                        value: data.id,
-                        text: data.nombre,
+                        value: data.propietario_id,
+                        text: data.propietario_nombre,
                         selected: true
                     }));
                     // Cerrar el modal
@@ -579,7 +579,6 @@ $(function() {
                 }
             },
             error: function(xhr) {
-                // Puedes mostrar los errores en el modal si quieres
                 alert('Error al crear propietario. Verifica los datos.');
             }
         });
