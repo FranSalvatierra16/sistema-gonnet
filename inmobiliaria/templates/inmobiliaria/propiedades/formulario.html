@@ -3,87 +3,58 @@
 
 {% block title %}{% if propiedad %}Editar{% else %}Nueva{% endif %} Propiedad{% endblock %}
 {% block content %}
-<div class="container-fluid">
-    <h1 class="mb-4">{% if propiedad %}Editar{% else %}Nueva{% endif %} Propiedad</h1>
-    
-    <!-- Formulario principal de la propiedad -->
+<div class="container mt-5">
+    <h2>{{ titulo }}</h2>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
+        
+        <!-- Datos principales -->
         <div class="row">
-            <!-- Información básica -->
-            <div class="col-md-6">
-                <h3>Información básica</h3>
-               
-                {% bootstrap_field form.id layout='horizontal' %}
-                {% bootstrap_field form.llave layout='horizontal' %}
-                
-
-                {% bootstrap_field form.direccion layout='horizontal' %}
-                {% bootstrap_field form.ubicacion layout='horizontal' %}
-                {% bootstrap_field form.tipo_inmueble layout='horizontal' %}
-                {% bootstrap_field form.vista layout='horizontal' %}
-                {% bootstrap_field form.piso layout='horizontal' %}
-                {% bootstrap_field form.departamento layout='horizontal' %}
-                {% bootstrap_field form.ambientes layout='horizontal' %}
-                {% bootstrap_field form.valoracion layout='horizontal' %}
-            </div>
-            
-            <!-- Información del propietario -->
-            <div class="col-md-6">
-                <h3>Propietario</h3>
-                <div class="form-group">
-                    <label for="id_propietario">Seleccionar Propietario:</label>
-                    {{ form.propietario }}
-                </div>
-                
-                <!-- <div class="form-check">
-                    {{ form.nuevo_propietario }}
-                    <label class="form-check-label" for="id_nuevo_propietario">Crear nuevo propietario<
-                        /label>
-                </div> -->
-                
-                <div id="nuevo-propietario-fields">
-                    <!-- Botón para abrir el modal de crear propietario -->
-                    <button id="abrir-modal-propietario-btn" type="button" class="btn btn-success" data-toggle="modal" data-target="#modal-propietario">Crear Nuevo Propietario</button>
+            <div class="col-md-3">{% bootstrap_field form.id %}</div>
+            <div class="col-md-3">{% bootstrap_field form.llave %}</div>
+            <div class="col-md-3">{% bootstrap_field form.direccion %}</div>
+            <div class="col-md-3">{% bootstrap_field form.ubicacion %}</div>
+        </div>
+        <div class="row mt-3">
+            <div class="col-md-3">{% bootstrap_field form.tipo_inmueble %}</div>
+            <div class="col-md-3">{% bootstrap_field form.vista %}</div>
+            <div class="col-md-3">{% bootstrap_field form.piso %}</div>
+            <div class="col-md-3">{% bootstrap_field form.departamento %}</div>
+        </div>
+        <div class="row mt-3">
+            <div class="col-md-4">{% bootstrap_field form.ambientes %}</div>
+            <div class="col-md-4">{% bootstrap_field form.valoracion %}</div>
+            <div class="col-md-4">
+                <label>Propietario</label>
+                <div class="input-group">
+                    {{ form.propietario|add_class:"select2-propietario form-control" }}
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#modal-propietario">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
-            
-  
         </div>
         
         <!-- Imágenes -->
         <div class="row mt-4">
             <div class="col-md-12">
-                <h3>Imágenes de la Propiedad</h3>
-                
-                <!-- Input para subir imágenes -->
-                <div class="form-group mb-4">
-                    <label for="id_imagenes" class="form-label">Agregar nuevas imágenes:</label>
-                    <input type="file" id="id_imagenes" name="imagenes" multiple accept="image/*" class="form-control">
-                    <small class="text-muted">Puede seleccionar múltiples imágenes</small>
-                </div>
-
-                <!-- Contenedor de imágenes existentes -->
-                <div class="row" id="imagenes-container">
-                    {% for imagen in imagenes %}
-                    <div class="col-md-3 mb-4">
-                        <div class="imagen-item card" data-id="{{ imagen.id }}">
-                            <div class="position-relative">
-                                <img src="{{ imagen.imagen.url }}" 
-                                     class="card-img-top" 
-                                     style="height: 200px; object-fit: cover;"
-                                     onerror="this.src='/static/images/placeholder.jpg'">
-                                <button type="button" 
-                                        class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 eliminar-imagen" 
-                                        data-imagen-id="{{ imagen.id }}">
+                <label for="id_imagenes">Imágenes</label>
+                <input type="file" name="imagenes" id="id_imagenes" class="form-control" multiple>
+                <div id="imagenes-container" class="row mt-3">
+                    {% for imagen in imagenes_propiedad %}
+                    <div class="col-md-3 mb-3">
+                        <div class="card imagen-item" data-id="{{ imagen.id }}">
+                            <img src="{{ imagen.imagen.url }}" class="card-img-top" alt="Imagen">
+                            <div class="card-body p-2">
+                                <button type="button" class="btn btn-danger btn-sm eliminar-imagen" data-imagen-id="{{ imagen.id }}">
                                     <i class="fas fa-trash"></i>
                                 </button>
-                                <div class="position-absolute bottom-0 start-0 w-100 p-2 bg-dark bg-opacity-50">
-                                    <span class="text-white">
-                                        <i class="fas fa-arrows-alt me-2"></i>
-                                        Orden: {{ imagen.orden }}
-                                    </span>
-                                </div>
+                                <span class="text-white">
+                                    <i class="fas fa-arrows-alt me-2"></i>
+                                    Orden: {{ imagen.orden }}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -130,34 +101,28 @@
     </form>
 
     <!-- Modal para crear nuevo propietario -->
-
-<!-- Modal para agregar propietario -->
-<div id="modal-propietario" class="modal fade" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalPropietarioLabel">Agregar Nuevo Propietario</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="form-nuevo-propietario" method="post">
-                    {% csrf_token %}
-                    {{ propietario_form.as_p }}
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-                <button type="button" id="guardar-propietario-btn" data-dismiss="modal" class="btn btn-primary">Guardar Propietario</button>
+    <div id="modal-propietario" class="modal fade" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalPropietarioLabel">Agregar Nuevo Propietario</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-nuevo-propietario" method="post">
+                        {% csrf_token %}
+                        {{ propietario_form.as_p }}
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                    <button type="button" id="guardar-propietario-btn" data-dismiss="modal" class="btn btn-primary">Guardar Propietario</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
-
-
-
-
 </div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

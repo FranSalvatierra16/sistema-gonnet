@@ -344,11 +344,15 @@ def propiedad_nuevo(request):
             # Guardar imágenes si se subieron
             imagenes = request.FILES.getlist('imagenes')
             for index, imagen in enumerate(imagenes):
-                ImagenPropiedad.objects.create(
-                    propiedad=propiedad,
-                    imagen=imagen,
-                    orden=index + 1
-                )
+                try:
+                    ImagenPropiedad.objects.create(
+                        propiedad=propiedad,
+                        imagen=imagen,
+                        orden=index + 1
+                    )
+                except FileNotFoundError:
+                    # Opcional: puedes registrar el error si quieres
+                    pass
             
             messages.success(request, 'Propiedad creada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
