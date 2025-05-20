@@ -340,10 +340,20 @@ def propiedad_nuevo(request):
         propietario_form = PropietarioForm(user=request.user)
         if form.is_valid():
             propiedad = form.save()
+            
+            # Guardar imágenes si se subieron
+            imagenes = request.FILES.getlist('imagenes')
+            for index, imagen in enumerate(imagenes):
+                ImagenPropiedad.objects.create(
+                    propiedad=propiedad,
+                    imagen=imagen,
+                    orden=index + 1
+                )
+            
             messages.success(request, 'Propiedad creada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
-        form = PropiedadForm(user=request.user)  # <-- ¡Agrega user=request.user!
+        form = PropiedadForm(user=request.user)
         propietario_form = PropietarioForm(user=request.user)
     
     return render(request, 'inmobiliaria/propiedades/formulario.html', {
