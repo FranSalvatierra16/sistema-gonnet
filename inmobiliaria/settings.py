@@ -1,5 +1,4 @@
 import os
-import dj_database_url
 
 # Configuración de sesión
 SESSION_COOKIE_AGE = 600  # 10 minutos en segundos
@@ -46,17 +45,5 @@ DEBUG = False  # Asegúrate de que esté en False en producción
 INSTALLED_APPS = [
     # ... otras apps ...
     'django.contrib.humanize',
-    'storages',
     # ... resto de las apps ...
 ]
-
-FILE_UPLOAD_MAX_MEMORY_SIZE = 26214400  # 25 MB
-
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-MEDIA_URL = '/media/'
-
-DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
-
-DATABASES = {
-    'default': dj_database_url.parse(os.environ.get('JAWSDB_NAVY_URL'))
-}
