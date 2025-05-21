@@ -5,6 +5,8 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import Q
 from django.utils.timezone import now
 from django.conf import settings
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 
 import datetime
 from .persona import Propietario, Inquilino, Vendedor
@@ -112,6 +114,7 @@ class Propiedad(models.Model):
     propietario = models.ForeignKey(Propietario, on_delete=models.CASCADE, related_name='propiedades')  
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='propiedades')# Cambiado a obligatorio
     llave = models.IntegerField(unique=True, null=True, blank=True, verbose_name="Número de llave")
+    numero_por_propietario = models.PositiveIntegerField(editable=False)
     
     # Resto del código permanece igual
     
@@ -246,11 +249,14 @@ class Propiedad(models.Model):
     #         raise ValidationError(_('Debe ingresar un precio de alquiler si está habilitado.'))
 
     def save(self, *args, **kwargs):
-        creating = self._state.adding 
-        is_new = self._state.adding# Detectar si es una creación
+        if not self.pk:  # Solo al crear
+            max_num = Propiedad.objects.filter(propietario=self.propietario).aggregate(
+                max_num=models.Max('numero_por_propietario')
+            )['max_num'] or 0
+            self.numero_por_propietario = max_num + 1
         super().save(*args, **kwargs)
     
-        if creating:
+        if self._state.adding:
             self.crear_precios_iniciales()
       
 
@@ -792,3 +798,11 @@ class AlquilerMeses(models.Model):
     class Meta:
         verbose_name = "Alquiler 24 meses"
         verbose_name_plural = "Alquileres 24 meses"
+
+@receiver(post_delete, sender=Propiedad)
+def reordenar_numeros_por_propietario(sender, instance, **kwargs):
+    propiedades = Propiedad.objects.filter(propietario=instance.propietario).order_by('numero_por_propietario')
+    for idx, propiedad in enumerate(propiedades, start=1):
+        if propiedad.numero_por_propietario != idx:
+            propiedad.numero_por_propietario = idx
+            propiedad.save(update_fields=['numero_por_propietario'])
