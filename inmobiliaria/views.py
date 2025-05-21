@@ -343,11 +343,14 @@ def propiedad_nuevo(request):
             # Procesar imágenes
             imagenes = request.FILES.getlist('imagenes')
             for index, imagen in enumerate(imagenes):
-                ImagenPropiedad.objects.create(
-                    propiedad=propiedad,
-                    imagen=imagen,
-                    orden=index + 1
-                )
+                try:
+                    ImagenPropiedad.objects.create(
+                        propiedad=propiedad,
+                        imagen=imagen,
+                        orden=index + 1
+                    )
+                except Exception:
+                    continue  # Si una imagen falla, sigue con las demás
             messages.success(request, 'Propiedad creada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
