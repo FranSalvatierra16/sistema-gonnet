@@ -255,16 +255,17 @@ class Propiedad(models.Model):
     #         raise ValidationError(_('Debe ingresar un precio de alquiler si está habilitado.'))
 
     def save(self, *args, **kwargs):
-        # Solo si el objeto es nuevo y aún no se asignó el número
-        if self.pk is None and self.numero_por_propietario in (None, 0):
+        # SI el número no está asignado, calcúlalo (independiente del pk)
+        if self.numero_por_propietario in (None, 0):
             with transaction.atomic():
                 ultimo = (
                     Propiedad.objects
                     .filter(propietario=self.propietario)
-                    .select_for_update()        # bloquea las filas del mismo propietario
-                    .aggregate(n=Max("numero_por_propietario"))
-                )["n"] or 0
+                    .select_for_update()
+                    .aggregate(m=Max("numero_por_propietario"))
+                )["m"] or 0
                 self.numero_por_propietario = ultimo + 1
+
         super().save(*args, **kwargs)
     
         if self._state.adding:
