@@ -2744,18 +2744,23 @@ def propiedades_propietario(request, propietario_id):
 
 @require_POST
 def imagen_eliminar(request, imagen_id):
-    imagen = get_object_or_404(ImagenPropiedad, id=imagen_id)
+    """
+    Elimina una imagen (botón rojo). Devuelve JSON {success: True}
+    """
+    imagen = get_object_or_404(ImagenPropiedad, pk=imagen_id)
     imagen.delete()
     return JsonResponse({"success": True})
 
 
 @require_POST
 def reordenar_imagenes(request, propiedad_id):
+    """
+    Recibe via AJAX la lista nueva de órdenes y actualiza la BD.
+    """
     ordenes = json.loads(request.POST.get("ordenes", "[]"))
     with transaction.atomic():
         for item in ordenes:
             ImagenPropiedad.objects.filter(
-                id=item["id"],
-                propiedad_id=propiedad_id
+                pk=item["id"], propiedad_id=propiedad_id
             ).update(orden=item["orden"])
     return JsonResponse({"success": True})

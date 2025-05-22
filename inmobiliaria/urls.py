@@ -137,4 +137,11 @@ urlpatterns = [
         views.buscar_propietarios,
         name="buscar_propietarios",
     ),
+    path("propiedades/nuevo/",               views.propiedad_nuevo,       name="propiedad_nuevo"),
+    path("propiedades/<int:propiedad_id>/editar/",
+         views.propiedad_editar,             name="propiedad_editar"),
+    path("imagenes/<int:imagen_id>/eliminar/",
+         views.imagen_eliminar,              name="imagen_eliminar"),
+    path("propiedades/<int:propiedad_id>/reordenar-imagenes/",
+         views.reordenar_imagenes,           name="reordenar_imagenes"),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
