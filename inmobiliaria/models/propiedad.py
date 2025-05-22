@@ -2,7 +2,7 @@ from django.db import models, transaction
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db.models import Q
+from django.db.models import Q, Max
 from django.utils.timezone import now
 from django.conf import settings
 from django.db.models.signals import post_delete
@@ -114,7 +114,7 @@ class Propiedad(models.Model):
     propietario = models.ForeignKey(Propietario, on_delete=models.CASCADE, related_name='propiedades')  
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='propiedades')# Cambiado a obligatorio
     llave = models.IntegerField(unique=True, null=True, blank=True, verbose_name="Número de llave")
-    numero_por_propietario = models.PositiveIntegerField(editable=False)
+    numero_por_propietario = models.PositiveIntegerField()
     
     # Resto del código permanece igual
     
@@ -200,6 +200,12 @@ class Propiedad(models.Model):
     class Meta:
         verbose_name = "Propiedad"
         verbose_name_plural = "Propiedades"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["propietario", "numero_por_propietario"],
+                name="unique_num_x_prop"
+            )
+        ]
 
     def __str__(self):
         return f"{self.id} - {self.direccion}"
@@ -249,11 +255,16 @@ class Propiedad(models.Model):
     #         raise ValidationError(_('Debe ingresar un precio de alquiler si está habilitado.'))
 
     def save(self, *args, **kwargs):
-        if not self.pk:  # Solo al crear
-            max_num = Propiedad.objects.filter(propietario=self.propietario).aggregate(
-                max_num=models.Max('numero_por_propietario')
-            )['max_num'] or 0
-            self.numero_por_propietario = max_num + 1
+        # Solo si el objeto es nuevo y aún no se asignó el número
+        if self.pk is None and self.numero_por_propietario in (None, 0):
+            with transaction.atomic():
+                ultimo = (
+                    Propiedad.objects
+                    .filter(propietario=self.propietario)
+                    .select_for_update()        # bloquea las filas del mismo propietario
+                    .aggregate(n=Max("numero_por_propietario"))
+                )["n"] or 0
+                self.numero_por_propietario = ultimo + 1
         super().save(*args, **kwargs)
     
         if self._state.adding:

@@ -198,7 +198,7 @@ class PropiedadForm(forms.ModelForm):
 
     class Meta:
         model = Propiedad
-         # Excluir el campo 'id' para que no sea editable
+        exclude = ("numero_por_propietario",)
         fields = [
             'id', 'llave', 'direccion', 'ubicacion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
 
