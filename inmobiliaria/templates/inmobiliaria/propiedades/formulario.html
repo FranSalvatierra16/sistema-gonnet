@@ -142,6 +142,52 @@
                 </div>
             </div>
         </div>
+        <!-- -------------  IMÁGENES DE LA PROPIEDAD ------------- -->
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <h3>Imágenes de la Propiedad</h3>
+
+                <!-- Input para subir imágenes nuevas -->
+                <div class="form-group mb-4">
+                    <label for="id_imagenes" class="form-label">Agregar nuevas imágenes:</label>
+                    <input type="file"
+                           id="id_imagenes"
+                           name="imagenes"
+                           multiple
+                           accept="image/*"
+                           class="form-control">
+                    <small class="text-muted">Puede seleccionar múltiples imágenes</small>
+                </div>
+
+                <!-- Contenedor de imágenes existentes -->
+                <div class="row" id="imagenes-container">
+                    {% for imagen in imagenes %}
+                    <div class="col-md-3 mb-4 imagen-item card" data-id="{{ imagen.id }}">
+                        <div class="position-relative">
+                            <img src="{{ imagen.imagen.url }}"
+                                 class="card-img-top"
+                                 style="height: 200px; object-fit: cover;"
+                                 onerror="this.src='/static/images/placeholder.jpg'">
+                            <!-- Botón eliminar -->
+                            <button type="button"
+                                    class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 eliminar-imagen"
+                                    data-imagen-id="{{ imagen.id }}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            <!-- Indicador de orden + manija drag -->
+                            <div class="position-absolute bottom-0 start-0 w-100 p-2 bg-dark bg-opacity-50">
+                                <span class="text-white">
+                                    <i class="fas fa-arrows-alt me-2 cursor-grab"></i>
+                                    Orden: {{ imagen.orden }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <!-- ----------------------------------------------------- -->
         <button type="submit" class="btn btn-primary mt-3">Guardar Propiedad</button>
     </form>
 </div>

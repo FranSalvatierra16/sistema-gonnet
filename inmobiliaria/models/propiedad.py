@@ -320,9 +320,13 @@ class Propiedad(models.Model):
         self.save()
 
 class ImagenPropiedad(models.Model):
-    propiedad = models.ForeignKey(Propiedad, related_name='imagenes', on_delete=models.CASCADE)
+    propiedad = models.ForeignKey(
+        Propiedad, 
+        on_delete=models.CASCADE,
+        related_name='imagenes_propiedad'
+    )
     imagen = models.ImageField(upload_to='propiedades/')
-    orden = models.PositiveIntegerField(default=1)
+    orden = models.IntegerField(default=0)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -332,7 +336,6 @@ class ImagenPropiedad(models.Model):
 
     def __str__(self):
         return f"Imagen {self.orden} de {self.propiedad}"
-
 
 class Reserva(models.Model):
     propiedad = models.ForeignKey(Propiedad, on_delete=models.CASCADE, related_name='reservas')

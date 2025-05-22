@@ -343,14 +343,11 @@ def propiedad_nuevo(request):
             # Procesar imágenes
             imagenes = request.FILES.getlist('imagenes')
             for index, imagen in enumerate(imagenes):
-                try:
-                    ImagenPropiedad.objects.create(
-                        propiedad=propiedad,
-                        imagen=imagen,
-                        orden=index + 1
-                    )
-                except Exception:
-                    continue  # Si una imagen falla, sigue con las demás
+                ImagenPropiedad.objects.create(
+                    propiedad=propiedad,
+                    imagen=imagen,
+                    orden=index + 1
+                ) una imagen falla, sigue con las demás
             messages.success(request, 'Propiedad creada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
@@ -365,47 +362,67 @@ def propiedad_nuevo(request):
 
 @login_required
 def propiedad_editar(request, propiedad_id):
+    """
+    Editar una propiedad:
+    – Actualiza datos del formulario.
+    – Agrega nuevas imágenes (manteniendo el orden correlativo).
+    – El re-ordenamiento y la eliminación individuales se hacen por AJAX
+      en las vistas `reordenar_imagenes` e `imagen_eliminar`.
+    """
     try:
+        # 1) Traemos la propiedad y sus imágenes ordenadas
         propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
-        imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad).order_by('orden')
-        
-        if request.method == 'POST':
+        imagenes  = propiedad.imagenes.order_by("orden")  # Meta.ordering ya lo hace, pero por claridad.
+
+        # 2) Procesamos el POST
+        if request.method == "POST":
             form = PropiedadForm(request.POST, request.FILES, instance=propiedad)
+
             if form.is_valid():
-                propiedad = form.save()
-                
-                nuevas_imagenes = request.FILES.getlist('imagenes')
-                if nuevas_imagenes:
-                    ultimo_orden = ImagenPropiedad.objects.filter(propiedad=propiedad).aggregate(
-                        max_orden=models.Max('orden')
-                    )['max_orden'] or 0
-                    
-                    for i, imagen in enumerate(nuevas_imagenes, 1):
-                        # Verificar duplicados por nombre de archivo
-                        if not ImagenPropiedad.objects.filter(
-                            propiedad=propiedad,
-                            imagen__icontains=imagen.name
-                        ).exists():
-                            ImagenPropiedad.objects.create(
-                                propiedad=propiedad,
-                                imagen=imagen,
-                                orden=ultimo_orden + i
-                            )
-                
-                messages.success(request, 'Propiedad actualizada exitosamente.')
-                return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+                with transaction.atomic():
+                    # 2.a) Guardar cambios de la propiedad
+                    propiedad = form.save()
+
+                    # 2.b) Guardar imágenes nuevas (si las hay)
+                    nuevas_imagenes = request.FILES.getlist("imagenes")
+                    if nuevas_imagenes:
+                        ultimo_orden = propiedad.imagenes.aggregate(
+                            max_orden=models.Max("orden")
+                        )["max_orden"] or 0
+
+                        for i, archivo in enumerate(nuevas_imagenes, start=1):
+                            # Evitar duplicados de nombre dentro de la misma propiedad
+                            if not propiedad.imagenes.filter(
+                                imagen__icontains=archivo.name
+                            ).exists():
+                                ImagenPropiedad.objects.create(
+                                    propiedad=propiedad,
+                                    imagen=archivo,
+                                    orden=ultimo_orden + i,
+                                )
+
+                messages.success(request, "Propiedad actualizada exitosamente.")
+                return redirect(
+                    "inmobiliaria:propiedad_detalle", propiedad_id=propiedad.id
+                )
+
+        # 3) GET inicial (o POST con errores)
         else:
             form = PropiedadForm(instance=propiedad)
-        
-        return render(request, 'inmobiliaria/propiedades/formulario.html', {
-            'form': form,
-            'propiedad': propiedad,
-            'imagenes': imagenes,
-        })
+
+        context = {
+            "form": form,
+            "propiedad": propiedad,
+            "imagenes": imagenes,
+        }
+        return render(
+            request, "inmobiliaria/propiedades/formulario.html", context
+        )
+
     except Exception as e:
-        logger.error(f"Error en propiedad_editar: {str(e)}")
-        messages.error(request, f'Error al procesar la solicitud: {str(e)}')
-        return redirect('inmobiliaria:propiedades')
+        logger.error(f"Error en propiedad_editar ({propiedad_id}): {str(e)}")
+        messages.error(request, f"Error al procesar la solicitud: {str(e)}")
+        return redirect("inmobiliaria:propiedades")
 
 @login_required
 def propiedad_eliminar(request, propiedad_id):
@@ -2724,3 +2741,21 @@ def propiedades_propietario(request, propietario_id):
         "inmobiliaria/propietarios/propiedades_propietario.html",
         {"propietario": propietario, "propiedades": propiedades},
     )
+
+@require_POST
+def imagen_eliminar(request, imagen_id):
+    imagen = get_object_or_404(ImagenPropiedad, id=imagen_id)
+    imagen.delete()
+    return JsonResponse({"success": True})
+
+
+@require_POST
+def reordenar_imagenes(request, propiedad_id):
+    ordenes = json.loads(request.POST.get("ordenes", "[]"))
+    with transaction.atomic():
+        for item in ordenes:
+            ImagenPropiedad.objects.filter(
+                id=item["id"],
+                propiedad_id=propiedad_id
+            ).update(orden=item["orden"])
+    return JsonResponse({"success": True})
