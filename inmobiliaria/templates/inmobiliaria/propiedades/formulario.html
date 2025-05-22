@@ -338,51 +338,57 @@
             allowClear: true
         });
 
-        /* ---------- 1. Eliminar imagen ----------- */
-        $('#imagenes-container').on('click', '.eliminar-imagen', function () {
-            const $btn  = $(this);
-            const idImg = $btn.data('imagen-id');
+        {% if propiedad.pk %}
+        $(function () {
 
-            if (!confirm('¿Eliminar la imagen definitivamente?')) return;
+            /* ---------- 0. URL que usaremos en los $.post ------------- */
+            const URL_REORDENAR = "{% url 'inmobiliaria:reordenar_imagenes' propiedad.id %}";
+            const CSRF          = "{{ csrf_token }}";
 
-            $.post({
-                url: "{% url 'inmobiliaria:imagen_eliminar' 0 %}".replace('0', idImg),
-                headers: { "X-CSRFToken": "{{ csrf_token }}" },
-                success: function (resp) {
-                    if (resp.success) {
-                        $btn.closest('.imagen-item').remove();
-                    } else {
-                        alert('No se pudo eliminar la imagen.');
-                    }
-                },
-                error: () => alert('Error de comunicación con el servidor')
-            });
-        });
+            /* ---------- 1. Eliminar imagen ----------- */
+            $('#imagenes-container').on('click', '.eliminar-imagen', function () {
+                const $btn  = $(this);
+                const idImg = $btn.data('imagen-id');
 
-        /* ---------- 2. Ordenar arrastrando -------- */
-        $('#imagenes-container').sortable({
-            items : '.imagen-item',
-            handle: '.fa-arrows-alt',
-            update: function () {
-                const nuevaLista = [];
-                $('#imagenes-container .imagen-item').each(function (idx) {
-                    nuevaLista.push({
-                        id   : $(this).data('id'),
-                        orden: idx + 1
-                    });
-                    /* Actualizo el numerito en la mini-tarjeta */
-                    $(this).find('.text-white').html(
-                        '<i class="fas fa-arrows-alt me-2"></i>Orden: ' + (idx + 1)
-                    );
-                });
+                if (!confirm('¿Eliminar la imagen definitivamente?')) return;
 
                 $.post({
-                    url    : "{% url 'inmobiliaria:reordenar_imagenes' propiedad.id %}",
-                    headers: { "X-CSRFToken": "{{ csrf_token }}" },
-                    data   : { ordenes: JSON.stringify(nuevaLista) }
+                    url    : "{% url 'inmobiliaria:imagen_eliminar' 0 %}".replace('0', idImg),
+                    headers: { "X-CSRFToken": CSRF },
+                    success: resp => {
+                        if (resp.success) {
+                            $btn.closest('.imagen-item').remove();
+                        } else {
+                            alert('No se pudo eliminar la imagen.');
+                        }
+                    },
+                    error  : () => alert('Error de comunicación con el servidor')
                 });
-            }
+            });
+
+            /* ---------- 2. Drag&drop para re-ordenar ---------- */
+            $('#imagenes-container').sortable({
+                update: function () {
+                    const nuevaLista = [];
+                    $('#imagenes-container .imagen-item').each(function (idx) {
+                        nuevaLista.push({
+                            id   : $(this).data('id'),
+                            orden: idx + 1
+                        });
+                        $(this).find('.text-white')
+                               .html('<i class="fas fa-arrows-alt me-2"></i>Orden: ' + (idx + 1));
+                    });
+
+                    /* guardamos sólo si hay URL (modo edición) */
+                    $.post({
+                        url    : URL_REORDENAR,
+                        headers: { "X-CSRFToken": CSRF },
+                        data   : { ordenes: JSON.stringify(nuevaLista) }
+                    });
+                }
+            });
         });
+        {% endif %}
     });
 </script>
 {% endblock %}
