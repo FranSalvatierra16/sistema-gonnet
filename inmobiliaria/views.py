@@ -1454,7 +1454,7 @@ def propietario_nuevo_ajax(request):
     return JsonResponse({'success': False, 'message': 'Invalid request'}, status=400)
     
 def propiedades_por_propietario(request, propietario_id):
-    propietario = get_object_or_404(Propietario, id=propietario_id)
+    propietario = get_object_or_404(Propietario, pk=propietario_id)
     propiedades = Propiedad.objects.filter(propietario=propietario)
     return render(request, 'inmobiliaria/propietarios/propiedades_propietario.html', {
         'propietario': propietario,
@@ -2709,3 +2709,22 @@ def guardar_movimiento(request):
 
     # Si GET, muestra el formulario normalmente
     # ...código para mostrar el formulario...
+
+def propiedades_propietario(request, propietario_id):
+    propietario = get_object_or_404(Propietario, pk=propietario_id)
+
+    # ------------- CAMBIO:  ordenamos por numero_por_propietario -------------
+    propiedades = (
+        Propiedad.objects
+        .filter(propietario=propietario)
+        .order_by("numero_por_propietario")  # ← aquí el orden ascendente
+    )
+
+    return render(
+        request,
+        "inmobiliaria/propietarios/propiedades_propietario.html",
+        {
+            "propietario": propietario,
+            "propiedades": propiedades,
+        },
+    )
