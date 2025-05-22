@@ -347,7 +347,7 @@ def propiedad_nuevo(request):
                     propiedad=propiedad,
                     imagen=imagen,
                     orden=index + 1
-                ) una imagen falla, sigue con las demás
+                ) 
             messages.success(request, 'Propiedad creada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
