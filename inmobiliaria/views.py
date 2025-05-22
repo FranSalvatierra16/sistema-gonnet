@@ -1354,43 +1354,41 @@ def historial_reservas_inquilino(request, inquilino_id):
         'reservas': reservas,
     })    
 def buscar_propietarios(request):
-    """Vista para buscar propietarios/cuentas mediante AJAX"""
-    term = request.GET.get('term', '')
-    
-    # IMPORTANTE: Depuración para verificar la consulta
-    print(f"Buscando propiedades con término: '{term}'")
-    
-    try:
-        # Buscar TODAS las cuentas/propietarios sin filtros de sucursal
-        if not term or len(term) < 2:
-            propietarios = Cuenta.objects.all()[:15]
-        else:
-            propietarios = Cuenta.objects.filter(
-                Q(nombre__icontains=term) | 
-                Q(id__icontains=term)
-            )[:15]
-        
-        # Imprimir resultados para depuración
-        print(f"Encontrados {propietarios.count()} propietarios")
-        for p in propietarios:
-            print(f"Propietario: ID={p.id}, Nombre={p.nombre}")
-        
-        # Formatear resultados simplificados
-        results = []
-        for p in propietarios:
-            results.append({
-                'id': p.id,
-                'text': f"{p.nombre} (ID: {p.id})" 
-            })
-        
-        return JsonResponse({'results': results})
-    
-    except Exception as e:
-        print(f"Error en buscar_propietarios: {str(e)}")
-        return JsonResponse({
-            'results': [],
-            'error': str(e)
-        })
+    """
+    Devuelve los propietarios en formato Select2:
+    {
+        "results": [{"id": 1, "text": "Pérez, Ana – 30123456"}, ...],
+        "pagination": {"more": true}
+    }
+    """
+    term = request.GET.get("term", "").strip()
+    page = int(request.GET.get("page", 1) or 1)
+    page_size = 20
+    offset = (page - 1) * page_size
+
+    qs = Propietario.objects.all()
+
+    if term:
+        qs = qs.filter(
+            Q(nombre__icontains=term) |
+            Q(apellido__icontains=term) |
+            Q(dni__icontains=term)
+        )
+
+    total = qs.count()
+    propietarios = qs.order_by("apellido", "nombre")[offset: offset + page_size]
+
+    results = [
+        {
+            "id": p.id,
+            "text": f"{p.apellido}, {p.nombre} – {p.dni}"
+        }
+        for p in propietarios
+    ]
+
+    return JsonResponse(
+        {"results": results, "pagination": {"more": total > offset + page_size}}
+    )
 
 @login_required
 def buscar_operacion(request):

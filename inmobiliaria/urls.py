@@ -132,4 +132,9 @@ urlpatterns = [
     path('conceptos/', views.conceptos_list, name='conceptos_list'),
     path('propietario_cuentas/', views.propietario_cuentas, name='propietario_cuentas'),
     path('guardar_movimiento/', views.guardar_movimiento, name='guardar_movimiento'),
+    path(
+        "propietarios/buscar/",
+        views.buscar_propietarios,
+        name="buscar_propietarios",
+    ),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
