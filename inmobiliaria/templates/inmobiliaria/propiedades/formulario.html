@@ -223,6 +223,8 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+
 <script>
     $(document).ready(function() {
         // Tu script original para crear propietario
@@ -334,6 +336,52 @@
             minimumInputLength: 2,
             placeholder: 'Buscar propietario...',
             allowClear: true
+        });
+
+        /* ---------- 1. Eliminar imagen ----------- */
+        $('#imagenes-container').on('click', '.eliminar-imagen', function () {
+            const $btn  = $(this);
+            const idImg = $btn.data('imagen-id');
+
+            if (!confirm('¿Eliminar la imagen definitivamente?')) return;
+
+            $.post({
+                url: "{% url 'inmobiliaria:imagen_eliminar' 0 %}".replace('0', idImg),
+                headers: { "X-CSRFToken": "{{ csrf_token }}" },
+                success: function (resp) {
+                    if (resp.success) {
+                        $btn.closest('.imagen-item').remove();
+                    } else {
+                        alert('No se pudo eliminar la imagen.');
+                    }
+                },
+                error: () => alert('Error de comunicación con el servidor')
+            });
+        });
+
+        /* ---------- 2. Ordenar arrastrando -------- */
+        $('#imagenes-container').sortable({
+            items : '.imagen-item',
+            handle: '.fa-arrows-alt',
+            update: function () {
+                const nuevaLista = [];
+                $('#imagenes-container .imagen-item').each(function (idx) {
+                    nuevaLista.push({
+                        id   : $(this).data('id'),
+                        orden: idx + 1
+                    });
+                    /* Actualizo el numerito en la mini-tarjeta */
+                    $(this).find('.text-white').html(
+                        '<i class="fas fa-arrows-alt me-2"></i>Orden: ' + (idx + 1)
+                    );
+                });
+
+                $.post({
+                    url    : "{% url 'inmobiliaria:reordenar_imagenes' propiedad.id %}",
+                    headers: { "X-CSRFToken": "{{ csrf_token }}" },
+                    data   : { ordenes: JSON.stringify(nuevaLista) }
+                });
+            }
         });
     });
 </script>
