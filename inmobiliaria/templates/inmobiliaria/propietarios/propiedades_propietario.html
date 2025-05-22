@@ -13,6 +13,7 @@
         <thead class="table-light">
             <tr>
                 <th>Ficha</th>
+                <th>Nº&nbsp;Prop.</th>
                 <th>Dirección</th>
                 <th>Valoración</th>
                 <th>Piso</th>
@@ -27,6 +28,7 @@
             {% for propiedad in propiedades %}
             <tr>
                 <td>{{ propiedad.id }}</td>
+                <td>{{ propiedad.numero_por_propietario }}</td>
                 <td>{{ propiedad.direccion }}</td>
                 <td>{{ propiedad.valoracion}}</td>
                 <td>{{ propiedad.piso }}</td>
@@ -52,6 +54,11 @@
         </tbody>
     </table>
 </div>
+
+<!-- Cartel con el total -->
+<h2 class="text-end mt-4 fw-bold">
+    Total de propiedades: {{ propiedades|length }}
+</h2>
 
 <!-- Incluir Bootstrap Icons -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.8.1/font/bootstrap-icons.min.css">
