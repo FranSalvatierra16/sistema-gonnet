@@ -25,7 +25,7 @@
             </tr>
         </thead>
         <tbody>
-            {% for propiedad in propiedades %}
+            {% for propiedad in propiedades|dictsort:"numero_por_propietario" %}
             <tr>
                 <td>{{ propiedad.id }}</td>
                 <td>{{ propiedad.numero_por_propietario }}</td>

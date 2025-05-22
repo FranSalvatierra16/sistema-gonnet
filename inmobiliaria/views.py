@@ -2713,18 +2713,14 @@ def guardar_movimiento(request):
 def propiedades_propietario(request, propietario_id):
     propietario = get_object_or_404(Propietario, pk=propietario_id)
 
-    # ------------- CAMBIO:  ordenamos por numero_por_propietario -------------
     propiedades = (
         Propiedad.objects
         .filter(propietario=propietario)
-        .order_by("numero_por_propietario")  # ← aquí el orden ascendente
+        .order_by("numero_por_propietario")      # ← clave
     )
 
     return render(
         request,
         "inmobiliaria/propietarios/propiedades_propietario.html",
-        {
-            "propietario": propietario,
-            "propiedades": propiedades,
-        },
+        {"propietario": propietario, "propiedades": propiedades},
     )
