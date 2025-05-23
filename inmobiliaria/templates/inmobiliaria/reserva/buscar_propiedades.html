@@ -710,39 +710,34 @@ $('#modalPrecios .close').click(function () {
     document.getElementById("cardPrecio").innerText = precio;
     document.getElementById("estadoPropiedad").innerText = estadoReserva || 'Disponible';
     
-    // Actualizar todos los precios
-    document.getElementById("precio_quincena_1_diciembre").innerText = propiedad.precio_quincena_1_diciembre;
-    document.getElementById("precio_quincena_1_diciembre_dia").innerText = propiedad.precio_quincena_1_diciembre_dia;
-    document.getElementById("precio_quincena_2_diciembre").innerText = propiedad.precio_quincena_2_diciembre;
-    document.getElementById("precio_quincena_2_diciembre_dia").innerText = propiedad.precio_quincena_2_diciembre_dia;
-    document.getElementById("precio_quincena_1_enero").innerText = propiedad.precio_quincena_1_enero;
-    document.getElementById("precio_quincena_1_enero_dia").innerText = propiedad.precio_quincena_1_enero_dia;
-    document.getElementById("precio_quincena_2_enero").innerText = propiedad.precio_quincena_2_enero;
-    document.getElementById("precio_quincena_2_enero_dia").innerText = propiedad.precio_quincena_2_enero_dia;
-    document.getElementById("precio_quincena_1_febrero").innerText = propiedad.precio_quincena_1_febrero;
-    document.getElementById("precio_quincena_1_febrero_dia").innerText = propiedad.precio_quincena_1_febrero_dia;
-    document.getElementById("precio_quincena_2_febrero").innerText = propiedad.precio_quincena_2_febrero;
-    document.getElementById("precio_quincena_2_febrero_dia").innerText = propiedad.precio_quincena_2_febrero_dia;
-    document.getElementById("precio_quincena_1_marzo").innerText = propiedad.precio_quincena_1_marzo;
-    document.getElementById("precio_quincena_1_marzo_dia").innerText = propiedad.precio_quincena_1_marzo_dia;
-    document.getElementById("precio_quincena_2_marzo").innerText = propiedad.precio_quincena_2_marzo;
-    document.getElementById("precio_quincena_2_marzo_dia").innerText = propiedad.precio_quincena_2_marzo_dia;
-    document.getElementById("precio_temporada_baja").innerText = propiedad.precio_temporada_baja;
-    document.getElementById("precio_temporada_baja_dia").innerText = propiedad.precio_temporada_baja_dia;
-    document.getElementById("precio_vacaciones_invierno").innerText = propiedad.precio_vacaciones_invierno;
-    document.getElementById("precio_vacaciones_invierno_dia").innerText = propiedad.precio_vacaciones_invierno_dia;
-    document.getElementById("precio_finde_largo").innerText = propiedad.precio_finde_largo;
-    document.getElementById("precio_finde_largo_dia").innerText = propiedad.precio_finde_largo_dia;
-    document.getElementById("precio_diciembre").innerText = propiedad.precio_diciembre;
-    document.getElementById("precio_diciembre_dia").innerText = propiedad.precio_diciembre_dia;
-    document.getElementById("precio_enero").innerText = propiedad.precio_enero;
-    document.getElementById("precio_enero_dia").innerText = propiedad.precio_enero_dia;
-    document.getElementById("precio_febrero").innerText = propiedad.precio_febrero;
-    document.getElementById("precio_febrero_dia").innerText = propiedad.precio_febrero_dia;
-    document.getElementById("precio_marzo").innerText = propiedad.precio_marzo;
-    document.getElementById("precio_marzo_dia").innerText = propiedad.precio_marzo_dia;
-    document.getElementById("precio_estudiante").innerText = propiedad.precio_estudiante;
-    document.getElementById("precio_estudiante_dia").innerText = propiedad.precio_estudiante_dia;
+    // Hacer una petición AJAX para obtener los precios de la propiedad
+    fetch(`/inmobiliaria/obtener_precios_propiedad/?propiedad_id=${id}`)
+        .then(response => response.json())
+        .then(data => {
+            // Limpiar todos los precios primero
+            document.querySelectorAll('.table td[id^="precio_"]').forEach(td => {
+                td.innerText = '0.00';
+            });
+
+            // Actualizar los precios con los datos recibidos
+            data.precios.forEach(precio => {
+                // Convertir el tipo_precio a un formato válido para ID
+                const idBase = 'precio_' + precio.tipo_precio.toLowerCase()
+                    .replace(/\s+/g, '_')           // espacios a guiones bajos
+                    .replace(/[\.]/g, '')           // remover puntos
+                    .normalize("NFD")               // normalizar acentos
+                    .replace(/[\u0300-\u036f]/g, "") // remover acentos
+                    .replace(/[^a-z0-9_]/g, '');    // remover caracteres especiales
+
+                // Actualizar precio total y por día
+                const elementoPrecioTotal = document.getElementById(idBase);
+                const elementoPrecioDia = document.getElementById(idBase + '_dia');
+
+                if (elementoPrecioTotal) elementoPrecioTotal.innerText = precio.precio_total;
+                if (elementoPrecioDia) elementoPrecioDia.innerText = precio.precio_por_dia;
+            });
+        })
+        .catch(error => console.error('Error al obtener los precios:', error));
 }
 
 function mostrarPrecios(propiedad_id) {
