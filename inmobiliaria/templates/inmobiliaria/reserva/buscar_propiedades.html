@@ -557,6 +557,8 @@ $('#modalPrecios .close').click(function () {
     }
     let selectedRowIndex = -1;
     function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id) {
+        console.log('Propiedad seleccionada:', id); // Debug
+
         // Definir todos los tipos de precios
         const tiposPrecio = [
             { key: 'QUINCENA_1_DICIEMBRE', label: '1ra quincena Diciembre' },
