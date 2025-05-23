@@ -297,7 +297,7 @@
                 <h5 class="mb-0">PRECIOS</h5>
             </div>
             <div class="card-body">
-                <table class="table table-bordered">
+                <table class="table table-bordered table-precios">
                     <thead>
                         <tr style="background-color: #007bff; color: white;">
                             <th>PERÍODO</th>
@@ -306,86 +306,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td>1RA QUINCENA DICIEMBRE</td>
-                            <td class="text-end" id="precio_quincena_1_diciembre">0.00</td>
-                            <td class="text-end" id="precio_quincena_1_diciembre_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>2DA QUINCENA DICIEMBRE</td>
-                            <td class="text-end" id="precio_quincena_2_diciembre">0.00</td>
-                            <td class="text-end" id="precio_quincena_2_diciembre_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>1RA QUINCENA ENERO</td>
-                            <td class="text-end" id="precio_quincena_1_enero">0.00</td>
-                            <td class="text-end" id="precio_quincena_1_enero_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>2DA QUINCENA ENERO</td>
-                            <td class="text-end" id="precio_quincena_2_enero">0.00</td>
-                            <td class="text-end" id="precio_quincena_2_enero_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>1RA QUINCENA FEBRERO</td>
-                            <td class="text-end" id="precio_quincena_1_febrero">0.00</td>
-                            <td class="text-end" id="precio_quincena_1_febrero_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>2DA QUINCENA FEBRERO</td>
-                            <td class="text-end" id="precio_quincena_2_febrero">0.00</td>
-                            <td class="text-end" id="precio_quincena_2_febrero_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>1RA QUINCENA MARZO</td>
-                            <td class="text-end" id="precio_quincena_1_marzo">0.00</td>
-                            <td class="text-end" id="precio_quincena_1_marzo_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>2DA QUINCENA MARZO</td>
-                            <td class="text-end" id="precio_quincena_2_marzo">0.00</td>
-                            <td class="text-end" id="precio_quincena_2_marzo_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>TEMPORADA BAJA</td>
-                            <td class="text-end" id="precio_temporada_baja">0.00</td>
-                            <td class="text-end" id="precio_temporada_baja_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>VACACIONES INVIERNO</td>
-                            <td class="text-end" id="precio_vacaciones_invierno">0.00</td>
-                            <td class="text-end" id="precio_vacaciones_invierno_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>FINDE LARGO</td>
-                            <td class="text-end" id="precio_finde_largo">0.00</td>
-                            <td class="text-end" id="precio_finde_largo_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>DICIEMBRE</td>
-                            <td class="text-end" id="precio_diciembre">0.00</td>
-                            <td class="text-end" id="precio_diciembre_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>ENERO</td>
-                            <td class="text-end" id="precio_enero">0.00</td>
-                            <td class="text-end" id="precio_enero_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>FEBRERO</td>
-                            <td class="text-end" id="precio_febrero">0.00</td>
-                            <td class="text-end" id="precio_febrero_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>MARZO</td>
-                            <td class="text-end" id="precio_marzo">0.00</td>
-                            <td class="text-end" id="precio_marzo_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>ESTUDIANTE</td>
-                            <td class="text-end" id="precio_estudiante">0.00</td>
-                            <td class="text-end" id="precio_estudiante_dia">0.00</td>
-                        </tr>
+                        <!-- Se llenará dinámicamente con JavaScript -->
                     </tbody>
                 </table>
             </div>
@@ -710,31 +631,24 @@ $('#modalPrecios .close').click(function () {
     document.getElementById("cardPrecio").innerText = precio;
     document.getElementById("estadoPropiedad").innerText = estadoReserva || 'Disponible';
     
-    // Hacer una petición AJAX para obtener los precios de la propiedad
+    // Obtener los precios de la propiedad
     fetch(`/inmobiliaria/obtener_precios_propiedad/?propiedad_id=${id}`)
         .then(response => response.json())
         .then(data => {
-            // Limpiar todos los precios primero
-            document.querySelectorAll('.table td[id^="precio_"]').forEach(td => {
-                td.innerText = '0.00';
-            });
+            // Crear la tabla de precios
+            const tbody = document.querySelector('.table-precios tbody');
+            tbody.innerHTML = ''; // Limpiar tabla actual
 
-            // Actualizar los precios con los datos recibidos
+            // Agregar cada precio a la tabla
             data.precios.forEach(precio => {
-                // Convertir el tipo_precio a un formato válido para ID
-                const idBase = 'precio_' + precio.tipo_precio.toLowerCase()
-                    .replace(/\s+/g, '_')           // espacios a guiones bajos
-                    .replace(/[\.]/g, '')           // remover puntos
-                    .normalize("NFD")               // normalizar acentos
-                    .replace(/[\u0300-\u036f]/g, "") // remover acentos
-                    .replace(/[^a-z0-9_]/g, '');    // remover caracteres especiales
-
-                // Actualizar precio total y por día
-                const elementoPrecioTotal = document.getElementById(idBase);
-                const elementoPrecioDia = document.getElementById(idBase + '_dia');
-
-                if (elementoPrecioTotal) elementoPrecioTotal.innerText = precio.precio_total;
-                if (elementoPrecioDia) elementoPrecioDia.innerText = precio.precio_por_dia;
+                const row = `
+                    <tr>
+                        <td>${precio.tipo_precio}</td>
+                        <td class="text-end">${precio.precio_total}</td>
+                        <td class="text-end">${precio.precio_por_dia}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
             });
         })
         .catch(error => console.error('Error al obtener los precios:', error));
