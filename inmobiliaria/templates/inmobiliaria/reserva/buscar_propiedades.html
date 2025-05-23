@@ -42,6 +42,13 @@
         background-color: #ffcccc;
     }
 
+    #descripcionDetallada {
+        line-height: 1.6;
+    }
+    .table td, .table th {
+        padding: 0.5rem;
+    }
+
     </style>
 </head>
 
@@ -185,20 +192,67 @@
             </div>
             
             <div class="card-body">
-                <div class="descripcion p-3" style="background-color: #ffcccc;">
-                    <div id="descripcionDetallada" class="text-uppercase">
-                        <!-- La descripción se llenará con JavaScript -->
+                <div class="row">
+                    <!-- Columna izquierda: Descripción grande -->
+                    <div class="col-md-8">
+                        <div class="descripcion p-3" style="background-color: #ffcccc;">
+                            <!-- Descripción principal en mayúsculas -->
+                            <div id="descripcionDetallada" class="text-uppercase" style="font-size: 1.2em; font-weight: bold;">
+                                <!-- Se llenará con JavaScript -->
+                            </div>
+                            
+                            <div class="mt-3">
+                                <p id="cardPropietario">Propietario: </p>
+                                <p id="cardDisponibilidad">Disponibilidad: </p>
+                            </div>
+
+                            <!-- Características/Amenities -->
+                            <div class="mt-3 p-2" style="background-color: #90EE90;">
+                                <span id="caracteristicas" class="text-uppercase">
+                                    <!-- Se llenará con JavaScript -->
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="mt-3">
-                        <p id="cardPropietario">Propietario: </p>
-                        <p id="cardDisponibilidad">Disponibilidad: </p>
-                        <p id="cardPrecio">Precio: </p>
+
+                    <!-- Columna derecha: Tabla de precios -->
+                    <div class="col-md-4">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr style="background-color: #007bff; color: white;">
+                                    <th>PERÍODO</th>
+                                    <th>PRECIO</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>FIN DE SEM.</td>
+                                    <td class="text-end" id="precio_finde">0.00</td>
+                                </tr>
+                                <tr>
+                                    <td>ENERO</td>
+                                    <td class="text-end" id="precio_enero">0.00</td>
+                                </tr>
+                                <tr>
+                                    <td>FEBRERO</td>
+                                    <td class="text-end" id="precio_febrero">0.00</td>
+                                </tr>
+                                <tr>
+                                    <td>MARZO</td>
+                                    <td class="text-end" id="precio_marzo">0.00</td>
+                                </tr>
+                                <tr>
+                                    <td>PRECIO TOTAL</td>
+                                    <td class="text-end" id="cardPrecio">0.00</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
             
             <div class="card-footer" id="cardButtons">
-                <!-- Los botones se mantendrán aquí -->
+                <!-- Botones de acción -->
             </div>
         </div>
         {% else %}
@@ -561,11 +615,22 @@ $('#modalPrecios .close').click(function () {
     window.fechaFinSeleccionada = fechaFin;
 
     // Actualizar descripción y detalles
-    document.getElementById("descripcionDetallada").innerText = "DEPARTAMENTO DE DOS AMBIENTES - " + direccion;
+    document.getElementById("descripcionDetallada").innerHTML = `
+        DEPARTAMENTO DE DOS AMBIENTES - ${direccion}<br>
+        LIVING COMEDOR CON CAMA MARINERA<br>
+        COCINA SEPARADA, BAÑO CON BAÑERA<br>
+        A DOS CUADRAS DEL CASINO Y PLAYAS CÉNTRICAS
+    `;
     
-    // Actualizar precios
-    document.getElementById("precio_finde").innerText = formatPrice(precio);
-    // Aquí deberías actualizar los demás precios según los datos que tengas disponibles
+    // Actualizar características
+    document.getElementById("caracteristicas").innerHTML = "TV - CABLE - MICROONDAS - WIFI";
+    
+    // Actualizar precios en la tabla
+    document.getElementById("precio_finde").innerText = propiedad.precio_finde;
+    document.getElementById("precio_enero").innerText = propiedad.precio_enero;
+    document.getElementById("precio_febrero").innerText = propiedad.precio_febrero;
+    document.getElementById("precio_marzo").innerText = propiedad.precio_marzo;
+    document.getElementById("cardPrecio").innerText = precio;
 }
 
 function mostrarPrecios(propiedad_id) {
