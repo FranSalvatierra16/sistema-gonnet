@@ -55,6 +55,36 @@
         top: 20px;
     }
 
+    /* Estilos adicionales para la ficha */
+    #propertyCard {
+        border: 2px solid #333;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    #descripcionDetallada {
+        line-height: 1.8;
+        padding: 15px;
+        background-color: rgba(255,255,255,0.5);
+        border-radius: 5px;
+    }
+
+    .caracteristica-badge {
+        background-color: #28a745;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 15px;
+        margin: 3px;
+        font-size: 0.9em;
+    }
+
+    .card-footer {
+        border-top: 2px solid #ddd;
+    }
+
+    /* Mantener los estilos existentes */
+    .descripcion {
+        border: 1px solid #666;
+    }
     </style>
 </head>
 
@@ -64,6 +94,7 @@
 <h1>Buscar Propiedades</h1>
 
 <div class="row">
+    <!-- Columna izquierda con tabla y ficha -->
     <div class="col-md-8">
         <!-- Formulario para reservas por día -->
         <form method="post" id="buscar-propiedades-form-dia">
@@ -189,38 +220,61 @@
             </tbody>
         </table>
 
-        <!-- Ficha detallada -->
+        <!-- Ficha detallada mejorada -->
         <div class="card mt-4" id="propertyCard" style="font-family: 'Courier New', monospace;">
             <div class="card-header">
                 <div class="d-flex justify-content-between">
-                    <h5 class="mb-0" id="cardPropiedad">Ficha: </h5>
-                    <h5 class="mb-0" id="cardDireccion">Dirección: </h5>
+                    <h5 class="mb-0">FICHA: <span id="cardPropiedad"></span></h5>
+                    <h5 class="mb-0">DIRECCIÓN: <span id="cardDireccion"></span></h5>
                 </div>
             </div>
             
             <div class="card-body">
                 <div class="descripcion p-3" style="background-color: #ffcccc;">
                     <!-- Descripción principal en mayúsculas -->
-                    <div id="descripcionDetallada" class="text-uppercase" style="font-size: 1.2em; font-weight: bold;">
+                    <div id="descripcionDetallada" class="text-uppercase" style="font-size: 1.2em; font-weight: bold; margin-bottom: 20px;">
                         <!-- Se llenará con JavaScript -->
                     </div>
                     
-                    <div class="mt-3">
-                        <p id="cardPropietario">Propietario: </p>
-                        <p id="cardDisponibilidad">Disponibilidad: </p>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <p><strong>PROPIETARIO:</strong> <span id="cardPropietario"></span></p>
+                            <p><strong>DISPONIBILIDAD:</strong> <span id="cardDisponibilidad"></span></p>
+                            <p><strong>PRECIO TOTAL:</strong> <span id="cardPrecio"></span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>CAPACIDAD:</strong> <span id="cardCapacidad"></span> personas</p>
+                            <p><strong>ESTADO:</strong> <span id="cardEstado"></span></p>
+                        </div>
                     </div>
 
                     <!-- Características/Amenities -->
-                    <div class="mt-3 p-2" style="background-color: #90EE90;">
-                        <span id="caracteristicas" class="text-uppercase">
+                    <div class="mt-4 p-3" style="background-color: #90EE90;">
+                        <h5 class="mb-3">CARACTERÍSTICAS:</h5>
+                        <div id="caracteristicas" class="text-uppercase d-flex flex-wrap gap-2">
                             <!-- Se llenará con JavaScript -->
-                        </span>
+                        </div>
                     </div>
                 </div>
             </div>
             
-            <div class="card-footer" id="cardButtons">
-                <!-- Botones de acción -->
+            <div class="card-footer" id="cardButtons" style="background-color: #f8f9fa;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <button type="button" class="btn btn-primary" onclick="mostrarModalReserva()">
+                            <i class="fas fa-calendar-plus"></i> Reservar
+                        </button>
+                        <button type="button" class="btn btn-info ml-2" onclick="verOperacion()">
+                            <i class="fas fa-file-contract"></i> Operación
+                        </button>
+                    </div>
+                    <div>
+                        <span class="badge bg-info text-white p-2">
+                            <i class="fas fa-info-circle"></i> 
+                            Estado: <span id="estadoPropiedad">Disponible</span>
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
         {% else %}
@@ -245,7 +299,7 @@
         {% endif %}
     </div>
 
-    <!-- Columna derecha: Tabla de precios del modal -->
+    <!-- Columna derecha: Solo tabla de precios -->
     <div class="col-md-4" style="position: sticky; top: 20px;">
         <div class="card">
             <div class="card-header bg-primary text-white">
@@ -615,7 +669,7 @@ $('#modalPrecios .close').click(function () {
     window.fechaInicioSeleccionada = fechaInicio;
     window.fechaFinSeleccionada = fechaFin;
 
-    // Actualizar descripción y detalles
+    // Actualizar descripción detallada con formato mejorado
     document.getElementById("descripcionDetallada").innerHTML = `
         DEPARTAMENTO DE DOS AMBIENTES - ${direccion}<br>
         LIVING COMEDOR CON CAMA MARINERA<br>
@@ -623,8 +677,22 @@ $('#modalPrecios .close').click(function () {
         A DOS CUADRAS DEL CASINO Y PLAYAS CÉNTRICAS
     `;
     
-    // Actualizar características
-    document.getElementById("caracteristicas").innerHTML = "TV - CABLE - MICROONDAS - WIFI";
+    // Actualizar características con badges
+    document.getElementById("caracteristicas").innerHTML = `
+        <span class="caracteristica-badge">TV CABLE</span>
+        <span class="caracteristica-badge">WIFI</span>
+        <span class="caracteristica-badge">MICROONDAS</span>
+        <span class="caracteristica-badge">AIRE ACOND.</span>
+        <span class="caracteristica-badge">COCHERA</span>
+    `;
+    
+    // Actualizar estado y demás información
+    document.getElementById("cardPropiedad").innerText = id;
+    document.getElementById("cardDireccion").innerText = direccion;
+    document.getElementById("cardPropietario").innerText = propietario;
+    document.getElementById("cardDisponibilidad").innerText = disponibilidad;
+    document.getElementById("cardPrecio").innerText = precio;
+    document.getElementById("estadoPropiedad").innerText = estadoReserva || 'Disponible';
     
     // Actualizar todos los precios
     document.getElementById("precio_finde").innerText = propiedad.precio_finde;
