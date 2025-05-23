@@ -29,6 +29,19 @@
         z-index: 1051 !important;
     }
 
+    .card {
+        border: 2px solid #333;
+    }
+    .descripcion {
+        border: 1px solid #666;
+    }
+    .table th {
+        background-color: #f0f0f0;
+    }
+    .card-confirmada {
+        background-color: #ffcccc;
+    }
+
     </style>
 </head>
 
@@ -512,6 +525,14 @@ $('#modalPrecios .close').click(function () {
     // Guarda las fechas para usarlas más tarde
     window.fechaInicioSeleccionada = fechaInicio;
     window.fechaFinSeleccionada = fechaFin;
+
+    // Actualizar descripción y detalles
+    document.getElementById("descripcionPropiedad").innerText = "DEPARTAMENTO DE DOS AMBIENTES - " + direccion;
+    document.getElementById("detallesPropiedad").innerText = "LIVING COMEDOR CON CAMA MARINERA, COCINA SEPARADA, BAÑO CON BAÑERA";
+    
+    // Actualizar precios
+    document.getElementById("precio_finde").innerText = formatPrice(precio);
+    // Aquí deberías actualizar los demás precios según los datos que tengas disponibles
 }
 
 function mostrarPrecios(propiedad_id) {
