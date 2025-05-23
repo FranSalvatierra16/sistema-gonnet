@@ -128,45 +128,79 @@
         <table id="propiedadesTable" class="table table-hover">
             <thead>
                 <tr style="background-color: #007bff; color: white;">
-                    <th>ID Propiedad</th>
-                    <th>Disponibilidad más cercana</th>
+                    <th>ID</th>
+                    <th>Disponibilidad</th>
                     <th>Dirección</th>
                     <th>Piso</th>
                     <th>Dpto</th>
                     <th>Propietario</th>
-                    <th>Precio</th>
+                    <th>FIN DE SEM.</th>
+                    <th>ENERO</th>
+                    <th>FEBRERO</th>
+                    <th>MARZO</th>
                 </tr>
             </thead>
             <tbody>
                 {% for propiedad in propiedades_disponibles %}
                 {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad( '{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','{{ propiedad.reserva.id }}',)">
-                    <td style="color: red;">{{ propiedad.id }}</td>
-                    <td style="color: red;">
-                        Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
-                    </td>
-                    <td style="color: red;">{{ propiedad.direccion }}</td>
-                    <td style="color: red;">{{ propiedad.piso }}</td>
-                    <td style="color: red;"> {{propiedad.departamento }}</td>
-                    <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
-                    <td style="color: red;">{{ propiedad.precio_total_reserva }}</td>
-                </tr>
-                {% else %}
-                <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad( '{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}',)">
+                <tr style="background-color: white; color: red;" data-index="{{ forloop.counter0 }}" 
+                    onclick="seleccionarPropiedad('{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}', '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','{{ propiedad.reserva.id }}')">
                     <td>{{ propiedad.id }}</td>
-                    <td>
-                        {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
-                    </td>
+                    <td>Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                     <td>{{ propiedad.direccion }}</td>
                     <td>{{ propiedad.piso }}</td>
                     <td>{{ propiedad.departamento }}</td>
                     <td>{{ propiedad.propietario.apellido }}</td>
-                    <td>{{ propiedad.precio_total_reserva|format_price }}</td>
+                    <td>{{ propiedad.precio_finde|default:"0.00"|format_price }}</td>
+                    <td>{{ propiedad.precio_enero|default:"0.00"|format_price }}</td>
+                    <td>{{ propiedad.precio_febrero|default:"0.00"|format_price }}</td>
+                    <td>{{ propiedad.precio_marzo|default:"0.00"|format_price }}</td>
+                </tr>
+                {% else %}
+                <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" 
+                    onclick="seleccionarPropiedad('{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}', '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}')">
+                    <td>{{ propiedad.id }}</td>
+                    <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
+                    <td>{{ propiedad.direccion }}</td>
+                    <td>{{ propiedad.piso }}</td>
+                    <td>{{ propiedad.departamento }}</td>
+                    <td>{{ propiedad.propietario.apellido }}</td>
+                    <td>{{ propiedad.precio_finde|default:"0.00"|format_price }}</td>
+                    <td>{{ propiedad.precio_enero|default:"0.00"|format_price }}</td>
+                    <td>{{ propiedad.precio_febrero|default:"0.00"|format_price }}</td>
+                    <td>{{ propiedad.precio_marzo|default:"0.00"|format_price }}</td>
                 </tr>
                 {% endif %}
                 {% endfor %}
             </tbody>
         </table>
+
+        <!-- Detalles de la propiedad seleccionada -->
+        <div class="card mt-4" id="propertyCard" style="font-family: 'Courier New', monospace;">
+            <div class="card-header">
+                <div class="d-flex justify-content-between">
+                    <h5 class="mb-0" id="cardPropiedad">Ficha: </h5>
+                    <h5 class="mb-0" id="cardDireccion">Dirección: </h5>
+                </div>
+            </div>
+            
+            <div class="card-body">
+                <div class="descripcion p-3" style="background-color: #ffcccc;">
+                    <div id="descripcionDetallada" class="text-uppercase">
+                        <!-- La descripción se llenará con JavaScript -->
+                    </div>
+                    <div class="mt-3">
+                        <p id="cardPropietario">Propietario: </p>
+                        <p id="cardDisponibilidad">Disponibilidad: </p>
+                        <p id="cardPrecio">Precio: </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-footer" id="cardButtons">
+                <!-- Los botones se mantendrán aquí -->
+            </div>
+        </div>
         {% else %}
             <div class="alert alert-warning text-center mt-4">
                 No hay propiedades disponibles para las fechas seleccionadas.
@@ -527,8 +561,7 @@ $('#modalPrecios .close').click(function () {
     window.fechaFinSeleccionada = fechaFin;
 
     // Actualizar descripción y detalles
-    document.getElementById("descripcionPropiedad").innerText = "DEPARTAMENTO DE DOS AMBIENTES - " + direccion;
-    document.getElementById("detallesPropiedad").innerText = "LIVING COMEDOR CON CAMA MARINERA, COCINA SEPARADA, BAÑO CON BAÑERA";
+    document.getElementById("descripcionDetallada").innerText = "DEPARTAMENTO DE DOS AMBIENTES - " + direccion;
     
     // Actualizar precios
     document.getElementById("precio_finde").innerText = formatPrice(precio);
