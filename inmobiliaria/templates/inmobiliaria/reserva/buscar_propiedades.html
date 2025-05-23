@@ -631,27 +631,47 @@ $('#modalPrecios .close').click(function () {
     document.getElementById("cardPrecio").innerText = precio;
     document.getElementById("estadoPropiedad").innerText = estadoReserva || 'Disponible';
     
-    // Obtener los precios de la propiedad
-    fetch(`/inmobiliaria/obtener_precios_propiedad/?propiedad_id=${id}`)
-        .then(response => response.json())
-        .then(data => {
-            // Crear la tabla de precios
-            const tbody = document.querySelector('.table-precios tbody');
-            tbody.innerHTML = ''; // Limpiar tabla actual
-
-            // Agregar cada precio a la tabla
-            data.precios.forEach(precio => {
-                const row = `
+    // Obtener y mostrar los precios
+    $.ajax({
+        url: "{% url 'inmobiliaria:obtener_precios_propiedad' %}",
+        data: { 'propiedad_id': id },
+        method: 'GET',
+        success: function(response) {
+            if (response.precios && response.precios.length > 0) {
+                let tableContent = '';
+                
+                response.precios.forEach(function(precio) {
+                    tableContent += `
+                        <tr>
+                            <td>${precio.tipo_precio}</td>
+                            <td class="text-end">$${formatPrice(precio.precio_total)}</td>
+                            <td class="text-end">$${formatPrice(precio.precio_por_dia)}</td>
+                        </tr>
+                    `;
+                });
+                
+                $('.table-precios tbody').html(tableContent);
+            } else {
+                $('.table-precios tbody').html(`
                     <tr>
-                        <td>${precio.tipo_precio}</td>
-                        <td class="text-end">${precio.precio_total}</td>
-                        <td class="text-end">${precio.precio_por_dia}</td>
+                        <td colspan="3" class="text-center">
+                            No hay precios registrados para esta propiedad.
+                        </td>
                     </tr>
-                `;
-                tbody.innerHTML += row;
-            });
-        })
-        .catch(error => console.error('Error al obtener los precios:', error));
+                `);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error:', error);
+            $('.table-precios tbody').html(`
+                <tr>
+                    <td colspan="3" class="text-center text-danger">
+                        Error al cargar los precios
+                    </td>
+                </tr>
+            `);
+        }
+    });
 }
 
 function mostrarPrecios(propiedad_id) {
