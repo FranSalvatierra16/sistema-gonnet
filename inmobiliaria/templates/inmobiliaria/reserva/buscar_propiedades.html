@@ -49,6 +49,12 @@
         padding: 0.5rem;
     }
 
+    /* Mantener la tabla de precios visible al hacer scroll */
+    .col-md-4 {
+        position: sticky;
+        top: 20px;
+    }
+
     </style>
 </head>
 
@@ -130,6 +136,7 @@
             </div>
         </form>
 
+        <!-- Tabla de propiedades disponibles -->
         {% if propiedades_disponibles %}
         <h3 class="text-center mt-4">Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h3>
         <table id="propiedadesTable" class="table table-hover">
@@ -182,7 +189,7 @@
             </tbody>
         </table>
 
-        <!-- Detalles de la propiedad seleccionada -->
+        <!-- Ficha detallada -->
         <div class="card mt-4" id="propertyCard" style="font-family: 'Courier New', monospace;">
             <div class="card-header">
                 <div class="d-flex justify-content-between">
@@ -192,61 +199,22 @@
             </div>
             
             <div class="card-body">
-                <div class="row">
-                    <!-- Columna izquierda: Descripción grande -->
-                    <div class="col-md-8">
-                        <div class="descripcion p-3" style="background-color: #ffcccc;">
-                            <!-- Descripción principal en mayúsculas -->
-                            <div id="descripcionDetallada" class="text-uppercase" style="font-size: 1.2em; font-weight: bold;">
-                                <!-- Se llenará con JavaScript -->
-                            </div>
-                            
-                            <div class="mt-3">
-                                <p id="cardPropietario">Propietario: </p>
-                                <p id="cardDisponibilidad">Disponibilidad: </p>
-                            </div>
-
-                            <!-- Características/Amenities -->
-                            <div class="mt-3 p-2" style="background-color: #90EE90;">
-                                <span id="caracteristicas" class="text-uppercase">
-                                    <!-- Se llenará con JavaScript -->
-                                </span>
-                            </div>
-                        </div>
+                <div class="descripcion p-3" style="background-color: #ffcccc;">
+                    <!-- Descripción principal en mayúsculas -->
+                    <div id="descripcionDetallada" class="text-uppercase" style="font-size: 1.2em; font-weight: bold;">
+                        <!-- Se llenará con JavaScript -->
+                    </div>
+                    
+                    <div class="mt-3">
+                        <p id="cardPropietario">Propietario: </p>
+                        <p id="cardDisponibilidad">Disponibilidad: </p>
                     </div>
 
-                    <!-- Columna derecha: Tabla de precios -->
-                    <div class="col-md-4">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr style="background-color: #007bff; color: white;">
-                                    <th>PERÍODO</th>
-                                    <th>PRECIO</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>FIN DE SEM.</td>
-                                    <td class="text-end" id="precio_finde">0.00</td>
-                                </tr>
-                                <tr>
-                                    <td>ENERO</td>
-                                    <td class="text-end" id="precio_enero">0.00</td>
-                                </tr>
-                                <tr>
-                                    <td>FEBRERO</td>
-                                    <td class="text-end" id="precio_febrero">0.00</td>
-                                </tr>
-                                <tr>
-                                    <td>MARZO</td>
-                                    <td class="text-end" id="precio_marzo">0.00</td>
-                                </tr>
-                                <tr>
-                                    <td>PRECIO TOTAL</td>
-                                    <td class="text-end" id="cardPrecio">0.00</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <!-- Características/Amenities -->
+                    <div class="mt-3 p-2" style="background-color: #90EE90;">
+                        <span id="caracteristicas" class="text-uppercase">
+                            <!-- Se llenará con JavaScript -->
+                        </span>
                     </div>
                 </div>
             </div>
@@ -277,26 +245,51 @@
         {% endif %}
     </div>
 
-<!-- Tarjeta de propiedad seleccionada -->
-<div class="col-md-4" class="card property-card" id="propertyCard">
-    <div  style="position: sticky; top: 20px;">
-        <div class="card-header">
-            Propiedad Seleccionada
-        </div>
-        <div class="card-body">
-            <h5 class="card-title" id="cardPropiedad">Ficha: </h5>
-            <h5 class="card-title" id="cardDireccion">Dirección: </h5>
-            <p class="card-text" id="cardPropietario">Propietario: </p>
-            <p class="card-text" id="cardDisponibilidad">Disponibilidad: </p>
-            <p class="card-text" id="cardPrecio">Precio: </p>
-        </div>
-        <div class="card-footer" id="cardButtons">
-            <!-- Los botones se insertarán aquí dinámicamente -->
+    <!-- Columna derecha: Tabla de precios -->
+    <div class="col-md-4" style="position: sticky; top: 20px;">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">PRECIOS</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr style="background-color: #007bff; color: white;">
+                            <th>PERÍODO</th>
+                            <th>PRECIO</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>FIN DE SEM.T.BAJA 3 NOCH</td>
+                            <td class="text-end" id="precio_finde">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>T/SEM.BAJA 2 NOCHES</td>
+                            <td class="text-end" id="precio_2noches">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>ENERO</td>
+                            <td class="text-end" id="precio_enero">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>FEBRERO</td>
+                            <td class="text-end" id="precio_febrero">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>MARZO</td>
+                            <td class="text-end" id="precio_marzo">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>PRECIO TOTAL</td>
+                            <td class="text-end" id="cardPrecio">0.00</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
-
-
 
 <!-- Modal Confirmar Reserva -->
 <div class="modal fade" id="modalConfirmarReserva" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
