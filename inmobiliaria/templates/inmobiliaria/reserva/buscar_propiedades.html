@@ -637,32 +637,50 @@ $('#modalPrecios .close').click(function () {
         data: { 'propiedad_id': id },
         method: 'GET',
         success: function(response) {
-            if (response.precios && response.precios.length > 0) {
-                let tableContent = '';
-                
-                response.precios.forEach(function(precio) {
-                    tableContent += `
-                        <tr>
-                            <td>${precio.tipo_precio}</td>
-                            <td class="text-end">$${formatPrice(precio.precio_total)}</td>
-                            <td class="text-end">$${formatPrice(precio.precio_por_dia)}</td>
-                        </tr>
-                    `;
-                });
-                
-                $('.table-precios tbody').html(tableContent);
-            } else {
-                $('.table-precios tbody').html(`
+            // Definir todos los tipos de precios que queremos mostrar
+            const tiposPrecio = [
+                { key: 'QUINCENA_1_DICIEMBRE', label: '1ra quincena Diciembre' },
+                { key: 'QUINCENA_2_DICIEMBRE', label: '2da quincena Diciembre' },
+                { key: 'QUINCENA_1_ENERO', label: '1ra quincena Enero' },
+                { key: 'QUINCENA_2_ENERO', label: '2da quincena Enero' },
+                { key: 'QUINCENA_1_FEBRERO', label: '1ra quincena Febrero' },
+                { key: 'QUINCENA_2_FEBRERO', label: '2da quincena Febrero' },
+                { key: 'QUINCENA_1_MARZO', label: '1ra quincena Marzo' },
+                { key: 'QUINCENA_2_MARZO', label: '2da quincena Marzo' },
+                { key: 'TEMPORADA_BAJA', label: 'Temporada baja' },
+                { key: 'VACACIONES_INVIERNO', label: 'Vacaciones Invierno' },
+                { key: 'FINDE_LARGO', label: 'Finde largo' },
+                { key: 'DICIEMBRE', label: 'Diciembre' },
+                { key: 'ENERO', label: 'Enero' },
+                { key: 'FEBRERO', label: 'Febrero' },
+                { key: 'MARZO', label: 'Marzo' },
+                { key: 'ESTUDIANTE', label: 'Estudiante' }
+            ];
+
+            let tableContent = '';
+            
+            // Crear un mapa de los precios recibidos para fácil acceso
+            const preciosMap = {};
+            response.precios.forEach(p => {
+                preciosMap[p.tipo_precio] = p;
+            });
+
+            // Generar filas para todos los tipos de precio
+            tiposPrecio.forEach(tipo => {
+                const precioData = preciosMap[tipo.label] || { precio_total: '0.00', precio_por_dia: '0.00' };
+                tableContent += `
                     <tr>
-                        <td colspan="3" class="text-center">
-                            No hay precios registrados para esta propiedad.
-                        </td>
+                        <td>${tipo.label}</td>
+                        <td class="text-end">$${precioData.precio_total}</td>
+                        <td class="text-end">$${precioData.precio_por_dia}</td>
                     </tr>
-                `);
-            }
+                `;
+            });
+            
+            $('.table-precios tbody').html(tableContent);
         },
         error: function(xhr, status, error) {
-            console.error('Error:', error);
+            console.error('Error al obtener precios:', error);
             $('.table-precios tbody').html(`
                 <tr>
                     <td colspan="3" class="text-center text-danger">
