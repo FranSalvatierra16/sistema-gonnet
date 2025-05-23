@@ -245,7 +245,7 @@
         {% endif %}
     </div>
 
-    <!-- Columna derecha: Tabla de precios -->
+    <!-- Columna derecha: Tabla de precios del modal -->
     <div class="col-md-4" style="position: sticky; top: 20px;">
         <div class="card">
             <div class="card-header bg-primary text-white">
@@ -257,32 +257,64 @@
                         <tr style="background-color: #007bff; color: white;">
                             <th>PERÍODO</th>
                             <th>PRECIO</th>
+                            <th>POR DÍA</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td>FIN DE SEM.T.BAJA 3 NOCH</td>
                             <td class="text-end" id="precio_finde">0.00</td>
+                            <td class="text-end" id="precio_finde_dia">0.00</td>
                         </tr>
                         <tr>
                             <td>T/SEM.BAJA 2 NOCHES</td>
                             <td class="text-end" id="precio_2noches">0.00</td>
+                            <td class="text-end" id="precio_2noches_dia">0.00</td>
                         </tr>
                         <tr>
                             <td>ENERO</td>
                             <td class="text-end" id="precio_enero">0.00</td>
+                            <td class="text-end" id="precio_enero_dia">0.00</td>
                         </tr>
                         <tr>
                             <td>FEBRERO</td>
                             <td class="text-end" id="precio_febrero">0.00</td>
+                            <td class="text-end" id="precio_febrero_dia">0.00</td>
                         </tr>
                         <tr>
                             <td>MARZO</td>
                             <td class="text-end" id="precio_marzo">0.00</td>
+                            <td class="text-end" id="precio_marzo_dia">0.00</td>
                         </tr>
                         <tr>
-                            <td>PRECIO TOTAL</td>
-                            <td class="text-end" id="cardPrecio">0.00</td>
+                            <td>INV. A ESTUDIANTES</td>
+                            <td class="text-end" id="precio_estudiantes">0.00</td>
+                            <td class="text-end" id="precio_estudiantes_dia">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>SANTA 5 NOCHES</td>
+                            <td class="text-end" id="precio_santa">0.00</td>
+                            <td class="text-end" id="precio_santa_dia">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>V.INVIERNO MIN.4 NOCHES</td>
+                            <td class="text-end" id="precio_invierno">0.00</td>
+                            <td class="text-end" id="precio_invierno_dia">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>SEMANA MIN.4 NOCHES</td>
+                            <td class="text-end" id="precio_semana">0.00</td>
+                            <td class="text-end" id="precio_semana_dia">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>24 MESES 1er AÑO</td>
+                            <td class="text-end" id="precio_24meses_1">0.00</td>
+                            <td class="text-end" id="precio_24meses_1_dia">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>24 MESES 2do AÑO</td>
+                            <td class="text-end" id="precio_24meses_2">0.00</td>
+                            <td class="text-end" id="precio_24meses_2_dia">0.00</td>
                         </tr>
                     </tbody>
                 </table>
@@ -431,25 +463,6 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalPrecios" tabindex="-1" role="dialog" aria-labelledby="modalPreciosLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalPreciosLabel">Precios de la Propiedad</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body" id="preciosModalBody">
-                <!-- Contenido del modal -->
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary close" data-dismiss="modal" aria-label="Close">Cerrar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Modales para ver detalles de la propiedad -->
 {% for propiedad in propiedades_disponibles %}
 <div class="modal fade" id="modalDetalles{{ propiedad.id }}" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
@@ -509,9 +522,6 @@
         </div>
     </div>
 </div>
-
-<!-- Modal de Precios -->
-
 {% endfor %}
 
 
@@ -590,13 +600,11 @@ $('#modalPrecios .close').click(function () {
             cardButtons.innerHTML = `
                 <button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion('${reserva_id}')">Operacion</button>
                 <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-                <button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>
             `;
         } else {
             cardButtons.innerHTML = `
                 <button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>
                 <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-                <button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>
             `;
         }
 
@@ -618,11 +626,30 @@ $('#modalPrecios .close').click(function () {
     // Actualizar características
     document.getElementById("caracteristicas").innerHTML = "TV - CABLE - MICROONDAS - WIFI";
     
-    // Actualizar precios en la tabla
+    // Actualizar todos los precios
     document.getElementById("precio_finde").innerText = propiedad.precio_finde;
+    document.getElementById("precio_finde_dia").innerText = propiedad.precio_finde_dia;
+    document.getElementById("precio_2noches").innerText = propiedad.precio_2noches;
+    document.getElementById("precio_2noches_dia").innerText = propiedad.precio_2noches_dia;
     document.getElementById("precio_enero").innerText = propiedad.precio_enero;
+    document.getElementById("precio_enero_dia").innerText = propiedad.precio_enero_dia;
     document.getElementById("precio_febrero").innerText = propiedad.precio_febrero;
+    document.getElementById("precio_febrero_dia").innerText = propiedad.precio_febrero_dia;
     document.getElementById("precio_marzo").innerText = propiedad.precio_marzo;
+    document.getElementById("precio_marzo_dia").innerText = propiedad.precio_marzo_dia;
+    document.getElementById("precio_estudiantes").innerText = propiedad.precio_estudiantes;
+    document.getElementById("precio_estudiantes_dia").innerText = propiedad.precio_estudiantes_dia;
+    document.getElementById("precio_santa").innerText = propiedad.precio_santa;
+    document.getElementById("precio_santa_dia").innerText = propiedad.precio_santa_dia;
+    document.getElementById("precio_invierno").innerText = propiedad.precio_invierno;
+    document.getElementById("precio_invierno_dia").innerText = propiedad.precio_invierno_dia;
+    document.getElementById("precio_semana").innerText = propiedad.precio_semana;
+    document.getElementById("precio_semana_dia").innerText = propiedad.precio_semana_dia;
+    document.getElementById("precio_24meses_1").innerText = propiedad.precio_24meses_1;
+    document.getElementById("precio_24meses_1_dia").innerText = propiedad.precio_24meses_1_dia;
+    document.getElementById("precio_24meses_2").innerText = propiedad.precio_24meses_2;
+    document.getElementById("precio_24meses_2_dia").innerText = propiedad.precio_24meses_2_dia;
+    
     document.getElementById("cardPrecio").innerText = precio;
 }
 
