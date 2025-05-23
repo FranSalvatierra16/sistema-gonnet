@@ -559,27 +559,13 @@ $('#modalPrecios .close').click(function () {
     function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id) {
         console.log('Propiedad seleccionada:', id); // Debug
 
-        // Definir todos los tipos de precios
-        const tiposPrecio = [
-            { key: 'QUINCENA_1_DICIEMBRE', label: '1ra quincena Diciembre' },
-            { key: 'QUINCENA_2_DICIEMBRE', label: '2da quincena Diciembre' },
-            { key: 'QUINCENA_1_ENERO', label: '1ra quincena Enero' },
-            { key: 'QUINCENA_2_ENERO', label: '2da quincena Enero' },
-            { key: 'QUINCENA_1_FEBRERO', label: '1ra quincena Febrero' },
-            { key: 'QUINCENA_2_FEBRERO', label: '2da quincena Febrero' },
-            { key: 'QUINCENA_1_MARZO', label: '1ra quincena Marzo' },
-            { key: 'QUINCENA_2_MARZO', label: '2da quincena Marzo' },
-            { key: 'TEMPORADA_BAJA', label: 'Temporada baja' },
-            { key: 'VACACIONES_INVIERNO', label: 'Vacaciones Invierno' },
-            { key: 'FINDE_LARGO', label: 'Finde largo' },
-            { key: 'DICIEMBRE', label: 'Diciembre' },
-            { key: 'ENERO', label: 'Enero' },
-            { key: 'FEBRERO', label: 'Febrero' },
-            { key: 'MARZO', label: 'Marzo' },
-            { key: 'ESTUDIANTE', label: 'Estudiante' }
-        ];
+        // Actualizar la ficha de la propiedad
+        document.getElementById('fichaId').textContent = id;
+        document.getElementById('fichaDireccion').textContent = direccion;
+        document.getElementById('fichaPropietario').textContent = propietario;
+        // Actualiza más campos según sea necesario
 
-        // Obtener y mostrar los precios
+        // Actualizar la tabla de precios
         $.ajax({
             url: "{% url 'inmobiliaria:obtener_precios_propiedad' %}",
             data: { 'propiedad_id': id },
@@ -587,13 +573,30 @@ $('#modalPrecios .close').click(function () {
             success: function(response) {
                 let tableContent = '';
 
-                // Crear un mapa de los precios recibidos
+                const tiposPrecio = [
+                    { key: 'QUINCENA_1_DICIEMBRE', label: '1ra quincena Diciembre' },
+                    { key: 'QUINCENA_2_DICIEMBRE', label: '2da quincena Diciembre' },
+                    { key: 'QUINCENA_1_ENERO', label: '1ra quincena Enero' },
+                    { key: 'QUINCENA_2_ENERO', label: '2da quincena Enero' },
+                    { key: 'QUINCENA_1_FEBRERO', label: '1ra quincena Febrero' },
+                    { key: 'QUINCENA_2_FEBRERO', label: '2da quincena Febrero' },
+                    { key: 'QUINCENA_1_MARZO', label: '1ra quincena Marzo' },
+                    { key: 'QUINCENA_2_MARZO', label: '2da quincena Marzo' },
+                    { key: 'TEMPORADA_BAJA', label: 'Temporada baja' },
+                    { key: 'VACACIONES_INVIERNO', label: 'Vacaciones Invierno' },
+                    { key: 'FINDE_LARGO', label: 'Finde largo' },
+                    { key: 'DICIEMBRE', label: 'Diciembre' },
+                    { key: 'ENERO', label: 'Enero' },
+                    { key: 'FEBRERO', label: 'Febrero' },
+                    { key: 'MARZO', label: 'Marzo' },
+                    { key: 'ESTUDIANTE', label: 'Estudiante' }
+                ];
+
                 const preciosMap = {};
                 response.precios.forEach(p => {
                     preciosMap[p.tipo_precio] = p;
                 });
 
-                // Generar filas para todos los tipos de precio
                 tiposPrecio.forEach(tipo => {
                     const precioData = preciosMap[tipo.key] || { precio_total: '0.00', precio_por_dia: '0.00' };
                     tableContent += `
@@ -1363,6 +1366,13 @@ function getCookie(name) {
 
 
 <!-- Modal para crear nuevo cliente -->
+
+<div id="fichaPropiedad">
+    <p><strong>FICHA:</strong> <span id="fichaId"></span></p>
+    <p><strong>DIRECCIÓN:</strong> <span id="fichaDireccion"></span></p>
+    <p><strong>PROPIETARIO:</strong> <span id="fichaPropietario"></span></p>
+    <!-- Agrega más campos según sea necesario -->
+</div>
 
 {% endblock %}
 
