@@ -179,10 +179,7 @@
                     <th>Piso</th>
                     <th>Dpto</th>
                     <th>Propietario</th>
-                    <th>FIN DE SEM.</th>
-                    <th>ENERO</th>
-                    <th>FEBRERO</th>
-                    <th>MARZO</th>
+                    <th>Precio</th>
                 </tr>
             </thead>
             <tbody>
@@ -196,10 +193,7 @@
                     <td>{{ propiedad.piso }}</td>
                     <td>{{ propiedad.departamento }}</td>
                     <td>{{ propiedad.propietario.apellido }}</td>
-                    <td>{{ propiedad.precio_finde|default:"0.00"|format_price }}</td>
-                    <td>{{ propiedad.precio_enero|default:"0.00"|format_price }}</td>
-                    <td>{{ propiedad.precio_febrero|default:"0.00"|format_price }}</td>
-                    <td>{{ propiedad.precio_marzo|default:"0.00"|format_price }}</td>
+                    <td>{{ propiedad.precio_total_reserva | format_price }}</td>
                 </tr>
                 {% else %}
                 <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" 
@@ -210,10 +204,7 @@
                     <td>{{ propiedad.piso }}</td>
                     <td>{{ propiedad.departamento }}</td>
                     <td>{{ propiedad.propietario.apellido }}</td>
-                    <td>{{ propiedad.precio_finde|default:"0.00"|format_price }}</td>
-                    <td>{{ propiedad.precio_enero|default:"0.00"|format_price }}</td>
-                    <td>{{ propiedad.precio_febrero|default:"0.00"|format_price }}</td>
-                    <td>{{ propiedad.precio_marzo|default:"0.00"|format_price }}</td>
+                    <td>{{ propiedad.precio_total_reserva | format_price }}</td>
                 </tr>
                 {% endif %}
                 {% endfor %}
@@ -299,7 +290,7 @@
         {% endif %}
     </div>
 
-    <!-- Columna derecha: Solo tabla de precios -->
+    <!-- Columna derecha: Tabla de precios -->
     <div class="col-md-4" style="position: sticky; top: 20px;">
         <div class="card">
             <div class="card-header bg-primary text-white">
@@ -316,14 +307,64 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td>FIN DE SEM.T.BAJA 3 NOCH</td>
-                            <td class="text-end" id="precio_finde">0.00</td>
-                            <td class="text-end" id="precio_finde_dia">0.00</td>
+                            <td>1RA QUINCENA DICIEMBRE</td>
+                            <td class="text-end" id="precio_quincena_1_diciembre">0.00</td>
+                            <td class="text-end" id="precio_quincena_1_diciembre_dia">0.00</td>
                         </tr>
                         <tr>
-                            <td>T/SEM.BAJA 2 NOCHES</td>
-                            <td class="text-end" id="precio_2noches">0.00</td>
-                            <td class="text-end" id="precio_2noches_dia">0.00</td>
+                            <td>2DA QUINCENA DICIEMBRE</td>
+                            <td class="text-end" id="precio_quincena_2_diciembre">0.00</td>
+                            <td class="text-end" id="precio_quincena_2_diciembre_dia">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>1RA QUINCENA ENERO</td>
+                            <td class="text-end" id="precio_quincena_1_enero">0.00</td>
+                            <td class="text-end" id="precio_quincena_1_enero_dia">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>2DA QUINCENA ENERO</td>
+                            <td class="text-end" id="precio_quincena_2_enero">0.00</td>
+                            <td class="text-end" id="precio_quincena_2_enero_dia">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>1RA QUINCENA FEBRERO</td>
+                            <td class="text-end" id="precio_quincena_1_febrero">0.00</td>
+                            <td class="text-end" id="precio_quincena_1_febrero_dia">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>2DA QUINCENA FEBRERO</td>
+                            <td class="text-end" id="precio_quincena_2_febrero">0.00</td>
+                            <td class="text-end" id="precio_quincena_2_febrero_dia">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>1RA QUINCENA MARZO</td>
+                            <td class="text-end" id="precio_quincena_1_marzo">0.00</td>
+                            <td class="text-end" id="precio_quincena_1_marzo_dia">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>2DA QUINCENA MARZO</td>
+                            <td class="text-end" id="precio_quincena_2_marzo">0.00</td>
+                            <td class="text-end" id="precio_quincena_2_marzo_dia">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>TEMPORADA BAJA</td>
+                            <td class="text-end" id="precio_temporada_baja">0.00</td>
+                            <td class="text-end" id="precio_temporada_baja_dia">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>VACACIONES INVIERNO</td>
+                            <td class="text-end" id="precio_vacaciones_invierno">0.00</td>
+                            <td class="text-end" id="precio_vacaciones_invierno_dia">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>FINDE LARGO</td>
+                            <td class="text-end" id="precio_finde_largo">0.00</td>
+                            <td class="text-end" id="precio_finde_largo_dia">0.00</td>
+                        </tr>
+                        <tr>
+                            <td>DICIEMBRE</td>
+                            <td class="text-end" id="precio_diciembre">0.00</td>
+                            <td class="text-end" id="precio_diciembre_dia">0.00</td>
                         </tr>
                         <tr>
                             <td>ENERO</td>
@@ -341,34 +382,9 @@
                             <td class="text-end" id="precio_marzo_dia">0.00</td>
                         </tr>
                         <tr>
-                            <td>INV. A ESTUDIANTES</td>
-                            <td class="text-end" id="precio_estudiantes">0.00</td>
-                            <td class="text-end" id="precio_estudiantes_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>SANTA 5 NOCHES</td>
-                            <td class="text-end" id="precio_santa">0.00</td>
-                            <td class="text-end" id="precio_santa_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>V.INVIERNO MIN.4 NOCHES</td>
-                            <td class="text-end" id="precio_invierno">0.00</td>
-                            <td class="text-end" id="precio_invierno_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>SEMANA MIN.4 NOCHES</td>
-                            <td class="text-end" id="precio_semana">0.00</td>
-                            <td class="text-end" id="precio_semana_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>24 MESES 1er AÑO</td>
-                            <td class="text-end" id="precio_24meses_1">0.00</td>
-                            <td class="text-end" id="precio_24meses_1_dia">0.00</td>
-                        </tr>
-                        <tr>
-                            <td>24 MESES 2do AÑO</td>
-                            <td class="text-end" id="precio_24meses_2">0.00</td>
-                            <td class="text-end" id="precio_24meses_2_dia">0.00</td>
+                            <td>ESTUDIANTE</td>
+                            <td class="text-end" id="precio_estudiante">0.00</td>
+                            <td class="text-end" id="precio_estudiante_dia">0.00</td>
                         </tr>
                     </tbody>
                 </table>
@@ -695,30 +711,38 @@ $('#modalPrecios .close').click(function () {
     document.getElementById("estadoPropiedad").innerText = estadoReserva || 'Disponible';
     
     // Actualizar todos los precios
-    document.getElementById("precio_finde").innerText = propiedad.precio_finde;
-    document.getElementById("precio_finde_dia").innerText = propiedad.precio_finde_dia;
-    document.getElementById("precio_2noches").innerText = propiedad.precio_2noches;
-    document.getElementById("precio_2noches_dia").innerText = propiedad.precio_2noches_dia;
+    document.getElementById("precio_quincena_1_diciembre").innerText = propiedad.precio_quincena_1_diciembre;
+    document.getElementById("precio_quincena_1_diciembre_dia").innerText = propiedad.precio_quincena_1_diciembre_dia;
+    document.getElementById("precio_quincena_2_diciembre").innerText = propiedad.precio_quincena_2_diciembre;
+    document.getElementById("precio_quincena_2_diciembre_dia").innerText = propiedad.precio_quincena_2_diciembre_dia;
+    document.getElementById("precio_quincena_1_enero").innerText = propiedad.precio_quincena_1_enero;
+    document.getElementById("precio_quincena_1_enero_dia").innerText = propiedad.precio_quincena_1_enero_dia;
+    document.getElementById("precio_quincena_2_enero").innerText = propiedad.precio_quincena_2_enero;
+    document.getElementById("precio_quincena_2_enero_dia").innerText = propiedad.precio_quincena_2_enero_dia;
+    document.getElementById("precio_quincena_1_febrero").innerText = propiedad.precio_quincena_1_febrero;
+    document.getElementById("precio_quincena_1_febrero_dia").innerText = propiedad.precio_quincena_1_febrero_dia;
+    document.getElementById("precio_quincena_2_febrero").innerText = propiedad.precio_quincena_2_febrero;
+    document.getElementById("precio_quincena_2_febrero_dia").innerText = propiedad.precio_quincena_2_febrero_dia;
+    document.getElementById("precio_quincena_1_marzo").innerText = propiedad.precio_quincena_1_marzo;
+    document.getElementById("precio_quincena_1_marzo_dia").innerText = propiedad.precio_quincena_1_marzo_dia;
+    document.getElementById("precio_quincena_2_marzo").innerText = propiedad.precio_quincena_2_marzo;
+    document.getElementById("precio_quincena_2_marzo_dia").innerText = propiedad.precio_quincena_2_marzo_dia;
+    document.getElementById("precio_temporada_baja").innerText = propiedad.precio_temporada_baja;
+    document.getElementById("precio_temporada_baja_dia").innerText = propiedad.precio_temporada_baja_dia;
+    document.getElementById("precio_vacaciones_invierno").innerText = propiedad.precio_vacaciones_invierno;
+    document.getElementById("precio_vacaciones_invierno_dia").innerText = propiedad.precio_vacaciones_invierno_dia;
+    document.getElementById("precio_finde_largo").innerText = propiedad.precio_finde_largo;
+    document.getElementById("precio_finde_largo_dia").innerText = propiedad.precio_finde_largo_dia;
+    document.getElementById("precio_diciembre").innerText = propiedad.precio_diciembre;
+    document.getElementById("precio_diciembre_dia").innerText = propiedad.precio_diciembre_dia;
     document.getElementById("precio_enero").innerText = propiedad.precio_enero;
     document.getElementById("precio_enero_dia").innerText = propiedad.precio_enero_dia;
     document.getElementById("precio_febrero").innerText = propiedad.precio_febrero;
     document.getElementById("precio_febrero_dia").innerText = propiedad.precio_febrero_dia;
     document.getElementById("precio_marzo").innerText = propiedad.precio_marzo;
     document.getElementById("precio_marzo_dia").innerText = propiedad.precio_marzo_dia;
-    document.getElementById("precio_estudiantes").innerText = propiedad.precio_estudiantes;
-    document.getElementById("precio_estudiantes_dia").innerText = propiedad.precio_estudiantes_dia;
-    document.getElementById("precio_santa").innerText = propiedad.precio_santa;
-    document.getElementById("precio_santa_dia").innerText = propiedad.precio_santa_dia;
-    document.getElementById("precio_invierno").innerText = propiedad.precio_invierno;
-    document.getElementById("precio_invierno_dia").innerText = propiedad.precio_invierno_dia;
-    document.getElementById("precio_semana").innerText = propiedad.precio_semana;
-    document.getElementById("precio_semana_dia").innerText = propiedad.precio_semana_dia;
-    document.getElementById("precio_24meses_1").innerText = propiedad.precio_24meses_1;
-    document.getElementById("precio_24meses_1_dia").innerText = propiedad.precio_24meses_1_dia;
-    document.getElementById("precio_24meses_2").innerText = propiedad.precio_24meses_2;
-    document.getElementById("precio_24meses_2_dia").innerText = propiedad.precio_24meses_2_dia;
-    
-    document.getElementById("cardPrecio").innerText = precio;
+    document.getElementById("precio_estudiante").innerText = propiedad.precio_estudiante;
+    document.getElementById("precio_estudiante_dia").innerText = propiedad.precio_estudiante_dia;
 }
 
 function mostrarPrecios(propiedad_id) {
