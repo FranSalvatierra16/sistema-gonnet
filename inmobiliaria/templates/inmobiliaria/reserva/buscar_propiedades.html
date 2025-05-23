@@ -631,13 +631,24 @@ $('#modalPrecios .close').click(function () {
     document.getElementById("cardPrecio").innerText = precio;
     document.getElementById("estadoPropiedad").innerText = estadoReserva || 'Disponible';
     
+    // Mostrar spinner mientras se cargan los precios
+    $('.table-precios tbody').html(`
+        <tr>
+            <td colspan="3" class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="sr-only">Cargando...</span>
+                </div>
+            </td>
+        </tr>
+    `);
+
     // Obtener y mostrar los precios
     $.ajax({
         url: "{% url 'inmobiliaria:obtener_precios_propiedad' %}",
         data: { 'propiedad_id': id },
         method: 'GET',
         success: function(response) {
-            console.log('Respuesta:', response);
+            console.log('Precios recibidos:', response); // Para debug
             
             if (response.precios && response.precios.length > 0) {
                 let tableContent = '';
@@ -646,8 +657,8 @@ $('#modalPrecios .close').click(function () {
                     tableContent += `
                         <tr>
                             <td>${precio.tipo_precio}</td>
-                            <td class="text-end">$${formatPrice(precio.precio_por_dia)}</td>
                             <td class="text-end">$${formatPrice(precio.precio_total)}</td>
+                            <td class="text-end">$${formatPrice(precio.precio_por_dia)}</td>
                         </tr>
                     `;
                 });
@@ -657,18 +668,18 @@ $('#modalPrecios .close').click(function () {
                 $('.table-precios tbody').html(`
                     <tr>
                         <td colspan="3" class="text-center">
-                            No hay precios registrados para esta propiedad.
+                            <i class="fas fa-info-circle"></i> No hay precios registrados
                         </td>
                     </tr>
                 `);
             }
         },
         error: function(xhr, status, error) {
-            console.error('Error:', error);
+            console.error('Error al cargar precios:', error);
             $('.table-precios tbody').html(`
                 <tr>
                     <td colspan="3" class="text-center text-danger">
-                        Error al cargar los precios: ${error}
+                        <i class="fas fa-exclamation-circle"></i> Error al cargar los precios
                     </td>
                 </tr>
             `);
