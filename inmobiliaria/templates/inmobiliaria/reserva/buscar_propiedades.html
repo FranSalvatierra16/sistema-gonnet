@@ -186,7 +186,7 @@
                 {% for propiedad in propiedades_disponibles %}
                 {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
                 <tr style="background-color: white; color: red;" data-index="{{ forloop.counter0 }}" 
-                    onclick="seleccionarPropiedad('{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}', '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','{{ propiedad.reserva.id }}')">
+                    onclick="seleccionarPropiedad('{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.apellido|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}', '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','{{ propiedad.reserva.id }}','{{ propiedad.ambientes }}', '{{ propiedad.descripcion }}', '{{ propiedad.caracteristicas }}')">
                     <td>{{ propiedad.id }}</td>
                     <td>Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                     <td>{{ propiedad.direccion }}</td>
@@ -197,7 +197,7 @@
                 </tr>
                 {% else %}
                 <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" 
-                    onclick="seleccionarPropiedad('{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}', '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}')">
+                    onclick="seleccionarPropiedad('{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.apellido|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}', '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','{{ propiedad.ambientes }}', '{{ propiedad.descripcion }}', '{{ propiedad.caracteristicas }}')">
                     <td>{{ propiedad.id }}</td>
                     <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                     <td>{{ propiedad.direccion }}</td>
@@ -234,7 +234,7 @@
                             <p><strong>PRECIO TOTAL:</strong> <span id="cardPrecio"></span></p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>CAPACIDAD:</strong> <span id="cardCapacidad"></span> personas</p>
+                            <p><strong>AMBIENTES:</strong> <span id="cardAmbiente"></span> personas</p>
                             <p><strong>ESTADO:</strong> <span id="cardEstado"></span></p>
                         </div>
                     </div>
@@ -556,7 +556,7 @@ $('#modalPrecios .close').click(function () {
         mostrarOcultarFiltros(); // Ocultar los filtros
     }
     let selectedRowIndex = -1;
-    function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id) {
+    function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambiente, descripcion, caracteristicas) {
         console.log('Propiedad seleccionada:', id); // Debug
 
         // Actualizar la ficha de la propiedad
@@ -566,7 +566,18 @@ $('#modalPrecios .close').click(function () {
         document.getElementById('cardDisponibilidad').textContent = disponibilidad;
         document.getElementById('cardPrecio').textContent = precio;
         document.getElementById('cardEstado').textContent = estadoReserva;
-        // Actualiza más campos según sea necesario
+        document.getElementById('cardAmbiente').textContent = ambiente;
+        document.getElementById('descripcionDetallada').textContent = descripcion;
+
+        // Actualizar características
+        const caracteristicasContainer = document.getElementById('caracteristicas');
+        caracteristicasContainer.innerHTML = ''; // Limpiar contenido anterior
+        caracteristicas.forEach(caracteristica => {
+            const badge = document.createElement('span');
+            badge.className = 'caracteristica-badge';
+            badge.textContent = caracteristica;
+            caracteristicasContainer.appendChild(badge);
+        });
 
         // Actualizar la tabla de precios
         $.ajax({
