@@ -560,9 +560,12 @@ $('#modalPrecios .close').click(function () {
         console.log('Propiedad seleccionada:', id); // Debug
 
         // Actualizar la ficha de la propiedad
-        document.getElementById('fichaId').textContent = id;
-        document.getElementById('fichaDireccion').textContent = direccion;
-        document.getElementById('fichaPropietario').textContent = propietario;
+        document.getElementById('cardPropiedad').textContent = id;
+        document.getElementById('cardDireccion').textContent = direccion;
+        document.getElementById('cardPropietario').textContent = propietario;
+        document.getElementById('cardDisponibilidad').textContent = disponibilidad;
+        document.getElementById('cardPrecio').textContent = precio;
+        document.getElementById('cardEstado').textContent = estadoReserva;
         // Actualiza más campos según sea necesario
 
         // Actualizar la tabla de precios
