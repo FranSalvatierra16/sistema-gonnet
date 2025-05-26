@@ -557,81 +557,49 @@ $('#modalPrecios .close').click(function () {
     }
     let selectedRowIndex = -1;
     function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, ambientes, descripcion, caracteristicas) {
-        console.log('Propiedad seleccionada:', id); // Debug
+        console.log('=== DEBUG SELECCIONAR PROPIEDAD ===');
+        console.log('ID:', id);
+        console.log('Dirección:', direccion);
+        console.log('Propietario:', propietario);
+        console.log('Disponibilidad:', disponibilidad);
+        console.log('Precio:', precio);
+        console.log('Estado:', estadoReserva);
+        console.log('Ambientes:', ambientes);
+        console.log('Descripción:', descripcion);
+        console.log('Características:', caracteristicas);
 
         // Actualizar la ficha de la propiedad
-        document.getElementById('cardPropiedad').textContent = id;
-        document.getElementById('cardDireccion').textContent = direccion;
-        document.getElementById('cardPropietario').textContent = propietario;
-        document.getElementById('cardDisponibilidad').textContent = disponibilidad;
-        document.getElementById('cardPrecio').textContent = precio;
-        document.getElementById('cardEstado').textContent = estadoReserva;
-        document.getElementById('cardAmbiente').textContent = ambientes;
-        document.getElementById('descripcionDetallada').textContent = descripcion;
-
-        // Actualizar características (ahora como descripción)
+        const cardPropiedad = document.getElementById('cardPropiedad');
+        const cardDireccion = document.getElementById('cardDireccion');
+        const cardPropietario = document.getElementById('cardPropietario');
+        const cardDisponibilidad = document.getElementById('cardDisponibilidad');
+        const cardPrecio = document.getElementById('cardPrecio');
+        const cardEstado = document.getElementById('cardEstado');
+        const cardAmbiente = document.getElementById('cardAmbiente');
+        const descripcionDetallada = document.getElementById('descripcionDetallada');
         const caracteristicasContainer = document.getElementById('caracteristicas');
-        caracteristicasContainer.innerHTML = ''; // Limpiar contenido anterior
-        const descripcionElement = document.createElement('p');
-        descripcionElement.textContent = descripcion;
-        caracteristicasContainer.appendChild(descripcionElement);
 
-        // Actualizar la tabla de precios
-        $.ajax({
-            url: "{% url 'inmobiliaria:obtener_precios_propiedad' %}",
-            data: { 'propiedad_id': id },
-            method: 'GET',
-            success: function(response) {
-                let tableContent = '';
+        // Verificar que los elementos existen
+        console.log('Elementos encontrados:');
+        console.log('cardPropiedad:', cardPropiedad);
+        console.log('cardDireccion:', cardDireccion);
+        console.log('cardPropietario:', cardPropietario);
 
-                const tiposPrecio = [
-                    { key: 'QUINCENA_1_DICIEMBRE', label: '1ra quincena Diciembre' },
-                    { key: 'QUINCENA_2_DICIEMBRE', label: '2da quincena Diciembre' },
-                    { key: 'QUINCENA_1_ENERO', label: '1ra quincena Enero' },
-                    { key: 'QUINCENA_2_ENERO', label: '2da quincena Enero' },
-                    { key: 'QUINCENA_1_FEBRERO', label: '1ra quincena Febrero' },
-                    { key: 'QUINCENA_2_FEBRERO', label: '2da quincena Febrero' },
-                    { key: 'QUINCENA_1_MARZO', label: '1ra quincena Marzo' },
-                    { key: 'QUINCENA_2_MARZO', label: '2da quincena Marzo' },
-                    { key: 'TEMPORADA_BAJA', label: 'Temporada baja' },
-                    { key: 'VACACIONES_INVIERNO', label: 'Vacaciones Invierno' },
-                    { key: 'FINDE_LARGO', label: 'Finde largo' },
-                    { key: 'DICIEMBRE', label: 'Diciembre' },
-                    { key: 'ENERO', label: 'Enero' },
-                    { key: 'FEBRERO', label: 'Febrero' },
-                    { key: 'MARZO', label: 'Marzo' },
-                    { key: 'ESTUDIANTE', label: 'Estudiante' }
-                ];
+        if (cardPropiedad) cardPropiedad.textContent = id;
+        if (cardDireccion) cardDireccion.textContent = direccion;
+        if (cardPropietario) cardPropietario.textContent = propietario;
+        if (cardDisponibilidad) cardDisponibilidad.textContent = disponibilidad;
+        if (cardPrecio) cardPrecio.textContent = precio;
+        if (cardEstado) cardEstado.textContent = estadoReserva;
+        if (cardAmbiente) cardAmbiente.textContent = ambientes;
+        if (descripcionDetallada) descripcionDetallada.textContent = descripcion;
 
-                const preciosMap = {};
-                response.precios.forEach(p => {
-                    preciosMap[p.tipo_precio] = p;
-                });
+        // Actualizar características
+        if (caracteristicasContainer) {
+            caracteristicasContainer.innerHTML = descripcion || 'Sin descripción disponible';
+        }
 
-                tiposPrecio.forEach(tipo => {
-                    const precioData = preciosMap[tipo.key] || { precio_total: '0.00', precio_por_dia: '0.00' };
-                    tableContent += `
-                        <tr>
-                            <td>${tipo.label}</td>
-                            <td class="text-end">$${precioData.precio_total}</td>
-                            <td class="text-end">$${precioData.precio_por_dia}</td>
-                        </tr>
-                    `;
-                });
-
-                $('.table-precios tbody').html(tableContent);
-            },
-            error: function(xhr, status, error) {
-                console.error('Error al cargar precios:', error);
-                $('.table-precios tbody').html(`
-                    <tr>
-                        <td colspan="3" class="text-center text-danger">
-                            Error al cargar los precios
-                        </td>
-                    </tr>
-                `);
-            }
-        });
+        // Resto del código para precios...
     }
 
     function mostrarPrecios(propiedad_id) {
