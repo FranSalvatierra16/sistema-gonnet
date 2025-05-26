@@ -274,22 +274,18 @@ class Propiedad(models.Model):
 
     @transaction.atomic
     def crear_precios_iniciales(self):
-        tipos_de_precios = [
-            TipoPrecio.QUINCENA_1_DICIEMBRE, TipoPrecio.QUINCENA_2_DICIEMBRE,
-            TipoPrecio.QUINCENA_1_ENERO, TipoPrecio.QUINCENA_2_ENERO,
-            TipoPrecio.QUINCENA_1_FEBRERO, TipoPrecio.QUINCENA_2_FEBRERO,
-            TipoPrecio.QUINCENA_1_MARZO, TipoPrecio.QUINCENA_2_MARZO,
-            TipoPrecio.FINDE_LARGO,
-            TipoPrecio.TEMPORADA_BAJA, TipoPrecio.VACACIONES_INVIERNO,
-            TipoPrecio.DICIEMBRE, TipoPrecio.ENERO, 
-            TipoPrecio.FEBRERO, TipoPrecio.MARZO,
-            TipoPrecio.ESTUDIANTE,
-        ]
-        for tipo in tipos_de_precios:
+        for tipo_choice in TipoPrecio.choices:
+            tipo_key = tipo_choice[0]
             Precio.objects.get_or_create(
                 propiedad=self,
-                tipo_precio=tipo,
-                defaults={'precio_total': 0, 'precio_por_dia': 0, 'ajuste_porcentaje': 0}
+                tipo_precio=tipo_key,
+                defaults={
+                    'precio_total': 0, 
+                    'precio_por_dia': 0, 
+                    'precio_toma': 0,
+                    'precio_dia_toma': 0,
+                    'ajuste_porcentaje': 0
+                }
             )
   
 
