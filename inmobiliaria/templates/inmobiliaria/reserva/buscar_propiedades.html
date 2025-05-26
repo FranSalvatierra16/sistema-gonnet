@@ -186,7 +186,7 @@
                 {% for propiedad in propiedades_disponibles %}
                 {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
                 <tr style="background-color: white; color: red;" data-index="{{ forloop.counter0 }}" 
-                    onclick="seleccionarPropiedad('{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.apellido|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}', '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','{{ propiedad.reserva.id }}','{{ propiedad.ambientes }}', '{{ propiedad.descripcion }}', '{{ propiedad.caracteristicas }}')">
+                    onclick="seleccionarPropiedad('{{ total_dias }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.apellido|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva|format_price }}', '{{ propiedad.id }}', '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.ambientes }}', '{{ propiedad.descripcion|escapejs }}', '{{ propiedad.caracteristicas|escapejs }}')">
                     <td>{{ propiedad.id }}</td>
                     <td>Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                     <td>{{ propiedad.direccion }}</td>
@@ -197,7 +197,7 @@
                 </tr>
                 {% else %}
                 <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" 
-                    onclick="seleccionarPropiedad('{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.apellido|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}', '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','{{ propiedad.ambientes }}', '{{ propiedad.descripcion }}', '{{ propiedad.caracteristicas }}')">
+                    onclick="seleccionarPropiedad('{{ total_dias }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.apellido|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva|format_price }}', '{{ propiedad.id }}', '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.ambientes }}', '{{ propiedad.descripcion|escapejs }}', '{{ propiedad.caracteristicas|escapejs }}')">
                     <td>{{ propiedad.id }}</td>
                     <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                     <td>{{ propiedad.direccion }}</td>
@@ -556,7 +556,7 @@ $('#modalPrecios .close').click(function () {
         mostrarOcultarFiltros(); // Ocultar los filtros
     }
     let selectedRowIndex = -1;
-    function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambiente, descripcion, caracteristicas,ambientes) {
+    function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, ambientes, descripcion, caracteristicas) {
         console.log('Propiedad seleccionada:', id); // Debug
 
         // Actualizar la ficha de la propiedad
