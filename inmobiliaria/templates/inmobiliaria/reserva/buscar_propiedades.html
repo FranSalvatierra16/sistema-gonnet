@@ -569,15 +569,12 @@ $('#modalPrecios .close').click(function () {
         document.getElementById('cardAmbiente').textContent = ambiente;
         document.getElementById('descripcionDetallada').textContent = descripcion;
 
-        // Actualizar características
+        // Actualizar características (ahora como descripción)
         const caracteristicasContainer = document.getElementById('caracteristicas');
         caracteristicasContainer.innerHTML = ''; // Limpiar contenido anterior
-        caracteristicas.forEach(caracteristica => {
-            const badge = document.createElement('span');
-            badge.className = 'caracteristica-badge';
-            badge.textContent = caracteristica;
-            caracteristicasContainer.appendChild(badge);
-        });
+        const descripcionElement = document.createElement('p');
+        descripcionElement.textContent = descripcion;
+        caracteristicasContainer.appendChild(descripcionElement);
 
         // Actualizar la tabla de precios
         $.ajax({
