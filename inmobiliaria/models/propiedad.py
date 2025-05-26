@@ -267,10 +267,8 @@ class Propiedad(models.Model):
                 self.numero_por_propietario = ultimo + 1
 
         super().save(*args, **kwargs)
-    
         if self._state.adding:
             self.crear_precios_iniciales()
-      
 
     @transaction.atomic
     def crear_precios_iniciales(self):
@@ -287,7 +285,6 @@ class Propiedad(models.Model):
                     'ajuste_porcentaje': 0
                 }
             )
-  
 
     class Meta:
         verbose_name = "Propiedad"

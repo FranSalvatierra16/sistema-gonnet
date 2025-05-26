@@ -1543,27 +1543,41 @@ def crear_inquilino_ajax(request):
 
 
 def obtener_precios_propiedad(request):
-    
-    try:
-        propiedad_id = request.GET.get('propiedad_id')
-        print(f"Obteniendo precios para propiedad con ID: {propiedad_id}")
-        if not propiedad_id:
-            return JsonResponse({'error': 'No se proporcionó ID de propiedad'}, status=400)
-            
-        propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-        precios = Precio.objects.filter(propiedad=propiedad)
-        
-        precios_data = [{
-            'tipo_precio': precio.get_tipo_precio_display(),
-            'precio_por_dia': format_price(precio.precio_por_dia),
-            'precio_total': format_price(precio.precio_total)
-        } for precio in precios]
-        
-        return JsonResponse({'precios': precios_data})
-        
-    except Exception as e:
-        print(f"Error en obtener_precios_propiedad: {str(e)}")  # Para debugging
-        return JsonResponse({'error': str(e)}, status=500)
+    propiedad_id = request.GET.get('propiedad_id')
+    propiedad = Propiedad.objects.get(id=propiedad_id)
+    precios = Precio.objects.filter(propiedad=propiedad)
+
+    # Asegúrate de que todos los tipos de precios estén presentes
+    todos_los_precios = []
+    for tipo_choice in TipoPrecio.choices:
+        tipo_key = tipo_choice[0]
+        precio = precios.filter(tipo_precio=tipo_key).first()
+        if not precio:
+            precio = Precio(
+                propiedad=propiedad,
+                tipo_precio=tipo_key,
+                precio_total=0,
+                precio_por_dia=0,
+                precio_toma=0,
+                precio_dia_toma=0,
+                ajuste_porcentaje=0
+            )
+        todos_los_precios.append(precio)
+
+    # Serializar y devolver los precios
+    precios_serializados = [
+        {
+            'tipo_precio': precio.tipo_precio,
+            'precio_total': str(precio.precio_total),
+            'precio_por_dia': str(precio.precio_por_dia),
+            'precio_toma': str(precio.precio_toma),
+            'precio_dia_toma': str(precio.precio_dia_toma),
+            'ajuste_porcentaje': str(precio.ajuste_porcentaje),
+        }
+        for precio in todos_los_precios
+    ]
+
+    return JsonResponse({'precios': precios_serializados})
 
 def format_price(value):
     try:
