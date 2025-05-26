@@ -230,7 +230,7 @@
                     <div class="row mt-3">
                         <div class="col-md-6">
                             <p><strong>PROPIETARIO:</strong> <span id="cardPropietario"></span></p>
-                            <p><strong>DISPONIBILIDAD:</strong> <span id="cardDisponibilidad"></span></p>
+                            
                             <p><strong>PRECIO TOTAL:</strong> <span id="cardPrecio"></span></p>
                         </div>
                         <div class="col-md-6">
@@ -556,7 +556,7 @@ $('#modalPrecios .close').click(function () {
         mostrarOcultarFiltros(); // Ocultar los filtros
     }
     let selectedRowIndex = -1;
-    function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambiente, descripcion, caracteristicas) {
+    function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambiente, descripcion, caracteristicas,ambientes) {
         console.log('Propiedad seleccionada:', id); // Debug
 
         // Actualizar la ficha de la propiedad
@@ -566,7 +566,7 @@ $('#modalPrecios .close').click(function () {
         document.getElementById('cardDisponibilidad').textContent = disponibilidad;
         document.getElementById('cardPrecio').textContent = precio;
         document.getElementById('cardEstado').textContent = estadoReserva;
-        document.getElementById('cardAmbiente').textContent = ambiente;
+        document.getElementById('cardAmbiente').textContent = ambientes;
         document.getElementById('descripcionDetallada').textContent = descripcion;
 
         // Actualizar características (ahora como descripción)
