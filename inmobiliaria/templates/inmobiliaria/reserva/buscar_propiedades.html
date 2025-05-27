@@ -499,7 +499,8 @@ $('#modalPrecios .close').click(function () {
             total_dias: total_dias,
             fechaInicio: fechaInicio,
             fechaFin: fechaFin,
-            ambientes: ambientes
+            ambientes: ambientes,
+            estadoReserva: estadoReserva
         };
 
         // Actualizar la ficha de la propiedad
@@ -656,40 +657,62 @@ $('#modalPrecios .close').click(function () {
     }
 
     function mostrarModalReserva() {
-        // Verificar autenticación antes de mostrar el modal
+        // Verificar autenticación ANTES de mostrar SweetAlert
         {% if not user.is_authenticated %}
-            alert('Debes iniciar sesión para poder hacer una reserva.');
-            if (confirm('¿Quieres ir a la página de login?')) {
-                window.location.href = "{% url 'inmobiliaria:login' %}";
-            }
+            Swal.fire({
+                title: 'Autenticación requerida',
+                text: 'Debes iniciar sesión para poder hacer una reserva.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Ir al Login',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = "{% url 'inmobiliaria:login' %}";
+                }
+            });
             return;
         {% endif %}
+
+        const ficha = document.getElementById("cardPropiedad").innerText.split(": ")[1]; // Extraer el ID
+        const direccion = document.getElementById("cardDireccion").innerText.split(": ")[1];
+        const propietario = document.getElementById("cardPropietario").innerText.split(": ")[1];
+        const disponibilidad = document.getElementById("cardDisponibilidad").innerText.split(": ")[1];
+        const precio = document.getElementById("cardPrecio").innerText.split(": ")[1];
+
+        const fechaInicio = window.fechaInicioSeleccionada;
+        console.log("hola soy la fecha de inicio",window.fechaInicioSeleccionada);
+        const fechaFin = window.fechaFinSeleccionada;
+        const totalDias = window.total_dias;
+        console.log("hola soy el total de diassssss",totalDias); 
+
+        // Verifica si los valores se obtienen correctamente
+        console.log("ID Propiedad:", ficha);
+        console.log("Dirección:", direccion);
+        console.log("Propietario:", propietario);
+        console.log("Disponibilidad:", disponibilidad);
+        console.log("Precio por Día:", precio);
+        console.log("Fecha Inicio:", fechaInicio);
+        console.log("Fecha Fin:", fechaFin);
         
-        // Verificar que hay una propiedad seleccionada
-        if (!propiedadSeleccionada) {
-            alert('Por favor, selecciona una propiedad primero.');
-            return;
-        }
-        
-        // Actualizar el modal con los datos de la propiedad seleccionada
-        const propiedadIdInput = document.querySelector('#modalReserva input[name="propiedad_id"]');
-        if (propiedadIdInput) {
-            propiedadIdInput.value = propiedadSeleccionada.id;
-        }
-        
-        // Actualizar otros campos según los IDs que tengas en tu modal existente
-        const direccionElement = document.querySelector('#modalReserva .modal-direccion');
-        if (direccionElement) {
-            direccionElement.textContent = propiedadSeleccionada.direccion;
-        }
-        
-        const precioElement = document.querySelector('#modalReserva .modal-precio');
-        if (precioElement) {
-            precioElement.textContent = propiedadSeleccionada.precio;
-        }
-        
-        // Mostrar el modal solo si el usuario está autenticado
-        $('#modalReserva').modal('show');
+
+        // Lógica de confirmación
+        Swal.fire({
+            title: '¿Está seguro?',
+            text: "¿Desea reservar esta propiedad?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, reservar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias);
+            }
+        });
     }
 
     function cancelarReserva(reservaId) {
