@@ -656,9 +656,10 @@ $('#modalPrecios .close').click(function () {
     }
 
     function mostrarModalReserva() {
-        // Verificar autenticación
+        // Verificar autenticación antes de mostrar el modal
         {% if not user.is_authenticated %}
-            if (confirm('Debes iniciar sesión para reservar. ¿Quieres ir al login?')) {
+            alert('Debes iniciar sesión para poder hacer una reserva.');
+            if (confirm('¿Quieres ir a la página de login?')) {
                 window.location.href = "{% url 'inmobiliaria:login' %}";
             }
             return;
@@ -671,15 +672,23 @@ $('#modalPrecios .close').click(function () {
         }
         
         // Actualizar el modal con los datos de la propiedad seleccionada
-        document.getElementById('modalPropiedadId').value = propiedadSeleccionada.id;
-        document.getElementById('modalDireccion').textContent = propiedadSeleccionada.direccion;
-        document.getElementById('modalPropietario').textContent = propiedadSeleccionada.propietario;
-        document.getElementById('modalPrecio').textContent = propiedadSeleccionada.precio;
-        document.getElementById('modalTotalDias').textContent = propiedadSeleccionada.total_dias;
-        document.getElementById('modalFechaInicio').textContent = propiedadSeleccionada.fechaInicio;
-        document.getElementById('modalFechaFin').textContent = propiedadSeleccionada.fechaFin;
+        const propiedadIdInput = document.querySelector('#modalReserva input[name="propiedad_id"]');
+        if (propiedadIdInput) {
+            propiedadIdInput.value = propiedadSeleccionada.id;
+        }
         
-        // Mostrar el modal
+        // Actualizar otros campos según los IDs que tengas en tu modal existente
+        const direccionElement = document.querySelector('#modalReserva .modal-direccion');
+        if (direccionElement) {
+            direccionElement.textContent = propiedadSeleccionada.direccion;
+        }
+        
+        const precioElement = document.querySelector('#modalReserva .modal-precio');
+        if (precioElement) {
+            precioElement.textContent = propiedadSeleccionada.precio;
+        }
+        
+        // Mostrar el modal solo si el usuario está autenticado
         $('#modalReserva').modal('show');
     }
 
