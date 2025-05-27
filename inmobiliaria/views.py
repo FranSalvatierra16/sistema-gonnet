@@ -1325,13 +1325,14 @@ def gestionar_precios(request, propiedad_id):
         extra=0
     )
     
-    # Si la propiedad no tiene precios, creamos uno por cada tipo de precio
+    # Si la propiedad no tiene precios, crearlos TODOS
     if not precios.exists():
-        tipos_de_precios = ['quincena', 'fin_de_semana_largo', 'dia']
-        for tipo in tipos_de_precios:
+        print("Creando precios iniciales para la propiedad")
+        for tipo_choice in TipoPrecio.choices:
+            tipo_key = tipo_choice[0]
             Precio.objects.create(
                 propiedad=propiedad,
-                tipo_precio=tipo,
+                tipo_precio=tipo_key,
                 precio_por_dia=0,
                 precio_total=0,
                 precio_toma=0 if vendedor.nivel > 2 else None,
@@ -1339,6 +1340,7 @@ def gestionar_precios(request, propiedad_id):
                 ajuste_porcentaje=0
             )
         precios = Precio.objects.filter(propiedad=propiedad)
+        print(f"Precios creados: {precios.count()}")
 
     if request.method == 'POST':
         formset = PrecioFormSet(request.POST, queryset=precios)
@@ -1355,7 +1357,7 @@ def gestionar_precios(request, propiedad_id):
     return render(request, 'inmobiliaria/propiedades/gestionar_precios.html', {
         'propiedad': propiedad,
         'formset': formset,
-        'nivel_vendedor': vendedor.nivel  # Pasamos el nivel a la plantilla
+        'nivel_vendedor': vendedor.nivel
     })
 
 def historial_reservas_vendedor(request, vendedor_id):
