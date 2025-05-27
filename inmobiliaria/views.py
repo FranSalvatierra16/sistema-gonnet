@@ -2780,3 +2780,45 @@ def reordenar_imagenes(request, propiedad_id):
                 pk=item["id"], propiedad_id=propiedad_id
             ).update(orden=item["orden"])
     return JsonResponse({"success": True})
+
+def obtener_caracteristicas_propiedad(request):
+    propiedad_id = request.GET.get('propiedad_id')
+    
+    if not propiedad_id:
+        return JsonResponse({'error': 'ID de propiedad requerido'}, status=400)
+    
+    try:
+        propiedad = Propiedad.objects.get(id=propiedad_id)
+        
+        caracteristicas = []
+        
+        # Mapear los campos booleanos a nombres legibles
+        caracteristicas_map = {
+            'amoblado': 'Amoblado',
+            'cochera': 'Cochera',
+            'tv_smart': 'TV Smart',
+            'wifi': 'WiFi',
+            'dependencia': 'Dependencia',
+            'patio': 'Patio',
+            'parrilla': 'Parrilla',
+            'piscina': 'Piscina',
+            'reciclado': 'Reciclado',
+            'a_estrenar': 'A Estrenar',
+            'terraza': 'Terraza',
+            'balcon': 'Balcón'
+        }
+        
+        # Revisar cada característica y agregar las que sean True
+        for campo, nombre in caracteristicas_map.items():
+            if getattr(propiedad, campo, False):
+                caracteristicas.append(nombre)
+        
+        return JsonResponse({
+            'caracteristicas': caracteristicas,
+            'propiedad_id': propiedad_id
+        })
+        
+    except Propiedad.DoesNotExist:
+        return JsonResponse({'error': 'Propiedad no encontrada'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

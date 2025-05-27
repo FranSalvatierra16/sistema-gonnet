@@ -559,14 +559,6 @@ $('#modalPrecios .close').click(function () {
     function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, ambientes, descripcion, caracteristicas) {
         console.log('=== DEBUG SELECCIONAR PROPIEDAD ===');
         console.log('ID:', id);
-        console.log('Dirección:', direccion);
-        console.log('Propietario:', propietario);
-        console.log('Disponibilidad:', disponibilidad);
-        console.log('Precio:', precio);
-        console.log('Estado:', estadoReserva);
-        console.log('Ambientes:', ambientes);
-        console.log('Descripción:', descripcion);
-        console.log('Características:', caracteristicas);
 
         // Actualizar la ficha de la propiedad
         const cardPropiedad = document.getElementById('cardPropiedad');
@@ -579,12 +571,6 @@ $('#modalPrecios .close').click(function () {
         const descripcionDetallada = document.getElementById('descripcionDetallada');
         const caracteristicasContainer = document.getElementById('caracteristicas');
 
-        // Verificar que los elementos existen
-        console.log('Elementos encontrados:');
-        console.log('cardPropiedad:', cardPropiedad);
-        console.log('cardDireccion:', cardDireccion);
-        console.log('cardPropietario:', cardPropietario);
-
         if (cardPropiedad) cardPropiedad.textContent = id;
         if (cardDireccion) cardDireccion.textContent = direccion;
         if (cardPropietario) cardPropietario.textContent = propietario;
@@ -594,83 +580,99 @@ $('#modalPrecios .close').click(function () {
         if (cardAmbiente) cardAmbiente.textContent = ambientes;
         if (descripcionDetallada) descripcionDetallada.textContent = descripcion;
 
-        // Actualizar características
+        // Obtener las características de la propiedad vía AJAX
         if (caracteristicasContainer) {
-            caracteristicasContainer.innerHTML = descripcion || 'Sin descripción disponible';
+            $.ajax({
+                url: "{% url 'inmobiliaria:obtener_caracteristicas_propiedad' %}",
+                data: { 'propiedad_id': id },
+                method: 'GET',
+                success: function(response) {
+                    caracteristicasContainer.innerHTML = '';
+                    
+                    if (response.caracteristicas && response.caracteristicas.length > 0) {
+                        response.caracteristicas.forEach(caracteristica => {
+                            const badge = document.createElement('span');
+                            badge.className = 'caracteristica-badge';
+                            badge.textContent = caracteristica;
+                            caracteristicasContainer.appendChild(badge);
+                        });
+                    } else {
+                        caracteristicasContainer.innerHTML = '<span class="text-muted">Sin características especiales</span>';
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error al cargar características:', error);
+                    caracteristicasContainer.innerHTML = '<span class="text-danger">Error al cargar características</span>';
+                }
+            });
         }
 
-        // Resto del código para precios...
-    }
-
-    function mostrarPrecios(propiedad_id) {
-        console.log('Mostrando precios para propiedad:', propiedad_id);
-        
-        const modal = $('#modalPrecios');
-        if (modal.length === 0) {
-            console.error('Modal no encontrado');
-            return;
-        }
-        
-        modal.modal('show');
-        
-        $('#preciosModalBody').html(`
-            <div class="text-center">
-                <div class="spinner-border" role="status">
-                    <span class="sr-only">Cargando...</span>
-                </div>
-            </div>
-        `);
-        
+        // Actualizar la tabla de precios
         $.ajax({
             url: "{% url 'inmobiliaria:obtener_precios_propiedad' %}",
-            data: { 'propiedad_id': propiedad_id },
+            data: { 'propiedad_id': id },
             method: 'GET',
             success: function(response) {
-                console.log('Respuesta:', response);
-                
+                console.log('Respuesta de precios:', response);
+                let tableContent = '';
+
+                const tiposPrecio = [
+                    { key: 'QUINCENA_1_DICIEMBRE', label: '1ra quincena Diciembre' },
+                    { key: 'QUINCENA_2_DICIEMBRE', label: '2da quincena Diciembre' },
+                    { key: 'QUINCENA_1_ENERO', label: '1ra quincena Enero' },
+                    { key: 'QUINCENA_2_ENERO', label: '2da quincena Enero' },
+                    { key: 'QUINCENA_1_FEBRERO', label: '1ra quincena Febrero' },
+                    { key: 'QUINCENA_2_FEBRERO', label: '2da quincena Febrero' },
+                    { key: 'QUINCENA_1_MARZO', label: '1ra quincena Marzo' },
+                    { key: 'QUINCENA_2_MARZO', label: '2da quincena Marzo' },
+                    { key: 'TEMPORADA_BAJA', label: 'Temporada baja' },
+                    { key: 'VACACIONES_INVIERNO', label: 'Vacaciones Invierno' },
+                    { key: 'FINDE_LARGO', label: 'Finde largo' },
+                    { key: 'DICIEMBRE', label: 'Diciembre' },
+                    { key: 'ENERO', label: 'Enero' },
+                    { key: 'FEBRERO', label: 'Febrero' },
+                    { key: 'MARZO', label: 'Marzo' },
+                    { key: 'ESTUDIANTE', label: 'Estudiante' }
+                ];
+
                 if (response.precios && response.precios.length > 0) {
-                    let tableContent = `
-                        <table class="table table-striped">
-                            <thead class="thead-dark">
-                                <tr>
-                                    <th>Quincena</th>
-                                    <th>Precio por Día</th>
-                                    <th>Precio Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                    `;
-                    
-                    response.precios.forEach(function(precio) {
+                    const preciosMap = {};
+                    response.precios.forEach(p => {
+                        preciosMap[p.tipo_precio] = p;
+                    });
+
+                    tiposPrecio.forEach(tipo => {
+                        const precioData = preciosMap[tipo.key] || { precio_total: '0.00', precio_por_dia: '0.00' };
                         tableContent += `
                             <tr>
-                                <td>${precio.tipo_precio}</td>
-                                <td>$${formatPrice(precio.precio_por_dia)}</td>
-                                <td>$${formatPrice(precio.precio_total)}</td>
+                                <td>${tipo.label}</td>
+                                <td class="text-end">$${precioData.precio_total}</td>
+                                <td class="text-end">$${precioData.precio_por_dia}</td>
                             </tr>
                         `;
                     });
-                    
-                    tableContent += `
-                            </tbody>
-                        </table>
-                    `;
-                    
-                    $('#preciosModalBody').html(tableContent);
                 } else {
-                    $('#preciosModalBody').html(`
-                        <div class="alert alert-warning">
-                            No hay precios registrados para esta propiedad.
-                        </div>
-                    `);
+                    tiposPrecio.forEach(tipo => {
+                        tableContent += `
+                            <tr>
+                                <td>${tipo.label}</td>
+                                <td class="text-end">$0.00</td>
+                                <td class="text-end">$0.00</td>
+                            </tr>
+                        `;
+                    });
                 }
+
+                $('.table-precios tbody').html(tableContent);
             },
             error: function(xhr, status, error) {
-                console.error('Error:', error);
-                $('#preciosModalBody').html(`
-                    <div class="alert alert-danger">
-                        Error al cargar los precios: ${error}
-                    </div>
+                console.error('Error al cargar precios:', error);
+                $('.table-precios tbody').html(`
+                    <tr>
+                        <td colspan="3" class="text-center text-danger">
+                            Error al cargar los precios
+                        </td>
+                    </tr>
                 `);
             }
         });

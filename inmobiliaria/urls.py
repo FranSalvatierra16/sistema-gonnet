@@ -144,4 +144,5 @@ urlpatterns = [
          views.imagen_eliminar,              name="imagen_eliminar"),
     path("propiedades/<int:propiedad_id>/reordenar-imagenes/",
          views.reordenar_imagenes,           name="reordenar_imagenes"),
+    path('obtener-caracteristicas-propiedad/', views.obtener_caracteristicas_propiedad, name='obtener_caracteristicas_propiedad'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
