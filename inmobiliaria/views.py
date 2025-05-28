@@ -920,7 +920,20 @@ def buscar_propiedades(request):
                     propiedades_disponibles.sort(key=lambda x: x.dias_disponibles)
 
                     # Asegúrate de que todos los precios estén disponibles
-                    propiedad.todos_precios = sorted(propiedad.todos_precios, key=lambda x: TipoPrecio[x.tipo_precio].value)
+                    try:
+                        # Función auxiliar para manejar tipos de precio no válidos
+                        def get_precio_order(precio):
+                            try:
+                                return TipoPrecio[precio.tipo_precio].value
+                            except KeyError:
+                                # Si el tipo no existe en el enum, ponerlo al final
+                                return 999
+                        
+                        propiedad.todos_precios = sorted(propiedad.todos_precios, key=get_precio_order)
+                    except Exception as e:
+                        print(f"Error ordenando precios para propiedad {propiedad.id}: {e}")
+                        # En caso de error, no ordenar los precios
+                        pass
 
     # Alerta si hay propiedades sin precio
     alerta_sin_precio = len(propiedades_sin_precio) > 0
