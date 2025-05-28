@@ -7,145 +7,266 @@
     <title>Buscar Propiedades</title>
     
     <style>
-    .property-card {
-        transition: background-color 0.3s ease;
-        margin-bottom: 15px !important; /* Reducir espacio entre cards */
-    }
-    .property-card.card-confirmada {
-        background-color: #ffcccc !important;
-        border-color: #ff8888 !important;
-    }
-    #propiedadesTable tbody tr.table-active {
-        background-color: #007bff;
-        color: white;
+    /* Reset y mejoras generales */
+    * {
+        box-sizing: border-box;
     }
 
-    .modal {
-        z-index: 1050 !important;
-    }
-    .modal-backdrop {
-        z-index: 1040 !important;
-    }
-    .select2-container {
-        z-index: 1051 !important;
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+        min-height: 100vh;
     }
 
-    .card {
-        margin-bottom: 10px !important;
-        border-radius: 8px !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-    }
-    .descripcion {
-        border: 1px solid #666;
-    }
-    .table th {
-        background-color: #f0f0f0;
-    }
-    .card-confirmada {
-        background-color: #ffcccc;
-    }
-
-    #descripcionDetallada {
-        line-height: 1.6;
-    }
-    .table td, .table th {
-        padding: 8px !important;
-        vertical-align: middle !important;
-    }
-
-    /* Mantener la tabla de precios visible al hacer scroll */
-    .col-md-4 {
-        position: sticky;
-        top: 20px;
-    }
-
-    /* Estilos adicionales para la ficha */
-    #propertyCard {
-        border: 2px solid #333;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-
-    #descripcionDetallada {
-        line-height: 1.8;
-        padding: 15px;
-        background-color: rgba(255,255,255,0.5);
-        border-radius: 5px;
-    }
-
-    .caracteristica-badge {
-        background-color: #28a745;
-        color: white;
-        padding: 5px 10px;
-        border-radius: 15px;
-        margin: 3px;
-        font-size: 0.9em;
-    }
-
-    .card-footer {
-        border-top: 2px solid #ddd;
-    }
-
-    /* Mantener los estilos existentes */
-    .descripcion {
-        border: 1px solid #666;
-    }
-
-    #descripcionDetallada {
-        font-size: 1.2rem !important;
-        font-weight: 500;
-    }
-
-    /* Mejoras de diseño */
     .container-fluid {
-        padding: 10px !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        border-radius: 20px !important;
+        margin: 20px auto !important;
+        max-width: 95% !important;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.1) !important;
+        backdrop-filter: blur(10px) !important;
     }
 
-    .row {
-        margin: 0 -5px !important;
+    /* Cards modernas */
+    .card {
+        border: none !important;
+        border-radius: 15px !important;
+        margin-bottom: 15px !important;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.08) !important;
+        transition: all 0.3s ease !important;
+        background: white !important;
     }
 
-    .col-md-6 {
-        padding: 0 5px !important;
-    }
-
-    .card-body {
-        padding: 15px !important;
+    .card:hover {
+        transform: translateY(-5px) !important;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.15) !important;
     }
 
     .card-header {
-        padding: 10px 15px !important;
-        background-color: #f8f9fa !important;
-        border-bottom: 1px solid #dee2e6 !important;
+        background: linear-gradient(135deg, #667eea, #764ba2) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 15px 15px 0 0 !important;
+        padding: 15px 20px !important;
+        font-weight: 600 !important;
+        font-size: 1.1rem !important;
     }
 
-    /* Compactar formularios */
-    .form-group {
-        margin-bottom: 10px !important;
+    .card-body {
+        padding: 20px !important;
     }
 
+    /* Property cards específicas */
+    .property-card {
+        border-left: 4px solid #667eea !important;
+        transition: all 0.3s ease !important;
+        cursor: pointer !important;
+    }
+
+    .property-card:hover {
+        border-left-color: #764ba2 !important;
+        background: linear-gradient(135deg, #f8f9ff, #f0f2ff) !important;
+    }
+
+    .property-card.card-confirmada {
+        background: linear-gradient(135deg, #ffe6e6, #ffcccc) !important;
+        border-left-color: #ff4757 !important;
+    }
+
+    /* Formularios modernos */
     .form-control {
-        padding: 6px 12px !important;
+        border: 2px solid #e9ecef !important;
+        border-radius: 10px !important;
+        padding: 12px 15px !important;
+        transition: all 0.3s ease !important;
+        font-size: 0.95rem !important;
     }
 
-    /* Mejorar botones */
+    .form-control:focus {
+        border-color: #667eea !important;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
+        transform: translateY(-1px) !important;
+    }
+
+    .form-group label {
+        font-weight: 600 !important;
+        color: #495057 !important;
+        margin-bottom: 8px !important;
+    }
+
+    /* Botones modernos */
     .btn {
-        padding: 8px 16px !important;
-        margin: 2px !important;
+        border-radius: 10px !important;
+        padding: 12px 25px !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+        border: none !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        font-size: 0.9rem !important;
     }
 
-    /* Responsive improvements */
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea, #764ba2) !important;
+        color: white !important;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #5a6fd8, #6a4190) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3) !important;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #2ecc71, #27ae60) !important;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #27ae60, #229954) !important;
+        transform: translateY(-2px) !important;
+    }
+
+    .btn-warning {
+        background: linear-gradient(135deg, #f39c12, #e67e22) !important;
+        color: white !important;
+    }
+
+    .btn-info {
+        background: linear-gradient(135deg, #3498db, #2980b9) !important;
+    }
+
+    /* Tabla moderna */
+    .table {
+        background: white !important;
+        border-radius: 10px !important;
+        overflow: hidden !important;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08) !important;
+    }
+
+    .table thead th {
+        background: linear-gradient(135deg, #667eea, #764ba2) !important;
+        color: white !important;
+        border: none !important;
+        padding: 15px !important;
+        font-weight: 600 !important;
+    }
+
+    .table td {
+        padding: 12px 15px !important;
+        border-color: #f8f9fa !important;
+        vertical-align: middle !important;
+    }
+
+    .table tbody tr:hover {
+        background: rgba(102, 126, 234, 0.05) !important;
+        transform: scale(1.01) !important;
+        transition: all 0.2s ease !important;
+    }
+
+    #propiedadesTable tbody tr.table-active {
+        background: linear-gradient(135deg, #667eea, #764ba2) !important;
+        color: white !important;
+    }
+
+    /* Modal mejorado */
+    .modal-content {
+        border: none !important;
+        border-radius: 15px !important;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15) !important;
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, #667eea, #764ba2) !important;
+        color: white !important;
+        border-radius: 15px 15px 0 0 !important;
+        border: none !important;
+    }
+
+    /* Descripción destacada */
+    #descripcionDetallada {
+        font-size: 1.2rem !important;
+        font-weight: 500 !important;
+        background: linear-gradient(135deg, #f8f9ff, #f0f2ff) !important;
+        padding: 15px !important;
+        border-radius: 10px !important;
+        border-left: 4px solid #667eea !important;
+    }
+
+    /* Espaciado y layout */
+    .row {
+        margin: 0 -10px !important;
+    }
+
+    .col-md-6, .col-lg-4, .col-lg-8 {
+        padding: 0 10px !important;
+        margin-bottom: 20px !important;
+    }
+
+    /* Badges y etiquetas */
+    .badge {
+        padding: 8px 12px !important;
+        font-size: 0.8rem !important;
+        border-radius: 20px !important;
+        font-weight: 500 !important;
+    }
+
+    /* Efectos de glassmorphism */
+    .glass-effect {
+        background: rgba(255, 255, 255, 0.25) !important;
+        backdrop-filter: blur(10px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    }
+
+    /* Responsive mejorado */
     @media (max-width: 768px) {
         .container-fluid {
-            padding: 5px !important;
-        }
-        
-        .col-md-6 {
-            margin-bottom: 10px;
+            margin: 10px !important;
+            border-radius: 15px !important;
         }
         
         .card-body {
-            padding: 10px !important;
+            padding: 15px !important;
         }
+        
+        .btn {
+            padding: 10px 20px !important;
+            font-size: 0.85rem !important;
+        }
+    }
+
+    /* Animaciones suaves */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .property-card {
+        animation: fadeInUp 0.5s ease forwards !important;
+    }
+
+    /* Scrollbar personalizada */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(135deg, #5a6fd8, #6a4190);
     }
     </style>
 </head>
