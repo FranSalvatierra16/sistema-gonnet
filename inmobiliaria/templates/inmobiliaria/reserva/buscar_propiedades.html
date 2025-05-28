@@ -9,6 +9,7 @@
     <style>
     .property-card {
         transition: background-color 0.3s ease;
+        margin-bottom: 15px !important; /* Reducir espacio entre cards */
     }
     .property-card.card-confirmada {
         background-color: #ffcccc !important;
@@ -30,7 +31,9 @@
     }
 
     .card {
-        border: 2px solid #333;
+        margin-bottom: 10px !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
     }
     .descripcion {
         border: 1px solid #666;
@@ -46,7 +49,8 @@
         line-height: 1.6;
     }
     .table td, .table th {
-        padding: 0.5rem;
+        padding: 8px !important;
+        vertical-align: middle !important;
     }
 
     /* Mantener la tabla de precios visible al hacer scroll */
@@ -89,6 +93,59 @@
     #descripcionDetallada {
         font-size: 1.2rem !important;
         font-weight: 500;
+    }
+
+    /* Mejoras de diseño */
+    .container-fluid {
+        padding: 10px !important;
+    }
+
+    .row {
+        margin: 0 -5px !important;
+    }
+
+    .col-md-6 {
+        padding: 0 5px !important;
+    }
+
+    .card-body {
+        padding: 15px !important;
+    }
+
+    .card-header {
+        padding: 10px 15px !important;
+        background-color: #f8f9fa !important;
+        border-bottom: 1px solid #dee2e6 !important;
+    }
+
+    /* Compactar formularios */
+    .form-group {
+        margin-bottom: 10px !important;
+    }
+
+    .form-control {
+        padding: 6px 12px !important;
+    }
+
+    /* Mejorar botones */
+    .btn {
+        padding: 8px 16px !important;
+        margin: 2px !important;
+    }
+
+    /* Responsive improvements */
+    @media (max-width: 768px) {
+        .container-fluid {
+            padding: 5px !important;
+        }
+        
+        .col-md-6 {
+            margin-bottom: 10px;
+        }
+        
+        .card-body {
+            padding: 10px !important;
+        }
     }
     </style>
 </head>
