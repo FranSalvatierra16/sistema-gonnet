@@ -628,7 +628,6 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal" id="cancelarReservaBtnA">Cancelar</button>
-
                 <button type="button" class="btn btn-primary" onclick="autenticarYFinalizar()">Autenticar y Finalizar</button>
             </div>
         </div>
@@ -1022,10 +1021,7 @@ $('#modalPrecios .close').click(function () {
         var usuario = document.getElementById('usuarioVendedor').value;
         var contrasena = document.getElementById('contrasenaVendedor').value;
         var reservaId = window.reservaIdActual;
-        console.log("hola soy el reservaId",reservaId);
-         // Usar el ID guardado
 
-        // Enviar los datos a través de AJAX
         $.ajax({
             url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
             type: 'POST',
@@ -1044,7 +1040,6 @@ $('#modalPrecios .close').click(function () {
                         showConfirmButton: false,
                         timer: 1500
                     }).then(() => {
-                        // Aqu puedes poner el código que se ejecuta después de que se cierre la alerta
                         window.location.href = '{% url "inmobiliaria:finalizar_reserva" 0 %}'.replace('0', response.reserva_id);
                     });
                 } else {
@@ -1209,8 +1204,7 @@ $('#modalPrecios .close').click(function () {
             title: '{{ message.tags|title }}',
             text: '{{ message|safe }}',
             toast: true,
-            position: 'top-end',
-            showConfirmButton: false,ƒ
+            position: 'top-end',ƒ
             timer: 3000
         });
     {% endfor %}
