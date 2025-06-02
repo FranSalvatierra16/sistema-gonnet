@@ -433,7 +433,7 @@
             <tbody>
                 {% for propiedad in propiedades_disponibles %}
                 {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad( '{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','{{ propiedad.reserva.id }}', '{{ propiedad.ambientes }}', '{{ propiedad.descripcion|escapejs }}', '{{ propiedad.caracteristicas|escapejs }}')">
+                <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','{{ propiedad.reserva.id }}','{{ propiedad.ambientes }}','{{ propiedad.descripcion|escapejs }}','{{ propiedad.caracteristicas|escapejs }}')">
                     <td style="color: red;">{{ propiedad.id }}</td>
                     <td style="color: red;">
                         Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
@@ -445,7 +445,7 @@
                     <td style="color: red;">{{ propiedad.precio_total_reserva }}</td>
                 </tr>
                 {% else %}
-                <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad( '{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}', '', '{{ propiedad.ambientes }}', '{{ propiedad.descripcion|escapejs }}', '{{ propiedad.caracteristicas|escapejs }}')">
+                <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','','{{ propiedad.ambientes }}','{{ propiedad.descripcion|escapejs }}','{{ propiedad.caracteristicas|escapejs }}')">
                     <td>{{ propiedad.id }}</td>
                     <td>
                         {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
@@ -740,8 +740,10 @@ $('#modalPrecios .close').click(function () {
     let propiedadSeleccionada = null;
     function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
         console.log('=== DEBUG SELECCIONAR PROPIEDAD ===');
-        console.log('Estado de la reserva:', estadoReserva);
-        console.log('ID de la propiedad:', id);
+        console.log('Parámetros recibidos:', {
+            total_dias, direccion, propietario, disponibilidad, precio, id, 
+            fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas
+        });
         
         // Guardar todos los datos de la propiedad seleccionada
         propiedadSeleccionada = {
@@ -754,10 +756,10 @@ $('#modalPrecios .close').click(function () {
             fechaFin: fechaFin,
             totalDias: total_dias,
             estadoReserva: estadoReserva,
-            reservaId: reserva_id,
-            ambientes: ambientes,
-            descripcion: descripcion,
-            caracteristicas: caracteristicas
+            reservaId: reserva_id || '',
+            ambientes: ambientes || 'No especificado',
+            descripcion: descripcion || 'No disponible',
+            caracteristicas: caracteristicas || 'No disponible'
         };
         
         window.fechaInicioSeleccionada = fechaInicio.trim();
@@ -768,11 +770,11 @@ $('#modalPrecios .close').click(function () {
         document.getElementById("cardPropiedad").innerText = "Ficha: " + id;
         document.getElementById("cardDireccion").innerText = "Dirección: " + direccion;
         document.getElementById("cardPropietario").innerText = "Propietario: " + propietario;
-        document.getElementById("cardAmbientes").innerText = "Ambientes: " + ambientes;
+        document.getElementById("cardAmbientes").innerText = "Ambientes: " + propiedadSeleccionada.ambientes;
         document.getElementById("cardDisponibilidad").innerText = "Disponibilidad: " + disponibilidad;
         document.getElementById("cardPrecio").innerText = "Precio: " + precio;
-        document.getElementById("cardDescripcion").innerText = "Descripción: " + (descripcion || 'No disponible');
-        document.getElementById("cardCaracteristicas").innerText = "Características: " + (caracteristicas || 'No disponible');
+        document.getElementById("cardDescripcion").innerText = "Descripción: " + propiedadSeleccionada.descripcion;
+        document.getElementById("cardCaracteristicas").innerText = "Características: " + propiedadSeleccionada.caracteristicas;
 
         // Mostrar botones según el estado
         const cardButtons = document.getElementById('cardButtons');
