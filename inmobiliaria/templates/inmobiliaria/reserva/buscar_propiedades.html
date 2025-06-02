@@ -1373,6 +1373,60 @@ window.confirmarReserva = function() {
 };
 </script>
 
+<script>
+function confirmarReserva() {
+    console.log("Botón de reservar presionado");
+    
+    // Verificar que tenemos una propiedad seleccionada
+    if (!propiedadSeleccionada) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Por favor selecciona una propiedad primero.'
+        });
+        return;
+    }
+
+    // Usar los datos de propiedadSeleccionada en lugar de leer del DOM
+    const ficha = propiedadSeleccionada.id;
+    const direccion = propiedadSeleccionada.direccion;
+    const propietario = propiedadSeleccionada.propietario;
+    const disponibilidad = propiedadSeleccionada.disponibilidad;
+    const precio = propiedadSeleccionada.precio;
+    const fechaInicio = window.fechaInicioSeleccionada;
+    const fechaFin = window.fechaFinSeleccionada;
+    const totalDias = window.total_dias;
+
+    console.log("hola soy la fecha de inicio", fechaInicio);
+    console.log("hola soy el total de diassssss", totalDias); 
+
+    // Verifica si los valores se obtienen correctamente
+    console.log("ID Propiedad:", ficha);
+    console.log("Dirección:", direccion);
+    console.log("Propietario:", propietario);
+    console.log("Disponibilidad:", disponibilidad);
+    console.log("Precio por Día:", precio);
+    console.log("Fecha Inicio:", fechaInicio);
+    console.log("Fecha Fin:", fechaFin);
+    
+    // Lógica de confirmación
+    Swal.fire({
+        title: '¿Está seguro?',
+        text: "¿Desea reservar esta propiedad?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, reservar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias);
+        }
+    });
+}
+</script>
+
 
 
 
