@@ -922,15 +922,27 @@ window.addEventListener('load', function() {
 function confirmarReserva() {
     console.log("Botón de reservar presionado");
     
-    const ficha = document.getElementById("cardPropiedad").innerText.split(": ")[1];
-    const direccion = document.getElementById("cardDireccion").innerText.split(": ")[1];
-    const propietario = document.getElementById("cardPropietario").innerText.split(": ")[1];
-    const disponibilidad = document.getElementById("cardDisponibilidad").innerText.split(": ")[1];
-    const precio = document.getElementById("cardPrecio").innerText.split(": ")[1];
+    // Verificar que tenemos una propiedad seleccionada
+    if (!propiedadSeleccionada) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Por favor selecciona una propiedad primero.'
+        });
+        return;
+    }
 
-    const fechaInicio = window.fechaInicioSeleccionada;
-    const fechaFin = window.fechaFinSeleccionada;
-    const totalDias = window.total_dias;
+    console.log("Datos de la propiedad seleccionada:", propiedadSeleccionada);
+
+    // Usar los datos de la propiedad seleccionada directamente
+    const ficha = propiedadSeleccionada.id;
+    const direccion = propiedadSeleccionada.direccion;
+    const propietario = propiedadSeleccionada.propietario;
+    const disponibilidad = propiedadSeleccionada.disponibilidad;
+    const precio = propiedadSeleccionada.precio;
+    const fechaInicio = propiedadSeleccionada.fechaInicio;
+    const fechaFin = propiedadSeleccionada.fechaFin;
+    const totalDias = propiedadSeleccionada.totalDias;
 
     console.log("Datos obtenidos:", {ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias});
 
@@ -939,12 +951,12 @@ function confirmarReserva() {
         Swal.fire({
             icon: 'warning',
             title: 'Atención',
-            text: 'Por favor selecciona una propiedad y fechas válidas.'
+            text: 'Faltan datos necesarios para la reserva.'
         });
         return;
     }
 
-    // Ir directamente al modal de autenticación sin SweetAlert previo
+    // Ir directamente al modal de autenticación
     mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias);
 }
 
