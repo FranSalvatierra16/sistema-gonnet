@@ -770,143 +770,63 @@ $('#modalPrecios .close').click(function () {
         document.getElementById("cardPropiedad").innerText = "Ficha: " + id;
         document.getElementById("cardDireccion").innerText = "Dirección: " + direccion;
         document.getElementById("cardPropietario").innerText = "Propietario: " + propietario;
-        document.getElementById("cardAmbientes").innerText = "Ambientes: " + propiedadSeleccionada.ambientes;
+        document.getElementById("cardAmbientes").innerText = "Ambientes: " + (ambientes || 'No especificado');
         document.getElementById("cardDisponibilidad").innerText = "Disponibilidad: " + disponibilidad;
         document.getElementById("cardPrecio").innerText = "Precio: " + precio;
-        document.getElementById("cardDescripcion").innerText = "Descripción: " + propiedadSeleccionada.descripcion;
-        document.getElementById("cardCaracteristicas").innerText = "Características: " + propiedadSeleccionada.caracteristicas;
+        document.getElementById("cardDescripcion").innerText = "Descripción: " + (descripcion || 'No disponible');
+        document.getElementById("cardCaracteristicas").innerText = "Características: " + (caracteristicas || 'No disponible');
 
-        // Mostrar botones según el estado
+        // Resaltar la fila seleccionada
+        const filas = document.querySelectorAll('#propiedadesTable tbody tr');
+        filas.forEach(fila => fila.classList.remove('table-active'));
+        
+        const filaSeleccionada = document.querySelector(`#propiedadesTable tbody tr[data-index="${document.querySelector('#propiedadesTable tbody tr.table-active')?.dataset?.index || 0}"]`);
+        if (filaSeleccionada) {
+            filaSeleccionada.classList.add('table-active');
+        }
+
+        // Obtener la tarjeta de la propiedad
+        const propertyCard = document.getElementById('propertyCard');
         const cardButtons = document.getElementById('cardButtons');
-        if (cardButtons) {
-            let buttonsHtml = '<div class="d-flex justify-content-between align-items-center"><div>';
-            
-            if (estadoReserva === 'Reservado' || estadoReserva === 'RESERVADO') {
-                // Si está reservado, mostrar solo el botón de Operación
-                buttonsHtml += `
-                    <button type="button" class="btn btn-info" onclick="verOperacion()">
-                        <i class="fas fa-file-contract"></i> Operación
+
+        // Configurar los botones según el estado de la reserva
+        if (estadoReserva === 'confirmada_no_pagada') {
+            propertyCard.classList.add('card-confirmada');
+            cardButtons.innerHTML = `
+                <div>
+                    <button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion('${reserva_id}')">
+                        <i class="fas fa-check"></i> Operación
                     </button>
-                `;
-            } else {
-                // Si está disponible, mostrar solo el botón de Reservar
-                buttonsHtml += `
+                    <button type="button" class="btn btn-info ml-2" data-toggle="modal" data-target="#modalDetalles${id}">
+                        <i class="fas fa-eye"></i> Ver
+                    </button>
+                    <button type="button" class="btn btn-warning ml-2" onclick="mostrarPrecios(${id})">
+                        <i class="fas fa-dollar-sign"></i> Ver Precios
+                    </button>
+                </div>
+            `;
+        } else {
+            propertyCard.classList.remove('card-confirmada');
+            cardButtons.innerHTML = `
+                <div>
                     <button type="button" class="btn btn-primary" onclick="confirmarReserva()">
                         <i class="fas fa-calendar-plus"></i> Reservar
                     </button>
-                `;
-            }
-            
-            buttonsHtml += `
-                </div>
-                <div>
-                    <span class="badge bg-info text-white p-2">
-                        <i class="fas fa-info-circle"></i> 
-                        Estado: <span id="estadoPropiedad">${estadoReserva}</span>
-                    </span>
-                </div>
+                    <button type="button" class="btn btn-info ml-2" data-toggle="modal" data-target="#modalDetalles${id}">
+                        <i class="fas fa-eye"></i> Ver
+                    </button>
+                    <button type="button" class="btn btn-warning ml-2" onclick="mostrarPrecios(${id})">
+                        <i class="fas fa-dollar-sign"></i> Ver Precios
+                    </button>
                 </div>
             `;
-            
-            cardButtons.innerHTML = buttonsHtml;
         }
 
-        // Obtener las características de la propiedad vía AJAX
-        if (caracteristicasContainer) {
-            $.ajax({
-                url: "{% url 'inmobiliaria:obtener_caracteristicas_propiedad' %}",
-                data: { 'propiedad_id': id },
-                method: 'GET',
-                success: function(response) {
-                    caracteristicasContainer.innerHTML = '';
-                    
-                    if (response.caracteristicas && response.caracteristicas.length > 0) {
-                        response.caracteristicas.forEach(caracteristica => {
-                            const badge = document.createElement('span');
-                            badge.className = 'caracteristica-badge';
-                            badge.textContent = caracteristica;
-                            caracteristicasContainer.appendChild(badge);
-                        });
-                    } else {
-                        caracteristicasContainer.innerHTML = '<span class="text-muted">Sin características especiales</span>';
-                    }
-                },
-                error: function(xhr, status, error) {
-                    console.error('Error al cargar características:', error);
-                    caracteristicasContainer.innerHTML = '<span class="text-danger">Error al cargar características</span>';
-                }
-            });
-        }
+        // Cargar precios
+        mostrarPrecios(id);
 
-        // Actualizar la tabla de precios
-        $.ajax({
-            url: "{% url 'inmobiliaria:obtener_precios_propiedad' %}",
-            data: { 'propiedad_id': id },
-            method: 'GET',
-            success: function(response) {
-                console.log('Respuesta de precios:', response);
-                let tableContent = '';
-
-                const tiposPrecio = [
-                    { key: 'QUINCENA_1_DICIEMBRE', label: '1ra quincena Diciembre' },
-                    { key: 'QUINCENA_2_DICIEMBRE', label: '2da quincena Diciembre' },
-                    { key: 'QUINCENA_1_ENERO', label: '1ra quincena Enero' },
-                    { key: 'QUINCENA_2_ENERO', label: '2da quincena Enero' },
-                    { key: 'QUINCENA_1_FEBRERO', label: '1ra quincena Febrero' },
-                    { key: 'QUINCENA_2_FEBRERO', label: '2da quincena Febrero' },
-                    { key: 'QUINCENA_1_MARZO', label: '1ra quincena Marzo' },
-                    { key: 'QUINCENA_2_MARZO', label: '2da quincena Marzo' },
-                    { key: 'TEMPORADA_BAJA', label: 'Temporada baja' },
-                    { key: 'VACACIONES_INVIERNO', label: 'Vacaciones Invierno' },
-                    { key: 'FINDE_LARGO', label: 'Finde largo' },
-                    { key: 'DICIEMBRE', label: 'Diciembre' },
-                    { key: 'ENERO', label: 'Enero' },
-                    { key: 'FEBRERO', label: 'Febrero' },
-                    { key: 'MARZO', label: 'Marzo' },
-                    { key: 'ESTUDIANTE', label: 'Estudiante' }
-                ];
-
-                if (response.precios && response.precios.length > 0) {
-                    const preciosMap = {};
-                    response.precios.forEach(p => {
-                        preciosMap[p.tipo_precio] = p;
-                    });
-
-                    tiposPrecio.forEach(tipo => {
-                        const precioData = preciosMap[tipo.key] || { precio_total: '0.00', precio_por_dia: '0.00' };
-                        tableContent += `
-                            <tr>
-                                <td>${tipo.label}</td>
-                                <td class="text-end">$${precioData.precio_total}</td>
-                                <td class="text-end">$${precioData.precio_por_dia}</td>
-                            </tr>
-                        `;
-                    });
-                } else {
-                    tiposPrecio.forEach(tipo => {
-                        tableContent += `
-                            <tr>
-                                <td>${tipo.label}</td>
-                                <td class="text-end">$0.00</td>
-                                <td class="text-end">$0.00</td>
-                            </tr>
-                        `;
-                    });
-                }
-
-                $('.table-precios tbody').html(tableContent);
-            },
-            error: function(xhr, status, error) {
-                console.error('Error al cargar precios:', error);
-                $('.table-precios tbody').html(`
-                    <tr>
-                        <td colspan="3" class="text-center text-danger">
-                            Error al cargar los precios
-                        </td>
-                    </tr>
-                `);
-            }
-        });
+        // Forzar un repintado del DOM
+        void propertyCard.offsetWidth;
     }
     function mostrarModalAutenticacion(reservaId) {
     window.reservaIdActual = reservaId; // Guardar el ID de la reserva para usarlo después
