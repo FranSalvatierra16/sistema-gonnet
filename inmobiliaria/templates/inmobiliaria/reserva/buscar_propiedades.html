@@ -736,209 +736,279 @@ $('#modalPrecios .close').click(function () {
     }
     let selectedRowIndex = -1;
     let propiedadSeleccionada = null;
-    function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id) {
-        console.log('El estado de la reserva es:', estadoReserva);
-        console.log('El ID de la propiedad es:', id);
-        console.log('El ID de la reserva es:', reserva_id);
-        
-        window.fechaInicioSeleccionada = fechaInicio.trim();
-        window.fechaFinSeleccionada = fechaFin.trim();
-        window.total_dias = total_dias;
+    function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, ambientes, descripcion, caracteristicas) {
+        console.log('=== DEBUG SELECCIONAR PROPIEDAD ===');
+        console.log('Estado de la reserva:', estadoReserva);
 
-        const row = event.currentTarget;
-        const rows = document.querySelectorAll('#propiedadesTable tbody tr');
-        rows.forEach(r => r.classList.remove('table-active'));
-        row.classList.add('table-active');
-        
-        // Actualizar la tarjeta de propiedad
-        document.getElementById("cardDireccion").innerText = "Dirección: " + direccion;
-        document.getElementById("cardPropietario").innerText = "Propietario: " + propietario;
-        document.getElementById("cardDisponibilidad").innerText = "Disponibilidad: " + disponibilidad;
-        document.getElementById("cardPrecio").innerText = "Precio: " + formatPrice(precio);
-        document.getElementById("cardPropiedad").innerText = "Ficha: " + id;
+        // Guardar información de la propiedad seleccionada
+        propiedadSeleccionada = {
+            id: id,
+            direccion: direccion,
+            propietario: propietario,
+            precio: precio,
+            total_dias: total_dias,
+            fechaInicio: fechaInicio,
+            fechaFin: fechaFin,
+            ambientes: ambientes,
+            estadoReserva: estadoReserva
+        };
 
-        const propertyCard = document.getElementById("propertyCard");
-        const cardButtons = document.getElementById("cardButtons");
+        // Actualizar la ficha de la propiedad
+        const cardPropiedad = document.getElementById('cardPropiedad');
+        const cardDireccion = document.getElementById('cardDireccion');
+        const cardPropietario = document.getElementById('cardPropietario');
+        const cardDisponibilidad = document.getElementById('cardDisponibilidad');
+        const cardPrecio = document.getElementById('cardPrecio');
+        const cardEstado = document.getElementById('cardEstado');
+        const cardAmbiente = document.getElementById('cardAmbiente');
+        const descripcionDetallada = document.getElementById('descripcionDetallada');
+        const caracteristicasContainer = document.getElementById('caracteristicas');
 
-        // Limpiar botones existentes
-        cardButtons.innerHTML = '';
+        if (cardPropiedad) cardPropiedad.textContent = id;
+        if (cardDireccion) cardDireccion.textContent = direccion;
+        if (cardPropietario) cardPropietario.textContent = propietario;
+        if (cardDisponibilidad) cardDisponibilidad.textContent = disponibilidad;
+        if (cardPrecio) cardPrecio.textContent = precio;
+        if (cardEstado) cardEstado.textContent = estadoReserva;
+        if (cardAmbiente) cardAmbiente.textContent = ambientes;
+        if (descripcionDetallada) descripcionDetallada.textContent = descripcion;
 
-        // Remover clases previas
-        propertyCard.classList.remove('card-confirmada');
-
-        // Verificar el estado de la reserva y mostrar los botones correspondientes
-        if (estadoReserva === 'confirmada_no_pagada') {
-            propertyCard.classList.add('card-confirmada');
-            cardButtons.innerHTML = `
-                <div>
-                    <button type="button" class="btn btn-success" onclick="mostrarModalAutenticacion('${reserva_id}')">
+        // Mostrar botones según el estado
+        const cardButtons = document.getElementById('cardButtons');
+        if (cardButtons) {
+            let buttonsHtml = '<div class="d-flex justify-content-between align-items-center"><div>';
+            
+            if (estadoReserva === 'Reservado' || estadoReserva === 'RESERVADO') {
+                // Si está reservado, mostrar solo el botón de Operación
+                buttonsHtml += `
+                    <button type="button" class="btn btn-info" onclick="verOperacion()">
                         <i class="fas fa-file-contract"></i> Operación
                     </button>
-                    <button type="button" class="btn btn-info ml-2" data-toggle="modal" data-target="#modalDetalles${id}">
-                        <i class="fas fa-eye"></i> Ver
-                    </button>
-                    <button type="button" class="btn btn-warning ml-2" onclick="mostrarPrecios(${id})">
-                        <i class="fas fa-dollar-sign"></i> Ver Precios
-                    </button>
-                </div>
-            `;
-        } else {
-            cardButtons.innerHTML = `
-                <div>
+                `;
+            } else {
+                // Si está disponible, mostrar solo el botón de Reservar
+                buttonsHtml += `
                     <button type="button" class="btn btn-primary" onclick="confirmarReserva()">
                         <i class="fas fa-calendar-plus"></i> Reservar
                     </button>
-                    <button type="button" class="btn btn-info ml-2" data-toggle="modal" data-target="#modalDetalles${id}">
-                        <i class="fas fa-eye"></i> Ver
-                    </button>
-                    <button type="button" class="btn btn-warning ml-2" onclick="mostrarPrecios(${id})">
-                        <i class="fas fa-dollar-sign"></i> Ver Precios
-                    </button>
+                `;
+            }
+            
+            buttonsHtml += `
+                </div>
+                <div>
+                    <span class="badge bg-info text-white p-2">
+                        <i class="fas fa-info-circle"></i> 
+                        Estado: <span id="estadoPropiedad">${estadoReserva}</span>
+                    </span>
+                </div>
                 </div>
             `;
+            
+            cardButtons.innerHTML = buttonsHtml;
         }
 
-        // Forzar un repintado del DOM
-        void propertyCard.offsetWidth;
-    }
-    function mostrarModalAutenticacion(reservaId) {
-        console.log("Botón de operación presionado para reserva:", reservaId);
-        
-        // Guardamos el ID de la reserva y el tipo de operación
-        window.datosReserva = {
-            reservaId: reservaId,
-            tipo: 'operacion' // Indicamos que es para finalizar operación
-        };
-        
-        // Mostrar el modal de autenticación
-        $('#modalAutenticacionVendedor').modal('show');
-        
-        // Cambiar el texto del botón de autenticación
-        document.querySelector('#modalAutenticacionVendedor .btn-primary').textContent = 'Autenticar y Finalizar';
-        
-        // Cambiar la función que se ejecuta al hacer clic en el botón
-        document.querySelector('#modalAutenticacionVendedor .btn-primary').onclick = autenticarYFinalizar;
-    }
-
-    function autenticarYFinalizar() {
-        autenticarUsuario(function(response) {
-            // Redirigir a la página de finalizar reserva
-            window.location.href = '{% url "inmobiliaria:finalizar_reserva" 0 %}'.replace('0', response.reserva_id || window.datosReserva.reservaId);
-        });
-    }
-
-    function autenticarUsuario(callback) {
-        var usuario = document.getElementById('usuarioVendedor').value;
-        var contrasena = document.getElementById('contrasenaVendedor').value;
-
-        if (!usuario || !contrasena) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Campos requeridos',
-                text: 'Por favor ingrese usuario y contraseña.'
+        // Obtener las características de la propiedad vía AJAX
+        if (caracteristicasContainer) {
+            $.ajax({
+                url: "{% url 'inmobiliaria:obtener_caracteristicas_propiedad' %}",
+                data: { 'propiedad_id': id },
+                method: 'GET',
+                success: function(response) {
+                    caracteristicasContainer.innerHTML = '';
+                    
+                    if (response.caracteristicas && response.caracteristicas.length > 0) {
+                        response.caracteristicas.forEach(caracteristica => {
+                            const badge = document.createElement('span');
+                            badge.className = 'caracteristica-badge';
+                            badge.textContent = caracteristica;
+                            caracteristicasContainer.appendChild(badge);
+                        });
+                    } else {
+                        caracteristicasContainer.innerHTML = '<span class="text-muted">Sin características especiales</span>';
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error al cargar características:', error);
+                    caracteristicasContainer.innerHTML = '<span class="text-danger">Error al cargar características</span>';
+                }
             });
-            return;
         }
 
-        // Enviar los datos a través de AJAX
+        // Actualizar la tabla de precios
         $.ajax({
-            url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
-            type: 'POST',
-            data: {
-                'username': usuario,
-                'password': contrasena,
-                'reserva_id': window.datosReserva.reservaId || null,
-                'csrfmiddlewaretoken': '{{ csrf_token }}',
-            },
+            url: "{% url 'inmobiliaria:obtener_precios_propiedad' %}",
+            data: { 'propiedad_id': id },
+            method: 'GET',
             success: function(response) {
-                if (response.success) {
-                    $('#modalAutenticacionVendedor').modal('hide');
-                    
-                    // Limpiar el formulario de autenticación
-                    document.getElementById('usuarioVendedor').value = '';
-                    document.getElementById('contrasenaVendedor').value = '';
-                    
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Autenticación exitosa',
-                        text: window.datosReserva.tipo === 'reserva' ? 'Procediendo con la reserva...' : 'Finalizando operación...',
-                        showConfirmButton: false,
-                        timer: 1500
-                    }).then(() => {
-                        callback(response);
+                console.log('Respuesta de precios:', response);
+                let tableContent = '';
+
+                const tiposPrecio = [
+                    { key: 'QUINCENA_1_DICIEMBRE', label: '1ra quincena Diciembre' },
+                    { key: 'QUINCENA_2_DICIEMBRE', label: '2da quincena Diciembre' },
+                    { key: 'QUINCENA_1_ENERO', label: '1ra quincena Enero' },
+                    { key: 'QUINCENA_2_ENERO', label: '2da quincena Enero' },
+                    { key: 'QUINCENA_1_FEBRERO', label: '1ra quincena Febrero' },
+                    { key: 'QUINCENA_2_FEBRERO', label: '2da quincena Febrero' },
+                    { key: 'QUINCENA_1_MARZO', label: '1ra quincena Marzo' },
+                    { key: 'QUINCENA_2_MARZO', label: '2da quincena Marzo' },
+                    { key: 'TEMPORADA_BAJA', label: 'Temporada baja' },
+                    { key: 'VACACIONES_INVIERNO', label: 'Vacaciones Invierno' },
+                    { key: 'FINDE_LARGO', label: 'Finde largo' },
+                    { key: 'DICIEMBRE', label: 'Diciembre' },
+                    { key: 'ENERO', label: 'Enero' },
+                    { key: 'FEBRERO', label: 'Febrero' },
+                    { key: 'MARZO', label: 'Marzo' },
+                    { key: 'ESTUDIANTE', label: 'Estudiante' }
+                ];
+
+                if (response.precios && response.precios.length > 0) {
+                    const preciosMap = {};
+                    response.precios.forEach(p => {
+                        preciosMap[p.tipo_precio] = p;
+                    });
+
+                    tiposPrecio.forEach(tipo => {
+                        const precioData = preciosMap[tipo.key] || { precio_total: '0.00', precio_por_dia: '0.00' };
+                        tableContent += `
+                            <tr>
+                                <td>${tipo.label}</td>
+                                <td class="text-end">$${precioData.precio_total}</td>
+                                <td class="text-end">$${precioData.precio_por_dia}</td>
+                            </tr>
+                        `;
                     });
                 } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error de autenticación',
-                        text: 'Credenciales incorrectas, por favor intente de nuevo.'
+                    tiposPrecio.forEach(tipo => {
+                        tableContent += `
+                            <tr>
+                                <td>${tipo.label}</td>
+                                <td class="text-end">$0.00</td>
+                                <td class="text-end">$0.00</td>
+                            </tr>
+                        `;
                     });
                 }
+
+                $('.table-precios tbody').html(tableContent);
             },
             error: function(xhr, status, error) {
+                console.error('Error al cargar precios:', error);
+                $('.table-precios tbody').html(`
+                    <tr>
+                        <td colspan="3" class="text-center text-danger">
+                            Error al cargar los precios
+                        </td>
+                    </tr>
+                `);
+            }
+        });
+    }
+    function mostrarModalAutenticacion(reservaId) {
+    window.reservaIdActual = reservaId; // Guardar el ID de la reserva para usarlo después
+    $('#modalAutenticacionVendedor').modal('show');
+}
+
+function autenticarYFinalizar() {
+    var usuario = document.getElementById('usuarioVendedor').value;
+    var contrasena = document.getElementById('contrasenaVendedor').value;
+    var reservaId = window.reservaIdActual;
+    console.log("hola soy el reservaId",reservaId);
+     // Usar el ID guardado
+
+    // Enviar los datos a través de AJAX
+    $.ajax({
+        url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
+        type: 'POST',
+        data: {
+            'username': usuario,
+            'password': contrasena,
+            'reserva_id': reservaId,
+            'csrfmiddlewaretoken': '{{ csrf_token }}',
+        },
+        success: function(response) {
+            if (response.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Autenticación exitosa',
+                    text: 'Finalizando operación...',
+                    showConfirmButton: false,
+                    timer: 1500
+                }).then(() => {
+                    // Aqu puedes poner el código que se ejecuta después de que se cierre la alerta
+                    window.location.href = '{% url "inmobiliaria:finalizar_reserva" 0 %}'.replace('0', response.reserva_id);
+                });
+            } else {
                 Swal.fire({
                     icon: 'error',
-                    title: 'Error del servidor',
-                    text: 'Ocurrió un error en el servidor. Por favor, intente de nuevo.'
+                    title: 'Error de autenticación',
+                    text: 'Credenciales incorrectas, por favor intente de nuevo.'
                 });
             }
-        });
-    }
-
-    // Seleccionar la primera fila al cargar la página
-    window.addEventListener('load', function() {
-        const firstRow = document.querySelector('#propiedadesTable tbody tr');
-        if (firstRow) {
-            firstRow.click();
+        },
+        error: function(xhr, status, error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error del servidor',
+                text: 'Ocurrió un error en el servidor. Por favor, intente de nuevo.'
+            });
         }
     });
-
-    function confirmarReserva() {
-        console.log("Botón de reservar presionado");
-        
-        const ficha = document.getElementById("cardPropiedad").innerText.split(": ")[1];
-        const direccion = document.getElementById("cardDireccion").innerText.split(": ")[1];
-        const propietario = document.getElementById("cardPropietario").innerText.split(": ")[1];
-        const disponibilidad = document.getElementById("cardDisponibilidad").innerText.split(": ")[1];
-        const precio = document.getElementById("cardPrecio").innerText.split(": ")[1];
-
-        const fechaInicio = window.fechaInicioSeleccionada;
-        const fechaFin = window.fechaFinSeleccionada;
-        const totalDias = window.total_dias;
-
-        // Lógica de confirmación como estaba antes
-        Swal.fire({
-            title: '¿Está seguro?',
-            text: "¿Desea reservar esta propiedad?",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, reservar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias);
-            }
-        });
+}
+// Seleccionar la primera fila al cargar la página
+window.addEventListener('load', function() {
+    const firstRow = document.querySelector('#propiedadesTable tbody tr');
+    if (firstRow) {
+        firstRow.click();
     }
+});
 
-    function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
-        // Guardamos los datos de la reserva en variables globales
-        window.datosReserva = {ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias};
-        
-        // Mostramos el modal de autenticación
-        $('#modalAutenticacionVendedor').modal('show');
-        
-        // Cambiamos el texto del botón de autenticación para reserva
-        document.querySelector('#modalAutenticacionVendedor .btn-primary').textContent = 'Autenticar y Reservar';
-        document.querySelector('#modalAutenticacionVendedor .btn-primary').onclick = autenticarYReservar;
-    }
+    
+function confirmarReserva() {
+    const ficha = document.getElementById("cardPropiedad").innerText.split(": ")[1]; // Extraer el ID
+    const direccion = document.getElementById("cardDireccion").innerText.split(": ")[1];
+    const propietario = document.getElementById("cardPropietario").innerText.split(": ")[1];
+    const disponibilidad = document.getElementById("cardDisponibilidad").innerText.split(": ")[1];
+    const precio = document.getElementById("cardPrecio").innerText.split(": ")[1];
 
+    const fechaInicio = window.fechaInicioSeleccionada;
+    console.log("hola soy la fecha de inicio",window.fechaInicioSeleccionada);
+    const fechaFin = window.fechaFinSeleccionada;
+    const totalDias = window.total_dias;
+    console.log("hola soy el total de diassssss",totalDias); 
+
+    // Verifica si los valores se obtienen correctamente
+    console.log("ID Propiedad:", ficha);
+    console.log("Dirección:", direccion);
+    console.log("Propietario:", propietario);
+    console.log("Disponibilidad:", disponibilidad);
+    console.log("Precio por Día:", precio);
+    console.log("Fecha Inicio:", fechaInicio);
+    console.log("Fecha Fin:", fechaFin);
+    
+
+    // Lógica de confirmación
+    Swal.fire({
+        title: '¿Está seguro?',
+        text: "¿Desea reservar esta propiedad?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, reservar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias);
+        }
+    });
+}
     function autenticarYReservar() {
         var usuario = document.getElementById('usuarioVendedor').value;
         var contrasena = document.getElementById('contrasenaVendedor').value;
 
+        // Enviar los datos a través de AJAX
         $.ajax({
             url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
             type: 'POST',
@@ -957,7 +1027,6 @@ $('#modalPrecios .close').click(function () {
                         timer: 1500
                     }).then(() => {
                         $('#modalAutenticacionVendedor').modal('hide');
-                        // Si la autenticación es exitosa, mostramos el modal de reserva
                         mostrarModalReserva(
                             window.datosReserva.ficha,
                             window.datosReserva.direccion,
