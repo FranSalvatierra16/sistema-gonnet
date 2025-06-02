@@ -864,193 +864,72 @@ $('#modalPrecios .close').click(function () {
     $('#modalAutenticacionVendedor').modal('show');
 }
 
-function autenticarYFinalizar() {
-    var usuario = document.getElementById('usuarioVendedor').value;
-    var contrasena = document.getElementById('contrasenaVendedor').value;
-    var reservaId = window.reservaIdActual;
-    console.log("hola soy el reservaId",reservaId);
-     // Usar el ID guardado
-
-    // Enviar los datos a través de AJAX
-    $.ajax({
-        url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
-        type: 'POST',
-        data: {
-            'username': usuario,
-            'password': contrasena,
-            'reserva_id': reservaId,
-            'csrfmiddlewaretoken': '{{ csrf_token }}',
-        },
-        success: function(response) {
-            if (response.success) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Autenticación exitosa',
-                    text: 'Finalizando operación...',
-                    showConfirmButton: false,
-                    timer: 1500
-                }).then(() => {
-                    // Aqu puedes poner el código que se ejecuta después de que se cierre la alerta
-                    window.location.href = '{% url "inmobiliaria:finalizar_reserva" 0 %}'.replace('0', response.reserva_id);
-                });
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error de autenticación',
-                    text: 'Credenciales incorrectas, por favor intente de nuevo.'
-                });
-            }
-        },
-        error: function(xhr, status, error) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error del servidor',
-                text: 'Ocurrió un error en el servidor. Por favor, intente de nuevo.'
-            });
-        }
-    });
-}
-// Seleccionar la primera fila al cargar la página
-window.addEventListener('load', function() {
-    const firstRow = document.querySelector('#propiedadesTable tbody tr');
-    if (firstRow) {
-        firstRow.click();
-    }
-});
-
-    
-function confirmarReserva() {
-    console.log("Botón de reservar presionado");
-    
-    // Verificar que tenemos una propiedad seleccionada
-    if (!propiedadSeleccionada) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Atención',
-            text: 'Por favor selecciona una propiedad primero.'
-        });
-        return;
-    }
-
-    console.log("Datos de la propiedad seleccionada:", propiedadSeleccionada);
-
-    // Usar los datos de la propiedad seleccionada directamente
-    const ficha = propiedadSeleccionada.id;
-    const direccion = propiedadSeleccionada.direccion;
-    const propietario = propiedadSeleccionada.propietario;
-    const disponibilidad = propiedadSeleccionada.disponibilidad;
-    const precio = propiedadSeleccionada.precio;
-    const fechaInicio = propiedadSeleccionada.fechaInicio;
-    const fechaFin = propiedadSeleccionada.fechaFin;
-    const totalDias = propiedadSeleccionada.totalDias;
-
-    console.log("Datos obtenidos:", {ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias});
-
-    // Verificar que tenemos todos los datos necesarios
-    if (!ficha || !fechaInicio || !fechaFin) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Atención',
-            text: 'Faltan datos necesarios para la reserva.'
-        });
-        return;
-    }
-
-    // Ir directamente al modal de autenticación
-    mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias);
-}
-
-function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
-    console.log("Mostrando modal de autenticación para reserva");
-    
-    // Guardamos los datos de la reserva en variables globales
-    window.datosReserva = {ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias};
-    console.log("Datos guardados en window.datosReserva:", window.datosReserva);
-    
-    // Limpiar los campos del modal de autenticación
-    document.getElementById('usuarioVendedor').value = '';
-    document.getElementById('contrasenaVendedor').value = '';
-    
-    // Mostramos el modal de autenticación
-    $('#modalAutenticacionVendedor').modal('show');
-    
-    // Cambiamos el texto del botón de autenticación
-    const btnAutenticar = document.querySelector('#modalAutenticacionVendedor .btn-primary');
-    btnAutenticar.textContent = 'Autenticar y Reservar';
-    btnAutenticar.onclick = autenticarYReservar;
-}
-
 function autenticarYReservar() {
-    console.log("Iniciando autenticación para reserva");
-    
-    var usuario = document.getElementById('usuarioVendedor').value;
-    var contrasena = document.getElementById('contrasenaVendedor').value;
+    const usuario = document.getElementById('usuarioVendedor').value;
+    const contrasena = document.getElementById('contrasenaVendedor').value;
 
     if (!usuario || !contrasena) {
         Swal.fire({
             icon: 'warning',
             title: 'Campos requeridos',
-            text: 'Por favor ingresa usuario y contraseña.'
+            text: 'Por favor completa todos los campos.'
         });
         return;
     }
 
-    $.ajax({
-        url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
-        type: 'POST',
-        data: {
-            'username': usuario,
-            'password': contrasena,
-            'csrfmiddlewaretoken': '{{ csrf_token }}',
-        },
-        success: function(response) {
-            console.log("Respuesta de autenticación:", response);
-            
-            if (response.success) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Autenticación exitosa',
-                    text: 'Procediendo con la reserva...',
-                    showConfirmButton: false,
-                    timer: 1500
-                }).then(() => {
-                    $('#modalAutenticacionVendedor').modal('hide');
-                    
-                    // Verificar que tenemos los datos de la reserva
-                    if (!window.datosReserva) {
-                        console.error("No hay datos de reserva guardados");
-                        return;
-                    }
-                    
-                    // Mostrar el modal de confirmación de reserva
-                    mostrarModalReserva(
-                        window.datosReserva.ficha,
-                        window.datosReserva.direccion,
-                        window.datosReserva.propietario,
-                        window.datosReserva.disponibilidad,
-                        window.datosReserva.precio,
-                        window.datosReserva.fechaInicio,
-                        window.datosReserva.fechaFin,
-                        window.datosReserva.totalDias
-                    );
-                });
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error de autenticación',
-                    text: 'Credenciales incorrectas, por favor intente de nuevo.'
-                });
+    console.log("Autenticando usuario:", usuario);
+
+    // Simulación de autenticación - aquí deberías hacer la validación real
+    if (usuario === 'admin' && contrasena === 'admin') { // Cambia esto por tu lógica real
+        console.log("Autenticación exitosa");
+        
+        // Cerrar modal de autenticación
+        $('#modalAutenticacionVendedor').modal('hide');
+        
+        // Limpiar campos
+        document.getElementById('usuarioVendedor').value = '';
+        document.getElementById('contrasenaVendedor').value = '';
+        
+        // Esperar a que se cierre el modal y mostrar el de confirmación
+        setTimeout(() => {
+            // Usar los datos de propiedadSeleccionada para mostrar el modal de confirmación
+            if (propiedadSeleccionada) {
+                // Llenar los campos del modal con la información
+                document.getElementById("propiedadDireccion").textContent = propiedadSeleccionada.direccion;
+                document.getElementById("fechaInicio").textContent = propiedadSeleccionada.fechaInicio;
+                document.getElementById('fechaFin').textContent = propiedadSeleccionada.fechaFin;
+                document.getElementById("totalDias").textContent = `${propiedadSeleccionada.totalDias} días`;
+                document.getElementById("precioTotalSuperior").textContent = propiedadSeleccionada.precio;
+
+                // Llenar los campos ocultos del formulario
+                document.getElementById("modalPropiedadId").value = propiedadSeleccionada.id;
+                document.getElementById("modalFechaInicio").value = propiedadSeleccionada.fechaInicio;
+                document.getElementById("modalFechaFin").value = propiedadSeleccionada.fechaFin;
+                document.getElementById("modalPrecioTotal").value = propiedadSeleccionada.precio;
+
+                // Mostrar el modal
+                $('#modalConfirmarReserva').modal('show');
             }
-        },
-        error: function(xhr, status, error) {
-            console.error("Error en autenticación:", error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error del servidor',
-                text: 'Ocurrió un error en el servidor. Por favor, intente de nuevo.'
-            });
-        }
-    });
+        }, 500);
+        
+    } else {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de autenticación',
+            text: 'Usuario o contraseña incorrectos'
+        });
+    }
+}
+
+function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
+    console.log("Mostrando modal de autenticación");
+    
+    // Limpiar campos del modal
+    document.getElementById('usuarioVendedor').value = '';
+    document.getElementById('contrasenaVendedor').value = '';
+    
+    // Mostrar el modal
+    $('#modalAutenticacionVendedor').modal('show');
 }
 
 function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
