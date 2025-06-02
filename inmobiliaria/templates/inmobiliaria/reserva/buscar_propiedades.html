@@ -502,10 +502,20 @@
             <div class="card-footer" id="cardButtons" style="background-color: #f8f9fa;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>
-                        <button type="button" class="btn btn-info ml-2" onclick="verOperacion()">
-                            <i class="fas fa-file-contract"></i> Operación
-                        </button>
+                        {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
+                            <button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion('{{ propiedad.id }}')">Operacion</button>
+                            <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles{{ propiedad.id }}">Ver</button>
+                            <button type="button" class="btn btn-warning" onclick="mostrarPrecios({{ propiedad.id }})">Ver Precios</button>
+                        {% else %}
+                            <div>
+                                <button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>
+                                <button type="button" class="btn btn-info ml-2" onclick="verOperacion()">
+                                    <i class="fas fa-file-contract"></i> Operación
+                                </button>
+                                <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles{{ propiedad.id }}">Ver</button>
+                                <button type="button" class="btn btn-warning" onclick="mostrarPrecios({{ propiedad.id }})">Ver Precios</button>
+                            </div>
+                        {% endif %}
                     </div>
                     <div>
                         <span class="badge bg-info text-white p-2">
@@ -897,6 +907,7 @@ $('#modalPrecios .close').click(function () {
     }
 
     function confirmarReserva() {
+        console.log("Botón de reservar presionado");
         const ficha = document.getElementById("cardPropiedad").innerText.split(": ")[1];
         const direccion = document.getElementById("cardDireccion").innerText.split(": ")[1];
         const propietario = document.getElementById("cardPropietario").innerText.split(": ")[1];
