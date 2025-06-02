@@ -957,8 +957,11 @@ function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, prec
 }
 
 function formatearFecha(fecha) {
-    const fechaObj = new Date(fecha);
-    return fechaObj.toLocaleDateString('es-ES');
+    const d = new Date(fecha);
+    const dia = d.getDate().toString().padStart(2, '0');
+    const mes = (d.getMonth() + 1).toString().padStart(2, '0'); // Los meses en JavaScript van de 0 a 11
+    const anio = d.getFullYear();
+    return `${dia}/${mes}/${anio}`;
 }
 </script>
 <script>
@@ -1361,6 +1364,14 @@ function getCookie(name) {
 <!-- Modal para crear nuevo cliente -->
 
 {% endblock %}
+
+<script>
+// Test para verificar que la función está disponible
+window.confirmarReserva = function() {
+    console.log("Función confirmarReserva llamada");
+    // ... tu código de la función aquí ...
+};
+</script>
 
 
 
