@@ -766,67 +766,98 @@ $('#modalPrecios .close').click(function () {
         window.fechaFinSeleccionada = fechaFin.trim();
         window.total_dias = total_dias;
 
-        // Actualizar la información en la tarjeta
-        document.getElementById("cardPropiedad").innerText = "Ficha: " + id;
-        document.getElementById("cardDireccion").innerText = "Dirección: " + direccion;
-        document.getElementById("cardPropietario").innerText = "Propietario: " + propietario;
-        document.getElementById("cardAmbientes").innerText = "Ambientes: " + (ambientes || 'No especificado');
-        document.getElementById("cardDisponibilidad").innerText = "Disponibilidad: " + disponibilidad;
-        document.getElementById("cardPrecio").innerText = "Precio: " + precio;
-        document.getElementById("cardDescripcion").innerText = "Descripción: " + (descripcion || 'No disponible');
-        document.getElementById("cardCaracteristicas").innerText = "Características: " + (caracteristicas || 'No disponible');
+        // Actualizar la información en la tarjeta usando los IDs correctos del HTML
+        const cardPropiedad = document.getElementById("cardPropiedad");
+        const cardDireccion = document.getElementById("cardDireccion");
+        const cardPropietario = document.getElementById("cardPropietario");
+        const cardAmbiente = document.getElementById("cardAmbiente"); // Nota: es "cardAmbiente" no "cardAmbientes"
+        const cardPrecio = document.getElementById("cardPrecio");
+        const cardEstado = document.getElementById("cardEstado");
+        const descripcionDetallada = document.getElementById("descripcionDetallada");
+        const caracteristicasElement = document.getElementById("caracteristicas");
+
+        // Verificar que los elementos existen antes de modificarlos
+        if (cardPropiedad) cardPropiedad.innerText = id;
+        if (cardDireccion) cardDireccion.innerText = direccion;
+        if (cardPropietario) cardPropietario.innerText = propietario;
+        if (cardAmbiente) cardAmbiente.innerText = ambientes || 'No especificado';
+        if (cardPrecio) cardPrecio.innerText = precio;
+        if (cardEstado) cardEstado.innerText = estadoReserva === 'confirmada_no_pagada' ? 'RESERVADO' : 'DISPONIBLE';
+        
+        // Para descripción y características usar innerHTML porque pueden tener formato
+        if (descripcionDetallada) {
+            descripcionDetallada.innerHTML = descripcion ? 
+                `<span class="badge badge-info mr-1">${descripcion.toUpperCase()}</span>` : 
+                '<span class="text-muted">NO DISPONIBLE</span>';
+        }
+        
+        if (caracteristicasElement) {
+            if (caracteristicas && caracteristicas.trim() !== '') {
+                // Si hay características, dividirlas por comas y mostrar como badges
+                const caract = caracteristicas.split(',').map(c => 
+                    `<span class="badge badge-success mr-1 mb-1">${c.trim().toUpperCase()}</span>`
+                ).join('');
+                caracteristicasElement.innerHTML = caract;
+            } else {
+                caracteristicasElement.innerHTML = '<span class="text-muted">NO DISPONIBLE</span>';
+            }
+        }
 
         // Resaltar la fila seleccionada
         const filas = document.querySelectorAll('#propiedadesTable tbody tr');
         filas.forEach(fila => fila.classList.remove('table-active'));
         
-        const filaSeleccionada = document.querySelector(`#propiedadesTable tbody tr[data-index="${document.querySelector('#propiedadesTable tbody tr.table-active')?.dataset?.index || 0}"]`);
-        if (filaSeleccionada) {
-            filaSeleccionada.classList.add('table-active');
+        // Encontrar la fila actual y resaltarla
+        const filaActual = event.target.closest('tr');
+        if (filaActual) {
+            filaActual.classList.add('table-active');
         }
-
-        // Obtener la tarjeta de la propiedad
-        const propertyCard = document.getElementById('propertyCard');
-        const cardButtons = document.getElementById('cardButtons');
 
         // Configurar los botones según el estado de la reserva
-        if (estadoReserva === 'confirmada_no_pagada') {
-            propertyCard.classList.add('card-confirmada');
-            cardButtons.innerHTML = `
-                <div>
-                    <button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion('${reserva_id}')">
-                        <i class="fas fa-check"></i> Operación
-                    </button>
-                    <button type="button" class="btn btn-info ml-2" data-toggle="modal" data-target="#modalDetalles${id}">
-                        <i class="fas fa-eye"></i> Ver
-                    </button>
-                    <button type="button" class="btn btn-warning ml-2" onclick="mostrarPrecios(${id})">
-                        <i class="fas fa-dollar-sign"></i> Ver Precios
-                    </button>
-                </div>
-            `;
-        } else {
-            propertyCard.classList.remove('card-confirmada');
-            cardButtons.innerHTML = `
-                <div>
-                    <button type="button" class="btn btn-primary" onclick="confirmarReserva()">
-                        <i class="fas fa-calendar-plus"></i> Reservar
-                    </button>
-                    <button type="button" class="btn btn-info ml-2" data-toggle="modal" data-target="#modalDetalles${id}">
-                        <i class="fas fa-eye"></i> Ver
-                    </button>
-                    <button type="button" class="btn btn-warning ml-2" onclick="mostrarPrecios(${id})">
-                        <i class="fas fa-dollar-sign"></i> Ver Precios
-                    </button>
-                </div>
-            `;
+        const cardButtons = document.getElementById('cardButtons');
+        if (cardButtons) {
+            if (estadoReserva === 'confirmada_no_pagada') {
+                cardButtons.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion('${reserva_id}')">
+                                <i class="fas fa-check"></i> Operación
+                            </button>
+                        </div>
+                        <div>
+                            <span class="badge bg-warning text-dark p-2">
+                                <i class="fas fa-clock"></i> 
+                                Estado: RESERVADO
+                            </span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                cardButtons.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <button type="button" class="btn btn-primary" onclick="confirmarReserva()">
+                                <i class="fas fa-calendar-plus"></i> Reservar
+                            </button>
+                            <button type="button" class="btn btn-info ml-2" onclick="verOperacion()">
+                                <i class="fas fa-file-contract"></i> Operación
+                            </button>
+                        </div>
+                        <div>
+                            <span class="badge bg-info text-white p-2">
+                                <i class="fas fa-info-circle"></i> 
+                                Estado: DISPONIBLE
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }
         }
 
-        // Cargar precios
-        mostrarPrecios(id);
-
-        // Forzar un repintado del DOM
-        void propertyCard.offsetWidth;
+        // Cargar precios si la función existe
+        if (typeof mostrarPrecios === 'function') {
+            mostrarPrecios(id);
+        }
     }
     function mostrarModalAutenticacion(reservaId) {
     window.reservaIdActual = reservaId; // Guardar el ID de la reserva para usarlo después
