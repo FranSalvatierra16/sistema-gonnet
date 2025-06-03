@@ -340,89 +340,60 @@ def propiedad_nuevo(request):
         propietario_form = PropietarioForm(user=request.user)
         if form.is_valid():
             propiedad = form.save()
-            # Procesar imágenes
-            imagenes = request.FILES.getlist('imagenes')
-            for index, imagen in enumerate(imagenes):
-                ImagenPropiedad.objects.create(
-                    propiedad=propiedad,
-                    imagen=imagen,
-                    orden=index + 1
-                ) 
+            # Las imágenes ya se procesan en el método save() del formulario
+            # No las proceses aquí para evitar duplicación
             messages.success(request, 'Propiedad creada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
-        form = PropiedadForm(user=request.user)  # <--- CORREGIDO
+        form = PropiedadForm(user=request.user)
         propietario_form = PropietarioForm(user=request.user)
     
     return render(request, 'inmobiliaria/propiedades/formulario.html', {
         'form': form,
         'propietario_form': propietario_form,
-        'titulo': 'Nueva Propiedad'
+        'titulo': 'Nueva Propiedad',
+        'imagenes': []  # Para el template
     })
 
 @login_required
 def propiedad_editar(request, propiedad_id):
-    """
-    Editar una propiedad:
-    – Actualiza datos del formulario.
-    – Agrega nuevas imágenes (manteniendo el orden correlativo).
-    – El re-ordenamiento y la eliminación individuales se hacen por AJAX
-      en las vistas `reordenar_imagenes` e `imagen_eliminar`.
-    """
-    try:
-        # 1) Traemos la propiedad y sus imágenes ordenadas
-        propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
-        imagenes  = propiedad.imagenes.order_by("orden")  # Meta.ordering ya lo hace, pero por claridad.
-
-        # 2) Procesamos el POST
-        if request.method == "POST":
-            form = PropiedadForm(request.POST, request.FILES, instance=propiedad)
-
-            if form.is_valid():
-                with transaction.atomic():
-                    # 2.a) Guardar cambios de la propiedad
-                    propiedad = form.save()
-
-                    # 2.b) Guardar imágenes nuevas (si las hay)
-                    nuevas_imagenes = request.FILES.getlist("imagenes")
-                    if nuevas_imagenes:
-                        ultimo_orden = propiedad.imagenes.aggregate(
-                            max_orden=models.Max("orden")
-                        )["max_orden"] or 0
-
-                        for i, archivo in enumerate(nuevas_imagenes, start=1):
-                            # Evitar duplicados de nombre dentro de la misma propiedad
-                            if not propiedad.imagenes.filter(
-                                imagen__icontains=archivo.name
-                            ).exists():
-                                ImagenPropiedad.objects.create(
-                                    propiedad=propiedad,
-                                    imagen=archivo,
-                                    orden=ultimo_orden + i,
-                                )
-
-                messages.success(request, "Propiedad actualizada exitosamente.")
-                return redirect(
-                    "inmobiliaria:propiedad_detalle", propiedad_id=propiedad.id
-                )
-
-        # 3) GET inicial (o POST con errores)
-        else:
-            form = PropiedadForm(instance=propiedad)
-
-        context = {
-            "form": form,
-            "propiedad": propiedad,
-            "imagenes": imagenes,
-        }
-        return render(
-            request, "inmobiliaria/propiedades/formulario.html", context
-        )
-
-    except Exception as e:
-        logger.error(f"Error en propiedad_editar ({propiedad_id}): {str(e)}")
-        messages.error(request, f"Error al procesar la solicitud: {str(e)}")
-        return redirect("inmobiliaria:propiedades")
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad).order_by('orden')
+    
+    if request.method == 'POST':
+        form = PropiedadForm(request.POST, request.FILES, instance=propiedad, user=request.user)
+        propietario_form = PropietarioForm(user=request.user)
+        if form.is_valid():
+            propiedad = form.save()
+            
+            # Procesar nuevas imágenes si las hay
+            imagenes_nuevas = request.FILES.getlist('imagenes')
+            if imagenes_nuevas:
+                # Obtener el último orden existente
+                ultimo_orden = ImagenPropiedad.objects.filter(propiedad=propiedad).aggregate(
+                    max_orden=models.Max('orden')
+                )['max_orden'] or 0
+                
+                for index, imagen in enumerate(imagenes_nuevas):
+                    ImagenPropiedad.objects.create(
+                        propiedad=propiedad,
+                        imagen=imagen,
+                        orden=ultimo_orden + index + 1
+                    )
+            
+            messages.success(request, 'Propiedad actualizada exitosamente.')
+            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+    else:
+        form = PropiedadForm(instance=propiedad, user=request.user)
+        propietario_form = PropietarioForm(user=request.user)
+    
+    return render(request, 'inmobiliaria/propiedades/formulario.html', {
+        'form': form,
+        'propietario_form': propietario_form,
+        'propiedad': propiedad,
+        'imagenes': imagenes,
+        'titulo': 'Editar Propiedad'
+    })
 
 @login_required
 def propiedad_eliminar(request, propiedad_id):

@@ -113,14 +113,6 @@
         </div>
         <div class="row">
             <div class="col-md-12 mb-3">
-                <label for="id_imagenes" class="form-label">Imágenes</label>
-                <input type="file" name="imagenes" id="id_imagenes" class="form-control" multiple>
-                <small class="form-text text-muted">Puede seleccionar varias imágenes</small>
-            </div>
-        </div>
-        <!-- Aquí puedes agregar la previsualización de imágenes si lo deseas -->
-        <div class="row">
-            <div class="col-md-12 mb-3">
                 {{ form.descripcion.label_tag }} {{ form.descripcion }}
                 {{ form.descripcion.errors }}
             </div>
@@ -149,7 +141,7 @@
 
                 <!-- Input para subir imágenes nuevas -->
                 <div class="form-group mb-4">
-                    <label for="id_imagenes" class="form-label">Agregar nuevas imágenes:</label>
+                    <label for="id_imagenes" class="form-label">{% if propiedad %}Agregar nuevas imágenes:{% else %}Seleccionar imágenes:{% endif %}</label>
                     <input type="file"
                            id="id_imagenes"
                            name="imagenes"
@@ -159,7 +151,8 @@
                     <small class="text-muted">Puede seleccionar múltiples imágenes</small>
                 </div>
 
-                <!-- Contenedor de imágenes existentes -->
+                <!-- Contenedor de imágenes existentes (solo en modo edición) -->
+                {% if propiedad and imagenes %}
                 <div class="row" id="imagenes-container">
                     {% for imagen in imagenes %}
                     <div class="col-md-3 mb-4 imagen-item card" data-id="{{ imagen.id }}">
@@ -185,6 +178,15 @@
                     </div>
                     {% endfor %}
                 </div>
+                {% else %}
+                <div class="alert alert-info">
+                    {% if propiedad %}
+                        No hay imágenes cargadas para esta propiedad.
+                    {% else %}
+                        Las imágenes se mostrarán después de crear la propiedad.
+                    {% endif %}
+                </div>
+                {% endif %}
             </div>
         </div>
         <!-- ----------------------------------------------------- -->
@@ -340,7 +342,6 @@
 
         {% if propiedad.pk %}
         $(function () {
-
             /* ---------- 0. URL que usaremos en los $.post ------------- */
             const URL_REORDENAR = "{% url 'inmobiliaria:reordenar_imagenes' propiedad.id %}";
             const CSRF          = "{{ csrf_token }}";

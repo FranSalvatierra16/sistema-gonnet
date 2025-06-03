@@ -485,10 +485,7 @@ class TipoPrecio(models.TextChoices):
     TEMPORADA_BAJA = 'TEMPORADA_BAJA', _('Temporada baja')
     VACACIONES_INVIERNO = 'VACACIONES_INVIERNO', _('Vacaciones Invierno')
     FINDE_LARGO = 'FINDE_LARGO', _('Finde largo')
-    DICIEMBRE = 'DICIEMBRE', _('Diciembre')
-    ENERO = 'ENERO', _('Enero')
-    FEBRERO = 'FEBRERO', _('Febrero')
-    MARZO = 'MARZO', _('Marzo')
+
     ESTUDIANTE = 'ESTUDIANTE', _('Estudiante')
     
 
