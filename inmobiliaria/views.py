@@ -2941,3 +2941,55 @@ def obtener_fotos_propiedad(request, propiedad_id):
             'success': False,
             'error': str(e)
         })
+
+@login_required
+@require_http_methods(["GET"])
+def obtener_precios_propiedad(request, propiedad_id):
+    """Obtiene los precios de una propiedad para un período específico"""
+    try:
+        propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+        fecha_inicio_str = request.GET.get('fecha_inicio')
+        fecha_fin_str = request.GET.get('fecha_fin')
+        
+        if not fecha_inicio_str or not fecha_fin_str:
+            return JsonResponse({
+                'success': False,
+                'error': 'Faltan fechas'
+            })
+        
+        # Convertir strings a fechas
+        from datetime import datetime
+        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        
+        # Calcular días
+        total_dias = (fecha_fin - fecha_inicio).days
+        
+        # Obtener precios por período
+        precios_data = []
+        total_general = 0
+        
+        # Aquí puedes implementar la lógica de precios según tu modelo
+        # Por ahora, un ejemplo básico:
+        precio_por_dia = propiedad.precio_diario if hasattr(propiedad, 'precio_diario') else 0
+        precio_total = precio_por_dia * total_dias
+        total_general = precio_total
+        
+        precios_data.append({
+            'periodo': f'{fecha_inicio.strftime("%d/%m/%Y")} - {fecha_fin.strftime("%d/%m/%Y")}',
+            'precio_total': f'{precio_total:,.0f}',
+            'precio_por_dia': f'{precio_por_dia:,.0f}'
+        })
+        
+        return JsonResponse({
+            'success': True,
+            'precios': precios_data,
+            'total_general': f'{total_general:,.0f}'
+        })
+        
+    except Exception as e:
+        print(f"Error en obtener_precios_propiedad: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
