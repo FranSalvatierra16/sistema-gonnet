@@ -2831,15 +2831,15 @@ def sucursales(request):
     """Lista todas las sucursales"""
     # Debug: Imprimir información del usuario
     print(f"Usuario: {request.user}")
-    print(f"Nivel del usuario: '{request.user.nivel}'")
-    print(f"¿Es administrador?: {request.user.nivel == 'administrador'}")
+    print(f"Nivel del usuario: {request.user.nivel}")
+    print(f"¿Es administrador?: {request.user.nivel == 4}")
     
     # Total de sucursales en la BD
     total_sucursales = Sucursal.objects.all().count()
     print(f"Total de sucursales en BD: {total_sucursales}")
     
-    # Mostrar todas las sucursales solo si es administrador
-    if request.user.nivel == 'administrador':
+    # Mostrar todas las sucursales solo si es administrador (nivel 4)
+    if request.user.nivel == 4:
         sucursales = Sucursal.objects.all()
         print(f"Usuario es administrador - mostrando {sucursales.count()} sucursales")
     else:
@@ -2870,8 +2870,8 @@ def editar_sucursal(request, sucursal_id):
     """Edita una sucursal existente"""
     sucursal = get_object_or_404(Sucursal, id=sucursal_id)
     
-    # Verificar permisos - permitir superusuario y administrador
-    if not (request.user.is_superuser or request.user.nivel == 'administrador'):
+    # Verificar permisos - solo administrador (nivel 4)
+    if request.user.nivel != 4:
         messages.error(request, 'No tienes permisos para editar sucursales.')
         return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
     
@@ -2893,8 +2893,8 @@ def editar_sucursal(request, sucursal_id):
 @login_required
 def crear_sucursal(request):
     """Crea una nueva sucursal"""
-    # Permitir superusuario y administrador
-    if not (request.user.is_superuser or request.user.nivel == 'administrador'):
+    # Solo administrador (nivel 4)
+    if request.user.nivel != 4:
         messages.error(request, 'No tienes permisos para crear sucursales.')
         return redirect('inmobiliaria:sucursales')
     
