@@ -1579,13 +1579,13 @@ function confirmarReserva() {
 
 <script>
 function abrirGaleriaFotos() {
-    console.log("=== ABRIR GALERÍA DE FOTOS ===");
+    console.log("=== ABRIENDO GALERÍA DE FOTOS ===");
     
-    if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
+    if (!propiedadSeleccionada) {
         Swal.fire({
             icon: 'warning',
             title: 'Atención',
-            text: 'Primero selecciona una propiedad.'
+            text: 'Primero debes seleccionar una propiedad'
         });
         return;
     }
@@ -1593,26 +1593,28 @@ function abrirGaleriaFotos() {
     console.log("Propiedad seleccionada:", propiedadSeleccionada);
     
     // Actualizar título del modal
-    document.getElementById('tituloPropiedad').textContent = propiedadSeleccionada.direccion;
+    const tituloModal = document.getElementById('tituloPropiedad');
+    if (tituloModal) {
+        tituloModal.textContent = propiedadSeleccionada.direccion;
+    }
     
-    // Construir URL para obtener fotos
+    // Obtener fotos de la propiedad
     const url = `/obtener-fotos-propiedad/${propiedadSeleccionada.id}/`;
-    console.log("URL para fotos:", url);
+    console.log("URL para obtener fotos:", url);
     
-    // Hacer petición AJAX para obtener las fotos
     fetch(url)
         .then(response => {
-            console.log("Respuesta fotos recibida:", response);
+            console.log("Respuesta fotos:", response);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.text();
         })
         .then(text => {
-            console.log("Texto de respuesta fotos:", text);
+            console.log("Texto respuesta fotos:", text);
             try {
                 const data = JSON.parse(text);
-                console.log("Datos de fotos parseados:", data);
+                console.log("Datos fotos parseados:", data);
                 
                 if (data.success && data.fotos.length > 0) {
                     cargarFotosEnModal(data.fotos);
@@ -1621,16 +1623,17 @@ function abrirGaleriaFotos() {
                     Swal.fire({
                         icon: 'info',
                         title: 'Sin fotos',
-                        text: 'Esta propiedad no tiene fotos disponibles.'
+                        text: 'Esta propiedad no tiene fotos disponibles'
                     });
                 }
             } catch (parseError) {
-                console.error('Error al parsear JSON fotos:', parseError);
-                throw new Error('Respuesta inválida del servidor');
+                console.error("Error al parsear JSON fotos:", parseError);
+                console.error("Texto recibido:", text);
+                throw parseError;
             }
         })
         .catch(error => {
-            console.error('Error al obtener fotos:', error);
+            console.error("Error al obtener fotos:", error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
