@@ -2916,27 +2916,39 @@ def crear_sucursal(request):
 @require_http_methods(["GET"])
 def obtener_fotos_propiedad(request, propiedad_id):
     """Obtiene las fotos de una propiedad específica"""
+    print(f"=== OBTENER FOTOS PROPIEDAD ===")
+    print(f"Propiedad ID: {propiedad_id}")
+    
     try:
         propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+        print(f"Propiedad encontrada: {propiedad}")
         
         # Obtener todas las fotos de la propiedad
         fotos = propiedad.fotos.all()
+        print(f"Fotos encontradas: {fotos.count()}")
         
         fotos_data = []
         for foto in fotos:
+            print(f"Procesando foto: {foto}")
             fotos_data.append({
                 'id': foto.id,
                 'url': foto.foto.url if foto.foto else '',
                 'descripcion': foto.descripcion if hasattr(foto, 'descripcion') else ''
             })
         
-        return JsonResponse({
+        response_data = {
             'success': True,
             'fotos': fotos_data,
             'total': len(fotos_data)
-        })
+        }
+        
+        print(f"Respuesta fotos: {response_data}")
+        return JsonResponse(response_data)
         
     except Exception as e:
+        print(f"Error en obtener_fotos_propiedad: {e}")
+        import traceback
+        traceback.print_exc()
         return JsonResponse({
             'success': False,
             'error': str(e)
@@ -2946,10 +2958,16 @@ def obtener_fotos_propiedad(request, propiedad_id):
 @require_http_methods(["GET"])
 def obtener_precios_propiedad(request, propiedad_id):
     """Obtiene los precios de una propiedad para un período específico"""
+    print(f"=== OBTENER PRECIOS PROPIEDAD ===")
+    print(f"Propiedad ID: {propiedad_id}")
+    print(f"GET params: {request.GET}")
+    
     try:
         propiedad = get_object_or_404(Propiedad, id=propiedad_id)
         fecha_inicio_str = request.GET.get('fecha_inicio')
         fecha_fin_str = request.GET.get('fecha_fin')
+        
+        print(f"Fechas recibidas: {fecha_inicio_str} - {fecha_fin_str}")
         
         if not fecha_inicio_str or not fecha_fin_str:
             return JsonResponse({
@@ -2959,19 +2977,29 @@ def obtener_precios_propiedad(request, propiedad_id):
         
         # Convertir strings a fechas
         from datetime import datetime
-        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-        fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        try:
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+            fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        except ValueError as e:
+            print(f"Error al convertir fechas: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Formato de fecha inválido: {e}'
+            })
         
         # Calcular días
         total_dias = (fecha_fin - fecha_inicio).days
+        print(f"Total días calculados: {total_dias}")
         
         # Obtener precios por período
         precios_data = []
         total_general = 0
         
-        # Aquí puedes implementar la lógica de precios según tu modelo
-        # Por ahora, un ejemplo básico:
-        precio_por_dia = propiedad.precio_diario if hasattr(propiedad, 'precio_diario') else 0
+        # Precio por día (ajustar según tu modelo)
+        precio_por_dia = 5000  # Precio fijo de ejemplo
+        if hasattr(propiedad, 'precio_diario'):
+            precio_por_dia = propiedad.precio_diario
+        
         precio_total = precio_por_dia * total_dias
         total_general = precio_total
         
@@ -2981,14 +3009,19 @@ def obtener_precios_propiedad(request, propiedad_id):
             'precio_por_dia': f'{precio_por_dia:,.0f}'
         })
         
-        return JsonResponse({
+        response_data = {
             'success': True,
             'precios': precios_data,
             'total_general': f'{total_general:,.0f}'
-        })
+        }
+        
+        print(f"Respuesta a enviar: {response_data}")
+        return JsonResponse(response_data)
         
     except Exception as e:
         print(f"Error en obtener_precios_propiedad: {e}")
+        import traceback
+        traceback.print_exc()
         return JsonResponse({
             'success': False,
             'error': str(e)

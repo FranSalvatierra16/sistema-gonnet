@@ -867,45 +867,83 @@ $('#modalPrecios .close').click(function () {
 
     function actualizarTablaPrecios(propiedadId, fechaInicio, fechaFin) {
         console.log("Actualizando tabla de precios para propiedad:", propiedadId);
+        console.log("Fechas originales:", fechaInicio, fechaFin);
+        
+        // Convertir fechas de DD/MM/YYYY a YYYY-MM-DD si es necesario
+        let fechaInicioFormatted = fechaInicio;
+        let fechaFinFormatted = fechaFin;
+        
+        // Si las fechas vienen en formato DD/MM/YYYY, convertirlas
+        if (fechaInicio.includes('/')) {
+            const partes = fechaInicio.split('/');
+            fechaInicioFormatted = `${partes[2]}-${partes[1].padStart(2, '0')}-${partes[0].padStart(2, '0')}`;
+        }
+        
+        if (fechaFin.includes('/')) {
+            const partes = fechaFin.split('/');
+            fechaFinFormatted = `${partes[2]}-${partes[1].padStart(2, '0')}-${partes[0].padStart(2, '0')}`;
+        }
+        
+        console.log("Fechas formateadas:", fechaInicioFormatted, fechaFinFormatted);
+        
+        // Construir URL correctamente
+        const url = `/obtener-precios-propiedad/${propiedadId}/?fecha_inicio=${fechaInicioFormatted}&fecha_fin=${fechaFinFormatted}`;
+        console.log("URL de petición:", url);
         
         // Hacer petición AJAX para obtener los precios
-        fetch(`/obtener-precios-propiedad/${propiedadId}/?fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`)
-            .then(response => response.json())
-            .then(data => {
-                const tbody = document.querySelector('.table-precios tbody');
-                tbody.innerHTML = '';
-                
-                if (data.success && data.precios.length > 0) {
-                    data.precios.forEach(precio => {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td><strong>${precio.periodo}</strong></td>
-                            <td class="text-right">$${precio.precio_total}</td>
-                            <td class="text-right">$${precio.precio_por_dia}</td>
-                        `;
-                        tbody.appendChild(row);
-                    });
+        fetch(url)
+            .then(response => {
+                console.log("Respuesta recibida:", response);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.text(); // Primero obtener como texto para debug
+            })
+            .then(text => {
+                console.log("Texto de respuesta:", text);
+                try {
+                    const data = JSON.parse(text); // Luego parsear JSON
+                    console.log("Datos parseados:", data);
                     
-                    // Agregar fila de total si hay múltiples períodos
-                    if (data.precios.length > 1) {
-                        const totalRow = document.createElement('tr');
-                        totalRow.style.backgroundColor = '#f8f9fa';
-                        totalRow.style.fontWeight = 'bold';
-                        totalRow.innerHTML = `
-                            <td><strong>TOTAL</strong></td>
-                            <td class="text-right"><strong>$${data.total_general}</strong></td>
-                            <td class="text-right">-</td>
+                    const tbody = document.querySelector('.table-precios tbody');
+                    tbody.innerHTML = '';
+                    
+                    if (data.success && data.precios.length > 0) {
+                        data.precios.forEach(precio => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td><strong>${precio.periodo}</strong></td>
+                                <td class="text-right">$${precio.precio_total}</td>
+                                <td class="text-right">$${precio.precio_por_dia}</td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                        
+                        // Agregar fila de total si hay múltiples períodos
+                        if (data.precios.length > 1) {
+                            const totalRow = document.createElement('tr');
+                            totalRow.style.backgroundColor = '#f8f9fa';
+                            totalRow.style.fontWeight = 'bold';
+                            totalRow.innerHTML = `
+                                <td><strong>TOTAL</strong></td>
+                                <td class="text-right"><strong>$${data.total_general}</strong></td>
+                                <td class="text-right">-</td>
+                            `;
+                            tbody.appendChild(totalRow);
+                        }
+                    } else {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">
+                                    <i class="fas fa-info-circle"></i> No hay información de precios disponible
+                                </td>
+                            </tr>
                         `;
-                        tbody.appendChild(totalRow);
                     }
-                } else {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="3" class="text-center text-muted">
-                                <i class="fas fa-info-circle"></i> No hay información de precios disponible
-                            </td>
-                        </tr>
-                    `;
+                } catch (parseError) {
+                    console.error('Error al parsear JSON:', parseError);
+                    console.log('Respuesta que no se pudo parsear:', text);
+                    throw new Error('Respuesta inválida del servidor');
                 }
             })
             .catch(error => {
@@ -914,7 +952,7 @@ $('#modalPrecios .close').click(function () {
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="3" class="text-center text-danger">
-                            <i class="fas fa-exclamation-triangle"></i> Error al cargar precios
+                            <i class="fas fa-exclamation-triangle"></i> Error al cargar precios: ${error.message}
                         </td>
                     </tr>
                 `;
@@ -1541,7 +1579,7 @@ function confirmarReserva() {
 
 <script>
 function abrirGaleriaFotos() {
-    console.log("Abriendo galería de fotos");
+    console.log("=== ABRIENDO GALERÍA DE FOTOS ===");
     console.log("Propiedad seleccionada:", propiedadSeleccionada);
     
     // Verificar que tenemos una propiedad seleccionada
@@ -1553,34 +1591,41 @@ function abrirGaleriaFotos() {
         });
         return;
     }
-
-    // Actualizar el título del modal
-    document.getElementById('tituloPropiedad').textContent = propiedadSeleccionada.direccion;
-
-    // Obtener las fotos de la propiedad
-    obtenerFotosPropiedad(propiedadSeleccionada.id);
-}
-
-function obtenerFotosPropiedad(propiedadId) {
-    console.log("Obteniendo fotos para propiedad:", propiedadId);
     
-    // Hacer petición AJAX para obtener las fotos
-    fetch(`/obtener-fotos-propiedad/${propiedadId}/`)
+    // Actualizar título del modal
+    document.getElementById('tituloPropiedad').textContent = propiedadSeleccionada.direccion;
+    
+    // Hacer petición para obtener las fotos
+    const url = `/obtener-fotos-propiedad/${propiedadSeleccionada.id}/`;
+    console.log("URL para obtener fotos:", url);
+    
+    fetch(url)
         .then(response => {
-            console.log("Respuesta del servidor:", response);
-            return response.json();
+            console.log("Respuesta fotos:", response);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.text();
         })
-        .then(data => {
-            console.log("Datos de fotos recibidos:", data);
-            if (data.success && data.fotos.length > 0) {
-                cargarFotosEnModal(data.fotos);
-                $('#modalGaleriaFotos').modal('show');
-            } else {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Sin fotos',
-                    text: 'Esta propiedad no tiene fotos disponibles.'
-                });
+        .then(text => {
+            console.log("Texto respuesta fotos:", text);
+            try {
+                const data = JSON.parse(text);
+                console.log("Datos fotos parseados:", data);
+                
+                if (data.success && data.fotos.length > 0) {
+                    cargarFotosEnModal(data.fotos);
+                    $('#modalGaleriaFotos').modal('show');
+                } else {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Sin fotos',
+                        text: 'Esta propiedad no tiene fotos disponibles.'
+                    });
+                }
+            } catch (parseError) {
+                console.error('Error al parsear JSON fotos:', parseError);
+                throw new Error('Respuesta inválida del servidor');
             }
         })
         .catch(error => {
@@ -1591,14 +1636,20 @@ function obtenerFotosPropiedad(propiedadId) {
                 text: 'No se pudieron cargar las fotos. Error: ' + error.message
             });
         });
-}
+};
 
 function cargarFotosEnModal(fotos) {
-    console.log("Cargando fotos en modal:", fotos);
+    console.log("=== CARGANDO FOTOS EN MODAL ===");
+    console.log("Fotos recibidas:", fotos);
     
     const carouselInner = document.getElementById('carouselInner');
     const thumbnailsContainer = document.getElementById('thumbnailsContainer');
     const contadorFotos = document.getElementById('contadorFotos');
+    
+    if (!carouselInner || !thumbnailsContainer || !contadorFotos) {
+        console.error("No se encontraron elementos del modal");
+        return;
+    }
     
     // Limpiar contenido anterior
     carouselInner.innerHTML = '';
@@ -1606,6 +1657,8 @@ function cargarFotosEnModal(fotos) {
     
     // Crear slides del carousel
     fotos.forEach((foto, index) => {
+        console.log(`Procesando foto ${index + 1}:`, foto);
+        
         // Slide principal
         const slide = document.createElement('div');
         slide.className = `carousel-item ${index === 0 ? 'active' : ''}`;
@@ -1633,21 +1686,31 @@ function cargarFotosEnModal(fotos) {
     // Actualizar contador
     contadorFotos.textContent = `1 / ${fotos.length}`;
     
-    // Agregar event listeners para actualizar contador y thumbnails activos
+    console.log("Fotos cargadas exitosamente");
+}
+
+function irAFoto(index) {
+    console.log("Navegando a foto:", index);
+    $('#carouselFotos').carousel(index);
+}
+
+// Event listener para el carousel
+$(document).ready(function() {
     $('#carouselFotos').on('slide.bs.carousel', function (e) {
         const newIndex = e.to;
-        contadorFotos.textContent = `${newIndex + 1} / ${fotos.length}`;
+        const totalFotos = document.querySelectorAll('.carousel-item').length;
+        const contadorFotos = document.getElementById('contadorFotos');
+        
+        if (contadorFotos) {
+            contadorFotos.textContent = `${newIndex + 1} / ${totalFotos}`;
+        }
         
         // Actualizar thumbnail activo
         document.querySelectorAll('.thumbnail-nav').forEach((thumb, idx) => {
             thumb.classList.toggle('active-thumbnail', idx === newIndex);
         });
     });
-}
-
-function irAFoto(index) {
-    $('#carouselFotos').carousel(index);
-}
+});
 
 // CSS para los thumbnails activos
 const style = document.createElement('style');
