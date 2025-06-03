@@ -2829,7 +2829,8 @@ def editar_sucursal(request, sucursal_id):
 @login_required
 def sucursales(request):
     """Lista todas las sucursales"""
-    if request.user.is_superuser:
+    # Mostrar todas las sucursales si es superusuario o administrador
+    if request.user.is_superuser or request.user.nivel == 'administrador':
         sucursales = Sucursal.objects.all()
     else:
         # Solo mostrar la sucursal del usuario actual
@@ -2858,8 +2859,8 @@ def editar_sucursal(request, sucursal_id):
     """Edita una sucursal existente"""
     sucursal = get_object_or_404(Sucursal, id=sucursal_id)
     
-    # Verificar permisos
-    if not request.user.is_superuser:
+    # Verificar permisos - permitir superusuario y administrador
+    if not (request.user.is_superuser or request.user.nivel == 'administrador'):
         messages.error(request, 'No tienes permisos para editar sucursales.')
         return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
     
@@ -2881,7 +2882,8 @@ def editar_sucursal(request, sucursal_id):
 @login_required
 def crear_sucursal(request):
     """Crea una nueva sucursal"""
-    if not request.user.is_superuser:
+    # Permitir superusuario y administrador
+    if not (request.user.is_superuser or request.user.nivel == 'administrador'):
         messages.error(request, 'No tienes permisos para crear sucursales.')
         return redirect('inmobiliaria:sucursales')
     
