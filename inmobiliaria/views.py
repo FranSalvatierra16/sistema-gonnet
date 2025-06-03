@@ -2829,12 +2829,23 @@ def editar_sucursal(request, sucursal_id):
 @login_required
 def sucursales(request):
     """Lista todas las sucursales"""
-    # Mostrar todas las sucursales si es superusuario o administrador
-    if request.user.is_superuser or request.user.nivel == 'administrador':
+    # Debug: Imprimir información del usuario
+    print(f"Usuario: {request.user}")
+    print(f"Nivel del usuario: '{request.user.nivel}'")
+    print(f"¿Es administrador?: {request.user.nivel == 'administrador'}")
+    
+    # Total de sucursales en la BD
+    total_sucursales = Sucursal.objects.all().count()
+    print(f"Total de sucursales en BD: {total_sucursales}")
+    
+    # Mostrar todas las sucursales solo si es administrador
+    if request.user.nivel == 'administrador':
         sucursales = Sucursal.objects.all()
+        print(f"Usuario es administrador - mostrando {sucursales.count()} sucursales")
     else:
         # Solo mostrar la sucursal del usuario actual
         sucursales = Sucursal.objects.filter(id=request.user.sucursal.id)
+        print(f"Usuario NO es administrador - mostrando {sucursales.count()} sucursales")
     
     return render(request, 'inmobiliaria/sucursal/lista.html', {
         'sucursales': sucursales
