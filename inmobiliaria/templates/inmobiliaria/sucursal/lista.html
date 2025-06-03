@@ -14,7 +14,7 @@
                         Lista de Sucursales
                     </h3>
                     <div class="card-tools">
-                        {% if user.is_superuser or user.nivel == 'administrador' %}
+                        {% if user.nivel == 4 %}
                             <a href="{% url 'inmobiliaria:crear_sucursal' %}" class="btn btn-primary">
                                 <i class="fas fa-plus"></i> Nueva Sucursal
                             </a>
@@ -31,23 +31,40 @@
                                         <th>Dirección</th>
                                         <th>Teléfono</th>
                                         <th>Email</th>
+                                        <th>Estado</th>
                                         <th>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for sucursal in sucursales %}
-                                        <tr>
-                                            <td>{{ sucursal.nombre }}</td>
+                                        <tr {% if sucursal.id == user.sucursal.id %}class="table-success"{% endif %}>
+                                            <td>
+                                                {{ sucursal.nombre }}
+                                                {% if sucursal.id == user.sucursal.id %}
+                                                    <span class="badge badge-success ml-2">
+                                                        <i class="fas fa-user-check"></i> Mi Sucursal
+                                                    </span>
+                                                {% endif %}
+                                            </td>
                                             <td>{{ sucursal.direccion|default:"-" }}</td>
                                             <td>{{ sucursal.telefono|default:"-" }}</td>
                                             <td>{{ sucursal.email|default:"-" }}</td>
+                                            <td>
+                                                {% if sucursal.id == user.sucursal.id %}
+                                                    <span class="badge badge-success">
+                                                        <i class="fas fa-map-marker-alt"></i> Ubicación Actual
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge badge-secondary">Otra Sucursal</span>
+                                                {% endif %}
+                                            </td>
                                             <td>
                                                 <div class="btn-group" role="group">
                                                     <a href="{% url 'inmobiliaria:sucursal_detalle' sucursal.id %}" 
                                                        class="btn btn-info btn-sm" title="Ver detalles">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
-                                                    {% if user.is_superuser or user.nivel == 'administrador' %}
+                                                    {% if user.nivel == 4 %}
                                                         <a href="{% url 'inmobiliaria:editar_sucursal' sucursal.id %}" 
                                                            class="btn btn-warning btn-sm" title="Editar">
                                                             <i class="fas fa-edit"></i>
@@ -60,11 +77,23 @@
                                 </tbody>
                             </table>
                         </div>
+                        
+                        <!-- Info adicional sobre la sucursal actual -->
+                        <div class="mt-3">
+                            <div class="alert alert-success">
+                                <h6><i class="fas fa-info-circle"></i> Información</h6>
+                                Actualmente estás trabajando en la sucursal: 
+                                <strong>{{ user.sucursal.nombre }}</strong>
+                                {% if user.sucursal.direccion %}
+                                    - {{ user.sucursal.direccion }}
+                                {% endif %}
+                            </div>
+                        </div>
                     {% else %}
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i>
                             No hay sucursales registradas.
-                            {% if user.is_superuser or user.nivel == 'administrador' %}
+                            {% if user.nivel == 4 %}
                                 <a href="{% url 'inmobiliaria:crear_sucursal' %}" class="btn btn-primary btn-sm ml-2">
                                     <i class="fas fa-plus"></i> Crear Primera Sucursal
                                 </a>
@@ -75,5 +104,13 @@
             </div>
         </div>
     </div>
+</div>
+
+<!-- Debug: Ver nivel del usuario -->
+<div class="mt-2">
+    <small class="text-muted">
+        Debug: Nivel de usuario = {{ user.nivel }} 
+        {% if user.nivel == 4 %}(Administrador){% endif %}
+    </small>
 </div>
 {% endblock %}
