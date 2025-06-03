@@ -2806,3 +2806,95 @@ def obtener_caracteristicas_propiedad(request):
         return JsonResponse({'error': 'Propiedad no encontrada'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def editar_sucursal(request, sucursal_id):
+    sucursal = get_object_or_404(Sucursal, id=sucursal_id)
+    
+    if request.method == 'POST':
+        form = SucursalForm(request.POST, instance=sucursal)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Sucursal "{sucursal.nombre}" actualizada exitosamente.')
+            return redirect('inmobiliaria:detalle_sucursal', sucursal_id=sucursal.id)
+    else:
+        form = SucursalForm(instance=sucursal)
+    
+    return render(request, 'inmobiliaria/sucursales/editar.html', {
+        'form': form,
+        'sucursal': sucursal,
+        'titulo': 'Editar Sucursal'
+    })
+
+@login_required
+def sucursales(request):
+    """Lista todas las sucursales"""
+    if request.user.is_superuser:
+        sucursales = Sucursal.objects.all()
+    else:
+        # Solo mostrar la sucursal del usuario actual
+        sucursales = Sucursal.objects.filter(id=request.user.sucursal.id)
+    
+    return render(request, 'inmobiliaria/sucursales/lista.html', {
+        'sucursales': sucursales
+    })
+
+@login_required
+def sucursal_detalle(request, sucursal_id):
+    """Detalle de una sucursal específica"""
+    sucursal = get_object_or_404(Sucursal, id=sucursal_id)
+    
+    # Verificar permisos
+    if not request.user.is_superuser and request.user.sucursal.id != sucursal.id:
+        messages.error(request, 'No tienes permisos para ver esta sucursal.')
+        return redirect('inmobiliaria:sucursales')
+    
+    return render(request, 'inmobiliaria/sucursales/detalle.html', {
+        'sucursal': sucursal
+    })
+
+@login_required
+def editar_sucursal(request, sucursal_id):
+    """Editar una sucursal"""
+    sucursal = get_object_or_404(Sucursal, id=sucursal_id)
+    
+    # Verificar permisos
+    if not request.user.is_superuser and request.user.sucursal.id != sucursal.id:
+        messages.error(request, 'No tienes permisos para editar esta sucursal.')
+        return redirect('inmobiliaria:sucursales')
+    
+    if request.method == 'POST':
+        form = SucursalForm(request.POST, instance=sucursal)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Sucursal "{sucursal.nombre}" actualizada exitosamente.')
+            return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+    else:
+        form = SucursalForm(instance=sucursal)
+    
+    return render(request, 'inmobiliaria/sucursales/editar.html', {
+        'form': form,
+        'sucursal': sucursal,
+        'titulo': 'Editar Sucursal'
+    })
+
+@login_required
+def crear_sucursal(request):
+    """Crear nueva sucursal (solo superusuarios)"""
+    if not request.user.is_superuser:
+        messages.error(request, 'No tienes permisos para crear sucursales.')
+        return redirect('inmobiliaria:sucursales')
+    
+    if request.method == 'POST':
+        form = SucursalForm(request.POST)
+        if form.is_valid():
+            sucursal = form.save()
+            messages.success(request, f'Sucursal "{sucursal.nombre}" creada exitosamente.')
+            return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+    else:
+        form = SucursalForm()
+    
+    return render(request, 'inmobiliaria/sucursales/crear.html', {
+        'form': form,
+        'titulo': 'Nueva Sucursal'
+    })

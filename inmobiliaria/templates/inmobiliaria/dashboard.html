@@ -54,6 +54,17 @@
             </div>
         </div>
 
+        <!-- Sucursales -->
+        <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:sucursales' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-building"></i>
+                </div>
+                <h3>Sucursales</h3>
+                <p>Gestión de sucursales</p>
+            </div>
+        </div>
+
         <!-- Estudiantes -->
         <div class="col-md-4 mb-4">
             <div class="menu-card">
@@ -117,6 +128,11 @@
 }
 
 .menu-card:nth-child(5) {
+    border-top: 4px solid #17a2b8;
+    .card-icon { color: #17a2b8; }
+}
+
+.menu-card:nth-child(6) {
     border-top: 4px solid #6f42c1;
     .card-icon { color: #6f42c1; }
 }

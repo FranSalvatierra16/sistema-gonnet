@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sucursales{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-building"></i>
+                        Sucursales
+                    </h3>
+                    <div class="card-tools">
+                        {% if user.is_superuser %}
+                            <a href="{% url 'inmobiliaria:crear_sucursal' %}" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Nueva Sucursal
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nombre</th>
+                                    <th>Dirección</th>
+                                    <th>Teléfono</th>
+                                    <th>Email</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sucursal in sucursales %}
+                                <tr>
+                                    <td>{{ sucursal.id }}</td>
+                                    <td>{{ sucursal.nombre }}</td>
+                                    <td>{{ sucursal.direccion|default:"-" }}</td>
+                                    <td>{{ sucursal.telefono|default:"-" }}</td>
+                                    <td>{{ sucursal.email|default:"-" }}</td>
+                                    <td>
+                                        <a href="{% url 'inmobiliaria:sucursal_detalle' sucursal.id %}" 
+                                           class="btn btn-sm btn-info">
+                                            <i class="fas fa-eye"></i> Ver
+                                        </a>
+                                        <a href="{% url 'inmobiliaria:editar_sucursal' sucursal.id %}" 
+                                           class="btn btn-sm btn-warning">
+                                            <i class="fas fa-edit"></i> Editar
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center">No hay sucursales registradas</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

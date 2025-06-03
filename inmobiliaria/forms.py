@@ -389,14 +389,31 @@ class InquilinoBuscarForm(forms.Form):
 class SucursalForm(forms.ModelForm):
     class Meta:
         model = Sucursal
-        fields = ['nombre', 'direccion', 'telefono', 'email']  # Asegúrate de incluir todos los campos necesarios
-
-    def __init__(self, *args, **kwargs):
-        super(SucursalForm, self).__init__(*args, **kwargs)
-        self.fields['nombre'].widget.attrs.update({'placeholder': 'Nombre de la sucursal'})
-        self.fields['direccion'].widget.attrs.update({'placeholder': 'Dirección'})
-        self.fields['telefono'].widget.attrs.update({'placeholder': 'Teléfono'})
-        self.fields['email'].widget.attrs.update({'placeholder': 'Email'})
+        fields = ['nombre', 'direccion', 'telefono', 'email']
+        widgets = {
+            'nombre': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nombre de la sucursal'
+            }),
+            'direccion': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Dirección de la sucursal'
+            }),
+            'telefono': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Teléfono'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Email'
+            }),
+        }
+        labels = {
+            'nombre': 'Nombre de la Sucursal',
+            'direccion': 'Dirección',
+            'telefono': 'Teléfono',
+            'email': 'Email',
+        }
 
 class LoginForm(forms.Form):
     username = forms.CharField(

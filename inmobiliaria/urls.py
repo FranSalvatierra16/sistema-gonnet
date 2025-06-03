@@ -145,4 +145,8 @@ urlpatterns = [
     path("propiedades/<int:propiedad_id>/reordenar-imagenes/",
          views.reordenar_imagenes,           name="reordenar_imagenes"),
     path('obtener-caracteristicas-propiedad/', views.obtener_caracteristicas_propiedad, name='obtener_caracteristicas_propiedad'),
+    # Sucursal URLs
+    path('sucursal/', views.sucursales, name='sucursales'),
+    path('sucursal/<int:sucursal_id>/', views.sucursal_detalle, name='sucursal_detalle'),
+    path('sucursal/<int:sucursal_id>/editar/', views.editar_sucursal, name='editar_sucursal'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
