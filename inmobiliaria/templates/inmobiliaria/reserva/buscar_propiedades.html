@@ -1579,39 +1579,40 @@ function confirmarReserva() {
 
 <script>
 function abrirGaleriaFotos() {
-    console.log("=== ABRIENDO GALERÍA DE FOTOS ===");
-    console.log("Propiedad seleccionada:", propiedadSeleccionada);
+    console.log("=== ABRIR GALERÍA DE FOTOS ===");
     
-    // Verificar que tenemos una propiedad seleccionada
-    if (!propiedadSeleccionada) {
+    if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
         Swal.fire({
             icon: 'warning',
             title: 'Atención',
-            text: 'Por favor selecciona una propiedad primero.'
+            text: 'Primero selecciona una propiedad.'
         });
         return;
     }
     
+    console.log("Propiedad seleccionada:", propiedadSeleccionada);
+    
     // Actualizar título del modal
     document.getElementById('tituloPropiedad').textContent = propiedadSeleccionada.direccion;
     
-    // Hacer petición para obtener las fotos
+    // Construir URL para obtener fotos
     const url = `/obtener-fotos-propiedad/${propiedadSeleccionada.id}/`;
-    console.log("URL para obtener fotos:", url);
+    console.log("URL para fotos:", url);
     
+    // Hacer petición AJAX para obtener las fotos
     fetch(url)
         .then(response => {
-            console.log("Respuesta fotos:", response);
+            console.log("Respuesta fotos recibida:", response);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.text();
         })
         .then(text => {
-            console.log("Texto respuesta fotos:", text);
+            console.log("Texto de respuesta fotos:", text);
             try {
                 const data = JSON.parse(text);
-                console.log("Datos fotos parseados:", data);
+                console.log("Datos de fotos parseados:", data);
                 
                 if (data.success && data.fotos.length > 0) {
                     cargarFotosEnModal(data.fotos);
@@ -1636,7 +1637,7 @@ function abrirGaleriaFotos() {
                 text: 'No se pudieron cargar las fotos. Error: ' + error.message
             });
         });
-};
+}
 
 function cargarFotosEnModal(fotos) {
     console.log("=== CARGANDO FOTOS EN MODAL ===");
