@@ -34,7 +34,7 @@
                             <div class="col-md-12">
                                 <div class="form-group">
                                     <label for="{{ form.nombre.id_for_label }}">Nombre de la Sucursal *</label>
-                                    {{ form.nombre|add_class:"form-control" }}
+                                    <input type="text" name="nombre" class="form-control" id="{{ form.nombre.id_for_label }}" value="{{ form.nombre.value|default:'' }}" required>
                                     {% if form.nombre.errors %}
                                         <div class="text-danger">{{ form.nombre.errors }}</div>
                                     {% endif %}
@@ -46,7 +46,7 @@
                             <div class="col-md-12">
                                 <div class="form-group">
                                     <label for="{{ form.direccion.id_for_label }}">Dirección</label>
-                                    {{ form.direccion|add_class:"form-control" }}
+                                    <input type="text" name="direccion" class="form-control" id="{{ form.direccion.id_for_label }}" value="{{ form.direccion.value|default:'' }}">
                                     {% if form.direccion.errors %}
                                         <div class="text-danger">{{ form.direccion.errors }}</div>
                                     {% endif %}
@@ -58,7 +58,7 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="{{ form.telefono.id_for_label }}">Teléfono</label>
-                                    {{ form.telefono|add_class:"form-control" }}
+                                    <input type="text" name="telefono" class="form-control" id="{{ form.telefono.id_for_label }}" value="{{ form.telefono.value|default:'' }}">
                                     {% if form.telefono.errors %}
                                         <div class="text-danger">{{ form.telefono.errors }}</div>
                                     {% endif %}
@@ -67,7 +67,7 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="{{ form.email.id_for_label }}">Email</label>
-                                    {{ form.email|add_class:"form-control" }}
+                                    <input type="email" name="email" class="form-control" id="{{ form.email.id_for_label }}" value="{{ form.email.value|default:'' }}">
                                     {% if form.email.errors %}
                                         <div class="text-danger">{{ form.email.errors }}</div>
                                     {% endif %}
