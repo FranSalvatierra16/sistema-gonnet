@@ -2894,7 +2894,7 @@ def crear_sucursal(request):
     else:
         form = SucursalForm()
     
-    return render(request, 'inmobiliaria/sucursal/crear.html', {
+    return render(request, 'inmobiliaria/sucursal/crear_sucursal.html', {
         'form': form,
         'titulo': 'Nueva Sucursal'
     })

@@ -1,86 +1,85 @@
-<div class="card-body">
-    {% extends 'base.html' %}
-    {% load static %}
-    
-    {% block title %}{{ titulo }}{% endblock %}
-    
-    {% block content %}
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">
-                            <i class="fas fa-building"></i>
-                            {{ titulo }}
-                        </h3>
-                        <div class="card-tools">
-                            <a href="{% url 'inmobiliaria:sucursal_detalle' sucursal.id %}" class="btn btn-secondary">
-                                <i class="fas fa-arrow-left"></i> Volver
-                            </a>
-                        </div>
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-building"></i>
+                        {{ titulo }}
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'inmobiliaria:sucursal_detalle' sucursal.id %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Volver
+                        </a>
                     </div>
-                    
-                    <form method="post">
-                        <div class="card-body">
-                            {% csrf_token %}
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="{{ form.nombre.id_for_label }}">{{ form.nombre.label }}</label>
-                                        {{ form.nombre }}
-                                        {% if form.nombre.errors %}
-                                            <div class="text-danger">{{ form.nombre.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="{{ form.telefono.id_for_label }}">{{ form.telefono.label }}</label>
-                                        {{ form.telefono }}
-                                        {% if form.telefono.errors %}
-                                            <div class="text-danger">{{ form.telefono.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
+                </div>
+                
+                <form method="post">
+                    <div class="card-body">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.nombre.id_for_label }}">{{ form.nombre.label }}</label>
+                                    {{ form.nombre }}
+                                    {% if form.nombre.errors %}
+                                        <div class="text-danger">{{ form.nombre.errors.0 }}</div>
+                                    {% endif %}
                                 </div>
                             </div>
                             
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="{{ form.direccion.id_for_label }}">{{ form.direccion.label }}</label>
-                                        {{ form.direccion }}
-                                        {% if form.direccion.errors %}
-                                            <div class="text-danger">{{ form.direccion.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
-                                        {{ form.email }}
-                                        {% if form.email.errors %}
-                                            <div class="text-danger">{{ form.email.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.telefono.id_for_label }}">{{ form.telefono.label }}</label>
+                                    {{ form.telefono }}
+                                    {% if form.telefono.errors %}
+                                        <div class="text-danger">{{ form.telefono.errors.0 }}</div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="card-footer">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save"></i> Guardar Cambios
-                            </button>
-                            <a href="{% url 'inmobiliaria:sucursal_detalle' sucursal.id %}" class="btn btn-secondary">
-                                <i class="fas fa-times"></i> Cancelar
-                            </a>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.direccion.id_for_label }}">{{ form.direccion.label }}</label>
+                                    {{ form.direccion }}
+                                    {% if form.direccion.errors %}
+                                        <div class="text-danger">{{ form.direccion.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                                    {{ form.email }}
+                                    {% if form.email.errors %}
+                                        <div class="text-danger">{{ form.email.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
-                    </form>
-                </div>
+                    </div>
+                    
+                    <div class="card-footer">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Guardar Cambios
+                        </button>
+                        <a href="{% url 'inmobiliaria:sucursal_detalle' sucursal.id %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancelar
+                        </a>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
-    {% endblock %} 
+</div>
+{% endblock %} 

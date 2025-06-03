@@ -1,18 +1,92 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crear Sucursal</title>
-<!-- Asegúrate de tener tu CSS -->
-</head>
-<body>
-    <h1>Crear Sucursal</h1>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}  <!-- Renderiza el formulario -->
-        <button type="submit">Guardar Sucursal</button>
-    </form>
-    <a href="{% url 'inmobiliaria:reservas' %}">Volver a la lista de sucursales</a> <!-- Cambia 'sucursal_lista' por la URL correspondiente -->
-</body>
-</html>
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+
+{% block title %}Nueva Sucursal{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12 col-md-8 col-lg-6 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-building"></i>
+                        Nueva Sucursal
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'inmobiliaria:sucursales' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Volver a Lista
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        {% if form.errors %}
+                            <div class="alert alert-danger">
+                                <h6><i class="icon fas fa-ban"></i> Error!</h6>
+                                Por favor corrige los errores en el formulario.
+                            </div>
+                        {% endif %}
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="{{ form.nombre.id_for_label }}">Nombre de la Sucursal *</label>
+                                    {{ form.nombre|add_class:"form-control" }}
+                                    {% if form.nombre.errors %}
+                                        <div class="text-danger">{{ form.nombre.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="{{ form.direccion.id_for_label }}">Dirección</label>
+                                    {{ form.direccion|add_class:"form-control" }}
+                                    {% if form.direccion.errors %}
+                                        <div class="text-danger">{{ form.direccion.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.telefono.id_for_label }}">Teléfono</label>
+                                    {{ form.telefono|add_class:"form-control" }}
+                                    {% if form.telefono.errors %}
+                                        <div class="text-danger">{{ form.telefono.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.email.id_for_label }}">Email</label>
+                                    {{ form.email|add_class:"form-control" }}
+                                    {% if form.email.errors %}
+                                        <div class="text-danger">{{ form.email.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Guardar Sucursal
+                            </button>
+                            <a href="{% url 'inmobiliaria:sucursales' %}" class="btn btn-secondary ml-2">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
