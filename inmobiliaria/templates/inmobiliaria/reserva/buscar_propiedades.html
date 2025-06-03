@@ -861,115 +861,170 @@ $('#modalPrecios .close').click(function () {
             }
         }
 
-        // Cargar precios si la función existe
-        if (typeof mostrarPrecios === 'function') {
-            mostrarPrecios(id);
+        // Actualizar tabla de precios
+        actualizarTablaPrecios(id, fechaInicio, fechaFin);
+    }
+
+    function actualizarTablaPrecios(propiedadId, fechaInicio, fechaFin) {
+        console.log("Actualizando tabla de precios para propiedad:", propiedadId);
+        
+        // Hacer petición AJAX para obtener los precios
+        fetch(`/obtener-precios-propiedad/${propiedadId}/?fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`)
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.querySelector('.table-precios tbody');
+                tbody.innerHTML = '';
+                
+                if (data.success && data.precios.length > 0) {
+                    data.precios.forEach(precio => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td><strong>${precio.periodo}</strong></td>
+                            <td class="text-right">$${precio.precio_total}</td>
+                            <td class="text-right">$${precio.precio_por_dia}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                    
+                    // Agregar fila de total si hay múltiples períodos
+                    if (data.precios.length > 1) {
+                        const totalRow = document.createElement('tr');
+                        totalRow.style.backgroundColor = '#f8f9fa';
+                        totalRow.style.fontWeight = 'bold';
+                        totalRow.innerHTML = `
+                            <td><strong>TOTAL</strong></td>
+                            <td class="text-right"><strong>$${data.total_general}</strong></td>
+                            <td class="text-right">-</td>
+                        `;
+                        tbody.appendChild(totalRow);
+                    }
+                } else {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">
+                                <i class="fas fa-info-circle"></i> No hay información de precios disponible
+                            </td>
+                        </tr>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error al obtener precios:', error);
+                const tbody = document.querySelector('.table-precios tbody');
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="text-center text-danger">
+                            <i class="fas fa-exclamation-triangle"></i> Error al cargar precios
+                        </td>
+                    </tr>
+                `;
+            });
+    }
+
+    function mostrarModalAutenticacion(reservaId) {
+        window.reservaIdActual = reservaId; // Guardar el ID de la reserva para usarlo después
+        $('#modalAutenticacionVendedor').modal('show');
+    }
+
+    function autenticarYReservar() {
+        const usuario = document.getElementById('usuarioVendedor').value;
+        const contrasena = document.getElementById('contrasenaVendedor').value;
+
+        if (!usuario || !contrasena) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campos requeridos',
+                text: 'Por favor completa todos los campos.'
+            });
+            return;
+        }
+
+        console.log("Autenticando usuario:", usuario);
+
+        // Simulación de autenticación - aquí deberías hacer la validación real
+        if (usuario === 'admin' && contrasena === 'admin') { // Cambia esto por tu lógica real
+            console.log("Autenticación exitosa");
+            
+            // Cerrar modal de autenticación
+            $('#modalAutenticacionVendedor').modal('hide');
+            
+            // Limpiar campos
+            document.getElementById('usuarioVendedor').value = '';
+            document.getElementById('contrasenaVendedor').value = '';
+            
+            // Esperar a que se cierre el modal y mostrar el de confirmación
+            setTimeout(() => {
+                // Usar los datos de propiedadSeleccionada para mostrar el modal de confirmación
+                if (propiedadSeleccionada) {
+                    // Llenar los campos del modal con la información
+                    document.getElementById("propiedadDireccion").textContent = propiedadSeleccionada.direccion;
+                    document.getElementById("fechaInicio").textContent = propiedadSeleccionada.fechaInicio;
+                    document.getElementById('fechaFin').textContent = propiedadSeleccionada.fechaFin;
+                    document.getElementById("totalDias").textContent = `${propiedadSeleccionada.totalDias} días`;
+                    document.getElementById("precioTotalSuperior").textContent = propiedadSeleccionada.precio;
+
+                    // Llenar los campos ocultos del formulario
+                    document.getElementById("modalPropiedadId").value = propiedadSeleccionada.id;
+                    document.getElementById("modalFechaInicio").value = propiedadSeleccionada.fechaInicio;
+                    document.getElementById("modalFechaFin").value = propiedadSeleccionada.fechaFin;
+                    document.getElementById("modalPrecioTotal").value = propiedadSeleccionada.precio;
+
+                    // Mostrar el modal
+                    $('#modalConfirmarReserva').modal('show');
+                }
+            }, 500);
+            
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error de autenticación',
+                text: 'Usuario o contraseña incorrectos'
+            });
         }
     }
-    function mostrarModalAutenticacion(reservaId) {
-    window.reservaIdActual = reservaId; // Guardar el ID de la reserva para usarlo después
-    $('#modalAutenticacionVendedor').modal('show');
-}
 
-function autenticarYReservar() {
-    const usuario = document.getElementById('usuarioVendedor').value;
-    const contrasena = document.getElementById('contrasenaVendedor').value;
-
-    if (!usuario || !contrasena) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Campos requeridos',
-            text: 'Por favor completa todos los campos.'
-        });
-        return;
-    }
-
-    console.log("Autenticando usuario:", usuario);
-
-    // Simulación de autenticación - aquí deberías hacer la validación real
-    if (usuario === 'admin' && contrasena === 'admin') { // Cambia esto por tu lógica real
-        console.log("Autenticación exitosa");
+    function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
+        console.log("Mostrando modal de autenticación");
         
-        // Cerrar modal de autenticación
-        $('#modalAutenticacionVendedor').modal('hide');
-        
-        // Limpiar campos
+        // Limpiar campos del modal
         document.getElementById('usuarioVendedor').value = '';
         document.getElementById('contrasenaVendedor').value = '';
         
-        // Esperar a que se cierre el modal y mostrar el de confirmación
-        setTimeout(() => {
-            // Usar los datos de propiedadSeleccionada para mostrar el modal de confirmación
-            if (propiedadSeleccionada) {
-                // Llenar los campos del modal con la información
-                document.getElementById("propiedadDireccion").textContent = propiedadSeleccionada.direccion;
-                document.getElementById("fechaInicio").textContent = propiedadSeleccionada.fechaInicio;
-                document.getElementById('fechaFin').textContent = propiedadSeleccionada.fechaFin;
-                document.getElementById("totalDias").textContent = `${propiedadSeleccionada.totalDias} días`;
-                document.getElementById("precioTotalSuperior").textContent = propiedadSeleccionada.precio;
-
-                // Llenar los campos ocultos del formulario
-                document.getElementById("modalPropiedadId").value = propiedadSeleccionada.id;
-                document.getElementById("modalFechaInicio").value = propiedadSeleccionada.fechaInicio;
-                document.getElementById("modalFechaFin").value = propiedadSeleccionada.fechaFin;
-                document.getElementById("modalPrecioTotal").value = propiedadSeleccionada.precio;
-
-                // Mostrar el modal
-                $('#modalConfirmarReserva').modal('show');
-            }
-        }, 500);
-        
-    } else {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error de autenticación',
-            text: 'Usuario o contraseña incorrectos'
-        });
+        // Mostrar el modal
+        $('#modalAutenticacionVendedor').modal('show');
     }
-}
 
-function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
-    console.log("Mostrando modal de autenticación");
-    
-    // Limpiar campos del modal
-    document.getElementById('usuarioVendedor').value = '';
-    document.getElementById('contrasenaVendedor').value = '';
-    
-    // Mostrar el modal
-    $('#modalAutenticacionVendedor').modal('show');
-}
+    function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
+        console.log("Mostrando modal de reserva con datos:", {ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias});
+        
+        // Llenar los campos del modal con la información
+        document.getElementById("propiedadDireccion").textContent = direccion;
+        document.getElementById("fechaInicio").textContent = formatearFecha(fechaInicio);
+        document.getElementById('fechaFin').textContent = formatearFecha(fechaFin);
+        document.getElementById("totalDias").textContent = `${totalDias} días`;
+        document.getElementById("precioTotalSuperior").textContent = precio;
 
-function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
-    console.log("Mostrando modal de reserva con datos:", {ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias});
-    
-    // Llenar los campos del modal con la información
-    document.getElementById("propiedadDireccion").textContent = direccion;
-    document.getElementById("fechaInicio").textContent = formatearFecha(fechaInicio);
-    document.getElementById('fechaFin').textContent = formatearFecha(fechaFin);
-    document.getElementById("totalDias").textContent = `${totalDias} días`;
-    document.getElementById("precioTotalSuperior").textContent = precio;
+        // Llenar los campos ocultos del formulario
+        document.getElementById("modalPropiedadId").value = ficha;
+        document.getElementById("modalFechaInicio").value = fechaInicio;
+        document.getElementById("modalFechaFin").value = fechaFin;
+        document.getElementById("modalPrecioTotal").value = precio;
 
-    // Llenar los campos ocultos del formulario
-    document.getElementById("modalPropiedadId").value = ficha;
-    document.getElementById("modalFechaInicio").value = fechaInicio;
-    document.getElementById("modalFechaFin").value = fechaFin;
-    document.getElementById("modalPrecioTotal").value = precio;
+        // Configurar el precio editable
+        document.getElementById("precio_total_display").textContent = precio;
+        document.getElementById("precio_total").value = precio;
 
-    // Configurar el precio editable
-    document.getElementById("precio_total_display").textContent = precio;
-    document.getElementById("precio_total").value = precio;
+        // Mostrar el modal
+        $('#modalConfirmarReserva').modal('show');
+    }
 
-    // Mostrar el modal
-    $('#modalConfirmarReserva').modal('show');
-}
-
-function formatearFecha(fecha) {
-    const d = new Date(fecha);
-    const dia = d.getDate().toString().padStart(2, '0');
-    const mes = (d.getMonth() + 1).toString().padStart(2, '0'); // Los meses en JavaScript van de 0 a 11
-    const anio = d.getFullYear();
-    return `${dia}/${mes}/${anio}`;
-}
+    function formatearFecha(fecha) {
+        const d = new Date(fecha);
+        const dia = d.getDate().toString().padStart(2, '0');
+        const mes = (d.getMonth() + 1).toString().padStart(2, '0'); // Los meses en JavaScript van de 0 a 11
+        const anio = d.getFullYear();
+        return `${dia}/${mes}/${anio}`;
+    }
 </script>
 <script>
     document.getElementById('agregarClienteBtn').addEventListener('click', function() {
@@ -1487,6 +1542,7 @@ function confirmarReserva() {
 <script>
 function abrirGaleriaFotos() {
     console.log("Abriendo galería de fotos");
+    console.log("Propiedad seleccionada:", propiedadSeleccionada);
     
     // Verificar que tenemos una propiedad seleccionada
     if (!propiedadSeleccionada) {
@@ -1506,10 +1562,16 @@ function abrirGaleriaFotos() {
 }
 
 function obtenerFotosPropiedad(propiedadId) {
+    console.log("Obteniendo fotos para propiedad:", propiedadId);
+    
     // Hacer petición AJAX para obtener las fotos
     fetch(`/obtener-fotos-propiedad/${propiedadId}/`)
-        .then(response => response.json())
+        .then(response => {
+            console.log("Respuesta del servidor:", response);
+            return response.json();
+        })
         .then(data => {
+            console.log("Datos de fotos recibidos:", data);
             if (data.success && data.fotos.length > 0) {
                 cargarFotosEnModal(data.fotos);
                 $('#modalGaleriaFotos').modal('show');
@@ -1526,12 +1588,14 @@ function obtenerFotosPropiedad(propiedadId) {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'No se pudieron cargar las fotos.'
+                text: 'No se pudieron cargar las fotos. Error: ' + error.message
             });
         });
 }
 
 function cargarFotosEnModal(fotos) {
+    console.log("Cargando fotos en modal:", fotos);
+    
     const carouselInner = document.getElementById('carouselInner');
     const thumbnailsContainer = document.getElementById('thumbnailsContainer');
     const contadorFotos = document.getElementById('contadorFotos');
@@ -1604,6 +1668,17 @@ style.textContent = `
     .carousel-control-next {
         background-color: rgba(0,0,0,0.3);
         width: 5%;
+    }
+    .table-precios {
+        font-size: 0.9rem;
+    }
+    .table-precios th {
+        background-color: #007bff;
+        color: white;
+        text-align: center;
+    }
+    .table-precios td {
+        vertical-align: middle;
     }
 `;
 document.head.appendChild(style);
