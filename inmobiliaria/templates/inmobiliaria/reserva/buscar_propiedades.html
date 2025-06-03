@@ -499,6 +499,13 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Agregar este botón cerca de los otros botones de acción -->
+                <div class="mb-3">
+                    <button type="button" class="btn btn-info" onclick="abrirGaleriaFotos()">
+                        <i class="fas fa-images"></i> Ver Fotos en Grande
+                    </button>
+                </div>
             </div>
             
             <div class="card-footer" id="cardButtons" style="background-color: #f8f9fa;">
@@ -1425,6 +1432,181 @@ function confirmarReserva() {
         }
     });
 }
+</script>
+
+<!-- Modal para galería de fotos - agregar antes del final del body -->
+<div class="modal fade" id="modalGaleriaFotos" tabindex="-1" role="dialog" aria-labelledby="modalGaleriaFotosLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalGaleriaFotosLabel">
+                    <i class="fas fa-images"></i> Galería de Fotos - <span id="tituloPropiedad"></span>
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="carouselFotos" class="carousel slide" data-ride="carousel" data-interval="false">
+                    <div class="carousel-inner" id="carouselInner">
+                        <!-- Las fotos se cargarán dinámicamente aquí -->
+                    </div>
+                    
+                    <!-- Controles de navegación -->
+                    <a class="carousel-control-prev" href="#carouselFotos" role="button" data-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="sr-only">Anterior</span>
+                    </a>
+                    <a class="carousel-control-next" href="#carouselFotos" role="button" data-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="sr-only">Siguiente</span>
+                    </a>
+                </div>
+                
+                <!-- Indicadores de posición -->
+                <div class="text-center mt-3 mb-3">
+                    <span id="contadorFotos" class="badge badge-dark"></span>
+                </div>
+                
+                <!-- Thumbnails para navegación rápida -->
+                <div class="container-fluid">
+                    <div class="row" id="thumbnailsContainer">
+                        <!-- Los thumbnails se cargarán aquí -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                    <i class="fas fa-times"></i> Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function abrirGaleriaFotos() {
+    console.log("Abriendo galería de fotos");
+    
+    // Verificar que tenemos una propiedad seleccionada
+    if (!propiedadSeleccionada) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Por favor selecciona una propiedad primero.'
+        });
+        return;
+    }
+
+    // Actualizar el título del modal
+    document.getElementById('tituloPropiedad').textContent = propiedadSeleccionada.direccion;
+
+    // Obtener las fotos de la propiedad
+    obtenerFotosPropiedad(propiedadSeleccionada.id);
+}
+
+function obtenerFotosPropiedad(propiedadId) {
+    // Hacer petición AJAX para obtener las fotos
+    fetch(`/obtener-fotos-propiedad/${propiedadId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.fotos.length > 0) {
+                cargarFotosEnModal(data.fotos);
+                $('#modalGaleriaFotos').modal('show');
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Sin fotos',
+                    text: 'Esta propiedad no tiene fotos disponibles.'
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error al obtener fotos:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'No se pudieron cargar las fotos.'
+            });
+        });
+}
+
+function cargarFotosEnModal(fotos) {
+    const carouselInner = document.getElementById('carouselInner');
+    const thumbnailsContainer = document.getElementById('thumbnailsContainer');
+    const contadorFotos = document.getElementById('contadorFotos');
+    
+    // Limpiar contenido anterior
+    carouselInner.innerHTML = '';
+    thumbnailsContainer.innerHTML = '';
+    
+    // Crear slides del carousel
+    fotos.forEach((foto, index) => {
+        // Slide principal
+        const slide = document.createElement('div');
+        slide.className = `carousel-item ${index === 0 ? 'active' : ''}`;
+        slide.innerHTML = `
+            <div class="d-flex justify-content-center align-items-center" style="height: 70vh;">
+                <img src="${foto.url}" class="img-fluid" style="max-height: 100%; max-width: 100%; object-fit: contain;" alt="Foto ${index + 1}">
+            </div>
+        `;
+        carouselInner.appendChild(slide);
+        
+        // Thumbnail
+        const thumbnailCol = document.createElement('div');
+        thumbnailCol.className = 'col-2 mb-2';
+        thumbnailCol.innerHTML = `
+            <img src="${foto.url}" 
+                 class="img-thumbnail thumbnail-nav ${index === 0 ? 'active-thumbnail' : ''}" 
+                 style="cursor: pointer; height: 80px; width: 100%; object-fit: cover;"
+                 onclick="irAFoto(${index})"
+                 data-index="${index}"
+                 alt="Thumbnail ${index + 1}">
+        `;
+        thumbnailsContainer.appendChild(thumbnailCol);
+    });
+    
+    // Actualizar contador
+    contadorFotos.textContent = `1 / ${fotos.length}`;
+    
+    // Agregar event listeners para actualizar contador y thumbnails activos
+    $('#carouselFotos').on('slide.bs.carousel', function (e) {
+        const newIndex = e.to;
+        contadorFotos.textContent = `${newIndex + 1} / ${fotos.length}`;
+        
+        // Actualizar thumbnail activo
+        document.querySelectorAll('.thumbnail-nav').forEach((thumb, idx) => {
+            thumb.classList.toggle('active-thumbnail', idx === newIndex);
+        });
+    });
+}
+
+function irAFoto(index) {
+    $('#carouselFotos').carousel(index);
+}
+
+// CSS para los thumbnails activos
+const style = document.createElement('style');
+style.textContent = `
+    .active-thumbnail {
+        border: 3px solid #007bff !important;
+        opacity: 1 !important;
+    }
+    .thumbnail-nav {
+        opacity: 0.7;
+        transition: all 0.3s ease;
+    }
+    .thumbnail-nav:hover {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+    .carousel-control-prev,
+    .carousel-control-next {
+        background-color: rgba(0,0,0,0.3);
+        width: 5%;
+    }
+`;
+document.head.appendChild(style);
 </script>
 
 

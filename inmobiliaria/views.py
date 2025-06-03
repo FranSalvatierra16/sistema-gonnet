@@ -2911,3 +2911,33 @@ def crear_sucursal(request):
         'form': form,
         'titulo': 'Nueva Sucursal'
     })
+
+@login_required
+@require_http_methods(["GET"])
+def obtener_fotos_propiedad(request, propiedad_id):
+    """Obtiene las fotos de una propiedad específica"""
+    try:
+        propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+        
+        # Obtener todas las fotos de la propiedad
+        fotos = propiedad.fotos.all()
+        
+        fotos_data = []
+        for foto in fotos:
+            fotos_data.append({
+                'id': foto.id,
+                'url': foto.foto.url if foto.foto else '',
+                'descripcion': foto.descripcion if hasattr(foto, 'descripcion') else ''
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'fotos': fotos_data,
+            'total': len(fotos_data)
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
