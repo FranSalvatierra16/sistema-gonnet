@@ -2927,14 +2927,24 @@ def obtener_fotos_propiedad(request, propiedad_id):
         imagenes = propiedad.imagenes_propiedad.all().order_by('orden')
         print(f"Imágenes encontradas: {imagenes.count()}")
         
+        # Obtener el dominio base de la aplicación
+        domain = request.get_host()
+        protocol = 'https' if request.is_secure() else 'http'
+        base_url = f"{protocol}://{domain}"
+        
         imagenes_data = []
         for imagen in imagenes:
             try:
                 print(f"Procesando imagen: {imagen}")
-                print(f"URL de imagen: {imagen.imagen.url}")
+                url_imagen = imagen.imagen.url if imagen.imagen else ''
+                # Asegurar que la URL sea absoluta
+                if url_imagen.startswith('/'):
+                    url_imagen = base_url + url_imagen
+                print(f"URL de imagen: {url_imagen}")
+                
                 imagenes_data.append({
                     'id': imagen.id,
-                    'url': request.build_absolute_uri(imagen.imagen.url),
+                    'url': url_imagen,
                     'orden': imagen.orden
                 })
             except Exception as e:
