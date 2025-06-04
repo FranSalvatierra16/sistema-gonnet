@@ -733,14 +733,18 @@ def buscar_propiedades(request):
     if form.is_valid():
         fecha_inicio = form.cleaned_data['fecha_inicio']
         fecha_fin = form.cleaned_data['fecha_fin']
+        ver_todas = form.cleaned_data.get('ver_todas', False)
 
-        # Filtrar propiedades por sucursal
-        propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor)
+        # Filtrar propiedades según la opción seleccionada
+        if ver_todas:
+            propiedades = Propiedad.objects.all()
+        else:
+            propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor)
 
         # Prefetch los precios para cada propiedad
         propiedades = propiedades.prefetch_related(
             Prefetch('precios', queryset=Precio.objects.all(), to_attr='todos_precios')
-        )
+        ).select_related('sucursal')  # Agregamos select_related para la sucursal
 
         # Aplicar filtros del formulario
         tipo_inmueble = form.cleaned_data.get('tipo_inmueble')
@@ -776,10 +780,6 @@ def buscar_propiedades(request):
         for caracteristica in caracteristicas_booleanas:
             if form.cleaned_data.get(caracteristica):
                 propiedades = propiedades.filter(**{caracteristica: True})
-                
-
-
-                
 
         # Filtrar propiedades que están disponibles en las fechas indicadas
         for propiedad in propiedades:
@@ -792,7 +792,6 @@ def buscar_propiedades(request):
             # Obtener las reservas asociadas a la propiedad
             reservas = propiedad.reservas.filter(
                 Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
-            # Verificar si existen reservas pagada
             )
             
             if reservas.filter(estado='pagada').exists():
@@ -855,8 +854,7 @@ def buscar_propiedades(request):
                     else:
                         primer_dia = False
 
-                if precio_dia > 0 or precio_dia == 0 :
-
+                if precio_dia > 0 or precio_dia == 0:
                     if reserva_confirmada_no_pagada:
                         propiedad.precio_total_reserva = reserva_confirmada_no_pagada.precio_total
                     else:

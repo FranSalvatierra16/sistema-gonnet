@@ -294,6 +294,7 @@ class BuscarPropiedadesForm(forms.Form):
     tipo_inmueble = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_INMUEBLES, required=False, )
     vista = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_VISTA, required=False)
     ambientes = forms.IntegerField(required=True, min_value=1, label="Ambientes")
+    ver_todas = forms.BooleanField(required=False, label="Ver todas las propiedades", initial=False)
 
     valoracion = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_VALORACION, required=False)
     precio_min = forms.DecimalField(required=False, min_value=0)
