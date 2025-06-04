@@ -175,10 +175,11 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Configuración para servir archivos de medios en producción
 if not DEBUG:
-    DEFAULT_FILE_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
     WHITENOISE_USE_FINDERS = True
     WHITENOISE_MANIFEST_STRICT = False
     WHITENOISE_ALLOW_ALL_ORIGINS = True
+    WHITENOISE_ROOT = os.path.join(BASE_DIR, 'media')
 
 
 # Default primary key field type

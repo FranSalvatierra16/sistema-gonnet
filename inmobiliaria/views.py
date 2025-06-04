@@ -2939,7 +2939,7 @@ def obtener_fotos_propiedad(request, propiedad_id):
                 url_imagen = imagen.imagen.url if imagen.imagen else ''
                 # Asegurar que la URL sea absoluta
                 if url_imagen.startswith('/'):
-                    url_imagen = f"https://picsum.photos/800/600?random={imagen.id}"
+                    url_imagen = base_url + url_imagen
                 print(f"URL de imagen: {url_imagen}")
                 
                 imagenes_data.append({
