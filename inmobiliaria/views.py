@@ -2972,15 +2972,31 @@ def obtener_precios_propiedad(request, propiedad_id):
             propiedad.crear_precios_iniciales()
             precios = propiedad.precios.all()
         
+        # Crear un diccionario con todos los tipos de precio posibles
         precios_data = []
-        for precio in precios:
-            if precio.precio_total or precio.precio_por_dia:  # Solo incluir precios con valores
-                precios_data.append({
-                    'tipo_precio': precio.tipo_precio,
-                    'tipo_precio_display': dict(TipoPrecio.choices)[precio.tipo_precio],
-                    'precio_total': str(precio.precio_total or 0),
-                    'precio_por_dia': str(precio.precio_por_dia or 0)
-                })
+        for tipo_choice in TipoPrecio.choices:
+            tipo_key = tipo_choice[0]
+            tipo_display = tipo_choice[1]
+            
+            # Buscar el precio para este tipo
+            precio = precios.filter(tipo_precio=tipo_key).first()
+            
+            # Si no existe el precio para este tipo, crear un registro temporal
+            if not precio:
+                precio = Precio(
+                    propiedad=propiedad,
+                    tipo_precio=tipo_key,
+                    precio_total=0,
+                    precio_por_dia=0
+                )
+            
+            # Agregar los datos del precio
+            precios_data.append({
+                'tipo_precio': tipo_key,
+                'tipo_precio_display': tipo_display,
+                'precio_total': str(precio.precio_total or 0),
+                'precio_por_dia': str(precio.precio_por_dia or 0)
+            })
         
         response_data = {
             'success': True,

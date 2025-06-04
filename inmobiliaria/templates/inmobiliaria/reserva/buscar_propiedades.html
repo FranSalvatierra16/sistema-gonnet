@@ -388,6 +388,47 @@
         font-weight: 500;
         color: #495057;
     }
+
+    /* Estilos para la galería de fotos */
+    .modal-xl {
+        max-width: 90% !important;
+    }
+    
+    .carousel-item img {
+        transition: transform 0.3s ease;
+    }
+    
+    .active-thumbnail {
+        border: 3px solid #007bff !important;
+        opacity: 1 !important;
+    }
+    
+    .thumbnail-nav {
+        opacity: 0.7;
+        transition: all 0.3s ease;
+    }
+    
+    .thumbnail-nav:hover {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+    
+    #thumbnailsContainer {
+        padding: 15px;
+        background: rgba(0,0,0,0.03);
+        border-radius: 10px;
+        margin-top: 15px;
+    }
+    
+    .carousel-control-prev,
+    .carousel-control-next {
+        background-color: rgba(0,0,0,0.3);
+        width: 5%;
+        border-radius: 50px;
+        height: 50px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
     </style>
 </head>
 
@@ -858,15 +899,38 @@
         
         console.log("Propiedad seleccionada:", propiedadSeleccionada);
         
-        // Actualizar título del modal
+        // Verificar que todos los elementos necesarios existen
+        const carouselInner = document.getElementById('carouselInner');
+        const thumbnailsContainer = document.getElementById('thumbnailsContainer');
+        const contadorFotos = document.getElementById('contadorFotos');
         const tituloModal = document.getElementById('tituloPropiedad');
-        if (tituloModal) {
-            tituloModal.textContent = propiedadSeleccionada.direccion;
+        
+        if (!carouselInner || !thumbnailsContainer || !contadorFotos || !tituloModal) {
+            console.error("Elementos del DOM faltantes:", {
+                carouselInner: !!carouselInner,
+                thumbnailsContainer: !!thumbnailsContainer,
+                contadorFotos: !!contadorFotos,
+                tituloModal: !!tituloModal
+            });
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al cargar la galería de fotos'
+            });
+            return;
         }
+        
+        // Actualizar título del modal
+        tituloModal.textContent = propiedadSeleccionada.direccion;
         
         // Construir URL usando la URL base definida
         const url = `${URLS.obtenerFotos}${propiedadSeleccionada.id}/`;
         console.log("URL para obtener fotos:", url);
+        
+        // Limpiar contenedores antes de la petición
+        carouselInner.innerHTML = '';
+        thumbnailsContainer.innerHTML = '';
+        contadorFotos.textContent = '';
         
         fetch(url)
             .then(response => {
@@ -879,14 +943,6 @@
                 console.log("Datos de fotos recibidos:", data);
                 
                 if (data.success && data.fotos && data.fotos.length > 0) {
-                    const carouselInner = document.getElementById('carouselInner');
-                    const thumbnailsContainer = document.getElementById('thumbnailsContainer');
-                    const contadorFotos = document.getElementById('contadorFotos');
-                    
-                    // Limpiar contenedores
-                    carouselInner.innerHTML = '';
-                    thumbnailsContainer.innerHTML = '';
-                    
                     // Cargar fotos en el carousel
                     data.fotos.forEach((foto, index) => {
                         // Slide principal
@@ -917,9 +973,7 @@
                     });
                     
                     // Actualizar contador
-                    if (contadorFotos) {
-                        contadorFotos.textContent = `1 / ${data.fotos.length}`;
-                    }
+                    contadorFotos.textContent = `1 / ${data.fotos.length}`;
                     
                     // Mostrar el modal
                     $('#modalGaleriaFotos').modal('show');
@@ -1735,6 +1789,7 @@ function confirmarReserva() {
                 </button>
             </div>
             <div class="modal-body p-0">
+                <!-- Carrusel principal -->
                 <div id="carouselFotos" class="carousel slide" data-ride="carousel">
                     <div class="carousel-inner" id="carouselInner">
                         <!-- Las fotos se cargarán dinámicamente aquí -->
@@ -1749,10 +1804,12 @@ function confirmarReserva() {
                     </a>
                 </div>
                 
+                <!-- Contador de fotos -->
                 <div class="text-center mt-3 mb-3">
                     <span id="contadorFotos" class="badge badge-dark"></span>
                 </div>
                 
+                <!-- Contenedor de miniaturas -->
                 <div class="container-fluid">
                     <div class="row" id="thumbnailsContainer">
                         <!-- Los thumbnails se cargarán aquí -->
@@ -1783,15 +1840,38 @@ function abrirGaleriaFotos() {
     
     console.log("Propiedad seleccionada:", propiedadSeleccionada);
     
-    // Actualizar título del modal
+    // Verificar que todos los elementos necesarios existen
+    const carouselInner = document.getElementById('carouselInner');
+    const thumbnailsContainer = document.getElementById('thumbnailsContainer');
+    const contadorFotos = document.getElementById('contadorFotos');
     const tituloModal = document.getElementById('tituloPropiedad');
-    if (tituloModal) {
-        tituloModal.textContent = propiedadSeleccionada.direccion;
+    
+    if (!carouselInner || !thumbnailsContainer || !contadorFotos || !tituloModal) {
+        console.error("Elementos del DOM faltantes:", {
+            carouselInner: !!carouselInner,
+            thumbnailsContainer: !!thumbnailsContainer,
+            contadorFotos: !!contadorFotos,
+            tituloModal: !!tituloModal
+        });
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al cargar la galería de fotos'
+        });
+        return;
     }
+    
+    // Actualizar título del modal
+    tituloModal.textContent = propiedadSeleccionada.direccion;
     
     // Construir URL usando la URL base definida
     const url = `${URLS.obtenerFotos}${propiedadSeleccionada.id}/`;
     console.log("URL para obtener fotos:", url);
+    
+    // Limpiar contenedores antes de la petición
+    carouselInner.innerHTML = '';
+    thumbnailsContainer.innerHTML = '';
+    contadorFotos.textContent = '';
     
     fetch(url)
         .then(response => {
@@ -1804,14 +1884,6 @@ function abrirGaleriaFotos() {
             console.log("Datos de fotos recibidos:", data);
             
             if (data.success && data.fotos && data.fotos.length > 0) {
-                const carouselInner = document.getElementById('carouselInner');
-                const thumbnailsContainer = document.getElementById('thumbnailsContainer');
-                const contadorFotos = document.getElementById('contadorFotos');
-                
-                // Limpiar contenedores
-                carouselInner.innerHTML = '';
-                thumbnailsContainer.innerHTML = '';
-                
                 // Cargar fotos en el carousel
                 data.fotos.forEach((foto, index) => {
                     // Slide principal
@@ -1842,9 +1914,7 @@ function abrirGaleriaFotos() {
                 });
                 
                 // Actualizar contador
-                if (contadorFotos) {
-                    contadorFotos.textContent = `1 / ${data.fotos.length}`;
-                }
+                contadorFotos.textContent = `1 / ${data.fotos.length}`;
                 
                 // Mostrar el modal
                 $('#modalGaleriaFotos').modal('show');
@@ -1890,51 +1960,6 @@ $('#carouselFotos').on('slide.bs.carousel', function (e) {
         thumb.classList.toggle('active-thumbnail', idx === newIndex);
     });
 });
-
-// Estilos adicionales para la galería
-const galeriaStyles = document.createElement('style');
-galeriaStyles.textContent = `
-    .modal-xl {
-        max-width: 90% !important;
-    }
-    
-    .carousel-item img {
-        transition: transform 0.3s ease;
-    }
-    
-    .active-thumbnail {
-        border: 3px solid #007bff !important;
-        opacity: 1 !important;
-    }
-    
-    .thumbnail-nav {
-        opacity: 0.7;
-        transition: all 0.3s ease;
-    }
-    
-    .thumbnail-nav:hover {
-        opacity: 1;
-        transform: scale(1.05);
-    }
-    
-    #thumbnailsContainer {
-        padding: 15px;
-        background: rgba(0,0,0,0.03);
-        border-radius: 10px;
-        margin-top: 15px;
-    }
-    
-    .carousel-control-prev,
-    .carousel-control-next {
-        background-color: rgba(0,0,0,0.3);
-        width: 5%;
-        border-radius: 50px;
-        height: 50px;
-        top: 50%;
-        transform: translateY(-50%);
-    }
-`;
-document.head.appendChild(galeriaStyles);
 </script>
 
 
