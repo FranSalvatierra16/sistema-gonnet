@@ -2923,26 +2923,31 @@ def obtener_fotos_propiedad(request, propiedad_id):
         propiedad = get_object_or_404(Propiedad, id=propiedad_id)
         print(f"Propiedad encontrada: {propiedad}")
         
-        # Obtener todas las fotos de la propiedad usando la relación correcta
-        fotos = propiedad.imagenes_propiedad.all().order_by('orden')
-        print(f"Fotos encontradas: {fotos.count()}")
+        # Obtener todas las fotos de la propiedad usando la relación correcta y ordenadas
+        imagenes = propiedad.imagenes_propiedad.all().order_by('orden')
+        print(f"Imágenes encontradas: {imagenes.count()}")
         
-        fotos_data = []
-        for foto in fotos:
-            print(f"Procesando foto: {foto}")
-            fotos_data.append({
-                'id': foto.id,
-                'url': foto.imagen.url if foto.imagen else '',
-                'orden': foto.orden
-            })
+        imagenes_data = []
+        for imagen in imagenes:
+            try:
+                print(f"Procesando imagen: {imagen}")
+                print(f"URL de imagen: {imagen.imagen.url}")
+                imagenes_data.append({
+                    'id': imagen.id,
+                    'url': imagen.imagen.url,
+                    'orden': imagen.orden
+                })
+            except Exception as e:
+                print(f"Error procesando imagen {imagen.id}: {e}")
+                continue
         
         response_data = {
             'success': True,
-            'fotos': fotos_data,
-            'total': len(fotos_data)
+            'fotos': imagenes_data,
+            'total': len(imagenes_data)
         }
         
-        print(f"Respuesta fotos: {response_data}")
+        print(f"Respuesta imágenes: {response_data}")
         return JsonResponse(response_data)
         
     except Exception as e:

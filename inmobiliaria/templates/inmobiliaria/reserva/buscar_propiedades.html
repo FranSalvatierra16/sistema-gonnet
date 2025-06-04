@@ -1776,7 +1776,7 @@ function confirmarReserva() {
 }
 </script>
 
-<!-- Modal para galería de fotos - agregar antes del final del body -->
+<!-- Modal para galería de fotos -->
 <div class="modal fade" id="modalGaleriaFotos" tabindex="-1" role="dialog" aria-labelledby="modalGaleriaFotosLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
@@ -1788,38 +1788,38 @@ function confirmarReserva() {
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <div class="modal-body p-0">
-                <!-- Carrusel principal -->
-                <div id="carouselFotos" class="carousel slide" data-ride="carousel">
-                    <div class="carousel-inner" id="carouselInner">
-                        <!-- Las fotos se cargarán dinámicamente aquí -->
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-12">
+                        <!-- Carrusel principal -->
+                        <div id="carouselFotos" class="carousel slide" data-ride="carousel">
+                            <div class="carousel-inner" id="carouselInner">
+                                <!-- Las fotos se cargarán dinámicamente aquí -->
+                            </div>
+                            <a class="carousel-control-prev" href="#carouselFotos" role="button" data-slide="prev">
+                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                <span class="sr-only">Anterior</span>
+                            </a>
+                            <a class="carousel-control-next" href="#carouselFotos" role="button" data-slide="next">
+                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                <span class="sr-only">Siguiente</span>
+                            </a>
+                        </div>
+                        
+                        <!-- Contador de fotos -->
+                        <div class="text-center mt-3">
+                            <span id="contadorFotos" class="badge badge-dark"></span>
+                        </div>
                     </div>
-                    <a class="carousel-control-prev" href="#carouselFotos" role="button" data-slide="prev">
-                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                        <span class="sr-only">Anterior</span>
-                    </a>
-                    <a class="carousel-control-next" href="#carouselFotos" role="button" data-slide="next">
-                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                        <span class="sr-only">Siguiente</span>
-                    </a>
                 </div>
                 
-                <!-- Contador de fotos -->
-                <div class="text-center mt-3 mb-3">
-                    <span id="contadorFotos" class="badge badge-dark"></span>
-                </div>
-                
-                <!-- Contenedor de miniaturas -->
-                <div class="container-fluid">
-                    <div class="row" id="thumbnailsContainer">
-                        <!-- Los thumbnails se cargarán aquí -->
-                    </div>
+                <!-- Miniaturas -->
+                <div class="row mt-3" id="thumbnailsContainer">
+                    <!-- Las miniaturas se cargarán dinámicamente aquí -->
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">
-                    <i class="fas fa-times"></i> Cerrar
-                </button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -1840,39 +1840,31 @@ function abrirGaleriaFotos() {
     
     console.log("Propiedad seleccionada:", propiedadSeleccionada);
     
-    // Verificar que todos los elementos necesarios existen
+    // Obtener referencias a los elementos del DOM
+    const modal = document.getElementById('modalGaleriaFotos');
     const carouselInner = document.getElementById('carouselInner');
     const thumbnailsContainer = document.getElementById('thumbnailsContainer');
     const contadorFotos = document.getElementById('contadorFotos');
-    const tituloModal = document.getElementById('tituloPropiedad');
+    const tituloPropiedad = document.getElementById('tituloPropiedad');
     
-    if (!carouselInner || !thumbnailsContainer || !contadorFotos || !tituloModal) {
-        console.error("Elementos del DOM faltantes:", {
-            carouselInner: !!carouselInner,
-            thumbnailsContainer: !!thumbnailsContainer,
-            contadorFotos: !!contadorFotos,
-            tituloModal: !!tituloModal
-        });
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Error al cargar la galería de fotos'
-        });
+    // Verificar que todos los elementos existen
+    if (!modal || !carouselInner || !thumbnailsContainer || !contadorFotos || !tituloPropiedad) {
+        console.error('Faltan elementos del DOM necesarios para la galería');
         return;
     }
     
-    // Actualizar título del modal
-    tituloModal.textContent = propiedadSeleccionada.direccion;
+    // Actualizar título
+    tituloPropiedad.textContent = propiedadSeleccionada.direccion;
     
-    // Construir URL usando la URL base definida
+    // Limpiar contenedores
+    carouselInner.innerHTML = '';
+    thumbnailsContainer.innerHTML = '';
+    
+    // Construir URL
     const url = `${URLS.obtenerFotos}${propiedadSeleccionada.id}/`;
     console.log("URL para obtener fotos:", url);
     
-    // Limpiar contenedores antes de la petición
-    carouselInner.innerHTML = '';
-    thumbnailsContainer.innerHTML = '';
-    contadorFotos.textContent = '';
-    
+    // Obtener las fotos
     fetch(url)
         .then(response => {
             if (!response.ok) {
@@ -1881,7 +1873,7 @@ function abrirGaleriaFotos() {
             return response.json();
         })
         .then(data => {
-            console.log("Datos de fotos recibidos:", data);
+            console.log("Datos recibidos:", data);
             
             if (data.success && data.fotos && data.fotos.length > 0) {
                 // Cargar fotos en el carousel
@@ -1890,7 +1882,7 @@ function abrirGaleriaFotos() {
                     const slide = document.createElement('div');
                     slide.className = `carousel-item ${index === 0 ? 'active' : ''}`;
                     slide.innerHTML = `
-                        <div class="d-flex justify-content-center align-items-center" style="height: 70vh;">
+                        <div class="d-flex justify-content-center align-items-center" style="height: 60vh;">
                             <img src="${foto.url}" 
                                  class="img-fluid" 
                                  style="max-height: 100%; max-width: 100%; object-fit: contain;" 
@@ -1899,16 +1891,16 @@ function abrirGaleriaFotos() {
                     `;
                     carouselInner.appendChild(slide);
                     
-                    // Thumbnail
+                    // Miniatura
                     const thumbnailCol = document.createElement('div');
-                    thumbnailCol.className = 'col-2 mb-2';
+                    thumbnailCol.className = 'col-2 col-md-2 mb-2';
                     thumbnailCol.innerHTML = `
                         <img src="${foto.url}" 
                              class="img-thumbnail thumbnail-nav ${index === 0 ? 'active-thumbnail' : ''}" 
                              style="cursor: pointer; height: 80px; width: 100%; object-fit: cover;"
                              onclick="irAFoto(${index})"
                              data-index="${index}"
-                             alt="Thumbnail ${index + 1}">
+                             alt="Miniatura ${index + 1}">
                     `;
                     thumbnailsContainer.appendChild(thumbnailCol);
                 });
@@ -1916,10 +1908,10 @@ function abrirGaleriaFotos() {
                 // Actualizar contador
                 contadorFotos.textContent = `1 / ${data.fotos.length}`;
                 
-                // Mostrar el modal
-                $('#modalGaleriaFotos').modal('show');
+                // Mostrar modal
+                $(modal).modal('show');
                 
-                // Reiniciar el carousel
+                // Reiniciar carousel
                 $('#carouselFotos').carousel(0);
             } else {
                 Swal.fire({
@@ -1934,7 +1926,7 @@ function abrirGaleriaFotos() {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'No se pudieron cargar las fotos. ' + error.message
+                text: 'No se pudieron cargar las fotos: ' + error.message
             });
         });
 }
@@ -1944,7 +1936,7 @@ function irAFoto(index) {
     $('#carouselFotos').carousel(index);
 }
 
-// Event listener para actualizar thumbnails y contador
+// Event listener para actualizar miniaturas y contador
 $('#carouselFotos').on('slide.bs.carousel', function (e) {
     const newIndex = e.to;
     const totalFotos = document.querySelectorAll('.carousel-item').length;
@@ -1955,7 +1947,7 @@ $('#carouselFotos').on('slide.bs.carousel', function (e) {
         contadorFotos.textContent = `${newIndex + 1} / ${totalFotos}`;
     }
     
-    // Actualizar thumbnail activo
+    // Actualizar miniatura activa
     document.querySelectorAll('.thumbnail-nav').forEach((thumb, idx) => {
         thumb.classList.toggle('active-thumbnail', idx === newIndex);
     });
