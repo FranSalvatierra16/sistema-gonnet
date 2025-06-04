@@ -1789,8 +1789,11 @@ function abrirGaleriaFotos() {
         tituloModal.textContent = propiedadSeleccionada.direccion;
     }
     
-    // Obtener fotos de la propiedad
-    fetch(`/obtener-fotos-propiedad/${propiedadSeleccionada.id}/`)
+    // Construir URL usando la URL base definida
+    const url = `${URLS.obtenerFotos}${propiedadSeleccionada.id}/`;
+    console.log("URL para obtener fotos:", url);
+    
+    fetch(url)
         .then(response => {
             if (!response.ok) {
                 throw new Error(`Error HTTP: ${response.status}`);

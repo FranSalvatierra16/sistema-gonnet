@@ -2923,8 +2923,8 @@ def obtener_fotos_propiedad(request, propiedad_id):
         propiedad = get_object_or_404(Propiedad, id=propiedad_id)
         print(f"Propiedad encontrada: {propiedad}")
         
-        # Obtener todas las fotos de la propiedad
-        fotos = propiedad.fotos.all()
+        # Obtener todas las fotos de la propiedad usando la relación correcta
+        fotos = propiedad.imagenes_propiedad.all().order_by('orden')
         print(f"Fotos encontradas: {fotos.count()}")
         
         fotos_data = []
@@ -2932,8 +2932,8 @@ def obtener_fotos_propiedad(request, propiedad_id):
             print(f"Procesando foto: {foto}")
             fotos_data.append({
                 'id': foto.id,
-                'url': foto.foto.url if foto.foto else '',
-                'descripcion': foto.descripcion if hasattr(foto, 'descripcion') else ''
+                'url': foto.imagen.url if foto.imagen else '',
+                'orden': foto.orden
             })
         
         response_data = {
@@ -2960,62 +2960,34 @@ def obtener_precios_propiedad(request, propiedad_id):
     """Obtiene los precios de una propiedad para un período específico"""
     print(f"=== OBTENER PRECIOS PROPIEDAD ===")
     print(f"Propiedad ID: {propiedad_id}")
-    print(f"GET params: {request.GET}")
     
     try:
         propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-        fecha_inicio_str = request.GET.get('fecha_inicio')
-        fecha_fin_str = request.GET.get('fecha_fin')
         
-        print(f"Fechas recibidas: {fecha_inicio_str} - {fecha_fin_str}")
+        # Obtener todos los precios de la propiedad ordenados por tipo
+        precios = propiedad.precios.all()
         
-        if not fecha_inicio_str or not fecha_fin_str:
-            return JsonResponse({
-                'success': False,
-                'error': 'Faltan fechas'
-            })
+        # Si no hay precios, crearlos
+        if not precios.exists():
+            propiedad.crear_precios_iniciales()
+            precios = propiedad.precios.all()
         
-        # Convertir strings a fechas
-        from datetime import datetime
-        try:
-            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-            fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
-        except ValueError as e:
-            print(f"Error al convertir fechas: {e}")
-            return JsonResponse({
-                'success': False,
-                'error': f'Formato de fecha inválido: {e}'
-            })
-        
-        # Calcular días
-        total_dias = (fecha_fin - fecha_inicio).days
-        print(f"Total días calculados: {total_dias}")
-        
-        # Obtener precios por período
         precios_data = []
-        total_general = 0
-        
-        # Precio por día (ajustar según tu modelo)
-        precio_por_dia = 5000  # Precio fijo de ejemplo
-        if hasattr(propiedad, 'precio_diario'):
-            precio_por_dia = propiedad.precio_diario
-        
-        precio_total = precio_por_dia * total_dias
-        total_general = precio_total
-        
-        precios_data.append({
-            'periodo': f'{fecha_inicio.strftime("%d/%m/%Y")} - {fecha_fin.strftime("%d/%m/%Y")}',
-            'precio_total': f'{precio_total:,.0f}',
-            'precio_por_dia': f'{precio_por_dia:,.0f}'
-        })
+        for precio in precios:
+            if precio.precio_total or precio.precio_por_dia:  # Solo incluir precios con valores
+                precios_data.append({
+                    'tipo_precio': precio.tipo_precio,
+                    'tipo_precio_display': dict(TipoPrecio.choices)[precio.tipo_precio],
+                    'precio_total': str(precio.precio_total or 0),
+                    'precio_por_dia': str(precio.precio_por_dia or 0)
+                })
         
         response_data = {
             'success': True,
-            'precios': precios_data,
-            'total_general': f'{total_general:,.0f}'
+            'precios': precios_data
         }
         
-        print(f"Respuesta a enviar: {response_data}")
+        print(f"Respuesta precios: {response_data}")
         return JsonResponse(response_data)
         
     except Exception as e:
