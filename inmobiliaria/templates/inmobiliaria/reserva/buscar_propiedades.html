@@ -333,6 +333,50 @@
         background: linear-gradient(135deg, #fff3cd, #ffeaa7) !important;
         color: #856404 !important;
     }
+
+    .table-precios {
+        font-size: 0.9rem;
+        width: 100%;
+        margin-bottom: 1rem;
+        background-color: #fff;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .table-precios th {
+        background-color: #007bff;
+        color: white;
+        text-align: center;
+        padding: 12px;
+        font-weight: 600;
+        border: none;
+    }
+
+    .table-precios td {
+        vertical-align: middle;
+        padding: 10px;
+        border: 1px solid #e9ecef;
+    }
+
+    .table-precios td:nth-child(2),
+    .table-precios td:nth-child(3) {
+        text-align: right;
+        font-family: 'Courier New', monospace;
+        font-weight: 600;
+    }
+
+    .table-precios tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .table-precios tr:nth-child(even) {
+        background-color: #f8f9ff;
+    }
+
+    .table-precios td:first-child {
+        font-weight: 500;
+        color: #495057;
+    }
     </style>
 </head>
 
@@ -890,6 +934,22 @@ $('#modalPrecios .close').click(function () {
         const url = `/obtener-precios-propiedad/${propiedadId}/?fecha_inicio=${fechaInicioFormatted}&fecha_fin=${fechaFinFormatted}`;
         console.log("URL de petición:", url);
         
+        // Definir todos los tipos de precios
+        const tiposPrecio = [
+            { key: 'QUINCENA_1_DICIEMBRE', label: '1ra quincena Diciembre' },
+            { key: 'QUINCENA_2_DICIEMBRE', label: '2da quincena Diciembre' },
+            { key: 'QUINCENA_1_ENERO', label: '1ra quincena Enero' },
+            { key: 'QUINCENA_2_ENERO', label: '2da quincena Enero' },
+            { key: 'QUINCENA_1_FEBRERO', label: '1ra quincena Febrero' },
+            { key: 'QUINCENA_2_FEBRERO', label: '2da quincena Febrero' },
+            { key: 'QUINCENA_1_MARZO', label: '1ra quincena Marzo' },
+            { key: 'QUINCENA_2_MARZO', label: '2da quincena Marzo' },
+            { key: 'TEMPORADA_BAJA', label: 'Temporada baja' },
+            { key: 'VACACIONES_INVIERNO', label: 'Vacaciones Invierno' },
+            { key: 'FINDE_LARGO', label: 'Finde largo' },
+            { key: 'ESTUDIANTE', label: 'Estudiante' }
+        ];
+        
         // Hacer petición AJAX para obtener los precios
         fetch(url)
             .then(response => {
@@ -897,49 +957,37 @@ $('#modalPrecios .close').click(function () {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                return response.text(); // Primero obtener como texto para debug
+                return response.text();
             })
             .then(text => {
                 console.log("Texto de respuesta:", text);
                 try {
-                    const data = JSON.parse(text); // Luego parsear JSON
+                    const data = JSON.parse(text);
                     console.log("Datos parseados:", data);
                     
                     const tbody = document.querySelector('.table-precios tbody');
                     tbody.innerHTML = '';
                     
-                    if (data.success && data.precios.length > 0) {
+                    // Crear un mapa de los precios recibidos
+                    const preciosMap = new Map();
+                    if (data.success && data.precios) {
                         data.precios.forEach(precio => {
-                            const row = document.createElement('tr');
-                            row.innerHTML = `
-                                <td><strong>${precio.periodo}</strong></td>
-                                <td class="text-right">$${precio.precio_total}</td>
-                                <td class="text-right">$${precio.precio_por_dia}</td>
-                            `;
-                            tbody.appendChild(row);
+                            preciosMap.set(precio.tipo_precio, precio);
                         });
-                        
-                        // Agregar fila de total si hay múltiples períodos
-                        if (data.precios.length > 1) {
-                            const totalRow = document.createElement('tr');
-                            totalRow.style.backgroundColor = '#f8f9fa';
-                            totalRow.style.fontWeight = 'bold';
-                            totalRow.innerHTML = `
-                                <td><strong>TOTAL</strong></td>
-                                <td class="text-right"><strong>$${data.total_general}</strong></td>
-                                <td class="text-right">-</td>
-                            `;
-                            tbody.appendChild(totalRow);
-                        }
-                    } else {
-                        tbody.innerHTML = `
-                            <tr>
-                                <td colspan="3" class="text-center text-muted">
-                                    <i class="fas fa-info-circle"></i> No hay información de precios disponible
-                                </td>
-                            </tr>
-                        `;
                     }
+                    
+                    // Mostrar todos los tipos de precios
+                    tiposPrecio.forEach(tipo => {
+                        const precio = preciosMap.get(tipo.key) || { precio_total: '0', precio_por_dia: '0' };
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td><strong>${tipo.label}</strong></td>
+                            <td class="text-right">$${formatPrice(parseFloat(precio.precio_total) || 0)}</td>
+                            <td class="text-right">$${formatPrice(parseFloat(precio.precio_por_dia) || 0)}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                    
                 } catch (parseError) {
                     console.error('Error al parsear JSON:', parseError);
                     console.log('Respuesta que no se pudo parsear:', text);
