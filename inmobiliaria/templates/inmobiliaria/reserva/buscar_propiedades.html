@@ -1777,49 +1777,47 @@ function confirmarReserva() {
 </script>
 
 <!-- Modal para galería de fotos -->
-<div class="modal fade" id="modalGaleriaFotos" tabindex="-1" role="dialog" aria-labelledby="modalGaleriaFotosLabel" aria-hidden="true">
+<div class="modal fade" id="modalGaleriaFotos" tabindex="-1" aria-labelledby="modalGaleriaFotosLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modalGaleriaFotosLabel">
+                <h5 class="modal-title">
                     <i class="fas fa-images"></i> Galería de Fotos - <span id="tituloPropiedad"></span>
                 </h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <div class="row">
-                    <div class="col-12">
-                        <!-- Carrusel principal -->
-                        <div id="carouselFotos" class="carousel slide" data-ride="carousel">
-                            <div class="carousel-inner" id="carouselInner">
-                                <!-- Las fotos se cargarán dinámicamente aquí -->
-                            </div>
-                            <a class="carousel-control-prev" href="#carouselFotos" role="button" data-slide="prev">
-                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                <span class="sr-only">Anterior</span>
-                            </a>
-                            <a class="carousel-control-next" href="#carouselFotos" role="button" data-slide="next">
-                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                <span class="sr-only">Siguiente</span>
-                            </a>
-                        </div>
-                        
-                        <!-- Contador de fotos -->
-                        <div class="text-center mt-3">
-                            <span id="contadorFotos" class="badge badge-dark"></span>
-                        </div>
+            <div class="modal-body p-0">
+                <!-- Carrusel principal -->
+                <div id="carouselFotos" class="carousel slide" data-bs-ride="carousel">
+                    <div class="carousel-inner" id="carouselInner">
+                        <!-- Las fotos se cargarán dinámicamente aquí -->
                     </div>
+                    
+                    <!-- Controles del carrusel -->
+                    <button class="carousel-control-prev" type="button" data-bs-target="#carouselFotos" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Anterior</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#carouselFotos" data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Siguiente</span>
+                    </button>
                 </div>
-                
-                <!-- Miniaturas -->
-                <div class="row mt-3" id="thumbnailsContainer">
-                    <!-- Las miniaturas se cargarán dinámicamente aquí -->
+
+                <!-- Contador de fotos -->
+                <div class="text-center my-3">
+                    <span id="contadorFotos" class="badge bg-dark"></span>
+                </div>
+
+                <!-- Contenedor de miniaturas -->
+                <div class="container-fluid px-4">
+                    <div class="row" id="thumbnailsContainer">
+                        <!-- Las miniaturas se cargarán dinámicamente aquí -->
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -1849,7 +1847,18 @@ function abrirGaleriaFotos() {
     
     // Verificar que todos los elementos existen
     if (!modal || !carouselInner || !thumbnailsContainer || !contadorFotos || !tituloPropiedad) {
-        console.error('Faltan elementos del DOM necesarios para la galería');
+        console.error('Elementos del DOM faltantes:', {
+            modal: !!modal,
+            carouselInner: !!carouselInner,
+            thumbnailsContainer: !!thumbnailsContainer,
+            contadorFotos: !!contadorFotos,
+            tituloPropiedad: !!tituloPropiedad
+        });
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al inicializar la galería de fotos'
+        });
         return;
     }
     
@@ -1860,18 +1869,20 @@ function abrirGaleriaFotos() {
     carouselInner.innerHTML = '';
     thumbnailsContainer.innerHTML = '';
     
-    // Construir URL
-    const url = `${URLS.obtenerFotos}${propiedadSeleccionada.id}/`;
-    console.log("URL para obtener fotos:", url);
-    
     // Mostrar indicador de carga
     carouselInner.innerHTML = `
-        <div class="d-flex justify-content-center align-items-center" style="height: 60vh;">
-            <div class="spinner-border text-primary" role="status">
-                <span class="sr-only">Cargando...</span>
+        <div class="carousel-item active">
+            <div class="d-flex justify-content-center align-items-center" style="height: 60vh;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
             </div>
         </div>
     `;
+    
+    // Construir URL
+    const url = `${URLS.obtenerFotos}${propiedadSeleccionada.id}/`;
+    console.log("URL para obtener fotos:", url);
     
     // Obtener las fotos
     fetch(url)
@@ -1922,11 +1933,13 @@ function abrirGaleriaFotos() {
                 // Actualizar contador
                 contadorFotos.textContent = `1 / ${data.fotos.length}`;
                 
-                // Mostrar modal
-                $(modal).modal('show');
+                // Mostrar modal usando Bootstrap 5
+                const modalInstance = new bootstrap.Modal(modal);
+                modalInstance.show();
                 
                 // Reiniciar carousel
-                $('#carouselFotos').carousel(0);
+                const carousel = new bootstrap.Carousel(document.getElementById('carouselFotos'));
+                carousel.to(0);
             } else {
                 Swal.fire({
                     icon: 'info',
@@ -1947,11 +1960,12 @@ function abrirGaleriaFotos() {
 
 // Función para navegar a una foto específica
 function irAFoto(index) {
-    $('#carouselFotos').carousel(index);
+    const carousel = new bootstrap.Carousel(document.getElementById('carouselFotos'));
+    carousel.to(index);
 }
 
 // Event listener para actualizar miniaturas y contador
-$('#carouselFotos').on('slide.bs.carousel', function (e) {
+document.getElementById('carouselFotos')?.addEventListener('slide.bs.carousel', function (e) {
     const newIndex = e.to;
     const totalFotos = document.querySelectorAll('.carousel-item').length;
     
