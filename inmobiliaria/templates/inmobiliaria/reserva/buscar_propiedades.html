@@ -931,7 +931,7 @@ $('#modalPrecios .close').click(function () {
         console.log("Fechas formateadas:", fechaInicioFormatted, fechaFinFormatted);
         
         // Construir URL correctamente
-        const url = `/obtener-precios-propiedad/${propiedadId}/?fecha_inicio=${fechaInicioFormatted}&fecha_fin=${fechaFinFormatted}`;
+        const url = `/obtener-precios-propiedad/${propiedadId}/`;
         console.log("URL de petición:", url);
         
         // Definir todos los tipos de precios
@@ -957,41 +957,60 @@ $('#modalPrecios .close').click(function () {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                return response.text();
+                return response.json();
             })
-            .then(text => {
-                console.log("Texto de respuesta:", text);
-                try {
-                    const data = JSON.parse(text);
-                    console.log("Datos parseados:", data);
-                    
-                    const tbody = document.querySelector('.table-precios tbody');
-                    tbody.innerHTML = '';
-                    
+            .then(data => {
+                console.log("Datos recibidos:", data);
+                
+                const tbody = document.querySelector('.table-precios tbody');
+                tbody.innerHTML = '';
+                
+                if (data.success && data.precios) {
                     // Crear un mapa de los precios recibidos
                     const preciosMap = new Map();
-                    if (data.success && data.precios) {
-                        data.precios.forEach(precio => {
-                            preciosMap.set(precio.tipo_precio, precio);
+                    data.precios.forEach(precio => {
+                        preciosMap.set(precio.tipo_precio, {
+                            precio_total: precio.precio_total || '0',
+                            precio_por_dia: precio.precio_por_dia || '0'
                         });
-                    }
+                    });
                     
                     // Mostrar todos los tipos de precios
                     tiposPrecio.forEach(tipo => {
                         const precio = preciosMap.get(tipo.key) || { precio_total: '0', precio_por_dia: '0' };
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td><strong>${tipo.label}</strong></td>
-                            <td class="text-right">$${formatPrice(parseFloat(precio.precio_total) || 0)}</td>
-                            <td class="text-right">$${formatPrice(parseFloat(precio.precio_por_dia) || 0)}</td>
-                        `;
-                        tbody.appendChild(row);
+                        const precioTotal = parseFloat(precio.precio_total);
+                        const precioPorDia = parseFloat(precio.precio_por_dia);
+                        
+                        // Solo mostrar filas con precios mayores a cero
+                        if (precioTotal > 0 || precioPorDia > 0) {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td><strong>${tipo.label}</strong></td>
+                                <td class="text-right">$${formatPrice(precioTotal)}</td>
+                                <td class="text-right">$${formatPrice(precioPorDia)}</td>
+                            `;
+                            tbody.appendChild(row);
+                        }
                     });
                     
-                } catch (parseError) {
-                    console.error('Error al parsear JSON:', parseError);
-                    console.log('Respuesta que no se pudo parsear:', text);
-                    throw new Error('Respuesta inválida del servidor');
+                    // Si no hay precios mayores a cero, mostrar mensaje
+                    if (tbody.children.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">
+                                    <i class="fas fa-info-circle"></i> No hay precios configurados para esta propiedad
+                                </td>
+                            </tr>
+                        `;
+                    }
+                } else {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">
+                                <i class="fas fa-info-circle"></i> No hay información de precios disponible
+                            </td>
+                        </tr>
+                    `;
                 }
             })
             .catch(error => {
@@ -1629,7 +1648,7 @@ function confirmarReserva() {
 function abrirGaleriaFotos() {
     console.log("=== ABRIENDO GALERÍA DE FOTOS ===");
     
-    if (!propiedadSeleccionada) {
+    if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
         Swal.fire({
             icon: 'warning',
             title: 'Atención',
@@ -1647,156 +1666,148 @@ function abrirGaleriaFotos() {
     }
     
     // Obtener fotos de la propiedad
-    const url = `/obtener-fotos-propiedad/${propiedadSeleccionada.id}/`;
-    console.log("URL para obtener fotos:", url);
-    
-    fetch(url)
+    fetch(`/obtener-fotos-propiedad/${propiedadSeleccionada.id}/`)
         .then(response => {
-            console.log("Respuesta fotos:", response);
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`Error HTTP: ${response.status}`);
             }
-            return response.text();
+            return response.json();
         })
-        .then(text => {
-            console.log("Texto respuesta fotos:", text);
-            try {
-                const data = JSON.parse(text);
-                console.log("Datos fotos parseados:", data);
+        .then(data => {
+            console.log("Datos de fotos recibidos:", data);
+            
+            if (data.success && data.fotos && data.fotos.length > 0) {
+                const carouselInner = document.getElementById('carouselInner');
+                const thumbnailsContainer = document.getElementById('thumbnailsContainer');
+                const contadorFotos = document.getElementById('contadorFotos');
                 
-                if (data.success && data.fotos.length > 0) {
-                    cargarFotosEnModal(data.fotos);
-                    $('#modalGaleriaFotos').modal('show');
-                } else {
-                    Swal.fire({
-                        icon: 'info',
-                        title: 'Sin fotos',
-                        text: 'Esta propiedad no tiene fotos disponibles'
-                    });
+                // Limpiar contenedores
+                carouselInner.innerHTML = '';
+                thumbnailsContainer.innerHTML = '';
+                
+                // Cargar fotos en el carousel
+                data.fotos.forEach((foto, index) => {
+                    // Slide principal
+                    const slide = document.createElement('div');
+                    slide.className = `carousel-item ${index === 0 ? 'active' : ''}`;
+                    slide.innerHTML = `
+                        <div class="d-flex justify-content-center align-items-center" style="height: 70vh;">
+                            <img src="${foto.url}" 
+                                 class="img-fluid" 
+                                 style="max-height: 100%; max-width: 100%; object-fit: contain;" 
+                                 alt="Foto ${index + 1}">
+                        </div>
+                    `;
+                    carouselInner.appendChild(slide);
+                    
+                    // Thumbnail
+                    const thumbnailCol = document.createElement('div');
+                    thumbnailCol.className = 'col-2 mb-2';
+                    thumbnailCol.innerHTML = `
+                        <img src="${foto.url}" 
+                             class="img-thumbnail thumbnail-nav ${index === 0 ? 'active-thumbnail' : ''}" 
+                             style="cursor: pointer; height: 80px; width: 100%; object-fit: cover;"
+                             onclick="irAFoto(${index})"
+                             data-index="${index}"
+                             alt="Thumbnail ${index + 1}">
+                    `;
+                    thumbnailsContainer.appendChild(thumbnailCol);
+                });
+                
+                // Actualizar contador
+                if (contadorFotos) {
+                    contadorFotos.textContent = `1 / ${data.fotos.length}`;
                 }
-            } catch (parseError) {
-                console.error("Error al parsear JSON fotos:", parseError);
-                console.error("Texto recibido:", text);
-                throw parseError;
+                
+                // Mostrar el modal
+                $('#modalGaleriaFotos').modal('show');
+                
+                // Reiniciar el carousel
+                $('#carouselFotos').carousel(0);
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Sin fotos',
+                    text: 'Esta propiedad no tiene fotos disponibles'
+                });
             }
         })
         .catch(error => {
-            console.error("Error al obtener fotos:", error);
+            console.error("Error al cargar las fotos:", error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'No se pudieron cargar las fotos. Error: ' + error.message
+                text: 'No se pudieron cargar las fotos. ' + error.message
             });
         });
 }
 
-function cargarFotosEnModal(fotos) {
-    console.log("=== CARGANDO FOTOS EN MODAL ===");
-    console.log("Fotos recibidas:", fotos);
-    
-    const carouselInner = document.getElementById('carouselInner');
-    const thumbnailsContainer = document.getElementById('thumbnailsContainer');
-    const contadorFotos = document.getElementById('contadorFotos');
-    
-    if (!carouselInner || !thumbnailsContainer || !contadorFotos) {
-        console.error("No se encontraron elementos del modal");
-        return;
-    }
-    
-    // Limpiar contenido anterior
-    carouselInner.innerHTML = '';
-    thumbnailsContainer.innerHTML = '';
-    
-    // Crear slides del carousel
-    fotos.forEach((foto, index) => {
-        console.log(`Procesando foto ${index + 1}:`, foto);
-        
-        // Slide principal
-        const slide = document.createElement('div');
-        slide.className = `carousel-item ${index === 0 ? 'active' : ''}`;
-        slide.innerHTML = `
-            <div class="d-flex justify-content-center align-items-center" style="height: 70vh;">
-                <img src="${foto.url}" class="img-fluid" style="max-height: 100%; max-width: 100%; object-fit: contain;" alt="Foto ${index + 1}">
-            </div>
-        `;
-        carouselInner.appendChild(slide);
-        
-        // Thumbnail
-        const thumbnailCol = document.createElement('div');
-        thumbnailCol.className = 'col-2 mb-2';
-        thumbnailCol.innerHTML = `
-            <img src="${foto.url}" 
-                 class="img-thumbnail thumbnail-nav ${index === 0 ? 'active-thumbnail' : ''}" 
-                 style="cursor: pointer; height: 80px; width: 100%; object-fit: cover;"
-                 onclick="irAFoto(${index})"
-                 data-index="${index}"
-                 alt="Thumbnail ${index + 1}">
-        `;
-        thumbnailsContainer.appendChild(thumbnailCol);
-    });
-    
-    // Actualizar contador
-    contadorFotos.textContent = `1 / ${fotos.length}`;
-    
-    console.log("Fotos cargadas exitosamente");
-}
-
+// Función para navegar a una foto específica
 function irAFoto(index) {
-    console.log("Navegando a foto:", index);
     $('#carouselFotos').carousel(index);
 }
 
-// Event listener para el carousel
-$(document).ready(function() {
-    $('#carouselFotos').on('slide.bs.carousel', function (e) {
-        const newIndex = e.to;
-        const totalFotos = document.querySelectorAll('.carousel-item').length;
-        const contadorFotos = document.getElementById('contadorFotos');
-        
-        if (contadorFotos) {
-            contadorFotos.textContent = `${newIndex + 1} / ${totalFotos}`;
-        }
-        
-        // Actualizar thumbnail activo
-        document.querySelectorAll('.thumbnail-nav').forEach((thumb, idx) => {
-            thumb.classList.toggle('active-thumbnail', idx === newIndex);
-        });
+// Event listener para actualizar thumbnails y contador
+$('#carouselFotos').on('slide.bs.carousel', function (e) {
+    const newIndex = e.to;
+    const totalFotos = document.querySelectorAll('.carousel-item').length;
+    
+    // Actualizar contador
+    const contadorFotos = document.getElementById('contadorFotos');
+    if (contadorFotos) {
+        contadorFotos.textContent = `${newIndex + 1} / ${totalFotos}`;
+    }
+    
+    // Actualizar thumbnail activo
+    document.querySelectorAll('.thumbnail-nav').forEach((thumb, idx) => {
+        thumb.classList.toggle('active-thumbnail', idx === newIndex);
     });
 });
 
-// CSS para los thumbnails activos
-const style = document.createElement('style');
-style.textContent = `
+// Estilos adicionales para la galería
+const galeriaStyles = document.createElement('style');
+galeriaStyles.textContent = `
+    .modal-xl {
+        max-width: 90% !important;
+    }
+    
+    .carousel-item img {
+        transition: transform 0.3s ease;
+    }
+    
     .active-thumbnail {
         border: 3px solid #007bff !important;
         opacity: 1 !important;
     }
+    
     .thumbnail-nav {
         opacity: 0.7;
         transition: all 0.3s ease;
     }
+    
     .thumbnail-nav:hover {
         opacity: 1;
         transform: scale(1.05);
     }
+    
+    #thumbnailsContainer {
+        padding: 15px;
+        background: rgba(0,0,0,0.03);
+        border-radius: 10px;
+        margin-top: 15px;
+    }
+    
     .carousel-control-prev,
     .carousel-control-next {
         background-color: rgba(0,0,0,0.3);
         width: 5%;
-    }
-    .table-precios {
-        font-size: 0.9rem;
-    }
-    .table-precios th {
-        background-color: #007bff;
-        color: white;
-        text-align: center;
-    }
-    .table-precios td {
-        vertical-align: middle;
+        border-radius: 50px;
+        height: 50px;
+        top: 50%;
+        transform: translateY(-50%);
     }
 `;
-document.head.appendChild(style);
+document.head.appendChild(galeriaStyles);
 </script>
 
 
