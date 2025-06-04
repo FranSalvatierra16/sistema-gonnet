@@ -2934,7 +2934,7 @@ def obtener_fotos_propiedad(request, propiedad_id):
                 print(f"URL de imagen: {imagen.imagen.url}")
                 imagenes_data.append({
                     'id': imagen.id,
-                    'url': imagen.imagen.url,
+                    'url': request.build_absolute_uri(imagen.imagen.url),
                     'orden': imagen.orden
                 })
             except Exception as e:

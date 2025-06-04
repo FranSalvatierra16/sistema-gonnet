@@ -1864,6 +1864,15 @@ function abrirGaleriaFotos() {
     const url = `${URLS.obtenerFotos}${propiedadSeleccionada.id}/`;
     console.log("URL para obtener fotos:", url);
     
+    // Mostrar indicador de carga
+    carouselInner.innerHTML = `
+        <div class="d-flex justify-content-center align-items-center" style="height: 60vh;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Cargando...</span>
+            </div>
+        </div>
+    `;
+    
     // Obtener las fotos
     fetch(url)
         .then(response => {
@@ -1876,6 +1885,9 @@ function abrirGaleriaFotos() {
             console.log("Datos recibidos:", data);
             
             if (data.success && data.fotos && data.fotos.length > 0) {
+                // Limpiar el indicador de carga
+                carouselInner.innerHTML = '';
+                
                 // Cargar fotos en el carousel
                 data.fotos.forEach((foto, index) => {
                     // Slide principal
@@ -1886,7 +1898,8 @@ function abrirGaleriaFotos() {
                             <img src="${foto.url}" 
                                  class="img-fluid" 
                                  style="max-height: 100%; max-width: 100%; object-fit: contain;" 
-                                 alt="Foto ${index + 1}">
+                                 alt="Foto ${index + 1}"
+                                 onerror="this.onerror=null; this.src='/static/images/placeholder.jpg';">
                         </div>
                     `;
                     carouselInner.appendChild(slide);
@@ -1900,7 +1913,8 @@ function abrirGaleriaFotos() {
                              style="cursor: pointer; height: 80px; width: 100%; object-fit: cover;"
                              onclick="irAFoto(${index})"
                              data-index="${index}"
-                             alt="Miniatura ${index + 1}">
+                             alt="Miniatura ${index + 1}"
+                             onerror="this.onerror=null; this.src='/static/images/placeholder.jpg';">
                     `;
                     thumbnailsContainer.appendChild(thumbnailCol);
                 });
