@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'crispy_forms',  # Crispy forms for better form handling
     'crispy_bootstrap4', 
     'django_select2', # Bootstrap 4 integration with crispy forms
+    'storages',
 ]
 
 MIDDLEWARE = [
@@ -180,6 +181,27 @@ if not DEBUG:
     WHITENOISE_MANIFEST_STRICT = False
     WHITENOISE_ALLOW_ALL_ORIGINS = True
     WHITENOISE_ROOT = os.path.join(BASE_DIR, 'media')
+
+    # Configuración de almacenamiento en AWS S3
+    # AWS Settings
+    AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+    AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+    AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = None
+    AWS_S3_VERIFY = True
+    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+
+    # S3 Static Settings
+    STATIC_LOCATION = 'static'
+    STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{STATIC_LOCATION}/'
+    STATICFILES_STORAGE = 'sistema_gonnet.storage_backends.StaticStorage'
+
+    # S3 Media Settings
+    MEDIA_LOCATION = 'media'
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{MEDIA_LOCATION}/'
+    DEFAULT_FILE_STORAGE = 'sistema_gonnet.storage_backends.MediaStorage'
 
 
 # Default primary key field type
