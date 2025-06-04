@@ -1781,8 +1781,8 @@ function confirmarReserva() {
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-images"></i> Galería de Fotos - <span id="tituloPropiedad"></span>
+                <h5 class="modal-title" id="modalGaleriaFotosLabel">
+                    <i class="fas fa-images"></i> Galería de Fotos - <span id="tituloModal"></span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -1824,6 +1824,23 @@ function confirmarReserva() {
 </div>
 
 <script>
+// Asegurarnos de que el modal esté en el DOM antes de usarlo
+document.addEventListener('DOMContentLoaded', function() {
+    // Verificar que todos los elementos necesarios existen
+    const requiredElements = [
+        'modalGaleriaFotos',
+        'carouselInner',
+        'thumbnailsContainer',
+        'contadorFotos',
+        'tituloModal'
+    ];
+
+    const missingElements = requiredElements.filter(id => !document.getElementById(id));
+    if (missingElements.length > 0) {
+        console.error('Elementos faltantes:', missingElements);
+    }
+});
+
 function abrirGaleriaFotos() {
     console.log("=== ABRIENDO GALERÍA DE FOTOS ===");
     
@@ -1843,16 +1860,16 @@ function abrirGaleriaFotos() {
     const carouselInner = document.getElementById('carouselInner');
     const thumbnailsContainer = document.getElementById('thumbnailsContainer');
     const contadorFotos = document.getElementById('contadorFotos');
-    const tituloPropiedad = document.getElementById('tituloPropiedad');
+    const tituloModal = document.getElementById('tituloModal');
     
     // Verificar que todos los elementos existen
-    if (!modal || !carouselInner || !thumbnailsContainer || !contadorFotos || !tituloPropiedad) {
+    if (!modal || !carouselInner || !thumbnailsContainer || !contadorFotos || !tituloModal) {
         console.error('Elementos del DOM faltantes:', {
             modal: !!modal,
             carouselInner: !!carouselInner,
             thumbnailsContainer: !!thumbnailsContainer,
             contadorFotos: !!contadorFotos,
-            tituloPropiedad: !!tituloPropiedad
+            tituloModal: !!tituloModal
         });
         Swal.fire({
             icon: 'error',
@@ -1863,7 +1880,7 @@ function abrirGaleriaFotos() {
     }
     
     // Actualizar título
-    tituloPropiedad.textContent = propiedadSeleccionada.direccion;
+    tituloModal.textContent = propiedadSeleccionada.direccion;
     
     // Limpiar contenedores
     carouselInner.innerHTML = '';
