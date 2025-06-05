@@ -145,32 +145,50 @@
     }
 
     .main-search-box {
-        background: rgba(255, 255, 255, 0.95) !important;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(240, 240, 255, 0.95)) !important;
         border-radius: 15px !important;
-        padding: 20px !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+        padding: 25px !important;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15) !important;
         margin-bottom: 30px !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        backdrop-filter: blur(10px) !important;
     }
 
     .search-row {
         display: flex !important;
         align-items: center !important;
-        gap: 15px !important;
-        margin-bottom: 15px !important;
+        gap: 10px !important;
+        flex-wrap: nowrap !important;
     }
 
     .search-row .form-group {
         margin: 0 !important;
-        flex: 1 !important;
+        min-width: 200px !important;
+    }
+
+    .search-row .form-control {
+        height: 38px !important;
+        border-radius: 8px !important;
+    }
+
+    .button-group {
+        display: flex !important;
+        gap: 10px !important;
+        align-items: center !important;
     }
 
     .search-button {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         border: none !important;
-        padding: 10px 30px !important;
+        padding: 8px 20px !important;
         border-radius: 8px !important;
         color: white !important;
         font-weight: 500 !important;
+        height: 38px !important;
+        white-space: nowrap !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
         transition: all 0.3s ease !important;
     }
 
@@ -181,17 +199,29 @@
 
     .see-all-button {
         font-size: 0.9em !important;
-        padding: 5px 15px !important;
+        padding: 8px 15px !important;
         background: transparent !important;
         border: 1px solid #667eea !important;
         color: #667eea !important;
-        border-radius: 5px !important;
+        border-radius: 8px !important;
+        height: 38px !important;
+        white-space: nowrap !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
         transition: all 0.3s ease !important;
     }
 
     .see-all-button:hover {
         background: #667eea !important;
         color: white !important;
+    }
+
+    .divider {
+        height: 25px !important;
+        width: 1px !important;
+        background: rgba(0,0,0,0.1) !important;
+        margin: 0 5px !important;
     }
     </style>
 </head>
@@ -206,20 +236,26 @@
             {% csrf_token %}
             <div class="search-row">
                 <div class="form-group">
-                    {% bootstrap_field form.fecha_inicio layout='inline' %}
+                    {% bootstrap_field form.fecha_inicio layout='inline' label_class='sr-only' %}
                 </div>
                 <div class="form-group">
-                    {% bootstrap_field form.fecha_fin layout='inline' %}
+                    {% bootstrap_field form.fecha_fin layout='inline' label_class='sr-only' %}
                 </div>
                 <div class="form-group">
-                    {% bootstrap_field form.ambientes layout='inline' %}
+                    {% bootstrap_field form.ambientes layout='inline' label_class='sr-only' %}
                 </div>
-                <button type="button" class="btn search-button" id="toggle-filtros" onclick="mostrarOcultarFiltros()">
-                    <i class="fas fa-filter"></i> Filtros
-                </button>
-                <button type="submit" class="btn search-button">
-                    <i class="fas fa-search"></i> Buscar
-                </button>
+                <div class="button-group">
+                    <button type="button" class="btn search-button" id="toggle-filtros" onclick="mostrarOcultarFiltros()">
+                        <i class="fas fa-filter"></i> Filtros
+                    </button>
+                    <button type="submit" class="btn search-button">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
+                    <div class="divider"></div>
+                    <button type="button" class="btn see-all-button" onclick="verTodasPropiedades()">
+                        <i class="fas fa-list"></i> Ver todas
+                    </button>
+                </div>
             </div>
 
             <div id="filtros-completos" style="display: none;">
@@ -267,12 +303,6 @@
                         {% bootstrap_field form.balcon %}
                     </div>
                 </div>
-            </div>
-
-            <div class="text-center mt-2">
-                <button type="button" class="btn see-all-button" onclick="verTodasPropiedades()">
-                    Ver todas las propiedades
-                </button>
             </div>
         </form>
     </div>
