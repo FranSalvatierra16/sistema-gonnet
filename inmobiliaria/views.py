@@ -717,7 +717,6 @@ def formato_fecha(fecha):
 def buscar_propiedades(request):
     # Obtener la sucursal del vendedor logueado
     sucursal_vendedor = request.user.sucursal
-    print("la sucursal del vendedor es ",sucursal_vendedor)
     
     inquilinos = Inquilino.objects.filter(sucursal=sucursal_vendedor)
     form = BuscarPropiedadesForm(request.POST or None)
@@ -729,10 +728,14 @@ def buscar_propiedades(request):
 
     fecha_inicio = None
     fecha_fin = None
+    origen = None
+    destino = None
 
     if form.is_valid():
         fecha_inicio = form.cleaned_data['fecha_inicio']
         fecha_fin = form.cleaned_data['fecha_fin']
+        origen = form.cleaned_data['origen']
+        destino = form.cleaned_data['destino']
         ver_todas = form.cleaned_data.get('ver_todas', False)
 
         # Filtrar propiedades según la opción seleccionada
@@ -744,9 +747,15 @@ def buscar_propiedades(request):
         # Prefetch los precios para cada propiedad
         propiedades = propiedades.prefetch_related(
             Prefetch('precios', queryset=Precio.objects.all(), to_attr='todos_precios')
-        ).select_related('sucursal')  # Agregamos select_related para la sucursal
+        ).select_related('sucursal')
 
         # Aplicar filtros del formulario
+        if origen:
+            propiedades = propiedades.filter(ubicacion__icontains=origen)
+        
+        if destino:
+            propiedades = propiedades.filter(ubicacion__icontains=destino)
+
         tipo_inmueble = form.cleaned_data.get('tipo_inmueble')
         if tipo_inmueble:
             propiedades = propiedades.filter(tipo_inmueble__in=tipo_inmueble)

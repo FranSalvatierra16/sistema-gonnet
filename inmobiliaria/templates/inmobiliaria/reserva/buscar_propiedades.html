@@ -145,116 +145,173 @@
     }
 
     .main-search-box {
-        background: linear-gradient(135deg, #3f51b5, #2196f3) !important;
-        border-radius: 10px !important;
-        padding: 15px !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
-        margin-bottom: 20px !important;
-        width: 100% !important;
+        background: linear-gradient(135deg, #1a237e, #0d47a1) !important;
+        border-radius: 15px !important;
+        padding: 25px !important;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.15) !important;
+        margin-bottom: 30px !important;
     }
 
-    .search-row {
-        display: flex !important;
-        align-items: center !important;
-        gap: 8px !important;
-        flex-wrap: nowrap !important;
-        justify-content: center !important;
+    .form-group {
+        margin-bottom: 0 !important;
     }
 
-    .search-row .form-group {
-        margin: 0 !important;
-        width: 160px !important;
+    .input-group {
+        background: white !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
+        height: 45px !important;
     }
 
-    .search-row .form-control {
-        height: 34px !important;
-        border-radius: 6px !important;
-        font-size: 0.9rem !important;
+    .input-group-text {
+        border: none !important;
+        background-color: transparent !important;
+        color: #666 !important;
+        padding: 0 15px !important;
+    }
+
+    .form-control {
+        border: none !important;
+        height: 45px !important;
+        font-size: 0.95rem !important;
+        background: transparent !important;
         padding: 0.375rem 0.75rem !important;
     }
 
-    .button-group {
-        display: flex !important;
-        gap: 8px !important;
-        align-items: center !important;
+    .form-control:focus {
+        box-shadow: none !important;
+        background: transparent !important;
     }
 
-    .search-button {
-        height: 34px !important;
-        padding: 0 15px !important;
-        font-size: 0.9rem !important;
-        background: white !important;
-        color: #3f51b5 !important;
+    .btn-primary {
+        height: 45px !important;
+        background: #2196f3 !important;
         border: none !important;
-        border-radius: 6px !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 5px !important;
+        border-radius: 8px !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.5px !important;
         transition: all 0.3s ease !important;
+        padding: 0 25px !important;
     }
 
-    .search-button:hover {
-        background: #f5f5f5 !important;
-        transform: translateY(-1px) !important;
+    .btn-primary:hover {
+        background: #1976d2 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2) !important;
     }
 
-    .see-all-button {
-        height: 34px !important;
-        padding: 0 15px !important;
+    .form-check-input {
+        background-color: rgba(255,255,255,0.2) !important;
+        border-color: rgba(255,255,255,0.3) !important;
+        width: 1.5em !important;
+        height: 1.5em !important;
+        margin-top: 0.25em !important;
+    }
+
+    .form-check-input:checked {
+        background-color: #2196f3 !important;
+        border-color: #2196f3 !important;
+    }
+
+    .form-check-label {
         font-size: 0.9rem !important;
-        background: rgba(255,255,255,0.1) !important;
         color: white !important;
-        border: 1px solid rgba(255,255,255,0.3) !important;
-        border-radius: 6px !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 5px !important;
-        transition: all 0.3s ease !important;
+        opacity: 0.9 !important;
+        margin-left: 0.5rem !important;
     }
 
-    .see-all-button:hover {
-        background: rgba(255,255,255,0.2) !important;
+    /* Estilos para los inputs de fecha */
+    input[type="date"] {
+        padding-right: 15px !important;
+        min-width: 150px !important;
     }
 
-    .divider {
-        height: 20px !important;
-        width: 1px !important;
-        background: rgba(255,255,255,0.3) !important;
-        margin: 0 4px !important;
+    /* Estilos para el select de pasajeros */
+    select.form-control {
+        padding-right: 30px !important;
+        min-width: 200px !important;
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        appearance: none !important;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23666' class='bi bi-chevron-down' viewBox='0 0 16 16'%3E%3Cpath d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E") !important;
+        background-repeat: no-repeat !important;
+        background-position: right 10px center !important;
     }
 
-    /* Ajustes para las etiquetas de los campos */
+    /* Estilos para las etiquetas */
     .form-group label {
         color: white !important;
-        font-size: 0.8rem !important;
-        margin-bottom: 2px !important;
+        font-size: 0.85rem !important;
+        margin-bottom: 0.5rem !important;
+        font-weight: 500 !important;
     }
 
-    .see-all-button {
-        font-size: 0.9em !important;
-        padding: 8px 15px !important;
-        background: transparent !important;
-        border: 1px solid #667eea !important;
-        color: #667eea !important;
-        border-radius: 8px !important;
-        height: 38px !important;
-        white-space: nowrap !important;
+    /* Estilos para los iconos */
+    .fas {
+        font-size: 1.1rem !important;
+    }
+
+    /* Estilos para los switches */
+    .form-switch {
+        padding-left: 2.5em !important;
+    }
+
+    .form-switch .form-check-input {
+        margin-left: -2.5em !important;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(255,255,255,1)'/%3e%3c/svg%3e") !important;
+    }
+
+    .form-switch .form-check-input:checked {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
+    }
+
+    /* Estilos para el contenedor de switches */
+    .switches-container {
+        margin-top: 1.5rem !important;
         display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        transition: all 0.3s ease !important;
+        gap: 2rem !important;
+        padding: 0 1rem !important;
     }
 
-    .see-all-button:hover {
-        background: #667eea !important;
-        color: white !important;
+    /* Estilos para la galería de fotos */
+    .modal-xl {
+        max-width: 90% !important;
     }
 
-    .divider {
-        height: 25px !important;
-        width: 1px !important;
-        background: rgba(0,0,0,0.1) !important;
-        margin: 0 5px !important;
+    .carousel-item img {
+        transition: transform 0.3s ease;
+    }
+
+    .active-thumbnail {
+        border: 3px solid #007bff !important;
+        opacity: 1 !important;
+    }
+
+    .thumbnail-nav {
+        opacity: 0.7;
+        transition: all 0.3s ease;
+    }
+
+    .thumbnail-nav:hover {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+
+    #thumbnailsContainer {
+        padding: 15px;
+        background: rgba(0,0,0,0.03);
+        border-radius: 10px;
+        margin-top: 15px;
+    }
+
+    .carousel-control-prev,
+    .carousel-control-next {
+        background-color: rgba(0,0,0,0.3);
+        width: 5%;
+        border-radius: 50px;
+        height: 50px;
+        top: 50%;
+        transform: translateY(-50%);
     }
     </style>
 </head>
@@ -267,76 +324,82 @@
     <div class="main-search-box">
         <form method="post" id="buscar-propiedades-form-dia" class="m-0">
             {% csrf_token %}
-            <div class="search-row">
-                <div class="form-group">
-                    <label for="id_fecha_inicio">Fecha inicio</label>
-                    {{ form.fecha_inicio }}
-                </div>
-                <div class="form-group">
-                    <label for="id_fecha_fin">Fecha fin</label>
-                    {{ form.fecha_fin }}
-                </div>
-                <div class="form-group">
-                    <label for="id_ambientes">Ambientes</label>
-                    {{ form.ambientes }}
-                </div>
-                <div class="button-group">
-                    <button type="button" class="btn search-button" id="toggle-filtros" onclick="mostrarOcultarFiltros()">
-                        <i class="fas fa-filter"></i> Filtros
-                    </button>
-                    <button type="submit" class="btn search-button">
-                        <i class="fas fa-search"></i> Buscar
-                    </button>
-                    <div class="divider"></div>
-                    <button type="button" class="btn see-all-button" onclick="verTodasPropiedades()">
-                        <i class="fas fa-list"></i> Ver todas
-                    </button>
-                </div>
-            </div>
+            <div class="row">
+                <div class="col-12">
+                    <div class="d-flex flex-wrap align-items-end gap-3">
+                        <!-- Origen -->
+                        <div class="form-group flex-grow-1">
+                            <label>Origen</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-plane-departure"></i>
+                                </span>
+                                {{ form.origen }}
+                            </div>
+                        </div>
 
-            <div id="filtros-completos" style="display: none;">
-                <div class="row">
-                    <div class="col-md-4">
-                        {% bootstrap_field form.tipo_inmueble %}
+                        <!-- Destino -->
+                        <div class="form-group flex-grow-1">
+                            <label>Destino</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-plane-arrival"></i>
+                                </span>
+                                {{ form.destino }}
+                            </div>
+                        </div>
+
+                        <!-- Fecha Inicio -->
+                        <div class="form-group">
+                            <label>Partida</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-calendar"></i>
+                                </span>
+                                {{ form.fecha_inicio }}
+                            </div>
+                        </div>
+
+                        <!-- Fecha Fin -->
+                        <div class="form-group">
+                            <label>Regreso</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-calendar"></i>
+                                </span>
+                                {{ form.fecha_fin }}
+                            </div>
+                        </div>
+
+                        <!-- Pasajeros -->
+                        <div class="form-group">
+                            <label>Clase / Pasajeros/as</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-users"></i>
+                                </span>
+                                {{ form.ambientes }}
+                            </div>
+                        </div>
+
+                        <!-- Botón de búsqueda -->
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-2"></i>Buscar vuelos
+                            </button>
+                        </div>
                     </div>
-                    <div class="col-md-4">
-                        {% bootstrap_field form.vista %}
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-3">
-                        {% bootstrap_field form.precio_min %}
-                    </div>
-                    <div class="col-md-3">
-                        {% bootstrap_field form.precio_max %}
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-4">
-                        {% bootstrap_field form.valoracion %}
-                    </div>
-                </div>
-                <h4>Características adicionales</h4>
-                <div class="row">
-                    <div class="col-md-3">
-                        {% bootstrap_field form.amoblado %}
-                        {% bootstrap_field form.cochera %}
-                        {% bootstrap_field form.tv_smart %}
-                    </div>
-                    <div class="col-md-3">
-                        {% bootstrap_field form.wifi %}
-                        {% bootstrap_field form.dependencia %}
-                        {% bootstrap_field form.patio %}
-                    </div>
-                    <div class="col-md-3">
-                        {% bootstrap_field form.parrilla %}
-                        {% bootstrap_field form.piscina %}
-                        {% bootstrap_field form.reciclado %}
-                    </div>
-                    <div class="col-md-3">
-                        {% bootstrap_field form.a_estrenar %}
-                        {% bootstrap_field form.terraza %}
-                        {% bootstrap_field form.balcon %}
+
+                    <!-- Switches -->
+                    <div class="switches-container">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="switchMillas">
+                            <label class="form-check-label" for="switchMillas">Búsqueda en millas</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="switchFechas" checked>
+                            <label class="form-check-label" for="switchFechas">Tengo fechas flexibles</label>
+                        </div>
                     </div>
                 </div>
             </div>

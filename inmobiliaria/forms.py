@@ -289,11 +289,49 @@ class ReservaForm(forms.ModelForm):
 
         }
 class BuscarPropiedadesForm(forms.Form):
-    fecha_inicio = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}))
-    fecha_fin = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}))
+    origen = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ciudad de origen'
+        })
+    )
+    destino = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ciudad de destino'
+        })
+    )
+    fecha_inicio = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={
+            'type': 'date',
+            'class': 'form-control'
+        })
+    )
+    fecha_fin = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={
+            'type': 'date',
+            'class': 'form-control'
+        })
+    )
     tipo_inmueble = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_INMUEBLES, required=False, )
     vista = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_VISTA, required=False)
-    ambientes = forms.IntegerField(required=True, min_value=1, label="Ambientes")
+    ambientes = forms.ChoiceField(
+        required=True,
+        choices=[
+            ('1', '1 Pasajero/a, Economy'),
+            ('2', '2 Pasajeros/as, Economy'),
+            ('3', '3 Pasajeros/as, Economy'),
+            ('4', '4 Pasajeros/as, Economy'),
+            ('5', '5 Pasajeros/as, Economy'),
+        ],
+        widget=forms.Select(attrs={
+            'class': 'form-control'
+        })
+    )
     ver_todas = forms.BooleanField(required=False, label="Ver todas las propiedades", initial=False)
 
     valoracion = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_VALORACION, required=False)
