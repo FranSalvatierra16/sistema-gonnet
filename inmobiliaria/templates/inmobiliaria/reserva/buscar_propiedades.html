@@ -145,56 +145,89 @@
     }
 
     .main-search-box {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(240, 240, 255, 0.95)) !important;
-        border-radius: 15px !important;
-        padding: 25px !important;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.15) !important;
-        margin-bottom: 30px !important;
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
-        backdrop-filter: blur(10px) !important;
+        background: linear-gradient(135deg, #3f51b5, #2196f3) !important;
+        border-radius: 10px !important;
+        padding: 15px !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+        margin-bottom: 20px !important;
+        width: 100% !important;
     }
 
     .search-row {
         display: flex !important;
         align-items: center !important;
-        gap: 10px !important;
+        gap: 8px !important;
         flex-wrap: nowrap !important;
+        justify-content: center !important;
     }
 
     .search-row .form-group {
         margin: 0 !important;
-        min-width: 200px !important;
+        width: 160px !important;
     }
 
     .search-row .form-control {
-        height: 38px !important;
-        border-radius: 8px !important;
+        height: 34px !important;
+        border-radius: 6px !important;
+        font-size: 0.9rem !important;
+        padding: 0.375rem 0.75rem !important;
     }
 
     .button-group {
         display: flex !important;
-        gap: 10px !important;
+        gap: 8px !important;
         align-items: center !important;
     }
 
     .search-button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        height: 34px !important;
+        padding: 0 15px !important;
+        font-size: 0.9rem !important;
+        background: white !important;
+        color: #3f51b5 !important;
         border: none !important;
-        padding: 8px 20px !important;
-        border-radius: 8px !important;
-        color: white !important;
-        font-weight: 500 !important;
-        height: 38px !important;
-        white-space: nowrap !important;
+        border-radius: 6px !important;
         display: flex !important;
         align-items: center !important;
-        justify-content: center !important;
+        gap: 5px !important;
         transition: all 0.3s ease !important;
     }
 
     .search-button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2) !important;
+        background: #f5f5f5 !important;
+        transform: translateY(-1px) !important;
+    }
+
+    .see-all-button {
+        height: 34px !important;
+        padding: 0 15px !important;
+        font-size: 0.9rem !important;
+        background: rgba(255,255,255,0.1) !important;
+        color: white !important;
+        border: 1px solid rgba(255,255,255,0.3) !important;
+        border-radius: 6px !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 5px !important;
+        transition: all 0.3s ease !important;
+    }
+
+    .see-all-button:hover {
+        background: rgba(255,255,255,0.2) !important;
+    }
+
+    .divider {
+        height: 20px !important;
+        width: 1px !important;
+        background: rgba(255,255,255,0.3) !important;
+        margin: 0 4px !important;
+    }
+
+    /* Ajustes para las etiquetas de los campos */
+    .form-group label {
+        color: white !important;
+        font-size: 0.8rem !important;
+        margin-bottom: 2px !important;
     }
 
     .see-all-button {
@@ -232,17 +265,20 @@
     
     <!-- Cuadro principal de búsqueda -->
     <div class="main-search-box">
-        <form method="post" id="buscar-propiedades-form-dia">
+        <form method="post" id="buscar-propiedades-form-dia" class="m-0">
             {% csrf_token %}
             <div class="search-row">
                 <div class="form-group">
-                    {% bootstrap_field form.fecha_inicio layout='inline' label_class='sr-only' %}
+                    <label for="id_fecha_inicio">Fecha inicio</label>
+                    {{ form.fecha_inicio }}
                 </div>
                 <div class="form-group">
-                    {% bootstrap_field form.fecha_fin layout='inline' label_class='sr-only' %}
+                    <label for="id_fecha_fin">Fecha fin</label>
+                    {{ form.fecha_fin }}
                 </div>
                 <div class="form-group">
-                    {% bootstrap_field form.ambientes layout='inline' label_class='sr-only' %}
+                    <label for="id_ambientes">Ambientes</label>
+                    {{ form.ambientes }}
                 </div>
                 <div class="button-group">
                     <button type="button" class="btn search-button" id="toggle-filtros" onclick="mostrarOcultarFiltros()">
