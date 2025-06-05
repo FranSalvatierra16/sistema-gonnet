@@ -327,31 +327,9 @@
             <div class="row">
                 <div class="col-12">
                     <div class="d-flex flex-wrap align-items-end gap-3">
-                        <!-- Origen -->
-                        <div class="form-group flex-grow-1">
-                            <label>Origen</label>
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-plane-departure"></i>
-                                </span>
-                                {{ form.origen }}
-                            </div>
-                        </div>
-
-                        <!-- Destino -->
-                        <div class="form-group flex-grow-1">
-                            <label>Destino</label>
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-plane-arrival"></i>
-                                </span>
-                                {{ form.destino }}
-                            </div>
-                        </div>
-
                         <!-- Fecha Inicio -->
                         <div class="form-group">
-                            <label>Partida</label>
+                            <label>Fecha de Inicio</label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="fas fa-calendar"></i>
@@ -362,7 +340,7 @@
 
                         <!-- Fecha Fin -->
                         <div class="form-group">
-                            <label>Regreso</label>
+                            <label>Fecha de Fin</label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="fas fa-calendar"></i>
@@ -371,12 +349,12 @@
                             </div>
                         </div>
 
-                        <!-- Pasajeros -->
+                        <!-- Ambientes -->
                         <div class="form-group">
-                            <label>Clase / Pasajeros/as</label>
+                            <label>Ambientes</label>
                             <div class="input-group">
                                 <span class="input-group-text">
-                                    <i class="fas fa-users"></i>
+                                    <i class="fas fa-door-open"></i>
                                 </span>
                                 {{ form.ambientes }}
                             </div>
@@ -385,7 +363,7 @@
                         <!-- Botón de búsqueda -->
                         <div class="form-group">
                             <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-search me-2"></i>Buscar vuelos
+                                <i class="fas fa-search me-2"></i>Buscar
                             </button>
                         </div>
                     </div>
@@ -393,17 +371,45 @@
                     <!-- Switches -->
                     <div class="switches-container">
                         <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="switchMillas">
-                            <label class="form-check-label" for="switchMillas">Búsqueda en millas</label>
+                            <input class="form-check-input" type="checkbox" id="switchFiltros">
+                            <label class="form-check-label" for="switchFiltros">Mostrar más filtros</label>
                         </div>
                         <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="switchFechas" checked>
-                            <label class="form-check-label" for="switchFechas">Tengo fechas flexibles</label>
+                            {{ form.ver_todas }}
+                            <label class="form-check-label" for="id_ver_todas">Ver todas las propiedades</label>
                         </div>
                     </div>
                 </div>
             </div>
         </form>
+    </div>
+
+    <!-- Contenedor de filtros adicionales (inicialmente oculto) -->
+    <div id="filtrosAdicionales" class="mt-3" style="display: none;">
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label>Tipo de Inmueble</label>
+                            {{ form.tipo_inmueble }}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label>Vista</label>
+                            {{ form.vista }}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label>Valoración</label>
+                            {{ form.valoracion }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="row">

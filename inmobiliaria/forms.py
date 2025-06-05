@@ -317,24 +317,48 @@ class BuscarPropiedadesForm(forms.Form):
             'class': 'form-control'
         })
     )
-    tipo_inmueble = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_INMUEBLES, required=False, )
-    vista = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_VISTA, required=False)
+    tipo_inmueble = forms.ChoiceField(
+        choices=[('', 'Seleccione')] + TIPOS_INMUEBLES, 
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-control'
+        })
+    )
+    vista = forms.ChoiceField(
+        choices=[('', 'Seleccione')] + TIPOS_VISTA, 
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-control'
+        })
+    )
     ambientes = forms.ChoiceField(
         required=True,
         choices=[
-            ('1', '1 Pasajero/a, Economy'),
-            ('2', '2 Pasajeros/as, Economy'),
-            ('3', '3 Pasajeros/as, Economy'),
-            ('4', '4 Pasajeros/as, Economy'),
-            ('5', '5 Pasajeros/as, Economy'),
+            ('1', '1 Ambiente'),
+            ('2', '2 Ambientes'),
+            ('3', '3 Ambientes'),
+            ('4', '4 Ambientes'),
+            ('5', '5 o más Ambientes'),
         ],
         widget=forms.Select(attrs={
             'class': 'form-control'
         })
     )
-    ver_todas = forms.BooleanField(required=False, label="Ver todas las propiedades", initial=False)
-
-    valoracion = forms.ChoiceField(choices=[('', 'Seleccione')] + TIPOS_VALORACION, required=False)
+    ver_todas = forms.BooleanField(
+        required=False, 
+        label="Ver todas las propiedades", 
+        initial=False,
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input'
+        })
+    )
+    valoracion = forms.ChoiceField(
+        choices=[('', 'Seleccione')] + TIPOS_VALORACION, 
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-control'
+        })
+    )
     precio_min = forms.DecimalField(required=False, min_value=0)
     precio_max = forms.DecimalField(required=False, min_value=0)
 
