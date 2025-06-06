@@ -3,7 +3,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('inmobiliaria', '0001_initial'),
+        ('inmobiliaria', '0008_alter_propiedad_numero_por_propietario'),
     ]
 
     operations = [
