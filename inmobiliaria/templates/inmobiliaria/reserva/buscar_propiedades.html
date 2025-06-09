@@ -1690,11 +1690,20 @@ window.confirmarReserva = function() {
 </script>
 
 <script>
-function confirmarReserva() {
+// Variables globales - declaradas una sola vez al inicio
+if (typeof window.selectedRowIndex === 'undefined') {
+    window.selectedRowIndex = -1;
+}
+if (typeof window.propiedadSeleccionada === 'undefined') {
+    window.propiedadSeleccionada = null;
+}
+
+// Funciones globales
+window.confirmarReserva = function() {
     console.log("Botón de reservar presionado");
     
     // Verificar que tenemos una propiedad seleccionada
-    if (!propiedadSeleccionada) {
+    if (!window.propiedadSeleccionada) {
         Swal.fire({
             icon: 'warning',
             title: 'Atención',
@@ -1705,9 +1714,29 @@ function confirmarReserva() {
 
     // Mostrar modal de autenticación
     $('#modalAutenticacionVendedor').modal('show');
-}
+};
 
-function autenticarYReservar() {
+window.verOperacion = function() {
+    console.log("Botón ver operación presionado");
+    
+    if (!window.propiedadSeleccionada) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Por favor selecciona una propiedad primero.'
+        });
+        return;
+    }
+
+    // Aquí puedes agregar la lógica para ver la operación
+    Swal.fire({
+        icon: 'info',
+        title: 'Ver Operación',
+        text: 'Funcionalidad en desarrollo'
+    });
+};
+
+window.autenticarYReservar = function() {
     const usuario = document.getElementById('usuarioVendedor').value;
     const contrasena = document.getElementById('contrasenaVendedor').value;
 
@@ -1731,7 +1760,7 @@ function autenticarYReservar() {
         
         // Esperar a que se cierre el modal y mostrar el de confirmación
         setTimeout(() => {
-            mostrarModalReserva();
+            window.mostrarModalReserva();
         }, 500);
     } else {
         Swal.fire({
@@ -1740,10 +1769,10 @@ function autenticarYReservar() {
             text: 'Usuario o contraseña incorrectos'
         });
     }
-}
+};
 
-function mostrarModalReserva() {
-    if (!propiedadSeleccionada) {
+window.mostrarModalReserva = function() {
+    if (!window.propiedadSeleccionada) {
         Swal.fire({
             icon: 'error',
             title: 'Error',
@@ -1753,23 +1782,23 @@ function mostrarModalReserva() {
     }
 
     // Llenar los campos del modal con la información
-    document.getElementById("propiedadDireccion").textContent = propiedadSeleccionada.direccion;
-    document.getElementById("fechaInicio").textContent = formatearFecha(propiedadSeleccionada.fechaInicio);
-    document.getElementById('fechaFin').textContent = formatearFecha(propiedadSeleccionada.fechaFin);
-    document.getElementById("totalDias").textContent = `${propiedadSeleccionada.totalDias} días`;
-    document.getElementById("precioTotalSuperior").textContent = propiedadSeleccionada.precio;
+    document.getElementById("propiedadDireccion").textContent = window.propiedadSeleccionada.direccion;
+    document.getElementById("fechaInicio").textContent = formatearFecha(window.propiedadSeleccionada.fechaInicio);
+    document.getElementById('fechaFin').textContent = formatearFecha(window.propiedadSeleccionada.fechaFin);
+    document.getElementById("totalDias").textContent = `${window.propiedadSeleccionada.totalDias} días`;
+    document.getElementById("precioTotalSuperior").textContent = window.propiedadSeleccionada.precio;
 
     // Llenar los campos ocultos del formulario
-    document.getElementById("modalPropiedadId").value = propiedadSeleccionada.id;
-    document.getElementById("modalFechaInicio").value = propiedadSeleccionada.fechaInicio;
-    document.getElementById("modalFechaFin").value = propiedadSeleccionada.fechaFin;
-    document.getElementById("modalPrecioTotal").value = propiedadSeleccionada.precio;
+    document.getElementById("modalPropiedadId").value = window.propiedadSeleccionada.id;
+    document.getElementById("modalFechaInicio").value = window.propiedadSeleccionada.fechaInicio;
+    document.getElementById("modalFechaFin").value = window.propiedadSeleccionada.fechaFin;
+    document.getElementById("modalPrecioTotal").value = window.propiedadSeleccionada.precio;
 
     // Mostrar el modal
     $('#modalConfirmarReserva').modal('show');
-}
+};
 
-function formatearFecha(fecha) {
+window.formatearFecha = function(fecha) {
     if (!fecha) return '';
     
     // Si la fecha ya está en formato DD/MM/YYYY, devolverla como está
@@ -1782,7 +1811,7 @@ function formatearFecha(fecha) {
     }
     
     return fecha; // Si no coincide con ningún formato, devolverla sin cambios
-}
+};
 
 // Event listeners para los modales
 document.addEventListener('DOMContentLoaded', function() {
@@ -1793,21 +1822,24 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Manejar el envío del formulario de reserva
-    document.getElementById('confirmar-reserva-form').addEventListener('submit', function(event) {
-        const propiedadId = document.getElementById('modalPropiedadId').value;
-        const fechaInicio = document.getElementById('modalFechaInicio').value;
-        const fechaFin = document.getElementById('modalFechaFin').value;
-        const precioTotal = document.getElementById('modalPrecioTotal').value;
+    const formReserva = document.getElementById('confirmar-reserva-form');
+    if (formReserva) {
+        formReserva.addEventListener('submit', function(event) {
+            const propiedadId = document.getElementById('modalPropiedadId').value;
+            const fechaInicio = document.getElementById('modalFechaInicio').value;
+            const fechaFin = document.getElementById('modalFechaFin').value;
+            const precioTotal = document.getElementById('modalPrecioTotal').value;
 
-        if (!propiedadId || !fechaInicio || !fechaFin || !precioTotal) {
-            event.preventDefault();
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Faltan datos necesarios para la reserva'
-            });
-        }
-    });
+            if (!propiedadId || !fechaInicio || !fechaFin || !precioTotal) {
+                event.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Faltan datos necesarios para la reserva'
+                });
+            }
+        });
+    }
 });
 </script>
 
