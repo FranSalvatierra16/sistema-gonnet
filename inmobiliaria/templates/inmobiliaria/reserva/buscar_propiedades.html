@@ -1110,713 +1110,142 @@
     document.head.appendChild(galeriaStyles);
 </script>
 
-<script>
-    // Función para mostrar y ocultar filtros
-    function mostrarOcultarFiltros() {
-        const filtros = document.getElementById("filtros-completos");
-        const resetBoton = document.getElementById("reset-filtros");
-        
-        if (filtros.style.display === "none") {
-            filtros.style.display = "block";
-            resetBoton.style.display = "inline-block"; // Mostrar el botn de reset
-        } else {
-            filtros.style.display = "none";
-            resetBoton.style.display = "none"; // Ocultar el botón de reset
-        }
-    }
-
-    // Función para restablecer filtros
-    function resetearFiltros() {
-        document.getElementById("buscar-propiedades-form-dia").reset(); // Reiniciar el formulario
-        mostrarOcultarFiltros(); // Ocultar los filtros
-    }
-    let selectedRowIndex = -1;
-    let propiedadSeleccionada = null;
-    function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
-        console.log('=== DEBUG SELECCIONAR PROPIEDAD ===');
-        console.log('Características recibidas:', caracteristicas);
-        
-        // Guardar todos los datos de la propiedad seleccionada
-        propiedadSeleccionada = {
-            id: id,
-            direccion: direccion,
-            propietario: propietario,
-            disponibilidad: disponibilidad,
-            precio: precio,
-            fechaInicio: fechaInicio,
-            fechaFin: fechaFin,
-            totalDias: total_dias,
-            estadoReserva: estadoReserva,
-            reservaId: reserva_id || '',
-            ambientes: ambientes || 'No especificado',
-            descripcion: descripcion || 'No disponible',
-            caracteristicas: caracteristicas || ''
-        };
-        
-        window.fechaInicioSeleccionada = fechaInicio.trim();
-        window.fechaFinSeleccionada = fechaFin.trim();
-        window.total_dias = total_dias;
-
-        // Actualizar la información en la tarjeta
-        const cardPropiedad = document.getElementById("cardPropiedad");
-        const cardDireccion = document.getElementById("cardDireccion");
-        const cardPropietario = document.getElementById("cardPropietario");
-        const cardAmbiente = document.getElementById("cardAmbiente");
-        const cardPrecio = document.getElementById("cardPrecio");
-        const cardEstado = document.getElementById("cardEstado");
-        const descripcionDetallada = document.getElementById("descripcionDetallada");
-        const caracteristicasElement = document.getElementById("caracteristicas");
-
-        // Verificar que los elementos existen antes de modificarlos
-        if (cardPropiedad) cardPropiedad.innerText = id;
-        if (cardDireccion) cardDireccion.innerText = direccion;
-        if (cardPropietario) cardPropietario.innerText = propietario;
-        if (cardAmbiente) cardAmbiente.innerText = ambientes || 'No especificado';
-        if (cardPrecio) cardPrecio.innerText = precio;
-        if (cardEstado) cardEstado.innerText = estadoReserva === 'confirmada_no_pagada' ? 'RESERVADO' : 'DISPONIBLE';
-        
-        // Mostrar descripción
-        if (descripcionDetallada) {
-            descripcionDetallada.innerHTML = descripcion ? 
-                `<div class="descripcion-texto">${descripcion.toUpperCase()}</div>` : 
-                '<span class="text-muted">NO DISPONIBLE</span>';
-        }
-        
-        // Mostrar características
-        if (caracteristicasElement) {
-            const caracteristicasMap = {
-                'amoblado': 'AMOBLADO',
-                'cochera': 'COCHERA',
-                'tv_smart': 'TV SMART',
-                'wifi': 'WIFI',
-                'dependencia': 'DEPENDENCIA',
-                'patio': 'PATIO',
-                'parrilla': 'PARRILLA',
-                'piscina': 'PISCINA',
-                'reciclado': 'RECICLADO',
-                'a_estrenar': 'A ESTRENAR',
-                'terraza': 'TERRAZA',
-                'balcon': 'BALCÓN',
-                'baulera': 'BAULERA',
-                'lavadero': 'LAVADERO',
-                'seguridad': 'SEGURIDAD',
-                'vista_al_Mar': 'VISTA AL MAR',
-                'vista_panoramica': 'VISTA PANORÁMICA',
-                'apto_credito': 'APTO CRÉDITO'
-            };
-
-            try {
-                const caracteristicasObj = JSON.parse(caracteristicas.replace(/'/g, '"'));
-                const caracteristicasHTML = Object.entries(caracteristicasObj)
-                    .filter(([key, value]) => value === true && caracteristicasMap[key])
-                    .map(([key]) => `
-                        <span class="badge bg-success m-1 p-2">
-                            <i class="fas fa-check-circle me-1"></i>
-                            ${caracteristicasMap[key]}
-                        </span>
-                    `).join('');
-
-                caracteristicasElement.innerHTML = caracteristicasHTML || '<span class="text-muted">NO HAY CARACTERÍSTICAS SELECCIONADAS</span>';
-            } catch (e) {
-                console.error('Error al procesar características:', e);
-                caracteristicasElement.innerHTML = '<span class="text-muted">ERROR AL CARGAR CARACTERÍSTICAS</span>';
-            }
-        }
-
-        // Resaltar la fila seleccionada
-        const filas = document.querySelectorAll('#propiedadesTable tbody tr');
-        filas.forEach(fila => fila.classList.remove('table-active'));
-        
-        // Encontrar la fila actual y resaltarla
-        const filaActual = event.target.closest('tr');
-        if (filaActual) {
-            filaActual.classList.add('table-active');
-        }
-
-        // Configurar los botones según el estado de la reserva
-        const cardButtons = document.getElementById('cardButtons');
-        if (cardButtons) {
-            if (estadoReserva === 'confirmada_no_pagada') {
-                cardButtons.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <button type="button" class="btn btn-sm btn-success" onclick="window.mostrarModalAutenticacion('${reserva_id}')">
-                                <i class="fas fa-check"></i> Operación
-                            </button>
-                        </div>
-                        <div>
-                            <span class="badge bg-warning text-dark p-2">
-                                <i class="fas fa-clock"></i> 
-                                Estado: RESERVADO
-                            </span>
-                        </div>
-                    </div>
-                `;
-            } else {
-                cardButtons.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
-                                <i class="fas fa-calendar-plus"></i> Reservar
-                            </button>
-                            <button type="button" class="btn btn-info ml-2" onclick="window.verOperacion()">
-                                <i class="fas fa-file-contract"></i> Operación
-                            </button>
-                        </div>
-                        <div>
-                            <span class="badge bg-info text-white p-2">
-                                <i class="fas fa-info-circle"></i> 
-                                Estado: DISPONIBLE
-                            </span>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-
-        // Actualizar tabla de precios
-        actualizarTablaPrecios(id, fechaInicio, fechaFin);
-    }
-
-    // Agregar estilos para las características
-    document.addEventListener('DOMContentLoaded', function() {
-        const styleSheet = document.createElement('style');
-        styleSheet.textContent = `
-            .badge {
-                font-size: 0.9rem;
-                font-weight: 500;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            }
-            .badge.bg-success {
-                background-color: #28a745 !important;
-                color: white;
-                transition: all 0.3s ease;
-            }
-            .badge.bg-success:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            }
-            .descripcion-texto {
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                line-height: 1.5;
-                color: #333;
-            }
-        `;
-        document.head.appendChild(styleSheet);
-    });
-
-    function mostrarModalAutenticacion(reservaId) {
-        window.reservaIdActual = reservaId; // Guardar el ID de la reserva para usarlo después
-        $('#modalAutenticacionVendedor').modal('show');
-    }
-
-    function autenticarYReservar() {
-        const usuario = document.getElementById('usuarioVendedor').value;
-        const contrasena = document.getElementById('contrasenaVendedor').value;
-
-        if (!usuario || !contrasena) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Campos requeridos',
-                text: 'Por favor completa todos los campos.'
-            });
-            return;
-        }
-
-        console.log("Autenticando usuario:", usuario);
-
-        // Simulación de autenticación - aquí deberías hacer la validación real
-        if (usuario === 'admin' && contrasena === 'admin') { // Cambia esto por tu lógica real
-            console.log("Autenticación exitosa");
-            
-            // Cerrar modal de autenticación
-            $('#modalAutenticacionVendedor').modal('hide');
-            
-            // Limpiar campos
-            document.getElementById('usuarioVendedor').value = '';
-            document.getElementById('contrasenaVendedor').value = '';
-            
-            // Esperar a que se cierre el modal y mostrar el de confirmación
-            setTimeout(() => {
-                mostrarModalReserva();
-            }, 500);
-            
-        } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error de autenticación',
-                text: 'Usuario o contraseña incorrectos'
-            });
-        }
-    }
-
-    function mostrarModalReserva() {
-        if (!propiedadSeleccionada) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'No hay propiedad seleccionada'
-            });
-            return;
-        }
-
-        // Llenar los campos del modal con la información
-        document.getElementById("propiedadDireccion").textContent = propiedadSeleccionada.direccion;
-        document.getElementById("fechaInicio").textContent = formatearFecha(propiedadSeleccionada.fechaInicio);
-        document.getElementById('fechaFin').textContent = formatearFecha(propiedadSeleccionada.fechaFin);
-        document.getElementById("totalDias").textContent = `${propiedadSeleccionada.totalDias} días`;
-        document.getElementById("precioTotalSuperior").textContent = propiedadSeleccionada.precio;
-
-        // Llenar los campos ocultos del formulario
-        document.getElementById("modalPropiedadId").value = propiedadSeleccionada.id;
-        document.getElementById("modalFechaInicio").value = propiedadSeleccionada.fechaInicio;
-        document.getElementById("modalFechaFin").value = propiedadSeleccionada.fechaFin;
-        document.getElementById("modalPrecioTotal").value = propiedadSeleccionada.precio;
-
-        // Mostrar el modal
-        $('#modalConfirmarReserva').modal('show');
-    }
-
-    function formatearFecha(fecha) {
-        if (!fecha) return '';
-        
-        // Si la fecha ya está en formato DD/MM/YYYY, devolverla como está
-        if (fecha.includes('/')) return fecha;
-        
-        // Si la fecha está en formato YYYY-MM-DD, convertirla
-        const partes = fecha.split('-');
-        if (partes.length === 3) {
-            return `${partes[2].padStart(2, '0')}/${partes[1].padStart(2, '0')}/${partes[0]}`;
-        }
-        
-        return fecha; // Si no coincide con ningún formato, devolverla sin cambios
-    }
-
-    // Event listeners para los modales
-    document.addEventListener('DOMContentLoaded', function() {
-        // Manejar el cierre del modal de autenticación
-        $('#modalAutenticacionVendedor').on('hidden.bs.modal', function () {
-            document.getElementById('usuarioVendedor').value = '';
-            document.getElementById('contrasenaVendedor').value = '';
-        });
-
-        // Manejar el envío del formulario de reserva
-        document.getElementById('confirmar-reserva-form').addEventListener('submit', function(event) {
-            const propiedadId = document.getElementById('modalPropiedadId').value;
-            const fechaInicio = document.getElementById('modalFechaInicio').value;
-            const fechaFin = document.getElementById('modalFechaFin').value;
-            const precioTotal = document.getElementById('modalPrecioTotal').value;
-
-            if (!propiedadId || !fechaInicio || !fechaFin || !precioTotal) {
-                event.preventDefault();
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Faltan datos necesarios para la reserva'
-                });
-            }
-        });
-    });
-</script>
-<script>
-    document.getElementById('agregarClienteBtn').addEventListener('click', function() {
-        var nuevoClienteContainer = document.getElementById('nuevoClienteContainer');
-        if (nuevoClienteContainer.style.display === "none" || nuevoClienteContainer.style.display === "") {
-            nuevoClienteContainer.style.display = "block";
-        } else {
-            nuevoClienteContainer.style.display = "none";
-        }
-    });
-
-  
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-</script>
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
-
 <script type="text/javascript">
-    // Configurar CSRF para todas las solicitudes AJAX
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
+// Variables globales
+let selectedRowIndex = -1;
+let propiedadSeleccionada = null;
 
-    const csrftoken = getCookie('csrftoken');
+function confirmarReserva() {
+    const ficha = document.getElementById("cardPropiedad").innerText.split(": ")[1];
+    const direccion = document.getElementById("cardDireccion").innerText.split(": ")[1];
+    const propietario = document.getElementById("cardPropietario").innerText.split(": ")[1];
+    const disponibilidad = document.getElementById("cardDisponibilidad").innerText.split(": ")[1];
+    const precio = document.getElementById("cardPrecio").innerText.split(": ")[1];
 
-    $.ajaxSetup({
-        beforeSend: function(xhr, settings) {
-            if (!/^(GET|HEAD|OPTIONS|TRACE)$/.test(settings.type) && !this.crossDomain) {
-                xhr.setRequestHeader("X-CSRFToken", csrftoken);
-            }
-        }
-    });
+    const fechaInicio = window.fechaInicioSeleccionada;
+    const fechaFin = window.fechaFinSeleccionada;
+    const totalDias = window.total_dias;
 
-</script>
-
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-<!-- {% if messages %}
-<script>
-    {% for message in messages %}
-        Swal.fire({
-            icon: '{% if message.tags == "error" %}error{% else %}{{ message.tags }}{% endif %}',
-            title: '{{ message.tags|title }}',
-            text: '{{ message|safe }}',
-            toast: true,
-            position: 'top-end',ƒ
-            timer: 3000
-        });
-    {% endfor %}
-</script>
-{% endif %} -->
-<script>
-    // Cuando cambia el vendedor
-    $('#vendedor_id').on('change', function() {
-        $('#modalVendedorId').val($(this).val());
-    });
-
-    // Cuando cambia el inquilino
-    $('#inquilino').on('change', function() {
-        $('#modalInquilinoId').val($(this).val());
-    });
-
-    // Cuando se actualiza el precio
-    $('#precio_total').on('change', function() {
-        $('#modalPrecioTotal').val($(this).val());
-    });
-</script>
-<!-- ... mantener el modal como está ... -->
-
-<script>
-    $(document).ready(function() {
-        // Manejar el click en el botón de guardar inquilino
-        $('#guardar-inquilino-btn').click(function(e) {
-            e.preventDefault();
-            
-            // Obtener los datos del formulario
-            const formData = new FormData($('#form-nuevo-inquilino')[0]);
-            
-            // Agregar el token CSRF
-            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-            
-            // Realizar la petición AJAX
-            $.ajax({
-                url: '{% url "inmobiliaria:crear_inquilino_ajax" %}',
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                success: function(response) {
-                    if (response.success) {
-                        // Crear nueva opción para el select
-                        const newOption = new Option(
-                            `${response.nombre} ${response.apellido} - ${response.dni}`,
-                            response.id,
-                            true,
-                            true
-                        );
-                        
-                        // Agregar la opción al select y seleccionarla
-                        $('#inquilino').append(newOption).trigger('change');
-                        
-                        // Actualizar el campo oculto
-                        $('#modalInquilinoId').val(response.id);
-                        
-                        // Cerrar el modal
-                        $('#modal-inquilino').modal('hide');
-                        
-                        // Limpiar el formulario
-                        $('#form-nuevo-inquilino')[0].reset();
-                        
-                        // Mostrar mensaje de éxito
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Éxito',
-                            text: 'Inquilino creado correctamente',
-                            timer: 2000,
-                            showConfirmButton: false
-                        });
-                    } else {
-                        // Mostrar errores si los hay
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: response.errors || 'Error al crear el inquilino',
-                            timer: 3000
-                        });
-                    }
-                },
-                error: function(xhr, errmsg, err) {
-                    // Manejar errores de la petición
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'Ocurrió un error al procesar la solicitud',
-                        timer: 3000
-                    });
-                    console.error('Error:', errmsg);
-                }
-            });
-        });
-    });
-    </script>
-<script>
-    document.getElementById('agregarClienteBtn').addEventListener('click', function() {
-        var nuevoClienteContainer = document.getElementById('nuevoClienteContainer');
-        if (nuevoClienteContainer.style.display === "none" || nuevoClienteContainer.style.display === "") {
-            nuevoClienteContainer.style.display = "block";
-        } else {
-            nuevoClienteContainer.style.display = "none";
+    // Verifica si los valores se obtienen correctamente
+    console.log("ID Propiedad:", ficha);
+    console.log("Dirección:", direccion);
+    console.log("Propietario:", propietario);
+    console.log("Disponibilidad:", disponibilidad);
+    console.log("Precio por Día:", precio);
+    console.log("Fecha Inicio:", fechaInicio);
+    console.log("Fecha Fin:", fechaFin);
+    
+    // Lógica de confirmación
+    Swal.fire({
+        title: '¿Está seguro?',
+        text: "¿Desea reservar esta propiedad?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, reservar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias);
         }
     });
+}
 
-    document.getElementById('guardarClienteBtn').addEventListener('click', function() {
-        var formData = new FormData(document.getElementById('form-nuevo-inquilino'));
-        fetch('{% url "inmobiliaria:crear_inquilino_ajax" %}', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken')
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                var newOption = new Option(data.nombre + ' ' + data.apellido + ' (DNI: ' + data.dni + ')', data.id, true, true);
-                $('#id_inquilino').append(newOption).trigger('change');
-                document.getElementById('nuevoClienteContainer').style.display = 'none';
-                document.getElementById('form-nuevo-inquilino').reset();
+function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
+    // Guardamos los datos de la reserva en variables globales
+    window.datosReserva = {ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias};
+    
+    // Limpiar campos del modal
+    document.getElementById('usuarioVendedor').value = '';
+    document.getElementById('contrasenaVendedor').value = '';
+    
+    // Mostramos el modal de autenticación
+    $('#modalAutenticacionVendedor').modal('show');
+    
+    // Configurar el botón de autenticación
+    document.querySelector('#modalAutenticacionVendedor .btn-primary').onclick = autenticarYReservar;
+}
+
+function autenticarYReservar() {
+    var usuario = document.getElementById('usuarioVendedor').value;
+    var contrasena = document.getElementById('contrasenaVendedor').value;
+
+    $.ajax({
+        url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
+        type: 'POST',
+        data: {
+            'username': usuario,
+            'password': contrasena,
+            'csrfmiddlewaretoken': '{{ csrf_token }}',
+        },
+        success: function(response) {
+            if (response.success) {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Éxito',
-                    text: 'Cliente creado correctamente'
+                    title: 'Autenticación exitosa',
+                    text: 'Procediendo con la reserva...',
+                    showConfirmButton: false,
+                    timer: 1500
+                }).then(() => {
+                    $('#modalAutenticacionVendedor').modal('hide');
+                    mostrarModalReserva(
+                        window.datosReserva.ficha,
+                        window.datosReserva.direccion,
+                        window.datosReserva.propietario,
+                        window.datosReserva.disponibilidad,
+                        window.datosReserva.precio,
+                        window.datosReserva.fechaInicio,
+                        window.datosReserva.fechaFin,
+                        window.datosReserva.totalDias
+                    );
                 });
             } else {
                 Swal.fire({
                     icon: 'error',
-                    title: 'Error',
-                    text: 'Error al guardar el cliente: ' + JSON.stringify(data.errors)
+                    title: 'Error de autenticación',
+                    text: 'Credenciales incorrectas, por favor intente de nuevo.'
                 });
             }
-        })
-        .catch(error => {
+        },
+        error: function(xhr, status, error) {
             Swal.fire({
                 icon: 'error',
-                title: 'Error',
-                text: 'Error al procesar la solicitud'
+                title: 'Error del servidor',
+                text: 'Ocurrió un error en el servidor. Por favor, intente de nuevo.'
             });
-        });
-    });
-
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-</script>
-<script>
-    $('#inquilino').on('change', function() {
-    const selectedInquilinoId = $(this).val();
-    if (selectedInquilinoId) {
-        $.ajax({
-            url: '{% url "inmobiliaria:obtener_inquilino" 0 %}'.replace('0', selectedInquilinoId),
-            type: 'GET',
-            success: function(data) {
-                if (data.success) {
-                    // Aquí puedes actualizar los campos del modal con la información del inquilino seleccionado
-                    $('#modalCliente').val(data.inquilino.id);
-                    // Agrega más actualizaciones según lo necesites
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'No se pudo obtener la información del inquilino.'
-                    });
-                }
-            },
-            error: function(xhr, status, error) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error del servidor',
-                    text: 'Ocurrió un error al obtener la información del inquilino.'
-                });
-            }
-        });
-    } else {
-        // Restaura los campos del modal a su estado inicial
-        $('#modalCliente').val('');
-        // Agrega más restauraciones según lo necesites
-    }
-});
-</script>
-<script>
-        $('#cancelarReservaBtn').on('click', function() {
-        $('#modalReserva').modal('hide');
-        // Enfocar la lista de propiedades
-        $('#propiedadesTable').focus();
-        // Opcionalmente, puedes resaltar la fila que estaba seleccionada
-        if (selectedRowIndex !== -1) {
-            const rows = document.querySelectorAll('#propiedadesTable tbody tr');
-            rows[selectedRowIndex].focus();
         }
     });
-</script>
+}
 
-<script>
-    $('#cancelarReservaBtnA').on('click', function() {
-    $('#modalAutenticacionVendedor').modal('hide');
-    // Enfocar la lista de propiedades
-    $('#propiedadesTable').focus();
-    // Opcionalmente, puedes resaltar la fila que estaba seleccionada
-    if (selectedRowIndex !== -1) {
-        const rows = document.querySelectorAll('#propiedadesTable tbody tr');
-        rows[selectedRowIndex].focus();
+function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
+    document.getElementById("propiedadDireccion").textContent = direccion;
+    document.getElementById("fechaInicio").textContent = formatearFecha(fechaInicio);
+    document.getElementById('fechaFin').textContent = formatearFecha(fechaFin);
+    document.getElementById("totalDias").textContent = `${totalDias} días`;
+    document.getElementById("precioTotalSuperior").textContent = precio;
+
+    document.getElementById("precio_total_display").textContent = precio;
+    document.getElementById("precio_total").value = precio;
+
+    document.getElementById("modalPropiedadId").value = ficha;
+    document.getElementById("modalFechaInicio").value = fechaInicio;
+    document.getElementById("modalFechaFin").value = fechaFin;
+    document.getElementById("modalPrecioTotal").value = precio;
+
+    $('#modalConfirmarReserva').modal('show');
+}
+
+function formatearFecha(fecha) {
+    if (!fecha) return '';
+    if (fecha.includes('/')) return fecha;
+    const partes = fecha.split('-');
+    if (partes.length === 3) {
+        return `${partes[2].padStart(2, '0')}/${partes[1].padStart(2, '0')}/${partes[0]}`;
     }
-});
-document.addEventListener('DOMContentLoaded', function() {
-    const precioTotalSuperior = document.getElementById('precioTotalSuperior');
-    const precioTotalDisplay = document.getElementById('precio_total_display');
-    const precioTotalInput = document.getElementById('precio_total');
-    const editarPrecioBtn = document.getElementById('editar_precio_btn');
-    const guardarPrecioBtn = document.getElementById('guardar_precio_btn');
-    const cancelarPrecioBtn = document.getElementById('cancelar_precio_btn');
-    const modalPrecioTotalInput = document.getElementById('modalPrecioTotal');
-    const confirmarReservaForm = document.getElementById('confirmar-reserva-form');
-
-    function actualizarPreciosMostrados(precio) {
-        precioTotalSuperior.textContent = precio;
-        precioTotalDisplay.textContent = precio;
-        precioTotalInput.value = precio;
-        modalPrecioTotalInput.value = precio;  // Actualiza el campo oculto
-    }
-
-    editarPrecioBtn.addEventListener('click', function() {
-        precioTotalDisplay.style.display = 'none';
-        precioTotalInput.style.display = 'inline-block';
-        editarPrecioBtn.style.display = 'none';
-        guardarPrecioBtn.style.display = 'inline-block';
-        cancelarPrecioBtn.style.display = 'inline-block';
-        precioTotalInput.focus();
-    });
-
-    guardarPrecioBtn.addEventListener('click', function() {
-        const nuevoPrecio = precioTotalInput.value;
-        actualizarPreciosMostrados(nuevoPrecio);
-        precioTotalDisplay.style.display = 'inline';
-        precioTotalInput.style.display = 'none';
-        guardarPrecioBtn.style.display = 'none';
-        cancelarPrecioBtn.style.display = 'none';
-        editarPrecioBtn.style.display = 'inline';
-    });
-
-    cancelarPrecioBtn.addEventListener('click', function() {
-        actualizarPreciosMostrados(precioTotalDisplay.textContent);
-        precioTotalDisplay.style.display = 'inline';
-        precioTotalInput.style.display = 'none';
-        guardarPrecioBtn.style.display = 'none';
-        cancelarPrecioBtn.style.display = 'none';
-        editarPrecioBtn.style.display = 'inline';
-    });
-
-    // Añadir este evento al formulario de confirmación de reserva
-    confirmarReservaForm.addEventListener('submit', function(event) {
-        // Asegurarse de que el precio total se actualice antes de enviar el formulario
-        const precioFinal = precioTotalInput.style.display === 'none' ? precioTotalDisplay.textContent : precioTotalInput.value;
-        modalPrecioTotalInput.value = precioFinal;
-    });
-});
-document.addEventListener('DOMContentLoaded', function() {
-    const vendedorInput = document.getElementById('vendedor_id');
-    const vendedorNombre = document.getElementById('vendedor_nombre');
-
-    if (vendedorInput) {
-        vendedorInput.addEventListener('change', function() {
-            const vendedorId = this.value;
-            if (vendedorId) {
-                fetch(`${obtenerVendedorUrl}${vendedorId}/`)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.success) {
-                            vendedorNombre.textContent = data.vendedor.nombre_completo;
-                        } else {
-                            vendedorNombre.textContent = 'Vendedor no encontrado';
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        vendedorNombre.textContent = 'Error al cargar el vendedor';
-                    });
-            } else {
-                vendedorNombre.textContent = '';
-            }
-        });
-    } else {
-        console.error('El campo de vendedor no se encontró');
-    }
-
-});
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
+    return fecha;
 }
 </script>
-<script>
-    const obtenerVendedorUrl = "{% url 'inmobiliaria:obtener_vendedor' 0 %}".slice(0, -1);
-</script>
-
-
-<!-- Modal para crear nuevo cliente -->
 
 {% endblock %}
 
