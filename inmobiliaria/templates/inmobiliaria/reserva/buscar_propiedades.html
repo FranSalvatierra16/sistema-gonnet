@@ -475,14 +475,10 @@
                 </div>
                 
                 <div class="card-body">
-                    <div class="descripcion p-3" style="background-color: #ffcccc;">
-                        <!-- Descripción principal en mayúsculas -->
-                      
-                        
+                    <div class="descripcion p-3" style="background-color: #f8f9fa; border-radius: 8px;">
                         <div class="row mt-3">
                             <div class="col-md-6">
                                 <p><strong>PROPIETARIO:</strong> <span id="cardPropietario"></span></p>
-                                
                                 <p><strong>PRECIO TOTAL:</strong> <span id="cardPrecio"></span></p>
                             </div>
                             <div class="col-md-6">
@@ -492,12 +488,12 @@
                         </div>
 
                         <!-- Características/Amenities -->
-                        <div class="mt-4 p-3" style="background-color: #90EE90;">
+                        <div class="mt-4">
                             <h3 class="mb-3">DESCRIPCIÓN:</h3>
-                            <div id="descripcionDetallada" class="text-uppercase d-flex flex-wrap gap-2">
+                            <div id="descripcionDetallada" class="text-uppercase" style="word-wrap: break-word; white-space: pre-wrap; max-height: 200px; overflow-y: auto; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; background-color: white;">
                                 <!-- Se llenará con JavaScript -->
                             </div>
-                            <h5 class="mb-3">CARACTERÍSTICAS:</h5>
+                            <h5 class="mt-4 mb-3">CARACTERÍSTICAS:</h5>
                             <div id="caracteristicas" class="text-uppercase d-flex flex-wrap gap-2">
                                 <!-- Se llenará con JavaScript -->
                             </div>
@@ -505,7 +501,7 @@
                     </div>
                     
                     <!-- Agregar este botón cerca de los otros botones de acción -->
-                    <div class="mb-3">
+                    <div class="mt-3">
                         <button type="button" class="btn btn-info" onclick="abrirGaleriaFotos()">
                             <i class="fas fa-images"></i> Ver Fotos
                         </button>
@@ -999,10 +995,7 @@
     let propiedadSeleccionada = null;
     function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
         console.log('=== DEBUG SELECCIONAR PROPIEDAD ===');
-        console.log('Parámetros recibidos:', {
-            total_dias, direccion, propietario, disponibilidad, precio, id, 
-            fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas
-        });
+        console.log('Características recibidas:', caracteristicas);
         
         // Guardar todos los datos de la propiedad seleccionada
         propiedadSeleccionada = {
@@ -1018,18 +1011,18 @@
             reservaId: reserva_id || '',
             ambientes: ambientes || 'No especificado',
             descripcion: descripcion || 'No disponible',
-            caracteristicas: caracteristicas || 'No disponible'
+            caracteristicas: caracteristicas || ''
         };
         
         window.fechaInicioSeleccionada = fechaInicio.trim();
         window.fechaFinSeleccionada = fechaFin.trim();
         window.total_dias = total_dias;
 
-        // Actualizar la información en la tarjeta usando los IDs correctos del HTML
+        // Actualizar la información en la tarjeta
         const cardPropiedad = document.getElementById("cardPropiedad");
         const cardDireccion = document.getElementById("cardDireccion");
         const cardPropietario = document.getElementById("cardPropietario");
-        const cardAmbiente = document.getElementById("cardAmbiente"); // Nota: es "cardAmbiente" no "cardAmbientes"
+        const cardAmbiente = document.getElementById("cardAmbiente");
         const cardPrecio = document.getElementById("cardPrecio");
         const cardEstado = document.getElementById("cardEstado");
         const descripcionDetallada = document.getElementById("descripcionDetallada");
@@ -1043,22 +1036,51 @@
         if (cardPrecio) cardPrecio.innerText = precio;
         if (cardEstado) cardEstado.innerText = estadoReserva === 'confirmada_no_pagada' ? 'RESERVADO' : 'DISPONIBLE';
         
-        // Para descripción y características usar innerHTML porque pueden tener formato
+        // Mostrar descripción
         if (descripcionDetallada) {
             descripcionDetallada.innerHTML = descripcion ? 
-                `<span class="badge badge-info mr-1">${descripcion.toUpperCase()}</span>` : 
+                `<div class="descripcion-texto">${descripcion.toUpperCase()}</div>` : 
                 '<span class="text-muted">NO DISPONIBLE</span>';
         }
         
+        // Mostrar características
         if (caracteristicasElement) {
-            if (caracteristicas && caracteristicas.trim() !== '') {
-                // Si hay características, dividirlas por comas y mostrar como badges
-                const caract = caracteristicas.split(',').map(c => 
-                    `<span class="badge badge-success mr-1 mb-1">${c.trim().toUpperCase()}</span>`
-                ).join('');
-                caracteristicasElement.innerHTML = caract;
-            } else {
-                caracteristicasElement.innerHTML = '<span class="text-muted">NO DISPONIBLE</span>';
+            const caracteristicasMap = {
+                'amoblado': 'AMOBLADO',
+                'cochera': 'COCHERA',
+                'tv_smart': 'TV SMART',
+                'wifi': 'WIFI',
+                'dependencia': 'DEPENDENCIA',
+                'patio': 'PATIO',
+                'parrilla': 'PARRILLA',
+                'piscina': 'PISCINA',
+                'reciclado': 'RECICLADO',
+                'a_estrenar': 'A ESTRENAR',
+                'terraza': 'TERRAZA',
+                'balcon': 'BALCÓN',
+                'baulera': 'BAULERA',
+                'lavadero': 'LAVADERO',
+                'seguridad': 'SEGURIDAD',
+                'vista_al_Mar': 'VISTA AL MAR',
+                'vista_panoramica': 'VISTA PANORÁMICA',
+                'apto_credito': 'APTO CRÉDITO'
+            };
+
+            try {
+                const caracteristicasObj = JSON.parse(caracteristicas.replace(/'/g, '"'));
+                const caracteristicasHTML = Object.entries(caracteristicasObj)
+                    .filter(([key, value]) => value === true && caracteristicasMap[key])
+                    .map(([key]) => `
+                        <span class="badge bg-success m-1 p-2">
+                            <i class="fas fa-check-circle me-1"></i>
+                            ${caracteristicasMap[key]}
+                        </span>
+                    `).join('');
+
+                caracteristicasElement.innerHTML = caracteristicasHTML || '<span class="text-muted">NO HAY CARACTERÍSTICAS SELECCIONADAS</span>';
+            } catch (e) {
+                console.error('Error al procesar características:', e);
+                caracteristicasElement.innerHTML = '<span class="text-muted">ERROR AL CARGAR CARACTERÍSTICAS</span>';
             }
         }
 
@@ -1116,6 +1138,34 @@
         // Actualizar tabla de precios
         actualizarTablaPrecios(id, fechaInicio, fechaFin);
     }
+
+    // Agregar estilos para las características
+    document.addEventListener('DOMContentLoaded', function() {
+        const styleSheet = document.createElement('style');
+        styleSheet.textContent = `
+            .badge {
+                font-size: 0.9rem;
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .badge.bg-success {
+                background-color: #28a745 !important;
+                color: white;
+                transition: all 0.3s ease;
+            }
+            .badge.bg-success:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            }
+            .descripcion-texto {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                line-height: 1.5;
+                color: #333;
+            }
+        `;
+        document.head.appendChild(styleSheet);
+    });
 
     function mostrarModalAutenticacion(reservaId) {
         window.reservaIdActual = reservaId; // Guardar el ID de la reserva para usarlo después
