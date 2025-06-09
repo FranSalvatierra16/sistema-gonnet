@@ -15,6 +15,149 @@
     
     <!-- Incluir SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Script de inicialización de funciones -->
+    <script type="text/javascript">
+        // Inicializar funciones globales inmediatamente
+        (function() {
+            // Variables globales
+            window.selectedRowIndex = -1;
+            window.propiedadSeleccionada = null;
+
+            // Funciones globales
+            window.confirmarReserva = function() {
+                console.log("Botón de reservar presionado");
+                
+                if (!window.propiedadSeleccionada) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Por favor selecciona una propiedad primero.'
+                    });
+                    return;
+                }
+
+                $('#modalAutenticacionVendedor').modal('show');
+            };
+
+            window.verOperacion = function() {
+                console.log("Botón ver operación presionado");
+                
+                if (!window.propiedadSeleccionada) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Por favor selecciona una propiedad primero.'
+                    });
+                    return;
+                }
+
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Ver Operación',
+                    text: 'Funcionalidad en desarrollo'
+                });
+            };
+
+            window.mostrarModalAutenticacion = function(reservaId) {
+                window.reservaIdActual = reservaId;
+                $('#modalAutenticacionVendedor').modal('show');
+            };
+
+            window.autenticarYReservar = function() {
+                const usuario = document.getElementById('usuarioVendedor').value;
+                const contrasena = document.getElementById('contrasenaVendedor').value;
+
+                if (!usuario || !contrasena) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Campos requeridos',
+                        text: 'Por favor completa todos los campos.'
+                    });
+                    return;
+                }
+
+                if (usuario === 'admin' && contrasena === 'admin') {
+                    $('#modalAutenticacionVendedor').modal('hide');
+                    document.getElementById('usuarioVendedor').value = '';
+                    document.getElementById('contrasenaVendedor').value = '';
+                    
+                    setTimeout(() => {
+                        window.mostrarModalReserva();
+                    }, 500);
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error de autenticación',
+                        text: 'Usuario o contraseña incorrectos'
+                    });
+                }
+            };
+
+            window.mostrarModalReserva = function() {
+                if (!window.propiedadSeleccionada) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'No hay propiedad seleccionada'
+                    });
+                    return;
+                }
+
+                document.getElementById("propiedadDireccion").textContent = window.propiedadSeleccionada.direccion;
+                document.getElementById("fechaInicio").textContent = window.formatearFecha(window.propiedadSeleccionada.fechaInicio);
+                document.getElementById('fechaFin').textContent = window.formatearFecha(window.propiedadSeleccionada.fechaFin);
+                document.getElementById("totalDias").textContent = `${window.propiedadSeleccionada.totalDias} días`;
+                document.getElementById("precioTotalSuperior").textContent = window.propiedadSeleccionada.precio;
+
+                document.getElementById("modalPropiedadId").value = window.propiedadSeleccionada.id;
+                document.getElementById("modalFechaInicio").value = window.propiedadSeleccionada.fechaInicio;
+                document.getElementById("modalFechaFin").value = window.propiedadSeleccionada.fechaFin;
+                document.getElementById("modalPrecioTotal").value = window.propiedadSeleccionada.precio;
+
+                $('#modalConfirmarReserva').modal('show');
+            };
+
+            window.formatearFecha = function(fecha) {
+                if (!fecha) return '';
+                if (fecha.includes('/')) return fecha;
+                
+                const partes = fecha.split('-');
+                if (partes.length === 3) {
+                    return `${partes[2].padStart(2, '0')}/${partes[1].padStart(2, '0')}/${partes[0]}`;
+                }
+                
+                return fecha;
+            };
+
+            // Configurar event listeners cuando el DOM esté listo
+            $(document).ready(function() {
+                $('#modalAutenticacionVendedor').on('hidden.bs.modal', function () {
+                    document.getElementById('usuarioVendedor').value = '';
+                    document.getElementById('contrasenaVendedor').value = '';
+                });
+
+                const formReserva = document.getElementById('confirmar-reserva-form');
+                if (formReserva) {
+                    formReserva.addEventListener('submit', function(event) {
+                        const propiedadId = document.getElementById('modalPropiedadId').value;
+                        const fechaInicio = document.getElementById('modalFechaInicio').value;
+                        const fechaFin = document.getElementById('modalFechaFin').value;
+                        const precioTotal = document.getElementById('modalPrecioTotal').value;
+
+                        if (!propiedadId || !fechaInicio || !fechaFin || !precioTotal) {
+                            event.preventDefault();
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Faltan datos necesarios para la reserva'
+                            });
+                        }
+                    });
+                }
+            });
+        })();
+    </script>
     
     <style>
     /* RESET COMPLETO Y DISEÑO MODERNO */
@@ -512,17 +655,13 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                                <button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion('{{ propiedad.id }}')">Operacion</button>
-                                
-                                
+                                <button type="button" class="btn btn-sm btn-success" onclick="window.mostrarModalAutenticacion('{{ propiedad.id }}')">Operacion</button>
                             {% else %}
                                 <div>
-                                    <button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>
-                                    <button type="button" class="btn btn-info ml-2" onclick="verOperacion()">
+                                    <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">Reservar</button>
+                                    <button type="button" class="btn btn-info ml-2" onclick="window.verOperacion()">
                                         <i class="fas fa-file-contract"></i> Operación
                                     </button>
-                                    
-                                    
                                 </div>
                             {% endif %}
                         </div>
@@ -1101,7 +1240,7 @@
                 cardButtons.innerHTML = `
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion('${reserva_id}')">
+                            <button type="button" class="btn btn-sm btn-success" onclick="window.mostrarModalAutenticacion('${reserva_id}')">
                                 <i class="fas fa-check"></i> Operación
                             </button>
                         </div>
@@ -1117,10 +1256,10 @@
                 cardButtons.innerHTML = `
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <button type="button" class="btn btn-primary" onclick="confirmarReserva()">
+                            <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
                                 <i class="fas fa-calendar-plus"></i> Reservar
                             </button>
-                            <button type="button" class="btn btn-info ml-2" onclick="verOperacion()">
+                            <button type="button" class="btn btn-info ml-2" onclick="window.verOperacion()">
                                 <i class="fas fa-file-contract"></i> Operación
                             </button>
                         </div>
