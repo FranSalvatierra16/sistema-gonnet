@@ -199,17 +199,19 @@
             // Verificar el estado de la reserva y mostrar los botones correspondientes
             if (estadoReserva === 'confirmada_no_pagada') {
                 propertyCard.classList.add('card-confirmada');
-                cardButtons.innerHTML = `
-                    <button type="button" class="btn btn-sm btn-success" onclick="window.mostrarModalAutenticacion('${reserva_id}')">Operacion</button>
-                    <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-                    <button type="button" class="btn btn-warning" onclick="window.mostrarPrecios(${id})">Ver Precios</button>
-                `;
+                const buttons = [
+                    `<button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion('${reserva_id}')">Operacion</button>`,
+                    `<button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>`,
+                    `<button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>`
+                ];
+                cardButtons.innerHTML = buttons.join('\n');
             } else {
-                cardButtons.innerHTML = `
-                    <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">Reservar</button>
-                    <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-                    <button type="button" class="btn btn-warning" onclick="window.mostrarPrecios(${id})">Ver Precios</button>
-                `;
+                const buttons = [
+                    `<button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>`,
+                    `<button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>`,
+                    `<button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>`
+                ];
+                cardButtons.innerHTML = buttons.join('\n');
             }
 
             // Forzar un repintado del DOM
@@ -703,17 +705,19 @@
                         // Verificar el estado de la reserva y mostrar los botones correspondientes
                         if (estadoReserva === 'confirmada_no_pagada') {
                             propertyCard.classList.add('card-confirmada');
-                            cardButtons.innerHTML = `
-                                <button type="button" class='btn btn-sm btn-success' onclick='mostrarModalAutenticacion("${reserva_id}")'>Operacion</button>
-                                <button type="button" class='btn btn-info' data-toggle='modal' data-target='#modalDetalles${id}'>Ver</button>
-                                <button type="button" class='btn btn-warning' onclick='mostrarPrecios(${id})'>Ver Precios</button>
-                            `;
+                            const buttons = [
+                                `<button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion('${reserva_id}')">Operacion</button>`,
+                                `<button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>`,
+                                `<button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>`
+                            ];
+                            cardButtons.innerHTML = buttons.join('\n');
                         } else {
-                            cardButtons.innerHTML = `
-                                <button type="button" class='btn btn-primary' onclick='confirmarReserva()'>Reservar</button>
-                                <button type="button" class='btn btn-info' data-toggle='modal' data-target='#modalDetalles${id}'>Ver</button>
-                                <button type="button" class='btn btn-warning' onclick='mostrarPrecios(${id})'>Ver Precios</button>
-                            `;
+                            const buttons = [
+                                `<button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>`,
+                                `<button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>`,
+                                `<button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>`
+                            ];
+                            cardButtons.innerHTML = buttons.join('\n');
                         }
 
                         // Forzar un repintado del DOM
@@ -772,17 +776,19 @@
                         // Verificar el estado de la reserva y mostrar los botones correspondientes
                         if (estadoReserva === 'confirmada_no_pagada') {
                             propertyCard.classList.add('card-confirmada');
-                            cardButtons.innerHTML = `
-                                <button type="button" class='btn btn-sm btn-success' onclick='mostrarModalAutenticacion("${reserva_id}")'>Operacion</button>
-                                <button type="button" class='btn btn-info' data-toggle='modal' data-target='#modalDetalles${id}'>Ver</button>
-                                <button type="button" class='btn btn-warning' onclick='mostrarPrecios(${id})'>Ver Precios</button>
-                            `;
+                            const buttons = [
+                                `<button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion('${reserva_id}')">Operacion</button>`,
+                                `<button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>`,
+                                `<button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>`
+                            ];
+                            cardButtons.innerHTML = buttons.join('\n');
                         } else {
-                            cardButtons.innerHTML = `
-                                <button type="button" class='btn btn-primary' onclick='confirmarReserva()'>Reservar</button>
-                                <button type="button" class='btn btn-info' data-toggle='modal' data-target='#modalDetalles${id}'>Ver</button>
-                                <button type="button" class='btn btn-warning' onclick='mostrarPrecios(${id})'>Ver Precios</button>
-                            `;
+                            const buttons = [
+                                `<button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>`,
+                                `<button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>`,
+                                `<button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>`
+                            ];
+                            cardButtons.innerHTML = buttons.join('\n');
                         }
 
                         // Forzar un repintado del DOM
