@@ -157,91 +157,6 @@
                 }
             });
         })();
-
-        // Variables globales - solo se declaran si no existen
-        if (typeof window.selectedRowIndex === 'undefined') {
-            window.selectedRowIndex = -1;
-        }
-        if (typeof window.propiedadSeleccionada === 'undefined') {
-            window.propiedadSeleccionada = null;
-        }
-
-        // Función global para seleccionar propiedad
-        window.seleccionarPropiedad = function(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id) {
-            console.log('El estado de la reserva es:', estadoReserva);
-            console.log('El ID de la propiedad es:', id);
-            
-            window.fechaInicioSeleccionada = fechaInicio.trim();
-            window.fechaFinSeleccionada = fechaFin.trim();
-            window.total_dias = total_dias;
-
-            const row = event.currentTarget;
-            const rows = document.querySelectorAll('#propiedadesTable tbody tr');
-            rows.forEach(r => r.classList.remove('table-active'));
-            row.classList.add('table-active');
-            
-            // Actualizar la tarjeta de propiedad
-            document.getElementById("cardDireccion").innerText = "Dirección: " + direccion;
-            document.getElementById("cardPropietario").innerText = "Propietario: " + propietario;
-            document.getElementById("cardDisponibilidad").innerText = "Disponibilidad: " + disponibilidad;
-            document.getElementById("cardPrecio").innerText = "Precio: " + precio;
-            document.getElementById("cardPropiedad").innerText = "Ficha: " + id;
-
-            const propertyCard = document.getElementById("propertyCard");
-            const cardButtons = document.getElementById("cardButtons");
-
-            // Limpiar botones existentes
-            cardButtons.innerHTML = '';
-
-            // Remover clases previas
-            propertyCard.classList.remove('card-confirmada');
-
-            // Verificar el estado de la reserva y mostrar los botones correspondientes
-            if (estadoReserva === 'confirmada_no_pagada') {
-                propertyCard.classList.add('card-confirmada');
-                cardButtons.innerHTML = `
-                    <button type="button" class="btn btn-sm btn-success" onclick="window.mostrarModalAutenticacion('${reserva_id}')">Operacion</button>
-                    <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-                    <button type="button" class="btn btn-warning" onclick="window.mostrarPrecios(${id})">Ver Precios</button>
-                `;
-            } else {
-                cardButtons.innerHTML = `
-                    <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">Reservar</button>
-                    <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-                    <button type="button" class="btn btn-warning" onclick="window.mostrarPrecios(${id})">Ver Precios</button>
-                `;
-            }
-
-            // Forzar un repintado del DOM
-            void propertyCard.offsetWidth;
-        };
-
-        // Resto de funciones también en el ámbito global
-        window.mostrarModalAutenticacionParaReserva = function(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
-            // Guardamos los datos de la reserva en variables globales
-            window.datosReserva = {ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias};
-            
-            // Limpiar campos del modal
-            document.getElementById('usuarioVendedor').value = '';
-            document.getElementById('contrasenaVendedor').value = '';
-            
-            // Mostramos el modal de autenticación
-            $('#modalAutenticacionVendedor').modal('show');
-            
-            // Configurar el botón de autenticación
-            document.querySelector('#modalAutenticacionVendedor .btn-primary').onclick = autenticarYReservar;
-        };
-
-        // Asegurarse de que las funciones estén disponibles cuando se carga la página
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Funciones cargadas:', {
-                seleccionarPropiedad: typeof window.seleccionarPropiedad,
-                confirmarReserva: typeof window.confirmarReserva,
-                mostrarModalAutenticacionParaReserva: typeof window.mostrarModalAutenticacionParaReserva,
-                autenticarYReservar: typeof window.autenticarYReservar,
-                mostrarModalReserva: typeof window.mostrarModalReserva
-            });
-        });
     </script>
     
     <style>
@@ -645,52 +560,139 @@
         <div class="col-md-8">
             {% if propiedades_disponibles %}
             <h3 class="text-center mt-4">Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h3>
-            <table id="propiedadesTable" class="table table-hover">
-                <thead>
-                    <tr style="background-color: #007bff; color: white;">
-                        <th>ID Propiedad</th>
-                        <th>Disponibilidad más cercana</th>
-                        <th>Dirección</th>
-                        <th>Piso</th>
-                        <th>Dpto</th>
-                        <th>Propietario</th>
-                        <th>Precio</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for propiedad in propiedades_disponibles %}
-                    {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                    <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="handleRowClick(event, '{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','{{ propiedad.reserva.id }}')">
-                        <td style="color: red;">{{ propiedad.id }}</td>
-                        <td style="color: red;">
-                            Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
-                        </td>
-                        <td style="color: red;">{{ propiedad.direccion }}</td>
-                        <td style="color: red;">{{ propiedad.piso }}</td>
-                        <td style="color: red;"> {{propiedad.departamento }}</td>
-                        <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
-                        <td style="color: red;">{{ propiedad.precio_total_reserva }}</td>
-                    </tr>
-                    {% else %}
-                    <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="handleRowClick(event, '{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}')">
-                        <td>{{ propiedad.id }}</td>
-                        <td>
-                            {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
-                        </td>
-                        <td>{{ propiedad.direccion }}</td>
-                        <td>{{ propiedad.piso }}</td>
-                        <td>{{ propiedad.departamento }}</td>
-                        <td>{{ propiedad.propietario.apellido }}</td>
-                        <td>{{ propiedad.precio_total_reserva|format_price }}</td>
-                    </tr>
-                    {% endif %}
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-wrapper">
+                <table id="propiedadesTable" class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Disponibilidad</th>
+                            <th>Ubicación</th>
+                            <th>Piso</th>
+                            <th>Dpto</th>
+                            <th>Propietario</th>
+                            <th>Precio</th>
+                            <th>Sucursal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for propiedad in propiedades_disponibles %}
+                        {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
+                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','{{ propiedad.reserva.id }}','{{ propiedad.ambientes }}','{{ propiedad.descripcion|escapejs }}','{{ propiedad.caracteristicas|escapejs }}')">
+                            <td style="color: red;">{{ propiedad.id }}</td>
+                            <td style="color: red;">
+                                Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
+                            </td>
+                            <td style="color: red;">{{ propiedad.ubicacion }}</td>
+                            <td style="color: red;">{{ propiedad.piso }}</td>
+                            <td style="color: red;"> {{propiedad.departamento }}</td>
+                            <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
+                            <td style="color: red;">{{ propiedad.precio_total_reserva }}</td>
+                            <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
+                        </tr>
+                        {% else %}
+                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','','{{ propiedad.ambientes }}','{{ propiedad.descripcion|escapejs }}','{{ propiedad.caracteristicas|escapejs }}')">
+                            <td>{{ propiedad.id }}</td>
+                            <td>
+                                {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
+                            </td>
+                            <td>{{ propiedad.ubicacion }}</td>
+                            <td>{{ propiedad.piso }}</td>
+                            <td>{{ propiedad.departamento }}</td>
+                            <td>{{ propiedad.propietario.apellido }}</td>
+                            <td>{{ propiedad.precio_total_reserva|format_price }}</td>
+                            <td>{{ propiedad.sucursal.nombre }}</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Ficha detallada mejorada -->
+            <div class="card mt-4" id="propertyCard" style="font-family: 'Courier New', monospace;">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between">
+                        <h5 class="mb-0">FICHA: <span id="cardPropiedad"></span></h5>
+                        <h5 class="mb-0">DIRECCIÓN: <span id="cardDireccion"></span></h5>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <div class="descripcion p-3" style="background-color: #f8f9fa; border-radius: 8px;">
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <p><strong>PROPIETARIO:</strong> <span id="cardPropietario"></span></p>
+                                <p><strong>PRECIO TOTAL:</strong> <span id="cardPrecio"></span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>AMBIENTES:</strong> <span id="cardAmbiente"></span> </p>
+                                <p><strong>ESTADO:</strong> <span id="cardEstado"></span></p>
+                            </div>
+                        </div>
+
+                        <!-- Características/Amenities -->
+                        <div class="mt-4">
+                            <h3 class="mb-3">DESCRIPCIÓN:</h3>
+                            <div id="descripcionDetallada" class="text-uppercase" style="word-wrap: break-word; white-space: pre-wrap; max-height: 200px; overflow-y: auto; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; background-color: white;">
+                                <!-- Se llenará con JavaScript -->
+                            </div>
+                            <h5 class="mt-4 mb-3">CARACTERÍSTICAS:</h5>
+                            <div id="caracteristicas" class="text-uppercase d-flex flex-wrap gap-2">
+                                <!-- Se llenará con JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Agregar este botón cerca de los otros botones de acción -->
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-info" onclick="abrirGaleriaFotos()">
+                            <i class="fas fa-images"></i> Ver Fotos
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card-footer" id="cardButtons" style="background-color: #f8f9fa;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
+                                <button type="button" class="btn btn-sm btn-success" onclick="window.mostrarModalAutenticacion('{{ propiedad.id }}')">Operacion</button>
+                            {% else %}
+                                <div>
+                                    <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">Reservar</button>
+                                    <button type="button" class="btn btn-info ml-2" onclick="window.verOperacion()">
+                                        <i class="fas fa-file-contract"></i> Operación
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <span class="badge bg-info text-white p-2">
+                                <i class="fas fa-info-circle"></i> 
+                                Estado: <span id="estadoPropiedad">Disponible</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
             {% else %}
                 <div class="alert alert-warning text-center mt-4">
                     No hay propiedades disponibles para las fechas seleccionadas.
                 </div>
+                {% if alerta_sin_precio %}
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Atención',
+                            text: 'Hay propiedades sin precio asignado',
+                            confirmButtonText: 'Entendido',
+                            confirmButtonColor: '#3085d6',
+                            timer: 5000,
+                            timerProgressBar: true
+                        });
+                    });
+                </script>
+                {% endif %}
             {% endif %}
         </div>
 
@@ -1109,13 +1111,9 @@
 </script>
 
 <script type="text/javascript">
-// Variables globales - solo se declaran si no existen
-if (typeof window.selectedRowIndex === 'undefined') {
-    window.selectedRowIndex = -1;
-}
-if (typeof window.propiedadSeleccionada === 'undefined') {
-    window.propiedadSeleccionada = null;
-}
+// Variables globales
+let selectedRowIndex = -1;
+let propiedadSeleccionada = null;
 
 function confirmarReserva() {
     const ficha = document.getElementById("cardPropiedad").innerText.split(": ")[1];
