@@ -592,24 +592,48 @@
                     <tbody>
                         {% for propiedad in propiedades_disponibles %}
                         {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','{{ propiedad.reserva.id }}','{{ propiedad.ambientes }}','{{ propiedad.descripcion|escapejs }}','{{ propiedad.caracteristicas|escapejs }}')">
+                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad(
+                            '{{total_dias}}',
+                            '{{ propiedad.direccion|escapejs }}',
+                            '{{ propiedad.propietario.nombre|escapejs }}',
+                            '{{ propiedad.disponibilidad }}',
+                            '{{ propiedad.precio_total_reserva|format_price }}',
+                            '{{ propiedad.id }}',
+                            '{{ fecha_inicio }}',
+                            '{{ fecha_fin }}',
+                            '{{ propiedad.estado_reserva }}',
+                            '{{ propiedad.reserva.id }}',
+                            '{{ propiedad.ambientes }}',
+                            '{{ propiedad.descripcion|escapejs }}',
+                            '{{ propiedad.caracteristicas|escapejs }}'
+                        )">
                             <td style="color: red;">{{ propiedad.id }}</td>
-                            <td style="color: red;">
-                                Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
-                            </td>
+                            <td style="color: red;">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td style="color: red;">{{ propiedad.ubicacion }}</td>
                             <td style="color: red;">{{ propiedad.piso }}</td>
-                            <td style="color: red;"> {{propiedad.departamento }}</td>
+                            <td style="color: red;">{{ propiedad.departamento }}</td>
                             <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
                             <td style="color: red;">{{ propiedad.precio_total_reserva }}</td>
                             <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
                         </tr>
                         {% else %}
-                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{total_dias}}','{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}','{{ propiedad.precio_total_reserva |format_price  }}','{{ propiedad.id }}',  '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}','','{{ propiedad.ambientes }}','{{ propiedad.descripcion|escapejs }}','{{ propiedad.caracteristicas|escapejs }}')">
+                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad(
+                            '{{total_dias}}',
+                            '{{ propiedad.direccion|escapejs }}',
+                            '{{ propiedad.propietario.nombre|escapejs }}',
+                            '{{ propiedad.disponibilidad }}',
+                            '{{ propiedad.precio_total_reserva|format_price }}',
+                            '{{ propiedad.id }}',
+                            '{{ fecha_inicio }}',
+                            '{{ fecha_fin }}',
+                            '{{ propiedad.estado_reserva }}',
+                            '',
+                            '{{ propiedad.ambientes }}',
+                            '{{ propiedad.descripcion|escapejs }}',
+                            '{{ propiedad.caracteristicas|escapejs }}'
+                        )">
                             <td>{{ propiedad.id }}</td>
-                            <td>
-                                {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
-                            </td>
+                            <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td>{{ propiedad.ubicacion }}</td>
                             <td>{{ propiedad.piso }}</td>
                             <td>{{ propiedad.departamento }}</td>
@@ -1129,57 +1153,90 @@
 // Variables globales
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
-function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id) {
-        console.log('El estado de la reserva es:', estadoReserva);
-        console.log('El ID de la propiedad es:', id);
-        
-        window.fechaInicioSeleccionada = fechaInicio.trim();
-        window.fechaFinSeleccionada = fechaFin.trim();
-        window.total_dias = total_dias;
+function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
+    console.log('El estado de la reserva es:', estadoReserva);
+    console.log('El ID de la propiedad es:', id);
+    
+    window.fechaInicioSeleccionada = fechaInicio.trim();
+    window.fechaFinSeleccionada = fechaFin.trim();
+    window.total_dias = total_dias;
 
-        const row = event.currentTarget;
-        const rows = document.querySelectorAll('#propiedadesTable tbody tr');
-        rows.forEach(r => r.classList.remove('table-active'));
-        row.classList.add('table-active');
-        
-        // Actualizar la tarjeta de propiedad
-        document.getElementById("cardDireccion").innerText = "Dirección: " + direccion;
-        document.getElementById("cardPropietario").innerText = "Propietario: " + propietario;
-        document.getElementById("cardDisponibilidad").innerText = "Disponibilidad: " + disponibilidad;
-        document.getElementById("cardPrecio").innerText = "Precio: " + formatPrice(precio);
-        document.getElementById("cardPropiedad").innerText = "Ficha: " + id;
+    const row = event.currentTarget;
+    const rows = document.querySelectorAll('#propiedadesTable tbody tr');
+    rows.forEach(r => r.classList.remove('table-active'));
+    row.classList.add('table-active');
+    
+    // Actualizar la tarjeta de propiedad con toda la información
+    document.getElementById("cardPropiedad").innerText = "FICHA: " + id;
+    document.getElementById("cardDireccion").innerText = "DIRECCIÓN: " + direccion;
+    document.getElementById("cardPropietario").innerText = "PROPIETARIO: " + propietario;
+    document.getElementById("cardPrecio").innerText = "PRECIO: " + formatPrice(precio);
+    document.getElementById("cardAmbiente").innerText = "AMBIENTES: " + ambientes;
+    document.getElementById("cardEstado").innerText = "ESTADO: " + (estadoReserva === 'confirmada_no_pagada' ? 'RESERVADA' : 'DISPONIBLE');
 
-        const propertyCard = document.getElementById("propertyCard");
-        const cardButtons = document.getElementById("cardButtons");
+    // Actualizar descripción
+    const descripcionElement = document.getElementById("descripcionDetallada");
+    if (descripcionElement) {
+        descripcionElement.innerText = descripcion || 'No hay descripción disponible';
+    }
 
-        // Limpiar botones existentes
-        cardButtons.innerHTML = '';
-
-        // Remover clases previas
-        propertyCard.classList.remove('card-confirmada');
-
-        // Verificar el estado de la reserva y mostrar los botones correspondientes
-        if (estadoReserva === 'confirmada_no_pagada') {
-            propertyCard.classList.add('card-confirmada');
-            cardButtons.innerHTML = `
-                <button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion('${reserva_id}')">Operacion</button>
-                <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-                <button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>
-            `;
+    // Actualizar características
+    const caracteristicasElement = document.getElementById("caracteristicas");
+    if (caracteristicasElement) {
+        if (caracteristicas) {
+            const caracteristicasArray = caracteristicas.split(',');
+            caracteristicasElement.innerHTML = caracteristicasArray
+                .map(c => `<span class="badge bg-primary m-1">${c.trim()}</span>`)
+                .join('');
         } else {
-            cardButtons.innerHTML = `
-                <button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>
-                <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-                <button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>
-            `;
+            caracteristicasElement.innerHTML = '<span class="badge bg-secondary">Sin características registradas</span>';
         }
+    }
+
+    const propertyCard = document.getElementById("propertyCard");
+    const cardButtons = document.getElementById("cardButtons");
+
+    // Limpiar botones existentes
+    cardButtons.innerHTML = '';
+
+    // Remover clases previas
+    propertyCard.classList.remove('card-confirmada');
+
+    // Verificar el estado de la reserva y mostrar los botones correspondientes
+    if (estadoReserva === 'confirmada_no_pagada') {
+        propertyCard.classList.add('card-confirmada');
+        cardButtons.innerHTML = `
+            <button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion('${reserva_id}')">Operacion</button>
+            <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
+            <button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>
+        `;
+    } else {
+        cardButtons.innerHTML = `
+            <button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>
+            <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
+            <button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>
+        `;
+    }
+
+    // Guardar la propiedad seleccionada en el objeto window
+    window.propiedadSeleccionada = {
+        id,
+        direccion,
+        propietario,
+        disponibilidad,
+        precio,
+        fechaInicio,
+        fechaFin,
+        totalDias: total_dias,
+        estadoReserva,
+        reservaId: reserva_id,
+        ambientes,
+        descripcion,
+        caracteristicas
+    };
 
     // Forzar un repintado del DOM
     void propertyCard.offsetWidth;
-
-    // Guarda las fechas para usarlas más tarde
-    window.fechaInicioSeleccionada = fechaInicio;
-    window.fechaFinSeleccionada = fechaFin;
 }
 
 function confirmarReserva() {
