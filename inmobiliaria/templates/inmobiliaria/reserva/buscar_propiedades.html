@@ -438,6 +438,8 @@
 
     .carousel-item img {
         transition: transform 0.3s ease;
+        max-height: 70vh;
+        object-fit: contain;
     }
 
     .active-thumbnail {
@@ -448,6 +450,10 @@
     .thumbnail-nav {
         opacity: 0.7;
         transition: all 0.3s ease;
+        cursor: pointer;
+        height: 80px;
+        width: 100%;
+        object-fit: cover;
     }
 
     .thumbnail-nav:hover {
@@ -471,6 +477,18 @@
         top: 50%;
         transform: translateY(-50%);
     }
+
+    /* Estilos para la tabla de precios */
+    .table-precios th {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .table-precios td {
+        vertical-align: middle;
+    }
+
+    /* ... existing code ... */
     </style>
 </head>
 
@@ -968,122 +986,167 @@
             });
     }
 
-    function abrirGaleriaFotos() {
-        console.log("=== ABRIENDO GALERÍA DE FOTOS ===");
+    function mostrarPrecios(id) {
+        console.log('Mostrando precios para propiedad:', id);
         
-        if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
+        if (!window.propiedadSeleccionada) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Atención',
-                text: 'Primero debes seleccionar una propiedad'
+                text: 'Por favor selecciona una propiedad primero.'
             });
             return;
         }
+
+        const modal = $('#modalPrecios');
+        modal.modal('show');
         
-        console.log("Propiedad seleccionada:", propiedadSeleccionada);
+        $('#preciosModalBody').html(`
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="sr-only">Cargando...</span>
+                </div>
+            </div>
+        `);
         
-        // Verificar que todos los elementos necesarios existen
-        const carouselInner = document.getElementById('carouselInner');
-        const thumbnailsContainer = document.getElementById('thumbnailsContainer');
-        const contadorFotos = document.getElementById('contadorFotos');
-        const tituloModal = document.getElementById('tituloModal');
-        
-        if (!carouselInner || !thumbnailsContainer || !contadorFotos || !tituloModal) {
-            console.error("Elementos del DOM faltantes:", {
-                carouselInner: !!carouselInner,
-                thumbnailsContainer: !!thumbnailsContainer,
-                contadorFotos: !!contadorFotos,
-                tituloModal: !!tituloModal
-            });
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Error al cargar la galería de fotos'
-            });
-            return;
-        }
-        
-        // Actualizar título del modal
-        tituloModal.textContent = propiedadSeleccionada.direccion;
-        
-        // Construir URL usando la URL base definida
-        const url = `${URLS.obtenerFotos}${propiedadSeleccionada.id}/`;
-        console.log("URL para obtener fotos:", url);
-        
-        // Limpiar contenedores antes de la petición
-        carouselInner.innerHTML = '';
-        thumbnailsContainer.innerHTML = '';
-        contadorFotos.textContent = '';
-        
-        fetch(url)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Error HTTP: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log("Datos de fotos recibidos:", data);
+        $.ajax({
+            url: "{% url 'inmobiliaria:obtener_precios_propiedad' %}",
+            data: { 'propiedad_id': id },
+            method: 'GET',
+            success: function(response) {
+                console.log('Respuesta:', response);
                 
-                if (data.success && data.fotos && data.fotos.length > 0) {
-                    // Cargar fotos en el carousel
-                    data.fotos.forEach((foto, index) => {
-                        // Slide principal
-                        const slide = document.createElement('div');
-                        slide.className = `carousel-item ${index === 0 ? 'active' : ''}`;
-                        slide.innerHTML = `
-                            <div class="d-flex justify-content-center align-items-center" style="height: 70vh;">
-                                <img src="${foto.url}" 
-                                     class="img-fluid" 
-                                     style="max-height: 100%; max-width: 100%; object-fit: contain;" 
-                                     alt="Foto ${index + 1}">
-                            </div>
+                if (response.precios && response.precios.length > 0) {
+                    let tableContent = `
+                        <table class="table table-striped">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>Quincena</th>
+                                    <th>Precio por Día</th>
+                                    <th>Precio Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    response.precios.forEach(function(precio) {
+                        tableContent += `
+                            <tr>
+                                <td>${precio.tipo_precio}</td>
+                                <td>$${formatPrice(precio.precio_por_dia)}</td>
+                                <td>$${formatPrice(precio.precio_total)}</td>
+                            </tr>
                         `;
-                        carouselInner.appendChild(slide);
-                        
-                        // Thumbnail
-                        const thumbnailCol = document.createElement('div');
-                        thumbnailCol.className = 'col-2 mb-2';
-                        thumbnailCol.innerHTML = `
-                            <img src="${foto.url}" 
-                                 class="img-thumbnail thumbnail-nav ${index === 0 ? 'active-thumbnail' : ''}" 
-                                 style="cursor: pointer; height: 80px; width: 100%; object-fit: cover;"
-                                 onclick="irAFoto(${index})"
-                                 data-index="${index}"
-                                 alt="Thumbnail ${index + 1}">
-                        `;
-                        thumbnailsContainer.appendChild(thumbnailCol);
                     });
                     
-                    // Actualizar contador
-                    contadorFotos.textContent = `1 / ${data.fotos.length}`;
+                    tableContent += `
+                            </tbody>
+                        </table>
+                    `;
                     
+                    $('#preciosModalBody').html(tableContent);
+                } else {
+                    $('#preciosModalBody').html(`
+                        <div class="alert alert-warning">
+                            No hay precios registrados para esta propiedad.
+                        </div>
+                    `);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error:', error);
+                $('#preciosModalBody').html(`
+                    <div class="alert alert-danger">
+                        Error al cargar los precios: ${error}
+                    </div>
+                `);
+            }
+        });
+    }
+
+    function abrirGaleriaFotos() {
+        if (!window.propiedadSeleccionada) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Atención',
+                text: 'Por favor selecciona una propiedad primero.'
+            });
+            return;
+        }
+
+        const propiedadId = window.propiedadSeleccionada.id;
+        
+        $.ajax({
+            url: "{% url 'inmobiliaria:obtener_fotos_propiedad' %}",
+            data: { 'propiedad_id': propiedadId },
+            method: 'GET',
+            success: function(response) {
+                if (response.fotos && response.fotos.length > 0) {
+                    // Limpiar el contenedor del carrusel
+                    const carouselInner = document.getElementById('carouselInner');
+                    carouselInner.innerHTML = '';
+                    
+                    // Limpiar el contenedor de miniaturas
+                    const thumbnailsContainer = document.getElementById('thumbnailsContainer');
+                    thumbnailsContainer.innerHTML = '';
+
+                    // Agregar las fotos al carrusel y las miniaturas
+                    response.fotos.forEach((foto, index) => {
+                        // Agregar al carrusel
+                        carouselInner.innerHTML += `
+                            <div class="carousel-item ${index === 0 ? 'active' : ''}">
+                                <img src="${foto.url}" class="d-block w-100" alt="Foto ${index + 1}" style="height: 400px; object-fit: contain;">
+                            </div>
+                        `;
+
+                        // Agregar miniatura
+                        thumbnailsContainer.innerHTML += `
+                            <div class="col-2">
+                                <img src="${foto.url}" 
+                                    class="img-thumbnail thumbnail-nav ${index === 0 ? 'active-thumbnail' : ''}" 
+                                    onclick="$('#carouselFotos').carousel(${index})"
+                                    alt="Miniatura ${index + 1}"
+                                    style="width: 100%; height: 80px; object-fit: cover; cursor: pointer;">
+                            </div>
+                        `;
+                    });
+
+                    // Actualizar el contador de fotos
+                    document.getElementById('contadorFotos').textContent = `1 / ${response.fotos.length}`;
+
                     // Mostrar el modal
                     $('#modalGaleriaFotos').modal('show');
                     
-                    // Reiniciar el carousel
-                    $('#carouselFotos').carousel(0);
+                    // Actualizar el título del modal
+                    document.getElementById('tituloModal').textContent = `Propiedad ${window.propiedadSeleccionada.id}`;
                 } else {
                     Swal.fire({
                         icon: 'info',
                         title: 'Sin fotos',
-                        text: 'Esta propiedad no tiene fotos disponibles'
+                        text: 'Esta propiedad no tiene fotos registradas.'
                     });
                 }
-            })
-            .catch(error => {
-                console.error("Error al cargar las fotos:", error);
+            },
+            error: function(xhr, status, error) {
+                console.error('Error:', error);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'No se pudieron cargar las fotos. ' + error.message
+                    text: 'Error al cargar las fotos de la propiedad.'
                 });
-            });
+            }
+        });
     }
 
-    // Función para navegar a una foto específica
-    function irAFoto(index) {
-        $('#carouselFotos').carousel(index);
+    // Función auxiliar para formatear precios
+    function formatPrice(value) {
+        if (typeof value === 'string') {
+            value = parseFloat(value.replace(/[^\d.-]/g, ''));
+        }
+        return value.toLocaleString('es-AR', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        });
     }
 
     // Event listener para actualizar thumbnails y contador
@@ -1092,61 +1155,13 @@
         const totalFotos = document.querySelectorAll('.carousel-item').length;
         
         // Actualizar contador
-        const contadorFotos = document.getElementById('contadorFotos');
-        if (contadorFotos) {
-            contadorFotos.textContent = `${newIndex + 1} / ${totalFotos}`;
-        }
+        document.getElementById('contadorFotos').textContent = `${newIndex + 1} / ${totalFotos}`;
         
         // Actualizar thumbnail activo
         document.querySelectorAll('.thumbnail-nav').forEach((thumb, idx) => {
             thumb.classList.toggle('active-thumbnail', idx === newIndex);
         });
     });
-
-    // Estilos adicionales para la galería
-    const galeriaStyles = document.createElement('style');
-    galeriaStyles.textContent = `
-        .modal-xl {
-            max-width: 90% !important;
-        }
-        
-        .carousel-item img {
-            transition: transform 0.3s ease;
-        }
-        
-        .active-thumbnail {
-            border: 3px solid #007bff !important;
-            opacity: 1 !important;
-        }
-        
-        .thumbnail-nav {
-            opacity: 0.7;
-            transition: all 0.3s ease;
-        }
-        
-        .thumbnail-nav:hover {
-            opacity: 1;
-            transform: scale(1.05);
-        }
-        
-        #thumbnailsContainer {
-            padding: 15px;
-            background: rgba(0,0,0,0.03);
-            border-radius: 10px;
-            margin-top: 15px;
-        }
-        
-        .carousel-control-prev,
-        .carousel-control-next {
-            background-color: rgba(0,0,0,0.3);
-            width: 5%;
-            border-radius: 50px;
-            height: 50px;
-            top: 50%;
-            transform: translateY(-50%);
-        }
-    `;
-    document.head.appendChild(galeriaStyles);
 </script>
 
 <script type="text/javascript">
