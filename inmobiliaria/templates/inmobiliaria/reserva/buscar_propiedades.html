@@ -1075,13 +1075,13 @@
         }
 
         const propiedadId = window.propiedadSeleccionada.id;
+        const url = `/inmobiliaria/obtener-fotos-propiedad/${propiedadId}/`;
         
         $.ajax({
-            url: "{% url 'inmobiliaria:obtener_fotos_propiedad' %}",
-            data: { 'propiedad_id': propiedadId },
+            url: url,
             method: 'GET',
             success: function(response) {
-                if (response.fotos && response.fotos.length > 0) {
+                if (response.success && response.fotos && response.fotos.length > 0) {
                     // Limpiar el contenedor del carrusel
                     const carouselInner = document.getElementById('carouselInner');
                     carouselInner.innerHTML = '';
