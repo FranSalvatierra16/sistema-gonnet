@@ -1065,7 +1065,11 @@
     }
 
     function abrirGaleriaFotos() {
-        if (!window.propiedadSeleccionada) {
+        console.log('Intentando abrir galería de fotos...');
+        console.log('Propiedad seleccionada:', window.propiedadSeleccionada);
+        
+        if (!window.propiedadSeleccionada || !window.propiedadSeleccionada.id) {
+            console.error('No hay propiedad seleccionada o el ID es inválido');
             Swal.fire({
                 icon: 'warning',
                 title: 'Atención',
@@ -1075,12 +1079,17 @@
         }
 
         const propiedadId = window.propiedadSeleccionada.id;
+        console.log('ID de la propiedad:', propiedadId);
+        
         const url = `/inmobiliaria/obtener-fotos-propiedad/${propiedadId}/`;
+        console.log('URL de la petición:', url);
         
         $.ajax({
             url: url,
             method: 'GET',
             success: function(response) {
+                console.log('Respuesta del servidor:', response);
+                
                 if (response.success && response.fotos && response.fotos.length > 0) {
                     // Limpiar el contenedor del carrusel
                     const carouselInner = document.getElementById('carouselInner');
@@ -1120,6 +1129,7 @@
                     // Actualizar el título del modal
                     document.getElementById('tituloModal').textContent = `Propiedad ${window.propiedadSeleccionada.id}`;
                 } else {
+                    console.log('No hay fotos disponibles');
                     Swal.fire({
                         icon: 'info',
                         title: 'Sin fotos',
@@ -1128,7 +1138,9 @@
                 }
             },
             error: function(xhr, status, error) {
-                console.error('Error:', error);
+                console.error('Error en la petición:', error);
+                console.error('Estado:', status);
+                console.error('Respuesta:', xhr.responseText);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
