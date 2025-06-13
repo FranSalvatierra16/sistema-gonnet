@@ -1066,6 +1066,7 @@
 
     function abrirGaleriaFotos() {
         console.log("=== ABRIENDO GALERÍA DE FOTOS ===");
+        console.log("Propiedad seleccionada:", propiedadSeleccionada); // Para debug
         
         if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
             Swal.fire({
@@ -1263,6 +1264,22 @@
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
+    // Guardar todos los datos de la propiedad seleccionada
+    propiedadSeleccionada = {
+        id: id,
+        direccion: direccion,
+        propietario: propietario,
+        disponibilidad: disponibilidad,
+        precio: precio,
+        fechaInicio: fechaInicio,
+        fechaFin: fechaFin,
+        totalDias: total_dias,
+        estadoReserva: estadoReserva,
+        reservaId: reserva_id || '',
+        ambientes: ambientes || 'No especificado',
+        descripcion: descripcion || 'No disponible',
+        caracteristicas: caracteristicas || 'No disponible'
+    };
     console.log('Seleccionando propiedad:', id);
     
     // Guardar la propiedad seleccionada en el objeto window
@@ -1642,142 +1659,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-
-<!-- Modal para galería de fotos -->
-<div class="modal fade" id="modalGaleriaFotos" tabindex="-1" aria-labelledby="modalGaleriaFotosLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalGaleriaFotosLabel">
-                    <i class="fas fa-images"></i> Galería de Fotos - <span id="tituloModal"></span>
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body p-0">
-                <!-- Carrusel principal -->
-                <div id="carouselFotos" class="carousel slide" data-bs-ride="carousel">
-                    <div class="carousel-inner" id="carouselInner">
-                        <!-- Las fotos se cargarán dinámicamente aquí -->
-                    </div>
-                    
-                    <!-- Controles del carrusel -->
-                    <button class="carousel-control-prev" type="button" data-bs-target="#carouselFotos" data-bs-slide="prev">
-                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                        <span class="visually-hidden">Anterior</span>
-                    </button>
-                    <button class="carousel-control-next" type="button" data-bs-target="#carouselFotos" data-bs-slide="next">
-                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                        <span class="visually-hidden">Siguiente</span>
-                    </button>
-                </div>
-
-                <!-- Contador de fotos -->
-                <div class="text-center my-3">
-                    <span id="contadorFotos" class="badge bg-dark"></span>
-                </div>
-
-                <!-- Contenedor de miniaturas -->
-                <div class="container-fluid px-4">
-                    <div class="row" id="thumbnailsContainer">
-                        <!-- Las miniaturas se cargarán dinámicamente aquí -->
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-// Verificación de elementos del DOM al cargar la página
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('=== VERIFICANDO ELEMENTOS DEL DOM ===');
-    const elementos = {
-        modal: document.getElementById('modalGaleriaFotos'),
-        carouselInner: document.getElementById('carouselInner'),
-        thumbnailsContainer: document.getElementById('thumbnailsContainer'),
-        contadorFotos: document.getElementById('contadorFotos'),
-        tituloModal: document.getElementById('tituloModal')
-    };
-
-    Object.entries(elementos).forEach(([nombre, elemento]) => {
-        console.log(`${nombre}: ${elemento ? 'Encontrado' : 'NO ENCONTRADO'}`);
-    });
-});
-
-
-
-   
-    // Event listener para actualizar thumbnails y contador
-    $('#carouselFotos').on('slide.bs.carousel', function (e) {
-        const newIndex = e.to;
-        const totalFotos = document.querySelectorAll('.carousel-item').length;
-        
-        // Actualizar contador
-        const contadorFotos = document.getElementById('contadorFotos');
-        if (contadorFotos) {
-            contadorFotos.textContent = `${newIndex + 1} / ${totalFotos}`;
-        }
-        
-        // Actualizar thumbnail activo
-        document.querySelectorAll('.thumbnail-nav').forEach((thumb, idx) => {
-            thumb.classList.toggle('active-thumbnail', idx === newIndex);
-        });
-    });
-
-    // Estilos adicionales para la galería
-    const galeriaStyles = document.createElement('style');
-    galeriaStyles.textContent = `
-        .modal-xl {
-            max-width: 90% !important;
-        }
-        
-        .carousel-item img {
-            transition: transform 0.3s ease;
-        }
-        
-        .active-thumbnail {
-            border: 3px solid #007bff !important;
-            opacity: 1 !important;
-        }
-        
-        .thumbnail-nav {
-            opacity: 0.7;
-            transition: all 0.3s ease;
-        }
-        
-        .thumbnail-nav:hover {
-            opacity: 1;
-            transform: scale(1.05);
-        }
-        
-        #thumbnailsContainer {
-            padding: 15px;
-            background: rgba(0,0,0,0.03);
-            border-radius: 10px;
-            margin-top: 15px;
-        }
-        
-        .carousel-control-prev,
-        .carousel-control-next {
-            background-color: rgba(0,0,0,0.3);
-            width: 5%;
-            border-radius: 50px;
-            height: 50px;
-            top: 50%;
-            transform: translateY(-50%);
-        }
-    `;
-    document.head.appendChild(galeriaStyles);
-</script>
-
-{% block extra_js %}
-<!-- Scripts necesarios -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <!-- Modal para galería de fotos -->
 <div class="modal fade" id="modalGaleriaFotos" tabindex="-1" aria-labelledby="modalGaleriaFotosLabel" aria-hidden="true">
