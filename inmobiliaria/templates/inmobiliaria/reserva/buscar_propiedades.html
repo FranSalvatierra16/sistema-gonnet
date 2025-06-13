@@ -1169,12 +1169,26 @@
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
-    console.log('El estado de la reserva es:', estadoReserva);
-    console.log('El ID de la propiedad es:', id);
+    console.log('Seleccionando propiedad:', id);
     
-    window.fechaInicioSeleccionada = fechaInicio.trim();
-    window.fechaFinSeleccionada = fechaFin.trim();
-    window.total_dias = total_dias;
+    // Guardar la propiedad seleccionada en el objeto window
+    window.propiedadSeleccionada = {
+        id: id,
+        direccion: direccion,
+        propietario: propietario,
+        disponibilidad: disponibilidad,
+        precio: precio,
+        fechaInicio: fechaInicio,
+        fechaFin: fechaFin,
+        totalDias: total_dias,
+        estadoReserva: estadoReserva,
+        reservaId: reserva_id,
+        ambientes: ambientes,
+        descripcion: descripcion,
+        caracteristicas: caracteristicas
+    };
+
+    console.log('Propiedad seleccionada:', window.propiedadSeleccionada);
 
     const row = event.currentTarget;
     const rows = document.querySelectorAll('#propiedadesTable tbody tr');
@@ -1224,31 +1238,20 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
             <button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion('${reserva_id}')">Operacion</button>
             <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
             <button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>
+            <button type="button" class="btn btn-info" onclick="abrirGaleriaFotos()">
+                <i class="fas fa-images"></i> Ver Fotos
+            </button>
         `;
     } else {
         cardButtons.innerHTML = `
             <button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>
             <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
             <button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>
+            <button type="button" class="btn btn-info" onclick="abrirGaleriaFotos()">
+                <i class="fas fa-images"></i> Ver Fotos
+            </button>
         `;
     }
-
-    // Guardar la propiedad seleccionada en el objeto window
-    window.propiedadSeleccionada = {
-        id,
-        direccion,
-        propietario,
-        disponibilidad,
-        precio,
-        fechaInicio,
-        fechaFin,
-        totalDias: total_dias,
-        estadoReserva,
-        reservaId: reserva_id,
-        ambientes,
-        descripcion,
-        caracteristicas
-    };
 
     // Forzar un repintado del DOM
     void propertyCard.offsetWidth;
