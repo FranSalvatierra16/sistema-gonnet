@@ -1629,163 +1629,187 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Función para abrir la galería
-window.abrirGaleriaFotos = function() {
-    console.log("=== ABRIENDO GALERÍA DE FOTOS ===");
-    
-    if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Atención',
-            text: 'Primero debes seleccionar una propiedad'
-        });
-        return;
-    }
-    
-    console.log("Propiedad seleccionada:", propiedadSeleccionada);
-    
-    // Obtener referencias a los elementos del DOM
-    const modal = document.getElementById('modalGaleriaFotos');
-    const carouselInner = document.getElementById('carouselInner');
-    const thumbnailsContainer = document.getElementById('thumbnailsContainer');
-    const contadorFotos = document.getElementById('contadorFotos');
-    const tituloModal = document.getElementById('tituloModal');
-    
-    // Verificar que todos los elementos existen
-    if (!modal || !carouselInner || !thumbnailsContainer || !contadorFotos || !tituloModal) {
-        console.error('Elementos del DOM faltantes:', {
-            modal: !!modal,
-            carouselInner: !!carouselInner,
-            thumbnailsContainer: !!thumbnailsContainer,
-            contadorFotos: !!contadorFotos,
-            tituloModal: !!tituloModal
-        });
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Error al inicializar la galería de fotos'
-        });
-        return;
-    }
-    
-    // Actualizar título
-    tituloModal.textContent = propiedadSeleccionada.direccion;
-    
-    // Limpiar contenedores
-    carouselInner.innerHTML = '';
-    thumbnailsContainer.innerHTML = '';
-    
-    // Mostrar indicador de carga
-    carouselInner.innerHTML = `
-        <div class="carousel-item active">
-            <div class="d-flex justify-content-center align-items-center" style="height: 60vh;">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Cargando...</span>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Construir URL
-    const url = `${URLS.obtenerFotos}${propiedadSeleccionada.id}/`;
-    console.log("URL para obtener fotos:", url);
-    
-    // Obtener las fotos
-    fetch(url)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log("Datos recibidos:", data);
-            
-            if (data.success && data.fotos && data.fotos.length > 0) {
-                // Limpiar el indicador de carga
-                carouselInner.innerHTML = '';
-                
-                // Cargar fotos en el carousel
-                data.fotos.forEach((foto, index) => {
-                    // Slide principal
-                    const slide = document.createElement('div');
-                    slide.className = `carousel-item ${index === 0 ? 'active' : ''}`;
-                    slide.innerHTML = `
-                        <div class="d-flex justify-content-center align-items-center" style="height: 60vh;">
-                            <img src="${foto.url}" 
-                                 class="img-fluid" 
-                                 style="max-height: 100%; max-width: 100%; object-fit: contain;" 
-                                 alt="Foto ${index + 1}"
-                                 onerror="this.onerror=null; this.src='https://dummyimage.com/800x600/cccccc/ffffff.png&text=Imagen+no+disponible';">
-                        </div>
-                    `;
-                    carouselInner.appendChild(slide);
-                    
-                    // Miniatura
-                    const thumbnailCol = document.createElement('div');
-                    thumbnailCol.className = 'col-2 col-md-2 mb-2';
-                    thumbnailCol.innerHTML = `
-                        <img src="${foto.url}" 
-                             class="img-thumbnail thumbnail-nav ${index === 0 ? 'active-thumbnail' : ''}" 
-                             style="cursor: pointer; height: 80px; width: 100%; object-fit: cover;"
-                             onclick="irAFoto(${index})"
-                             data-index="${index}"
-                             alt="Miniatura ${index + 1}"
-                             onerror="this.onerror=null; this.src='https://dummyimage.com/150x150/cccccc/ffffff.png&text=No+disponible';">
-                    `;
-                    thumbnailsContainer.appendChild(thumbnailCol);
-                });
-                
-                // Actualizar contador
-                contadorFotos.textContent = `1 / ${data.fotos.length}`;
-                
-                // Mostrar modal usando Bootstrap 5
-                const modalInstance = new bootstrap.Modal(modal);
-                modalInstance.show();
-                
-                // Reiniciar carousel
-                const carousel = new bootstrap.Carousel(document.getElementById('carouselFotos'));
-                carousel.to(0);
-            } else {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Sin fotos',
-                    text: 'Esta propiedad no tiene fotos disponibles'
-                });
-            }
-        })
-        .catch(error => {
-            console.error("Error al cargar las fotos:", error);
+
+// Función para navegar a una foto específica
+function abrirGaleriaFotos() {
+        console.log("=== ABRIENDO GALERÍA DE FOTOS ===");
+        
+        if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Atención',
+                text: 'Primero debes seleccionar una propiedad'
+            });
+            return;
+        }
+        
+        console.log("Propiedad seleccionada:", propiedadSeleccionada);
+        
+        // Verificar que todos los elementos necesarios existen
+        const carouselInner = document.getElementById('carouselInner');
+        const thumbnailsContainer = document.getElementById('thumbnailsContainer');
+        const contadorFotos = document.getElementById('contadorFotos');
+        const tituloModal = document.getElementById('tituloModal');
+        
+        if (!carouselInner || !thumbnailsContainer || !contadorFotos || !tituloModal) {
+            console.error("Elementos del DOM faltantes:", {
+                carouselInner: !!carouselInner,
+                thumbnailsContainer: !!thumbnailsContainer,
+                contadorFotos: !!contadorFotos,
+                tituloModal: !!tituloModal
+            });
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'No se pudieron cargar las fotos: ' + error.message
+                text: 'Error al cargar la galería de fotos'
             });
-        });
-};
-
-// Función para navegar a una foto específica
-window.irAFoto = function(index) {
-    const carousel = new bootstrap.Carousel(document.getElementById('carouselFotos'));
-    carousel.to(index);
-};
-
-// Event listener para actualizar miniaturas y contador
-document.getElementById('carouselFotos')?.addEventListener('slide.bs.carousel', function (e) {
-    const newIndex = e.to;
-    const totalFotos = document.querySelectorAll('.carousel-item').length;
-    
-    // Actualizar contador
-    const contadorFotos = document.getElementById('contadorFotos');
-    if (contadorFotos) {
-        contadorFotos.textContent = `${newIndex + 1} / ${totalFotos}`;
+            return;
+        }
+        
+        // Actualizar título del modal
+        tituloModal.textContent = propiedadSeleccionada.direccion;
+        
+        // Construir URL usando la URL base definida
+        const url = `${URLS.obtenerFotos}${propiedadSeleccionada.id}/`;
+        console.log("URL para obtener fotos:", url);
+        
+        // Limpiar contenedores antes de la petición
+        carouselInner.innerHTML = '';
+        thumbnailsContainer.innerHTML = '';
+        contadorFotos.textContent = '';
+        
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Datos de fotos recibidos:", data);
+                
+                if (data.success && data.fotos && data.fotos.length > 0) {
+                    // Cargar fotos en el carousel
+                    data.fotos.forEach((foto, index) => {
+                        // Slide principal
+                        const slide = document.createElement('div');
+                        slide.className = `carousel-item ${index === 0 ? 'active' : ''}`;
+                        slide.innerHTML = `
+                            <div class="d-flex justify-content-center align-items-center" style="height: 70vh;">
+                                <img src="${foto.url}" 
+                                     class="img-fluid" 
+                                     style="max-height: 100%; max-width: 100%; object-fit: contain;" 
+                                     alt="Foto ${index + 1}">
+                            </div>
+                        `;
+                        carouselInner.appendChild(slide);
+                        
+                        // Thumbnail
+                        const thumbnailCol = document.createElement('div');
+                        thumbnailCol.className = 'col-2 mb-2';
+                        thumbnailCol.innerHTML = `
+                            <img src="${foto.url}" 
+                                 class="img-thumbnail thumbnail-nav ${index === 0 ? 'active-thumbnail' : ''}" 
+                                 style="cursor: pointer; height: 80px; width: 100%; object-fit: cover;"
+                                 onclick="irAFoto(${index})"
+                                 data-index="${index}"
+                                 alt="Thumbnail ${index + 1}">
+                        `;
+                        thumbnailsContainer.appendChild(thumbnailCol);
+                    });
+                    
+                    // Actualizar contador
+                    contadorFotos.textContent = `1 / ${data.fotos.length}`;
+                    
+                    // Mostrar el modal
+                    $('#modalGaleriaFotos').modal('show');
+                    
+                    // Reiniciar el carousel
+                    $('#carouselFotos').carousel(0);
+                } else {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Sin fotos',
+                        text: 'Esta propiedad no tiene fotos disponibles'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error("Error al cargar las fotos:", error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'No se pudieron cargar las fotos. ' + error.message
+                });
+            });
     }
-    
-    // Actualizar miniatura activa
-    document.querySelectorAll('.thumbnail-nav').forEach((thumb, idx) => {
-        thumb.classList.toggle('active-thumbnail', idx === newIndex);
+
+    // Función para navegar a una foto específica
+    function irAFoto(index) {
+        $('#carouselFotos').carousel(index);
+    }
+
+    // Event listener para actualizar thumbnails y contador
+    $('#carouselFotos').on('slide.bs.carousel', function (e) {
+        const newIndex = e.to;
+        const totalFotos = document.querySelectorAll('.carousel-item').length;
+        
+        // Actualizar contador
+        const contadorFotos = document.getElementById('contadorFotos');
+        if (contadorFotos) {
+            contadorFotos.textContent = `${newIndex + 1} / ${totalFotos}`;
+        }
+        
+        // Actualizar thumbnail activo
+        document.querySelectorAll('.thumbnail-nav').forEach((thumb, idx) => {
+            thumb.classList.toggle('active-thumbnail', idx === newIndex);
+        });
     });
-});
+
+    // Estilos adicionales para la galería
+    const galeriaStyles = document.createElement('style');
+    galeriaStyles.textContent = `
+        .modal-xl {
+            max-width: 90% !important;
+        }
+        
+        .carousel-item img {
+            transition: transform 0.3s ease;
+        }
+        
+        .active-thumbnail {
+            border: 3px solid #007bff !important;
+            opacity: 1 !important;
+        }
+        
+        .thumbnail-nav {
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+        
+        .thumbnail-nav:hover {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+        
+        #thumbnailsContainer {
+            padding: 15px;
+            background: rgba(0,0,0,0.03);
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+        
+        .carousel-control-prev,
+        .carousel-control-next {
+            background-color: rgba(0,0,0,0.3);
+            width: 5%;
+            border-radius: 50px;
+            height: 50px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+    `;
+    document.head.appendChild(galeriaStyles);
 </script>
 
 {% block extra_js %}
