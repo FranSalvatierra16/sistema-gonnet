@@ -1066,7 +1066,7 @@
 
     function abrirGaleriaFotos() {
         console.log("=== ABRIENDO GALERÍA DE FOTOS ===");
-        console.log("Propiedad seleccionada:", propiedadSeleccionada); // Para debug
+        console.log("Propiedad seleccionada:", propiedadSeleccionada);
         
         if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
             Swal.fire({
@@ -1076,8 +1076,6 @@
             });
             return;
         }
-        
-        console.log("Propiedad seleccionada:", propiedadSeleccionada);
         
         // Verificar que todos los elementos necesarios existen
         const carouselInner = document.getElementById('carouselInner');
@@ -1108,6 +1106,21 @@
         thumbnailsContainer.innerHTML = '';
         contadorFotos.textContent = '';
         
+        // Construir la URL correctamente
+        const url = `${URLS.obtenerFotos}${propiedadSeleccionada.id}/`;
+        console.log("URL para obtener fotos:", url);
+
+        // Mostrar indicador de carga
+        carouselInner.innerHTML = `
+            <div class="carousel-item active">
+                <div class="d-flex justify-content-center align-items-center" style="height: 60vh;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
         fetch(url)
             .then(response => {
                 if (!response.ok) {
@@ -1119,7 +1132,8 @@
                 console.log("Datos de fotos recibidos:", data);
                 
                 if (data.success && data.fotos && data.fotos.length > 0) {
-                    // Cargar fotos en el carousel
+                    carouselInner.innerHTML = ''; // Limpiar el spinner
+                    
                     data.fotos.forEach((foto, index) => {
                         // Slide principal
                         const slide = document.createElement('div');
@@ -1152,10 +1166,8 @@
                     contadorFotos.textContent = `1 / ${data.fotos.length}`;
                     
                     // Mostrar el modal
-                    $('#modalGaleriaFotos').modal('show');
-                    
-                    // Reiniciar el carousel
-                    $('#carouselFotos').carousel(0);
+                    const modalGaleriaFotos = new bootstrap.Modal(document.getElementById('modalGaleriaFotos'));
+                    modalGaleriaFotos.show();
                 } else {
                     Swal.fire({
                         icon: 'info',
@@ -1169,7 +1181,7 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'No se pudieron cargar las fotos. ' + error.message
+                    text: 'No se pudieron cargar las fotos: ' + error.message
                 });
             });
     }
