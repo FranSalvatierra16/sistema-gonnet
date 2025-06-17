@@ -949,6 +949,31 @@
     </div>
 </div>
 
+<!-- Modal para mostrar precios -->
+<div class="modal fade" id="modalPrecios" tabindex="-1" aria-labelledby="modalPreciosLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalPreciosLabel">
+                    <i class="fas fa-dollar-sign"></i> Precios - <span id="tituloPreciosModal"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="preciosModalBody">
+                <!-- Los precios se cargarán dinámicamente aquí -->
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     // Añade esto al principio de tus scripts
     const URLS = {
@@ -957,7 +982,13 @@
     };
 
     function formatPrice(value) {
-        return value.toLocaleString('es-ES', { minimumFractionDigits: 0 });
+        if (typeof value === 'string') {
+            value = parseFloat(value.replace(/[^\d.-]/g, ''));
+        }
+        return value.toLocaleString('es-AR', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        });
     }
 
     function actualizarTablaPrecios(propiedadId, fechaInicio, fechaFin) {
@@ -1403,14 +1434,18 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         cardButtons.innerHTML = `
             <button type="button" class="btn btn-sm btn-success" onclick="mostrarModalAutenticacion('${reserva_id}')">Operacion</button>
             <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-            <button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>
+            <button type="button" class="btn btn-warning" onclick="verPrecios()">
+                <i class="fas fa-dollar-sign"></i> Ver Precios
+            </button>
         
         `;
     } else {
         cardButtons.innerHTML = `
             <button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>
             <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-            <button type="button" class="btn btn-warning" onclick="mostrarPrecios(${id})">Ver Precios</button>
+            <button type="button" class="btn btn-warning" onclick="verPrecios()">
+                <i class="fas fa-dollar-sign"></i> Ver Precios
+            </button>
       
         `;
     }
@@ -1548,6 +1583,86 @@ function formatearFecha(fecha) {
         return `${partes[2].padStart(2, '0')}/${partes[1].padStart(2, '0')}/${partes[0]}`;
     }
     return fecha;
+}
+
+function verPrecios() {
+    console.log("=== ABRIENDO MODAL DE PRECIOS ===");
+    
+    if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Primero debes seleccionar una propiedad'
+        });
+        return;
+    }
+
+    // Actualizar título del modal
+    document.getElementById('tituloPreciosModal').textContent = propiedadSeleccionada.direccion;
+
+    // Mostrar el modal
+    const modalPrecios = new bootstrap.Modal(document.getElementById('modalPrecios'));
+    modalPrecios.show();
+
+    // Construir URL
+    const url = `${URLS.obtenerPrecios}${propiedadSeleccionada.id}/`;
+    
+    // Realizar la petición
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            const preciosModalBody = document.getElementById('preciosModalBody');
+            
+            if (data.success && data.precios && data.precios.length > 0) {
+                let tableContent = `
+                    <table class="table table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Período</th>
+                                <th class="text-end">Precio por Día</th>
+                                <th class="text-end">Precio Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                data.precios.forEach(precio => {
+                    tableContent += `
+                        <tr>
+                            <td>${precio.tipo_precio}</td>
+                            <td class="text-end">$${formatPrice(precio.precio_por_dia)}</td>
+                            <td class="text-end">$${formatPrice(precio.precio_total)}</td>
+                        </tr>
+                    `;
+                });
+                
+                tableContent += `
+                        </tbody>
+                    </table>
+                `;
+                
+                preciosModalBody.innerHTML = tableContent;
+            } else {
+                preciosModalBody.innerHTML = `
+                    <div class="alert alert-warning">
+                        No hay precios registrados para esta propiedad.
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error("Error al cargar los precios:", error);
+            document.getElementById('preciosModalBody').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> Error al cargar los precios: ${error.message}
+                </div>
+            `;
+        });
 }
 </script>
 
