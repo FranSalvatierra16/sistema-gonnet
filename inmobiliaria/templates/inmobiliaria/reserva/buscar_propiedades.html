@@ -764,8 +764,8 @@
                         <thead>
                             <tr style="background-color: #007bff; color: white;">
                                 <th>PERÍODO</th>
-                                <th>PRECIO</th>
-                                <th>POR DÍA</th>
+                                <th class="text-end">PRECIO</th>
+                                <th class="text-end">POR DÍA</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -993,33 +993,14 @@
 
     function actualizarTablaPrecios(propiedadId, fechaInicio, fechaFin) {
         console.log("Actualizando tabla de precios para propiedad:", propiedadId);
-        console.log("Fechas originales:", fechaInicio, fechaFin);
-        
-        // Convertir fechas de DD/MM/YYYY a YYYY-MM-DD si es necesario
-        let fechaInicioFormatted = fechaInicio;
-        let fechaFinFormatted = fechaFin;
-        
-        // Si las fechas vienen en formato DD/MM/YYYY, convertirlas
-        if (fechaInicio.includes('/')) {
-            const partes = fechaInicio.split('/');
-            fechaInicioFormatted = `${partes[2]}-${partes[1].padStart(2, '0')}-${partes[0].padStart(2, '0')}`;
-        }
-        
-        if (fechaFin.includes('/')) {
-            const partes = fechaFin.split('/');
-            fechaFinFormatted = `${partes[2]}-${partes[1].padStart(2, '0')}-${partes[0].padStart(2, '0')}`;
-        }
-        
-        console.log("Fechas formateadas:", fechaInicioFormatted, fechaFinFormatted);
         
         // Construir URL correctamente usando la URL base definida
         const url = `${URLS.obtenerPrecios}${propiedadId}/`;
         console.log("URL de petición:", url);
         
-        // Hacer petición AJAX para obtener los precios
+        // Hacer petición fetch para obtener los precios
         fetch(url)
             .then(response => {
-                console.log("Respuesta recibida:", response);
                 if (!response.ok) {
                     throw new Error(`Error HTTP: ${response.status}`);
                 }
@@ -1029,15 +1010,20 @@
                 console.log("Datos recibidos:", data);
                 
                 const tbody = document.querySelector('.table-precios tbody');
+                if (!tbody) {
+                    console.error('No se encontró el elemento tbody de la tabla de precios');
+                    return;
+                }
+                
                 tbody.innerHTML = '';
                 
-                if (data.success && data.precios) {
+                if (data.success && data.precios && data.precios.length > 0) {
                     data.precios.forEach(precio => {
                         const row = document.createElement('tr');
                         row.innerHTML = `
-                            <td><strong>${precio.tipo_precio_display || precio.tipo_precio}</strong></td>
-                            <td class="text-right">$${formatPrice(parseFloat(precio.precio_total) || 0)}</td>
-                            <td class="text-right">$${formatPrice(parseFloat(precio.precio_por_dia) || 0)}</td>
+                            <td>${precio.tipo_precio}</td>
+                            <td class="text-end">$${formatPrice(precio.precio_por_dia)}</td>
+                            <td class="text-end">$${formatPrice(precio.precio_total)}</td>
                         `;
                         tbody.appendChild(row);
                     });
@@ -1045,7 +1031,7 @@
                     tbody.innerHTML = `
                         <tr>
                             <td colspan="3" class="text-center text-muted">
-                                <i class="fas fa-info-circle"></i> No hay información de precios disponible
+                                No hay precios disponibles
                             </td>
                         </tr>
                     `;
@@ -1054,13 +1040,15 @@
             .catch(error => {
                 console.error('Error al obtener precios:', error);
                 const tbody = document.querySelector('.table-precios tbody');
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="3" class="text-center text-danger">
-                            <i class="fas fa-exclamation-triangle"></i> Error al cargar precios: ${error.message}
-                        </td>
-                    </tr>
-                `;
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="3" class="text-center text-danger">
+                                Error al cargar los precios: ${error.message}
+                            </td>
+                        </tr>
+                    `;
+                }
             });
     }
 
@@ -1452,6 +1440,9 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
 
     // Forzar un repintado del DOM
     void propertyCard.offsetWidth;
+
+    // Al final de la función, después de actualizar todos los elementos:
+    actualizarTablaPrecios(id, fechaInicio, fechaFin);
 }
 
 function confirmarReserva() {
@@ -1621,7 +1612,7 @@ function verPrecios() {
             if (data.success && data.precios && data.precios.length > 0) {
                 let tableContent = `
                     <table class="table table-striped">
-                        <thead class="table-dark">
+                        <thead class="thead-dark">
                             <tr>
                                 <th>Período</th>
                                 <th class="text-end">Precio por Día</th>
