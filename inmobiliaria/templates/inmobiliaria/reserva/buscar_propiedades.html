@@ -779,11 +779,11 @@
 </div>
 
 <!-- Modal de Autenticación del Vendedor -->
-<div class="modal fade" id="modalAutenticacionVendedor" tabindex="-1" role="dialog">
+<div class="modal fade" id="modalAutenticacionVendedor" tabindex="-1" role="dialog" aria-labelledby="modalAutenticacionLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modalLabel">Autenticación del Vendedor</h5>
+                <h5 class="modal-title" id="modalAutenticacionLabel">Autenticación del Vendedor</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -801,7 +801,7 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal" id="cancelarReservaBtnA">Cancelar</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" onclick="autenticarYReservar()">Autenticar y Reservar</button>
             </div>
         </div>
@@ -809,11 +809,11 @@
 </div>
 
 <!-- Modal Confirmar Reserva -->
-<div class="modal fade" id="modalConfirmarReserva" tabindex="-1" role="dialog">
+<div class="modal fade" id="modalConfirmarReserva" tabindex="-1" role="dialog" aria-labelledby="modalConfirmarLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modalLabel">Confirmar Reserva</h5>
+                <h5 class="modal-title" id="modalConfirmarLabel">Confirmar Reserva</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -824,7 +824,6 @@
                 <p><strong>Fecha de fin:</strong> <span id="fechaFin"></span></p>
                 <p><strong>Total de días:</strong> <span id="totalDias"></span></p>
                 <p><strong>Precio total:</strong> <span id="precioTotalSuperior"></span></p>
-                <!-- Aquí puedes agregar más campos si es necesario -->
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
@@ -834,7 +833,7 @@
                     <input type="hidden" name="fecha_inicio" id="modalFechaInicio">
                     <input type="hidden" name="fecha_fin" id="modalFechaFin">
                     <input type="hidden" name="precio_total" id="modalPrecioTotal">
-                    <button type="submit" class="btn btn-primary" id="confirmar-reserva-btn">Confirmar Reserva</button>
+                    <button type="submit" class="btn btn-primary">Confirmar Reserva</button>
                 </form>
             </div>
         </div>
