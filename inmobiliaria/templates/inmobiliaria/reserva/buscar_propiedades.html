@@ -19,11 +19,11 @@
     <!-- Script de inicialización de funciones -->
     <script type="text/javascript">
         // Variables globales
-        let selectedRowIndex = -1;
-        let propiedadSeleccionada = null;
+        window.selectedRowIndex = -1;
+        window.propiedadSeleccionada = null;
 
         // Funciones de utilidad
-        function formatearFecha(fecha) {
+        window.formatearFecha = function(fecha) {
             if (!fecha) return '';
             try {
                 if (fecha.includes('/')) return fecha;
@@ -37,9 +37,9 @@
                 console.error("Error al formatear fecha:", error, "fecha:", fecha);
                 return fecha || '';
             }
-        }
+        };
 
-        function formatPrice(value) {
+        window.formatPrice = function(value) {
             if (typeof value === 'string') {
                 value = parseFloat(value.replace(/[^\d.-]/g, ''));
             }
@@ -47,10 +47,10 @@
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0
             });
-        }
+        };
 
         // Función para autenticar y reservar
-        function autenticarYReservar() {
+        window.autenticarYReservar = function() {
             const usuario = document.getElementById('usuarioVendedor').value;
             const contrasena = document.getElementById('contrasenaVendedor').value;
 
@@ -80,7 +80,7 @@
                         document.getElementById('contrasenaVendedor').value = '';
                         
                         setTimeout(() => {
-                            mostrarModalConfirmacionReserva();
+                            window.mostrarModalConfirmacionReserva();
                         }, 500);
                     } else {
                         Swal.fire({
@@ -99,11 +99,11 @@
                     });
                 }
             });
-        }
+        };
 
         // Función para mostrar el modal de confirmación
-        function mostrarModalConfirmacionReserva() {
-            if (!propiedadSeleccionada) {
+        window.mostrarModalConfirmacionReserva = function() {
+            if (!window.propiedadSeleccionada) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
@@ -112,21 +112,21 @@
                 return;
             }
 
-            console.log("Mostrando confirmación para:", propiedadSeleccionada);
+            console.log("Mostrando confirmación para:", window.propiedadSeleccionada);
 
             try {
                 // Actualizar los datos en el modal de confirmación
-                document.getElementById("propiedadDireccion").textContent = propiedadSeleccionada.direccion;
-                document.getElementById("fechaInicio").textContent = formatearFecha(propiedadSeleccionada.fechaInicio);
-                document.getElementById('fechaFin').textContent = formatearFecha(propiedadSeleccionada.fechaFin);
-                document.getElementById("totalDias").textContent = `${propiedadSeleccionada.totalDias} días`;
-                document.getElementById("precioTotalSuperior").textContent = propiedadSeleccionada.precio;
+                document.getElementById("propiedadDireccion").textContent = window.propiedadSeleccionada.direccion;
+                document.getElementById("fechaInicio").textContent = window.formatearFecha(window.propiedadSeleccionada.fechaInicio);
+                document.getElementById('fechaFin').textContent = window.formatearFecha(window.propiedadSeleccionada.fechaFin);
+                document.getElementById("totalDias").textContent = `${window.propiedadSeleccionada.totalDias} días`;
+                document.getElementById("precioTotalSuperior").textContent = window.propiedadSeleccionada.precio;
 
                 // Actualizar los campos ocultos del formulario
-                document.getElementById("modalPropiedadId").value = propiedadSeleccionada.id;
-                document.getElementById("modalFechaInicio").value = propiedadSeleccionada.fechaInicio;
-                document.getElementById("modalFechaFin").value = propiedadSeleccionada.fechaFin;
-                document.getElementById("modalPrecioTotal").value = propiedadSeleccionada.precio;
+                document.getElementById("modalPropiedadId").value = window.propiedadSeleccionada.id;
+                document.getElementById("modalFechaInicio").value = window.propiedadSeleccionada.fechaInicio;
+                document.getElementById("modalFechaFin").value = window.propiedadSeleccionada.fechaFin;
+                document.getElementById("modalPrecioTotal").value = window.propiedadSeleccionada.precio;
 
                 // Mostrar el modal
                 $('#modalConfirmarReserva').modal('show');
@@ -138,13 +138,13 @@
                     text: 'Hubo un problema al mostrar la confirmación de reserva'
                 });
             }
-        }
+        };
 
         // Función para confirmar reserva
-        function confirmarReserva() {
+        window.confirmarReserva = function() {
             console.log("=== INICIANDO PROCESO DE RESERVA ===");
             
-            if (!propiedadSeleccionada) {
+            if (!window.propiedadSeleccionada) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'Atención',
@@ -153,7 +153,7 @@
                 return;
             }
 
-            console.log("Datos de la propiedad para reserva:", propiedadSeleccionada);
+            console.log("Datos de la propiedad para reserva:", window.propiedadSeleccionada);
 
             // Mostrar el modal de autenticación
             $('#modalAutenticacionVendedor').modal('show');
@@ -161,20 +161,17 @@
             // Limpiar campos del modal de autenticación
             document.getElementById('usuarioVendedor').value = '';
             document.getElementById('contrasenaVendedor').value = '';
-        }
+        };
 
         // Configuración cuando el DOM esté listo
-        document.addEventListener('DOMContentLoaded', function() {
+        $(document).ready(function() {
             // Configurar los modales
-            const modales = document.querySelectorAll('.modal');
-            modales.forEach(modal => {
-                $(modal).on('shown.bs.modal', function() {
-                    $(this).find('[autofocus]').focus();
-                });
+            $('.modal').on('shown.bs.modal', function() {
+                $(this).find('[autofocus]').focus();
+            });
 
-                $(modal).on('hide.bs.modal', function() {
-                    $(this).find('button, input, textarea, select').blur();
-                });
+            $('.modal').on('hide.bs.modal', function() {
+                $(this).find('button, input, textarea, select').blur();
             });
 
             // Configurar el formulario de reserva
@@ -1171,9 +1168,9 @@
 
     function abrirGaleriaFotos() {
         console.log("=== ABRIENDO GALERÍA DE FOTOS ===");
-        console.log("Propiedad seleccionada:", propiedadSeleccionada);
+        console.log("Propiedad seleccionada:", window.propiedadSeleccionada);
         
-        if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
+        if (!window.propiedadSeleccionada || !window.propiedadSeleccionada.id) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Atención',
@@ -1204,7 +1201,7 @@
         }
         
         // Actualizar título del modal
-        tituloModal.textContent = propiedadSeleccionada.direccion;
+        tituloModal.textContent = window.propiedadSeleccionada.direccion;
         
         // Limpiar contenedores antes de la petición
         carouselInner.innerHTML = '';
@@ -1212,7 +1209,7 @@
         contadorFotos.textContent = '';
         
         // Construir la URL correctamente
-        const url = `${URLS.obtenerFotos}${propiedadSeleccionada.id}/`;
+        const url = `${URLS.obtenerFotos}${window.propiedadSeleccionada.id}/`;
         console.log("URL para obtener fotos:", url);
 
         // Mostrar indicador de carga
