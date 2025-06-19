@@ -779,8 +779,8 @@
 </div>
 
 <!-- Modal de Autenticación del Vendedor -->
-<div class="modal fade" id="modalAutenticacionVendedor" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
+<div class="modal fade" id="modalAutenticacionVendedor" tabindex="-1" role="dialog">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalLabel">Autenticación del Vendedor</h5>
@@ -809,8 +809,8 @@
 </div>
 
 <!-- Modal Confirmar Reserva -->
-<div class="modal fade" id="modalConfirmarReserva" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
+<div class="modal fade" id="modalConfirmarReserva" tabindex="-1" role="dialog">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalLabel">Confirmar Reserva</h5>
@@ -1441,9 +1441,8 @@ function confirmarReserva() {
 
     console.log("Datos de la propiedad para reserva:", propiedadSeleccionada);
 
-    // Mostrar el modal de autenticación del vendedor
-    const modalAutenticacion = new bootstrap.Modal(document.getElementById('modalAutenticacionVendedor'));
-    modalAutenticacion.show();
+    // Mostrar el modal de autenticación usando jQuery
+    $('#modalAutenticacionVendedor').modal('show');
 
     // Limpiar campos del modal de autenticación
     document.getElementById('usuarioVendedor').value = '';
@@ -1474,9 +1473,8 @@ function autenticarYReservar() {
         },
         success: function(response) {
             if (response.success) {
-                // Cerrar el modal de autenticación
-                const modalAutenticacion = bootstrap.Modal.getInstance(document.getElementById('modalAutenticacionVendedor'));
-                modalAutenticacion.hide();
+                // Cerrar el modal de autenticación usando jQuery
+                $('#modalAutenticacionVendedor').modal('hide');
                 
                 // Limpiar los campos
                 document.getElementById('usuarioVendedor').value = '';
@@ -1517,22 +1515,30 @@ function mostrarModalConfirmacionReserva() {
 
     console.log("Mostrando confirmación para:", propiedadSeleccionada);
 
-    // Actualizar los datos en el modal de confirmación
-    document.getElementById("propiedadDireccion").textContent = propiedadSeleccionada.direccion;
-    document.getElementById("fechaInicio").textContent = formatearFecha(propiedadSeleccionada.fechaInicio);
-    document.getElementById('fechaFin').textContent = formatearFecha(propiedadSeleccionada.fechaFin);
-    document.getElementById("totalDias").textContent = `${propiedadSeleccionada.totalDias} días`;
-    document.getElementById("precioTotalSuperior").textContent = propiedadSeleccionada.precio;
+    try {
+        // Actualizar los datos en el modal de confirmación
+        document.getElementById("propiedadDireccion").textContent = propiedadSeleccionada.direccion;
+        document.getElementById("fechaInicio").textContent = formatearFecha(propiedadSeleccionada.fechaInicio);
+        document.getElementById('fechaFin').textContent = formatearFecha(propiedadSeleccionada.fechaFin);
+        document.getElementById("totalDias").textContent = `${propiedadSeleccionada.totalDias} días`;
+        document.getElementById("precioTotalSuperior").textContent = propiedadSeleccionada.precio;
 
-    // Actualizar los campos ocultos del formulario
-    document.getElementById("modalPropiedadId").value = propiedadSeleccionada.id;
-    document.getElementById("modalFechaInicio").value = propiedadSeleccionada.fechaInicio;
-    document.getElementById("modalFechaFin").value = propiedadSeleccionada.fechaFin;
-    document.getElementById("modalPrecioTotal").value = propiedadSeleccionada.precio;
+        // Actualizar los campos ocultos del formulario
+        document.getElementById("modalPropiedadId").value = propiedadSeleccionada.id;
+        document.getElementById("modalFechaInicio").value = propiedadSeleccionada.fechaInicio;
+        document.getElementById("modalFechaFin").value = propiedadSeleccionada.fechaFin;
+        document.getElementById("modalPrecioTotal").value = propiedadSeleccionada.precio;
 
-    // Mostrar el modal de confirmación
-    const modalConfirmacion = new bootstrap.Modal(document.getElementById('modalConfirmarReserva'));
-    modalConfirmacion.show();
+        // Mostrar el modal usando jQuery
+        $('#modalConfirmarReserva').modal('show');
+    } catch (error) {
+        console.error("Error al mostrar modal de confirmación:", error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Hubo un problema al mostrar la confirmación de reserva'
+        });
+    }
 }
 
 function verPrecios() {
