@@ -141,6 +141,50 @@
         };
 
         // Función para confirmar reserva
+        window.confirmarReserva = function() {
+            console.log("=== INICIANDO PROCESO DE RESERVA ===");
+            
+            if (!window.propiedadSeleccionada) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Atención',
+                    text: 'Por favor selecciona una propiedad primero.'
+                });
+                return;
+            }
+
+            console.log("Datos de la propiedad para reserva:", window.propiedadSeleccionada);
+
+            // Verificar si la propiedad está disponible
+            if (window.propiedadSeleccionada.estadoReserva === 'confirmada_no_pagada') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Propiedad No Disponible',
+                    text: 'Esta propiedad ya está reservada.'
+                });
+                return;
+            }
+
+            try {
+                // Mostrar el modal de autenticación usando jQuery
+                $('#modalAutenticacionVendedor').modal('show');
+
+                // Limpiar campos del modal de autenticación de manera segura
+                const usuarioInput = document.getElementById('usuarioVendedor');
+                const contrasenaInput = document.getElementById('contrasenaVendedor');
+                
+                if (usuarioInput) usuarioInput.value = '';
+                if (contrasenaInput) contrasenaInput.value = '';
+                
+            } catch (error) {
+                console.error("Error al mostrar modal de autenticación:", error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Hubo un problema al mostrar el formulario de autenticación'
+                });
+            }
+        };
 
         // Configuración cuando el DOM esté listo
         $(document).ready(function() {
