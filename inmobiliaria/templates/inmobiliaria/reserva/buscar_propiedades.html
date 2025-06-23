@@ -141,50 +141,6 @@
         };
 
         // Función para confirmar reserva
-        window.confirmarReserva = function() {
-            console.log("=== INICIANDO PROCESO DE RESERVA ===");
-            
-            if (!window.propiedadSeleccionada) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Atención',
-                    text: 'Por favor selecciona una propiedad primero.'
-                });
-                return;
-            }
-
-            console.log("Datos de la propiedad para reserva:", window.propiedadSeleccionada);
-
-            // Verificar si la propiedad está disponible
-            if (window.propiedadSeleccionada.estadoReserva === 'confirmada_no_pagada') {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Propiedad No Disponible',
-                    text: 'Esta propiedad ya está reservada.'
-                });
-                return;
-            }
-
-            try {
-                // Mostrar el modal de autenticación usando jQuery
-                $('#modalAutenticacionVendedor').modal('show');
-
-                // Limpiar campos del modal de autenticación de manera segura
-                const usuarioInput = document.getElementById('usuarioVendedor');
-                const contrasenaInput = document.getElementById('contrasenaVendedor');
-                
-                if (usuarioInput) usuarioInput.value = '';
-                if (contrasenaInput) contrasenaInput.value = '';
-                
-            } catch (error) {
-                console.error("Error al mostrar modal de autenticación:", error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Hubo un problema al mostrar el formulario de autenticación'
-                });
-            }
-        };
 
         // Configuración cuando el DOM esté listo
         $(document).ready(function() {
@@ -1685,7 +1641,120 @@ function verPrecios() {
         });
 }
 </script>
+<script>
+    $('#cancelarReservaBtnA').on('click', function() {
+    $('#modalAutenticacionVendedor').modal('hide');
+    // Enfocar la lista de propiedades
+    $('#propiedadesTable').focus();
+    // Opcionalmente, puedes resaltar la fila que estaba seleccionada
+    if (selectedRowIndex !== -1) {
+        const rows = document.querySelectorAll('#propiedadesTable tbody tr');
+        rows[selectedRowIndex].focus();
+    }
+});
+document.addEventListener('DOMContentLoaded', function() {
+    const precioTotalSuperior = document.getElementById('precioTotalSuperior');
+    const precioTotalDisplay = document.getElementById('precio_total_display');
+    const precioTotalInput = document.getElementById('precio_total');
+    const editarPrecioBtn = document.getElementById('editar_precio_btn');
+    const guardarPrecioBtn = document.getElementById('guardar_precio_btn');
+    const cancelarPrecioBtn = document.getElementById('cancelar_precio_btn');
+    const modalPrecioTotalInput = document.getElementById('modalPrecioTotal');
+    const confirmarReservaForm = document.getElementById('confirmar-reserva-form');
 
+    function actualizarPreciosMostrados(precio) {
+        precioTotalSuperior.textContent = precio;
+        precioTotalDisplay.textContent = precio;
+        precioTotalInput.value = precio;
+        modalPrecioTotalInput.value = precio;  // Actualiza el campo oculto
+    }
+
+    editarPrecioBtn.addEventListener('click', function() {
+        precioTotalDisplay.style.display = 'none';
+        precioTotalInput.style.display = 'inline-block';
+        editarPrecioBtn.style.display = 'none';
+        guardarPrecioBtn.style.display = 'inline-block';
+        cancelarPrecioBtn.style.display = 'inline-block';
+        precioTotalInput.focus();
+    });
+
+    guardarPrecioBtn.addEventListener('click', function() {
+        const nuevoPrecio = precioTotalInput.value;
+        actualizarPreciosMostrados(nuevoPrecio);
+        precioTotalDisplay.style.display = 'inline';
+        precioTotalInput.style.display = 'none';
+        guardarPrecioBtn.style.display = 'none';
+        cancelarPrecioBtn.style.display = 'none';
+        editarPrecioBtn.style.display = 'inline';
+    });
+
+    cancelarPrecioBtn.addEventListener('click', function() {
+        actualizarPreciosMostrados(precioTotalDisplay.textContent);
+        precioTotalDisplay.style.display = 'inline';
+        precioTotalInput.style.display = 'none';
+        guardarPrecioBtn.style.display = 'none';
+        cancelarPrecioBtn.style.display = 'none';
+        editarPrecioBtn.style.display = 'inline';
+    });
+
+    // Añadir este evento al formulario de confirmación de reserva
+    confirmarReservaForm.addEventListener('submit', function(event) {
+        // Asegurarse de que el precio total se actualice antes de enviar el formulario
+        const precioFinal = precioTotalInput.style.display === 'none' ? precioTotalDisplay.textContent : precioTotalInput.value;
+        modalPrecioTotalInput.value = precioFinal;
+    });
+});
+document.addEventListener('DOMContentLoaded', function() {
+    const vendedorInput = document.getElementById('vendedor_id');
+    const vendedorNombre = document.getElementById('vendedor_nombre');
+
+    if (vendedorInput) {
+        vendedorInput.addEventListener('change', function() {
+            const vendedorId = this.value;
+            if (vendedorId) {
+                fetch(`${obtenerVendedorUrl}${vendedorId}/`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            vendedorNombre.textContent = data.vendedor.nombre_completo;
+                        } else {
+                            vendedorNombre.textContent = 'Vendedor no encontrado';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        vendedorNombre.textContent = 'Error al cargar el vendedor';
+                    });
+            } else {
+                vendedorNombre.textContent = '';
+            }
+        });
+    } else {
+        console.error('El campo de vendedor no se encontró');
+    }
+
+});
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
 {% endblock content %}
 
 {% block extra_js %}
