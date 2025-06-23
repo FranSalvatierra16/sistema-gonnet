@@ -141,38 +141,6 @@
         };
 
         // Función para confirmar reserva
-        window.confirmarReserva = function() {
-            console.log("=== INICIANDO PROCESO DE RESERVA ===");
-            
-            if (!window.propiedadSeleccionada) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Atención',
-                    text: 'Por favor selecciona una propiedad primero.'
-                });
-                return;
-            }
-
-            console.log("Datos de la propiedad para reserva:", window.propiedadSeleccionada);
-
-            // Verificar si la propiedad está disponible
-            if (window.propiedadSeleccionada.estadoReserva === 'confirmada_no_pagada') {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Propiedad No Disponible',
-                    text: 'Esta propiedad ya está reservada.'
-                });
-                return;
-            }
-
-            // Mostrar el modal de autenticación
-            const modalAutenticacion = new bootstrap.Modal(document.getElementById('modalAutenticacionVendedor'));
-            modalAutenticacion.show();
-
-            // Limpiar campos del modal de autenticación
-            document.getElementById('usuarioVendedor').value = '';
-            document.getElementById('contrasenaVendedor').value = '';
-        };
 
         // Configuración cuando el DOM esté listo
         $(document).ready(function() {
@@ -827,11 +795,11 @@
 </div>
 
 <!-- Modal de Autenticación del Vendedor -->
-<div class="modal fade" id="modalAutenticacionVendedor" tabindex="-1" role="dialog" aria-labelledby="modalAutenticacionLabel" aria-hidden="true">
-    <div class="modal-dialog">
+<div class="modal fade" id="modalAutenticacionVendedor" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modalAutenticacionLabel">Autenticación del Vendedor</h5>
+                <h5 class="modal-title" id="modalLabel">Autenticación del Vendedor</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -849,19 +817,20 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="autenticarYReservar()">Autenticar y Reservar</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" id="cancelarReservaBtnA">Cancelar</button>
+
+                <button type="button" class="btn btn-primary" onclick="autenticarYFinalizar()">Autenticar y Finalizar</button>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Modal Confirmar Reserva -->
-<div class="modal fade" id="modalConfirmarReserva" tabindex="-1" role="dialog" aria-labelledby="modalConfirmarLabel" aria-hidden="true">
-    <div class="modal-dialog">
+<div class="modal fade" id="modalConfirmarReserva" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modalConfirmarLabel">Confirmar Reserva</h5>
+                <h5 class="modal-title" id="modalLabel">Confirmar Reserva</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -872,17 +841,95 @@
                 <p><strong>Fecha de fin:</strong> <span id="fechaFin"></span></p>
                 <p><strong>Total de días:</strong> <span id="totalDias"></span></p>
                 <p><strong>Precio total:</strong> <span id="precioTotalSuperior"></span></p>
+
+                <div>
+                    <label for="vendedor_id">ID del Vendedor:</label>
+                    <input type="number" id="vendedor_id" name="vendedor" >
+                    <p><strong>Nombre del Vendedor:</strong> <span id="vendedor_nombre"></span></p>
+                </div>
+                <!-- Dentro del modal de Confirmar Reserva -->
+                <div class="form-group">
+                    <label for="inquilino">Buscar Inquilino:</label>
+                    <select id="inquilino" name="inquilino" class="form-control" style="width: 100%;">
+                        <option value="">Seleccione un inquilino</option>
+                        {% for inquilino in inquilinos %}
+                        <option value="{{ inquilino.id }}">{{ inquilino.nombre }} {{ inquilino.apellido }} - {{ inquilino.dni }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div id="nuevo-inquilino-fields">
+                    <!-- Botón para abrir el modal de crear inquilino -->
+                    <button id="abrir-modal-inquilino-btn" type="button" class="btn btn-success" data-toggle="modal" data-target="#modal-inquilino">Crear Nuevo Inquilino</button>
+                </div>
+                       
+                <div id="modal-inquilino" class="modal fade" tabindex="-1" role="dialog">
+                    <div class="modal-dialog" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="modalInquilinoLabel">Agregar Nuevo Inquilino</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="form-nuevo-inquilino" method="post">
+                                    {% csrf_token %}
+                                    {{ inquilino_form.as_p }}
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                                <button type="button" id="guardar-inquilino-btn" data-dismiss="modal" class="btn btn-primary">Guardar Inquilino</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="precio_total">Precio Total:</label>
+                    <span id="precio_total_display">{{ precio_total }}</span>
+                    <button type="button" id="editar_precio_btn" class="btn btn-link">Editar</button>
+                    <input type="number" step="0.01" class="form-control" id="precio_total" name="precio_total" style="display: none;" required>
+                    <button type="button" id="guardar_precio_btn" class="btn btn-link" style="display: none;">Guardar</button>
+                    <button type="button" id="cancelar_precio_btn" class="btn btn-link" style="display: none;">Cancelar</button>
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-secondary close" data-dismiss="modal" aria-label="Close">Cerrar</button>
                 <form id="confirmar-reserva-form" method="post" action="{% url 'inmobiliaria:confirmar_reserva' %}">
                     {% csrf_token %}
                     <input type="hidden" name="propiedad_id" id="modalPropiedadId">
                     <input type="hidden" name="fecha_inicio" id="modalFechaInicio">
                     <input type="hidden" name="fecha_fin" id="modalFechaFin">
-                    <input type="hidden" name="precio_total" id="modalPrecioTotal">
-                    <button type="submit" class="btn btn-primary">Confirmar Reserva</button>
+                    <input type="hidden" name="vendedor_id" id="modalVendedorId">
+                    <input type="hidden" name="inquilino_id" id="modalInquilinoId">
+                    <input type="hidden" name="precio_total" id="modalPrecioTotal"  >
+                    <button type="submit" class="btn btn-primary" id="confirmar-reserva-btn">Confirmar Reserva</button>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+  
+<div id="modal-inquilino" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalInquilinoLabel">Agregar Nuevo Inquilino</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="form-nuevo-inquilino" method="post">
+                    {% csrf_token %}
+                    {{ inquilino_form.as_p }}
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" id="guardar-inquilino-btn" data-dismiss="modal" class="btn btn-primary">Guardar Inquilino</button>
             </div>
         </div>
     </div>
@@ -1473,6 +1520,46 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
     // Al final de la función, después de actualizar todos los elementos:
     actualizarTablaPrecios(id, fechaInicio, fechaFin);
 }
+function confirmarReserva() {
+    const ficha = document.getElementById("cardPropiedad").innerText.split(": ")[1]; // Extraer el ID
+    const direccion = document.getElementById("cardDireccion").innerText.split(": ")[1];
+    const propietario = document.getElementById("cardPropietario").innerText.split(": ")[1];
+    const disponibilidad = document.getElementById("cardDisponibilidad").innerText.split(": ")[1];
+    const precio = document.getElementById("cardPrecio").innerText.split(": ")[1];
+
+    const fechaInicio = window.fechaInicioSeleccionada;
+    console.log("hola soy la fecha de inicio",window.fechaInicioSeleccionada);
+    const fechaFin = window.fechaFinSeleccionada;
+    const totalDias = window.total_dias;
+    console.log("hola soy el total de diassssss",totalDias); 
+
+    // Verifica si los valores se obtienen correctamente
+    console.log("ID Propiedad:", ficha);
+    console.log("Dirección:", direccion);
+    console.log("Propietario:", propietario);
+    console.log("Disponibilidad:", disponibilidad);
+    console.log("Precio por Día:", precio);
+    console.log("Fecha Inicio:", fechaInicio);
+    console.log("Fecha Fin:", fechaFin);
+    
+
+    // Lógica de confirmación
+    Swal.fire({
+        title: '¿Está seguro?',
+        text: "¿Desea reservar esta propiedad?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, reservar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias);
+        }
+    });
+}
+
 
 function verPrecios() {
     console.log("=== ABRIENDO MODAL DE PRECIOS ===");
