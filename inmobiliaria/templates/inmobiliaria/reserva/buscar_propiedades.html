@@ -155,8 +155,19 @@
 
             console.log("Datos de la propiedad para reserva:", window.propiedadSeleccionada);
 
+            // Verificar si la propiedad está disponible
+            if (window.propiedadSeleccionada.estadoReserva === 'confirmada_no_pagada') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Propiedad No Disponible',
+                    text: 'Esta propiedad ya está reservada.'
+                });
+                return;
+            }
+
             // Mostrar el modal de autenticación
-            $('#modalAutenticacionVendedor').modal('show');
+            const modalAutenticacion = new bootstrap.Modal(document.getElementById('modalAutenticacionVendedor'));
+            modalAutenticacion.show();
 
             // Limpiar campos del modal de autenticación
             document.getElementById('usuarioVendedor').value = '';
