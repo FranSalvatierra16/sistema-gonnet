@@ -50,7 +50,7 @@
         };
 
         // Función para autenticar y reservar
-        window.autenticarYReservar = function() {
+        window.autenticarYFinalizar = function() {
             const usuario = document.getElementById('usuarioVendedor').value;
             const contrasena = document.getElementById('contrasenaVendedor').value;
 
@@ -73,12 +73,14 @@
                 },
                 success: function(response) {
                     if (response.success) {
+                        // Cerrar el modal de autenticación
                         $('#modalAutenticacionVendedor').modal('hide');
                         
                         // Limpiar campos
                         document.getElementById('usuarioVendedor').value = '';
                         document.getElementById('contrasenaVendedor').value = '';
                         
+                        // Mostrar el modal de confirmación después de un pequeño delay
                         setTimeout(() => {
                             window.mostrarModalConfirmacionReserva();
                         }, 500);
@@ -112,13 +114,11 @@
                 return;
             }
 
-            console.log("Mostrando confirmación para:", window.propiedadSeleccionada);
-
             try {
                 // Actualizar los datos en el modal de confirmación
                 document.getElementById("propiedadDireccion").textContent = window.propiedadSeleccionada.direccion;
                 document.getElementById("fechaInicio").textContent = window.formatearFecha(window.propiedadSeleccionada.fechaInicio);
-                document.getElementById('fechaFin').textContent = window.formatearFecha(window.propiedadSeleccionada.fechaFin);
+                document.getElementById("fechaFin").textContent = window.formatearFecha(window.propiedadSeleccionada.fechaFin);
                 document.getElementById("totalDias").textContent = `${window.propiedadSeleccionada.totalDias} días`;
                 document.getElementById("precioTotalSuperior").textContent = window.propiedadSeleccionada.precio;
 
@@ -128,7 +128,7 @@
                 document.getElementById("modalFechaFin").value = window.propiedadSeleccionada.fechaFin;
                 document.getElementById("modalPrecioTotal").value = window.propiedadSeleccionada.precio;
 
-                // Mostrar el modal
+                // Mostrar el modal usando jQuery
                 $('#modalConfirmarReserva').modal('show');
             } catch (error) {
                 console.error("Error al mostrar modal de confirmación:", error);
@@ -772,7 +772,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                                <button type="button" class="btn btn-sm btn-success" onclick="window.mostrarModalAutenticacion('{{ propiedad.id }}')">Operacion</button>
+                                <button type="button" class="btn btn-sm btn-success" onclick="window.autenticarYFinalizar()">Operacion</button>
                             {% else %}
                                 <div>
                                     <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">Reservar</button>
@@ -863,7 +863,7 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal" id="cancelarReservaBtnA">Cancelar</button>
 
-                <button type="button" class="btn btn-primary" onclick="autenticarYFinalizar()">Autenticar y Finalizar</button>
+                <button type="button" class="btn btn-primary" onclick="window.autenticarYFinalizar()">Autenticar y Finalizar</button>
             </div>
         </div>
     </div>
