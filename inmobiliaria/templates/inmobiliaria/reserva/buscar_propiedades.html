@@ -627,48 +627,30 @@
                         <p><strong>Total de días:</strong> <span id="totalDias"></span></p>
                         <p><strong>Precio total:</strong> <span id="precioTotalSuperior"></span></p>
         
-                        <div>
+                        <!-- Campo de Vendedor -->
+                        <div class="form-group">
                             <label for="vendedor_id">ID del Vendedor:</label>
-                            <input type="number" id="vendedor_id" name="vendedor" >
+                            <input type="number" id="vendedor_id" name="vendedor" class="form-control" required>
                             <p><strong>Nombre del Vendedor:</strong> <span id="vendedor_nombre"></span></p>
                         </div>
-                        <!-- Dentro del modal de Confirmar Reserva -->
+
+                        <!-- Campo de Inquilino con opción de crear nuevo -->
                         <div class="form-group">
                             <label for="inquilino">Buscar Inquilino:</label>
-                            <select id="inquilino" name="inquilino" class="form-control" style="width: 100%;">
+                            <select id="inquilino" name="inquilino" class="form-control" required>
                                 <option value="">Seleccione un inquilino</option>
                                 {% for inquilino in inquilinos %}
-                                <option value="{{ inquilino.id }}">{{ inquilino.nombre }} {{ inquilino.apellido }} - {{ inquilino.dni }}</option>
+                                    <option value="{{ inquilino.id }}">{{ inquilino.nombre }} {{ inquilino.apellido }} - {{ inquilino.dni }}</option>
                                 {% endfor %}
                             </select>
-                        </div>
-                        <div id="nuevo-inquilino-fields">
-                            <!-- Botón para abrir el modal de crear inquilino -->
-                            <button id="abrir-modal-inquilino-btn" type="button" class="btn btn-success" data-toggle="modal" data-target="#modal-inquilino">Crear Nuevo Inquilino</button>
-                        </div>
-                               
-                        <div id="modal-inquilino" class="modal fade" tabindex="-1" role="dialog">
-                            <div class="modal-dialog" role="document">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="modalInquilinoLabel">Agregar Nuevo Inquilino</h5>
-                                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                            <span aria-hidden="true">&times;</span>
-                                        </button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <form id="form-nuevo-inquilino" method="post">
-                                            {% csrf_token %}
-                                            {{ inquilino_form.as_p }}
-                                        </form>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-                                        <button type="button" id="guardar-inquilino-btn" data-dismiss="modal" class="btn btn-primary">Guardar Inquilino</button>
-                                    </div>
-                                </div>
+                            <div id="nuevo-inquilino-fields" class="mt-2">
+                                <button id="abrir-modal-inquilino-btn" type="button" class="btn btn-success" data-toggle="modal" data-target="#modal-inquilino">
+                                    Crear Nuevo Inquilino
+                                </button>
                             </div>
                         </div>
+
+                        <!-- Campo de Precio Total con opción de editar -->
                         <div class="form-group">
                             <label for="precio_total">Precio Total:</label>
                             <span id="precio_total_display">{{ precio_total }}</span>
@@ -748,9 +730,6 @@
         </div>
     </div>
 </div>
-
-
-<!-- Modal Confirmar Reserva -->
 
 
 <!-- Modales para ver detalles de la propiedad -->
@@ -1572,7 +1551,7 @@ function verPrecios() {
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            mostrarModalAutenticacionParaReserva(
+            mostrarModalReserva(
                 ficha, 
                 direccion, 
                 propietario, 
@@ -1593,51 +1572,101 @@ function formatearFecha(fecha) {
     return `${dia}/${mes}/${anio}`;
 }
 function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
+    // Datos básicos de la propiedad
     document.getElementById("propiedadDireccion").textContent = direccion;
-    document.getElementById("fechaInicio").textContent = formatearFecha(fechaInicio);;
-    document.getElementById('fechaFin').textContent = formatearFecha(fechaFin);
-    
-    document.getElementById("fechaInicio").textContent = fechaInicio;
-    document.getElementById("fechaFin").textContent = fechaFin;
-   
-    console.log("hola soy la fecha de inicio",fechaInicio);
-    console.log("hola soy la fecha de fin",fechaFin);
-    console.log("hola soy la cantidad de dias",totalDias);
-
-    // Asegúrate de que las fechas estén correctamente formateadas antes de crear los objetos Date
-    
-
-    
-    // Calcula el total de días
-   
-
-    // Muestra el total de días en la consola
-    console.log("Total de días:", totalDias);
-
+    document.getElementById("fechaInicio").textContent = formatearFecha(fechaInicio);
+    document.getElementById("fechaFin").textContent = formatearFecha(fechaFin);
     document.getElementById("totalDias").textContent = `${totalDias} días`;
     document.getElementById("precioTotalSuperior").textContent = precio;
 
-
- 
-    document.getElementById("precioTotalSuperior").textContent = precio;
-    document.getElementById("precio_total_display").textContent = precio;
-    document.getElementById("precio_total").value = precio;
-
+    // Campos del formulario
     document.getElementById("modalPropiedadId").value = ficha;
     document.getElementById("modalFechaInicio").value = fechaInicio;
     document.getElementById("modalFechaFin").value = fechaFin;
     document.getElementById("modalPrecioTotal").value = precio;
+    document.getElementById("precio_total_display").textContent = precio;
+    document.getElementById("precio_total").value = precio;
 
+    // Vendedor ID - Agregar evento para actualizar el campo oculto
+    const vendedorInput = document.getElementById('vendedor_id');
+    vendedorInput.addEventListener('change', function() {
+        document.getElementById("modalVendedorId").value = this.value;
+    });
+
+    // Inquilino ID - Agregar evento para actualizar el campo oculto
+    const inquilinoSelect = document.getElementById('inquilino');
+    inquilinoSelect.addEventListener('change', function() {
+        document.getElementById("modalInquilinoId").value = this.value;
+    });
+
+    // Configurar eventos para editar precio
     const precioTotalDisplay = document.getElementById('precio_total_display');
     const precioTotalInput = document.getElementById('precio_total');
     const editarPrecioBtn = document.getElementById('editar_precio_btn');
     const guardarPrecioBtn = document.getElementById('guardar_precio_btn');
     const cancelarPrecioBtn = document.getElementById('cancelar_precio_btn');
 
-    precioTotalDisplay.textContent = precio;
-    precioTotalInput.value = precio;
-    
+    editarPrecioBtn.onclick = function() {
+        precioTotalDisplay.style.display = 'none';
+        precioTotalInput.style.display = 'inline-block';
+        editarPrecioBtn.style.display = 'none';
+        guardarPrecioBtn.style.display = 'inline-block';
+        cancelarPrecioBtn.style.display = 'inline-block';
+    };
 
+    guardarPrecioBtn.onclick = function() {
+        const nuevoPrecio = precioTotalInput.value;
+        precioTotalDisplay.textContent = nuevoPrecio;
+        document.getElementById("modalPrecioTotal").value = nuevoPrecio;
+        document.getElementById("precioTotalSuperior").textContent = nuevoPrecio;
+        
+        precioTotalDisplay.style.display = 'inline';
+        precioTotalInput.style.display = 'none';
+        guardarPrecioBtn.style.display = 'none';
+        cancelarPrecioBtn.style.display = 'none';
+        editarPrecioBtn.style.display = 'inline';
+    };
+
+    cancelarPrecioBtn.onclick = function() {
+        precioTotalInput.value = precio;
+        precioTotalDisplay.style.display = 'inline';
+        precioTotalInput.style.display = 'none';
+        guardarPrecioBtn.style.display = 'none';
+        cancelarPrecioBtn.style.display = 'none';
+        editarPrecioBtn.style.display = 'inline';
+    };
+
+    // Validación antes de enviar el formulario
+    const confirmarReservaForm = document.getElementById('confirmar-reserva-form');
+    confirmarReservaForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        const vendedorId = document.getElementById("modalVendedorId").value;
+        const inquilinoId = document.getElementById("modalInquilinoId").value;
+
+        if (!vendedorId || vendedorId.trim() === '') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Por favor, ingrese el ID del vendedor'
+            });
+            return;
+        }
+
+        if (!inquilinoId || inquilinoId.trim() === '') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Por favor, seleccione un inquilino'
+            });
+            return;
+        }
+
+        // Si todo está correcto, enviar el formulario
+        this.submit();
+    });
+
+    // Mostrar el modal
     $('#modalConfirmarReserva').modal('show');
 }
 
@@ -1674,7 +1703,6 @@ document.addEventListener('DOMContentLoaded', function() {
         editarPrecioBtn.style.display = 'none';
         guardarPrecioBtn.style.display = 'inline-block';
         cancelarPrecioBtn.style.display = 'inline-block';
-        precioTotalInput.focus();
     });
 
     guardarPrecioBtn.addEventListener('click', function() {
@@ -1684,7 +1712,6 @@ document.addEventListener('DOMContentLoaded', function() {
         precioTotalInput.style.display = 'none';
         guardarPrecioBtn.style.display = 'none';
         cancelarPrecioBtn.style.display = 'none';
-        editarPrecioBtn.style.display = 'inline';
     });
 
     cancelarPrecioBtn.addEventListener('click', function() {
