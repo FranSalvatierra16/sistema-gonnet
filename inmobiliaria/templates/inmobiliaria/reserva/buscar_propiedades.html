@@ -144,46 +144,57 @@
         window.confirmarReserva = function() {
             console.log("=== INICIANDO PROCESO DE RESERVA ===");
             
-            if (!window.propiedadSeleccionada) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Atención',
-                    text: 'Por favor selecciona una propiedad primero.'
-                });
-                return;
-            }
+            // Obtener los datos de la propiedad seleccionada
+            const ficha = document.getElementById("cardPropiedad").innerText.split(": ")[1];
+            const direccion = document.getElementById("cardDireccion").innerText.split(": ")[1];
+            const propietario = document.getElementById("cardPropietario").innerText.split(": ")[1];
+            const precio = document.getElementById("cardPrecio").innerText.split(": ")[1];
 
-            console.log("Datos de la propiedad para reserva:", window.propiedadSeleccionada);
+            const fechaInicio = window.fechaInicioSeleccionada;
+            const fechaFin = window.fechaFinSeleccionada;
+            const totalDias = window.total_dias;
 
-            // Verificar si la propiedad está disponible
-            if (window.propiedadSeleccionada.estadoReserva === 'confirmada_no_pagada') {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Propiedad No Disponible',
-                    text: 'Esta propiedad ya está reservada.'
-                });
-                return;
-            }
-
-            try {
-                // Mostrar el modal de autenticación usando jQuery
-                $('#modalAutenticacionVendedor').modal('show');
-
-                // Limpiar campos del modal de autenticación
-                const usuarioInput = document.getElementById('usuarioVendedor');
-                const contrasenaInput = document.getElementById('contrasenaVendedor');
-                
-                if (usuarioInput) usuarioInput.value = '';
-                if (contrasenaInput) contrasenaInput.value = '';
-                
-            } catch (error) {
-                console.error("Error al mostrar modal de autenticación:", error);
+            // Verificar si tenemos todos los datos necesarios
+            if (!ficha || !direccion || !propietario || !precio || !fechaInicio || !fechaFin) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Hubo un problema al mostrar el formulario de autenticación'
+                    text: 'Faltan datos necesarios para la reserva'
                 });
+                return;
             }
+
+            // Mostrar confirmación antes de proceder
+            Swal.fire({
+                title: '¿Está seguro?',
+                text: "¿Desea reservar esta propiedad?",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, reservar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Mostrar el modal de autenticación
+                    $('#modalAutenticacionVendedor').modal('show');
+
+                    // Limpiar campos del modal de autenticación
+                    document.getElementById('usuarioVendedor').value = '';
+                    document.getElementById('contrasenaVendedor').value = '';
+
+                    // Guardar los datos para usarlos después de la autenticación
+                    window.datosReserva = {
+                        ficha: ficha,
+                        direccion: direccion,
+                        propietario: propietario,
+                        precio: precio,
+                        fechaInicio: fechaInicio,
+                        fechaFin: fechaFin,
+                        totalDias: totalDias
+                    };
+                }
+            });
         };
 
         // Configuración cuando el DOM esté listo
