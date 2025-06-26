@@ -695,29 +695,6 @@
             </div>
         </div>
         
-          
-        <div id="modal-inquilino" class="modal fade" tabindex="-1" role="dialog">
-            <div class="modal-dialog" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="modalInquilinoLabel">Agregar Nuevo Inquilino</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="form-nuevo-inquilino" method="post">
-                            {% csrf_token %}
-                            {{ inquilino_form.as_p }}
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-                        <button type="button" id="guardar-inquilino-btn" data-dismiss="modal" class="btn btn-primary">Guardar Inquilino</button>
-                    </div>
-                </div>
-            </div>
-        </div>
         <!-- Columna derecha: Tabla de precios -->
         <div class="col-md-4">
             <div class="card">
@@ -1554,29 +1531,36 @@ function verPrecios() {
 </script>
 <script>
     function confirmarReserva() {
-    const ficha = document.getElementById("cardPropiedad").innerText.split(": ")[1]; // Extraer el ID
-    const direccion = document.getElementById("cardDireccion").innerText.split(": ")[1];
-    const propietario = document.getElementById("cardPropietario").innerText.split(": ")[1];
-    const disponibilidad = document.getElementById("cardDisponibilidad").innerText.split(": ")[1];
-    const precio = document.getElementById("cardPrecio").innerText.split(": ")[1];
+    // Verificar que tengamos una propiedad seleccionada
+    if (!propiedadSeleccionada) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Por favor, seleccione una propiedad primero'
+        });
+        return;
+    }
 
-    const fechaInicio = window.fechaInicioSeleccionada;
-    console.log("hola soy la fecha de inicio",window.fechaInicioSeleccionada);
-    const fechaFin = window.fechaFinSeleccionada;
-    const totalDias = window.total_dias;
-    console.log("hola soy el total de diassssss",totalDias); 
+    // Usar los datos de propiedadSeleccionada en lugar de buscar en el DOM
+    const ficha = propiedadSeleccionada.id;
+    const direccion = propiedadSeleccionada.direccion;
+    const propietario = propiedadSeleccionada.propietario;
+    const precio = propiedadSeleccionada.precio;
+    const fechaInicio = propiedadSeleccionada.fechaInicio;
+    const fechaFin = propiedadSeleccionada.fechaFin;
+    const totalDias = propiedadSeleccionada.totalDias;
 
-    // Verifica si los valores se obtienen correctamente
-    console.log("ID Propiedad:", ficha);
-    console.log("Dirección:", direccion);
-    console.log("Propietario:", propietario);
-    console.log("Disponibilidad:", disponibilidad);
-    console.log("Precio por Día:", precio);
-    console.log("Fecha Inicio:", fechaInicio);
-    console.log("Fecha Fin:", fechaFin);
-    
+    // Verificar que tengamos todos los datos necesarios
+    if (!ficha || !direccion || !propietario || !precio || !fechaInicio || !fechaFin || !totalDias) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Faltan datos necesarios para la reserva'
+        });
+        return;
+    }
 
-    // Lógica de confirmación
+    // Continuar con la lógica de confirmación
     Swal.fire({
         title: '¿Está seguro?',
         text: "¿Desea reservar esta propiedad?",
@@ -1588,7 +1572,16 @@ function verPrecios() {
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias);
+            mostrarModalAutenticacionParaReserva(
+                ficha, 
+                direccion, 
+                propietario, 
+                propiedadSeleccionada.disponibilidad, 
+                precio, 
+                fechaInicio, 
+                fechaFin, 
+                totalDias
+            );
         }
     });
 }
