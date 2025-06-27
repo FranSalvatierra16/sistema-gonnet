@@ -3068,23 +3068,33 @@ def historial_movimientos(request, propiedad_id):
         # Obtener todos los movimientos de la propiedad
         movimientos = MovimientoPropiedad.objects.filter(
             propiedad_id=propiedad_id
-        ).select_related('inquilino', 'vendedor')
+        ).order_by('-fecha_creacion')  # Ordenar por fecha de creación descendente
         
         # Preparar los datos para la respuesta
-        data = {
-            'success': True,
-            'movimientos': [{
-                'tipo': movimiento.get_tipo_display(),
+        movimientos_data = []
+        for movimiento in movimientos:
+            movimiento_dict = {
+                'tipo': movimiento.tipo,
                 'fecha_inicio': movimiento.fecha_inicio.strftime('%Y-%m-%d'),
                 'fecha_fin': movimiento.fecha_fin.strftime('%Y-%m-%d'),
-                'fecha_creacion': movimiento.fecha_creacion.strftime('%Y-%m-%d %H:%M'),
-                'estado': movimiento.get_estado_display(),
-                'inquilino': str(movimiento.inquilino) if movimiento.inquilino else None,
-                'vendedor': str(movimiento.vendedor) if movimiento.vendedor else None,
-                'observaciones': movimiento.observaciones,
-            } for movimiento in movimientos]
-        }  # <- Faltaba esta llave
-        return JsonResponse(data)
+                'fecha_creacion': movimiento.fecha_creacion.strftime('%Y-%m-%d'),
+                'estado': movimiento.estado,
+            }
+            
+            # Agregar información adicional para reservas
+            if movimiento.tipo == 'RESERVA':
+                movimiento_dict.update({
+                    'inquilino': str(movimiento.inquilino) if movimiento.inquilino else None,
+                    'vendedor': str(movimiento.vendedor) if movimiento.vendedor else None,
+                })
+            
+            movimientos_data.append(movimiento_dict)
+        
+        return JsonResponse({
+            'success': True,
+            'movimientos': movimientos_data
+        })
+        
     except Propiedad.DoesNotExist:
         return JsonResponse({
             'success': False,

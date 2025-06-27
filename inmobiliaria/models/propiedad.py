@@ -823,12 +823,12 @@ class MovimientoPropiedad(models.Model):
         ('FINALIZADO', 'Finalizado'),
     ]
     
-    propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='movimientos')
+    propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE)
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
     fecha_creacion = models.DateTimeField(auto_now_add=True)
-    estado = models.CharField(max_length=50, choices=ESTADO_CHOICES, default='ACTIVO')
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='ACTIVO')
     inquilino = models.ForeignKey('Inquilino', null=True, blank=True, on_delete=models.SET_NULL)
     vendedor = models.ForeignKey('Vendedor', null=True, blank=True, on_delete=models.SET_NULL)
     observaciones = models.TextField(blank=True, null=True)
