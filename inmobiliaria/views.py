@@ -3068,7 +3068,7 @@ def historial_movimientos(request, propiedad_id):
         # Obtener todos los movimientos de la propiedad
         movimientos = MovimientoPropiedad.objects.filter(
             propiedad_id=propiedad_id
-        ).order_by('-fecha_creacion')  # Ordenar por fecha de creación descendente
+        ).order_by('-fecha_creacion')
         
         # Preparar los datos para la respuesta
         movimientos_data = []
@@ -3079,15 +3079,9 @@ def historial_movimientos(request, propiedad_id):
                 'fecha_fin': movimiento.fecha_fin.strftime('%Y-%m-%d'),
                 'fecha_creacion': movimiento.fecha_creacion.strftime('%Y-%m-%d'),
                 'estado': movimiento.estado,
+                'inquilino': str(movimiento.inquilino) if movimiento.inquilino else None,
+                'vendedor': str(movimiento.vendedor) if movimiento.vendedor else None,
             }
-            
-            # Agregar información adicional para reservas
-            if movimiento.tipo == 'RESERVA':
-                movimiento_dict.update({
-                    'inquilino': str(movimiento.inquilino) if movimiento.inquilino else None,
-                    'vendedor': str(movimiento.vendedor) if movimiento.vendedor else None,
-                })
-            
             movimientos_data.append(movimiento_dict)
         
         return JsonResponse({
@@ -3101,6 +3095,8 @@ def historial_movimientos(request, propiedad_id):
             'error': 'Propiedad no encontrada'
         }, status=404)
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())  # Esto imprimirá el error completo en los logs
         return JsonResponse({
             'success': False,
             'error': str(e)

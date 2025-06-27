@@ -823,7 +823,7 @@ class MovimientoPropiedad(models.Model):
         ('FINALIZADO', 'Finalizado'),
     ]
     
-    propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE)
+    propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='movimientos')
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
