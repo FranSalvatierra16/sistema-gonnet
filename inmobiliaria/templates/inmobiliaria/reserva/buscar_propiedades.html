@@ -814,7 +814,6 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal" id="cancelarReservaBtnA">Cancelar</button>
-
                 <button type="button" class="btn btn-primary" onclick="autenticarYFinalizar()">Autenticar y Finalizar</button>
             </div>
         </div>
@@ -1642,151 +1641,106 @@ function verPrecios() {
         return;
     }
 
-    // Usar los datos de propiedadSeleccionada en lugar de buscar en el DOM
-    const ficha = propiedadSeleccionada.id;
-    const direccion = propiedadSeleccionada.direccion;
-    const propietario = propiedadSeleccionada.propietario;
-    const precio = propiedadSeleccionada.precio;
-    const fechaInicio = propiedadSeleccionada.fechaInicio;
-    const fechaFin = propiedadSeleccionada.fechaFin;
-    const totalDias = propiedadSeleccionada.totalDias;
+    // Guardar los datos en una variable global para usarlos después de la autenticación
+    window.datosReserva = {
+        ficha: propiedadSeleccionada.id,
+        direccion: propiedadSeleccionada.direccion,
+        propietario: propiedadSeleccionada.propietario,
+        disponibilidad: propiedadSeleccionada.disponibilidad,
+        precio: propiedadSeleccionada.precio,
+        fechaInicio: propiedadSeleccionada.fechaInicio,
+        fechaFin: propiedadSeleccionada.fechaFin,
+        totalDias: propiedadSeleccionada.totalDias
+    };
 
-    // Verificar que tengamos todos los datos necesarios
-    if (!ficha || !direccion || !propietario || !precio || !fechaInicio || !fechaFin || !totalDias) {
+    // Mostrar el modal de autenticación primero
+    $('#modalAutenticacionVendedor').modal('show');
+    
+    // Cambiar el texto del botón y la función que se ejecutará
+    const botonAutenticar = document.querySelector('#modalAutenticacionVendedor .btn-primary');
+    botonAutenticar.textContent = 'Autenticar y Continuar';
+    botonAutenticar.onclick = autenticarYContinuar;
+}
+
+function autenticarYContinuar() {
+    const usuario = document.getElementById('usuarioVendedor').value;
+    const contrasena = document.getElementById('contrasenaVendedor').value;
+
+    if (!usuario || !contrasena) {
         Swal.fire({
             icon: 'error',
             title: 'Error',
-            text: 'Faltan datos necesarios para la reserva'
+            text: 'Por favor ingrese usuario y contraseña'
         });
         return;
     }
 
-    // Continuar con la lógica de confirmación
-    Swal.fire({
-        title: '¿Está seguro?',
-        text: "¿Desea reservar esta propiedad?",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Sí, reservar',
-        cancelButtonText: 'Cancelar'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            mostrarModalReserva(
-                ficha, 
-                direccion, 
-                propietario, 
-                propiedadSeleccionada.disponibilidad, 
-                precio, 
-                fechaInicio, 
-                fechaFin, 
-                totalDias
-            );
+    // Enviar los datos a través de AJAX
+    $.ajax({
+        url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
+        type: 'POST',
+        data: {
+            'username': usuario,
+            'password': contrasena,
+            'csrfmiddlewaretoken': '{{ csrf_token }}',
+        },
+        success: function(response) {
+            if (response.success) {
+                window.vendedorAutenticado = response.vendedor_id;
+                $('#modalAutenticacionVendedor').modal('hide');
+                
+                // Ahora mostrar el modal de reserva con los datos guardados
+                mostrarModalReserva(
+                    window.datosReserva.ficha,
+                    window.datosReserva.direccion,
+                    window.datosReserva.propietario,
+                    window.datosReserva.disponibilidad,
+                    window.datosReserva.precio,
+                    window.datosReserva.fechaInicio,
+                    window.datosReserva.fechaFin,
+                    window.datosReserva.totalDias
+                );
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de autenticación',
+                    text: 'Credenciales incorrectas'
+                });
+            }
+        },
+        error: function(xhr, status, error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al autenticar: ' + error
+            });
         }
     });
 }
-function formatearFecha(fecha) {
-    const d = new Date(fecha);
-    const dia = d.getDate().toString().padStart(2, '0');
-    const mes = (d.getMonth() + 1).toString().padStart(2, '0'); // Los meses en JavaScript van de 0 a 11
-    const anio = d.getFullYear();
-    return `${dia}/${mes}/${anio}`;
-}
+
 function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
-    // Datos básicos de la propiedad
+    console.log("Mostrando modal de reserva con datos:", {
+        ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias
+    });
+
+    // Actualizar los campos con el vendedor autenticado
+    document.getElementById('vendedor_id').value = window.vendedorAutenticado;
+    document.getElementById('modalVendedorId').value = window.vendedorAutenticado;
+    
+    // Actualizar el resto de los campos
     document.getElementById("propiedadDireccion").textContent = direccion;
     document.getElementById("fechaInicio").textContent = formatearFecha(fechaInicio);
     document.getElementById("fechaFin").textContent = formatearFecha(fechaFin);
     document.getElementById("totalDias").textContent = `${totalDias} días`;
     document.getElementById("precioTotalSuperior").textContent = precio;
-
-    // Campos del formulario
+    
+    // Actualizar campos ocultos del formulario
     document.getElementById("modalPropiedadId").value = ficha;
     document.getElementById("modalFechaInicio").value = fechaInicio;
     document.getElementById("modalFechaFin").value = fechaFin;
     document.getElementById("modalPrecioTotal").value = precio;
     document.getElementById("precio_total_display").textContent = precio;
     document.getElementById("precio_total").value = precio;
-
-    // Vendedor ID - Agregar evento para actualizar el campo oculto
-    const vendedorInput = document.getElementById('vendedor_id');
-    vendedorInput.addEventListener('change', function() {
-        document.getElementById("modalVendedorId").value = this.value;
-    });
-
-    // Inquilino ID - Agregar evento para actualizar el campo oculto
-    const inquilinoSelect = document.getElementById('inquilino');
-    inquilinoSelect.addEventListener('change', function() {
-        document.getElementById("modalInquilinoId").value = this.value;
-    });
-
-    // Configurar eventos para editar precio
-    const precioTotalDisplay = document.getElementById('precio_total_display');
-    const precioTotalInput = document.getElementById('precio_total');
-    const editarPrecioBtn = document.getElementById('editar_precio_btn');
-    const guardarPrecioBtn = document.getElementById('guardar_precio_btn');
-    const cancelarPrecioBtn = document.getElementById('cancelar_precio_btn');
-
-    editarPrecioBtn.onclick = function() {
-        precioTotalDisplay.style.display = 'none';
-        precioTotalInput.style.display = 'inline-block';
-        editarPrecioBtn.style.display = 'none';
-        guardarPrecioBtn.style.display = 'inline-block';
-        cancelarPrecioBtn.style.display = 'inline-block';
-    };
-
-    guardarPrecioBtn.onclick = function() {
-        const nuevoPrecio = precioTotalInput.value;
-        precioTotalDisplay.textContent = nuevoPrecio;
-        document.getElementById("modalPrecioTotal").value = nuevoPrecio;
-        document.getElementById("precioTotalSuperior").textContent = nuevoPrecio;
-        
-        precioTotalDisplay.style.display = 'inline';
-        precioTotalInput.style.display = 'none';
-        guardarPrecioBtn.style.display = 'none';
-        cancelarPrecioBtn.style.display = 'none';
-        editarPrecioBtn.style.display = 'inline';
-    };
-
-    cancelarPrecioBtn.onclick = function() {
-        precioTotalInput.value = precio;
-        precioTotalDisplay.style.display = 'inline';
-        precioTotalInput.style.display = 'none';
-        guardarPrecioBtn.style.display = 'none';
-        cancelarPrecioBtn.style.display = 'none';
-        editarPrecioBtn.style.display = 'inline';
-    };
-
-    // Validación antes de enviar el formulario
-    const confirmarReservaForm = document.getElementById('confirmar-reserva-form');
-    confirmarReservaForm.addEventListener('submit', function(event) {
-        event.preventDefault();
-        
-        const vendedorId = document.getElementById("modalVendedorId").value;
-        const inquilinoId = document.getElementById("modalInquilinoId").value;
-
-        if (!vendedorId || vendedorId.trim() === '') {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Por favor, ingrese el ID del vendedor'
-            });
-            return;
-        }
-
-        if (!inquilinoId || inquilinoId.trim() === '') {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Por favor, seleccione un inquilino'
-            });
-            return;
-        }
-
-        // Si todo está correcto, enviar el formulario
-        this.submit();
-    });
 
     // Mostrar el modal
     $('#modalConfirmarReserva').modal('show');
