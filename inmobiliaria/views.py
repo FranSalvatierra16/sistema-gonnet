@@ -3083,4 +3083,15 @@ def historial_movimientos(request, propiedad_id):
                 'vendedor': str(movimiento.vendedor) if movimiento.vendedor else None,
                 'observaciones': movimiento.observaciones,
             } for movimiento in movimientos]
-        }
+        }  # <- Faltaba esta llave
+        return JsonResponse(data)
+    except Propiedad.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Propiedad no encontrada'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
