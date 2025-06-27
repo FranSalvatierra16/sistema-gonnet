@@ -3062,13 +3062,16 @@ def obtener_precios_propiedad(request, propiedad_id):
 @require_http_methods(["GET"])
 def historial_movimientos(request, propiedad_id):
     try:
+        print(f"Buscando propiedad con ID: {propiedad_id}")
         # Verificar que la propiedad existe
         propiedad = Propiedad.objects.get(id=propiedad_id)
+        print(f"Propiedad encontrada: {propiedad}")
         
         # Obtener todos los movimientos de la propiedad
         movimientos = MovimientoPropiedad.objects.filter(
             propiedad_id=propiedad_id
         ).order_by('-fecha_creacion')
+        print(f"Movimientos encontrados: {movimientos.count()}")
         
         # Preparar los datos para la respuesta
         movimientos_data = []
@@ -3090,13 +3093,15 @@ def historial_movimientos(request, propiedad_id):
         })
         
     except Propiedad.DoesNotExist:
+        print(f"Propiedad no encontrada con ID: {propiedad_id}")
         return JsonResponse({
             'success': False,
-            'error': 'Propiedad no encontrada'
+            'error': f'Propiedad no encontrada con ID: {propiedad_id}'
         }, status=404)
     except Exception as e:
         import traceback
-        print(traceback.format_exc())  # Esto imprimirá el error completo en los logs
+        print(f"Error al procesar historial para propiedad {propiedad_id}:")
+        print(traceback.format_exc())
         return JsonResponse({
             'success': False,
             'error': str(e)
