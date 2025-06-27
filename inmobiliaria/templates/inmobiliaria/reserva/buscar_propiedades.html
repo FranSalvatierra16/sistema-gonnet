@@ -538,26 +538,13 @@
                             <th>Propietario</th>
                             <th>Precio</th>
                             <th>Sucursal</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for propiedad in propiedades_disponibles %}
                         {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad(
-                            '{{total_dias}}',
-                            '{{ propiedad.direccion|escapejs }}',
-                            '{{ propiedad.propietario.nombre|escapejs }}',
-                            '{{ propiedad.disponibilidad }}',
-                            '{{ propiedad.precio_total_reserva|format_price }}',
-                            '{{ propiedad.id }}',
-                            '{{ fecha_inicio }}',
-                            '{{ fecha_fin }}',
-                            '{{ propiedad.estado_reserva }}',
-                            '{{ propiedad.reserva.id }}',
-                            '{{ propiedad.ambientes }}',
-                            '{{ propiedad.descripcion|escapejs }}',
-                            '{{ propiedad.caracteristicas|escapejs }}'
-                        )">
+                        <tr style="background-color: white;">
                             <td style="color: red;">{{ propiedad.id }}</td>
                             <td style="color: red;">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td style="color: red;">{{ propiedad.ubicacion }}</td>
@@ -566,23 +553,15 @@
                             <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
                             <td style="color: red;">{{ propiedad.precio_total_reserva }}</td>
                             <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
+                            <td>
+                                <button type="button" class="btn btn-info btn-sm" 
+                                        onclick="event.stopPropagation(); verHistorialPropiedadDirecto('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}')">
+                                    <i class="fas fa-history"></i> Historial
+                                </button>
+                            </td>
                         </tr>
                         {% else %}
-                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad(
-                            '{{total_dias}}',
-                            '{{ propiedad.direccion|escapejs }}',
-                            '{{ propiedad.propietario.nombre|escapejs }}',
-                            '{{ propiedad.disponibilidad }}',
-                            '{{ propiedad.precio_total_reserva|format_price }}',
-                            '{{ propiedad.id }}',
-                            '{{ fecha_inicio }}',
-                            '{{ fecha_fin }}',
-                            '{{ propiedad.estado_reserva }}',
-                            '',
-                            '{{ propiedad.ambientes }}',
-                            '{{ propiedad.descripcion|escapejs }}',
-                            '{{ propiedad.caracteristicas|escapejs }}'
-                        )">
+                        <tr style="background-color: white;">
                             <td>{{ propiedad.id }}</td>
                             <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td>{{ propiedad.ubicacion }}</td>
@@ -591,6 +570,12 @@
                             <td>{{ propiedad.propietario.apellido }}</td>
                             <td>{{ propiedad.precio_total_reserva|format_price }}</td>
                             <td>{{ propiedad.sucursal.nombre }}</td>
+                            <td>
+                                <button type="button" class="btn btn-info btn-sm" 
+                                        onclick="event.stopPropagation(); verHistorialPropiedadDirecto('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}')">
+                                    <i class="fas fa-history"></i> Historial
+                                </button>
+                            </td>
                         </tr>
                         {% endif %}
                         {% endfor %}
@@ -1921,6 +1906,78 @@ function verHistorialMovimientos() {
 
     // Hacer la petición al servidor usando la URL de Django
     fetch(`{% url 'inmobiliaria:historial_movimientos' '0' %}`.replace('0', window.propiedadSeleccionada.id))
+        .then(response => {
+            if (!response.ok) throw new Error('Error al obtener el historial');
+            return response.json();
+        })
+        .then(data => {
+            const container = document.getElementById('timelineContainer');
+            container.innerHTML = '';
+
+            if (data.success && data.movimientos && data.movimientos.length > 0) {
+                data.movimientos.forEach(movimiento => {
+                    const item = document.createElement('div');
+                    item.className = `timeline-item ${movimiento.tipo.toLowerCase()}`;
+                    item.innerHTML = `
+                        <div class="timeline-fecha">
+                            ${formatearFecha(movimiento.fecha_creacion)}
+                        </div>
+                        <div class="timeline-titulo">
+                            ${movimiento.tipo === 'DISPONIBILIDAD' ? 
+                                '<i class="fas fa-calendar-check text-success"></i>' : 
+                                '<i class="fas fa-calendar-times text-danger"></i>'} 
+                            ${movimiento.tipo}
+                        </div>
+                        <div class="timeline-detalles">
+                            <strong>Período:</strong> ${formatearFecha(movimiento.fecha_inicio)} - 
+                            ${formatearFecha(movimiento.fecha_fin)}<br>
+                            ${movimiento.tipo === 'RESERVA' ? 
+                                `<strong>Inquilino:</strong> ${movimiento.inquilino || 'No especificado'}<br>
+                                 <strong>Vendedor:</strong> ${movimiento.vendedor || 'No especificado'}<br>` : ''}
+                            <strong>Estado:</strong> ${movimiento.estado}
+                        </div>
+                    `;
+                    container.appendChild(item);
+                });
+            } else {
+                container.innerHTML = `
+                    <div class="alert alert-info">
+                        No hay movimientos registrados para esta propiedad.
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('timelineContainer').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    Error al cargar el historial: ${error.message}
+                </div>
+            `;
+        });
+}
+
+function verHistorialPropiedadDirecto(propiedadId, direccion) {
+    // Actualizar título del modal
+    document.getElementById('propiedadHistorialTitulo').textContent = 
+        `${direccion} (ID: ${propiedadId})`;
+
+    // Mostrar loading
+    document.getElementById('timelineContainer').innerHTML = `
+        <div class="text-center p-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    `;
+    
+    // Mostrar el modal
+    const modalHistorial = new bootstrap.Modal(document.getElementById('modalHistorial'));
+    modalHistorial.show();
+
+    // Hacer la petición al servidor
+    fetch(`{% url 'inmobiliaria:historial_movimientos' '0' %}`.replace('0', propiedadId))
         .then(response => {
             if (!response.ok) throw new Error('Error al obtener el historial');
             return response.json();
