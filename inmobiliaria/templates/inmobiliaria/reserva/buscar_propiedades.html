@@ -1901,7 +1901,7 @@ function verHistorialMovimientos() {
         });
         return;
     }
-
+    
     // Actualizar título del modal
     document.getElementById('propiedadHistorialTitulo').textContent = 
         `${window.propiedadSeleccionada.direccion} (ID: ${window.propiedadSeleccionada.id})`;
@@ -1914,13 +1914,13 @@ function verHistorialMovimientos() {
             </div>
         </div>
     `;
-
+    
     // Mostrar el modal
     const modalHistorial = new bootstrap.Modal(document.getElementById('modalHistorial'));
     modalHistorial.show();
 
-    // Hacer la petición al servidor
-    fetch(`/inmobiliaria/historial-movimientos/${window.propiedadSeleccionada.id}/`)
+    // Hacer la petición al servidor usando la URL de Django
+    fetch(`{% url 'inmobiliaria:historial_movimientos' '0' %}`.replace('0', window.propiedadSeleccionada.id))
         .then(response => {
             if (!response.ok) throw new Error('Error al obtener el historial');
             return response.json();
@@ -1929,32 +1929,32 @@ function verHistorialMovimientos() {
             const container = document.getElementById('timelineContainer');
             container.innerHTML = '';
 
-            data.movimientos.forEach(movimiento => {
-                const item = document.createElement('div');
-                item.className = `timeline-item ${movimiento.tipo.toLowerCase()}`;
-                item.innerHTML = `
-                    <div class="timeline-fecha">
-                        ${formatearFecha(movimiento.fecha_creacion)}
-                    </div>
-                    <div class="timeline-titulo">
-                        ${movimiento.tipo === 'DISPONIBILIDAD' ? 
-                            '<i class="fas fa-calendar-check text-success"></i>' : 
-                            '<i class="fas fa-calendar-times text-danger"></i>'} 
-                        ${movimiento.tipo}
-                    </div>
-                    <div class="timeline-detalles">
-                        <strong>Período:</strong> ${formatearFecha(movimiento.fecha_inicio)} - 
-                        ${formatearFecha(movimiento.fecha_fin)}<br>
-                        ${movimiento.tipo === 'RESERVA' ? 
-                            `<strong>Inquilino:</strong> ${movimiento.inquilino}<br>
-                             <strong>Vendedor:</strong> ${movimiento.vendedor}<br>` : ''}
-                        <strong>Estado:</strong> ${movimiento.estado}
-                    </div>
-                `;
-                container.appendChild(item);
-            });
-
-            if (data.movimientos.length === 0) {
+            if (data.success && data.movimientos && data.movimientos.length > 0) {
+                data.movimientos.forEach(movimiento => {
+                    const item = document.createElement('div');
+                    item.className = `timeline-item ${movimiento.tipo.toLowerCase()}`;
+                    item.innerHTML = `
+                        <div class="timeline-fecha">
+                            ${formatearFecha(movimiento.fecha_creacion)}
+                        </div>
+                        <div class="timeline-titulo">
+                            ${movimiento.tipo === 'DISPONIBILIDAD' ? 
+                                '<i class="fas fa-calendar-check text-success"></i>' : 
+                                '<i class="fas fa-calendar-times text-danger"></i>'} 
+                            ${movimiento.tipo}
+                        </div>
+                        <div class="timeline-detalles">
+                            <strong>Período:</strong> ${formatearFecha(movimiento.fecha_inicio)} - 
+                            ${formatearFecha(movimiento.fecha_fin)}<br>
+                            ${movimiento.tipo === 'RESERVA' ? 
+                                `<strong>Inquilino:</strong> ${movimiento.inquilino || 'No especificado'}<br>
+                                 <strong>Vendedor:</strong> ${movimiento.vendedor || 'No especificado'}<br>` : ''}
+                            <strong>Estado:</strong> ${movimiento.estado}
+                        </div>
+                    `;
+                    container.appendChild(item);
+                });
+            } else {
                 container.innerHTML = `
                     <div class="alert alert-info">
                         No hay movimientos registrados para esta propiedad.
@@ -1963,6 +1963,7 @@ function verHistorialMovimientos() {
             }
         })
         .catch(error => {
+            console.error('Error:', error);
             document.getElementById('timelineContainer').innerHTML = `
                 <div class="alert alert-danger">
                     <i class="fas fa-exclamation-triangle"></i> 
