@@ -151,4 +151,7 @@ urlpatterns = [
     path('sucursal/<int:sucursal_id>/editar/', views.editar_sucursal, name='editar_sucursal'),
     path('obtener-fotos-propiedad/<int:propiedad_id>/', views.obtener_fotos_propiedad, name='obtener_fotos_propiedad'),
     path('obtener-precios-propiedad/<int:propiedad_id>/', views.obtener_precios_propiedad, name='obtener_precios_propiedad'),
+    path('historial-movimientos/<int:propiedad_id>/', 
+         views.historial_movimientos, 
+         name='historial_movimientos'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

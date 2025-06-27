@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal  # Added CuentaBancaria import and Movimiento import
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal, MovimientoPropiedad  # Added CuentaBancaria import and Movimiento import
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
@@ -535,40 +535,62 @@ def reservas(request):
 def operaciones(request):
     reservas = Reserva.objects.filter(sucursal=request.user.sucursal)
     return render(request, 'inmobiliaria/reserva/operaciones.html', {'reservas': reservas})
-def crear_reserva(request):
-
-    if request.method == 'POST':
-        propiedad_id = request.POST.get('propiedad_id')
-        fecha_inicio_str = request.POST.get('fecha_inicio')
-        fecha_fin_str = request.POST.get('fecha_fin')
-
-        try:
-            fecha_inicio = parse_date(fecha_inicio_str)
-            fecha_fin = parse_date(fecha_fin_str)
-
-            if not fecha_inicio or not fecha_fin:
-                raise ValidationError('Las fechas proporcionadas no son válidas.')
-
-            if fecha_inicio > fecha_fin:
-                raise ValidationError('La fecha de inicio no puede ser posterior a la fecha de fin.')
-
-            propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+def crear_reserva(request, propiedad_id):
+    try:
+        with transaction.atomic():
+            # Tu código existente para crear la reserva
+            reserva = Reserva.objects.create(...)
             
-            # Aquí puedes añadir la lógica para crear la reserva o validar disponibilidad
-            reserva = form.save(commit=False)
-            reserva.propiedad_id = propiedad_id
-            reserva.vendedor = request.user
-            # Asegúrate de que precio_total tenga un valor
-            reserva.precio_total = form.cleaned_data.get('precio_total', 0)
-            # La cuota_pendiente se establecerá automáticamente en el save()
-            reserva.save()
+            # Crear los movimientos correspondientes
+            # 1. Cerrar la disponibilidad anterior
+            disponibilidad_anterior = MovimientoPropiedad.objects.filter(
+                propiedad_id=propiedad_id,
+                tipo='DISPONIBILIDAD',
+                fecha_inicio__lte=reserva.fecha_inicio,
+                fecha_fin__gte=reserva.fecha_fin,
+                estado='ACTIVO'
+            ).first()
+            
+            if disponibilidad_anterior:
+                # Si hay días antes de la reserva
+                if disponibilidad_anterior.fecha_inicio < reserva.fecha_inicio:
+                    MovimientoPropiedad.objects.create(
+                        propiedad_id=propiedad_id,
+                        tipo='DISPONIBILIDAD',
+                        fecha_inicio=disponibilidad_anterior.fecha_inicio,
+                        fecha_fin=reserva.fecha_inicio - timedelta(days=1),
+                        estado='ACTIVO'
+                    )
+                
+                # Crear el movimiento de reserva
+                MovimientoPropiedad.objects.create(
+                    propiedad_id=propiedad_id,
+                    tipo='RESERVA',
+                    fecha_inicio=reserva.fecha_inicio,
+                    fecha_fin=reserva.fecha_fin,
+                    inquilino=reserva.inquilino,
+                    vendedor=reserva.vendedor,
+                    estado='ACTIVO'
+                )
+                
+                # Si hay días después de la reserva
+                if disponibilidad_anterior.fecha_fin > reserva.fecha_fin:
+                    MovimientoPropiedad.objects.create(
+                        propiedad_id=propiedad_id,
+                        tipo='DISPONIBILIDAD',
+                        fecha_inicio=reserva.fecha_fin + timedelta(days=1),
+                        fecha_fin=disponibilidad_anterior.fecha_fin,
+                        estado='ACTIVO'
+                    )
+                
+                # Marcar la disponibilidad anterior como finalizada
+                disponibilidad_anterior.estado = 'FINALIZADO'
+                disponibilidad_anterior.save()
+            
+            return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
 
-        except (ValueError, ValidationError) as e:
-            return render(request, 'inmobiliaria/reserva/error.html', {'error': str(e)})
-
-        return redirect('inmobiliaria:confirmar_reserva')
-
-    return redirect('inmobiliaria:buscar_propiedades')
 def reserva_editar(request, reserva_id):
     reserva = get_object_or_404(Reserva, pk=reserva_id)
     
@@ -3036,3 +3058,29 @@ def obtener_precios_propiedad(request, propiedad_id):
             'success': False,
             'error': str(e)
         })
+
+@require_http_methods(["GET"])
+def historial_movimientos(request, propiedad_id):
+    try:
+        # Verificar que la propiedad existe
+        propiedad = Propiedad.objects.get(id=propiedad_id)
+        
+        # Obtener todos los movimientos de la propiedad
+        movimientos = MovimientoPropiedad.objects.filter(
+            propiedad_id=propiedad_id
+        ).select_related('inquilino', 'vendedor')
+        
+        # Preparar los datos para la respuesta
+        data = {
+            'success': True,
+            'movimientos': [{
+                'tipo': movimiento.get_tipo_display(),
+                'fecha_inicio': movimiento.fecha_inicio.strftime('%Y-%m-%d'),
+                'fecha_fin': movimiento.fecha_fin.strftime('%Y-%m-%d'),
+                'fecha_creacion': movimiento.fecha_creacion.strftime('%Y-%m-%d %H:%M'),
+                'estado': movimiento.get_estado_display(),
+                'inquilino': str(movimiento.inquilino) if movimiento.inquilino else None,
+                'vendedor': str(movimiento.vendedor) if movimiento.vendedor else None,
+                'observaciones': movimiento.observaciones,
+            } for movimiento in movimientos]
+        }

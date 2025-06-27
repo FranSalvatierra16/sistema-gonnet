@@ -810,3 +810,33 @@ def reordenar_numeros_por_propietario(sender, instance, **kwargs):
         if propiedad.numero_por_propietario != idx:
             propiedad.numero_por_propietario = idx
             propiedad.save(update_fields=['numero_por_propietario'])
+
+class MovimientoPropiedad(models.Model):
+    TIPO_CHOICES = [
+        ('DISPONIBILIDAD', 'Disponibilidad'),
+        ('RESERVA', 'Reserva'),
+    ]
+    
+    ESTADO_CHOICES = [
+        ('ACTIVO', 'Activo'),
+        ('CANCELADO', 'Cancelado'),
+        ('FINALIZADO', 'Finalizado'),
+    ]
+    
+    propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='movimientos')
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    fecha_inicio = models.DateField()
+    fecha_fin = models.DateField()
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    estado = models.CharField(max_length=50, choices=ESTADO_CHOICES, default='ACTIVO')
+    inquilino = models.ForeignKey('Inquilino', null=True, blank=True, on_delete=models.SET_NULL)
+    vendedor = models.ForeignKey('Vendedor', null=True, blank=True, on_delete=models.SET_NULL)
+    observaciones = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-fecha_creacion']
+        verbose_name = 'Movimiento de Propiedad'
+        verbose_name_plural = 'Movimientos de Propiedades'
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.propiedad} ({self.fecha_inicio} al {self.fecha_fin})"
