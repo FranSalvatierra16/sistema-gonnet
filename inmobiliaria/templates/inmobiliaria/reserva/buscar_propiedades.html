@@ -1510,6 +1510,9 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
             <button type="button" class="btn btn-warning" onclick="window.verPrecios()">
                 <i class="fas fa-dollar-sign"></i> Ver Precios
             </button>
+            <button type="button" class="btn btn-info" onclick="verHistorialMovimientos()">
+                <i class="fas fa-history"></i> Ver Historial
+            </button>
         
         `;
     } else {
@@ -1518,6 +1521,9 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
             <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
             <button type="button" class="btn btn-warning" onclick="window.verPrecios()">
                 <i class="fas fa-dollar-sign"></i> Ver Precios
+            </button>
+            <button type="button" class="btn btn-info" onclick="verHistorialMovimientos()">
+                <i class="fas fa-history"></i> Ver Historial
             </button>
       
         `;
