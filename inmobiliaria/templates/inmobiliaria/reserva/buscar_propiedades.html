@@ -544,7 +544,21 @@
                     <tbody>
                         {% for propiedad in propiedades_disponibles %}
                         {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                        <tr style="background-color: white;">
+                        <tr style="background-color: white;" onclick="seleccionarPropiedad(
+                            '{{total_dias}}',
+                            '{{ propiedad.direccion|escapejs }}',
+                            '{{ propiedad.propietario.nombre|escapejs }}',
+                            '{{ propiedad.disponibilidad }}',
+                            '{{ propiedad.precio_total_reserva|format_price }}',
+                            '{{ propiedad.id }}',
+                            '{{ fecha_inicio }}',
+                            '{{ fecha_fin }}',
+                            '{{ propiedad.estado_reserva }}',
+                            '{{ propiedad.reserva.id }}',
+                            '{{ propiedad.ambientes }}',
+                            '{{ propiedad.descripcion|escapejs }}',
+                            '{{ propiedad.caracteristicas|escapejs }}'
+                        )">
                             <td style="color: red;">{{ propiedad.id }}</td>
                             <td style="color: red;">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td style="color: red;">{{ propiedad.ubicacion }}</td>
@@ -553,15 +567,29 @@
                             <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
                             <td style="color: red;">{{ propiedad.precio_total_reserva }}</td>
                             <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
-                            <td>
+                            <td onclick="event.stopPropagation()">
                                 <button type="button" class="btn btn-info btn-sm" 
-                                        onclick="event.stopPropagation(); verHistorialPropiedadDirecto('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}')">
+                                        onclick="verHistorialPropiedadDirecto('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}')">
                                     <i class="fas fa-history"></i> Historial
                                 </button>
                             </td>
                         </tr>
                         {% else %}
-                        <tr style="background-color: white;">
+                        <tr style="background-color: white;" onclick="seleccionarPropiedad(
+                            '{{total_dias}}',
+                            '{{ propiedad.direccion|escapejs }}',
+                            '{{ propiedad.propietario.nombre|escapejs }}',
+                            '{{ propiedad.disponibilidad }}',
+                            '{{ propiedad.precio_total_reserva|format_price }}',
+                            '{{ propiedad.id }}',
+                            '{{ fecha_inicio }}',
+                            '{{ fecha_fin }}',
+                            '{{ propiedad.estado_reserva }}',
+                            '',
+                            '{{ propiedad.ambientes }}',
+                            '{{ propiedad.descripcion|escapejs }}',
+                            '{{ propiedad.caracteristicas|escapejs }}'
+                        )">
                             <td>{{ propiedad.id }}</td>
                             <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td>{{ propiedad.ubicacion }}</td>
@@ -570,9 +598,9 @@
                             <td>{{ propiedad.propietario.apellido }}</td>
                             <td>{{ propiedad.precio_total_reserva|format_price }}</td>
                             <td>{{ propiedad.sucursal.nombre }}</td>
-                            <td>
+                            <td onclick="event.stopPropagation()">
                                 <button type="button" class="btn btn-info btn-sm" 
-                                        onclick="event.stopPropagation(); verHistorialPropiedadDirecto('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}')">
+                                        onclick="verHistorialPropiedadDirecto('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}')">
                                     <i class="fas fa-history"></i> Historial
                                 </button>
                             </td>
