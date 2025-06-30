@@ -1060,6 +1060,15 @@ function autenticarYReservar() {
     var usuario = document.getElementById('usuarioVendedor').value;
     var contrasena = document.getElementById('contrasenaVendedor').value;
 
+    if (!usuario || !contrasena) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Por favor complete todos los campos'
+        });
+        return;
+    }
+
     // Enviar los datos a través de AJAX
     $.ajax({
         url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
@@ -1071,11 +1080,14 @@ function autenticarYReservar() {
         },
         success: function(response) {
             if (response.success) {
-                // Cerrar el modal de autenticación usando Bootstrap
-                const modalAutenticacion = bootstrap.Modal.getInstance(document.getElementById('modalAutenticacionVendedor'));
-                modalAutenticacion.hide();
-                
                 window.vendedorAutenticado = response.vendedor_id;
+                
+                // Cerrar el modal usando jQuery
+                $('#modalAutenticacionVendedor').modal('hide');
+                
+                // Limpiar los campos del formulario
+                document.getElementById('usuarioVendedor').value = '';
+                document.getElementById('contrasenaVendedor').value = '';
                 
                 // Pequeño delay para asegurar que el primer modal se cierre completamente
                 setTimeout(() => {
@@ -1090,7 +1102,7 @@ function autenticarYReservar() {
                         window.datosReserva.fechaFin,
                         window.datosReserva.totalDias
                     );
-                }, 300);
+                }, 500);
             } else {
                 Swal.fire({
                     icon: 'error',
@@ -1674,29 +1686,55 @@ function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, dis
     modalAutenticacion.show();
 }
 
-function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
-    // Actualizar los campos con el vendedor autenticado
-    document.getElementById('vendedor_id').value = window.vendedorAutenticado;
-    document.getElementById('modalVendedorId').value = window.vendedorAutenticado;
+// Agregar esta función al principio del script, junto con las otras funciones auxiliares
+function formatearFecha(fecha) {
+    if (!fecha) return '';
     
-    // Actualizar el resto de los campos
-    document.getElementById("propiedadDireccion").textContent = direccion;
-    document.getElementById("fechaInicio").textContent = formatearFecha(fechaInicio);
-    document.getElementById("fechaFin").textContent = formatearFecha(fechaFin);
-    document.getElementById("totalDias").textContent = `${totalDias} días`;
-    document.getElementById("precioTotalSuperior").textContent = precio;
-    
-    // Actualizar campos ocultos del formulario
-    document.getElementById("modalPropiedadId").value = ficha;
-    document.getElementById("modalFechaInicio").value = fechaInicio;
-    document.getElementById("modalFechaFin").value = fechaFin;
-    document.getElementById("modalPrecioTotal").value = precio;
-    document.getElementById("precio_total_display").textContent = precio;
-    document.getElementById("precio_total").value = precio;
+    try {
+        const date = new Date(fecha);
+        return date.toLocaleDateString('es-AR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    } catch (error) {
+        console.error('Error al formatear fecha:', error);
+        return fecha; // Devolver la fecha original si hay error
+    }
+}
 
-    // Mostrar el modal usando jQuery (método compatible con Bootstrap 4 y 5)
-    const modalReserva = new bootstrap.Modal(document.getElementById('modalConfirmarReserva'));
-    modalReserva.show();
+function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
+    try {
+        // Actualizar los campos con el vendedor autenticado
+        document.getElementById('vendedor_id').value = window.vendedorAutenticado;
+        document.getElementById('modalVendedorId').value = window.vendedorAutenticado;
+        
+        // Actualizar el resto de los campos
+        document.getElementById("propiedadDireccion").textContent = direccion;
+        document.getElementById("fechaInicio").textContent = formatearFecha(fechaInicio);
+        document.getElementById("fechaFin").textContent = formatearFecha(fechaFin);
+        document.getElementById("totalDias").textContent = `${totalDias} días`;
+        document.getElementById("precioTotalSuperior").textContent = precio;
+        
+        // Actualizar campos ocultos del formulario
+        document.getElementById("modalPropiedadId").value = ficha;
+        document.getElementById("modalFechaInicio").value = fechaInicio;
+        document.getElementById("modalFechaFin").value = fechaFin;
+        document.getElementById("modalPrecioTotal").value = precio;
+        document.getElementById("precio_total_display").textContent = precio;
+        document.getElementById("precio_total").value = precio;
+
+        // Mostrar el modal
+        const modalReserva = new bootstrap.Modal(document.getElementById('modalConfirmarReserva'));
+        modalReserva.show();
+    } catch (error) {
+        console.error('Error al mostrar modal de reserva:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Hubo un problema al mostrar el formulario de reserva'
+        });
+    }
 }
 
     $('#cancelarReservaBtnA').on('click', function() {
