@@ -701,11 +701,11 @@
                 {% endif %}
             {% endif %}
         </div>
-        <div class="modal fade" id="modalConfirmarReserva" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
+        <div class="modal fade" id="modalConfirmarReserva" tabindex="-1" aria-labelledby="modalConfirmarReservaLabel" aria-hidden="true">
             <div class="modal-dialog" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="modalLabel">Confirmar Reserva</h5>
+                        <h5 class="modal-title" id="modalConfirmarReservaLabel">Confirmar Reserva</h5>
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>
@@ -1071,20 +1071,26 @@ function autenticarYReservar() {
         },
         success: function(response) {
             if (response.success) {
-                $('#modalAutenticacionVendedor').modal('hide');
+                // Cerrar el modal de autenticación usando Bootstrap
+                const modalAutenticacion = bootstrap.Modal.getInstance(document.getElementById('modalAutenticacionVendedor'));
+                modalAutenticacion.hide();
+                
                 window.vendedorAutenticado = response.vendedor_id;
                 
-                // Mostrar el modal de reserva con los datos guardados
-                mostrarModalReserva(
-                    window.datosReserva.ficha,
-                    window.datosReserva.direccion,
-                    window.datosReserva.propietario,
-                    window.datosReserva.disponibilidad,
-                    window.datosReserva.precio,
-                    window.datosReserva.fechaInicio,
-                    window.datosReserva.fechaFin,
-                    window.datosReserva.totalDias
-                );
+                // Pequeño delay para asegurar que el primer modal se cierre completamente
+                setTimeout(() => {
+                    // Mostrar el modal de reserva con los datos guardados
+                    mostrarModalReserva(
+                        window.datosReserva.ficha,
+                        window.datosReserva.direccion,
+                        window.datosReserva.propietario,
+                        window.datosReserva.disponibilidad,
+                        window.datosReserva.precio,
+                        window.datosReserva.fechaInicio,
+                        window.datosReserva.fechaFin,
+                        window.datosReserva.totalDias
+                    );
+                }, 300);
             } else {
                 Swal.fire({
                     icon: 'error',
@@ -1663,55 +1669,9 @@ function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, dis
         totalDias
     };
 
-    // Mostramos el modal de autenticación
-    $('#modalAutenticacionVendedor').modal('show');
-}
-
-function autenticarYReservar() {
-    var usuario = document.getElementById('usuarioVendedor').value;
-    var contrasena = document.getElementById('contrasenaVendedor').value;
-
-    // Enviar los datos a través de AJAX
-    $.ajax({
-        url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
-        type: 'POST',
-        data: {
-            'username': usuario,
-            'password': contrasena,
-            'csrfmiddlewaretoken': '{{ csrf_token }}',
-        },
-        success: function(response) {
-            if (response.success) {
-                $('#modalAutenticacionVendedor').modal('hide');
-                window.vendedorAutenticado = response.vendedor_id;
-                
-                // Mostrar el modal de reserva con los datos guardados
-                mostrarModalReserva(
-                    window.datosReserva.ficha,
-                    window.datosReserva.direccion,
-                    window.datosReserva.propietario,
-                    window.datosReserva.disponibilidad,
-                    window.datosReserva.precio,
-                    window.datosReserva.fechaInicio,
-                    window.datosReserva.fechaFin,
-                    window.datosReserva.totalDias
-                );
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error de autenticación',
-                    text: 'Credenciales incorrectas, por favor intente de nuevo.'
-                });
-            }
-        },
-        error: function(xhr, status, error) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error del servidor',
-                text: 'Ocurrió un error en el servidor. Por favor, intente de nuevo.'
-            });
-        }
-    });
+    // Mostramos el modal de autenticación usando Bootstrap 5
+    const modalAutenticacion = new bootstrap.Modal(document.getElementById('modalAutenticacionVendedor'));
+    modalAutenticacion.show();
 }
 
 function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
@@ -1734,8 +1694,9 @@ function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, prec
     document.getElementById("precio_total_display").textContent = precio;
     document.getElementById("precio_total").value = precio;
 
-    // Mostrar el modal
-    $('#modalConfirmarReserva').modal('show');
+    // Mostrar el modal usando jQuery (método compatible con Bootstrap 4 y 5)
+    const modalReserva = new bootstrap.Modal(document.getElementById('modalConfirmarReserva'));
+    modalReserva.show();
 }
 
     $('#cancelarReservaBtnA').on('click', function() {
