@@ -814,7 +814,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal" id="cancelarReservaBtnA">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="autenticarYFinalizar()">Autenticar y Finalizar</button>
+                <button type="button" class="btn btn-primary" onclick="autenticarYReservar()">Autenticar y Continuar</button>
             </div>
         </div>
     </div>
@@ -1042,23 +1042,25 @@
 }
 function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
     // Guardamos los datos de la reserva en variables globales
-    window.datosReserva = {ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin,totalDias};
-    console.log("hola soy el window.datosReserva",window.datosReserva);
+    window.datosReserva = {
+        ficha, 
+        direccion, 
+        propietario, 
+        disponibilidad, 
+        precio, 
+        fechaInicio, 
+        fechaFin, 
+        totalDias
+    };
+
     // Mostramos el modal de autenticación
     $('#modalAutenticacionVendedor').modal('show');
-    
-    // Cambiamos el texto del botón de autenticación
-    document.querySelector('#modalAutenticacionVendedor .btn-primary').textContent = 'Autenticar y Reservar';
-    
-    // Cambiamos la función que se ejecuta al hacer clic en el botón
-    document.querySelector('#modalAutenticacionVendedor .btn-primary').onclick = autenticarYReservar;
 }
 function autenticarYReservar() {
     var usuario = document.getElementById('usuarioVendedor').value;
     var contrasena = document.getElementById('contrasenaVendedor').value;
-    var reservaId = window.reservaIdActual;
 
-    // Enviar los datos a través de AJAX     s
+    // Enviar los datos a través de AJAX
     $.ajax({
         url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
         type: 'POST',
@@ -1069,26 +1071,20 @@ function autenticarYReservar() {
         },
         success: function(response) {
             if (response.success) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Autenticación exitosa',
-                    text: 'Procediendo con la reserva...',
-                    showConfirmButton: false,
-                    timer: 1500
-                }).then(() => {
-                    $('#modalAutenticacionVendedor').modal('hide');
-                    // Si la autenticación es exitosa, mostramos el modal de reserva
-                    mostrarModalReserva(
-                        window.datosReserva.ficha,
-                        window.datosReserva.direccion,
-                        window.datosReserva.propietario,
-                        window.datosReserva.disponibilidad,
-                        window.datosReserva.precio,
-                        window.datosReserva.fechaInicio,
-                        window.datosReserva.fechaFin,
-                        window.datosReserva.totalDias
-                    );
-                });
+                $('#modalAutenticacionVendedor').modal('hide');
+                window.vendedorAutenticado = response.vendedor_id;
+                
+                // Mostrar el modal de reserva con los datos guardados
+                mostrarModalReserva(
+                    window.datosReserva.ficha,
+                    window.datosReserva.direccion,
+                    window.datosReserva.propietario,
+                    window.datosReserva.disponibilidad,
+                    window.datosReserva.precio,
+                    window.datosReserva.fechaInicio,
+                    window.datosReserva.fechaFin,
+                    window.datosReserva.totalDias
+                );
             } else {
                 Swal.fire({
                     icon: 'error',
@@ -1641,39 +1637,39 @@ function verPrecios() {
         return;
     }
 
-    // Guardar los datos en una variable global para usarlos después de la autenticación
-    window.datosReserva = {
-        ficha: propiedadSeleccionada.id,
-        direccion: propiedadSeleccionada.direccion,
-        propietario: propiedadSeleccionada.propietario,
-        disponibilidad: propiedadSeleccionada.disponibilidad,
-        precio: propiedadSeleccionada.precio,
-        fechaInicio: propiedadSeleccionada.fechaInicio,
-        fechaFin: propiedadSeleccionada.fechaFin,
-        totalDias: propiedadSeleccionada.totalDias
-    };
-
     // Mostrar el modal de autenticación primero
-    $('#modalAutenticacionVendedor').modal('show');
-    
-    // Cambiar el texto del botón y la función que se ejecutará
-    const botonAutenticar = document.querySelector('#modalAutenticacionVendedor .btn-primary');
-    botonAutenticar.textContent = 'Autenticar y Continuar';
-    botonAutenticar.onclick = autenticarYContinuar;
+    mostrarModalAutenticacionParaReserva(
+        propiedadSeleccionada.id,
+        propiedadSeleccionada.direccion,
+        propiedadSeleccionada.propietario,
+        propiedadSeleccionada.disponibilidad,
+        propiedadSeleccionada.precio,
+        propiedadSeleccionada.fechaInicio,
+        propiedadSeleccionada.fechaFin,
+        propiedadSeleccionada.totalDias
+    );
 }
 
-function autenticarYContinuar() {
-    const usuario = document.getElementById('usuarioVendedor').value;
-    const contrasena = document.getElementById('contrasenaVendedor').value;
+function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
+    // Guardamos los datos de la reserva en variables globales
+    window.datosReserva = {
+        ficha, 
+        direccion, 
+        propietario, 
+        disponibilidad, 
+        precio, 
+        fechaInicio, 
+        fechaFin, 
+        totalDias
+    };
 
-    if (!usuario || !contrasena) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Por favor ingrese usuario y contraseña'
-        });
-        return;
-    }
+    // Mostramos el modal de autenticación
+    $('#modalAutenticacionVendedor').modal('show');
+}
+
+function autenticarYReservar() {
+    var usuario = document.getElementById('usuarioVendedor').value;
+    var contrasena = document.getElementById('contrasenaVendedor').value;
 
     // Enviar los datos a través de AJAX
     $.ajax({
@@ -1686,10 +1682,10 @@ function autenticarYContinuar() {
         },
         success: function(response) {
             if (response.success) {
-                window.vendedorAutenticado = response.vendedor_id;
                 $('#modalAutenticacionVendedor').modal('hide');
+                window.vendedorAutenticado = response.vendedor_id;
                 
-                // Ahora mostrar el modal de reserva con los datos guardados
+                // Mostrar el modal de reserva con los datos guardados
                 mostrarModalReserva(
                     window.datosReserva.ficha,
                     window.datosReserva.direccion,
@@ -1704,25 +1700,21 @@ function autenticarYContinuar() {
                 Swal.fire({
                     icon: 'error',
                     title: 'Error de autenticación',
-                    text: 'Credenciales incorrectas'
+                    text: 'Credenciales incorrectas, por favor intente de nuevo.'
                 });
             }
         },
         error: function(xhr, status, error) {
             Swal.fire({
                 icon: 'error',
-                title: 'Error',
-                text: 'Error al autenticar: ' + error
+                title: 'Error del servidor',
+                text: 'Ocurrió un error en el servidor. Por favor, intente de nuevo.'
             });
         }
     });
 }
 
 function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
-    console.log("Mostrando modal de reserva con datos:", {
-        ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias
-    });
-
     // Actualizar los campos con el vendedor autenticado
     document.getElementById('vendedor_id').value = window.vendedorAutenticado;
     document.getElementById('modalVendedorId').value = window.vendedorAutenticado;
