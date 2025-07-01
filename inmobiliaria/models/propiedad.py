@@ -384,39 +384,47 @@ class Reserva(models.Model):
             self.actualizar_historial_disponibilidad()
 
     def actualizar_historial_disponibilidad(self):
-        # Buscar el período de disponibilidad que cubre la reserva
-        disponibilidad = self.propiedad.disponibilidades.filter(
-            fecha_inicio__lte=self.fecha_inicio,
-            fecha_fin__gte=self.fecha_fin
-        ).first()
-
-        if disponibilidad:
-            # 1. Crear período antes de la reserva si existe
-            if disponibilidad.fecha_inicio < self.fecha_inicio:
-                HistorialDisponibilidad.objects.create(
-                    propiedad=self.propiedad,
-                    fecha_inicio=disponibilidad.fecha_inicio,
-                    fecha_fin=self.fecha_inicio - timedelta(days=1),
-                    estado='libre'
-                )
-
-            # 2. Crear período de la reserva
-            HistorialDisponibilidad.objects.create(
+        """
+        Actualiza el historial de disponibilidad cuando se crea o modifica una reserva.
+        Divide los períodos de disponibilidad según corresponda.
+        """
+        with transaction.atomic():
+            # Obtener todas las disponibilidades que se solapan con la reserva
+            disponibilidades_afectadas = Disponibilidad.objects.filter(
                 propiedad=self.propiedad,
-                fecha_inicio=self.fecha_inicio,
-                fecha_fin=self.fecha_fin,
-                estado='reservado',
-                reserva=self
-            )
+                fecha_inicio__lte=self.fecha_fin,
+                fecha_fin__gte=self.fecha_inicio
+            ).order_by('fecha_inicio')
 
-            # 3. Crear período después de la reserva si existe
-            if disponibilidad.fecha_fin > self.fecha_fin:
+            for disponibilidad in disponibilidades_afectadas:
+                # Si la disponibilidad empieza antes que la reserva
+                if disponibilidad.fecha_inicio < self.fecha_inicio:
+                    # Crear período "libre" antes de la reserva
+                    HistorialDisponibilidad.objects.create(
+                        propiedad=self.propiedad,
+                        fecha_inicio=disponibilidad.fecha_inicio,
+                        fecha_fin=self.fecha_inicio,
+                        estado='libre'
+                    )
+
+                # Crear período "reservado" durante la reserva
                 HistorialDisponibilidad.objects.create(
                     propiedad=self.propiedad,
-                    fecha_inicio=self.fecha_fin + timedelta(days=1),
-                    fecha_fin=disponibilidad.fecha_fin,
-                    estado='libre'
+                    fecha_inicio=self.fecha_inicio,
+                    fecha_fin=self.fecha_fin,
+                    estado='reservado',
+                    reserva=self
                 )
+
+                # Si la disponibilidad termina después que la reserva
+                if disponibilidad.fecha_fin > self.fecha_fin:
+                    # Crear período "libre" después de la reserva
+                    HistorialDisponibilidad.objects.create(
+                        propiedad=self.propiedad,
+                        fecha_inicio=self.fecha_fin,
+                        fecha_fin=disponibilidad.fecha_fin,
+                        estado='libre'
+                    )
 
     def actualizar_saldos(self):
         """Actualiza los saldos basados en los pagos realizados"""

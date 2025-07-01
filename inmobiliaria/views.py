@@ -1969,14 +1969,22 @@ def logout_view(request):
     return redirect('inmobiliaria:login')
 
 def ver_historial_disponibilidad(request, propiedad_id):
-    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-    historial = HistorialDisponibilidad.objects.filter(propiedad=propiedad).order_by('fecha_inicio')
-    
-    context = {
-        'propiedad': propiedad,
-        'historial': historial
-    }
-    return render(request, 'inmobiliaria/propiedades/historial_disponibilidad.html', context)
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    historial = HistorialDisponibilidad.objects.filter(
+        propiedad=propiedad
+    ).order_by('fecha_inicio')
+
+    return JsonResponse({
+        'success': True,
+        'historial': [{
+            'fecha_inicio': h.fecha_inicio.strftime('%d/%m/%Y'),
+            'fecha_fin': h.fecha_fin.strftime('%d/%m/%Y'),
+            'estado': h.estado,
+            'reserva_id': h.reserva.id if h.reserva else None,
+            'cliente': h.reserva.cliente.nombre if h.reserva and h.reserva.cliente else None,
+            'ultima_actualizacion': h.fecha_actualizacion.strftime('%d/%m/%Y %H:%M')
+        } for h in historial]
+    })
 
 @login_required
 def editar_info_venta(request, propiedad_id):
