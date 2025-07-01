@@ -490,7 +490,7 @@
                             <td style="color: red;">{{ propiedad.piso }}</td>
                             <td style="color: red;">{{ propiedad.departamento }}</td>
                             <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
-                            <td style="color: red;">{{ propiedad.precio_total_reserva }}</td>
+                            <td style="color: red;">{{ propiedad.calcular_precio_total_reserva|floatformat:2|intcomma }}</td>
                             <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
                         </tr>
                         {% else %}
@@ -515,7 +515,7 @@
                             <td>{{ propiedad.piso }}</td>
                             <td>{{ propiedad.departamento }}</td>
                             <td>{{ propiedad.propietario.apellido }}</td>
-                            <td>{{ propiedad.precio_total_reserva|format_price }}</td>
+                            <td>{{ propiedad.calcular_precio_total_reserva|floatformat:2|intcomma }}</td>
                             <td>{{ propiedad.sucursal.nombre }}</td>
                         </tr>
                         {% endif %}
@@ -781,7 +781,7 @@
                         <p><strong>Ambientes:</strong> {{ propiedad.ambientes }}</p>
                         <p><strong>Valoración:</strong> {{ propiedad.valoracion }}</p>
                         <p><strong>Características:</strong> {{ propiedad.caracteristicas }}</p>
-                        <p><strong>Precio Final:</strong> {{ propiedad.precio_total_reserva }}</p>
+                        <p><strong>Precio Final:</strong> {{ propiedad.calcular_precio_total_reserva|floatformat:2|intcomma }}</p>
                     </div>
                 </div>
             </div>
@@ -1706,7 +1706,7 @@ document.addEventListener('DOMContentLoaded', function() {
         guardarPrecioBtn.style.display = 'none';
         cancelarPrecioBtn.style.display = 'none';
         editarPrecioBtn.style.display = 'inline';
-    });
+    };
 
     // Añadir este evento al formulario de confirmación de reserva
     confirmarReservaForm.addEventListener('submit', function(event) {

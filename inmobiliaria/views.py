@@ -3058,3 +3058,76 @@ def obtener_precios_propiedad(request, propiedad_id):
             'success': False,
             'error': str(e)
         })
+
+def calcular_precio_total_reserva(self, fecha_inicio, fecha_fin):
+    """
+    Calcula el precio total de la reserva para las fechas dadas,
+    teniendo en cuenta los diferentes tipos de precio según el período
+    """
+    if not fecha_inicio or not fecha_fin:
+        return 0
+        
+    try:
+        # Convertir fechas si vienen como string
+        if isinstance(fecha_inicio, str):
+            fecha_inicio = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+        if isinstance(fecha_fin, str):
+            fecha_fin = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+
+        # Obtener todos los precios de la propiedad
+        precios = self.precios.all()
+        if not precios.exists():
+            return 0
+
+        # Calcular el número de días
+        dias = (fecha_fin - fecha_inicio).days + 1
+
+        # Determinar el tipo de precio según el período
+        mes = fecha_inicio.month
+        dia = fecha_inicio.day
+
+        # Definir el precio por día según el período
+        precio_por_dia = 0
+
+        # Verificar quincenas
+        if mes == 12:  # Diciembre
+            if 1 <= dia <= 15:
+                precio = precios.filter(tipo_precio='QUINCENA_1_DICIEMBRE').first()
+            else:
+                precio = precios.filter(tipo_precio='QUINCENA_2_DICIEMBRE').first()
+        elif mes == 1:  # Enero
+            if 1 <= dia <= 15:
+                precio = precios.filter(tipo_precio='QUINCENA_1_ENERO').first()
+            else:
+                precio = precios.filter(tipo_precio='QUINCENA_2_ENERO').first()
+        elif mes == 2:  # Febrero
+            if 1 <= dia <= 15:
+                precio = precios.filter(tipo_precio='QUINCENA_1_FEBRERO').first()
+            else:
+                precio = precios.filter(tipo_precio='QUINCENA_2_FEBRERO').first()
+        elif mes == 3:  # Marzo
+            if 1 <= dia <= 15:
+                precio = precios.filter(tipo_precio='QUINCENA_1_MARZO').first()
+            else:
+                precio = precios.filter(tipo_precio='QUINCENA_2_MARZO').first()
+        elif mes == 7:  # Julio (Vacaciones de invierno)
+            precio = precios.filter(tipo_precio='VACACIONES_INVIERNO').first()
+        else:
+            # Temporada baja por defecto
+            precio = precios.filter(tipo_precio='TEMPORADA_BAJA').first()
+
+        # Si no se encontró un precio específico, usar el precio de temporada baja
+        if not precio:
+            precio = precios.filter(tipo_precio='TEMPORADA_BAJA').first()
+
+        if precio and precio.precio_por_dia:
+            precio_por_dia = precio.precio_por_dia
+
+        # Calcular el precio total
+        precio_total = precio_por_dia * dias
+
+        return precio_total
+
+    except Exception as e:
+        print(f"Error calculando precio total: {e}")
+        return 0
