@@ -1457,6 +1457,10 @@ function autenticarYReservar() {
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
+    // Obtener las fechas del formulario de búsqueda
+    const fechaInicioForm = document.getElementById('id_fecha_inicio').value;
+    const fechaFinForm = document.getElementById('id_fecha_fin').value;
+
     // Guardar todos los datos de la propiedad seleccionada
     window.propiedadSeleccionada = {
         id: id,
@@ -1464,8 +1468,8 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         propietario: propietario,
         disponibilidad: disponibilidad,
         precio: precio || '0', // Asegurar que siempre haya un valor
-        fechaInicio: fechaInicio,
-        fechaFin: fechaFin,
+        fechaInicio: fechaInicioForm, // Usar la fecha del formulario
+        fechaFin: fechaFinForm, // Usar la fecha del formulario
         totalDias: total_dias || '0',
         estadoReserva: estadoReserva,
         reservaId: reserva_id || '',
@@ -1474,21 +1478,16 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         caracteristicas: caracteristicas || 'No disponible'
     };
 
+    // Calcular el total de días si no se proporciona
+    if (!total_dias) {
+        const inicio = new Date(fechaInicioForm);
+        const fin = new Date(fechaFinForm);
+        const diffTime = Math.abs(fin - inicio);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        window.propiedadSeleccionada.totalDias = diffDays;
+    }
+
     console.log('Datos de la propiedad seleccionada:', window.propiedadSeleccionada);
-
-    // Obtener las fechas del formulario de búsqueda
-    const fechaInicioForm = document.getElementById('id_fecha_inicio').value;
-    const fechaFinForm = document.getElementById('id_fecha_fin').value;
-
-    // Actualizar las fechas en el objeto de propiedad seleccionada
-    window.propiedadSeleccionada.fechaInicio = fechaInicioForm;
-    window.propiedadSeleccionada.fechaFin = fechaFinForm;
-
-    // Actualizar la tabla de precios con las fechas correctas
-    actualizarTablaPrecios(id, fechaInicioForm, fechaFinForm);
-
-    console.log('Seleccionando propiedad:', id);
-    console.log('Datos completos:', propiedadSeleccionada);
 
     const row = event.currentTarget;
     const rows = document.querySelectorAll('#propiedadesTable tbody tr');
@@ -1496,12 +1495,12 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
     row.classList.add('table-active');
     
     // Actualizar la tarjeta de propiedad con toda la información
-    document.getElementById("cardPropiedad").innerText = "FICHA: " + id;
-    document.getElementById("cardDireccion").innerText = "DIRECCIÓN: " + direccion;
-    document.getElementById("cardPropietario").innerText = "PROPIETARIO: " + propietario;
-    document.getElementById("cardPrecio").innerText = "PRECIO: " + formatPrice(precio);
-    document.getElementById("cardAmbiente").innerText = "AMBIENTES: " + ambientes;
-    document.getElementById("cardEstado").innerText = "ESTADO: " + (estadoReserva === 'confirmada_no_pagada' ? 'RESERVADA' : 'DISPONIBLE');
+    document.getElementById("cardPropiedad").innerText = id;
+    document.getElementById("cardDireccion").innerText = direccion;
+    document.getElementById("cardPropietario").innerText = propietario;
+    document.getElementById("cardPrecio").innerText = formatPrice(precio);
+    document.getElementById("cardAmbiente").innerText = ambientes;
+    document.getElementById("cardEstado").innerText = estadoReserva === 'confirmada_no_pagada' ? 'RESERVADA' : 'DISPONIBLE';
 
     // Actualizar descripción
     const descripcionElement = document.getElementById("descripcionDetallada");
@@ -1522,51 +1521,12 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         }
     }
 
-    const propertyCard = document.getElementById("propertyCard");
-    const cardButtons = document.getElementById("cardButtons");
+    // Actualizar la tabla de precios con las fechas correctas
+    actualizarTablaPrecios(id, fechaInicioForm, fechaFinForm);
 
-    // Limpiar botones existentes
-    cardButtons.innerHTML = '';
-
-    // Remover clases previas
-    propertyCard.classList.remove('card-confirmada');
-
-    // Verificar el estado de la reserva y mostrar los botones correspondientes
-    if (estadoReserva === 'confirmada_no_pagada') {
-        propertyCard.classList.add('card-confirmada');
-        cardButtons.innerHTML = `
-            <div class="d-flex gap-2">
-                <button type="button" class="btn btn-sm btn-success" onclick="window.mostrarModalAutenticacion('${reserva_id}')">Operacion</button>
-                <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-                <button type="button" class="btn btn-warning" onclick="window.verPrecios()">
-                    <i class="fas fa-dollar-sign"></i> Ver Precios
-                </button>
-                <button type="button" class="btn btn-info" onclick="verHistorialMovimientos()">
-                    <i class="fas fa-history"></i> Ver Historial
-                </button>
-            </div>
-        `;
-    } else {
-        cardButtons.innerHTML = `
-            <div class="d-flex gap-2">
-                <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">Reservar</button>
-                <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-                <button type="button" class="btn btn-warning" onclick="window.verPrecios()">
-                    <i class="fas fa-dollar-sign"></i> Ver Precios
-                </button>
-                <button type="button" class="btn btn-info" onclick="verHistorialMovimientos()">
-                    <i class="fas fa-history"></i> Ver Historial
-                </button>
-            </div>
-        `;
-    }
-
-    // Forzar un repintado del DOM
-    void propertyCard.offsetWidth;
-
-    // Al final de la función, después de actualizar todos los elementos:
-    actualizarTablaPrecios(id, fechaInicio, fechaFin);
+    // ... resto del código de la función ...
 }
+
 function verPrecios() {
     console.log("=== ABRIENDO MODAL DE PRECIOS ===");
     
@@ -1717,10 +1677,14 @@ function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, prec
         document.getElementById('vendedor_id').value = window.vendedorAutenticado;
         document.getElementById('modalVendedorId').value = window.vendedorAutenticado;
         
+        // Formatear las fechas para mostrar
+        const fechaInicioFormateada = formatearFecha(fechaInicio);
+        const fechaFinFormateada = formatearFecha(fechaFin);
+        
         // Actualizar el resto de los campos
         document.getElementById("propiedadDireccion").textContent = direccion;
-        document.getElementById("fechaInicio").textContent = formatearFecha(fechaInicio);
-        document.getElementById("fechaFin").textContent = formatearFecha(fechaFin);
+        document.getElementById("fechaInicio").textContent = fechaInicioFormateada;
+        document.getElementById("fechaFin").textContent = fechaFinFormateada;
         document.getElementById("totalDias").textContent = `${totalDias} días`;
         document.getElementById("precioTotalSuperior").textContent = `$${formatPrice(precio)}`;
         
