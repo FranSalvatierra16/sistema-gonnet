@@ -490,7 +490,7 @@
                             <td style="color: red;">{{ propiedad.piso }}</td>
                             <td style="color: red;">{{ propiedad.departamento }}</td>
                             <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
-                            <td style="color: red;">{{ propiedad.calcular_precio_total_reserva|floatformat:2|intcomma }}</td>
+                            <td style="color: red;">{{ propiedad.calcular_precio_total_reserva|floatformat:2 }}</td>
                             <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
                         </tr>
                         {% else %}
@@ -515,7 +515,7 @@
                             <td>{{ propiedad.piso }}</td>
                             <td>{{ propiedad.departamento }}</td>
                             <td>{{ propiedad.propietario.apellido }}</td>
-                            <td>{{ propiedad.calcular_precio_total_reserva|floatformat:2|intcomma }}</td>
+                            <td>{{ propiedad.calcular_precio_total_reserva|floatformat:2 }}</td>
                             <td>{{ propiedad.sucursal.nombre }}</td>
                         </tr>
                         {% endif %}
