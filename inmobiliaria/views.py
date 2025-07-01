@@ -289,8 +289,13 @@ def propiedad_detalle(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
     disponibilidades = propiedad.disponibilidades.all()
     
+    # Obtener el historial de disponibilidad
+    historiales = HistorialDisponibilidad.objects.filter(
+        propiedad=propiedad
+    ).order_by('-fecha_actualizacion')
+    
     # Obtener imágenes usando el related_name correcto
-    imagenes = propiedad.imagenes_propiedad.all()  # Cambiado a imagenes_propiedad
+    imagenes = propiedad.imagenes_propiedad.all()
     print("Propiedad ID:", propiedad_id)
     print("Número de imágenes encontradas:", imagenes.count())
     for imagen in imagenes:
@@ -328,6 +333,7 @@ def propiedad_detalle(request, propiedad_id):
         'disponibilidades': disponibilidades,
         'precios': precios,
         'imagenes': imagenes,
+        'historiales': historiales,  # Agregamos el historial al contexto
         'active_tab': request.GET.get('tab', 'alquiler'),  # default a 'alquiler'
     }
     

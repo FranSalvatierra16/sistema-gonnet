@@ -13,6 +13,7 @@ from .persona import Propietario, Inquilino, Vendedor
 from .sucursal import Sucursal
 import uuid
 import os
+from datetime import date, timedelta
 
 # Definiciones de tipos de vista, valoración e inmuebles
 TIPOS_VISTA = [
@@ -380,6 +381,26 @@ class Reserva(models.Model):
             self.senia = 0
             
             # Actualizar el historial de disponibilidad
+            self.actualizar_historial_disponibilidad()
+
+    def actualizar_historial_disponibilidad(self):
+        # Buscar el período de disponibilidad que cubre la reserva
+        disponibilidad = self.propiedad.disponibilidades.filter(
+            fecha_inicio__lte=self.fecha_inicio,
+            fecha_fin__gte=self.fecha_fin
+        ).first()
+
+        if disponibilidad:
+            # 1. Crear período antes de la reserva si existe
+            if disponibilidad.fecha_inicio < self.fecha_inicio:
+                HistorialDisponibilidad.objects.create(
+                    propiedad=self.propiedad,
+                    fecha_inicio=disponibilidad.fecha_inicio,
+                    fecha_fin=self.fecha_inicio - timedelta(days=1),
+                    estado='libre'
+                )
+
+            # 2. Crear período de la reserva
             HistorialDisponibilidad.objects.create(
                 propiedad=self.propiedad,
                 fecha_inicio=self.fecha_inicio,
@@ -387,6 +408,15 @@ class Reserva(models.Model):
                 estado='reservado',
                 reserva=self
             )
+
+            # 3. Crear período después de la reserva si existe
+            if disponibilidad.fecha_fin > self.fecha_fin:
+                HistorialDisponibilidad.objects.create(
+                    propiedad=self.propiedad,
+                    fecha_inicio=self.fecha_fin + timedelta(days=1),
+                    fecha_fin=disponibilidad.fecha_fin,
+                    estado='libre'
+                )
 
     def actualizar_saldos(self):
         """Actualiza los saldos basados en los pagos realizados"""
@@ -455,7 +485,7 @@ class Disponibilidad(models.Model):
         super().save(*args, **kwargs)
         
         if is_new:
-            # Crear historial
+            # Crear historial inicial como disponible
             HistorialDisponibilidad.objects.create(
                 propiedad=self.propiedad,
                 fecha_inicio=self.fecha_inicio,

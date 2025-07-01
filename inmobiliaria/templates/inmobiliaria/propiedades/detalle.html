@@ -504,11 +504,21 @@
 
                 <!-- Botones de acciones -->
                 <div class="card-footer text-center">
-                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" class="btn btn-primary">Editar</a>
-                    <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad_id=propiedad.id %}" class="btn btn-danger">Eliminar</a>
-                    <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-success">Agregar Disponibilidad</a>
-                    <a href="{% url 'inmobiliaria:gestionar_precios' propiedad_id=propiedad.id %}" class="btn btn-success">Gestionar Precios</a>
-                    <a href="{% url 'inmobiliaria:historial_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-info">Historial</a>
+                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" class="btn btn-primary">
+                        <i class="fas fa-edit"></i> Editar
+                    </a>
+                    <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad_id=propiedad.id %}" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Eliminar
+                    </a>
+                    <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-success">
+                        <i class="fas fa-calendar-plus"></i> Agregar Disponibilidad
+                    </a>
+                    <a href="{% url 'inmobiliaria:gestionar_precios' propiedad_id=propiedad.id %}" class="btn btn-success">
+                        <i class="fas fa-dollar-sign"></i> Gestionar Precios
+                    </a>
+                    <button type="button" class="btn btn-info" onclick="verHistorial()">
+                        <i class="fas fa-history"></i> Ver Historial
+                    </button>
                     <!-- Botón de WhatsApp con más información -->
                     <a href="https://wa.me/549{{ telefono_empresa }}?text={% spaceless %}
                         *Consulta por propiedad en {{ propiedad.direccion }}*%0A
@@ -613,6 +623,68 @@
     </div>
 </div>
 
+<!-- Modal para historial -->
+<div class="modal fade" id="modalHistorial" tabindex="-1" aria-labelledby="modalHistorialLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalHistorialLabel">
+                    <i class="fas fa-history"></i> Historial de Disponibilidad - {{ propiedad.direccion }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>Fecha Inicio</th>
+                                <th>Fecha Fin</th>
+                                <th>Estado</th>
+                                <th>Reserva</th>
+                                <th>Última Actualización</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historialTableBody">
+                            {% for historial in historiales %}
+                            <tr class="{% if historial.estado == 'reservado' %}table-warning{% elif historial.estado == 'ocupado' %}table-danger{% else %}table-success{% endif %}">
+                                <td>{{ historial.fecha_inicio|date:"d/m/Y" }}</td>
+                                <td>{{ historial.fecha_fin|date:"d/m/Y" }}</td>
+                                <td>
+                                    <span class="badge {% if historial.estado == 'libre' %}bg-success{% elif historial.estado == 'reservado' %}bg-warning{% else %}bg-danger{% endif %}">
+                                        {{ historial.get_estado_display|default:historial.estado|title }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if historial.reserva %}
+                                        <small>
+                                            Reserva #{{ historial.reserva.id }} <br>
+                                            Cliente: {{ historial.reserva.cliente.nombre }}
+                                        </small>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ historial.fecha_actualizacion|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center">
+                                    No hay registros en el historial
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
 .info-item {
     background-color: #f8f9fa;
@@ -642,4 +714,42 @@
     font-weight: bold;
 }
 </style>
+
+<script>
+function verHistorial() {
+    const modalHistorial = new bootstrap.Modal(document.getElementById('modalHistorial'));
+    modalHistorial.show();
+}
+
+// Estilos para las badges y estados
+document.addEventListener('DOMContentLoaded', function() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .badge {
+            padding: 8px 12px;
+            font-size: 0.9rem;
+        }
+        
+        .bg-success {
+            background-color: #28a745 !important;
+            color: white;
+        }
+
+        .bg-warning {
+            background-color: #ffc107 !important;
+            color: black;
+        }
+
+        .bg-danger {
+            background-color: #dc3545 !important;
+            color: white;
+        }
+
+        .table td {
+            vertical-align: middle;
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
 {% endblock %}
