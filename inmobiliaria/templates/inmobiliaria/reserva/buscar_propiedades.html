@@ -1458,17 +1458,38 @@ let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
     // Agregar logs para debug
-    console.log("Precio recibido:", precio);
+    console.log("Datos recibidos en seleccionarPropiedad:", {
+        total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin
+    });
     
     // Convertir el precio a número y asegurarse de que sea válido
     let precioNumerico = 0;
     if (precio) {
-        // Remover cualquier caracter que no sea número o punto
-        precioNumerico = parseFloat(precio.toString().replace(/[^\d.-]/g, ''));
+        // Si el precio es una cadena, limpiamos cualquier formato
+        if (typeof precio === 'string') {
+            precio = precio.replace(/[^0-9.-]+/g, '');
+        }
+        precioNumerico = parseFloat(precio);
         if (isNaN(precioNumerico)) precioNumerico = 0;
     }
     
     console.log("Precio procesado:", precioNumerico);
+
+    // Obtener el precio por día de la tabla de precios
+    const tablaPreciosBody = document.querySelector('.table-precios tbody');
+    if (tablaPreciosBody) {
+        const filasPrecio = tablaPreciosBody.querySelectorAll('tr');
+        filasPrecio.forEach(fila => {
+            const precioPorDia = fila.querySelector('td:nth-child(2)');
+            if (precioPorDia) {
+                const valorPrecio = parseFloat(precioPorDia.textContent.replace(/[^0-9.-]+/g, ''));
+                if (!isNaN(valorPrecio) && valorPrecio > 0) {
+                    precioNumerico = valorPrecio * total_dias;
+                    console.log("Precio calculado desde tabla:", precioNumerico);
+                }
+            }
+        });
+    }
 
     // Guardar todos los datos de la propiedad seleccionada
     window.propiedadSeleccionada = {
@@ -1476,7 +1497,7 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         direccion: direccion,
         propietario: propietario,
         disponibilidad: disponibilidad,
-        precio: precioNumerico, // Usar el precio procesado
+        precio: precioNumerico,
         fechaInicio: fechaInicio,
         fechaFin: fechaFin,
         totalDias: total_dias,
@@ -1487,16 +1508,16 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         caracteristicas: caracteristicas || 'No disponible'
     };
 
+    // Actualizar la interfaz
     const row = event.currentTarget;
     const rows = document.querySelectorAll('#propiedadesTable tbody tr');
     rows.forEach(r => r.classList.remove('table-active'));
     row.classList.add('table-active');
     
-    // Actualizar la tarjeta de propiedad con toda la información
+    // Actualizar la tarjeta de propiedad
     document.getElementById("cardPropiedad").innerText = id;
     document.getElementById("cardDireccion").innerText = direccion;
     document.getElementById("cardPropietario").innerText = propietario;
-    // Formatear el precio con el símbolo $ y separadores de miles
     document.getElementById("cardPrecio").innerText = `$${formatPrice(precioNumerico)}`;
     document.getElementById("cardAmbiente").innerText = ambientes;
     document.getElementById("cardEstado").innerText = estadoReserva === 'confirmada_no_pagada' ? 'RESERVADA' : 'DISPONIBLE';
@@ -1505,21 +1526,10 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
     actualizarTablaPrecios(id, fechaInicio, fechaFin);
 }
 
-// Modificar la función formatPrice para manejar mejor los números
+// Función auxiliar para formatear precios
 function formatPrice(value) {
-    // Si el valor es undefined o null, retornar 0
-    if (value == null) return '0';
-    
-    // Si es string, convertir a número
-    if (typeof value === 'string') {
-        value = parseFloat(value.replace(/[^\d.-]/g, ''));
-    }
-    
-    // Si no es un número válido, retornar 0
-    if (isNaN(value)) return '0';
-    
-    // Formatear el número con separadores de miles
-    return value.toLocaleString('es-AR', {
+    if (!value || isNaN(value)) return '0';
+    return Math.round(value).toLocaleString('es-AR', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
     });
