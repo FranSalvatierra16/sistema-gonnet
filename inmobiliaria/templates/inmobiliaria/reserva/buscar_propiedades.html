@@ -431,7 +431,7 @@
     
     <!-- Cuadro principal de búsqueda -->
     <div class="main-search-box">
-        <form method="post" id="buscar-propiedades-form-dia" class="m-0">
+        <form method="post" id="buscar-propiedades-form-dia">
             {% csrf_token %}
             <div class="row">
                 <div class="col-12">
@@ -439,23 +439,13 @@
                         <!-- Fecha Inicio -->
                         <div class="form-group">
                             <label>Fecha de Inicio</label>
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-calendar"></i>
-                                </span>
-                                {{ form.fecha_inicio }}
-                            </div>
+                            <input type="date" id="id_fecha_inicio" name="fecha_inicio" class="form-control" required>
                         </div>
 
                         <!-- Fecha Fin -->
                         <div class="form-group">
                             <label>Fecha de Fin</label>
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-calendar"></i>
-                                </span>
-                                {{ form.fecha_fin }}
-                            </div>
+                            <input type="date" id="id_fecha_fin" name="fecha_fin" class="form-control" required>
                         </div>
 
                         <!-- Ambientes -->
@@ -1468,21 +1458,35 @@ let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
     // Guardar todos los datos de la propiedad seleccionada
-    propiedadSeleccionada = {
+    window.propiedadSeleccionada = {
         id: id,
         direccion: direccion,
         propietario: propietario,
         disponibilidad: disponibilidad,
-        precio: precio,
+        precio: precio || '0', // Asegurar que siempre haya un valor
         fechaInicio: fechaInicio,
         fechaFin: fechaFin,
-        totalDias: total_dias,
+        totalDias: total_dias || '0',
         estadoReserva: estadoReserva,
         reservaId: reserva_id || '',
         ambientes: ambientes || 'No especificado',
         descripcion: descripcion || 'No disponible',
         caracteristicas: caracteristicas || 'No disponible'
     };
+
+    console.log('Datos de la propiedad seleccionada:', window.propiedadSeleccionada);
+
+    // Obtener las fechas del formulario de búsqueda
+    const fechaInicioForm = document.getElementById('id_fecha_inicio').value;
+    const fechaFinForm = document.getElementById('id_fecha_fin').value;
+
+    // Actualizar las fechas en el objeto de propiedad seleccionada
+    window.propiedadSeleccionada.fechaInicio = fechaInicioForm;
+    window.propiedadSeleccionada.fechaFin = fechaFinForm;
+
+    // Actualizar la tabla de precios con las fechas correctas
+    actualizarTablaPrecios(id, fechaInicioForm, fechaFinForm);
+
     console.log('Seleccionando propiedad:', id);
     console.log('Datos completos:', propiedadSeleccionada);
 
@@ -1705,6 +1709,10 @@ function formatearFecha(fecha) {
 
 function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
     try {
+        console.log('Datos recibidos en mostrarModalReserva:', {
+            ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias
+        });
+
         // Actualizar los campos con el vendedor autenticado
         document.getElementById('vendedor_id').value = window.vendedorAutenticado;
         document.getElementById('modalVendedorId').value = window.vendedorAutenticado;
@@ -1714,14 +1722,14 @@ function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, prec
         document.getElementById("fechaInicio").textContent = formatearFecha(fechaInicio);
         document.getElementById("fechaFin").textContent = formatearFecha(fechaFin);
         document.getElementById("totalDias").textContent = `${totalDias} días`;
-        document.getElementById("precioTotalSuperior").textContent = precio;
+        document.getElementById("precioTotalSuperior").textContent = `$${formatPrice(precio)}`;
         
         // Actualizar campos ocultos del formulario
         document.getElementById("modalPropiedadId").value = ficha;
         document.getElementById("modalFechaInicio").value = fechaInicio;
         document.getElementById("modalFechaFin").value = fechaFin;
         document.getElementById("modalPrecioTotal").value = precio;
-        document.getElementById("precio_total_display").textContent = precio;
+        document.getElementById("precio_total_display").textContent = `$${formatPrice(precio)}`;
         document.getElementById("precio_total").value = precio;
 
         // Asegurarse de que el select de inquilino esté vacío inicialmente
