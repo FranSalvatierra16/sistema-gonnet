@@ -925,13 +925,25 @@ def buscar_propiedades(request):
     print("los dias de reserva son ",total_dias_reserva)
 
     for propiedad in propiedades_disponibles:
-        # Asegurarse de que el precio total de reserva esté calculado
-        if not propiedad.precio_total_reserva:
-            propiedad.precio_total_reserva = propiedad.calcular_precio_total_reserva(
-                fecha_inicio,
-                fecha_fin
-            )
-    
+        try:
+            # Obtener los precios para la propiedad
+            precios = propiedad.precios.all()
+            precio_total = 0
+            
+            if fecha_inicio and fecha_fin:
+                dias_totales = (fecha_fin - fecha_inicio).days + 1
+                # Buscar el precio correspondiente según el período
+                for precio in precios:
+                    if precio.precio_por_dia:
+                        precio_total = float(precio.precio_por_dia) * dias_totales
+                        break
+            
+            propiedad.precio_total_reserva = precio_total
+            
+        except Exception as e:
+            print(f"Error calculando precio para propiedad {propiedad.id}: {str(e)}")
+            propiedad.precio_total_reserva = 0
+
     return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
         'form': form,
         'propiedades_disponibles': propiedades_disponibles,
