@@ -1724,6 +1724,36 @@ function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, prec
         document.getElementById("precio_total_display").textContent = precio;
         document.getElementById("precio_total").value = precio;
 
+        // Asegurarse de que el select de inquilino esté vacío inicialmente
+        const selectInquilino = document.getElementById('inquilino');
+        if (selectInquilino) {
+            selectInquilino.value = '';
+        }
+
+        // Agregar evento al formulario para validar antes de enviar
+        const form = document.getElementById('confirmar-reserva-form');
+        if (form) {
+            form.onsubmit = function(e) {
+                e.preventDefault();
+                
+                const inquilinoId = document.getElementById('inquilino').value;
+                if (!inquilinoId) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Por favor seleccione un inquilino'
+                    });
+                    return false;
+                }
+
+                // Actualizar el campo oculto de inquilino_id
+                document.getElementById('modalInquilinoId').value = inquilinoId;
+                
+                // Si todo está bien, enviar el formulario
+                this.submit();
+            };
+        }
+
         // Mostrar el modal
         const modalReserva = new bootstrap.Modal(document.getElementById('modalConfirmarReserva'));
         modalReserva.show();
@@ -2016,3 +2046,16 @@ function verHistorialPropiedadDirecto(propiedadId, direccion) {
     // Todo tu código JavaScript aquí
 </script>
 {% endblock extra_js %}
+
+<script>
+// Agregar al final del script o en el DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+    const selectInquilino = document.getElementById('inquilino');
+    if (selectInquilino) {
+        selectInquilino.addEventListener('change', function() {
+            const inquilinoId = this.value;
+            document.getElementById('modalInquilinoId').value = inquilinoId;
+        });
+    }
+});
+</script>
