@@ -539,7 +539,7 @@
                             '{{ propiedad.direccion|escapejs }}',
                             '{{ propiedad.propietario.nombre|escapejs }}',
                             '{{ propiedad.disponibilidad }}',
-                            '{{ propiedad.precio_total_reserva|format_price }}',
+                            '{{ propiedad.precio_total_reserva }}',  <!-- Asegúrate de que este campo exista y tenga valor -->
                             '{{ propiedad.id }}',
                             '{{ fecha_inicio }}',
                             '{{ fecha_fin }}',
@@ -1457,9 +1457,18 @@ function autenticarYReservar() {
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
-    // Obtener las fechas del formulario de búsqueda
-    const fechaInicioForm = document.getElementById('id_fecha_inicio').value;
-    const fechaFinForm = document.getElementById('id_fecha_fin').value;
+    // Agregar logs para debug
+    console.log("Precio recibido:", precio);
+    
+    // Convertir el precio a número y asegurarse de que sea válido
+    let precioNumerico = 0;
+    if (precio) {
+        // Remover cualquier caracter que no sea número o punto
+        precioNumerico = parseFloat(precio.toString().replace(/[^\d.-]/g, ''));
+        if (isNaN(precioNumerico)) precioNumerico = 0;
+    }
+    
+    console.log("Precio procesado:", precioNumerico);
 
     // Guardar todos los datos de la propiedad seleccionada
     window.propiedadSeleccionada = {
@@ -1467,27 +1476,16 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         direccion: direccion,
         propietario: propietario,
         disponibilidad: disponibilidad,
-        precio: precio || '0', // Asegurar que siempre haya un valor
-        fechaInicio: fechaInicioForm, // Usar la fecha del formulario
-        fechaFin: fechaFinForm, // Usar la fecha del formulario
-        totalDias: total_dias || '0',
+        precio: precioNumerico, // Usar el precio procesado
+        fechaInicio: fechaInicio,
+        fechaFin: fechaFin,
+        totalDias: total_dias,
         estadoReserva: estadoReserva,
         reservaId: reserva_id || '',
         ambientes: ambientes || 'No especificado',
         descripcion: descripcion || 'No disponible',
         caracteristicas: caracteristicas || 'No disponible'
     };
-
-    // Calcular el total de días si no se proporciona
-    if (!total_dias) {
-        const inicio = new Date(fechaInicioForm);
-        const fin = new Date(fechaFinForm);
-        const diffTime = Math.abs(fin - inicio);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        window.propiedadSeleccionada.totalDias = diffDays;
-    }
-
-    console.log('Datos de la propiedad seleccionada:', window.propiedadSeleccionada);
 
     const row = event.currentTarget;
     const rows = document.querySelectorAll('#propiedadesTable tbody tr');
@@ -1498,33 +1496,33 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
     document.getElementById("cardPropiedad").innerText = id;
     document.getElementById("cardDireccion").innerText = direccion;
     document.getElementById("cardPropietario").innerText = propietario;
-    document.getElementById("cardPrecio").innerText = formatPrice(precio);
+    // Formatear el precio con el símbolo $ y separadores de miles
+    document.getElementById("cardPrecio").innerText = `$${formatPrice(precioNumerico)}`;
     document.getElementById("cardAmbiente").innerText = ambientes;
     document.getElementById("cardEstado").innerText = estadoReserva === 'confirmada_no_pagada' ? 'RESERVADA' : 'DISPONIBLE';
 
-    // Actualizar descripción
-    const descripcionElement = document.getElementById("descripcionDetallada");
-    if (descripcionElement) {
-        descripcionElement.innerText = descripcion || 'No hay descripción disponible';
+    // Actualizar la tabla de precios
+    actualizarTablaPrecios(id, fechaInicio, fechaFin);
+}
+
+// Modificar la función formatPrice para manejar mejor los números
+function formatPrice(value) {
+    // Si el valor es undefined o null, retornar 0
+    if (value == null) return '0';
+    
+    // Si es string, convertir a número
+    if (typeof value === 'string') {
+        value = parseFloat(value.replace(/[^\d.-]/g, ''));
     }
-
-    // Actualizar características
-    const caracteristicasElement = document.getElementById("caracteristicas");
-    if (caracteristicasElement) {
-        if (caracteristicas) {
-            const caracteristicasArray = caracteristicas.split(',');
-            caracteristicasElement.innerHTML = caracteristicasArray
-                .map(c => `<span class="badge bg-primary m-1">${c.trim()}</span>`)
-                .join('');
-        } else {
-            caracteristicasElement.innerHTML = '<span class="badge bg-secondary">Sin características registradas</span>';
-        }
-    }
-
-    // Actualizar la tabla de precios con las fechas correctas
-    actualizarTablaPrecios(id, fechaInicioForm, fechaFinForm);
-
-    // ... resto del código de la función ...
+    
+    // Si no es un número válido, retornar 0
+    if (isNaN(value)) return '0';
+    
+    // Formatear el número con separadores de miles
+    return value.toLocaleString('es-AR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    });
 }
 
 function verPrecios() {
