@@ -924,6 +924,14 @@ def buscar_propiedades(request):
     print("las fechas de inicio y fin son ",fecha_inicio,fecha_fin)
     print("los dias de reserva son ",total_dias_reserva)
 
+    for propiedad in propiedades_disponibles:
+        # Asegurarse de que el precio total de reserva esté calculado
+        if not propiedad.precio_total_reserva:
+            propiedad.precio_total_reserva = propiedad.calcular_precio_total_reserva(
+                fecha_inicio,
+                fecha_fin
+            )
+    
     return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
         'form': form,
         'propiedades_disponibles': propiedades_disponibles,

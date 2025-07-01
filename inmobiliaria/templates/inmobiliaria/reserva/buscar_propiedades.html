@@ -474,12 +474,12 @@
                             '{{ propiedad.direccion|escapejs }}',
                             '{{ propiedad.propietario.nombre|escapejs }}',
                             '{{ propiedad.disponibilidad }}',
-                            '{{ propiedad.precio_total_reserva|format_price }}',
+                            '{{ propiedad.calcular_precio_total_reserva|default:0|floatformat:2 }}',
                             '{{ propiedad.id }}',
                             '{{ fecha_inicio }}',
                             '{{ fecha_fin }}',
                             '{{ propiedad.estado_reserva }}',
-                            '{{ propiedad.reserva.id }}',
+                            '{{ propiedad.reserva.id|default:'' }}',
                             '{{ propiedad.ambientes }}',
                             '{{ propiedad.descripcion|escapejs }}',
                             '{{ propiedad.caracteristicas|escapejs }}'
@@ -499,7 +499,7 @@
                             '{{ propiedad.direccion|escapejs }}',
                             '{{ propiedad.propietario.nombre|escapejs }}',
                             '{{ propiedad.disponibilidad }}',
-                            '{{ propiedad.precio_total_reserva|format_price }}',
+                            '{{ propiedad.calcular_precio_total_reserva|default:0|floatformat:2 }}',
                             '{{ propiedad.id }}',
                             '{{ fecha_inicio }}',
                             '{{ fecha_fin }}',
@@ -1340,13 +1340,20 @@ function autenticarYReservar() {
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
+    console.log("Seleccionando propiedad:", id);
+    console.log("Precio recibido:", precio);
+    
+    // Convertir el precio a número y asegurarse de que sea válido
+    let precioNumerico = parseFloat(precio.replace(/[^\d.-]/g, '')) || 0;
+    console.log("Precio procesado:", precioNumerico);
+    
     // Guardar todos los datos de la propiedad seleccionada
     propiedadSeleccionada = {
         id: id,
         direccion: direccion,
         propietario: propietario,
         disponibilidad: disponibilidad,
-        precio: precio,
+        precio: precioNumerico,
         fechaInicio: fechaInicio,
         fechaFin: fechaFin,
         totalDias: total_dias,
@@ -1356,29 +1363,21 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         descripcion: descripcion || 'No disponible',
         caracteristicas: caracteristicas || 'No disponible'
     };
-    console.log('Seleccionando propiedad:', id);
-    console.log('Datos completos:', propiedadSeleccionada);
 
-    const row = event.currentTarget;
-    const rows = document.querySelectorAll('#propiedadesTable tbody tr');
-    rows.forEach(r => r.classList.remove('table-active'));
-    row.classList.add('table-active');
-    
-    // Actualizar la tarjeta de propiedad con toda la información
-    document.getElementById("cardPropiedad").innerText = "FICHA: " + id;
-    document.getElementById("cardDireccion").innerText = "DIRECCIÓN: " + direccion;
-    document.getElementById("cardPropietario").innerText = "PROPIETARIO: " + propietario;
-    document.getElementById("cardPrecio").innerText = "PRECIO: " + formatPrice(precio);
-    document.getElementById("cardAmbiente").innerText = "AMBIENTES: " + ambientes;
-    document.getElementById("cardEstado").innerText = "ESTADO: " + (estadoReserva === 'confirmada_no_pagada' ? 'RESERVADA' : 'DISPONIBLE');
+    // Actualizar la tarjeta de propiedad
+    document.getElementById("cardPropiedad").innerText = id;
+    document.getElementById("cardDireccion").innerText = direccion;
+    document.getElementById("cardPropietario").innerText = propietario;
+    document.getElementById("cardPrecio").innerText = `$${precioNumerico.toLocaleString('es-AR')}`;
+    document.getElementById("cardAmbiente").innerText = ambientes;
+    document.getElementById("cardEstado").innerText = estadoReserva === 'confirmada_no_pagada' ? 'RESERVADA' : 'DISPONIBLE';
 
-    // Actualizar descripción
+    // Actualizar descripción y características
     const descripcionElement = document.getElementById("descripcionDetallada");
     if (descripcionElement) {
         descripcionElement.innerText = descripcion || 'No hay descripción disponible';
     }
 
-    // Actualizar características
     const caracteristicasElement = document.getElementById("caracteristicas");
     if (caracteristicasElement) {
         if (caracteristicas) {
@@ -1391,25 +1390,15 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         }
     }
 
-    const propertyCard = document.getElementById("propertyCard");
+    // Actualizar botones según el estado
     const cardButtons = document.getElementById("cardButtons");
-
-    // Limpiar botones existentes
-    cardButtons.innerHTML = '';
-
-    // Remover clases previas
-    propertyCard.classList.remove('card-confirmada');
-
-    // Verificar el estado de la reserva y mostrar los botones correspondientes
     if (estadoReserva === 'confirmada_no_pagada') {
-        propertyCard.classList.add('card-confirmada');
         cardButtons.innerHTML = `
             <button type="button" class="btn btn-sm btn-success" onclick="window.mostrarModalAutenticacion('${reserva_id}')">Operacion</button>
             <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
             <button type="button" class="btn btn-warning" onclick="window.verPrecios()">
                 <i class="fas fa-dollar-sign"></i> Ver Precios
             </button>
-        
         `;
     } else {
         cardButtons.innerHTML = `
@@ -1418,14 +1407,10 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
             <button type="button" class="btn btn-warning" onclick="window.verPrecios()">
                 <i class="fas fa-dollar-sign"></i> Ver Precios
             </button>
-      
         `;
     }
 
-    // Forzar un repintado del DOM
-    void propertyCard.offsetWidth;
-
-    // Al final de la función, después de actualizar todos los elementos:
+    // Actualizar tabla de precios
     actualizarTablaPrecios(id, fechaInicio, fechaFin);
 }
 function verPrecios() {
@@ -1714,7 +1699,7 @@ document.addEventListener('DOMContentLoaded', function() {
         cancelarPrecioBtn.style.display = 'none';
     });
 
-    cancelarPrecioBtn.addEventListener('click', function() {
+    cancelarPrecioBtn.onclick = function() {
         actualizarPreciosMostrados(precioTotalDisplay.textContent);
         precioTotalDisplay.style.display = 'inline';
         precioTotalInput.style.display = 'none';
