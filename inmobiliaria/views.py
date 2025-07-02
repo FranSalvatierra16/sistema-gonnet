@@ -743,13 +743,16 @@ def confirmar_reserva(request):
                         )
 
             messages.success(request, 'Reserva creada exitosamente.')
-            return redirect('inmobiliaria:reserva_detalle', reserva_id=reserva.id)
+            # Cambiar la redirección a reserva_exitosa
+            return redirect('inmobiliaria:reserva_exitosa', reserva_id=reserva.id)
 
         except ValidationError as e:
             messages.error(request, f'Error de validación: {str(e)}')
+            return redirect('inmobiliaria:buscar_propiedades')
         except Exception as e:
             messages.error(request, f'Error inesperado: {str(e)}')
-        
+            return redirect('inmobiliaria:buscar_propiedades')
+    
     return redirect('inmobiliaria:buscar_propiedades')
 
 
@@ -1035,14 +1038,13 @@ def crear_disponibilidad(request, propiedad_id):
     })
 
 def reserva_exitosa(request, reserva_id):
-    
-    reserva = Reserva.objects.get(id=reserva_id)
-    print("la reserva es ",reserva.precio_total)
-    
-    context = {
-        'reserva': reserva
-    }
-    return render(request, 'inmobiliaria/reserva/reserva_exitosa.html', context)
+    reserva = get_object_or_404(Reserva, id=reserva_id)
+    return render(request, 'inmobiliaria/reserva/reserva_exitosa.html', {
+        'reserva': reserva,
+        'fecha_inicio': formato_fecha(reserva.fecha_inicio),
+        'fecha_fin': formato_fecha(reserva.fecha_fin),
+        'precio_total': reserva.precio_total
+    })
 
 @login_required
 def terminar_reserva(request, reserva_id):
