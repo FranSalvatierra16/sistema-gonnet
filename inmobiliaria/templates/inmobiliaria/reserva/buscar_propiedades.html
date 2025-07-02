@@ -669,7 +669,7 @@
                             <input type="hidden" name="fecha_fin" id="modalFechaFin">
                             <input type="hidden" name="vendedor_id" id="modalVendedorId">
                             <input type="hidden" name="inquilino_id" id="modalInquilinoId">
-                            <input type="hidden" name="precio_total" id="modalPrecioTotal"  >
+                            <input type="hidden" name="precio_total" id="modalPrecioTotal">
                             <button type="submit" class="btn btn-primary" id="confirmar-reserva-btn">Confirmar Reserva</button>
                         </form>
                     </div>
@@ -1362,7 +1362,7 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         precioNumerico = 0;
     }
 
-    // Guardar los datos de la propiedad seleccionada
+    // Guardar los datos de la propiedad seleccionada con fechas formateadas
     propiedadSeleccionada = {
         id: id,
         direccion: direccion,
@@ -1573,6 +1573,19 @@ function formatearFecha(fecha) {
     return `${dia}/${mes}/${anio}`;
 }
 function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
+    // Formatear las fechas correctamente
+    const formatearFecha = (fecha) => {
+        if (!fecha) return '';
+        // Si la fecha ya viene en formato DD/MM/YYYY, la dejamos así
+        if (fecha.includes('/')) return fecha;
+        
+        // Si viene en otro formato, la convertimos
+        const d = new Date(fecha);
+        if (isNaN(d.getTime())) return ''; // Fecha inválida
+        
+        return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+    };
+
     // Datos básicos de la propiedad
     document.getElementById("propiedadDireccion").textContent = direccion;
     document.getElementById("fechaInicio").textContent = formatearFecha(fechaInicio);
@@ -1582,8 +1595,8 @@ function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, prec
 
     // Campos del formulario
     document.getElementById("modalPropiedadId").value = ficha;
-    document.getElementById("modalFechaInicio").value = fechaInicio;
-    document.getElementById("modalFechaFin").value = fechaFin;
+    document.getElementById("modalFechaInicio").value = formatearFecha(fechaInicio);
+    document.getElementById("modalFechaFin").value = formatearFecha(fechaFin);
     document.getElementById("modalPrecioTotal").value = precio;
     document.getElementById("precio_total_display").textContent = precio;
     document.getElementById("precio_total").value = precio;
