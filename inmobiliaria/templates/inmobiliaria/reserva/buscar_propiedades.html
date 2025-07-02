@@ -1341,27 +1341,28 @@ let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
     console.log("Seleccionando propiedad:", id);
-    console.log("Datos completos:", {
-        total_dias,
-        direccion,
-        propietario,
-        disponibilidad,
-        precio,  // Este es el precio_total_reserva que viene de la vista
-        id,
-        fechaInicio,
-        fechaFin,
-        estadoReserva,
-        reserva_id,
-        ambientes,
-        descripcion,
-        caracteristicas
-    });
     
-    // Convertir el precio a número y asegurarse de que sea válido
-    let precioNumerico = parseFloat(precio.replace(/[^\d.-]/g, '')) || 0;
-    console.log("Precio procesado:", precioNumerico);
-    
-    // Guardar todos los datos de la propiedad seleccionada
+    // Convertir el precio correctamente
+    let precioNumerico;
+    try {
+        // Remover cualquier formato de moneda y separadores de miles
+        let precioLimpio = precio.toString().replace(/[$.]/g, '').replace(/,/g, '.');
+        precioNumerico = parseFloat(precioLimpio);
+        
+        // Si el precio es mayor a 1 millón, probablemente está mal formateado
+        if (precioNumerico > 1000000) {
+            precioNumerico = precioNumerico / 100;
+        }
+        
+        console.log("Precio original:", precio);
+        console.log("Precio limpio:", precioLimpio);
+        console.log("Precio procesado:", precioNumerico);
+    } catch (error) {
+        console.error("Error procesando precio:", error);
+        precioNumerico = 0;
+    }
+
+    // Guardar los datos de la propiedad seleccionada
     propiedadSeleccionada = {
         id: id,
         direccion: direccion,
@@ -1378,14 +1379,15 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         caracteristicas: caracteristicas || 'No disponible'
     };
 
-    // Actualizar la tarjeta de propiedad
+    // Actualizar la tarjeta de propiedad con el precio formateado
     document.getElementById("cardPropiedad").innerText = id;
     document.getElementById("cardDireccion").innerText = direccion;
     document.getElementById("cardPropietario").innerText = propietario;
-    document.getElementById("cardPrecio").innerText = `$${precioNumerico.toLocaleString('es-AR')}`;
-    document.getElementById("cardAmbiente").innerText = ambientes;
-    document.getElementById("cardEstado").innerText = estadoReserva === 'confirmada_no_pagada' ? 'RESERVADA' : 'DISPONIBLE';
-
+    document.getElementById("cardPrecio").innerText = `$${precioNumerico.toLocaleString('es-AR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    })}`;
+    
     // Actualizar descripción y características
     const descripcionElement = document.getElementById("descripcionDetallada");
     if (descripcionElement) {
