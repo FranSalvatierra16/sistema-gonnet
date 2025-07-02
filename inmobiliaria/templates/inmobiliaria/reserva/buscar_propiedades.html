@@ -1341,7 +1341,21 @@ let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
     console.log("Seleccionando propiedad:", id);
-    console.log("Precio recibido:", precio);
+    console.log("Datos completos:", {
+        total_dias,
+        direccion,
+        propietario,
+        disponibilidad,
+        precio,  // Este es el precio_total_reserva que viene de la vista
+        id,
+        fechaInicio,
+        fechaFin,
+        estadoReserva,
+        reserva_id,
+        ambientes,
+        descripcion,
+        caracteristicas
+    });
     
     // Convertir el precio a número y asegurarse de que sea válido
     let precioNumerico = parseFloat(precio.replace(/[^\d.-]/g, '')) || 0;
