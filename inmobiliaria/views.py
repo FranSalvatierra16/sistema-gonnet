@@ -632,11 +632,28 @@ def parse_fecha(fecha_str):
 
 def confirmar_reserva(request):
     if request.method == 'POST':
+        propiedad_id = request.POST.get('propiedad_id')
+        fecha_inicio = parse_fecha(request.POST.get('fecha_inicio'))
+        fecha_fin = parse_fecha(request.POST.get('fecha_fin'))
+        
+        # Verificar que no haya reservas en el período
+        reservas_existentes = Reserva.objects.filter(
+            propiedad_id=propiedad_id,
+            estado__in=['confirmada', 'confirmada_no_pagada'],
+            fecha_inicio__lt=fecha_fin,
+            fecha_fin__gt=fecha_inicio
+        )
+        
+        if reservas_existentes.exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'El período seleccionado ya tiene una reserva'
+            })
+            
+        # Continuar con la creación de la reserva...
+
         try:
             # Obtener datos del formulario
-            propiedad_id = request.POST.get('propiedad_id')
-            fecha_inicio_str = request.POST.get('fecha_inicio')
-            fecha_fin_str = request.POST.get('fecha_fin')
             vendedor_id = request.POST.get('vendedor_id')
             inquilino_id = request.POST.get('inquilino_id')
             precio = request.POST.get('precio_total', '0')

@@ -7,6 +7,8 @@ from django.utils.timezone import now
 from django.conf import settings
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 
 import datetime
 from .persona import Propietario, Inquilino, Vendedor
@@ -848,3 +850,73 @@ def reordenar_numeros_por_propietario(sender, instance, **kwargs):
         if propiedad.numero_por_propietario != idx:
             propiedad.numero_por_propietario = idx
             propiedad.save(update_fields=['numero_por_propietario'])
+
+def ver_disponibilidad(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    
+    # Obtener todas las disponibilidades ordenadas por fecha
+    disponibilidades = Disponibilidad.objects.filter(
+        propiedad=propiedad
+    ).order_by('fecha_inicio')
+    
+    # Obtener todas las reservas confirmadas
+    reservas = Reserva.objects.filter(
+        propiedad=propiedad,
+        estado__in=['confirmada', 'confirmada_no_pagada']
+    ).order_by('fecha_inicio')
+    
+    # Lista para almacenar los períodos disponibles
+    periodos_disponibles = []
+    
+    # Para cada disponibilidad
+    for disponibilidad in disponibilidades:
+        fecha_actual = disponibilidad.fecha_inicio
+        fecha_fin_disp = disponibilidad.fecha_fin
+        
+        # Verificar cada reserva que intersecta con esta disponibilidad
+        reservas_intersectadas = reservas.filter(
+            fecha_inicio__lt=fecha_fin_disp,
+            fecha_fin__gt=fecha_actual
+        ).order_by('fecha_inicio')
+        
+        # Si no hay reservas intersectadas, agregar el período completo
+        if not reservas_intersectadas:
+            periodos_disponibles.append({
+                'inicio': fecha_actual,
+                'fin': fecha_fin_disp,
+                'estado': 'Libre'
+            })
+            continue
+        
+        # Procesar cada reserva y crear los períodos correspondientes
+        for reserva in reservas_intersectadas:
+            # Si hay espacio antes de la reserva
+            if fecha_actual < reserva.fecha_inicio:
+                periodos_disponibles.append({
+                    'inicio': fecha_actual,
+                    'fin': reserva.fecha_inicio,
+                    'estado': 'Libre'
+                })
+            
+            # Agregar el período reservado
+            periodos_disponibles.append({
+                'inicio': reserva.fecha_inicio,
+                'fin': reserva.fecha_fin,
+                'estado': 'Reservado',
+                'reserva': reserva
+            })
+            
+            fecha_actual = reserva.fecha_fin
+        
+        # Si queda espacio después de la última reserva
+        if fecha_actual < fecha_fin_disp:
+            periodos_disponibles.append({
+                'inicio': fecha_actual,
+                'fin': fecha_fin_disp,
+                'estado': 'Libre'
+            })
+    
+    return JsonResponse({
+        'success': True,
+        'periodos': periodos_disponibles
+    })

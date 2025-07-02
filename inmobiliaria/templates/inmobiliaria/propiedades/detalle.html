@@ -751,5 +751,28 @@ document.addEventListener('DOMContentLoaded', function() {
     `;
     document.head.appendChild(style);
 });
+
+function actualizarDisponibilidad(propiedadId) {
+    fetch(`/inmobiliaria/ver_disponibilidad/${propiedadId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const tbody = document.querySelector('#tablaDisponibilidad tbody');
+                tbody.innerHTML = '';
+                
+                data.periodos.forEach(periodo => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${formatearFecha(periodo.inicio)}</td>
+                        <td>${formatearFecha(periodo.fin)}</td>
+                        <td class="${periodo.estado === 'Libre' ? 'text-success' : 'text-danger'}">
+                            ${periodo.estado}
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+        });
+}
 </script>
 {% endblock %}
