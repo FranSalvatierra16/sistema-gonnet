@@ -635,16 +635,16 @@ def confirmar_reserva(request):
         try:
             # Obtener datos del formulario
             propiedad_id = request.POST.get('propiedad_id')
-            fecha_inicio_str = request.POST.get('fecha_inicio')  # Obtener las fechas como string
+            fecha_inicio_str = request.POST.get('fecha_inicio')
             fecha_fin_str = request.POST.get('fecha_fin')
             vendedor_id = request.POST.get('vendedor_id')
             inquilino_id = request.POST.get('inquilino_id')
             precio = request.POST.get('precio_total', '0')
 
-            # Limpiar el precio: remover puntos de miles y reemplazar coma por punto
+            # Limpiar el precio
             precio_limpio = precio.replace('.', '').replace(',', '.')
             
-            # Validación de datos obligatorios
+            # Validación de campos requeridos
             campos_requeridos = {
                 'propiedad_id': propiedad_id,
                 'fecha_inicio': fecha_inicio_str,
@@ -659,28 +659,16 @@ def confirmar_reserva(request):
                 messages.error(request, f'Faltan los siguientes campos: {", ".join(campos_faltantes)}')
                 return redirect('inmobiliaria:buscar_propiedades')
 
-            # Convertir fechas después de la validación
+            # Convertir fechas
             fecha_inicio = parse_fecha(fecha_inicio_str)
             fecha_fin = parse_fecha(fecha_fin_str)
 
-            # Validar fechas    
+            # Validar fechas
             if fecha_inicio > fecha_fin:
                 messages.error(request, 'La fecha de inicio no puede ser posterior a la fecha de fin.')
                 return redirect('inmobiliaria:buscar_propiedades')
 
-            # Verificar que no haya reservas en el período
-            reservas_existentes = Reserva.objects.filter(
-                propiedad_id=propiedad_id,
-                estado__in=['confirmada', 'confirmada_no_pagada'],
-                fecha_inicio__lt=fecha_fin,
-                fecha_fin__gt=fecha_inicio
-            )
-            
-            if reservas_existentes.exists():
-                messages.error(request, 'El período seleccionado ya tiene una reserva')
-                return redirect('inmobiliaria:buscar_propiedades')
-
-            # Obtener objetos de la base de datos
+            # Obtener objetos necesarios
             try:
                 propiedad = Propiedad.objects.get(id=propiedad_id)
                 vendedor = Vendedor.objects.get(id=vendedor_id)
@@ -689,28 +677,79 @@ def confirmar_reserva(request):
                 messages.error(request, f'Error al obtener datos: {str(e)}')
                 return redirect('inmobiliaria:buscar_propiedades')
 
-            # Crear la reserva
-            reserva = Reserva.objects.create(
+            # Verificar disponibilidad
+            disponibilidades = Disponibilidad.objects.filter(
                 propiedad=propiedad,
-                fecha_inicio=fecha_inicio,
-                fecha_fin=fecha_fin,
-                vendedor=vendedor,
-                cliente=inquilino,
-                precio_total=precio_limpio,
-                estado='confirmada_no_pagada',
-                sucursal=propiedad.sucursal
+                fecha_inicio__lte=fecha_fin,
+                fecha_fin__gte=fecha_inicio
             )
+
+            if not disponibilidades.exists():
+                messages.error(request, 'No hay disponibilidad para las fechas seleccionadas')
+                return redirect('inmobiliaria:buscar_propiedades')
+
+            # Verificar que no haya reservas superpuestas
+            reservas_existentes = Reserva.objects.filter(
+                propiedad=propiedad,
+                estado__in=['confirmada', 'confirmada_no_pagada'],
+                fecha_inicio__lt=fecha_fin,
+                fecha_fin__gt=fecha_inicio
+            )
+
+            if reservas_existentes.exists():
+                messages.error(request, 'Ya existe una reserva para el período seleccionado')
+                return redirect('inmobiliaria:buscar_propiedades')
+
+            # Crear la reserva dentro de una transacción
+            with transaction.atomic():
+                # Crear la reserva
+                reserva = Reserva.objects.create(
+                    propiedad=propiedad,
+                    fecha_inicio=fecha_inicio,
+                    fecha_fin=fecha_fin,
+                    vendedor=vendedor,
+                    cliente=inquilino,
+                    precio_total=precio_limpio,
+                    estado='confirmada_no_pagada',
+                    sucursal=propiedad.sucursal
+                )
+
+                # Actualizar el historial de disponibilidad
+                HistorialDisponibilidad.objects.create(
+                    propiedad=propiedad,
+                    fecha_inicio=fecha_inicio,
+                    fecha_fin=fecha_fin,
+                    estado='reservado',
+                    reserva=reserva
+                )
+
+                # Si hay espacio antes de la reserva
+                for disponibilidad in disponibilidades:
+                    if fecha_inicio > disponibilidad.fecha_inicio:
+                        HistorialDisponibilidad.objects.create(
+                            propiedad=propiedad,
+                            fecha_inicio=disponibilidad.fecha_inicio,
+                            fecha_fin=fecha_inicio,
+                            estado='libre'
+                        )
+                    
+                    # Si hay espacio después de la reserva
+                    if fecha_fin < disponibilidad.fecha_fin:
+                        HistorialDisponibilidad.objects.create(
+                            propiedad=propiedad,
+                            fecha_inicio=fecha_fin,
+                            fecha_fin=disponibilidad.fecha_fin,
+                            estado='libre'
+                        )
 
             messages.success(request, 'Reserva creada exitosamente.')
             return redirect('inmobiliaria:reserva_detalle', reserva_id=reserva.id)
 
         except ValidationError as e:
             messages.error(request, f'Error de validación: {str(e)}')
-            return redirect('inmobiliaria:buscar_propiedades')
         except Exception as e:
             messages.error(request, f'Error inesperado: {str(e)}')
-            return redirect('inmobiliaria:buscar_propiedades')
-
+        
     return redirect('inmobiliaria:buscar_propiedades')
 
 
