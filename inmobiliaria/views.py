@@ -633,127 +633,105 @@ def parse_fecha(fecha_str):
 def confirmar_reserva(request):
     if request.method == 'POST':
         try:
-            # Obtener datos del formulario
-            propiedad_id = request.POST.get('propiedad_id')
-            fecha_inicio_str = request.POST.get('fecha_inicio')
-            fecha_fin_str = request.POST.get('fecha_fin')
-            vendedor_id = request.POST.get('vendedor_id')
-            inquilino_id = request.POST.get('inquilino_id')
-            precio = request.POST.get('precio_total', '0')
-
-            # Limpiar el precio
-            precio_limpio = precio.replace('.', '').replace(',', '.')
-            
-            # Validación de campos requeridos
-            campos_requeridos = {
-                'propiedad_id': propiedad_id,
-                'fecha_inicio': fecha_inicio_str,
-                'fecha_fin': fecha_fin_str,
-                'vendedor_id': vendedor_id,
-                'inquilino_id': inquilino_id,
-                'precio': precio_limpio
-            }
-
-            campos_faltantes = [k for k, v in campos_requeridos.items() if not v]
-            if campos_faltantes:
-                messages.error(request, f'Faltan los siguientes campos: {", ".join(campos_faltantes)}')
-                return redirect('inmobiliaria:buscar_propiedades')
-
-            # Convertir fechas
-            fecha_inicio = parse_fecha(fecha_inicio_str)
-            fecha_fin = parse_fecha(fecha_fin_str)
-
-            # Validar fechas
-            if fecha_inicio > fecha_fin:
-                messages.error(request, 'La fecha de inicio no puede ser posterior a la fecha de fin.')
-                return redirect('inmobiliaria:buscar_propiedades')
-
-            # Obtener objetos necesarios
-            try:
-                propiedad = Propiedad.objects.get(id=propiedad_id)
-                vendedor = Vendedor.objects.get(id=vendedor_id)
-                inquilino = Inquilino.objects.get(id=inquilino_id)
-            except ObjectDoesNotExist as e:
-                messages.error(request, f'Error al obtener datos: {str(e)}')
-                return redirect('inmobiliaria:buscar_propiedades')
-
-            # Verificar disponibilidad
-            disponibilidades = Disponibilidad.objects.filter(
-                propiedad=propiedad,
-                fecha_inicio__lte=fecha_fin,
-                fecha_fin__gte=fecha_inicio
-            )
-
-            if not disponibilidades.exists():
-                messages.error(request, 'No hay disponibilidad para las fechas seleccionadas')
-                return redirect('inmobiliaria:buscar_propiedades')
-
-            # Verificar que no haya reservas superpuestas
-            reservas_existentes = Reserva.objects.filter(
-                propiedad=propiedad,
-                estado__in=['confirmada', 'confirmada_no_pagada'],
-                fecha_inicio__lt=fecha_fin,
-                fecha_fin__gt=fecha_inicio
-            )
-
-            if reservas_existentes.exists():
-                messages.error(request, 'Ya existe una reserva para el período seleccionado')
-                return redirect('inmobiliaria:buscar_propiedades')
-
-            # Crear la reserva dentro de una transacción
             with transaction.atomic():
+                # Obtener datos del formulario
+                propiedad_id = request.POST.get('propiedad_id')
+                fecha_inicio_str = request.POST.get('fecha_inicio')
+                fecha_fin_str = request.POST.get('fecha_fin')
+                vendedor_id = request.POST.get('vendedor_id')
+                inquilino_id = request.POST.get('inquilino_id')
+                precio_total = request.POST.get('precio_total')
+
+                # Convertir fechas
+                fecha_inicio = datetime.strptime(fecha_inicio_str, '%d/%m/%Y').date()
+                fecha_fin = datetime.strptime(fecha_fin_str, '%d/%m/%Y').date()
+
+                # Obtener objetos
+                propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+                vendedor = get_object_or_404(Vendedor, id=vendedor_id)
+                inquilino = get_object_or_404(Inquilino, id=inquilino_id)
+
+                # Verificar si ya existe una reserva para estas fechas
+                reserva_existente = Reserva.objects.filter(
+                    propiedad=propiedad,
+                    fecha_inicio__lte=fecha_fin,
+                    fecha_fin__gte=fecha_inicio,
+                    estado__in=['confirmada', 'confirmada_no_pagada']
+                ).exists()
+
+                if reserva_existente:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Ya existe una reserva para estas fechas'
+                    })
+
                 # Crear la reserva
                 reserva = Reserva.objects.create(
                     propiedad=propiedad,
                     fecha_inicio=fecha_inicio,
                     fecha_fin=fecha_fin,
                     vendedor=vendedor,
-                    cliente=inquilino,
-                    precio_total=precio_limpio,
-                    estado='confirmada_no_pagada',
-                    sucursal=propiedad.sucursal
+                    inquilino=inquilino,
+                    precio_total=precio_total,
+                    estado='confirmada_no_pagada'
                 )
 
-                # Actualizar el historial de disponibilidad
-                HistorialDisponibilidad.objects.create(
+                # Actualizar disponibilidades
+                disponibilidades = Disponibilidad.objects.filter(
+                    propiedad=propiedad,
+                    fecha_inicio__lte=fecha_fin,
+                    fecha_fin__gte=fecha_inicio
+                ).order_by('fecha_inicio')
+
+                for disponibilidad in disponibilidades:
+                    # Si la disponibilidad coincide exactamente con la reserva
+                    if disponibilidad.fecha_inicio == fecha_inicio and disponibilidad.fecha_fin == fecha_fin:
+                        disponibilidad.estado = 'reservado'
+                        disponibilidad.save()
+                        continue
+
+                    # Si la reserva está al inicio de la disponibilidad
+                    if disponibilidad.fecha_inicio == fecha_inicio:
+                        disponibilidad.fecha_inicio = fecha_fin + timedelta(days=1)
+                        disponibilidad.save()
+                        continue
+
+                    # Si la reserva está al final de la disponibilidad
+                    if disponibilidad.fecha_fin == fecha_fin:
+                        disponibilidad.fecha_fin = fecha_inicio - timedelta(days=1)
+                        disponibilidad.save()
+                        continue
+
+                    # Si la reserva está en medio de la disponibilidad
+                    nueva_disponibilidad = Disponibilidad.objects.create(
+                        propiedad=propiedad,
+                        fecha_inicio=fecha_fin + timedelta(days=1),
+                        fecha_fin=disponibilidad.fecha_fin,
+                        estado='disponible'
+                    )
+                    disponibilidad.fecha_fin = fecha_inicio - timedelta(days=1)
+                    disponibilidad.save()
+
+                # Crear una nueva disponibilidad para el período reservado
+                Disponibilidad.objects.create(
                     propiedad=propiedad,
                     fecha_inicio=fecha_inicio,
                     fecha_fin=fecha_fin,
-                    estado='reservado',
-                    reserva=reserva
+                    estado='reservado'
                 )
 
-                # Si hay espacio antes de la reserva
-                for disponibilidad in disponibilidades:
-                    if fecha_inicio > disponibilidad.fecha_inicio:
-                        HistorialDisponibilidad.objects.create(
-                            propiedad=propiedad,
-                            fecha_inicio=disponibilidad.fecha_inicio,
-                            fecha_fin=fecha_inicio,
-                            estado='libre'
-                        )
-                    
-                    # Si hay espacio después de la reserva
-                    if fecha_fin < disponibilidad.fecha_fin:
-                        HistorialDisponibilidad.objects.create(
-                            propiedad=propiedad,
-                            fecha_inicio=fecha_fin,
-                            fecha_fin=disponibilidad.fecha_fin,
-                            estado='libre'
-                        )
+                return redirect('inmobiliaria:reserva_exitosa', reserva_id=reserva.id)
 
-            messages.success(request, 'Reserva creada exitosamente.')
-            # Cambiar la redirección a reserva_exitosa
-            return redirect('inmobiliaria:reserva_exitosa', reserva_id=reserva.id)
-
-        except ValidationError as e:
-            messages.error(request, f'Error de validación: {str(e)}')
-            return redirect('inmobiliaria:buscar_propiedades')
         except Exception as e:
-            messages.error(request, f'Error inesperado: {str(e)}')
-            return redirect('inmobiliaria:buscar_propiedades')
-    
-    return redirect('inmobiliaria:buscar_propiedades')
+            return JsonResponse({
+                'success': False,
+                'message': f'Error al confirmar la reserva: {str(e)}'
+            })
+
+    return JsonResponse({
+        'success': False,
+        'message': 'Método no permitido'
+    })
 
 
 def reserva_detalle(request, reserva_id):
@@ -846,115 +824,126 @@ def buscar_propiedades(request):
             disponibilidades = Disponibilidad.objects.filter(
                 propiedad=propiedad,
                 fecha_inicio__lte=fecha_fin,
-                fecha_fin__gte=fecha_inicio,
-            )
+                fecha_fin__gte=fecha_inicio
+            ).order_by('fecha_inicio')
 
-            # Obtener las reservas asociadas a la propiedad
-            reservas = propiedad.reservas.filter(
-                Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
-            )
-            
-            if reservas.filter(estado='pagada').exists():
-                continue  # Saltar esta propiedad si ya tiene una reserva pagada
+            # Una propiedad está disponible si tiene al menos una disponibilidad en estado 'disponible'
+            # que cubra todo el período solicitado
+            for disponibilidad in disponibilidades:
+                if disponibilidad.estado == 'disponible':
+                    if (disponibilidad.fecha_inicio <= fecha_inicio and 
+                        disponibilidad.fecha_fin >= fecha_fin):
+                        propiedad.disponibilidad_inicio = disponibilidad.fecha_inicio
+                        propiedad.disponibilidad_fin = disponibilidad.fecha_fin
+                        propiedades_disponibles.append(propiedad)
+                        break
 
-            # Verificar si existe una reserva en estado 'en espera' (confirmada no pagada)
-            reserva_confirmada_no_pagada = reservas.filter(estado='en_espera').first()
+        # Obtener las reservas asociadas a la propiedad
+        reservas = propiedad.reservas.filter(
+            Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
+        )
+        
+        if reservas.filter(estado='pagada').exists():
+            continue  # Saltar esta propiedad si ya tiene una reserva pagada
 
-            # Evaluar la disponibilidad y las reservas de la propiedad
-            if disponibilidades.exists() and not reservas.filter(estado='confirmada').exists():
-                if reserva_confirmada_no_pagada:
-                    propiedad.reserva = reserva_confirmada_no_pagada
-                    propiedad.estado_reserva = 'confirmada_no_pagada'
-                    propiedad.precio_total_reserva = reserva_confirmada_no_pagada.precio_total
+        # Verificar si existe una reserva en estado 'en espera' (confirmada no pagada)
+        reserva_confirmada_no_pagada = reservas.filter(estado='en_espera').first()
+
+        # Evaluar la disponibilidad y las reservas de la propiedad
+        if disponibilidades.exists() and not reservas.filter(estado='confirmada').exists():
+            if reserva_confirmada_no_pagada:
+                propiedad.reserva = reserva_confirmada_no_pagada
+                propiedad.estado_reserva = 'confirmada_no_pagada'
+                propiedad.precio_total_reserva = reserva_confirmada_no_pagada.precio_total
+            else:
+                propiedad.estado_reserva = 'disponible'
+
+            # Calcular el precio total de la reserva según las fechas seleccionadas
+            precio_total = 0
+            precio_mas_caro = 0
+            primer_dia = True
+            print('fecha de inicio',fecha_inicio)
+            print('fecha de fin',fecha_fin)
+            dias_reserva = (fecha_fin - fecha_inicio).days + 1
+            total_dias_reserva = dias_reserva - 1
+
+            for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
+                # Determinar el tipo de precio según la fecha
+                tipo_precio = None
+                if single_date.month == 1:  # Enero
+                    tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
+                elif single_date.month == 2:  # Febrero
+                    tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day <= 15 else 'QUINCENA_2_FEBRERO'
+                elif single_date.month == 3:  # Marzo
+                    tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
+                elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
+                    tipo_precio = 'VACACIONES_INVIERNO'
+                elif single_date.month == 12:  # Diciembre
+                    tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
                 else:
-                    propiedad.estado_reserva = 'disponible'
+                    tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
 
-                # Calcular el precio total de la reserva según las fechas seleccionadas
-                precio_total = 0
-                precio_mas_caro = 0
-                primer_dia = True
-                print('fecha de inicio',fecha_inicio)
-                print('fecha de fin',fecha_fin)
-                dias_reserva = (fecha_fin - fecha_inicio).days + 1
-                total_dias_reserva = dias_reserva - 1
-
-                for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
-                    # Determinar el tipo de precio según la fecha
-                    tipo_precio = None
-                    if single_date.month == 1:  # Enero
-                        tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
-                    elif single_date.month == 2:  # Febrero
-                        tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day <= 15 else 'QUINCENA_2_FEBRERO'
-                    elif single_date.month == 3:  # Marzo
-                        tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
-                    elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
-                        tipo_precio = 'VACACIONES_INVIERNO'
-                    elif single_date.month == 12:  # Diciembre
-                        tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
-                    else:
-                        tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
-
-                    # Obtener el precio para la propiedad y la quincena correspondiente
-                    try:
-                        precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
-                        precio_dia = precio.precio_por_dia or 0
-                    except Precio.DoesNotExist:
-                        precio_dia = 0
-
-                    if precio_dia > precio_mas_caro:
-                        precio_mas_caro = precio_dia
-
-                    if not primer_dia:
-                        precio_total += precio_dia
-                    else:
-                        primer_dia = False
-
-                propiedad.precio_total_reserva = precio_total + precio_mas_caro
-
-                if not reservas.exists():
-                    primera_disponibilidad = disponibilidades.order_by('fecha_inicio').first()
-                    ultima_disponibilidad = disponibilidades.order_by('-fecha_fin').first()
-
-                    if primera_disponibilidad:
-                        propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
-                    if ultima_disponibilidad:
-                        propiedad.disponibilidad_fin = ultima_disponibilidad.fecha_fin
-
-                # Obtener la reserva más cercana antes de la fecha de inicio
-                reserva_cercana = propiedad.reservas.filter(fecha_fin__lte=fecha_inicio).order_by('-fecha_fin').first()
-                reserva_cercana_fin = propiedad.reservas.filter(fecha_inicio__gte=fecha_fin).order_by('fecha_inicio').first()
-
-                if reserva_cercana:
-                    propiedad.disponibilidad_inicio = reserva_cercana.fecha_fin
-
-                if reserva_cercana_fin:
-                    propiedad.disponibilidad_fin = reserva_cercana_fin.fecha_inicio
-
-                if reserva_confirmada_no_pagada:
-                    propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio 
-                    propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
-
-                # Añadir la propiedad disponible a la lista
-                dias_disponibles = (fecha_inicio - propiedad.disponibilidad_inicio).days
-                propiedad.dias_disponibles = max(dias_disponibles, 0)
-                propiedades_disponibles.append(propiedad)
-                propiedades_disponibles.sort(key=lambda x: x.dias_disponibles)
-
-                # Asegúrate de que todos los precios estén disponibles
+                # Obtener el precio para la propiedad y la quincena correspondiente
                 try:
-                    # Función auxiliar para manejar tipos de precio no válidos
-                    def get_precio_order(precio):
-                        try:
-                            return TipoPrecio[precio.tipo_precio].value
-                        except KeyError:
-                            # Si el tipo no existe en el enum, ponerlo al final
-                            return 999
-                        
-                    propiedad.todos_precios = sorted(propiedad.todos_precios, key=get_precio_order)
-                except Exception as e:
-                    print(f"Error ordenando precios para propiedad {propiedad.id}: {e}")
-                    # En caso de error, no ordenar los precios
-                    pass
+                    precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
+                    precio_dia = precio.precio_por_dia or 0
+                except Precio.DoesNotExist:
+                    precio_dia = 0
+
+                if precio_dia > precio_mas_caro:
+                    precio_mas_caro = precio_dia
+
+                if not primer_dia:
+                    precio_total += precio_dia
+                else:
+                    primer_dia = False
+
+            propiedad.precio_total_reserva = precio_total + precio_mas_caro
+
+            if not reservas.exists():
+                primera_disponibilidad = disponibilidades.order_by('fecha_inicio').first()
+                ultima_disponibilidad = disponibilidades.order_by('-fecha_fin').first()
+
+                if primera_disponibilidad:
+                    propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
+                if ultima_disponibilidad:
+                    propiedad.disponibilidad_fin = ultima_disponibilidad.fecha_fin
+
+            # Obtener la reserva más cercana antes de la fecha de inicio
+            reserva_cercana = propiedad.reservas.filter(fecha_fin__lte=fecha_inicio).order_by('-fecha_fin').first()
+            reserva_cercana_fin = propiedad.reservas.filter(fecha_inicio__gte=fecha_fin).order_by('fecha_inicio').first()
+
+            if reserva_cercana:
+                propiedad.disponibilidad_inicio = reserva_cercana.fecha_fin
+
+            if reserva_cercana_fin:
+                propiedad.disponibilidad_fin = reserva_cercana_fin.fecha_inicio
+
+            if reserva_confirmada_no_pagada:
+                propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio 
+                propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
+
+            # Añadir la propiedad disponible a la lista
+            dias_disponibles = (fecha_inicio - propiedad.disponibilidad_inicio).days
+            propiedad.dias_disponibles = max(dias_disponibles, 0)
+            propiedades_disponibles.append(propiedad)
+            propiedades_disponibles.sort(key=lambda x: x.dias_disponibles)
+
+            # Asegúrate de que todos los precios estén disponibles
+            try:
+                # Función auxiliar para manejar tipos de precio no válidos
+                def get_precio_order(precio):
+                    try:
+                        return TipoPrecio[precio.tipo_precio].value
+                    except KeyError:
+                        # Si el tipo no existe en el enum, ponerlo al final
+                        return 999
+                    
+                propiedad.todos_precios = sorted(propiedad.todos_precios, key=get_precio_order)
+            except Exception as e:
+                print(f"Error ordenando precios para propiedad {propiedad.id}: {e}")
+                # En caso de error, no ordenar los precios
+                pass
 
     # Alerta si hay propiedades sin precio
     alerta_sin_precio = len(propiedades_sin_precio) > 0
