@@ -643,8 +643,14 @@ def confirmar_reserva(request):
                 precio = request.POST.get('precio_total', '0')
 
                 # Convertir fechas
-                fecha_inicio = datetime.strptime(fecha_inicio_str, '%d/%m/%Y').date()
-                fecha_fin = datetime.strptime(fecha_fin_str, '%d/%m/%Y').date()
+                try:
+                    fecha_inicio = datetime.strptime(fecha_inicio_str, '%d/%m/%Y').date()
+                    fecha_fin = datetime.strptime(fecha_fin_str, '%d/%m/%Y').date()
+                except ValueError as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Error en el formato de las fechas: {str(e)}'
+                    })
 
                 # Verificar que no haya reservas en el período
                 reservas_existentes = Reserva.objects.filter(
@@ -659,10 +665,16 @@ def confirmar_reserva(request):
                         'error': 'El período seleccionado ya tiene una reserva'
                     })
 
-                # Obtener los objetos necesarios
-                propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-                vendedor = get_object_or_404(User, id=vendedor_id)
-                inquilino = get_object_or_404(Cliente, id=inquilino_id)
+                try:
+                    # Obtener los objetos necesarios
+                    propiedad = Propiedad.objects.get(id=propiedad_id)
+                    vendedor = Vendedor.objects.get(id=vendedor_id)
+                    inquilino = Cliente.objects.get(id=inquilino_id)
+                except (Propiedad.DoesNotExist, Vendedor.DoesNotExist, Cliente.DoesNotExist) as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Error al obtener los datos: {str(e)}'
+                    })
 
                 # Crear la reserva
                 reserva = Reserva.objects.create(
@@ -671,7 +683,7 @@ def confirmar_reserva(request):
                     fecha_fin=fecha_fin,
                     vendedor=vendedor,
                     cliente=inquilino,
-                    precio_total=precio
+                    precio_total=float(precio.replace(',', '').replace('$', ''))
                 )
 
                 # Actualizar disponibilidad
