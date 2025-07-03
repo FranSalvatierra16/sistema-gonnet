@@ -1566,11 +1566,26 @@ function verPrecios() {
     });
 }
 function formatearFecha(fecha) {
-    const d = new Date(fecha);
-    const dia = d.getDate().toString().padStart(2, '0');
-    const mes = (d.getMonth() + 1).toString().padStart(2, '0'); // Los meses en JavaScript van de 0 a 11
-    const anio = d.getFullYear();
-    return `${dia}/${mes}/${anio}`;
+    if (!fecha) return '';
+    
+    // Si la fecha ya viene en formato DD/MM/YYYY, devolverla tal cual
+    if (typeof fecha === 'string' && fecha.includes('/')) {
+        return fecha;
+    }
+
+    try {
+        const d = new Date(fecha);
+        if (isNaN(d.getTime())) {
+            throw new Error('Fecha inválida');
+        }
+        const dia = d.getDate().toString().padStart(2, '0');
+        const mes = (d.getMonth() + 1).toString().padStart(2, '0');
+        const anio = d.getFullYear();
+        return `${dia}/${mes}/${anio}`;
+    } catch (error) {
+        console.error('Error formateando fecha:', error);
+        return '';
+    }
 }
 function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
     // Datos básicos de la propiedad
@@ -1582,8 +1597,8 @@ function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, prec
 
     // Campos del formulario
     document.getElementById("modalPropiedadId").value = ficha;
-    document.getElementById("modalFechaInicio").value = fechaInicio;
-    document.getElementById("modalFechaFin").value = fechaFin;
+    document.getElementById("modalFechaInicio").value = formatearFecha(fechaInicio);
+    document.getElementById("modalFechaFin").value = formatearFecha(fechaFin);
     document.getElementById("modalPrecioTotal").value = precio;
     document.getElementById("precio_total_display").textContent = precio;
     document.getElementById("precio_total").value = precio;
@@ -1644,7 +1659,20 @@ function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, prec
         
         const vendedorId = document.getElementById("modalVendedorId").value;
         const inquilinoId = document.getElementById("modalInquilinoId").value;
+        const fechaInicio = document.getElementById("modalFechaInicio").value;
+        const fechaFin = document.getElementById("modalFechaFin").value;
 
+        // Validar fechas
+        if (!fechaInicio || !fechaFin) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Las fechas de inicio y fin son obligatorias'
+            });
+            return;
+        }
+
+        // Resto de las validaciones...
         if (!vendedorId || vendedorId.trim() === '') {
             Swal.fire({
                 icon: 'error',
