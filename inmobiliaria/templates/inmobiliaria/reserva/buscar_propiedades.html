@@ -1340,27 +1340,7 @@ function autenticarYReservar() {
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
-    console.log("Seleccionando propiedad:", id);
-    
-    // Convertir el precio correctamente
-    let precioNumerico;
-    try {
-        // Remover cualquier formato de moneda y separadores de miles
-        let precioLimpio = precio.toString().replace(/[$.]/g, '').replace(/,/g, '.');
-        precioNumerico = parseFloat(precioLimpio);
-        
-        // Si el precio es mayor a 1 millón, probablemente está mal formateado
-        if (precioNumerico > 1000000) {
-            precioNumerico = precioNumerico / 100;
-        }
-        
-        console.log("Precio original:", precio);
-        console.log("Precio limpio:", precioLimpio);
-        console.log("Precio procesado:", precioNumerico);
-    } catch (error) {
-        console.error("Error procesando precio:", error);
-        precioNumerico = 0;
-    }
+    console.log("Fechas recibidas:", fechaInicio, fechaFin); // Para debug
 
     // Guardar los datos de la propiedad seleccionada
     propiedadSeleccionada = {
@@ -1368,7 +1348,7 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         direccion: direccion,
         propietario: propietario,
         disponibilidad: disponibilidad,
-        precio: precioNumerico,
+        precio: precio,
         fechaInicio: fechaInicio,
         fechaFin: fechaFin,
         totalDias: total_dias,
@@ -1383,7 +1363,7 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
     document.getElementById("cardPropiedad").innerText = id;
     document.getElementById("cardDireccion").innerText = direccion;
     document.getElementById("cardPropietario").innerText = propietario;
-    document.getElementById("cardPrecio").innerText = `$${precioNumerico.toLocaleString('es-AR', {
+    document.getElementById("cardPrecio").innerText = `$${precio.toLocaleString('es-AR', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     })}`;
@@ -1566,24 +1546,48 @@ function verPrecios() {
     });
 }
 function formatearFecha(fecha) {
-    const d = new Date(fecha);
-    const dia = d.getDate().toString().padStart(2, '0');
-    const mes = (d.getMonth() + 1).toString().padStart(2, '0'); // Los meses en JavaScript van de 0 a 11
-    const anio = d.getFullYear();
-    return `${dia}/${mes}/${anio}`;
+    if (!fecha) return '';
+    
+    // Si la fecha ya viene en formato DD/MM/YYYY, devolverla tal cual
+    if (typeof fecha === 'string' && fecha.includes('/')) {
+        return fecha;
+    }
+
+    try {
+        const d = new Date(fecha);
+        if (isNaN(d.getTime())) {
+            console.error('Fecha inválida:', fecha);
+            return '';
+        }
+        const dia = d.getDate().toString().padStart(2, '0');
+        const mes = (d.getMonth() + 1).toString().padStart(2, '0');
+        const anio = d.getFullYear();
+        return `${dia}/${mes}/${anio}`;
+    } catch (error) {
+        console.error('Error formateando fecha:', error);
+        return '';
+    }
 }
 function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
+    console.log("Fechas a mostrar:", fechaInicio, fechaFin); // Para debug
+
+    // Formatear fechas
+    const fechaInicioFormateada = formatearFecha(fechaInicio);
+    const fechaFinFormateada = formatearFecha(fechaFin);
+
+    console.log("Fechas formateadas:", fechaInicioFormateada, fechaFinFormateada); // Para debug
+
     // Datos básicos de la propiedad
     document.getElementById("propiedadDireccion").textContent = direccion;
-    document.getElementById("fechaInicio").textContent = formatearFecha(fechaInicio);
-    document.getElementById("fechaFin").textContent = formatearFecha(fechaFin);
+    document.getElementById("fechaInicio").textContent = fechaInicioFormateada;
+    document.getElementById("fechaFin").textContent = fechaFinFormateada;
     document.getElementById("totalDias").textContent = `${totalDias} días`;
     document.getElementById("precioTotalSuperior").textContent = precio;
 
     // Campos del formulario
     document.getElementById("modalPropiedadId").value = ficha;
-    document.getElementById("modalFechaInicio").value = formatearFecha(fechaInicio);
-    document.getElementById("modalFechaFin").value = formatearFecha(fechaFin);
+    document.getElementById("modalFechaInicio").value = fechaInicioFormateada;
+    document.getElementById("modalFechaFin").value = fechaFinFormateada;
     document.getElementById("modalPrecioTotal").value = precio;
     document.getElementById("precio_total_display").textContent = precio;
     document.getElementById("precio_total").value = precio;
