@@ -1582,8 +1582,8 @@ function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, prec
 
     // Campos del formulario
     document.getElementById("modalPropiedadId").value = ficha;
-    document.getElementById("modalFechaInicio").value = fechaInicio;
-    document.getElementById("modalFechaFin").value = fechaFin;
+    document.getElementById("modalFechaInicio").value = formatearFecha(fechaInicio);
+    document.getElementById("modalFechaFin").value = formatearFecha(fechaFin);
     document.getElementById("modalPrecioTotal").value = precio;
     document.getElementById("precio_total_display").textContent = precio;
     document.getElementById("precio_total").value = precio;
