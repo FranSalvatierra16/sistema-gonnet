@@ -633,83 +633,142 @@ def parse_fecha(fecha_str):
 def confirmar_reserva(request):
     if request.method == 'POST':
         try:
-            # Obtener datos del formulario
-            propiedad_id = request.POST.get('propiedad_id')
-            fecha_inicio_str = request.POST.get('fecha_inicio')
-            fecha_fin_str = request.POST.get('fecha_fin')
-            vendedor_id = request.POST.get('vendedor_id')
-            inquilino_id = request.POST.get('inquilino_id')
-            precio = request.POST.get('precio_total', '0')
-
-            # Limpiar el precio: remover puntos de miles y reemplazar coma por punto
-            precio_limpio = precio.replace('.', '').replace(',', '.')
-            
-            # Validación de datos obligatorios
-            campos_requeridos = {
-                'propiedad_id': propiedad_id,
-                'fecha_inicio': fecha_inicio_str,
-                'fecha_fin': fecha_fin_str,
-                'vendedor_id': vendedor_id,
-                'inquilino_id': inquilino_id,
-                'precio': precio_limpio
-            }
-
-            campos_faltantes = [k for k, v in campos_requeridos.items() if not v]
-            if campos_faltantes:
-                messages.error(request, f'Faltan los siguientes campos: {", ".join(campos_faltantes)}')
-                return redirect('inmobiliaria:buscar_propiedades')
-
-            # Convertir fechas
-            fecha_inicio = parse_fecha(fecha_inicio_str)
-            fecha_fin = parse_fecha(fecha_fin_str)
-
-            # Validar fechas    
-            if fecha_inicio > fecha_fin:
-                messages.error(request, 'La fecha de inicio no puede ser posterior a la fecha de fin.')
-                return redirect('inmobiliaria:buscar_propiedades')
-
-            # Obtener objetos de la base de datos
-            try:
-                propiedad = Propiedad.objects.get(id=propiedad_id)
-                vendedor = Vendedor.objects.get(id=vendedor_id)
-                inquilino = Inquilino.objects.get(id=inquilino_id)
-            except ObjectDoesNotExist as e:
-                messages.error(request, f'Error al obtener datos: {str(e)}')
-                return redirect('inmobiliaria:buscar_propiedades')
-
-            # Procesar el precio
-            try:
-                precio_total = Decimal(precio_limpio)
-                print("Precio procesado:", precio_total)  # Debug
-            except (ValueError, TypeError):
-                messages.error(request, 'El precio proporcionado no es válido')
-                return redirect('inmobiliaria:buscar_propiedades')
-
-            print("el precio total es ",precio_total)
-
-            # Crear la reserva
             with transaction.atomic():
+                # Obtener datos del formulario
+                propiedad_id = request.POST.get('propiedad_id')
+                fecha_inicio_str = request.POST.get('fecha_inicio')
+                fecha_fin_str = request.POST.get('fecha_fin')
+                vendedor_id = request.POST.get('vendedor_id')
+                inquilino_id = request.POST.get('inquilino_id')
+                precio = request.POST.get('precio_total', '0')
+
+                # Convertir fechas
+                fecha_inicio = parse_fecha(fecha_inicio_str)
+                fecha_fin = parse_fecha(fecha_fin_str)
+
+                # Obtener objetos
+                propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+                vendedor = get_object_or_404(Vendedor, id=vendedor_id)
+                inquilino = get_object_or_404(Inquilino, id=inquilino_id)
+
+                # Limpiar el precio
+                precio_limpio = precio.replace('.', '').replace(',', '.')
+                precio_total = Decimal(precio_limpio)
+
+                # Crear la reserva
                 reserva = Reserva.objects.create(
                     propiedad=propiedad,
                     fecha_inicio=fecha_inicio,
                     fecha_fin=fecha_fin,
                     vendedor=vendedor,
                     cliente=inquilino,
-                    precio_total=precio_total
+                    precio_total=precio_total,
+                    estado='confirmada_no_pagada'
                 )
-                print("la reserva es ",reserva)
 
+                # Obtener todas las disponibilidades que se solapan con el período
+                disponibilidades = Disponibilidad.objects.filter(
+                    propiedad=propiedad,
+                    fecha_inicio__lte=fecha_fin,
+                    fecha_fin__gte=fecha_inicio,
+                    estado='disponible'
+                ).order_by('fecha_inicio')
 
-            messages.success(request, 'Reserva creada exitosamente')
-            return redirect('inmobiliaria:reserva_exitosa', reserva_id=reserva.id)
+                for disponibilidad in disponibilidades:
+                    # Caso 1: La reserva cubre toda la disponibilidad
+                    if fecha_inicio <= disponibilidad.fecha_inicio and fecha_fin >= disponibilidad.fecha_fin:
+                        disponibilidad.estado = 'reservado'
+                        disponibilidad.save()
+                        continue
+
+                    # Caso 2: La reserva está en medio de la disponibilidad
+                    if fecha_inicio > disponibilidad.fecha_inicio and fecha_fin < disponibilidad.fecha_fin:
+                        # Crear disponibilidad antes de la reserva
+                        Disponibilidad.objects.create(
+                            propiedad=propiedad,
+                            fecha_inicio=disponibilidad.fecha_inicio,
+                            fecha_fin=fecha_inicio - timedelta(days=1),
+                            estado='disponible'
+                        )
+                        # Crear disponibilidad después de la reserva
+                        Disponibilidad.objects.create(
+                            propiedad=propiedad,
+                            fecha_inicio=fecha_fin + timedelta(days=1),
+                            fecha_fin=disponibilidad.fecha_fin,
+                            estado='disponible'
+                        )
+                        # Crear la disponibilidad reservada
+                        Disponibilidad.objects.create(
+                            propiedad=propiedad,
+                            fecha_inicio=fecha_inicio,
+                            fecha_fin=fecha_fin,
+                            estado='reservado'
+                        )
+                        disponibilidad.delete()
+                        continue
+
+                    # Caso 3: La reserva está al inicio de la disponibilidad
+                    if fecha_inicio <= disponibilidad.fecha_inicio and fecha_fin < disponibilidad.fecha_fin:
+                        disponibilidad.fecha_inicio = fecha_fin + timedelta(days=1)
+                        disponibilidad.save()
+                        Disponibilidad.objects.create(
+                            propiedad=propiedad,
+                            fecha_inicio=fecha_inicio,
+                            fecha_fin=fecha_fin,
+                            estado='reservado'
+                        )
+                        continue
+
+                    # Caso 4: La reserva está al final de la disponibilidad
+                    if fecha_inicio > disponibilidad.fecha_inicio and fecha_fin >= disponibilidad.fecha_fin:
+                        disponibilidad.fecha_fin = fecha_inicio - timedelta(days=1)
+                        disponibilidad.save()
+                        Disponibilidad.objects.create(
+                            propiedad=propiedad,
+                            fecha_inicio=fecha_inicio,
+                            fecha_fin=fecha_fin,
+                            estado='reservado'
+                        )
+
+                # Ordenar y consolidar disponibilidades adyacentes
+                consolidar_disponibilidades(propiedad)
+
+                return redirect('inmobiliaria:reserva_exitosa', reserva_id=reserva.id)
 
         except Exception as e:
             messages.error(request, f'Error inesperado: {str(e)}')
             return redirect('inmobiliaria:buscar_propiedades')
-    else:
-        messages.error(request, 'Método no permitido')
-        return redirect('inmobiliaria:buscar_propiedades')
 
+    messages.error(request, 'Método no permitido')
+    return redirect('inmobiliaria:buscar_propiedades')
+
+def consolidar_disponibilidades(propiedad):
+    """
+    Consolida disponibilidades adyacentes del mismo estado
+    """
+    disponibilidades = Disponibilidad.objects.filter(
+        propiedad=propiedad
+    ).order_by('fecha_inicio')
+    
+    i = 0
+    while i < len(disponibilidades) - 1:
+        actual = disponibilidades[i]
+        siguiente = disponibilidades[i + 1]
+        
+        # Si son adyacentes y del mismo estado
+        if (actual.fecha_fin + timedelta(days=1) == siguiente.fecha_inicio and 
+            actual.estado == siguiente.estado):
+            # Extender la disponibilidad actual
+            actual.fecha_fin = siguiente.fecha_fin
+            actual.save()
+            # Eliminar la siguiente
+            siguiente.delete()
+            # Actualizar la lista
+            disponibilidades = Disponibilidad.objects.filter(
+                propiedad=propiedad
+            ).order_by('fecha_inicio')
+        else:
+            i += 1
 
 def reserva_detalle(request, reserva_id):
     reserva = get_object_or_404(Reserva, pk=reserva_id)
