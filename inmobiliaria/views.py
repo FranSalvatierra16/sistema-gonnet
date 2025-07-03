@@ -643,17 +643,26 @@ def confirmar_reserva(request):
                 precio = request.POST.get('precio_total', '0')
 
                 # Convertir fechas
-                fecha_inicio = parse_fecha(fecha_inicio_str)
-                fecha_fin = parse_fecha(fecha_fin_str)
+                fecha_inicio = datetime.strptime(fecha_inicio_str, '%d/%m/%Y').date()
+                fecha_fin = datetime.strptime(fecha_fin_str, '%d/%m/%Y').date()
 
-                # Obtener objetos
+                # Verificar que no haya reservas en el período
+                reservas_existentes = Reserva.objects.filter(
+                    propiedad_id=propiedad_id,
+                    fecha_inicio__lt=fecha_fin,
+                    fecha_fin__gt=fecha_inicio
+                )
+
+                if reservas_existentes.exists():
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'El período seleccionado ya tiene una reserva'
+                    })
+
+                # Obtener los objetos necesarios
                 propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-                vendedor = get_object_or_404(Vendedor, id=vendedor_id)
-                inquilino = get_object_or_404(Inquilino, id=inquilino_id)
-
-                # Limpiar el precio
-                precio_limpio = precio.replace('.', '').replace(',', '.')
-                precio_total = Decimal(precio_limpio)
+                vendedor = get_object_or_404(User, id=vendedor_id)
+                inquilino = get_object_or_404(Cliente, id=inquilino_id)
 
                 # Crear la reserva
                 reserva = Reserva.objects.create(
@@ -662,85 +671,46 @@ def confirmar_reserva(request):
                     fecha_fin=fecha_fin,
                     vendedor=vendedor,
                     cliente=inquilino,
-                    precio_total=precio_total,
-                    estado='confirmada_no_pagada'
+                    precio_total=precio
                 )
 
-                # Obtener todas las disponibilidades que se solapan con el período
-                disponibilidades = Disponibilidad.objects.filter(
+                # Actualizar disponibilidad
+                disponibilidad = Disponibilidad.objects.filter(
                     propiedad=propiedad,
-                    fecha_inicio__lte=fecha_fin,
-                    fecha_fin__gte=fecha_inicio,
-                    estado='disponible'
-                ).order_by('fecha_inicio')
+                    fecha_inicio__lte=fecha_inicio,
+                    fecha_fin__gte=fecha_fin
+                ).first()
 
-                for disponibilidad in disponibilidades:
-                    # Caso 1: La reserva cubre toda la disponibilidad
-                    if fecha_inicio <= disponibilidad.fecha_inicio and fecha_fin >= disponibilidad.fecha_fin:
-                        disponibilidad.estado = 'reservado'
-                        disponibilidad.save()
-                        continue
-
-                    # Caso 2: La reserva está en medio de la disponibilidad
-                    if fecha_inicio > disponibilidad.fecha_inicio and fecha_fin < disponibilidad.fecha_fin:
-                        # Crear disponibilidad antes de la reserva
+                if disponibilidad:
+                    # Crear nuevos períodos de disponibilidad si es necesario
+                    if disponibilidad.fecha_inicio < fecha_inicio:
                         Disponibilidad.objects.create(
                             propiedad=propiedad,
                             fecha_inicio=disponibilidad.fecha_inicio,
-                            fecha_fin=fecha_inicio - timedelta(days=1),
-                            estado='disponible'
+                            fecha_fin=fecha_inicio
                         )
-                        # Crear disponibilidad después de la reserva
+                    
+                    if disponibilidad.fecha_fin > fecha_fin:
                         Disponibilidad.objects.create(
                             propiedad=propiedad,
-                            fecha_inicio=fecha_fin + timedelta(days=1),
-                            fecha_fin=disponibilidad.fecha_fin,
-                            estado='disponible'
+                            fecha_inicio=fecha_fin,
+                            fecha_fin=disponibilidad.fecha_fin
                         )
-                        # Crear la disponibilidad reservada
-                        Disponibilidad.objects.create(
-                            propiedad=propiedad,
-                            fecha_inicio=fecha_inicio,
-                            fecha_fin=fecha_fin,
-                            estado='reservado'
-                        )
-                        disponibilidad.delete()
-                        continue
-
-                    # Caso 3: La reserva está al inicio de la disponibilidad
-                    if fecha_inicio <= disponibilidad.fecha_inicio and fecha_fin < disponibilidad.fecha_fin:
-                        disponibilidad.fecha_inicio = fecha_fin + timedelta(days=1)
-                        disponibilidad.save()
-                        Disponibilidad.objects.create(
-                            propiedad=propiedad,
-                            fecha_inicio=fecha_inicio,
-                            fecha_fin=fecha_fin,
-                            estado='reservado'
-                        )
-                        continue
-
-                    # Caso 4: La reserva está al final de la disponibilidad
-                    if fecha_inicio > disponibilidad.fecha_inicio and fecha_fin >= disponibilidad.fecha_fin:
-                        disponibilidad.fecha_fin = fecha_inicio - timedelta(days=1)
-                        disponibilidad.save()
-                        Disponibilidad.objects.create(
-                            propiedad=propiedad,
-                            fecha_inicio=fecha_inicio,
-                            fecha_fin=fecha_fin,
-                            estado='reservado'
-                        )
-
-                # Ordenar y consolidar disponibilidades adyacentes
-                consolidar_disponibilidades(propiedad)
+                    
+                    disponibilidad.delete()
 
                 return redirect('inmobiliaria:reserva_exitosa', reserva_id=reserva.id)
 
         except Exception as e:
-            messages.error(request, f'Error inesperado: {str(e)}')
-            return redirect('inmobiliaria:buscar_propiedades')
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
 
-    messages.error(request, 'Método no permitido')
-    return redirect('inmobiliaria:buscar_propiedades')
+    return JsonResponse({
+        'success': False,
+        'error': 'Método no permitido'
+    })
 
 def consolidar_disponibilidades(propiedad):
     """
