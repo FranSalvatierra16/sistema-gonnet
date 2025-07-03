@@ -652,9 +652,26 @@ def confirmar_reserva(request):
                         'error': f'Error en el formato de las fechas: {str(e)}'
                     })
 
+                # Obtener los objetos necesarios
+                try:
+                    propiedad = Propiedad.objects.get(id=propiedad_id)
+                    vendedor = Vendedor.objects.get(id=vendedor_id)
+                    inquilino = Cliente.objects.get(id=inquilino_id)
+                except (Propiedad.DoesNotExist, Vendedor.DoesNotExist, Cliente.DoesNotExist) as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Error al obtener los datos: {str(e)}'
+                    })
+
+                # Verificar disponibilidades existentes
+                disponibilidades = Disponibilidad.objects.filter(
+                    propiedad=propiedad,
+                    fecha_fin__gte=fecha_inicio
+                ).order_by('fecha_inicio')
+
                 # Verificar que no haya reservas en el período
                 reservas_existentes = Reserva.objects.filter(
-                    propiedad_id=propiedad_id,
+                    propiedad=propiedad,
                     fecha_inicio__lt=fecha_fin,
                     fecha_fin__gt=fecha_inicio
                 )
@@ -663,17 +680,6 @@ def confirmar_reserva(request):
                     return JsonResponse({
                         'success': False,
                         'error': 'El período seleccionado ya tiene una reserva'
-                    })
-
-                try:
-                    # Obtener los objetos necesarios
-                    propiedad = Propiedad.objects.get(id=propiedad_id)
-                    vendedor = Vendedor.objects.get(id=vendedor_id)
-                    inquilino = Cliente.objects.get(id=inquilino_id)
-                except (Propiedad.DoesNotExist, Vendedor.DoesNotExist, Cliente.DoesNotExist) as e:
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Error al obtener los datos: {str(e)}'
                     })
 
                 # Crear la reserva
@@ -686,30 +692,32 @@ def confirmar_reserva(request):
                     precio_total=float(precio.replace(',', '').replace('$', ''))
                 )
 
-                # Actualizar disponibilidad
-                disponibilidad = Disponibilidad.objects.filter(
-                    propiedad=propiedad,
-                    fecha_inicio__lte=fecha_inicio,
-                    fecha_fin__gte=fecha_fin
-                ).first()
+                # Actualizar disponibilidades
+                for disponibilidad in disponibilidades:
+                    if disponibilidad.fecha_inicio <= fecha_inicio and disponibilidad.fecha_fin >= fecha_fin:
+                        # La disponibilidad cubre todo el período de la reserva
+                        # Crear disponibilidad antes de la reserva si es necesario
+                        if disponibilidad.fecha_inicio < fecha_inicio:
+                            Disponibilidad.objects.create(
+                                propiedad=propiedad,
+                                fecha_inicio=disponibilidad.fecha_inicio,
+                                fecha_fin=fecha_inicio
+                            )
+                        
+                        # Crear disponibilidad después de la reserva si es necesario
+                        if disponibilidad.fecha_fin > fecha_fin:
+                            Disponibilidad.objects.create(
+                                propiedad=propiedad,
+                                fecha_inicio=fecha_fin,
+                                fecha_fin=disponibilidad.fecha_fin
+                            )
+                        
+                        # Eliminar la disponibilidad original
+                        disponibilidad.delete()
+                        break
 
-                if disponibilidad:
-                    # Crear nuevos períodos de disponibilidad si es necesario
-                    if disponibilidad.fecha_inicio < fecha_inicio:
-                        Disponibilidad.objects.create(
-                            propiedad=propiedad,
-                            fecha_inicio=disponibilidad.fecha_inicio,
-                            fecha_fin=fecha_inicio
-                        )
-                    
-                    if disponibilidad.fecha_fin > fecha_fin:
-                        Disponibilidad.objects.create(
-                            propiedad=propiedad,
-                            fecha_inicio=fecha_fin,
-                            fecha_fin=disponibilidad.fecha_fin
-                        )
-                    
-                    disponibilidad.delete()
+                # Consolidar disponibilidades adyacentes
+                consolidar_disponibilidades(propiedad)
 
                 return redirect('inmobiliaria:reserva_exitosa', reserva_id=reserva.id)
 
@@ -726,29 +734,28 @@ def confirmar_reserva(request):
 
 def consolidar_disponibilidades(propiedad):
     """
-    Consolida disponibilidades adyacentes del mismo estado
+    Consolida disponibilidades adyacentes
     """
-    disponibilidades = Disponibilidad.objects.filter(
+    disponibilidades = list(Disponibilidad.objects.filter(
         propiedad=propiedad
-    ).order_by('fecha_inicio')
+    ).order_by('fecha_inicio'))
     
     i = 0
     while i < len(disponibilidades) - 1:
         actual = disponibilidades[i]
         siguiente = disponibilidades[i + 1]
         
-        # Si son adyacentes y del mismo estado
-        if (actual.fecha_fin + timedelta(days=1) == siguiente.fecha_inicio and 
-            actual.estado == siguiente.estado):
+        # Si son adyacentes
+        if actual.fecha_fin == siguiente.fecha_inicio:
             # Extender la disponibilidad actual
             actual.fecha_fin = siguiente.fecha_fin
             actual.save()
             # Eliminar la siguiente
             siguiente.delete()
             # Actualizar la lista
-            disponibilidades = Disponibilidad.objects.filter(
+            disponibilidades = list(Disponibilidad.objects.filter(
                 propiedad=propiedad
-            ).order_by('fecha_inicio')
+            ).order_by('fecha_inicio'))
         else:
             i += 1
 
