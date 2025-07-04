@@ -656,8 +656,8 @@ def confirmar_reserva(request):
                 try:
                     propiedad = Propiedad.objects.get(id=propiedad_id)
                     vendedor = Vendedor.objects.get(id=vendedor_id)
-                    inquilino = Cliente.objects.get(id=inquilino_id)
-                except (Propiedad.DoesNotExist, Vendedor.DoesNotExist, Cliente.DoesNotExist) as e:
+                    inquilino = Inquilino.objects.get(id=inquilino_id)  # Cambiamos Cliente por Inquilino
+                except (Propiedad.DoesNotExist, Vendedor.DoesNotExist, Inquilino.DoesNotExist) as e:
                     return JsonResponse({
                         'success': False,
                         'error': f'Error al obtener los datos: {str(e)}'
@@ -688,7 +688,7 @@ def confirmar_reserva(request):
                     fecha_inicio=fecha_inicio,
                     fecha_fin=fecha_fin,
                     vendedor=vendedor,
-                    cliente=inquilino,
+                    cliente=inquilino,  # El campo en el modelo sigue siendo cliente
                     precio_total=float(precio.replace(',', '').replace('$', ''))
                 )
 
