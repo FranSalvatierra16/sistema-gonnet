@@ -649,15 +649,15 @@ def confirmar_reserva(request):
                 # Obtener objetos necesarios
                 propiedad = get_object_or_404(Propiedad, id=propiedad_id)
                 vendedor = get_object_or_404(Vendedor, id=vendedor_id)
-                cliente = get_object_or_404(Inquilino, id=inquilino_id)  # Obtenemos el inquilino
+                inquilino = get_object_or_404(Inquilino, id=inquilino_id)
 
-                # Crear la reserva usando 'cliente' en lugar de 'inquilino'
+                # Crear la reserva
                 reserva = Reserva.objects.create(
                     propiedad=propiedad,
                     fecha_inicio=fecha_inicio,
                     fecha_fin=fecha_fin,
                     vendedor=vendedor,
-                    cliente=cliente,  # Cambiado de 'inquilino' a 'cliente'
+                    inquilino=inquilino,  # Usamos inquilino directamente
                     precio_total=float(precio.replace(',', ''))
                 )
 
