@@ -643,38 +643,13 @@ def confirmar_reserva(request):
                 precio = request.POST.get('precio_total', '0')
 
                 # Convertir fechas
-                try:
-                    fecha_inicio = datetime.strptime(fecha_inicio_str, '%d/%m/%Y').date()
-                    fecha_fin = datetime.strptime(fecha_fin_str, '%d/%m/%Y').date()
-                except ValueError as e:
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Error en el formato de las fechas: {str(e)}'
-                    })
+                fecha_inicio = datetime.strptime(fecha_inicio_str, '%d/%m/%Y').date()
+                fecha_fin = datetime.strptime(fecha_fin_str, '%d/%m/%Y').date()
 
-                # Obtener los objetos necesarios
-                try:
-                    propiedad = Propiedad.objects.get(id=propiedad_id)
-                    vendedor = Vendedor.objects.get(id=vendedor_id)
-                    inquilino = Inquilino.objects.get(id=inquilino_id)
-                except (Propiedad.DoesNotExist, Vendedor.DoesNotExist, Inquilino.DoesNotExist) as e:
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Error al obtener los datos: {str(e)}'
-                    })
-
-                # Verificar que no haya reservas en el período
-                reservas_existentes = Reserva.objects.filter(
-                    propiedad=propiedad,
-                    fecha_inicio__lt=fecha_fin,
-                    fecha_fin__gt=fecha_inicio
-                )
-
-                if reservas_existentes.exists():
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'El período seleccionado ya tiene una reserva'
-                    })
+                # Obtener objetos necesarios
+                propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+                vendedor = get_object_or_404(Vendedor, id=vendedor_id)
+                inquilino = get_object_or_404(Inquilino, id=inquilino_id)
 
                 # Crear la reserva
                 reserva = Reserva.objects.create(
@@ -682,51 +657,55 @@ def confirmar_reserva(request):
                     fecha_inicio=fecha_inicio,
                     fecha_fin=fecha_fin,
                     vendedor=vendedor,
-                    cliente=inquilino,
-                    precio_total=float(precio.replace(',', '').replace('$', ''))
+                    inquilino=inquilino,
+                    precio_total=float(precio.replace(',', ''))
                 )
 
-                # Buscar la disponibilidad que cubre el período de la reserva
-                disponibilidad = Disponibilidad.objects.filter(
+                # Actualizar disponibilidades
+                disponibilidades = Disponibilidad.objects.filter(
                     propiedad=propiedad,
-                    fecha_inicio__lte=fecha_inicio,
-                    fecha_fin__gte=fecha_fin
-                ).first()
+                    fecha_fin__gt=fecha_inicio,
+                    fecha_inicio__lt=fecha_fin
+                ).order_by('fecha_inicio')
 
-                if disponibilidad:
-                    # Eliminar la disponibilidad actual
-                    disponibilidad_inicio = disponibilidad.fecha_inicio
-                    disponibilidad_fin = disponibilidad.fecha_fin
-                    disponibilidad.delete()
-
-                    # Crear disponibilidad antes de la reserva si es necesario
-                    if disponibilidad_inicio < fecha_inicio:
+                for disponibilidad in disponibilidades:
+                    # Si la disponibilidad cubre el período de la reserva
+                    if disponibilidad.fecha_inicio <= fecha_inicio and disponibilidad.fecha_fin >= fecha_fin:
+                        # Crear período antes de la reserva si es necesario
+                        if disponibilidad.fecha_inicio < fecha_inicio:
+                            Disponibilidad.objects.create(
+                                propiedad=propiedad,
+                                fecha_inicio=disponibilidad.fecha_inicio,
+                                fecha_fin=fecha_inicio,
+                                estado='libre'
+                            )
+                        
+                        # Crear período de la reserva
                         Disponibilidad.objects.create(
                             propiedad=propiedad,
-                            fecha_inicio=disponibilidad_inicio,
-                            fecha_fin=fecha_inicio
+                            fecha_inicio=fecha_inicio,
+                            fecha_fin=fecha_fin,
+                            estado='reservado'
                         )
+                        
+                        # Crear período después de la reserva si es necesario
+                        if disponibilidad.fecha_fin > fecha_fin:
+                            Disponibilidad.objects.create(
+                                propiedad=propiedad,
+                                fecha_inicio=fecha_fin,
+                                fecha_fin=disponibilidad.fecha_fin,
+                                estado='libre'
+                            )
+                        
+                        # Eliminar la disponibilidad original
+                        disponibilidad.delete()
 
-                    # Crear disponibilidad después de la reserva si es necesario
-                    if disponibilidad_fin > fecha_fin:
-                        Disponibilidad.objects.create(
-                            propiedad=propiedad,
-                            fecha_inicio=fecha_fin,
-                            fecha_fin=disponibilidad_fin
-                        )
-
-                return redirect('inmobiliaria:reserva_exitosa', reserva_id=reserva.id)
+                return JsonResponse({'success': True, 'reserva_id': reserva.id})
 
         except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': str(e)
-            })
+            return JsonResponse({'success': False, 'error': str(e)})
 
-    return JsonResponse({
-        'success': False,
-        'error': 'Método no permitido'
-    })
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 def consolidar_disponibilidades(propiedad):
     """
