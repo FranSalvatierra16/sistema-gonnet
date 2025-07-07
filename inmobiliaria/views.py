@@ -651,13 +651,13 @@ def confirmar_reserva(request):
                 vendedor = get_object_or_404(Vendedor, id=vendedor_id)
                 cliente = get_object_or_404(Inquilino, id=inquilino_id)
 
-                # Crear la reserva usando 'cliente' en lugar de 'inquilino'
+                # Crear la reserva
                 reserva = Reserva.objects.create(
                     propiedad=propiedad,
                     fecha_inicio=fecha_inicio,
                     fecha_fin=fecha_fin,
                     vendedor=vendedor,
-                    cliente=cliente,  # Aquí está el cambio clave
+                    cliente=cliente,
                     precio_total=float(precio.replace(',', ''))
                 )
 
@@ -677,7 +677,7 @@ def confirmar_reserva(request):
                                 propiedad=propiedad,
                                 fecha_inicio=disponibilidad.fecha_inicio,
                                 fecha_fin=fecha_inicio,
-                                estado='libre'
+                                estado_reserva='libre'  # Cambiado de estado a estado_reserva
                             )
                         
                         # Crear período de la reserva
@@ -685,7 +685,7 @@ def confirmar_reserva(request):
                             propiedad=propiedad,
                             fecha_inicio=fecha_inicio,
                             fecha_fin=fecha_fin,
-                            estado='reservado'
+                            estado_reserva='reservado'  # Cambiado de estado a estado_reserva
                         )
                         
                         # Crear período después de la reserva si es necesario
@@ -694,7 +694,7 @@ def confirmar_reserva(request):
                                 propiedad=propiedad,
                                 fecha_inicio=fecha_fin,
                                 fecha_fin=disponibilidad.fecha_fin,
-                                estado='libre'
+                                estado_reserva='libre'  # Cambiado de estado a estado_reserva
                             )
                         
                         # Eliminar la disponibilidad original
