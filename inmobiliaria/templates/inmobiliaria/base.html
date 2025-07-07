@@ -86,17 +86,20 @@
 
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container-fluid">
-            {% if user.is_authenticated %}
-            <div class="navbar-nav me-auto">
-
-                <a class="nav-link" href="{% url 'inmobiliaria:dashboard' %}">Inicio</a>
-                <a class="nav-link" href="{% url 'inmobiliaria:buscar_propiedades' %}">Reservas</a>
-                <div class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="utilidadesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        Utilidades
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="utilidadesDropdown">
-                        {% if user.is_authenticated %}
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                {% if user.is_authenticated %}
+                <div class="navbar-nav me-auto">
+                    <a class="nav-link" href="{% url 'inmobiliaria:dashboard' %}">Inicio</a>
+                    <a class="nav-link" href="{% url 'inmobiliaria:buscar_propiedades' %}">Reservas</a>
+                    <div class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="utilidadesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Utilidades
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="utilidadesDropdown">
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:vendedores' %}">Vendedores</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:inquilinos' %}">Turistas</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:propietarios' %}">Propietarios</a></li>
@@ -107,30 +110,17 @@
                                 <li><a class="dropdown-item" href="{% url 'inmobiliaria:register' %}">Registrar Usuario</a></li>
                             {% endif %}
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:crear_sucursal' %}">Crear Sucursal</a></li>
-                        {% else %}
-                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:crear_sucursal' %}">Crear Sucursal</a></li>
-                        {% endif %}
-                    </ul>
+                        </ul>
+                    </div>
                 </div>
-            </div>
-            {% else %}
-            <div class="navbar-nav me-auto">
-                <div class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="utilidadesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        Utilidades
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="utilidadesDropdown">
-                        <a class="dropdown-item" href="{% url 'inmobiliaria:crear_sucursal' %}">Crear Sucursal</a>
-                    </ul>
-                </div>
-            </div>
-            {% endif %}
-            <div class="navbar-nav ms-auto">
-                {% if user.is_authenticated %}
-                    <a class="nav-link" href="{% url 'inmobiliaria:logout' %}">Cerrar sesión</a>
-                {% else %}
-                    <a class="nav-link" href="{% url 'inmobiliaria:login' %}">Iniciar sesión</a>
                 {% endif %}
+                <div class="navbar-nav ms-auto">
+                    {% if user.is_authenticated %}
+                        <a class="nav-link" href="{% url 'inmobiliaria:logout' %}">Cerrar sesión</a>
+                    {% else %}
+                        <a class="nav-link" href="{% url 'inmobiliaria:login' %}">Iniciar sesión</a>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </nav>
@@ -168,6 +158,15 @@
         };
 
         inactivityTime();
+    </script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inicializar todos los dropdowns de Bootstrap
+        var dropdowns = document.querySelectorAll('.dropdown-toggle');
+        dropdowns.forEach(function(dropdown) {
+            new bootstrap.Dropdown(dropdown);
+        });
+    });
     </script>
     {% endblock %}
 </body>
