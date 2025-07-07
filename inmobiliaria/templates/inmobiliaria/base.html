@@ -96,7 +96,9 @@
                     <a class="nav-link" href="{% url 'inmobiliaria:dashboard' %}">Inicio</a>
                     <a class="nav-link" href="{% url 'inmobiliaria:buscar_propiedades' %}">Reservas</a>
                     <div class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="utilidadesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <a class="nav-link dropdown-toggle" href="#" id="utilidadesDropdown" role="button" 
+                           data-bs-toggle="dropdown" aria-expanded="false" 
+                           onclick="console.log('Click en botón Utilidades - Timestamp:', new Date().toISOString())">
                             Utilidades
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="utilidadesDropdown">
@@ -165,6 +167,24 @@
         var dropdowns = document.querySelectorAll('.dropdown-toggle');
         dropdowns.forEach(function(dropdown) {
             new bootstrap.Dropdown(dropdown);
+        });
+
+        const dropdownButton = document.getElementById('utilidadesDropdown');
+        
+        dropdownButton.addEventListener('click', function(e) {
+            console.log('Click en dropdown Utilidades:', {
+                event: e,
+                target: e.target,
+                timestamp: new Date().toISOString()
+            });
+        });
+
+        dropdownButton.addEventListener('show.bs.dropdown', function() {
+            console.log('Dropdown Utilidades abriéndose');
+        });
+
+        dropdownButton.addEventListener('shown.bs.dropdown', function() {
+            console.log('Dropdown Utilidades abierto');
         });
     });
     </script>
