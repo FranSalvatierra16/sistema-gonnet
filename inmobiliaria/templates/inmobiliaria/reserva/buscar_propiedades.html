@@ -561,7 +561,7 @@
                     
                     <!-- Agregar este botón cerca de los otros botones de acción -->
                     <div class="mb-3">
-                        <button type="button" class="btn btn-info" onclick="abrirGaleriaFotos()">
+                        <button type="button" class="btn btn-info" onclick="abrirGaleriaFotos(propiedadSeleccionada.id)">
                             <i class="fas fa-images"></i> Ver Fotos
                         </button>
                     </div>
@@ -1125,11 +1125,10 @@ function autenticarYReservar() {
         });
     }
 
-    function abrirGaleriaFotos() {
+    function abrirGaleriaFotos(propiedadId) {
         console.log("=== ABRIENDO GALERÍA DE FOTOS ===");
-        console.log("Propiedad seleccionada:", window.propiedadSeleccionada);
         
-        if (!window.propiedadSeleccionada || !window.propiedadSeleccionada.id) {
+        if (!propiedadId) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Atención',
@@ -1145,32 +1144,21 @@ function autenticarYReservar() {
         const tituloModal = document.getElementById('tituloModal');
         
         if (!carouselInner || !thumbnailsContainer || !contadorFotos || !tituloModal) {
-            console.error("Elementos del DOM faltantes:", {
-                carouselInner: !!carouselInner,
-                thumbnailsContainer: !!thumbnailsContainer,
-                contadorFotos: !!contadorFotos,
-                tituloModal: !!tituloModal
-            });
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Error al cargar la galería de fotos'
-            });
+            console.error("Elementos del DOM faltantes");
             return;
         }
         
         // Actualizar título del modal
-        tituloModal.textContent = window.propiedadSeleccionada.direccion;
+        tituloModal.textContent = propiedadSeleccionada.direccion;
         
-        // Limpiar contenedores antes de la petición
+        // Limpiar contenedores
         carouselInner.innerHTML = '';
         thumbnailsContainer.innerHTML = '';
         contadorFotos.textContent = '';
         
-        // Construir la URL correctamente
-        const url = `${URLS.obtenerFotos}${window.propiedadSeleccionada.id}/`;
-        console.log("URL para obtener fotos:", url);
-
+        // Construir la URL
+        const url = `${URLS.obtenerFotos}${propiedadId}/`;
+        
         // Mostrar indicador de carga
         carouselInner.innerHTML = `
             <div class="carousel-item active">
@@ -1181,7 +1169,12 @@ function autenticarYReservar() {
                 </div>
             </div>
         `;
+
+        // Mostrar el modal antes de cargar las fotos
+        const modalGaleriaFotos = new bootstrap.Modal(document.getElementById('modalGaleriaFotos'));
+        modalGaleriaFotos.show();
         
+        // Realizar la petición
         fetch(url)
             .then(response => {
                 if (!response.ok) {
@@ -1190,10 +1183,8 @@ function autenticarYReservar() {
                 return response.json();
             })
             .then(data => {
-                console.log("Datos de fotos recibidos:", data);
-                
                 if (data.success && data.fotos && data.fotos.length > 0) {
-                    carouselInner.innerHTML = ''; // Limpiar el spinner
+                    carouselInner.innerHTML = '';
                     
                     data.fotos.forEach((foto, index) => {
                         // Slide principal
@@ -1215,7 +1206,6 @@ function autenticarYReservar() {
                         thumbnailCol.innerHTML = `
                             <img src="${foto.url}" 
                                  class="img-thumbnail thumbnail-nav ${index === 0 ? 'active-thumbnail' : ''}" 
-                                 style="cursor: pointer; height: 80px; width: 100%; object-fit: cover;"
                                  onclick="irAFoto(${index})"
                                  data-index="${index}"
                                  alt="Thumbnail ${index + 1}">
@@ -1225,25 +1215,21 @@ function autenticarYReservar() {
                     
                     // Actualizar contador
                     contadorFotos.textContent = `1 / ${data.fotos.length}`;
-                    
-                    // Mostrar el modal
-                    const modalGaleriaFotos = new bootstrap.Modal(document.getElementById('modalGaleriaFotos'));
-                    modalGaleriaFotos.show();
                 } else {
-                    Swal.fire({
-                        icon: 'info',
-                        title: 'Sin fotos',
-                        text: 'Esta propiedad no tiene fotos disponibles'
-                    });
+                    carouselInner.innerHTML = `
+                        <div class="alert alert-info m-3">
+                            No hay fotos disponibles para esta propiedad
+                        </div>
+                    `;
                 }
             })
             .catch(error => {
                 console.error("Error al cargar las fotos:", error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'No se pudieron cargar las fotos: ' + error.message
-                });
+                carouselInner.innerHTML = `
+                    <div class="alert alert-danger m-3">
+                        Error al cargar las fotos: ${error.message}
+                    </div>
+                `;
             });
     }
     function irAFoto(index) {
