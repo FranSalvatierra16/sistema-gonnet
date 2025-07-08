@@ -347,7 +347,42 @@
         vertical-align: middle;
     }
 
-    /* ... existing code ... */
+    /* Estilos adicionales para los filtros */
+    #filtrosAdicionales {
+        transition: all 0.3s ease-in-out;
+    }
+
+    .form-check {
+        margin-bottom: 10px;
+    }
+
+    .form-check-label {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .form-check-input {
+        cursor: pointer;
+    }
+
+    /* Estilo para el contenedor de características */
+    .caracteristicas-container {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+    }
+
+    /* Estilo para los grupos de características */
+    .caracteristicas-grupo {
+        margin-bottom: 20px;
+    }
+
+    .caracteristicas-grupo h6 {
+        color: #6c757d;
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
     </style>
 </head>
 
@@ -424,22 +459,78 @@
         <div class="card">
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-4">
+                    <!-- Filtros básicos -->
+                    <div class="col-md-4 mb-3">
                         <div class="form-group">
                             <label>Tipo de Inmueble</label>
                             {{ form.tipo_inmueble }}
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-4 mb-3">
                         <div class="form-group">
                             <label>Vista</label>
                             {{ form.vista }}
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-4 mb-3">
                         <div class="form-group">
                             <label>Valoración</label>
                             {{ form.valoracion }}
+                        </div>
+                    </div>
+
+                    <!-- Características booleanas -->
+                    <div class="col-12">
+                        <h5 class="mb-3">Características adicionales</h5>
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.amoblado }}
+                                    <label class="form-check-label" for="{{ form.amoblado.id_for_label }}">Amoblado</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.cochera }}
+                                    <label class="form-check-label" for="{{ form.cochera.id_for_label }}">Cochera</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.tv_smart }}
+                                    <label class="form-check-label" for="{{ form.tv_smart.id_for_label }}">TV Smart</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.wifi }}
+                                    <label class="form-check-label" for="{{ form.wifi.id_for_label }}">WiFi</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.piscina }}
+                                    <label class="form-check-label" for="{{ form.piscina.id_for_label }}">Piscina</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.parrilla }}
+                                    <label class="form-check-label" for="{{ form.parrilla.id_for_label }}">Parrilla</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.terraza }}
+                                    <label class="form-check-label" for="{{ form.terraza.id_for_label }}">Terraza</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.balcon }}
+                                    <label class="form-check-label" for="{{ form.balcon.id_for_label }}">Balcón</label>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1765,6 +1856,43 @@ function getCookie(name) {
     }
     return cookieValue;
 }
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Obtener elementos
+    const switchFiltros = document.getElementById('switchFiltros');
+    const filtrosAdicionales = document.getElementById('filtrosAdicionales');
+
+    // Agregar evento al switch
+    if (switchFiltros) {
+        switchFiltros.addEventListener('change', function() {
+            if (filtrosAdicionales) {
+                if (this.checked) {
+                    // Mostrar filtros con animación
+                    filtrosAdicionales.style.display = 'block';
+                    filtrosAdicionales.style.opacity = '0';
+                    setTimeout(() => {
+                        filtrosAdicionales.style.transition = 'opacity 0.3s ease-in-out';
+                        filtrosAdicionales.style.opacity = '1';
+                    }, 10);
+                } else {
+                    // Ocultar filtros con animación
+                    filtrosAdicionales.style.opacity = '0';
+                    setTimeout(() => {
+                        filtrosAdicionales.style.display = 'none';
+                    }, 300);
+                }
+            }
+        });
+    }
+
+    // Estilo adicional para los checkboxes
+    const checkboxes = document.querySelectorAll('.form-check-input');
+    checkboxes.forEach(checkbox => {
+        checkbox.classList.add('me-2');
+    });
+});
 </script>
 {% endblock content %}
 
