@@ -616,9 +616,7 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title" id="modalLabel">Confirmar Reserva</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
                         <p><strong>Propiedad:</strong> <span id="propiedadDireccion"></span></p>
@@ -661,7 +659,7 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary close" data-dismiss="modal" aria-label="Close">Cerrar</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                         <form id="confirmar-reserva-form" method="post" action="{% url 'inmobiliaria:confirmar_reserva' %}">
                             {% csrf_token %}
                             <input type="hidden" name="propiedad_id" id="modalPropiedadId">
@@ -706,9 +704,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalLabel">Autenticación del Vendedor</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="formAutenticacionVendedor">
@@ -723,8 +719,7 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal" id="cancelarReservaBtnA">Cancelar</button>
-
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" onclick="autenticarYFinalizar()">Autenticar y Finalizar</button>
             </div>
         </div>
@@ -739,9 +734,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Detalles de la Propiedad</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <!-- Carrusel de imágenes -->
@@ -786,7 +779,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
