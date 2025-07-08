@@ -1352,7 +1352,7 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         caracteristicas: caracteristicas || 'No disponible'
     };
 
-    // Actualizar la tarjeta de propiedad con el precio formateado
+    // Actualizar la tarjeta de propiedad con todos los datos
     document.getElementById("cardPropiedad").innerText = id;
     document.getElementById("cardDireccion").innerText = direccion;
     document.getElementById("cardPropietario").innerText = propietario;
@@ -1360,6 +1360,8 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     })}`;
+    document.getElementById("cardAmbiente").innerText = ambientes || 'No especificado';
+    document.getElementById("cardEstado").innerText = estadoReserva === 'confirmada_no_pagada' ? 'Reservado' : 'Disponible';
     
     // Actualizar descripción y características
     const descripcionElement = document.getElementById("descripcionDetallada");
