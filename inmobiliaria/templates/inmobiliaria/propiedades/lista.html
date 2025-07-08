@@ -46,7 +46,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for propiedad in propiedades|dictsort:"id" %}
+                    {% for propiedad in propiedades|dictsort:"id" reversed %}
                     <tr>
                         <td class="text-center">
                             <span class="badge bg-primary">#{{ propiedad.id }}</span>
@@ -151,10 +151,45 @@
     padding: 0.375rem 0.75rem;
     margin: 0 2px;
     border-radius: 5px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 32px !important;
+    height: 32px !important;
 }
 
 .btn-group .btn i {
     font-size: 1rem;
+    margin: 0 !important;
+}
+
+.btn-info {
+    background-color: #17a2b8 !important;
+    border-color: #17a2b8 !important;
+    color: white !important;
+}
+
+.btn-warning {
+    background-color: #ffc107 !important;
+    border-color: #ffc107 !important;
+    color: #000 !important;
+}
+
+.btn-danger {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    color: white !important;
+}
+
+.btn-group .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.bi {
+    display: inline-block !important;
+    line-height: 1 !important;
+    vertical-align: middle !important;
 }
 
 .badge {
