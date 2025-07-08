@@ -5,117 +5,185 @@
 {% block title %}Listado de Propiedades{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Listado de Propiedades</h1>
+<div class="content-wrapper">
+    <h1 class="mb-4 text-center">Listado de Propiedades</h1>
 
-<!-- Formulario de búsqueda -->
-<form method="get" class="form-inline mb-3">
-    {{ form.query|as_crispy_field }}  
-    <button type="submit" class="btn btn-primary ml-2">Buscar</button>
-</form>
+    <!-- Formulario de búsqueda -->
+    <div class="search-container mb-4">
+        <form method="get" class="form-inline">
+            {{ form.query|as_crispy_field }}  
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-search"></i> Buscar
+            </button>
+        </form>
+    </div>
 
-<div class="d-flex justify-content-between mb-3">
-    <a href="{% url 'inmobiliaria:propiedad_nuevo' %}" class="btn btn-primary">Nueva Propiedad</a>
-    <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}" class="btn btn-success">
-        <i class="bi bi-calendar-plus"></i> Agregar Disponibilidad Masiva
-    </a>
-</div>
+    <div class="d-flex justify-content-between mb-4">
+        <a href="{% url 'inmobiliaria:propiedad_nuevo' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Nueva Propiedad
+        </a>
+        <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}" class="btn btn-success">
+            <i class="bi bi-calendar-plus"></i> Agregar Disponibilidad Masiva
+        </a>
+    </div>
 
-<!-- Tabla de propiedades -->
-<div class="table-responsive">  
-    <table class="table table-hover">
-        <thead>
-            <tr class="bg-primary text-white">
-                <th class="text-center" style="width: 80px;">
-                    <i class="bi bi-hash"></i> Ficha
-                </th>
-                <th><i class="bi bi-geo-alt"></i> Dirección</th>
-                <th><i class="bi bi-star"></i> Valoración</th>
-                <th><i class="bi bi-person"></i> Propietario</th>
-                <th><i class="bi bi-building"></i> Piso</th>
-                <th><i class="bi bi-door-closed"></i> Departamento</th>
-                <th><i class="bi bi-house"></i> Ambientes</th>
-                <th class="text-center"><i class="bi bi-gear"></i> Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for propiedad in propiedades|dictsort:"id" %}
-            <tr class="align-middle">
-                <td class="text-center">
-                    <span class="badge bg-primary rounded-pill">#{{ propiedad.id }}</span>
-                </td>
-                <td>{{ propiedad.direccion }}</td>
-                <td>
-                    {% if propiedad.valoracion %}
-                        <span class="badge bg-info">{{ propiedad.valoracion }}</span>
-                    {% else %}
-                        <span class="badge bg-secondary">Sin valoración</span>
-                    {% endif %}
-                </td>
-                <td>{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</td>
-                <td>{{ propiedad.piso }}</td>
-                <td>{{ propiedad.departamento }}</td>
-                <td>
-                    <span class="badge bg-success">{{ propiedad.ambientes }} Amb.</span>
-                </td>
-                <td class="text-center">
-                    <div class="btn-group">
-                        <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad_id=propiedad.id %}" 
-                           class="btn btn-info btn-sm" 
-                           data-bs-toggle="tooltip" 
-                           title="Ver detalles">
-                            <i class="bi bi-eye"></i>
-                        </a>
-                        <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" 
-                           class="btn btn-warning btn-sm" 
-                           data-bs-toggle="tooltip" 
-                           title="Editar">
-                            <i class="bi bi-pencil"></i>
-                        </a>
-                        <button type="button" 
-                                class="btn btn-danger btn-sm" 
-                                onclick="confirmarEliminacion('{{ propiedad.id }}')"
-                                data-bs-toggle="tooltip" 
-                                title="Eliminar">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="8" class="text-center text-muted">
-                    <i class="bi bi-info-circle me-2"></i>No hay propiedades registradas.
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <!-- Tabla de propiedades -->
+    <div class="table-container">
+        <div class="table-responsive">  
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th class="text-center" style="width: 80px;">
+                            <i class="bi bi-hash"></i> Ficha
+                        </th>
+                        <th><i class="bi bi-geo-alt"></i> Dirección</th>
+                        <th><i class="bi bi-star"></i> Valoración</th>
+                        <th><i class="bi bi-person"></i> Propietario</th>
+                        <th><i class="bi bi-building"></i> Piso</th>
+                        <th><i class="bi bi-door-closed"></i> Dpto</th>
+                        <th><i class="bi bi-house"></i> Amb.</th>
+                        <th class="text-center"><i class="bi bi-gear"></i> Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for propiedad in propiedades|dictsort:"id" %}
+                    <tr>
+                        <td class="text-center">
+                            <span class="badge bg-primary">#{{ propiedad.id }}</span>
+                        </td>
+                        <td>{{ propiedad.direccion }}</td>
+                        <td>
+                            {% if propiedad.valoracion %}
+                                <span class="badge bg-info">{{ propiedad.valoracion }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Sin valoración</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</td>
+                        <td>{{ propiedad.piso }}</td>
+                        <td>{{ propiedad.departamento }}</td>
+                        <td>
+                            <span class="badge bg-success">{{ propiedad.ambientes }} Amb.</span>
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group">
+                                <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad_id=propiedad.id %}" 
+                                   class="btn btn-info btn-sm" 
+                                   data-bs-toggle="tooltip" 
+                                   title="Ver detalles">
+                                    <i class="bi bi-eye-fill"></i>
+                                </a>
+                                <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" 
+                                   class="btn btn-warning btn-sm" 
+                                   data-bs-toggle="tooltip" 
+                                   title="Editar">
+                                    <i class="bi bi-pencil-fill"></i>
+                                </a>
+                                <button type="button" 
+                                        class="btn btn-danger btn-sm" 
+                                        onclick="confirmarEliminacion('{{ propiedad.id }}')"
+                                        data-bs-toggle="tooltip" 
+                                        title="Eliminar">
+                                    <i class="bi bi-trash-fill"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>No hay propiedades registradas.
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <style>
+.content-wrapper {
+    background-color: #f8f9fa;
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+}
+
+.table-container {
+    background-color: white;
+    padding: 1rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.table {
+    margin-bottom: 0;
+}
+
+.table thead tr {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
 .table thead th {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-    color: white !important;
-    border: none !important;
+    color: white;
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    padding: 1rem;
+    border: none;
 }
 
 .table tbody tr {
-    transition: all 0.3s ease !important;
+    background-color: white;
+    transition: all 0.2s ease;
 }
 
 .table tbody tr:hover {
-    background-color: #f8f9fa !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+    background-color: #f8f9fa;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
 .btn-group .btn {
-    margin: 0 2px !important;
+    padding: 0.375rem 0.75rem;
+    margin: 0 2px;
+    border-radius: 5px !important;
+}
+
+.btn-group .btn i {
+    font-size: 1rem;
 }
 
 .badge {
-    padding: 6px 10px !important;
-    font-weight: 500 !important;
+    padding: 0.5rem 0.75rem;
+    font-weight: 500;
+    border-radius: 6px;
+}
+
+.search-container {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.btn i {
+    margin-right: 5px;
 }
 </style>
 
@@ -137,7 +205,6 @@ function confirmarEliminacion(propiedadId) {
     });
 }
 
-// Inicializar tooltips
 document.addEventListener('DOMContentLoaded', function() {
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
