@@ -718,16 +718,28 @@
                     <table id="propiedadesTable" class="table table-hover modern-table">
                         <thead>
                             <tr>
-                                <th class="text-center">#ID</th>
-                                <th>Disponibilidad</th>
-                                <th>Ubicación</th>
-                                <th>Detalles</th>
-                                <th>Precio</th>
-                                <th>Estado</th>
+                                <th class="text-center" style="width: 80px;">
+                                    <i class="fas fa-hashtag"></i> ID
+                                </th>
+                                <th>
+                                    <i class="fas fa-calendar-alt"></i> Disponibilidad
+                                </th>
+                                <th>
+                                    <i class="fas fa-map-marker-alt"></i> Ubicación
+                                </th>
+                                <th>
+                                    <i class="fas fa-info-circle"></i> Detalles
+                                </th>
+                                <th>
+                                    <i class="fas fa-dollar-sign"></i> Precio
+                                </th>
+                                <th>
+                                    <i class="fas fa-check-circle"></i> Estado
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for propiedad in propiedades_disponibles|dictsort:"id" %}
+                            {% for propiedad in propiedades_disponibles %}
                             <tr class="property-row {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}reserved{% endif %}"
                                 data-index="{{ forloop.counter0 }}"
                                 onclick="seleccionarPropiedad(
@@ -745,7 +757,9 @@
                                     '{{ propiedad.descripcion|escapejs }}',
                                     '{{ propiedad.caracteristicas|escapejs }}'
                                 )">
-                                <td class="text-center"><strong>#{{ propiedad.id }}</strong></td>
+                                <td class="text-center">
+                                    <strong class="badge bg-primary">#{{ propiedad.id }}</strong>
+                                </td>
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <i class="fas fa-calendar-alt me-2"></i>
