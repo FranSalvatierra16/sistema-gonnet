@@ -349,11 +349,16 @@
 
     /* Estilos adicionales para los filtros */
     #filtrosAdicionales {
-        transition: all 0.3s ease-in-out;
+        transition: opacity 0.3s ease-in-out;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    .form-check {
-        margin-bottom: 10px;
+    .form-check-input {
+        cursor: pointer;
     }
 
     .form-check-label {
@@ -361,8 +366,23 @@
         user-select: none;
     }
 
-    .form-check-input {
-        cursor: pointer;
+    /* Mejorar la apariencia del switch */
+    .form-switch .form-check-input {
+        width: 3em !important;
+        height: 1.5em !important;
+        margin-top: 0.25em;
+    }
+
+    .form-switch .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+
+    .switches-container {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 15px;
     }
 
     /* Estilo para el contenedor de características */
@@ -441,7 +461,7 @@
                     <!-- Switches -->
                     <div class="switches-container">
                         <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="switchFiltros">
+                            <input class="form-check-input" type="checkbox" id="switchFiltros" role="switch">
                             <label class="form-check-label" for="switchFiltros">Mostrar más filtros</label>
                         </div>
                         <div class="form-check form-switch">
@@ -454,7 +474,7 @@
         </form>
     </div>
 
-    <!-- Contenedor de filtros adicionales (inicialmente oculto) -->
+    <!-- Contenedor de filtros adicionales -->
     <div id="filtrosAdicionales" class="mt-3" style="display: none;">
         <div class="card">
             <div class="card-body">
@@ -1860,40 +1880,88 @@ function getCookie(name) {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Obtener elementos
+    console.log('DOM Cargado - Inicializando switches...'); // Debug
+
     const switchFiltros = document.getElementById('switchFiltros');
     const filtrosAdicionales = document.getElementById('filtrosAdicionales');
 
-    // Agregar evento al switch
-    if (switchFiltros) {
-        switchFiltros.addEventListener('change', function() {
-            if (filtrosAdicionales) {
-                if (this.checked) {
-                    // Mostrar filtros con animación
-                    filtrosAdicionales.style.display = 'block';
-                    filtrosAdicionales.style.opacity = '0';
-                    setTimeout(() => {
-                        filtrosAdicionales.style.transition = 'opacity 0.3s ease-in-out';
-                        filtrosAdicionales.style.opacity = '1';
-                    }, 10);
-                } else {
-                    // Ocultar filtros con animación
-                    filtrosAdicionales.style.opacity = '0';
-                    setTimeout(() => {
-                        filtrosAdicionales.style.display = 'none';
-                    }, 300);
-                }
-            }
-        });
+    if (!switchFiltros || !filtrosAdicionales) {
+        console.error('No se encontraron elementos necesarios:',
+            !switchFiltros ? 'Falta switchFiltros' : '',
+            !filtrosAdicionales ? 'Falta filtrosAdicionales' : '');
+        return;
     }
 
-    // Estilo adicional para los checkboxes
+    // Asegurarse de que el contenedor de filtros esté oculto inicialmente
+    filtrosAdicionales.style.display = 'none';
+    filtrosAdicionales.style.opacity = '0';
+    filtrosAdicionales.style.transition = 'opacity 0.3s ease-in-out';
+
+    switchFiltros.addEventListener('change', function(e) {
+        console.log('Switch cambió:', this.checked); // Debug
+
+        if (this.checked) {
+            // Mostrar filtros
+            filtrosAdicionales.style.display = 'block';
+            // Forzar un reflow
+            filtrosAdicionales.offsetHeight;
+            filtrosAdicionales.style.opacity = '1';
+        } else {
+            // Ocultar filtros
+            filtrosAdicionales.style.opacity = '0';
+            setTimeout(() => {
+                filtrosAdicionales.style.display = 'none';
+            }, 300); // Esperar a que termine la transición
+        }
+    });
+
+    // Agregar estilos adicionales para mejorar la apariencia
     const checkboxes = document.querySelectorAll('.form-check-input');
     checkboxes.forEach(checkbox => {
         checkbox.classList.add('me-2');
     });
 });
 </script>
+
+<style>
+/* Estilos adicionales para los filtros */
+#filtrosAdicionales {
+    transition: opacity 0.3s ease-in-out;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.form-check-input {
+    cursor: pointer;
+}
+
+.form-check-label {
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Mejorar la apariencia del switch */
+.form-switch .form-check-input {
+    width: 3em !important;
+    height: 1.5em !important;
+    margin-top: 0.25em;
+}
+
+.form-switch .form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.switches-container {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+}
+</style>
 {% endblock content %}
 
 {% block extra_js %}
