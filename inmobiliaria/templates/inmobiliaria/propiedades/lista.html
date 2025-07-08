@@ -46,7 +46,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for propiedad in propiedades|dictsort:"id" %}
+                    {% for propiedad in propiedades|dictsort:"id"|stringformat:">010d" %}
                     <tr>
                         <td class="text-center">
                             <span class="badge bg-primary">#{{ propiedad.id }}</span>
