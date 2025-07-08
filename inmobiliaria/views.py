@@ -267,8 +267,9 @@ def propietario_eliminar(request, propietario_id):
 @login_required
 def propiedades(request):
     form = PropiedadSearchForm(request.GET or None)
-    propiedades = Propiedad.objects.filter(sucursal=request.user.sucursal)
-    propiedades = propiedades.order_by('id')  # Esto asegura el orden numérico
+    # Obtener propiedades de la sucursal y ordenar por id desde el inicio
+    propiedades = Propiedad.objects.filter(sucursal=request.user.sucursal).order_by('id')
+
     if form.is_valid():
         query = form.cleaned_data.get('query')
         if query:
@@ -277,7 +278,7 @@ def propiedades(request):
                 Q(id__icontains=query) |
                 Q(propietario__nombre__icontains=query) |
                 Q(propietario__apellido__icontains=query)
-            )
+            ).order_by('id')  # Mantener el orden incluso después de la búsqueda
 
     return render(request, 'inmobiliaria/propiedades/lista.html', {
         'form': form,
