@@ -478,82 +478,97 @@
     <div id="filtrosAdicionales" class="mt-3" style="display: none;">
         <div class="card">
             <div class="card-body">
-                <div class="row">
-                    <!-- Filtros básicos -->
-                    <div class="col-md-4 mb-3">
-                        <div class="form-group">
-                            <label>Tipo de Inmueble</label>
-                            {{ form.tipo_inmueble }}
+                <form method="post" id="filtros-form" class="m-0">
+                    {% csrf_token %}
+                    <div class="row">
+                        <!-- Filtros básicos -->
+                        <div class="col-md-4 mb-3">
+                            <div class="form-group">
+                                <label>Tipo de Inmueble</label>
+                                {{ form.tipo_inmueble }}
+                            </div>
                         </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="form-group">
-                            <label>Vista</label>
-                            {{ form.vista }}
+                        <div class="col-md-4 mb-3">
+                            <div class="form-group">
+                                <label>Vista</label>
+                                {{ form.vista }}
+                            </div>
                         </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="form-group">
-                            <label>Valoración</label>
-                            {{ form.valoracion }}
+                        <div class="col-md-4 mb-3">
+                            <div class="form-group">
+                                <label>Valoración</label>
+                                {{ form.valoracion }}
+                            </div>
+                        </div>
+
+                        <!-- Características booleanas -->
+                        <div class="col-12">
+                            <h5 class="mb-3">Características adicionales</h5>
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        {{ form.amoblado }}
+                                        <label class="form-check-label" for="{{ form.amoblado.id_for_label }}">Amoblado</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        {{ form.cochera }}
+                                        <label class="form-check-label" for="{{ form.cochera.id_for_label }}">Cochera</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        {{ form.tv_smart }}
+                                        <label class="form-check-label" for="{{ form.tv_smart.id_for_label }}">TV Smart</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        {{ form.wifi }}
+                                        <label class="form-check-label" for="{{ form.wifi.id_for_label }}">WiFi</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        {{ form.piscina }}
+                                        <label class="form-check-label" for="{{ form.piscina.id_for_label }}">Piscina</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        {{ form.parrilla }}
+                                        <label class="form-check-label" for="{{ form.parrilla.id_for_label }}">Parrilla</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        {{ form.terraza }}
+                                        <label class="form-check-label" for="{{ form.terraza.id_for_label }}">Terraza</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        {{ form.balcon }}
+                                        <label class="form-check-label" for="{{ form.balcon.id_for_label }}">Balcón</label>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Características booleanas -->
-                    <div class="col-12">
-                        <h5 class="mb-3">Características adicionales</h5>
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.amoblado }}
-                                    <label class="form-check-label" for="{{ form.amoblado.id_for_label }}">Amoblado</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.cochera }}
-                                    <label class="form-check-label" for="{{ form.cochera.id_for_label }}">Cochera</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.tv_smart }}
-                                    <label class="form-check-label" for="{{ form.tv_smart.id_for_label }}">TV Smart</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.wifi }}
-                                    <label class="form-check-label" for="{{ form.wifi.id_for_label }}">WiFi</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.piscina }}
-                                    <label class="form-check-label" for="{{ form.piscina.id_for_label }}">Piscina</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.parrilla }}
-                                    <label class="form-check-label" for="{{ form.parrilla.id_for_label }}">Parrilla</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.terraza }}
-                                    <label class="form-check-label" for="{{ form.terraza.id_for_label }}">Terraza</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.balcon }}
-                                    <label class="form-check-label" for="{{ form.balcon.id_for_label }}">Balcón</label>
-                                </div>
-                            </div>
+                    <!-- Botón Aplicar Filtros -->
+                    <div class="row mt-4">
+                        <div class="col-12 text-end">
+                            <button type="button" class="btn btn-secondary me-2" onclick="limpiarFiltros()">
+                                <i class="fas fa-undo"></i> Limpiar
+                            </button>
+                            <button type="submit" class="btn btn-primary" id="aplicarFiltrosBtn">
+                                <i class="fas fa-filter"></i> Aplicar Filtros
+                            </button>
                         </div>
                     </div>
-                </div>
+                </form>
             </div>
         </div>
     </div>
@@ -1960,6 +1975,139 @@ document.addEventListener('DOMContentLoaded', function() {
     padding: 15px;
     border-radius: 8px;
     margin-top: 15px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // ... código existente del DOMContentLoaded ...
+
+    // Manejar el formulario de filtros
+    const filtrosForm = document.getElementById('filtros-form');
+    const formPrincipal = document.getElementById('buscar-propiedades-form-dia');
+
+    if (filtrosForm) {
+        filtrosForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Mostrar indicador de carga
+            Swal.fire({
+                title: 'Aplicando filtros...',
+                text: 'Por favor espere',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                willOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // Combinar datos de ambos formularios
+            const formPrincipalData = new FormData(formPrincipal);
+            const filtrosData = new FormData(this);
+            
+            // Combinar los datos en un solo FormData
+            const datosCompletos = new FormData();
+            for (let pair of formPrincipalData.entries()) {
+                datosCompletos.append(pair[0], pair[1]);
+            }
+            for (let pair of filtrosData.entries()) {
+                datosCompletos.append(pair[0], pair[1]);
+            }
+
+            // Enviar el formulario
+            fetch(window.location.href, {
+                method: 'POST',
+                body: datosCompletos,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                // Actualizar la página con la respuesta
+                document.open();
+                document.write(html);
+                document.close();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Hubo un problema al aplicar los filtros'
+                });
+            });
+        });
+    }
+});
+
+// Función para limpiar filtros
+function limpiarFiltros() {
+    const filtrosForm = document.getElementById('filtros-form');
+    if (filtrosForm) {
+        // Limpiar selects
+        filtrosForm.querySelectorAll('select').forEach(select => {
+            select.value = '';
+        });
+
+        // Limpiar checkboxes
+        filtrosForm.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.checked = false;
+        });
+
+        // Notificar al usuario
+        Swal.fire({
+            icon: 'success',
+            title: 'Filtros limpiados',
+            text: 'Los filtros han sido restablecidos',
+            showConfirmButton: false,
+            timer: 1500
+        });
+    }
+}
+
+// Función para obtener el token CSRF
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+<style>
+/* Estilos para los botones de filtros */
+#aplicarFiltrosBtn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    padding: 10px 20px;
+    transition: all 0.3s ease;
+}
+
+#aplicarFiltrosBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+/* Estilo para el botón de limpiar */
+.btn-secondary {
+    background-color: #6c757d;
+    border: none;
+    padding: 10px 20px;
+    transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+    transform: translateY(-2px);
 }
 </style>
 {% endblock content %}
