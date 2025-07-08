@@ -268,7 +268,7 @@ def propietario_eliminar(request, propietario_id):
 def propiedades(request):
     form = PropiedadSearchForm(request.GET or None)
     propiedades = Propiedad.objects.filter(sucursal=request.user.sucursal)
-
+    propiedades = propiedades.order_by('id')  # Esto asegura el orden numérico
     if form.is_valid():
         query = form.cleaned_data.get('query')
         if query:
