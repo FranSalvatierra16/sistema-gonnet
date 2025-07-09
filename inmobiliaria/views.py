@@ -2111,6 +2111,11 @@ def ventas(request):
         info_venta__estado__in=['disponible', 'reservado']
     ).select_related('info_venta', 'sucursal')
 
+    # Calcular los contadores
+    total_propiedades = propiedades_venta.count()
+    propiedades_disponibles = propiedades_venta.filter(info_venta__estado='disponible').count()
+    propiedades_reservadas = propiedades_venta.filter(info_venta__estado='reservado').count()
+
     # Aplicar filtros de búsqueda si existen
     busqueda = request.GET.get('busqueda', '')
     if busqueda:
@@ -2129,6 +2134,10 @@ def ventas(request):
         'estado_filtro': estado,
         'estados': VentaPropiedad.ESTADO_CHOICES,
         'telefono_empresa': '5492235916229',  # Reemplaza con tu número real
+        # Agregar los contadores al contexto
+        'total_propiedades': total_propiedades,
+        'propiedades_disponibles': propiedades_disponibles,
+        'propiedades_reservadas': propiedades_reservadas,
     }
     
     return render(request, 'inmobiliaria/propiedades/ventas.html', context)
