@@ -1,223 +1,313 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load static %}
-{% load custom_filters %}
 
 {% block content %}
-<div class="container-fluid">
-    <!-- Encabezado -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="mb-0">
-            <i class="fas fa-home text-primary"></i> Propiedades en Venta
-        </h2>
-    </div>
+<div class="content-wrapper">
+    <h1 class="mb-4 text-center">Propiedades en Venta</h1>
 
-    <!-- Filtros -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <form method="get" class="row g-3">
-                <div class="col-md-4">
-                    <div class="input-group">
-                        <span class="input-group-text">
-                            <i class="fas fa-search"></i>
-                        </span>
-                        <input type="text" class="form-control" name="busqueda" 
-                               placeholder="Buscar por dirección o ficha..." 
-                               value="{{ busqueda }}">
+    <!-- Buscador -->
+    <div class="search-container mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-search"></i> BUSCADOR DE PROPIEDADES</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-4">
+                        <label>Estado de la Propiedad</label>
+                        <select class="form-select" name="estado">
+                            <option value="">Todos los estados</option>
+                            {% for estado in estados %}
+                            <option value="{{ estado.0 }}" {% if estado.0 == estado_filtro %}selected{% endif %}>
+                                {{ estado.1 }}
+                            </option>
+                            {% endfor %}
+                        </select>
                     </div>
-                </div>
-                <div class="col-md-3">
-                    <select class="form-select" name="estado">
-                        <option value="">Todos los estados</option>
-                        {% for value, label in estados %}
-                            <option value="{{ value }}" {% if estado_filtro == value %}selected{% endif %}>
-                                {{ label }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <!-- Filtro por ambientes (siempre visible) -->
-                <div class="col-md-3">
-                    <select class="form-select" name="ambientes">
-                        <option value="">Todos los ambientes</option>
-                        {% for num in ambientes_opciones %}
-                            <option value="{{ num }}" {% if request.GET.ambientes == num|stringformat:"s" %}selected{% endif %}>
-                                {{ num }} ambiente{% if num > 1 %}s{% endif %}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="button" class="btn btn-link" id="btn-mas-filtros">
-                        <i class="fas fa-sliders-h"></i> Más filtros
-                    </button>
-                    <button type="submit" class="btn btn-primary ms-2">
-                        <i class="fas fa-filter"></i> Filtrar
-                    </button>
-                </div>
-                <!-- Filtros de características (oculto por defecto) -->
-                <div class="row mt-3" id="filtros-caracteristicas" style="display: none;">
-                    {% for caracteristica in "amoblado,cochera,tv_smart,wifi,dependencia,patio,parrilla,piscina,reciclado,a_estrenar,terraza,balcon,baulera,lavadero,seguridad,vista_al_Mar,vista_panoramica,apto_credito".split(',') %}
-                        <div class="col-md-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="{{ caracteristica }}" id="id_{{ caracteristica }}"
-                                    {% if request.GET.caracteristica %}checked{% endif %}>
-                                <label class="form-check-label" for="id_{{ caracteristica }}">
-                                    {{ caracteristica|capfirst|replace:"_"," " }}
-                                </label>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
-            </form>
+                    <div class="col-md-4">
+                        <label>Búsqueda</label>
+                        <input type="text" class="form-control" name="busqueda" value="{{ busqueda }}" 
+                               placeholder="Dirección o Ficha">
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
-    <!-- Lista de propiedades -->
-    <div class="row">
-        <div class="col">
-            <div class="card">
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Ficha</th>
-                                    <th>Dirección</th>
-                                    <th>Sucursal</th>
-                                    <th>Precio</th>
-                                    <th>Estado</th>
-                                    <th>Expensas</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for propiedad in propiedades %}
-                                <tr>
-                                    <td>#{{ propiedad.id }}</td>
-                                    <td>{{ propiedad.direccion }}</td>
-                                    <td>{{ propiedad.sucursal.nombre }}</td>
-                                    <td>${{ propiedad.info_venta.precio_venta|format_price }}</td>
-                                    <td>
-                                        <span class="badge {% if propiedad.info_venta.estado == 'disponible' %}bg-success{% else %}bg-warning{% endif %}">
-                                            {{ propiedad.info_venta.get_estado_display }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {% if propiedad.info_venta.precio_expensas %}
-                                            ${{ propiedad.info_venta.precio_expensas|format_price }}
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="btn-group">
-                                            <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" 
-                                               class="btn btn-sm btn-primary">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
-                                            <button type="button" 
-                                                    class="btn btn-sm btn-success"
-                                               
-                                                    {% if propiedad.info_venta.estado != 'disponible' %}disabled{% endif %}>
-                                                <i class="fas fa-calendar-check"></i>
-                                            </button>
-                                            {% if propiedad.info_venta.estado == 'disponible' %}
-                                                <a href="{% url 'inmobiliaria:iniciar_compra' propiedad.id %}" 
-                                                   class="btn btn-primary btn-sm">
-                                                    <i class="fas fa-shopping-cart"></i> Comprar
-                                                </a>
-                                            {% endif %}
-                                        </div>
-                                    </td>
-                                    <td class="text-center">
-                                        <a href="https://api.whatsapp.com/send?phone=5492235916229&text={% spaceless %}
-                                            Consulta por propiedad: {{ propiedad.direccion }}%0A
-                                            {% if propiedad.info_venta.precio %}Precio: U$D {{ propiedad.info_venta.precio}}%0A{% endif %}
-                                            Estado: {{ propiedad.info_venta.get_estado_display }}%0A
-                                            Más información: https://{{ request.get_host }}/propiedad/{{ propiedad.id }}
-                                            {% endspaceless %}"
-                                           target="_blank" 
-                                           class="btn btn-success btn-sm"
-                                           title="Chatear por WhatsApp">
-                                            <i class="fab fa-whatsapp"></i> Compartir
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="7" class="text-center py-4">
-                                        <div class="alert alert-info mb-0">
-                                            <i class="fas fa-info-circle fa-2x mb-3 d-block"></i>
-                                            <h4>No se encontraron propiedades</h4>
-                                            <p>No hay propiedades en venta que coincidan con los criterios de búsqueda.</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+    <!-- Resumen y Acciones -->
+    <div class="stats-container mb-4">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon bg-primary">
+                        <i class="bi bi-house-door"></i>
                     </div>
+                    <div class="stat-info">
+                        <h3>{{ total_propiedades }}</h3>
+                        <p>Total en Venta</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon bg-success">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ propiedades_disponibles }}</h3>
+                        <p>Disponibles</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon bg-warning">
+                        <i class="bi bi-clock"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ propiedades_reservadas }}</h3>
+                        <p>Reservadas</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card add-property">
+                    <a href="{% url 'inmobiliaria:propiedad_nuevo' %}" class="btn btn-success w-100">
+                        <i class="bi bi-plus-circle"></i> Nueva Propiedad
+                    </a>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Lista de Propiedades -->
+    <div class="properties-grid">
+        {% for propiedad in propiedades %}
+        <div class="property-card">
+            <div class="property-image">
+                {% if propiedad.imagenes_propiedad.first %}
+                <img src="{{ propiedad.imagenes_propiedad.first.imagen.url }}" alt="Propiedad">
+                {% else %}
+                <img src="{% static 'img/no-image.jpg' %}" alt="Sin imagen">
+                {% endif %}
+                <div class="property-status {{ propiedad.info_venta.estado }}">
+                    {{ propiedad.info_venta.get_estado_display }}
+                </div>
+                <div class="property-id">
+                    Ficha #{{ propiedad.id }}
+                </div>
+            </div>
+            <div class="property-details">
+                <h5 class="property-title">{{ propiedad.direccion }}</h5>
+                <div class="property-price">U$S {{ propiedad.info_venta.precio|floatformat:2 }}</div>
+                <div class="property-info">
+                    <span><i class="bi bi-building"></i> {{ propiedad.ambientes }} Amb.</span>
+                    <span><i class="bi bi-rulers"></i> {{ propiedad.metros_cuadrados }}m²</span>
+                    {% if propiedad.cochera %}
+                    <span><i class="bi bi-car-front"></i> Cochera</span>
+                    {% endif %}
+                </div>
+                <p class="property-description">{{ propiedad.descripcion|truncatechars:100 }}</p>
+                <div class="property-actions">
+                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" 
+                       class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-pencil"></i> Editar
+                    </a>
+                    <a href="https://wa.me/{{ telefono_empresa }}?text=Consulta por propiedad {{ propiedad.id }} - {{ propiedad.direccion }}" 
+                       target="_blank"
+                       class="btn btn-outline-success btn-sm">
+                        <i class="bi bi-whatsapp"></i> WhatsApp
+                    </a>
+                    <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad_id=propiedad.id %}" 
+                       class="btn btn-outline-info btn-sm">
+                        <i class="bi bi-eye"></i> Ver Detalles
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="alert alert-info w-100 text-center">
+            <i class="bi bi-info-circle"></i> No se encontraron propiedades en venta.
+        </div>
+        {% endfor %}
+    </div>
 </div>
 
-<!-- Estilos adicionales -->
 <style>
-.table td, .table th {
-    vertical-align: middle;
+.content-wrapper {
+    padding: 2rem;
+    background-color: #f8f9fa;
 }
-.btn-group {
+
+/* Estilos para el buscador */
+.search-container .card-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+/* Estilos para las estadísticas */
+.stat-card {
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     display: flex;
-    gap: 5px;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+}
+
+.stat-icon i {
+    font-size: 1.5rem;
+    color: white;
+}
+
+.stat-info h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.stat-info p {
+    margin: 0;
+    color: #6c757d;
+}
+
+/* Estilos para las tarjetas de propiedades */
+.properties-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.property-card {
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+}
+
+.property-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.property-image {
+    position: relative;
+    height: 200px;
+}
+
+.property-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.property-status {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    color: white;
+    font-weight: 500;
+}
+
+.property-status.disponible {
+    background-color: #28a745;
+}
+
+.property-status.reservado {
+    background-color: #ffc107;
+}
+
+.property-id {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    font-size: 0.9rem;
+}
+
+.property-details {
+    padding: 1.5rem;
+}
+
+.property-title {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.property-price {
+    color: #28a745;
+    font-size: 1.3rem;
+    font-weight: bold;
+    margin: 0.5rem 0;
+}
+
+.property-info {
+    display: flex;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.property-info span {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.property-description {
+    color: #6c757d;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.property-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.property-actions .btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .properties-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .property-info {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
 }
 </style>
-
-<!-- Modal de Reserva -->
-<div class="modal fade" id="modalReserva" tabindex="-1" aria-labelledby="modalReservaLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalReservaLabel">Reservar Propiedad</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form id="formReserva" method="post">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <!-- El contenido se cargará dinámicamente -->
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Confirmar Reserva</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Script para manejar la reserva -->
-<script>
-function mostrarModalReserva(propiedadId) {
-    // Configurar el formulario
-    const modal = document.getElementById('modalReserva');
-    const form = document.getElementById('formReserva');
-    form.action = `/inmobiliaria/propiedades/${propiedadId}/reservar-venta/`;
-    
-    // Mostrar el modal
-    const modalBootstrap = new bootstrap.Modal(modal);
-    modalBootstrap.show();
-}
-
-document.getElementById('btn-mas-filtros').onclick = function() {
-    var filtros = document.getElementById('filtros-caracteristicas');
-    if (filtros.style.display === "none") {
-        filtros.style.display = "flex";
-        filtros.style.flexWrap = "wrap";
-    } else {
-        filtros.style.display = "none";
-    }
-};
-</script>
-
 {% endblock %}
