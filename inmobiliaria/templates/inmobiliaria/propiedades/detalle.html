@@ -14,26 +14,36 @@
                 <!-- Pestañas de navegación -->
                 <ul class="nav nav-tabs" id="propertyTabs" role="tablist">
                     <li class="nav-item">
-                        <a class="nav-link active" id="alquiler-tab" data-toggle="tab" href="#alquiler" role="tab">
+                        <a class="nav-link active" id="alquiler-tab" data-bs-toggle="tab" href="#alquiler" role="tab">
                             <i class="fas fa-calendar-day"></i> Alquiler por Día
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" id="venta-tab" data-toggle="tab" href="#venta" role="tab">
+                        <a class="nav-link" id="venta-tab" data-bs-toggle="tab" href="#venta" role="tab">
                             <i class="fas fa-money-bill"></i> Venta
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" id="meses-tab" data-toggle="tab" href="#meses" role="tab">
+                        <a class="nav-link" id="meses-tab" data-bs-toggle="tab" href="#meses" role="tab">
                             <i class="fas fa-calendar-alt"></i> 24 Meses
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" id="invierno-tab" data-toggle="tab" href="#invierno" role="tab">
+                        <a class="nav-link" id="invierno-tab" data-bs-toggle="tab" href="#invierno" role="tab">
                             <i class="fas fa-snowflake"></i> Invierno
                         </a>
                     </li>
                 </ul>
+
+                <!-- Botones de Ver Precios y Ver Disponibilidad -->
+                <div class="btn-group mt-3 mb-3 w-100">
+                    <button type="button" class="btn btn-outline-secondary" id="btnPrecios">
+                        <i class="fas fa-tag"></i> Ver Precios
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="btnDisponibilidad">
+                        <i class="fas fa-calendar-check"></i> Ver Disponibilidad
+                    </button>
+                </div>
 
                 <div class="tab-content" id="propertyTabContent">
                     <!-- Pestaña de Alquiler por Día -->

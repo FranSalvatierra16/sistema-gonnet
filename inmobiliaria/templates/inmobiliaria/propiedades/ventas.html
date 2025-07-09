@@ -3,6 +3,29 @@
 
 {% block content %}
 <div class="content-wrapper">
+    <!-- Botones de navegación -->
+    <div class="nav-buttons mb-4">
+        <div class="btn-group w-100">
+            <button type="button" class="btn btn-outline-primary" onclick="cambiarVista('ventas')">
+                <i class="bi bi-currency-dollar"></i> Ventas
+            </button>
+            <button type="button" class="btn btn-outline-primary" onclick="cambiarVista('24meses')">
+                <i class="bi bi-calendar-check"></i> 24 Meses
+            </button>
+            <button type="button" class="btn btn-outline-primary" onclick="cambiarVista('invierno')">
+                <i class="bi bi-snow"></i> Invierno
+            </button>
+        </div>
+        <div class="btn-group w-100 mt-2">
+            <button type="button" class="btn btn-outline-secondary" onclick="mostrarPrecios()">
+                <i class="bi bi-tag"></i> Ver Precios
+            </button>
+            <button type="button" class="btn btn-outline-secondary" onclick="mostrarDisponibilidad()">
+                <i class="bi bi-calendar2-week"></i> Ver Disponibilidad
+            </button>
+        </div>
+    </div>
+
     <h1 class="mb-4 text-center">Propiedades en Venta</h1>
 
     <!-- Buscador -->
@@ -311,4 +334,35 @@
     }
 }
 </style>
+
+<!-- Agregar el script necesario al final -->
+<script>
+function cambiarVista(vista) {
+    let url = '';
+    switch(vista) {
+        case 'ventas':
+            url = "{% url 'inmobiliaria:ventas' %}";
+            break;
+        case '24meses':
+            url = "{% url 'inmobiliaria:buscar_propiedades' %}?vista=24meses";
+            break;
+        case 'invierno':
+            url = "{% url 'inmobiliaria:buscar_propiedades' %}?vista=invierno";
+            break;
+    }
+    window.location.href = url;
+}
+
+function mostrarPrecios() {
+    const precios = document.querySelectorAll('.property-price');
+    precios.forEach(precio => {
+        precio.style.display = precio.style.display === 'none' ? 'block' : 'none';
+    });
+}
+
+function mostrarDisponibilidad() {
+    // Implementar lógica para mostrar/ocultar disponibilidad
+    // Similar a mostrarPrecios pero para elementos de disponibilidad
+}
+</script>
 {% endblock %}
