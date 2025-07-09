@@ -731,6 +731,13 @@ class VentaPropiedad(models.Model):
         default=False,
         verbose_name="Disponible para venta"
     )
+    metros_cuadrados = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Metros cuadrados"
+    )
     precio_venta = models.DecimalField(
         max_digits=12,
         decimal_places=2,

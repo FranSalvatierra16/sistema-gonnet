@@ -2046,26 +2046,29 @@ def ver_historial_disponibilidad(request, propiedad_id):
 @login_required
 def editar_info_venta(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-    info_venta, created = VentaPropiedad.objects.get_or_create(propiedad=propiedad)
-
+    
     if request.method == 'POST':
-        # Actualizar en_venta
-        en_venta = request.POST.get('en_venta') == 'on'
-        info_venta.en_venta = en_venta
-
-        if en_venta:
-            # Solo actualizar otros campos si está en venta
-            info_venta.precio_venta = request.POST.get('precio_venta') or None
-            info_venta.precio_autorizacion = request.POST.get('precio_autorizacion') or None
-            info_venta.estado = request.POST.get('estado', 'disponible')
-            info_venta.precio_expensas = request.POST.get('precio_expensas') or None
-            info_venta.escribania = request.POST.get('escribania', '')
-            info_venta.observaciones = request.POST.get('observaciones', '')
-
-        info_venta.save()
-        messages.success(request, 'Información de venta actualizada correctamente')
+        try:
+            info_venta, created = VentaPropiedad.objects.get_or_create(propiedad=propiedad)
+            
+            info_venta.en_venta = request.POST.get('en_venta') == 'on'
+            if info_venta.en_venta:
+                # Cuando se activa para venta, copiamos los metros cuadrados de la propiedad
+                info_venta.metros_cuadrados = propiedad.metros_cuadrados
+                info_venta.precio_venta = request.POST.get('precio_venta')
+                info_venta.precio_autorizacion = request.POST.get('precio_autorizacion')
+                info_venta.estado = request.POST.get('estado', 'disponible')
+                info_venta.precio_expensas = request.POST.get('precio_expensas')
+                info_venta.escribania = request.POST.get('escribania', '')
+                info_venta.observaciones = request.POST.get('observaciones', '')
+            
+            info_venta.save()
+            messages.success(request, 'Información de venta actualizada correctamente.')
+        except Exception as e:
+            messages.error(request, f'Error al actualizar la información: {str(e)}')
+        
         return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
-
+    
     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
 
 @login_required
