@@ -2109,7 +2109,7 @@ def ventas(request):
     propiedades_venta = Propiedad.objects.filter(
         info_venta__en_venta=True,
         info_venta__estado__in=['disponible', 'reservado']
-    ).select_related('info_venta', 'sucursal')
+    ).select_related('info_venta', 'sucursal').prefetch_related('imagenes_propiedad')  # Agregamos prefetch_related
 
     # Calcular los contadores
     total_propiedades = propiedades_venta.count()

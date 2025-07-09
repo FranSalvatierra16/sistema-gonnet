@@ -91,13 +91,19 @@
         {% for propiedad in propiedades %}
         <div class="property-card">
             <div class="property-image">
-                {% if propiedad.imagenes_propiedad.first %}
-                <img src="{{ propiedad.imagenes_propiedad.first.imagen.url }}" alt="Propiedad">
+                {% if propiedad.imagenes_propiedad.all %}
+                    {% with primera_imagen=propiedad.imagenes_propiedad.first %}
+                        {% if primera_imagen and primera_imagen.imagen %}
+                            <img src="{{ primera_imagen.imagen.url }}" alt="Propiedad {{ propiedad.direccion }}" class="img-fluid">
+                        {% else %}
+                            <img src="{% static 'img/no-image.jpg' %}" alt="Sin imagen" class="img-fluid">
+                        {% endif %}
+                    {% endwith %}
                 {% else %}
-                <img src="{% static 'img/no-image.jpg' %}" alt="Sin imagen">
+                    <img src="{% static 'img/no-image.jpg' %}" alt="Sin imagen" class="img-fluid">
                 {% endif %}
-                <div class="property-status {{ propiedad.estado }}">
-                    {{ propiedad.get_estado_display }}
+                <div class="property-status {{ propiedad.info_venta.estado }}">
+                    {{ propiedad.info_venta.get_estado_display }}
                 </div>
                 <div class="property-id">
                     Ficha #{{ propiedad.id }}
