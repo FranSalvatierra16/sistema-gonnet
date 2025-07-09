@@ -12,33 +12,7 @@
                     <h2 class="text-center">{{ propiedad.direccion }}</h2>
                 </div>
                 
-                <!-- Pestañas de navegación -->
-                <ul class="nav nav-tabs" id="propertyTabs" role="tablist">
-                    <li class="nav-item">
-                        <a class="nav-link active" id="alquiler-tab" data-bs-toggle="tab" href="#alquiler" role="tab">
-                            <i class="fas fa-calendar-day"></i> Alquiler por Día
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" id="venta-tab" data-bs-toggle="tab" href="#venta" role="tab">
-                            <i class="fas fa-money-bill"></i> Venta
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" id="meses-tab" data-bs-toggle="tab" href="#meses" role="tab">
-                            <i class="fas fa-calendar-alt"></i> 24 Meses
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" id="invierno-tab" data-bs-toggle="tab" href="#invierno" role="tab">
-                            <i class="fas fa-snowflake"></i> Invierno
-                        </a>
-                    </li>
-                </ul>
-
-                <!-- Botones de Ver Precios y Ver Disponibilidad -->
-             
-
+                <!-- Eliminar todo el menú de pestañas y dejar solo el título -->
                 <div class="tab-content" id="propertyTabContent">
                     <!-- Pestaña de Alquiler por Día -->
                     <div class="tab-pane fade show active" id="alquiler" role="tabpanel">
@@ -141,13 +115,22 @@
                                 <div class="col-md-6">
                                     {% if propiedad.imagenes_propiedad.all %}
                                     <div id="carouselPropiedad" class="carousel slide" data-bs-ride="carousel">
+                                        <div class="carousel-indicators">
+                                            {% for imagen in propiedad.imagenes_propiedad.all %}
+                                            <button type="button" data-bs-target="#carouselPropiedad" data-bs-slide-to="{{ forloop.counter0 }}" 
+                                                    {% if forloop.first %}class="active" aria-current="true"{% endif %}
+                                                    aria-label="Slide {{ forloop.counter }}">
+                                            </button>
+                                            {% endfor %}
+                                        </div>
                                         <div class="carousel-inner">
                                             {% for imagen in propiedad.imagenes_propiedad.all %}
                                             <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                                <img src="{{ imagen.imagen.url }}" class="d-block w-100" alt="Imagen propiedad">
+                                                <img src="{{ imagen.imagen.url }}" class="d-block w-100" alt="Imagen {{ forloop.counter }}">
                                             </div>
                                             {% endfor %}
                                         </div>
+                                        {% if propiedad.imagenes_propiedad.count > 1 %}
                                         <button class="carousel-control-prev" type="button" data-bs-target="#carouselPropiedad" data-bs-slide="prev">
                                             <span class="carousel-control-prev-icon" aria-hidden="true"></span>
                                             <span class="visually-hidden">Anterior</span>
@@ -156,10 +139,11 @@
                                             <span class="carousel-control-next-icon" aria-hidden="true"></span>
                                             <span class="visually-hidden">Siguiente</span>
                                         </button>
+                                        {% endif %}
                                     </div>
                                     {% else %}
                                     <div class="text-center p-4">
-                                        <img src="{% static 'img/no-image.jpg' %}" class="img-fluid" alt="Sin imagen">
+                                        <img src="{% static 'img/no-image.jpg' %}" class="img-fluid rounded" alt="Sin imagen">
                                         <p class="text-muted mt-2">No hay imágenes disponibles</p>
                                     </div>
                                     {% endif %}
@@ -303,11 +287,13 @@
                                                 <div class="info-item mb-3">
                                                     <i class="fas fa-tag"></i>
                                                     <strong>Precio de venta:</strong>
-                                                    {% if propiedad.info_venta.precio_venta %}
-                                                        <span class="h5">U$S {{ propiedad.info_venta.precio_venta|floatformat:2 }}</span>
-                                                    {% else %}
-                                                        <span class="text-muted">Precio no especificado</span>
-                                                    {% endif %}
+                                                    <span class="h5">
+                                                        {% if propiedad.info_venta.precio_venta and propiedad.info_venta.precio_venta > 0 %}
+                                                            U$S {{ propiedad.info_venta.precio_venta|floatformat:2 }}
+                                                        {% else %}
+                                                            <span class="text-muted">Consultar precio</span>
+                                                        {% endif %}
+                                                    </span>
                                                 </div>
                                                 <div class="info-item mb-3">
                                                     <i class="fas fa-key"></i>
@@ -716,44 +702,35 @@
 </div>
 
 <style>
-.carousel {
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
-}
-
 .carousel-item img {
     height: 400px;
     object-fit: cover;
-}
-
-.info-item {
-    background-color: #f8f9fa;
-    padding: 15px;
     border-radius: 8px;
-    margin-bottom: 15px;
 }
 
-.info-item .h5 {
-    color: #28a745;
+.stat-card {
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+}
+
+.stat-info h3 {
+    font-size: 1.5rem;
     font-weight: bold;
-    margin-top: 5px;
-    display: block;
-}
-
-.info-item i {
-    color: #007bff;
-    margin-right: 8px;
-}
-
-/* Ajustar el tamaño del contenedor para evitar desbordamiento */
-.tab-content {
-    overflow: hidden;
-}
-
-.tab-pane {
-    padding: 20px;
+    margin: 0;
+    color: #333;
 }
 </style>
 
