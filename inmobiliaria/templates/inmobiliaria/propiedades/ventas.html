@@ -3,29 +3,6 @@
 
 {% block content %}
 <div class="content-wrapper">
-    <!-- Botones de navegación -->
-    <div class="nav-buttons mb-4">
-        <div class="btn-group w-100">
-            <button type="button" class="btn btn-outline-primary" onclick="cambiarVista('ventas')">
-                <i class="bi bi-currency-dollar"></i> Ventas
-            </button>
-            <button type="button" class="btn btn-outline-primary" onclick="cambiarVista('24meses')">
-                <i class="bi bi-calendar-check"></i> 24 Meses
-            </button>
-            <button type="button" class="btn btn-outline-primary" onclick="cambiarVista('invierno')">
-                <i class="bi bi-snow"></i> Invierno
-            </button>
-        </div>
-        <div class="btn-group w-100 mt-2">
-            <button type="button" class="btn btn-outline-secondary" onclick="mostrarPrecios()">
-                <i class="bi bi-tag"></i> Ver Precios
-            </button>
-            <button type="button" class="btn btn-outline-secondary" onclick="mostrarDisponibilidad()">
-                <i class="bi bi-calendar2-week"></i> Ver Disponibilidad
-            </button>
-        </div>
-    </div>
-
     <h1 class="mb-4 text-center">Propiedades en Venta</h1>
 
     <!-- Buscador -->
@@ -69,10 +46,10 @@
             <div class="col-md-3">
                 <div class="stat-card">
                     <div class="stat-icon bg-primary">
-                        <i class="bi bi-house-door"></i>
+                        <i class="bi bi-house-door-fill"></i>
                     </div>
                     <div class="stat-info">
-                        <h3>{{ total_propiedades }}</h3>
+                        <h3>{{ total_propiedades|default:"0" }}</h3>
                         <p>Total en Venta</p>
                     </div>
                 </div>
@@ -80,10 +57,10 @@
             <div class="col-md-3">
                 <div class="stat-card">
                     <div class="stat-icon bg-success">
-                        <i class="bi bi-check-circle"></i>
+                        <i class="bi bi-check-circle-fill"></i>
                     </div>
                     <div class="stat-info">
-                        <h3>{{ propiedades_disponibles }}</h3>
+                        <h3>{{ propiedades_disponibles|default:"0" }}</h3>
                         <p>Disponibles</p>
                     </div>
                 </div>
@@ -91,10 +68,10 @@
             <div class="col-md-3">
                 <div class="stat-card">
                     <div class="stat-icon bg-warning">
-                        <i class="bi bi-clock"></i>
+                        <i class="bi bi-clock-fill"></i>
                     </div>
                     <div class="stat-info">
-                        <h3>{{ propiedades_reservadas }}</h3>
+                        <h3>{{ propiedades_reservadas|default:"0" }}</h3>
                         <p>Reservadas</p>
                     </div>
                 </div>
@@ -102,7 +79,7 @@
             <div class="col-md-3">
                 <div class="stat-card add-property">
                     <a href="{% url 'inmobiliaria:propiedad_nuevo' %}" class="btn btn-success w-100">
-                        <i class="bi bi-plus-circle"></i> Nueva Propiedad
+                        <i class="bi bi-plus-circle-fill"></i> Nueva Propiedad
                     </a>
                 </div>
             </div>
@@ -177,18 +154,24 @@
 /* Estilos para las estadísticas */
 .stat-card {
     background: white;
-    border-radius: 10px;
+    border-radius: 15px;
     padding: 1.5rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     display: flex;
     align-items: center;
     margin-bottom: 1rem;
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
 }
 
 .stat-icon {
-    width: 50px;
-    height: 50px;
-    border-radius: 10px;
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -196,19 +179,21 @@
 }
 
 .stat-icon i {
-    font-size: 1.5rem;
+    font-size: 2rem;
     color: white;
 }
 
 .stat-info h3 {
     margin: 0;
-    font-size: 1.5rem;
+    font-size: 2rem;
     font-weight: bold;
+    color: #333;
 }
 
 .stat-info p {
     margin: 0;
     color: #6c757d;
+    font-weight: 500;
 }
 
 /* Estilos para las tarjetas de propiedades */
@@ -334,35 +319,4 @@
     }
 }
 </style>
-
-<!-- Agregar el script necesario al final -->
-<script>
-function cambiarVista(vista) {
-    let url = '';
-    switch(vista) {
-        case 'ventas':
-            url = "{% url 'inmobiliaria:ventas' %}";
-            break;
-        case '24meses':
-            url = "{% url 'inmobiliaria:buscar_propiedades' %}?vista=24meses";
-            break;
-        case 'invierno':
-            url = "{% url 'inmobiliaria:buscar_propiedades' %}?vista=invierno";
-            break;
-    }
-    window.location.href = url;
-}
-
-function mostrarPrecios() {
-    const precios = document.querySelectorAll('.property-price');
-    precios.forEach(precio => {
-        precio.style.display = precio.style.display === 'none' ? 'block' : 'none';
-    });
-}
-
-function mostrarDisponibilidad() {
-    // Implementar lógica para mostrar/ocultar disponibilidad
-    // Similar a mostrarPrecios pero para elementos de disponibilidad
-}
-</script>
 {% endblock %}
