@@ -1,6 +1,7 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
 {% load custom_filters %}
+{% load static %}
 
 {% block content %}
 <div class="container">
@@ -36,14 +37,7 @@
                 </ul>
 
                 <!-- Botones de Ver Precios y Ver Disponibilidad -->
-                <div class="btn-group mt-3 mb-3 w-100">
-                    <button type="button" class="btn btn-outline-secondary" id="btnPrecios">
-                        <i class="fas fa-tag"></i> Ver Precios
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" id="btnDisponibilidad">
-                        <i class="fas fa-calendar-check"></i> Ver Disponibilidad
-                    </button>
-                </div>
+             
 
                 <div class="tab-content" id="propertyTabContent">
                     <!-- Pestaña de Alquiler por Día -->
@@ -145,8 +139,30 @@
 
                                 <!-- Columna derecha: Imágenes y Descripción -->
                                 <div class="col-md-6">
-                                    <!-- Debug info -->
-                                   
+                                    {% if propiedad.imagenes_propiedad.all %}
+                                    <div id="carouselPropiedad" class="carousel slide" data-bs-ride="carousel">
+                                        <div class="carousel-inner">
+                                            {% for imagen in propiedad.imagenes_propiedad.all %}
+                                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                                <img src="{{ imagen.imagen.url }}" class="d-block w-100" alt="Imagen propiedad">
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        <button class="carousel-control-prev" type="button" data-bs-target="#carouselPropiedad" data-bs-slide="prev">
+                                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                            <span class="visually-hidden">Anterior</span>
+                                        </button>
+                                        <button class="carousel-control-next" type="button" data-bs-target="#carouselPropiedad" data-bs-slide="next">
+                                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                            <span class="visually-hidden">Siguiente</span>
+                                        </button>
+                                    </div>
+                                    {% else %}
+                                    <div class="text-center p-4">
+                                        <img src="{% static 'img/no-image.jpg' %}" class="img-fluid" alt="Sin imagen">
+                                        <p class="text-muted mt-2">No hay imágenes disponibles</p>
+                                    </div>
+                                    {% endif %}
                                 
                                     <!-- Descripción con tamaño ajustado -->
                                     <div class="info-section description-section">
@@ -287,7 +303,11 @@
                                                 <div class="info-item mb-3">
                                                     <i class="fas fa-tag"></i>
                                                     <strong>Precio de venta:</strong>
-                                                    <span class="h5">${{ propiedad.info_venta.precio_venta|format_price }}</span>
+                                                    {% if propiedad.info_venta.precio_venta %}
+                                                        <span class="h5">U$S {{ propiedad.info_venta.precio_venta|floatformat:2 }}</span>
+                                                    {% else %}
+                                                        <span class="text-muted">Precio no especificado</span>
+                                                    {% endif %}
                                                 </div>
                                                 <div class="info-item mb-3">
                                                     <i class="fas fa-key"></i>
@@ -696,32 +716,44 @@
 </div>
 
 <style>
+.carousel {
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.carousel-item img {
+    height: 400px;
+    object-fit: cover;
+}
+
 .info-item {
     background-color: #f8f9fa;
-    padding: 1rem;
+    padding: 15px;
     border-radius: 8px;
-    margin-bottom: 1rem;
+    margin-bottom: 15px;
+}
+
+.info-item .h5 {
+    color: #28a745;
+    font-weight: bold;
+    margin-top: 5px;
+    display: block;
 }
 
 .info-item i {
     color: #007bff;
-    margin-right: 0.5rem;
+    margin-right: 8px;
 }
 
-.info-item strong {
-    display: inline-block;
-    margin-right: 0.5rem;
-    color: #495057;
+/* Ajustar el tamaño del contenedor para evitar desbordamiento */
+.tab-content {
+    overflow: hidden;
 }
 
-.badge {
-    font-size: 0.9rem;
-    padding: 0.5rem 1rem;
-}
-
-.h5 {
-    color: #28a745;
-    font-weight: bold;
+.tab-pane {
+    padding: 20px;
 }
 </style>
 
