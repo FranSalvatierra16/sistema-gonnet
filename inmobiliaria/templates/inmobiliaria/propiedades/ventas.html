@@ -96,8 +96,8 @@
                 {% else %}
                 <img src="{% static 'img/no-image.jpg' %}" alt="Sin imagen">
                 {% endif %}
-                <div class="property-status {{ propiedad.info_venta.estado }}">
-                    {{ propiedad.info_venta.get_estado_display }}
+                <div class="property-status {{ propiedad.estado }}">
+                    {{ propiedad.get_estado_display }}
                 </div>
                 <div class="property-id">
                     Ficha #{{ propiedad.id }}
@@ -105,7 +105,7 @@
             </div>
             <div class="property-details">
                 <h5 class="property-title">{{ propiedad.direccion }}</h5>
-                <div class="property-price">U$S {{ propiedad.info_venta.precio|floatformat:2 }}</div>
+                <div class="property-price">U$S {{ propiedad.precio|floatformat:2 }}</div>
                 <div class="property-info">
                     <span><i class="bi bi-building"></i> {{ propiedad.ambientes }} Amb.</span>
                     <span><i class="bi bi-rulers"></i> {{ propiedad.metros_cuadrados }}m²</span>
