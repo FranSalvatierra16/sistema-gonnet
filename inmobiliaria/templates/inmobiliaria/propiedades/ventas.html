@@ -91,10 +91,21 @@
         {% for propiedad in propiedades %}
         <div class="property-card">
             <div class="property-image">
-                {% if propiedad.imagenes_propiedad.all %}
+                <!-- Debug info -->
+                <div style="display: none;">
+                    Tiene imágenes: {{ propiedad.imagenes_propiedad.all|length }}
                     {% with primera_imagen=propiedad.imagenes_propiedad.first %}
-                        {% if primera_imagen and primera_imagen.imagen %}
-                            <img src="{{ primera_imagen.imagen.url }}" alt="Propiedad {{ propiedad.direccion }}" class="img-fluid">
+                        Primera imagen: {{ primera_imagen.imagen.url|default:"No URL" }}
+                    {% endwith %}
+                </div>
+                
+                {% if propiedad.imagenes_propiedad.exists %}
+                    {% with primera_imagen=propiedad.imagenes_propiedad.first %}
+                        {% if primera_imagen.imagen %}
+                            <img src="{{ primera_imagen.imagen.url }}" 
+                                 alt="Propiedad {{ propiedad.direccion }}" 
+                                 class="img-fluid"
+                                 onerror="this.src='{% static 'img/no-image.jpg' %}'">
                         {% else %}
                             <img src="{% static 'img/no-image.jpg' %}" alt="Sin imagen" class="img-fluid">
                         {% endif %}
