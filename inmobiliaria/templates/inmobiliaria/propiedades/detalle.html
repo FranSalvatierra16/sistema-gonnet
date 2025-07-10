@@ -12,10 +12,34 @@
                     <h2 class="text-center">{{ propiedad.direccion }}</h2>
                 </div>
                 
-                <!-- Eliminar todo el menú de pestañas y dejar solo el título -->
+                <!-- Menú de pestañas -->
+                <ul class="nav nav-tabs" id="propertyTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button" role="tab" aria-controls="info" aria-selected="true">
+                            <i class="fas fa-info-circle"></i> Información
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="venta-tab" data-bs-toggle="tab" data-bs-target="#venta" type="button" role="tab" aria-controls="venta" aria-selected="false">
+                            <i class="fas fa-dollar-sign"></i> Venta
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="meses-tab" data-bs-toggle="tab" data-bs-target="#meses" type="button" role="tab" aria-controls="meses" aria-selected="false">
+                            <i class="fas fa-calendar"></i> 24 Meses
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="invierno-tab" data-bs-toggle="tab" data-bs-target="#invierno" type="button" role="tab" aria-controls="invierno" aria-selected="false">
+                            <i class="fas fa-snowflake"></i> Invierno
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Contenido de las pestañas -->
                 <div class="tab-content" id="propertyTabContent">
-                    <!-- Pestaña de Alquiler por Día -->
-                    <div class="tab-pane fade show active" id="alquiler" role="tabpanel">
+                    <!-- Pestaña de Información -->
+                    <div class="tab-pane fade show active" id="info" role="tabpanel">
                         <div class="card-body">
                             <div class="row">
                                 <!-- Columna izquierda: Información Principal y Características -->
