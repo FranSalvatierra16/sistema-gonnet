@@ -137,6 +137,19 @@
 
                                 <!-- Columna derecha: Imágenes y Descripción -->
                                 <div class="col-md-6">
+                                    <!-- Debug info -->
+                                    <div style="background: #f8f9fa; padding: 10px; margin: 10px 0;">
+                                        <p>Total de imágenes: {{ propiedad.imagenes_propiedad.all|length }}</p>
+                                        {% for imagen in propiedad.imagenes_propiedad.all %}
+                                            <p>Imagen {{ forloop.counter }}:</p>
+                                            <ul>
+                                                <li>URL: {{ imagen.imagen.url|default:"No hay URL" }}</li>
+                                                <li>Nombre: {{ imagen.imagen.name|default:"No hay nombre" }}</li>
+                                                <li>Orden: {{ imagen.orden }}</li>
+                                            </ul>
+                                        {% endfor %}
+                                    </div>
+
                                     {% if propiedad.imagenes_propiedad.all %}
                                     <div id="carouselPropiedad" class="carousel slide" data-bs-ride="carousel">
                                         <div class="carousel-indicators">
@@ -150,7 +163,10 @@
                                         <div class="carousel-inner">
                                             {% for imagen in propiedad.imagenes_propiedad.all %}
                                             <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                                <img src="{{ imagen.imagen.url }}" class="d-block w-100" alt="Imagen {{ forloop.counter }}">
+                                                <img src="{{ imagen.imagen.url }}" 
+                                                     class="d-block w-100" 
+                                                     alt="Imagen {{ forloop.counter }}"
+                                                     onerror="console.log('Error cargando imagen:', this.src)">
                                             </div>
                                             {% endfor %}
                                         </div>
