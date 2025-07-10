@@ -111,28 +111,32 @@
             </div>
             <div class="property-details">
                 <h5 class="property-title">{{ propiedad.direccion }}</h5>
-                <div class="property-price">U$S {{ propiedad.precio|floatformat:2 }}</div>
+                <div class="property-price">
+                    {% if propiedad.info_venta.precio_venta %}
+                        U$S {{ propiedad.info_venta.precio_venta|floatformat:2 }}
+                    {% else %}
+                        Consultar precio
+                    {% endif %}
+                </div>
                 <div class="property-info">
                     <span><i class="bi bi-building"></i> {{ propiedad.ambientes }} Amb.</span>
-                    <span><i class="bi bi-rulers"></i> {{ propiedad.metros_cuadrados }}m²</span>
+                    {% if propiedad.info_venta.metros_cuadrados %}
+                        <span><i class="bi bi-rulers"></i> {{ propiedad.info_venta.metros_cuadrados }}m²</span>
+                    {% endif %}
                     {% if propiedad.cochera %}
-                    <span><i class="bi bi-car-front"></i> Cochera</span>
+                        <span><i class="bi bi-car-front"></i> Cochera</span>
                     {% endif %}
                 </div>
                 <p class="property-description">{{ propiedad.descripcion|truncatechars:100 }}</p>
                 <div class="property-actions">
-                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" 
-                       class="btn btn-outline-primary btn-sm">
-                        <i class="bi bi-pencil"></i> Editar
+                    <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad_id=propiedad.id %}" 
+                       class="btn btn-primary btn-block">
+                        <i class="bi bi-eye"></i> Ver Detalles
                     </a>
                     <a href="https://wa.me/{{ telefono_empresa }}?text=Consulta por propiedad {{ propiedad.id }} - {{ propiedad.direccion }}" 
                        target="_blank"
-                       class="btn btn-outline-success btn-sm">
-                        <i class="bi bi-whatsapp"></i> WhatsApp
-                    </a>
-                    <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad_id=propiedad.id %}" 
-                       class="btn btn-outline-info btn-sm">
-                        <i class="bi bi-eye"></i> Ver Detalles
+                       class="btn btn-success btn-block">
+                        <i class="bi bi-whatsapp"></i> Consultar
                     </a>
                 </div>
             </div>
@@ -275,15 +279,20 @@
 
 .property-price {
     color: #28a745;
-    font-size: 1.3rem;
+    font-size: 1.5rem;
     font-weight: bold;
     margin: 0.5rem 0;
+    text-align: center;
 }
 
 .property-info {
     display: flex;
-    gap: 1rem;
+    justify-content: center;
+    gap: 1.5rem;
     margin: 1rem 0;
+    padding: 0.5rem;
+    background-color: #f8f9fa;
+    border-radius: 5px;
 }
 
 .property-info span {
@@ -301,17 +310,23 @@
 }
 
 .property-actions {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 0.5rem;
     margin-top: 1rem;
 }
 
 .property-actions .btn {
-    flex: 1;
+    padding: 0.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    width: 100%;
+}
+
+.btn-block {
+    width: 100%;
 }
 
 @media (max-width: 768px) {
