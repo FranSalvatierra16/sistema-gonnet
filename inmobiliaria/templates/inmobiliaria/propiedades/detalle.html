@@ -607,6 +607,9 @@
                                         <label class="form-check-label" for="en_venta">
                                             Habilitar venta de propiedad
                                         </label>
+                                        <label for="metros_cuadrados" class="form-label">Metros cuadrados *</label>
+                                                <input type="number" step="0.01" class="form-control" id="metros_cuadrados" name="metros_cuadrados"
+                                                       value="{{ propiedad.info_venta.metros_cuadrados|default:'' }}">
                                     </div>
                                     
                                     <div id="info-venta-fields">
@@ -631,6 +634,8 @@
                                                     <option value="reservado">Reservado</option>
                                                     <option value="vendido">Vendido</option>
                                                 </select>
+                                               
+                                               
                                             </div>
                                             <div class="col-md-6 mb-3">
                                                 <label for="precio_expensas" class="form-label">Precio de expensas</label>
