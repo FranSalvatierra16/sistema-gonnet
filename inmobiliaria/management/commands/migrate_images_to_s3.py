@@ -32,10 +32,12 @@ class Command(BaseCommand):
                     url_to_try = current_url
                 else:
                     # Si no está en S3, construir la URL completa
-                    if current_url.startswith('/'):
-                        url_to_try = f"{BASE_URL}{current_url}"
-                    else:
-                        url_to_try = f"{BASE_URL}/{current_url}"
+                    # Asegurarnos de que la ruta comience con /media/
+                    if not current_url.startswith('/'):
+                        current_url = '/' + current_url
+                    if not current_url.startswith('/media/'):
+                        current_url = '/media' + current_url
+                    url_to_try = f"{BASE_URL}{current_url}"
                 
                 self.stdout.write(f'Intentando descargar desde: {url_to_try}')
                 
