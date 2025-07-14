@@ -174,15 +174,8 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Configuración para servir archivos de medios en producción
-if not DEBUG:
-    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
-    WHITENOISE_USE_FINDERS = True
-    WHITENOISE_MANIFEST_STRICT = False
-    WHITENOISE_ALLOW_ALL_ORIGINS = True
-    WHITENOISE_ROOT = os.path.join(BASE_DIR, 'media')
-
-    # Configuración de almacenamiento en AWS S3
+# Configuración de AWS S3
+if 'AWS_ACCESS_KEY_ID' in os.environ:
     # AWS Settings
     AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
     AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
@@ -202,6 +195,14 @@ if not DEBUG:
     MEDIA_LOCATION = 'media'
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{MEDIA_LOCATION}/'
     DEFAULT_FILE_STORAGE = 'sistema_gonnet.storage_backends.MediaStorage'
+
+# Configuración para servir archivos de medios en producción
+if not DEBUG:
+    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+    WHITENOISE_USE_FINDERS = True
+    WHITENOISE_MANIFEST_STRICT = False
+    WHITENOISE_ALLOW_ALL_ORIGINS = True
+    WHITENOISE_ROOT = os.path.join(BASE_DIR, 'media')
 
 
 # Default primary key field type
