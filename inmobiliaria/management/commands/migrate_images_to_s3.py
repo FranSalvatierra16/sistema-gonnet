@@ -2,11 +2,8 @@ from django.core.management.base import BaseCommand
 from django.core.files.storage import default_storage
 from django.conf import settings
 import os
-import requests
-from io import BytesIO
+from pathlib import Path
 from inmobiliaria.models import ImagenPropiedad
-from storages.backends.s3boto3 import S3Boto3Storage
-import re
 
 class Command(BaseCommand):
     help = 'Migra las imágenes existentes al bucket de S3'
@@ -20,50 +17,47 @@ class Command(BaseCommand):
         
         self.stdout.write(f'Se encontraron {total} imágenes para migrar')
         
+        # Asegurarnos que estamos en el directorio correcto
+        base_dir = Path(settings.MEDIA_ROOT)
+        self.stdout.write(f'Directorio base de medios: {base_dir}')
+        
         for idx, imagen in enumerate(imagenes, 1):
             try:
-                # Obtener el nombre original del archivo
-                original_name = str(imagen.imagen).split('/')[-1]
-                self.stdout.write(f'Procesando imagen {idx}/{total}: {original_name}')
+                # Obtener la ruta relativa del archivo
+                relative_path = str(imagen.imagen)
+                self.stdout.write(f'Procesando imagen {idx}/{total}: {relative_path}')
                 
-                # Intentar diferentes URLs posibles
-                urls_to_try = [
-                    f'https://gonnet-interno.herokuapp.com/media/propiedades/{original_name}',
-                    f'http://gonnet-interno.herokuapp.com/media/propiedades/{original_name}',
-                    f'/media/propiedades/{original_name}'
-                ]
+                # Construir la ruta completa
+                file_path = base_dir / relative_path
+                self.stdout.write(f'Buscando archivo en: {file_path}')
                 
-                success = False
-                for url in urls_to_try:
-                    try:
-                        self.stdout.write(f'Intentando URL: {url}')
-                        response = requests.get(url)
-                        if response.status_code == 200:
-                            # Crear un archivo temporal con el contenido de la imagen
-                            img_temp = BytesIO(response.content)
-                            
-                            # Construir la ruta en S3
-                            s3_path = f'media/propiedades/{original_name}'
-                            self.stdout.write(f'Subiendo a S3: {s3_path}')
-                            
-                            # Subir a S3
-                            default_storage.save(s3_path, img_temp)
-                            
-                            # Actualizar el campo imagen
-                            imagen.imagen = s3_path
-                            imagen.save()
-                            
-                            self.stdout.write(self.style.SUCCESS(f'Imagen {idx} migrada exitosamente'))
-                            success = True
-                            break
-                    except Exception as e:
-                        self.stdout.write(f'Error con URL {url}: {str(e)}')
+                if not os.path.exists(file_path):
+                    self.stdout.write(self.style.WARNING(f'Archivo no encontrado: {file_path}'))
+                    # Intentar buscar en la carpeta propiedades
+                    alt_path = base_dir / 'propiedades' / os.path.basename(relative_path)
+                    self.stdout.write(f'Intentando ruta alternativa: {alt_path}')
+                    if os.path.exists(alt_path):
+                        file_path = alt_path
+                    else:
+                        self.stdout.write(self.style.ERROR(f'No se encontró el archivo en ninguna ubicación'))
                         continue
                 
-                if not success:
-                    self.stdout.write(self.style.ERROR(f'No se pudo migrar la imagen {idx} después de intentar todas las URLs'))
+                # Abrir y leer el archivo
+                with open(file_path, 'rb') as f:
+                    # Construir la ruta en S3
+                    s3_path = f'media/propiedades/{os.path.basename(relative_path)}'
+                    self.stdout.write(f'Subiendo a S3: {s3_path}')
+                    
+                    # Subir a S3
+                    default_storage.save(s3_path, f)
+                    
+                    # Actualizar el campo imagen
+                    imagen.imagen = s3_path
+                    imagen.save()
+                    
+                    self.stdout.write(self.style.SUCCESS(f'Imagen {idx} migrada exitosamente'))
             
             except Exception as e:
-                self.stdout.write(self.style.ERROR(f'Error general al procesar imagen {idx}: {str(e)}'))
+                self.stdout.write(self.style.ERROR(f'Error al procesar imagen {idx}: {str(e)}'))
         
         self.stdout.write(self.style.SUCCESS('Migración completada')) 
