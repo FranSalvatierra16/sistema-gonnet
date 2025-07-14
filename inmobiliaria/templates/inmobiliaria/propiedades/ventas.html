@@ -103,22 +103,22 @@
                     {% with primera_imagen=propiedad.imagenes.first %}
                         {% if primera_imagen.imagen %}
                             <img src="{{ primera_imagen.imagen.url }}" 
-                                 alt="Propiedad {{ propiedad.direccion }}" 
-                                 class="img-fluid"
+                                 alt="Propiedad {{ propiedad.direccion }}"
+                                 class="img-fluid property-image"
                                  style="width: 100%; height: 200px; object-fit: cover;"
                                  onerror="this.onerror=null; this.src='{% static 'images/logo.png' %}';">
                         {% else %}
                             <img src="{% static 'images/logo.png' %}" 
                                  alt="Sin imagen" 
-                                 class="img-fluid"
-                                 style="width: 100%; height: 200px; object-fit: contain;">
+                                 class="img-fluid property-image"
+                                 style="width: 100%; height: 200px; object-fit: cover;">
                         {% endif %}
                     {% endwith %}
                 {% else %}
                     <img src="{% static 'images/logo.png' %}" 
                          alt="Sin imagen" 
-                         class="img-fluid"
-                         style="width: 100%; height: 200px; object-fit: contain;">
+                         class="img-fluid property-image"
+                         style="width: 100%; height: 200px; object-fit: cover;">
                 {% endif %}
                 <div class="property-status {{ propiedad.info_venta.estado }}">
                     {{ propiedad.info_venta.get_estado_display }}

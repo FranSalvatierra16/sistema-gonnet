@@ -166,7 +166,12 @@
                                                 <img src="{{ imagen.imagen.url }}" 
                                                      class="d-block w-100" 
                                                      alt="Imagen {{ forloop.counter }}"
-                                                     onerror="this.onerror=null; this.src='/static/images/placeholder.jpg';">
+                                                     style="height: 400px; object-fit: contain;"
+                                                     onerror="this.onerror=null; this.src='{% static 'images/logo.png' %}';">
+                                                <!-- Debug info -->
+                                                <div class="carousel-caption d-none d-md-block" style="background: rgba(0,0,0,0.5);">
+                                                    <p class="small">URL: {{ imagen.imagen.url }}</p>
+                                                </div>
                                             </div>
                                             {% endfor %}
                                         </div>
@@ -183,7 +188,7 @@
                                     </div>
                                     {% else %}
                                     <div class="text-center p-4">
-                                        <img src="{% static 'images/placeholder.jpg' %}" class="img-fluid rounded" alt="Sin imagen">
+                                        <img src="{% static 'images/logo.png' %}" class="img-fluid rounded" alt="Sin imagen" style="max-height: 400px;">
                                         <p class="text-muted mt-2">No hay imágenes disponibles</p>
                                     </div>
                                     {% endif %}
