@@ -93,25 +93,25 @@
             <div class="property-image">
                 <!-- Debug info -->
                 <div style="display: none;">
-                    Tiene imágenes: {{ propiedad.imagenes_propiedad.all|length }}
-                    {% with primera_imagen=propiedad.imagenes_propiedad.first %}
+                    Tiene imágenes: {{ propiedad.imagenes.all|length }}
+                    {% with primera_imagen=propiedad.imagenes.first %}
                         Primera imagen: {{ primera_imagen.imagen.url|default:"No URL" }}
                     {% endwith %}
                 </div>
                 
-                {% if propiedad.imagenes_propiedad.exists %}
-                    {% with primera_imagen=propiedad.imagenes_propiedad.first %}
+                {% if propiedad.imagenes.exists %}
+                    {% with primera_imagen=propiedad.imagenes.first %}
                         {% if primera_imagen.imagen %}
                             <img src="{{ primera_imagen.imagen.url }}" 
                                  alt="Propiedad {{ propiedad.direccion }}" 
                                  class="img-fluid"
-                                 onerror="this.src='{% static 'img/no-image.jpg' %}'">
+                                 onerror="this.onerror=null; this.src='{% static 'images/placeholder.jpg' %}';">
                         {% else %}
-                            <img src="{% static 'img/no-image.jpg' %}" alt="Sin imagen" class="img-fluid">
+                            <img src="{% static 'images/placeholder.jpg' %}" alt="Sin imagen" class="img-fluid">
                         {% endif %}
                     {% endwith %}
                 {% else %}
-                    <img src="{% static 'img/no-image.jpg' %}" alt="Sin imagen" class="img-fluid">
+                    <img src="{% static 'images/placeholder.jpg' %}" alt="Sin imagen" class="img-fluid">
                 {% endif %}
                 <div class="property-status {{ propiedad.info_venta.estado }}">
                     {{ propiedad.info_venta.get_estado_display }}

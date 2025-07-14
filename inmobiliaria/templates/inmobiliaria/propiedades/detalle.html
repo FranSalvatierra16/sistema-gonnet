@@ -139,8 +139,8 @@
                                 <div class="col-md-6">
                                     <!-- Debug info -->
                                     <div style="background: #f8f9fa; padding: 10px; margin: 10px 0;">
-                                        <p>Total de imágenes: {{ propiedad.imagenes_propiedad.all|length }}</p>
-                                        {% for imagen in propiedad.imagenes_propiedad.all %}
+                                        <p>Total de imágenes: {{ propiedad.imagenes.all|length }}</p>
+                                        {% for imagen in propiedad.imagenes.all %}
                                             <p>Imagen {{ forloop.counter }}:</p>
                                             <ul>
                                                 <li>URL: {{ imagen.imagen.url|default:"No hay URL" }}</li>
@@ -150,10 +150,10 @@
                                         {% endfor %}
                                     </div>
 
-                                    {% if propiedad.imagenes_propiedad.all %}
+                                    {% if propiedad.imagenes.all %}
                                     <div id="carouselPropiedad" class="carousel slide" data-bs-ride="carousel">
                                         <div class="carousel-indicators">
-                                            {% for imagen in propiedad.imagenes_propiedad.all %}
+                                            {% for imagen in propiedad.imagenes.all %}
                                             <button type="button" data-bs-target="#carouselPropiedad" data-bs-slide-to="{{ forloop.counter0 }}" 
                                                     {% if forloop.first %}class="active" aria-current="true"{% endif %}
                                                     aria-label="Slide {{ forloop.counter }}">
@@ -161,16 +161,16 @@
                                             {% endfor %}
                                         </div>
                                         <div class="carousel-inner">
-                                            {% for imagen in propiedad.imagenes_propiedad.all %}
+                                            {% for imagen in propiedad.imagenes.all %}
                                             <div class="carousel-item {% if forloop.first %}active{% endif %}">
                                                 <img src="{{ imagen.imagen.url }}" 
                                                      class="d-block w-100" 
                                                      alt="Imagen {{ forloop.counter }}"
-                                                     onerror="console.log('Error cargando imagen:', this.src)">
+                                                     onerror="this.onerror=null; this.src='/static/images/placeholder.jpg';">
                                             </div>
                                             {% endfor %}
                                         </div>
-                                        {% if propiedad.imagenes_propiedad.count > 1 %}
+                                        {% if propiedad.imagenes.count > 1 %}
                                         <button class="carousel-control-prev" type="button" data-bs-target="#carouselPropiedad" data-bs-slide="prev">
                                             <span class="carousel-control-prev-icon" aria-hidden="true"></span>
                                             <span class="visually-hidden">Anterior</span>
@@ -183,7 +183,7 @@
                                     </div>
                                     {% else %}
                                     <div class="text-center p-4">
-                                        <img src="{% static 'img/no-image.jpg' %}" class="img-fluid rounded" alt="Sin imagen">
+                                        <img src="{% static 'images/placeholder.jpg' %}" class="img-fluid rounded" alt="Sin imagen">
                                         <p class="text-muted mt-2">No hay imágenes disponibles</p>
                                     </div>
                                     {% endif %}

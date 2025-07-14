@@ -320,10 +320,10 @@ class ImagenPropiedad(models.Model):
     propiedad = models.ForeignKey(
         Propiedad, 
         on_delete=models.CASCADE,
-        related_name='imagenes_propiedad'
+        related_name='imagenes'  # Cambiado de 'imagenes_propiedad' a 'imagenes'
     )
     imagen = models.ImageField(upload_to='propiedades/')
-    orden = models.IntegerField(default=0)
+    orden = models.PositiveIntegerField(default=1)  # Cambiado de IntegerField a PositiveIntegerField
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     class Meta:
