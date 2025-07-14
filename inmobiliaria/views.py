@@ -296,7 +296,7 @@ def propiedad_detalle(request, propiedad_id):
     ).order_by('-fecha_actualizacion')
     
     # Obtener imágenes usando el related_name correcto
-    imagenes = propiedad.imagenes_propiedad.all()
+    imagenes = propiedad.imagenes.all()
     print("Propiedad ID:", propiedad_id)
     print("Número de imágenes encontradas:", imagenes.count())
     for imagen in imagenes:
@@ -2110,7 +2110,7 @@ def ventas(request):
     propiedades_venta = Propiedad.objects.filter(
         info_venta__en_venta=True,
         info_venta__estado__in=['disponible', 'reservado']
-    ).select_related('info_venta', 'sucursal').prefetch_related('imagenes_propiedad')  # Agregamos prefetch_related
+    ).select_related('info_venta', 'sucursal').prefetch_related('imagenes')  # Cambiado de 'imagenes_propiedad' a 'imagenes'
 
     # Calcular los contadores
     total_propiedades = propiedades_venta.count()
@@ -3012,7 +3012,7 @@ def obtener_fotos_propiedad(request, propiedad_id):
         print(f"Propiedad encontrada: {propiedad}")
         
         # Obtener todas las fotos de la propiedad usando la relación correcta y ordenadas
-        imagenes = propiedad.imagenes_propiedad.all().order_by('orden')
+        imagenes = propiedad.imagenes.all().order_by('orden')
         print(f"Imágenes encontradas: {imagenes.count()}")
         
         # Obtener el dominio base de la aplicación
