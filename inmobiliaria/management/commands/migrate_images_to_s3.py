@@ -2,6 +2,8 @@ from django.core.management.base import BaseCommand
 from django.core.files.storage import default_storage
 from django.conf import settings
 import os
+import requests
+from io import BytesIO
 from inmobiliaria.models import ImagenPropiedad
 
 class Command(BaseCommand):
@@ -18,26 +20,40 @@ class Command(BaseCommand):
         
         for idx, imagen in enumerate(imagenes, 1):
             try:
-                # Verificar si la imagen existe localmente
-                local_path = os.path.join(settings.MEDIA_ROOT, str(imagen.imagen))
-                if os.path.exists(local_path):
-                    # Abrir el archivo local
-                    with open(local_path, 'rb') as f:
-                        # Construir la ruta en S3
-                        s3_path = f'propiedades/{os.path.basename(local_path)}'
-                        
-                        # Subir a S3
-                        default_storage.save(s3_path, f)
-                        
-                        self.stdout.write(
-                            self.style.SUCCESS(
-                                f'[{idx}/{total}] Migrada imagen {s3_path}'
-                            )
+                # Obtener la URL actual de la imagen
+                url_actual = imagen.imagen.url
+                
+                # Si la URL ya es de S3, saltamos esta imagen
+                if 's3.amazonaws.com' in url_actual:
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f'[{idx}/{total}] La imagen ya está en S3: {url_actual}'
                         )
+                    )
+                    continue
+                
+                # Descargar la imagen de la URL actual
+                response = requests.get(url_actual)
+                if response.status_code == 200:
+                    # Crear un objeto BytesIO con el contenido de la imagen
+                    imagen_bytes = BytesIO(response.content)
+                    
+                    # Construir la ruta en S3
+                    nombre_archivo = os.path.basename(str(imagen.imagen))
+                    s3_path = f'propiedades/{nombre_archivo}'
+                    
+                    # Subir a S3
+                    default_storage.save(s3_path, imagen_bytes)
+                    
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f'[{idx}/{total}] Migrada imagen {s3_path}'
+                        )
+                    )
                 else:
                     self.stdout.write(
                         self.style.WARNING(
-                            f'[{idx}/{total}] No se encontró el archivo local: {local_path}'
+                            f'[{idx}/{total}] No se pudo descargar la imagen: {url_actual} (Status: {response.status_code})'
                         )
                     )
             except Exception as e:
