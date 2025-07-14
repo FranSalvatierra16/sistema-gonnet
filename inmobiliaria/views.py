@@ -2110,7 +2110,29 @@ def ventas(request):
     propiedades_venta = Propiedad.objects.filter(
         info_venta__en_venta=True,
         info_venta__estado__in=['disponible', 'reservado']
-    ).select_related('info_venta', 'sucursal').prefetch_related('imagenes')  # Cambiado de 'imagenes_propiedad' a 'imagenes'
+    ).select_related('info_venta', 'sucursal').prefetch_related('imagenes')
+
+    # Debug: Imprimir información sobre las propiedades y sus imágenes
+    print("\n=== DEBUG IMÁGENES DE PROPIEDADES ===")
+    print(f"MEDIA_ROOT: {settings.MEDIA_ROOT}")
+    print(f"MEDIA_URL: {settings.MEDIA_URL}")
+    print(f"DEBUG: {settings.DEBUG}")
+    print(f"AWS_ACCESS_KEY_ID presente: {'AWS_ACCESS_KEY_ID' in os.environ}")
+    print(f"AWS_STORAGE_BUCKET_NAME presente: {'AWS_STORAGE_BUCKET_NAME' in os.environ}")
+    
+    for propiedad in propiedades_venta:
+        print(f"\nPropiedad ID: {propiedad.id}")
+        print(f"Dirección: {propiedad.direccion}")
+        imagenes = propiedad.imagenes.all()
+        print(f"Número de imágenes: {imagenes.count()}")
+        for img in imagenes:
+            print(f"- Imagen ID: {img.id}")
+            print(f"  URL: {img.imagen.url if img.imagen else 'No hay URL'}")
+            print(f"  Nombre archivo: {img.imagen.name if img.imagen else 'No hay archivo'}")
+            if img.imagen:
+                ruta_completa = os.path.join(settings.MEDIA_ROOT, img.imagen.name)
+                print(f"  ¿Archivo existe localmente?: {os.path.exists(ruta_completa)}")
+    print("=== FIN DEBUG ===\n")
 
     # Calcular los contadores
     total_propiedades = propiedades_venta.count()
@@ -2134,8 +2156,7 @@ def ventas(request):
         'busqueda': busqueda,
         'estado_filtro': estado,
         'estados': VentaPropiedad.ESTADO_CHOICES,
-        'telefono_empresa': '5492235916229',  # Reemplaza con tu número real
-        # Agregar los contadores al contexto
+        'telefono_empresa': '5492235916229',
         'total_propiedades': total_propiedades,
         'propiedades_disponibles': propiedades_disponibles,
         'propiedades_reservadas': propiedades_reservadas,
