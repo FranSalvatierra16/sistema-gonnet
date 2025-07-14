@@ -2,7 +2,8 @@ from django.core.management.base import BaseCommand
 from django.core.files.storage import default_storage
 from django.conf import settings
 import os
-from pathlib import Path
+import requests
+from io import BytesIO
 from inmobiliaria.models import ImagenPropiedad
 
 class Command(BaseCommand):
@@ -17,47 +18,64 @@ class Command(BaseCommand):
         
         self.stdout.write(f'Se encontraron {total} imágenes para migrar')
         
-        # Asegurarnos que estamos en el directorio correcto
-        base_dir = Path(settings.MEDIA_ROOT)
-        self.stdout.write(f'Directorio base de medios: {base_dir}')
+        # URL base de la aplicación
+        BASE_URL = 'https://gonnet-interno.herokuapp.com'
         
         for idx, imagen in enumerate(imagenes, 1):
             try:
-                # Obtener la ruta relativa del archivo
-                relative_path = str(imagen.imagen)
-                self.stdout.write(f'Procesando imagen {idx}/{total}: {relative_path}')
+                # Obtener la URL actual
+                current_url = str(imagen.imagen)
+                self.stdout.write(f'Procesando imagen {idx}/{total}: {current_url}')
                 
-                # Construir la ruta completa
-                file_path = base_dir / relative_path
-                self.stdout.write(f'Buscando archivo en: {file_path}')
-                
-                if not os.path.exists(file_path):
-                    self.stdout.write(self.style.WARNING(f'Archivo no encontrado: {file_path}'))
-                    # Intentar buscar en la carpeta propiedades
-                    alt_path = base_dir / 'propiedades' / os.path.basename(relative_path)
-                    self.stdout.write(f'Intentando ruta alternativa: {alt_path}')
-                    if os.path.exists(alt_path):
-                        file_path = alt_path
+                # Si ya está en S3, intentar descargarla de ahí
+                if 's3.amazonaws.com' in current_url:
+                    url_to_try = current_url
+                else:
+                    # Si no está en S3, construir la URL completa
+                    if current_url.startswith('/'):
+                        url_to_try = f"{BASE_URL}{current_url}"
                     else:
-                        self.stdout.write(self.style.ERROR(f'No se encontró el archivo en ninguna ubicación'))
-                        continue
+                        url_to_try = f"{BASE_URL}/{current_url}"
                 
-                # Abrir y leer el archivo
-                with open(file_path, 'rb') as f:
+                self.stdout.write(f'Intentando descargar desde: {url_to_try}')
+                
+                # Intentar descargar la imagen
+                try:
+                    response = requests.get(url_to_try, timeout=30)
+                    response.raise_for_status()  # Esto lanzará una excepción si el status no es 200
+                    
+                    # Verificar que realmente obtuvimos una imagen
+                    content_type = response.headers.get('content-type', '')
+                    if not content_type.startswith('image/'):
+                        raise ValueError(f'El contenido no es una imagen: {content_type}')
+                    
+                    # Crear un archivo temporal con el contenido
+                    img_temp = BytesIO(response.content)
+                    
+                    # Obtener el nombre del archivo
+                    file_name = os.path.basename(current_url)
+                    
                     # Construir la ruta en S3
-                    s3_path = f'media/propiedades/{os.path.basename(relative_path)}'
+                    s3_path = f'media/propiedades/{file_name}'
                     self.stdout.write(f'Subiendo a S3: {s3_path}')
                     
                     # Subir a S3
-                    default_storage.save(s3_path, f)
+                    default_storage.save(s3_path, img_temp)
                     
                     # Actualizar el campo imagen
                     imagen.imagen = s3_path
                     imagen.save()
                     
                     self.stdout.write(self.style.SUCCESS(f'Imagen {idx} migrada exitosamente'))
+                    
+                except requests.exceptions.RequestException as e:
+                    self.stdout.write(self.style.ERROR(f'Error al descargar la imagen: {str(e)}'))
+                except ValueError as e:
+                    self.stdout.write(self.style.ERROR(str(e)))
+                except Exception as e:
+                    self.stdout.write(self.style.ERROR(f'Error al procesar la imagen: {str(e)}'))
             
             except Exception as e:
-                self.stdout.write(self.style.ERROR(f'Error al procesar imagen {idx}: {str(e)}'))
+                self.stdout.write(self.style.ERROR(f'Error general al procesar imagen {idx}: {str(e)}'))
         
         self.stdout.write(self.style.SUCCESS('Migración completada')) 
