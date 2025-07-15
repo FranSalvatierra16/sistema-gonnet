@@ -23,6 +23,7 @@ from .models import (
 from datetime import datetime
 from django.forms import modelformset_factory
 from django.core.exceptions import ValidationError
+from django.db import models
 # Formulario de creación de Vendedor
 class VendedorUserCreationForm(forms.ModelForm):
     username = forms.CharField(max_length=150, help_text='Requerido. 150 caracteres o menos.')
@@ -232,11 +233,17 @@ class PropiedadForm(forms.ModelForm):
             # Guardar imágenes solo si existen
             imagenes = self.cleaned_data.get('imagenes')
             if imagenes:
+                # Obtener el último orden existente
+                ultimo_orden = ImagenPropiedad.objects.filter(propiedad=propiedad).aggregate(
+                    max_orden=models.Max('orden')
+                )['max_orden'] or 0
+                
+                # Agregar las nuevas imágenes al final
                 for index, imagen in enumerate(imagenes):
                     ImagenPropiedad.objects.create(
                         propiedad=propiedad,
                         imagen=imagen,
-                        orden=index + 1
+                        orden=ultimo_orden + index + 1
                     )
         return propiedad
 class PrecioForm(forms.ModelForm):

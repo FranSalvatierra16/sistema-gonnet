@@ -45,7 +45,7 @@
         box-shadow: 0 10px 20px rgba(0,0,0,0.2);
     }
     .imagen-item {
-        cursor: grab;
+        cursor: move;
         transition: all 0.2s ease;
     }
     .imagen-item:hover {
@@ -58,6 +58,9 @@
         border: 2px dashed #dee2e6;
         border-radius: 4px;
         height: 200px;
+    }
+    .drag-handle {
+        cursor: move;
     }
 </style>
 
@@ -189,9 +192,9 @@
                                 <i class="fas fa-trash"></i>
                             </button>
                             <!-- Indicador de orden + manija drag -->
-                            <div class="position-absolute bottom-0 start-0 w-100 p-2 bg-dark bg-opacity-50">
+                            <div class="position-absolute bottom-0 start-0 w-100 p-2 bg-dark bg-opacity-50 drag-handle">
                                 <span class="text-white">
-                                    <i class="fas fa-arrows-alt me-2 cursor-grab"></i>
+                                    <i class="fas fa-arrows-alt me-2"></i>
                                     Orden: {{ imagen.orden }}
                                 </span>
                             </div>
@@ -391,17 +394,20 @@
             /* ---------- 2. Drag&drop para re-ordenar ---------- */
             $('#imagenes-container').sortable({
                 items: '.imagen-item',
-                handle: '.cursor-grab',
+                handle: '.drag-handle',
                 placeholder: 'ui-sortable-placeholder',
                 forcePlaceholderSize: true,
                 tolerance: 'pointer',
-                cursor: 'grabbing',
+                cursor: 'move',
                 axis: 'xy',
                 opacity: 0.8,
                 revert: 150,
                 scroll: true,
                 scrollSensitivity: 30,
                 scrollSpeed: 10,
+                start: function(e, ui) {
+                    ui.placeholder.height(ui.item.height());
+                },
                 update: function () {
                     const nuevaLista = [];
                     $('#imagenes-container .imagen-item').each(function (idx) {
@@ -418,7 +424,6 @@
                         headers: { "X-CSRFToken": CSRF },
                         data   : { ordenes: JSON.stringify(nuevaLista) },
                         success: function() {
-                            // Opcional: mostrar un feedback visual
                             const toast = $('<div class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">')
                                 .html('<div class="d-flex"><div class="toast-body">Orden actualizado correctamente</div></div>')
                                 .appendTo($('body'));
