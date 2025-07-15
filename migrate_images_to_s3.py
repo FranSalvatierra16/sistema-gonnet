@@ -6,6 +6,10 @@ import boto3
 from botocore.exceptions import ClientError
 import logging
 from tqdm import tqdm
+import requests
+from django.db import connection
+import io
+import base64
 
 # Configurar Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sistema_gonnet.settings')
@@ -45,6 +49,71 @@ def check_s3_connection():
         logger.error(f"Error al conectar con S3: {str(e)}")
         return False
 
+def get_image_from_db(imagen_path):
+    """Intentar obtener la imagen directamente de la base de datos MySQL"""
+    try:
+        with connection.cursor() as cursor:
+            # Intentar diferentes tablas donde podría estar almacenada la imagen
+            tables_to_try = [
+                'django_content_type_imagenpropiedad',
+                'inmobiliaria_imagenpropiedad',
+                'imagenpropiedad'
+            ]
+            
+            for table in tables_to_try:
+                try:
+                    cursor.execute(f"""
+                        SELECT imagen 
+                        FROM {table} 
+                        WHERE imagen = %s
+                    """, [str(imagen_path)])
+                    row = cursor.fetchone()
+                    if row and row[0]:
+                        return io.BytesIO(row[0])
+                except:
+                    continue
+        return None
+    except Exception as e:
+        logger.error(f"Error al obtener imagen de la base de datos: {str(e)}")
+        return None
+
+def try_get_image_content(imagen):
+    """Intentar obtener el contenido de la imagen de diferentes fuentes"""
+    
+    # 1. Intentar obtener la imagen localmente
+    local_path = os.path.join(settings.MEDIA_ROOT, str(imagen.imagen))
+    if os.path.exists(local_path):
+        logger.info(f"Imagen encontrada localmente: {local_path}")
+        return open(local_path, 'rb')
+
+    # 2. Intentar obtener la imagen de la URL completa
+    try:
+        url = f"https://gonnet-interno-052a6cec3da9.herokuapp.com/media/{str(imagen.imagen)}"
+        response = requests.get(url)
+        if response.status_code == 200:
+            logger.info(f"Imagen obtenida de URL: {url}")
+            return io.BytesIO(response.content)
+    except Exception as e:
+        logger.warning(f"No se pudo obtener la imagen de la URL: {str(e)}")
+
+    # 3. Intentar obtener la imagen de la base de datos
+    db_image = get_image_from_db(str(imagen.imagen))
+    if db_image:
+        logger.info(f"Imagen obtenida de la base de datos")
+        return db_image
+
+    # 4. Intentar obtener la imagen de una URL alternativa
+    try:
+        alt_url = f"https://gonnet-interno.herokuapp.com/media/{str(imagen.imagen)}"
+        response = requests.get(alt_url)
+        if response.status_code == 200:
+            logger.info(f"Imagen obtenida de URL alternativa: {alt_url}")
+            return io.BytesIO(response.content)
+    except Exception as e:
+        logger.warning(f"No se pudo obtener la imagen de la URL alternativa: {str(e)}")
+
+    return None
+
 def migrate_images():
     """Migrar imágenes a S3"""
     if not check_s3_connection():
@@ -61,14 +130,6 @@ def migrate_images():
     # Migrar cada imagen
     for imagen in tqdm(imagenes, desc="Migrando imágenes"):
         try:
-            # Construir la ruta local de la imagen
-            local_path = os.path.join(settings.MEDIA_ROOT, str(imagen.imagen))
-            
-            # Verificar si el archivo existe localmente
-            if not os.path.exists(local_path):
-                logger.warning(f"Imagen no encontrada localmente: {local_path}")
-                continue
-
             # Construir la ruta en S3
             s3_path = f"{settings.MEDIA_LOCATION}/{str(imagen.imagen)}"
 
@@ -78,17 +139,23 @@ def migrate_images():
                 logger.info(f"La imagen ya existe en S3: {s3_path}")
                 continue
             except ClientError:
-                # La imagen no existe en S3, procedemos a subirla
+                # La imagen no existe en S3, procedemos a obtenerla
                 pass
 
+            # Intentar obtener el contenido de la imagen
+            image_content = try_get_image_content(imagen)
+            
+            if not image_content:
+                logger.warning(f"No se pudo obtener la imagen: {str(imagen.imagen)}")
+                continue
+
             # Subir archivo a S3
-            with open(local_path, 'rb') as file:
-                s3.upload_fileobj(
-                    file,
-                    settings.AWS_STORAGE_BUCKET_NAME,
-                    s3_path,
-                    ExtraArgs={'ACL': 'public-read'}
-                )
+            s3.upload_fileobj(
+                image_content,
+                settings.AWS_STORAGE_BUCKET_NAME,
+                s3_path,
+                ExtraArgs={'ACL': 'public-read'}
+            )
             
             logger.info(f"Imagen migrada exitosamente: {s3_path}")
 
