@@ -2,84 +2,83 @@ from django.core.management.base import BaseCommand
 from django.core.files.storage import default_storage
 from django.conf import settings
 import os
-import mysql.connector
+import requests
 from io import BytesIO
 from inmobiliaria.models import ImagenPropiedad
+from urllib.parse import urlparse
 
 class Command(BaseCommand):
-    help = 'Migra las imágenes desde MySQL a S3'
+    help = 'Migra las imágenes existentes al bucket de S3'
 
     def handle(self, *args, **options):
         self.stdout.write('Iniciando migración de imágenes desde MySQL a S3...')
         
-        # Conectar a MySQL
-        db = mysql.connector.connect(
-            host=settings.DATABASES['default']['HOST'],
-            user=settings.DATABASES['default']['USER'],
-            password=settings.DATABASES['default']['PASSWORD'],
-            database=settings.DATABASES['default']['NAME']
-        )
+        # Obtener todas las imágenes
+        imagenes = ImagenPropiedad.objects.all()
+        total = imagenes.count()
         
-        cursor = db.cursor()
-        
-        # Obtener todas las imágenes de la base de datos
-        cursor.execute("""
-            SELECT ip.id, ip.imagen 
-            FROM inmobiliaria_imagenpropiedad ip
-            WHERE ip.imagen IS NOT NULL
-        """)
-        
-        rows = cursor.fetchall()
-        total = len(rows)
         self.stdout.write(f'Se encontraron {total} imágenes para migrar')
         
-        for idx, (imagen_id, imagen_path) in enumerate(rows, 1):
+        for idx, imagen in enumerate(imagenes, 1):
             try:
-                self.stdout.write(f'Procesando imagen {idx}/{total} (ID: {imagen_id})')
+                # Obtener la ruta de la imagen
+                imagen_path = str(imagen.imagen)
+                self.stdout.write(f'Procesando imagen {idx}/{total}: {imagen_path}')
                 
-                # Obtener los datos binarios de la imagen
-                cursor.execute("""
-                    SELECT imagen 
-                    FROM django_content_type_imagenpropiedad 
-                    WHERE id = %s
-                """, (imagen_id,))
-                
-                result = cursor.fetchone()
-                if not result:
-                    self.stdout.write(self.style.WARNING(f'No se encontraron datos para la imagen {imagen_id}'))
+                # Si ya está en S3, saltamos
+                if 's3.amazonaws.com' in imagen_path:
+                    self.stdout.write(f'La imagen {idx} ya está en S3: {imagen_path}')
                     continue
                 
-                image_data = result[0]
-                if not image_data:
-                    self.stdout.write(self.style.WARNING(f'Datos de imagen vacíos para {imagen_id}'))
-                    continue
+                # Construir la URL completa
+                if imagen_path.startswith('http'):
+                    url = imagen_path
+                else:
+                    if not imagen_path.startswith('/'):
+                        imagen_path = '/' + imagen_path
+                    if not imagen_path.startswith('/media/'):
+                        imagen_path = '/media' + imagen_path
+                    url = f"https://gonnet-interno.herokuapp.com{imagen_path}"
                 
-                # Crear un archivo temporal con el contenido
-                img_temp = BytesIO(image_data)
+                self.stdout.write(f'Intentando descargar desde: {url}')
                 
-                # Obtener el nombre del archivo original
-                file_name = os.path.basename(imagen_path)
-                
-                # Construir la ruta en S3
-                s3_path = f'media/propiedades/{file_name}'
-                self.stdout.write(f'Subiendo a S3: {s3_path}')
-                
-                # Subir a S3
-                default_storage.save(s3_path, img_temp)
-                
-                # Actualizar el registro en Django
+                # Intentar descargar la imagen
                 try:
-                    imagen = ImagenPropiedad.objects.get(id=imagen_id)
+                    response = requests.get(url, timeout=30)
+                    response.raise_for_status()
+                    
+                    # Verificar que realmente obtuvimos una imagen
+                    content_type = response.headers.get('content-type', '')
+                    if not content_type.startswith('image/'):
+                        raise ValueError(f'El contenido no es una imagen: {content_type}')
+                    
+                    # Crear un archivo temporal con el contenido
+                    img_temp = BytesIO(response.content)
+                    
+                    # Obtener el nombre del archivo
+                    file_name = os.path.basename(imagen_path)
+                    
+                    # Construir la ruta en S3
+                    s3_path = f'media/propiedades/{file_name}'
+                    self.stdout.write(f'Subiendo a S3: {s3_path}')
+                    
+                    # Subir a S3
+                    default_storage.save(s3_path, img_temp)
+                    
+                    # Actualizar el campo imagen
                     imagen.imagen = s3_path
                     imagen.save()
+                    
                     self.stdout.write(self.style.SUCCESS(f'Imagen {idx} migrada exitosamente'))
-                except ImagenPropiedad.DoesNotExist:
-                    self.stdout.write(self.style.ERROR(f'No se encontró el registro de ImagenPropiedad {imagen_id}'))
+                    
+                except requests.exceptions.RequestException as e:
+                    self.stdout.write(self.style.ERROR(f'Error al descargar la imagen: {str(e)}'))
+                except ValueError as e:
+                    self.stdout.write(self.style.ERROR(str(e)))
+                except Exception as e:
+                    self.stdout.write(self.style.ERROR(f'Error al procesar la imagen: {str(e)}'))
             
             except Exception as e:
-                self.stdout.write(self.style.ERROR(f'Error al procesar imagen {imagen_id}: {str(e)}'))
-        
-        cursor.close()
-        db.close()
+                self.stdout.write(self.style.ERROR(f'Error general al procesar imagen {idx}: {str(e)}'))
         
         self.stdout.write(self.style.SUCCESS('Migración completada')) 
