@@ -91,14 +91,6 @@
         {% for propiedad in propiedades %}
         <div class="property-card">
             <div class="property-image">
-                <!-- Debug info -->
-                <div style="display: none;">
-                    Tiene imágenes: {{ propiedad.imagenes.all|length }}
-                    {% with primera_imagen=propiedad.imagenes.first %}
-                        Primera imagen: {{ primera_imagen.imagen.url|default:"No URL" }}
-                    {% endwith %}
-                </div>
-                
                 {% if propiedad.imagenes.exists %}
                     {% with primera_imagen=propiedad.imagenes.first %}
                         {% if primera_imagen.imagen %}
