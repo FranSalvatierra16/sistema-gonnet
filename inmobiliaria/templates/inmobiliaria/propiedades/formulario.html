@@ -38,29 +38,49 @@
     .input-group .btn {
         min-width: 120px;
     }
-    .imagen-item.ui-sortable-helper {
-        cursor: grabbing !important;
-        transform: rotate(2deg) scale(1.02);
-        transition: all 0.2s ease;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-    }
     .imagen-item {
+        transition: transform 0.2s ease;
         cursor: move;
-        transition: all 0.2s ease;
     }
-    .imagen-item:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    .imagen-item.ui-sortable-helper {
+        transform: scale(1.05);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        background: white;
+    }
+    .imagen-item .card-img-top {
+        height: 200px;
+        object-fit: cover;
+        border-radius: 4px 4px 0 0;
+    }
+    .imagen-item .orden-handle {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 8px;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        cursor: move;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-radius: 0 0 4px 4px;
+    }
+    .imagen-item .orden-handle i {
+        margin-right: 8px;
+    }
+    .imagen-item .eliminar-imagen {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 10;
     }
     .ui-sortable-placeholder {
         visibility: visible !important;
         background-color: #f8f9fa;
         border: 2px dashed #dee2e6;
         border-radius: 4px;
-        height: 200px;
-    }
-    .drag-handle {
-        cursor: move;
+        margin-bottom: 1rem;
     }
 </style>
 
@@ -179,24 +199,24 @@
                 {% if propiedad and imagenes %}
                 <div class="row" id="imagenes-container">
                     {% for imagen in imagenes %}
-                    <div class="col-md-3 mb-4 imagen-item card" data-id="{{ imagen.id }}">
-                        <div class="position-relative">
-                            <img src="{{ imagen.imagen.url }}"
-                                 class="card-img-top"
-                                 style="height: 200px; object-fit: cover;"
-                                 onerror="this.src='/static/images/placeholder.jpg'">
-                            <!-- Botón eliminar -->
-                            <button type="button"
-                                    class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 eliminar-imagen"
-                                    data-imagen-id="{{ imagen.id }}">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                            <!-- Indicador de orden + manija drag -->
-                            <div class="position-absolute bottom-0 start-0 w-100 p-2 bg-dark bg-opacity-50 drag-handle">
-                                <span class="text-white">
-                                    <i class="fas fa-arrows-alt me-2"></i>
-                                    Orden: {{ imagen.orden }}
-                                </span>
+                    <div class="col-md-3 mb-4">
+                        <div class="imagen-item card" data-id="{{ imagen.id }}">
+                            <div class="position-relative">
+                                <img src="{{ imagen.imagen.url }}"
+                                     class="card-img-top"
+                                     alt="Imagen {{ imagen.orden }}"
+                                     onerror="this.src='/static/images/placeholder.jpg'">
+                                <button type="button"
+                                        class="btn btn-danger btn-sm eliminar-imagen"
+                                        data-imagen-id="{{ imagen.id }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                <div class="orden-handle">
+                                    <span>
+                                        <i class="fas fa-arrows-alt"></i>
+                                        <span class="orden-texto">Orden: {{ imagen.orden }}</span>
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -252,188 +272,212 @@
 <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 
 <script>
-    $(document).ready(function() {
-        // Tu script original para crear propietario
-        const guardarPropietarioBtn = $('#guardar-propietario-btn');
+$(document).ready(function() {
+    // Tu script original para crear propietario
+    const guardarPropietarioBtn = $('#guardar-propietario-btn');
+    
+    function resetearBoton() {
+        guardarPropietarioBtn
+            .prop('disabled', false)
+            .html('Guardar Propietario')
+            .removeClass('loading');
+    }
+
+    function mostrarBotonCargando() {
+        guardarPropietarioBtn
+            .prop('disabled', true)
+            .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...')
+            .addClass('loading');
+    }
+
+    guardarPropietarioBtn.click(function(e) {
+        e.preventDefault();
         
-        function resetearBoton() {
-            guardarPropietarioBtn
-                .prop('disabled', false)
-                .html('Guardar Propietario')
-                .removeClass('loading');
+        if ($(this).hasClass('loading')) {
+            return false;
         }
 
-        function mostrarBotonCargando() {
-            guardarPropietarioBtn
-                .prop('disabled', true)
-                .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...')
-                .addClass('loading');
-        }
-
-        guardarPropietarioBtn.click(function(e) {
-            e.preventDefault();
-            
-            if ($(this).hasClass('loading')) {
-                return false;
-            }
-
-            $('.is-invalid').removeClass('is-invalid');
-            $('.invalid-feedback').remove();
-            
-            mostrarBotonCargando();
-            
-            var formData = $('#form-nuevo-propietario').serialize();
-            
-            $.ajax({
-                url: '{% url "inmobiliaria:crear_propietario_ajax" %}',
-                type: 'POST',
-                data: formData,
-                dataType: 'json'
-            })
-            .done(function(response) {
-                if (response.success) {
-                    var newOption = new Option(
-                        response.propietario_nombre,
-                        response.propietario_id,
-                        true,
-                        true
-                    );
-                    $('#id_propietario').append(newOption).trigger('change');
-                    $('#form-nuevo-propietario')[0].reset();
-                    $('#modal-propietario').modal('hide');
-                    alert('Propietario creado exitosamente');
+        $('.is-invalid').removeClass('is-invalid');
+        $('.invalid-feedback').remove();
+        
+        mostrarBotonCargando();
+        
+        var formData = $('#form-nuevo-propietario').serialize();
+        
+        $.ajax({
+            url: '{% url "inmobiliaria:crear_propietario_ajax" %}',
+            type: 'POST',
+            data: formData,
+            dataType: 'json'
+        })
+        .done(function(response) {
+            if (response.success) {
+                var newOption = new Option(
+                    response.propietario_nombre,
+                    response.propietario_id,
+                    true,
+                    true
+                );
+                $('#id_propietario').append(newOption).trigger('change');
+                $('#form-nuevo-propietario')[0].reset();
+                $('#modal-propietario').modal('hide');
+                alert('Propietario creado exitosamente');
+            } else {
+                if (response.errors) {
+                    Object.keys(response.errors).forEach(function(fieldName) {
+                        const field = $('#id_' + fieldName);
+                        field.addClass('is-invalid');
+                        const errorDiv = $('<div>')
+                            .addClass('invalid-feedback d-block')
+                            .text(response.errors[fieldName].join(', '));
+                        field.after(errorDiv);
+                    });
+                    alert('Por favor, complete todos los campos requeridos');
                 } else {
-                    if (response.errors) {
-                        Object.keys(response.errors).forEach(function(fieldName) {
-                            const field = $('#id_' + fieldName);
-                            field.addClass('is-invalid');
-                            const errorDiv = $('<div>')
-                                .addClass('invalid-feedback d-block')
-                                .text(response.errors[fieldName].join(', '));
-                            field.after(errorDiv);
-                        });
-                        alert('Por favor, complete todos los campos requeridos');
-                    } else {
-                        alert(response.error || 'Error al crear el propietario');
-                    }
+                    alert(response.error || 'Error al crear el propietario');
                 }
-            })
-            .fail(function(xhr, status, error) {
-                alert('Error en la solicitud: ' + error);
-            })
-            .always(function() {
-                resetearBoton();
-            });
-        });
-
-        $('#modal-propietario').on('hidden.bs.modal', function () {
-            $('#form-nuevo-propietario')[0].reset();
-            $('.is-invalid').removeClass('is-invalid');
-            $('.invalid-feedback').remove();
+            }
+        })
+        .fail(function(xhr, status, error) {
+            alert('Error en la solicitud: ' + error);
+        })
+        .always(function() {
             resetearBoton();
         });
+    });
 
-        $('#form-nuevo-propietario').on('submit', function(e) {
+    $('#modal-propietario').on('hidden.bs.modal', function () {
+        $('#form-nuevo-propietario')[0].reset();
+        $('.is-invalid').removeClass('is-invalid');
+        $('.invalid-feedback').remove();
+        resetearBoton();
+    });
+
+    $('#form-nuevo-propietario').on('submit', function(e) {
+        e.preventDefault();
+        if (!guardarPropietarioBtn.hasClass('loading')) {
+            guardarPropietarioBtn.click();
+        }
+    });
+
+    // Inicialización de Select2 para propietario
+    $('.select2-propietario').select2({
+        ajax: {
+            url: '{% url "inmobiliaria:buscar_propietarios" %}',
+            dataType: 'json',
+            delay: 250,
+            data: function (params) {
+                return {
+                    term: params.term,
+                    page: params.page
+                };
+            },
+            processResults: function (data, params) {
+                return {
+                    results: data.results,
+                };
+            },
+            cache: true
+        },
+        minimumInputLength: 2,
+        placeholder: 'Buscar propietario...',
+        allowClear: true
+    });
+
+    {% if propiedad.pk %}
+    $(function () {
+        const URL_REORDENAR = "{% url 'inmobiliaria:reordenar_imagenes' propiedad.id %}";
+        const CSRF = "{{ csrf_token }}";
+        let isDragging = false;
+
+        /* ---------- 1. Eliminar imagen ----------- */
+        $('#imagenes-container').on('click', '.eliminar-imagen', function(e) {
             e.preventDefault();
-            if (!guardarPropietarioBtn.hasClass('loading')) {
-                guardarPropietarioBtn.click();
+            if (isDragging) return;
+            
+            const $btn = $(this);
+            const idImg = $btn.data('imagen-id');
+            
+            if (!confirm('¿Eliminar la imagen definitivamente?')) return;
+            
+            $btn.prop('disabled', true)
+                .html('<i class="fas fa-spinner fa-spin"></i>');
+            
+            $.post({
+                url: "{% url 'inmobiliaria:imagen_eliminar' 0 %}".replace('0', idImg),
+                headers: { "X-CSRFToken": CSRF },
+                success: function(resp) {
+                    if (resp.success) {
+                        $btn.closest('.col-md-3').fadeOut(300, function() {
+                            $(this).remove();
+                            actualizarOrdenes();
+                        });
+                    } else {
+                        alert('No se pudo eliminar la imagen.');
+                        $btn.prop('disabled', false)
+                            .html('<i class="fas fa-trash"></i>');
+                    }
+                },
+                error: function() {
+                    alert('Error de comunicación con el servidor');
+                    $btn.prop('disabled', false)
+                        .html('<i class="fas fa-trash"></i>');
+                }
+            });
+        });
+
+        /* ---------- 2. Función para actualizar órdenes ---------- */
+        function actualizarOrdenes() {
+            const nuevaLista = [];
+            $('#imagenes-container .imagen-item').each(function(idx) {
+                nuevaLista.push({
+                    id: $(this).data('id'),
+                    orden: idx + 1
+                });
+                $(this).find('.orden-texto').text('Orden: ' + (idx + 1));
+            });
+            return nuevaLista;
+        }
+
+        /* ---------- 3. Drag&drop para re-ordenar ---------- */
+        $('#imagenes-container').sortable({
+            items: '.col-md-3',
+            handle: '.orden-handle',
+            placeholder: 'col-md-3',
+            forcePlaceholderSize: true,
+            tolerance: 'pointer',
+            helper: 'clone',
+            opacity: 0.8,
+            revert: 200,
+            scroll: true,
+            scrollSensitivity: 30,
+            scrollSpeed: 10,
+            start: function(e, ui) {
+                isDragging = true;
+                ui.placeholder.height(ui.item.height());
+                ui.helper.css('z-index', 1000);
+            },
+            stop: function() {
+                setTimeout(() => isDragging = false, 100);
+            },
+            update: function() {
+                const nuevaLista = actualizarOrdenes();
+                
+                $.post({
+                    url: URL_REORDENAR,
+                    headers: { "X-CSRFToken": CSRF },
+                    data: { ordenes: JSON.stringify(nuevaLista) },
+                    success: function() {
+                        const toast = $('<div class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">')
+                            .html('<div class="d-flex"><div class="toast-body">Orden actualizado correctamente</div></div>')
+                            .appendTo($('body'));
+                        toast.toast({ delay: 2000 }).toast('show');
+                    }
+                });
             }
         });
-
-        // Inicialización de Select2 para propietario
-        $('.select2-propietario').select2({
-            ajax: {
-                url: '{% url "inmobiliaria:buscar_propietarios" %}',
-                dataType: 'json',
-                delay: 250,
-                data: function (params) {
-                    return {
-                        term: params.term,
-                        page: params.page
-                    };
-                },
-                processResults: function (data, params) {
-                    return {
-                        results: data.results,
-                    };
-                },
-                cache: true
-            },
-            minimumInputLength: 2,
-            placeholder: 'Buscar propietario...',
-            allowClear: true
-        });
-
-        {% if propiedad.pk %}
-        $(function () {
-            /* ---------- 0. URL que usaremos en los $.post ------------- */
-            const URL_REORDENAR = "{% url 'inmobiliaria:reordenar_imagenes' propiedad.id %}";
-            const CSRF          = "{{ csrf_token }}";
-
-            /* ---------- 1. Eliminar imagen ----------- */
-            $('#imagenes-container').on('click', '.eliminar-imagen', function () {
-                const $btn  = $(this);
-                const idImg = $btn.data('imagen-id');
-
-                if (!confirm('¿Eliminar la imagen definitivamente?')) return;
-
-                $.post({
-                    url    : "{% url 'inmobiliaria:imagen_eliminar' 0 %}".replace('0', idImg),
-                    headers: { "X-CSRFToken": CSRF },
-                    success: resp => {
-                        if (resp.success) {
-                            $btn.closest('.imagen-item').remove();
-                        } else {
-                            alert('No se pudo eliminar la imagen.');
-                        }
-                    },
-                    error  : () => alert('Error de comunicación con el servidor')
-                });
-            });
-
-            /* ---------- 2. Drag&drop para re-ordenar ---------- */
-            $('#imagenes-container').sortable({
-                items: '.imagen-item',
-                handle: '.drag-handle',
-                placeholder: 'ui-sortable-placeholder',
-                forcePlaceholderSize: true,
-                tolerance: 'pointer',
-                cursor: 'move',
-                axis: 'xy',
-                opacity: 0.8,
-                revert: 150,
-                scroll: true,
-                scrollSensitivity: 30,
-                scrollSpeed: 10,
-                start: function(e, ui) {
-                    ui.placeholder.height(ui.item.height());
-                },
-                update: function () {
-                    const nuevaLista = [];
-                    $('#imagenes-container .imagen-item').each(function (idx) {
-                        nuevaLista.push({
-                            id   : $(this).data('id'),
-                            orden: idx + 1
-                        });
-                        $(this).find('.text-white')
-                               .html('<i class="fas fa-arrows-alt me-2"></i>Orden: ' + (idx + 1));
-                    });
-
-                    $.post({
-                        url    : URL_REORDENAR,
-                        headers: { "X-CSRFToken": CSRF },
-                        data   : { ordenes: JSON.stringify(nuevaLista) },
-                        success: function() {
-                            const toast = $('<div class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">')
-                                .html('<div class="d-flex"><div class="toast-body">Orden actualizado correctamente</div></div>')
-                                .appendTo($('body'));
-                            toast.toast({ delay: 2000 }).toast('show');
-                        }
-                    });
-                }
-            }).disableSelection();
-        });
-        {% endif %}
     });
+    {% endif %}
+});
 </script>
 {% endblock %}
