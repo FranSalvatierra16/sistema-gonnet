@@ -3152,3 +3152,35 @@ def obtener_precios_propiedad(request, propiedad_id):
             'success': False,
             'error': str(e)
         })
+
+@login_required
+@require_POST
+def eliminar_todas_imagenes(request, propiedad_id):
+    """Elimina todas las imágenes de una propiedad específica"""
+    try:
+        propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+        imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad)
+        
+        # Primero intentamos eliminar los archivos físicos
+        for imagen in imagenes:
+            try:
+                if imagen.imagen:
+                    imagen.imagen.delete(save=False)
+            except Exception as e:
+                logger.warning(f'No se pudo eliminar el archivo físico de la imagen {imagen.id}: {str(e)}')
+        
+        # Luego eliminamos todos los registros de la base de datos
+        total_eliminadas = imagenes.count()
+        imagenes.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Se eliminaron {total_eliminadas} imágenes',
+            'total_eliminadas': total_eliminadas
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

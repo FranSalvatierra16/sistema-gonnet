@@ -220,6 +220,16 @@
                     </div>
                     {% endfor %}
                 </div>
+
+                <!-- Botón para eliminar todas las imágenes -->
+                <div class="text-end mt-3 mb-4">
+                    <button type="button" 
+                            id="eliminar-todas-imagenes" 
+                            class="btn btn-danger">
+                        <i class="fas fa-trash-alt me-2"></i>
+                        Eliminar todas las imágenes
+                    </button>
+                </div>
                 {% else %}
                 <div class="alert alert-info">
                     {% if propiedad %}
@@ -479,6 +489,53 @@ $(document).ready(function() {
                     }
                 });
             }
+        });
+
+        /* ---------- 1. Eliminar todas las imágenes ----------- */
+        $('#eliminar-todas-imagenes').on('click', function() {
+            if (!confirm('¿Estás seguro de que deseas eliminar TODAS las imágenes de esta propiedad? Esta acción no se puede deshacer.')) {
+                return;
+            }
+
+            const $btn = $(this);
+            $btn.prop('disabled', true)
+                .html('<i class="fas fa-spinner fa-spin me-2"></i>Eliminando...');
+
+            $.ajax({
+                url: "{% url 'inmobiliaria:eliminar_todas_imagenes' propiedad.id %}",
+                method: 'POST',
+                headers: { "X-CSRFToken": CSRF },
+                success: function(response) {
+                    if (response.success) {
+                        // Eliminar todas las imágenes del DOM con animación
+                        $('#imagenes-container').fadeOut(300, function() {
+                            $(this).empty();
+                            // Mostrar mensaje de no hay imágenes
+                            $(this).after(
+                                '<div class="alert alert-info">No hay imágenes cargadas para esta propiedad.</div>'
+                            );
+                        });
+                        
+                        // Mostrar mensaje de éxito
+                        const toast = $('<div class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">')
+                            .html('<div class="d-flex"><div class="toast-body">Todas las imágenes han sido eliminadas</div></div>')
+                            .appendTo($('body'));
+                        toast.toast({ delay: 3000 }).toast('show');
+                        
+                        // Ocultar el botón
+                        $btn.parent().fadeOut();
+                    } else {
+                        alert('Error al eliminar las imágenes: ' + (response.error || 'Error desconocido'));
+                        $btn.prop('disabled', false)
+                            .html('<i class="fas fa-trash-alt me-2"></i>Eliminar todas las imágenes');
+                    }
+                },
+                error: function() {
+                    alert('Error de comunicación con el servidor');
+                    $btn.prop('disabled', false)
+                        .html('<i class="fas fa-trash-alt me-2"></i>Eliminar todas las imágenes');
+                }
+            });
         });
     });
     {% endif %}
