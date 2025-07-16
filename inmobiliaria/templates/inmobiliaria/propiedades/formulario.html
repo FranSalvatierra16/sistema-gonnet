@@ -40,19 +40,21 @@
     }
     .imagen-item {
         transition: transform 0.2s ease;
-        cursor: move;
+        cursor: grab;
+        position: relative;
     }
     .imagen-item.ui-sortable-helper {
         transform: scale(1.05);
         box-shadow: 0 10px 20px rgba(0,0,0,0.2);
         background: white;
+        cursor: grabbing;
     }
     .imagen-item .card-img-top {
         height: 200px;
         object-fit: cover;
         border-radius: 4px 4px 0 0;
     }
-    .imagen-item .orden-handle {
+    .imagen-item .orden-info {
         position: absolute;
         bottom: 0;
         left: 0;
@@ -60,20 +62,19 @@
         padding: 8px;
         background: rgba(0,0,0,0.7);
         color: white;
-        cursor: move;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
         border-radius: 0 0 4px 4px;
-    }
-    .imagen-item .orden-handle i {
-        margin-right: 8px;
+        text-align: center;
     }
     .imagen-item .eliminar-imagen {
         position: absolute;
         top: 8px;
         right: 8px;
         z-index: 10;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+    .imagen-item:hover .eliminar-imagen {
+        opacity: 1;
     }
     .ui-sortable-placeholder {
         visibility: visible !important;
@@ -211,11 +212,8 @@
                                         data-imagen-id="{{ imagen.id }}">
                                     <i class="fas fa-trash"></i>
                                 </button>
-                                <div class="orden-handle">
-                                    <span>
-                                        <i class="fas fa-arrows-alt"></i>
-                                        <span class="orden-texto">Orden: {{ imagen.orden }}</span>
-                                    </span>
+                                <div class="orden-info">
+                                    Orden: <span class="orden-texto">{{ imagen.orden }}</span>
                                 </div>
                             </div>
                         </div>
@@ -393,6 +391,7 @@ $(document).ready(function() {
         /* ---------- 1. Eliminar imagen ----------- */
         $('#imagenes-container').on('click', '.eliminar-imagen', function(e) {
             e.preventDefault();
+            e.stopPropagation();
             if (isDragging) return;
             
             const $btn = $(this);
@@ -434,7 +433,7 @@ $(document).ready(function() {
                     id: $(this).data('id'),
                     orden: idx + 1
                 });
-                $(this).find('.orden-texto').text('Orden: ' + (idx + 1));
+                $(this).find('.orden-texto').text(idx + 1);
             });
             return nuevaLista;
         }
@@ -442,10 +441,11 @@ $(document).ready(function() {
         /* ---------- 3. Drag&drop para re-ordenar ---------- */
         $('#imagenes-container').sortable({
             items: '.col-md-3',
-            handle: '.orden-handle',
+            cancel: '.eliminar-imagen',
             placeholder: 'col-md-3',
             forcePlaceholderSize: true,
             tolerance: 'pointer',
+            cursor: 'grabbing',
             helper: 'clone',
             opacity: 0.8,
             revert: 200,
@@ -456,9 +456,13 @@ $(document).ready(function() {
                 isDragging = true;
                 ui.placeholder.height(ui.item.height());
                 ui.helper.css('z-index', 1000);
+                $('body').css('cursor', 'grabbing');
             },
             stop: function() {
-                setTimeout(() => isDragging = false, 100);
+                setTimeout(() => {
+                    isDragging = false;
+                    $('body').css('cursor', '');
+                }, 100);
             },
             update: function() {
                 const nuevaLista = actualizarOrdenes();
