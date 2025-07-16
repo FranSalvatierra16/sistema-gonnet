@@ -65,8 +65,8 @@ urlpatterns = [
     path('reserva_exitosa/<int:reserva_id>/', views.reserva_exitosa, name='reserva_exitosa'),
     path('reservas/finalizar/<int:reserva_id>/', views.terminar_reserva, name='finalizar_reserva'),
     path('reservas/<int:reserva_id>/editar/', views.reserva_editar, name='reserva_editar'),
-  path('buscar-propietarios/', views.buscar_propietarios, name='buscar_propietarios'),
-  path('buscar-inquilinos/', views.buscar_inquilinos, name='buscar_inquilinos'),
+    path('buscar-propietarios/', views.buscar_propietarios, name='buscar_propietarios'),
+    path('buscar-inquilinos/', views.buscar_inquilinos, name='buscar_inquilinos'),
     path('reserva/eliminar/<int:reserva_id>/', views.reserva_eliminar, name='reserva_eliminar'),
     path('autenticacion-vendedor/', views.autenticacion_vendedor, name='autenticacion_vendedor'),
     path('obtener_precios_propiedad/', views.obtener_precios_propiedad, name='obtener_precios_propiedad'),
@@ -140,6 +140,8 @@ urlpatterns = [
     path("propiedades/nuevo/",               views.propiedad_nuevo,       name="propiedad_nuevo"),
     path("propiedades/<int:propiedad_id>/editar/",
          views.propiedad_editar,             name="propiedad_editar"),
+    path("imagen/<int:imagen_id>/eliminar/",
+         views.imagen_eliminar,              name="imagen_eliminar"),
     path("propiedades/<int:propiedad_id>/reordenar-imagenes/",
          views.reordenar_imagenes,           name="reordenar_imagenes"),
     path('obtener-caracteristicas-propiedad/', views.obtener_caracteristicas_propiedad, name='obtener_caracteristicas_propiedad'),
@@ -149,5 +151,9 @@ urlpatterns = [
     path('sucursal/<int:sucursal_id>/editar/', views.editar_sucursal, name='editar_sucursal'),
     path('obtener-fotos-propiedad/<int:propiedad_id>/', views.obtener_fotos_propiedad, name='obtener_fotos_propiedad'),
     path('obtener-precios-propiedad/<int:propiedad_id>/', views.obtener_precios_propiedad, name='obtener_precios_propiedad'),
+    
+    # Rutas de imágenes
+    path('imagen/<int:imagen_id>/eliminar/', views.imagen_eliminar, name='imagen_eliminar'),
+    path('propiedad/<int:propiedad_id>/eliminar-todas-imagenes/', views.eliminar_todas_imagenes, name='eliminar_todas_imagenes'),
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
