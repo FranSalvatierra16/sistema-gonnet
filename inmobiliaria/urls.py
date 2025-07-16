@@ -140,10 +140,10 @@ urlpatterns = [
     path("propiedades/nuevo/",               views.propiedad_nuevo,       name="propiedad_nuevo"),
     path("propiedades/<int:propiedad_id>/editar/",
          views.propiedad_editar,             name="propiedad_editar"),
-    path("imagen/<int:imagen_id>/eliminar/",
-         views.imagen_eliminar,              name="imagen_eliminar"),
-    path("propiedades/<int:propiedad_id>/reordenar-imagenes/",
-         views.reordenar_imagenes,           name="reordenar_imagenes"),
+    # Rutas de imágenes
+    path('imagen/<int:imagen_id>/eliminar/', views.imagen_eliminar, name='imagen_eliminar'),
+    path('propiedad/<int:propiedad_id>/eliminar-todas-imagenes/', views.eliminar_todas_imagenes, name='eliminar_todas_imagenes'),
+    path('propiedades/<int:propiedad_id>/reordenar-imagenes/', views.reordenar_imagenes, name='reordenar_imagenes'),
     path('obtener-caracteristicas-propiedad/', views.obtener_caracteristicas_propiedad, name='obtener_caracteristicas_propiedad'),
     # Sucursal URLs
     path('sucursal/', views.sucursales, name='sucursales'),
