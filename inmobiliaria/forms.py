@@ -24,6 +24,7 @@ from datetime import datetime
 from django.forms import modelformset_factory
 from django.core.exceptions import ValidationError
 from django.db import models
+import os
 # Formulario de creación de Vendedor
 class VendedorUserCreationForm(forms.ModelForm):
     username = forms.CharField(max_length=150, help_text='Requerido. 150 caracteres o menos.')
@@ -238,13 +239,25 @@ class PropiedadForm(forms.ModelForm):
                     max_orden=models.Max('orden')
                 )['max_orden'] or 0
                 
-                # Agregar las nuevas imágenes al final
-                for index, imagen in enumerate(imagenes):
+                # Obtener nombres de archivos existentes para evitar duplicados
+                imagenes_existentes = ImagenPropiedad.objects.filter(propiedad=propiedad)
+                nombres_existentes = {os.path.basename(img.imagen.name) for img in imagenes_existentes}
+                
+                # Agregar las nuevas imágenes al final, evitando duplicados
+                nuevas_agregadas = 0
+                for imagen in imagenes:
+                    nombre_archivo = os.path.basename(imagen.name)
+                    # Si la imagen ya existe, saltarla
+                    if nombre_archivo in nombres_existentes:
+                        continue
+                        
+                    nuevas_agregadas += 1
                     ImagenPropiedad.objects.create(
                         propiedad=propiedad,
                         imagen=imagen,
-                        orden=ultimo_orden + index + 1
+                        orden=ultimo_orden + nuevas_agregadas
                     )
+                    nombres_existentes.add(nombre_archivo)
         return propiedad
 class PrecioForm(forms.ModelForm):
     class Meta:

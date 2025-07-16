@@ -371,37 +371,7 @@ def propiedad_editar(request, propiedad_id):
         form = PropiedadForm(request.POST, request.FILES, instance=propiedad, user=request.user)
         propietario_form = PropietarioForm(user=request.user)
         if form.is_valid():
-            propiedad = form.save()
-            
-            # Procesar nuevas imágenes si las hay
-            imagenes_nuevas = request.FILES.getlist('imagenes')
-            if imagenes_nuevas:
-                # Obtener el último orden existente
-                ultimo_orden = ImagenPropiedad.objects.filter(propiedad=propiedad).aggregate(
-                    max_orden=models.Max('orden')
-                )['max_orden'] or 0
-                
-                # Obtener nombres de archivos existentes
-                imagenes_existentes = ImagenPropiedad.objects.filter(propiedad=propiedad)
-                nombres_existentes = {os.path.basename(img.imagen.name) for img in imagenes_existentes}
-                
-                # Contador para nuevas imágenes
-                nuevas_agregadas = 0
-                
-                for imagen in imagenes_nuevas:
-                    nombre_archivo = os.path.basename(imagen.name)
-                    # Si la imagen ya existe, saltarla
-                    if nombre_archivo in nombres_existentes:
-                        continue
-                        
-                    nuevas_agregadas += 1
-                    ImagenPropiedad.objects.create(
-                        propiedad=propiedad,
-                        imagen=imagen,
-                        orden=ultimo_orden + nuevas_agregadas
-                    )
-                    nombres_existentes.add(nombre_archivo)
-            
+            propiedad = form.save()  # El formulario se encarga de procesar las imágenes
             messages.success(request, 'Propiedad actualizada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
     else:
