@@ -381,22 +381,26 @@ def propiedad_editar(request, propiedad_id):
                     max_orden=models.Max('orden')
                 )['max_orden'] or 0
                 
-                # Crear un set de nombres de archivo existentes para evitar duplicados
-                nombres_existentes = set(ImagenPropiedad.objects.filter(
-                    propiedad=propiedad
-                ).values_list('imagen', flat=True))
+                # Obtener nombres de archivos existentes
+                imagenes_existentes = ImagenPropiedad.objects.filter(propiedad=propiedad)
+                nombres_existentes = {os.path.basename(img.imagen.name) for img in imagenes_existentes}
                 
-                for index, imagen in enumerate(imagenes_nuevas, 1):
+                # Contador para nuevas imágenes
+                nuevas_agregadas = 0
+                
+                for imagen in imagenes_nuevas:
+                    nombre_archivo = os.path.basename(imagen.name)
                     # Si la imagen ya existe, saltarla
-                    if str(imagen) in nombres_existentes:
+                    if nombre_archivo in nombres_existentes:
                         continue
-                    
+                        
+                    nuevas_agregadas += 1
                     ImagenPropiedad.objects.create(
                         propiedad=propiedad,
                         imagen=imagen,
-                        orden=ultimo_orden + index
+                        orden=ultimo_orden + nuevas_agregadas
                     )
-                    nombres_existentes.add(str(imagen))
+                    nombres_existentes.add(nombre_archivo)
             
             messages.success(request, 'Propiedad actualizada exitosamente.')
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
