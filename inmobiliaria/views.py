@@ -2450,37 +2450,52 @@ def eliminar_movimiento(request, movimiento_id):
 
 @login_required
 def caja(request):
-    try:
-        # Obtener o crear la caja para la sucursal del usuario
-        caja_obj, created = Caja.objects.get_or_create(
-            sucursal=request.user.sucursal,
-            defaults={'saldo': 0}
-        )
-        
-        # Obtener los movimientos
-        movimientos = MovimientoCaja.objects.filter(
-            caja=caja_obj
-        ).order_by('-fecha')
-        
-        # Calcular totales
-        ingresos = movimientos.filter(tipo='IN').aggregate(
-            total=Sum('monto'))['total'] or 0
-        egresos = movimientos.filter(tipo='EG').aggregate(
-            total=Sum('monto'))['total'] or 0
-        
-        context = {
-            'caja': caja_obj,
-            'movimientos': movimientos,
-            'saldo_actual': caja_obj.saldo,
-            'total_ingresos': ingresos,
-            'total_egresos': egresos,
-        }
-        
-        return render(request, 'inmobiliaria/caja/caja.html', context)
-        
-    except Exception as e:
-        messages.error(request, f'Error: {str(e)}')
-        return redirect('inmobiliaria:index')
+    # Obtener la caja actual
+    sucursal = request.user.sucursal
+    caja = Caja.objects.filter(sucursal=sucursal, estado='abierta').first()
+    
+    if not caja:
+        messages.error(request, "No hay una caja abierta")
+        return redirect('inmobiliaria:gestionar_caja')
+    
+    # Obtener todos los movimientos de la caja
+    movimientos = MovimientoCaja.objects.filter(
+        caja=caja
+    ).order_by('-fecha')
+    
+    # Calcular totales
+    totales = {
+        'efectivo': sum(m.monto_efectivo for m in movimientos),
+        'cheques': sum(m.monto_cheque for m in movimientos),
+        'tarjetas': sum(m.monto_tarjeta for m in movimientos),
+        'depositos': sum(m.monto_deposito for m in movimientos),
+    }
+    
+    # Calcular saldos
+    ingresos = movimientos.filter(tipo='ingreso')
+    egresos = movimientos.filter(tipo='egreso')
+    
+    saldos = {
+        'anterior': caja.saldo_inicial,
+        'ingresos': sum(m.monto_efectivo + m.monto_cheque + m.monto_tarjeta + m.monto_deposito + m.monto_qr for m in ingresos),
+        'egresos': sum(m.monto_efectivo + m.monto_cheque + m.monto_tarjeta + m.monto_deposito + m.monto_qr for m in egresos),
+        'anterior_total': caja.saldo_inicial,
+        'ingresos_total': sum(m.monto_efectivo + m.monto_cheque + m.monto_tarjeta + m.monto_deposito + m.monto_qr for m in ingresos),
+        'egresos_total': sum(m.monto_efectivo + m.monto_cheque + m.monto_tarjeta + m.monto_deposito + m.monto_qr for m in egresos),
+    }
+    
+    # Calcular saldo del día y total
+    saldos['dia'] = saldos['ingresos'] - saldos['egresos']
+    saldos['total'] = saldos['anterior'] + saldos['dia']
+    
+    context = {
+        'caja': caja,
+        'movimientos': movimientos,
+        'totales': totales,
+        'saldos': saldos,
+    }
+    
+    return render(request, 'inmobiliaria/caja/caja.html', context)
 
 @login_required
 def detalle_caja(request, numero):
