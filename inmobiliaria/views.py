@@ -2369,11 +2369,20 @@ def nuevo_movimiento(request):
     
     if request.method == 'POST':
         try:
-            # Convertir valores monetarios a float primero y luego a Decimal
-            monto_efectivo = float(request.POST.get('monto_efectivo', '0').replace(',', '.') or '0')
-            monto_cheque = float(request.POST.get('monto_cheque', '0').replace(',', '.') or '0')
-            monto_tarjeta = float(request.POST.get('monto_tarjeta', '0').replace(',', '.') or '0')
-            monto_deposito = float(request.POST.get('monto_deposito', '0').replace(',', '.') or '0')
+            # Función auxiliar para convertir valores
+            def to_decimal(value):
+                if value is None or value == '':
+                    return 0
+                try:
+                    return float(str(value).replace(',', '.'))
+                except (ValueError, TypeError):
+                    return 0
+
+            # Convertir valores monetarios
+            monto_efectivo = to_decimal(request.POST.get('monto_efectivo'))
+            monto_cheque = to_decimal(request.POST.get('monto_cheque'))
+            monto_tarjeta = to_decimal(request.POST.get('monto_tarjeta'))
+            monto_deposito = to_decimal(request.POST.get('monto_deposito'))
 
             # Procesar fechas
             fecha_desde = None
