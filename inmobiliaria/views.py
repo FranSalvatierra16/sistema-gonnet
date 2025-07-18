@@ -2364,8 +2364,11 @@ def cerrar_caja(request, numero_caja):
         return redirect('inmobiliaria:lista_cajas')
 
 @login_required
-def nuevo_movimiento(request):
-    caja = get_object_or_404(Caja, sucursal=request.user.sucursal, estado='abierta')
+def nuevo_movimiento(request, numero_caja=None):
+    if numero_caja:
+        caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
+    else:
+        caja = get_object_or_404(Caja, sucursal=request.user.sucursal, estado='abierta')
     
     if request.method == 'POST':
         try:

@@ -165,6 +165,12 @@ urlpatterns = [
     path('propiedad/<int:propiedad_id>/eliminar-todas-imagenes/', views.eliminar_todas_imagenes, name='eliminar_todas_imagenes'),
     
     # Caja URLs
+    path('cajas/', views.lista_cajas, name='lista_cajas'),
+    path('cajas/<int:numero_caja>/movimiento/', views.nuevo_movimiento, name='nuevo_movimiento'),
+    path('cajas/<int:numero_caja>/cerrar/', views.cerrar_caja, name='cerrar_caja'),
+    path('cajas/<int:numero>/detalle/', views.detalle_caja, name='detalle_caja'),
+    path('caja/', views.caja, name='caja'),
+    path('caja/nuevo-movimiento/', views.nuevo_movimiento, name='nuevo_movimiento_sin_caja'),
     path('caja/dashboard/', views.dashboard_caja, name='dashboard_caja'),
     path('caja/reportes/', views.reportes_caja, name='reportes_caja'),
     path('caja/arqueo/', views.arqueo_caja, name='arqueo_caja'),
