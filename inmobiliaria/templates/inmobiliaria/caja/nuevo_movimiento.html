@@ -57,49 +57,6 @@
 
 {% block content %}
 <div class="container-fluid mt-3">
-    <!-- Búsqueda -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0">Búsqueda de Movimientos</h5>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-2">
-                    <label class="form-label">Operación</label>
-                    <div class="input-group">
-                        <input type="text" id="buscar_operacion_num" class="form-control" placeholder="0">
-                        <button type="button" class="btn btn-primary" id="btn_buscar_operacion">
-                            <i class="fas fa-search"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Desde fecha</label>
-                    <input type="date" id="fecha_desde" class="form-control">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Hasta fecha</label>
-                    <input type="date" id="fecha_hasta" class="form-control">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Productor</label>
-                    <div class="input-group">
-                        <input type="text" id="buscar_productor_id" class="form-control" placeholder="0">
-                        <button type="button" class="btn btn-primary" id="btn_buscar_productor">
-                            <i class="fas fa-search"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Productor Nombre</label>
-                    <input type="text" id="productor_nombre" class="form-control" readonly>
-                    <input type="hidden" id="productor_id_hidden">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Formulario de Movimiento -->
     <div class="card">
         <div class="card-header">
             <h3>Nuevo Movimiento de Caja</h3>
@@ -112,33 +69,56 @@
                 <!-- Tipo de Movimiento y Comprobante -->
                 <div class="row mb-3">
                     <div class="col-md-2">
-                        <label class="form-label">Operación</label>
+                        <label class="form-label">Tipo de Movimiento</label>
+                        <select name="tipo" class="form-control" required>
+                            <option value="ingreso">Ingreso (I)</option>
+                            <option value="egreso">Egreso (E)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Tipo de Comprobante</label>
+                        <select name="tipo_comprobante" class="form-control" required>
+                            <option value="recibo">Recibo</option>
+                            <option value="factura">Factura</option>
+                            <option value="nota_credito">Nota de Crédito</option>
+                            <option value="nota_debito">Nota de Débito</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">N° Operación</label>
                         <div class="input-group">
-                            <input type="text" name="operacion" class="form-control" placeholder="0">
-                            <button type="button" class="btn btn-primary" id="buscar_operacion">
+                            <input type="text" id="buscar_operacion_num" class="form-control" placeholder="0">
+                            <button type="button" class="btn btn-primary" id="btn_buscar_operacion">
                                 <i class="fas fa-search"></i>
                             </button>
                         </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Desde fecha</label>
-                        <input type="date" id="fecha_desde" class="form-control">
+                    <div class="col-md-3">
+                        <label class="form-label">N° Comprobante</label>
+                        <input type="text" name="numero_liquidacion" class="form-control" pattern="[0-9]{4}-[0-9]{8}" placeholder="0000-00000000">
+                        <small class="form-text text-muted">Formato: 0000-00000000</small>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Hasta fecha</label>
-                        <input type="date" id="fecha_hasta" class="form-control">
+                    <div class="col-md-3">
+                        <label class="form-label">Fecha</label>
+                        <input type="text" class="form-control" value="{{ fecha_actual|date:'d/m/Y H:i' }}" readonly>
+                        <input type="hidden" name="fecha" value="{{ fecha_actual|date:'Y-m-d H:i:s' }}">
                     </div>
+                </div>
+
+                <!-- Productor -->
+                <div class="row mb-3">
                     <div class="col-md-2">
                         <label class="form-label">Productor</label>
                         <div class="input-group">
-                            <input type="text" id="productor_id" class="form-control" placeholder="0">
-                            <button type="button" class="btn btn-primary" id="buscar_productor">
+                            <input type="text" id="buscar_productor_id" class="form-control" placeholder="0">
+                            <button type="button" class="btn btn-primary" id="btn_buscar_productor">
                                 <i class="fas fa-search"></i>
                             </button>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">Productor Nombre</label>
+                        <label class="form-label">Nombre del Productor</label>
                         <input type="text" id="productor_nombre" class="form-control" readonly>
                         <input type="hidden" name="productor_id" id="productor_id_hidden">
                     </div>
@@ -360,12 +340,10 @@
                 <!-- Búsqueda -->
                 <div class="form-group">
                     <div class="input-group mb-3">
-                        <input type="text" id="buscar_productor_texto" class="form-control" placeholder="Buscar por nombre, apellido o DNI...">
-                        <div class="input-group-append">
-                            <button class="btn btn-primary" type="button" id="btn_buscar_productor_modal">
-                                <i class="fas fa-search"></i> Buscar
-                            </button>
-                        </div>
+                        <input type="text" id="buscar_productor_texto" class="form-control" placeholder="Buscar por nombre o ID...">
+                        <button class="btn btn-primary" type="button" id="btn_buscar_productor_modal">
+                            <i class="fas fa-search"></i> Buscar
+                        </button>
                     </div>
                 </div>
 
@@ -376,7 +354,6 @@
                             <tr>
                                 <th>ID</th>
                                 <th>Nombre</th>
-                                <th>DNI</th>
                                 <th>Acción</th>
                             </tr>
                         </thead>
@@ -700,7 +677,7 @@ $(document).ready(function() {
         });
     });
 
-    // Modal para buscar productor
+    // Abrir modal de búsqueda de productor
     $('#btn_buscar_productor').click(function() {
         $('#modalBuscarProductor').modal('show');
     });
@@ -727,7 +704,6 @@ $(document).ready(function() {
                         html += '<tr>' +
                             '<td>' + vend.id + '</td>' +
                             '<td>' + vend.nombre + ' ' + vend.apellido + '</td>' +
-                            '<td>' + vend.id + '</td>' +
                             '<td><button type="button" class="btn btn-sm btn-primary seleccionar-productor" ' +
                             'data-id="' + vend.id + '" ' +
                             'data-nombre="' + vend.nombre + '" ' +
@@ -736,7 +712,7 @@ $(document).ready(function() {
                     });
                     $('#productores_lista').html(html);
                 } else {
-                    $('#productores_lista').html('<tr><td colspan="4" class="text-center">No se encontraron productores</td></tr>');
+                    $('#productores_lista').html('<tr><td colspan="3" class="text-center">No se encontraron productores</td></tr>');
                 }
             },
             error: function() {
