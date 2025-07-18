@@ -2366,79 +2366,44 @@ def cerrar_caja(request, numero_caja):
 
 @login_required
 def nuevo_movimiento(request, numero_caja=None):
-    if numero_caja:
-        caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
-    else:
-        caja = get_object_or_404(Caja, sucursal=request.user.sucursal, estado='abierta')
-    
-    if request.method == 'POST':
-        try:
-            # Procesar fechas
-            fecha_desde = None
-            fecha_hasta = None
-            try:
-                if request.POST.get('fecha_desde'):
-                    fecha_desde = datetime.strptime(request.POST.get('fecha_desde'), '%Y-%m-%d').date()
-                if request.POST.get('fecha_hasta'):
-                    fecha_hasta = datetime.strptime(request.POST.get('fecha_hasta'), '%Y-%m-%d').date()
-            except ValueError:
-                messages.error(request, 'Formato de fecha inválido')
-                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
-                    'caja': caja,
-                    'fecha_actual': timezone.now()
-                })
-
-            # Crear el movimiento con valores iniciales
-            movimiento = MovimientoCaja(
-                caja=caja,
-                tipo=request.POST.get('tipo'),
-                tipo_comprobante=request.POST.get('tipo_comprobante'),
-                numero_liquidacion=request.POST.get('numero_liquidacion', ''),
-                concepto=request.POST.get('concepto_id', ''),
-                propiedad_id=request.POST.get('propiedad_id') if request.POST.get('propiedad_id') else None,
-                fecha_desde=fecha_desde,
-                fecha_hasta=fecha_hasta,
-                monto_efectivo=0,
-                monto_cheque=0,
-                monto_tarjeta=0,
-                monto_deposito=0,
-                destino_deposito=request.POST.get('destino_deposito'),
-                a_descontar=request.POST.get('a_descontar', 'oficina'),
+    try:
+        # Si no se proporciona número de caja, buscar la caja abierta
+        if numero_caja is None:
+            caja = Caja.objects.filter(
                 sucursal=request.user.sucursal,
-                empleado=request.user
-            )
+                estado='abierta'
+            ).first()
+            if not caja:
+                messages.error(request, "No hay una caja abierta")
+                return redirect('inmobiliaria:lista_cajas')
+            numero_caja = caja.numero
+        else:
+            caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal)
+            if caja.estado != 'abierta':
+                messages.error(request, "La caja está cerrada")
+                return redirect('inmobiliaria:lista_cajas')
 
-            # Procesar los montos
-            try:
-                movimiento.monto_efectivo = float(request.POST.get('monto_efectivo', '0').replace(',', '.') or '0')
-                movimiento.monto_cheque = float(request.POST.get('monto_cheque', '0').replace(',', '.') or '0')
-                movimiento.monto_tarjeta = float(request.POST.get('monto_tarjeta', '0').replace(',', '.') or '0')
-                movimiento.monto_deposito = float(request.POST.get('monto_deposito', '0').replace(',', '.') or '0')
-            except (ValueError, TypeError):
-                messages.error(request, 'Error en los montos ingresados')
-                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
-                    'caja': caja,
-                    'fecha_actual': timezone.now()
-                })
+        if request.method == 'POST':
+            form = MovimientoCajaForm(request.POST)
+            if form.is_valid():
+                movimiento = form.save(commit=False)
+                movimiento.caja = caja
+                movimiento.empleado = request.user
+                movimiento.sucursal = request.user.sucursal
+                movimiento.save()
+                messages.success(request, 'Movimiento registrado correctamente')
+                return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+        else:
+            form = MovimientoCajaForm()
 
-            # Guardar el movimiento
-            movimiento.save()
-
-            messages.success(request, 'Movimiento creado exitosamente')
-            return redirect('inmobiliaria:caja')
-
-        except Exception as e:
-            messages.error(request, f'Error al crear el movimiento: {str(e)}')
-            return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
-                'caja': caja,
-                'fecha_actual': timezone.now()
-            })
-    
-    context = {
-        'caja': caja,
-        'fecha_actual': timezone.now(),
-    }
-    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
+        context = {
+            'form': form,
+            'caja': caja
+        }
+        return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
+    except Exception as e:
+        messages.error(request, f'Error al procesar el movimiento: {str(e)}')
+        return redirect('inmobiliaria:lista_cajas')
 
 @login_required
 def eliminar_movimiento(request, movimiento_id):
@@ -2524,6 +2489,8 @@ def detalle_caja(request, numero):
         'cheque': sum(m.monto_cheque for m in ingresos),
         'tarjeta': sum(m.monto_tarjeta for m in ingresos),
         'deposito': sum(m.monto_deposito for m in ingresos),
+        'deposito_galicia': sum(m.monto_deposito for m in ingresos if m.destino_deposito == 'galicia'),
+        'deposito_mp': sum(m.monto_deposito for m in ingresos if m.destino_deposito == 'mp'),
         'total': sum(m.monto_total for m in ingresos)
     }
     
@@ -2533,6 +2500,8 @@ def detalle_caja(request, numero):
         'cheque': sum(m.monto_cheque for m in egresos),
         'tarjeta': sum(m.monto_tarjeta for m in egresos),
         'deposito': sum(m.monto_deposito for m in egresos),
+        'deposito_galicia': sum(m.monto_deposito for m in egresos if m.destino_deposito == 'galicia'),
+        'deposito_mp': sum(m.monto_deposito for m in egresos if m.destino_deposito == 'mp'),
         'total': sum(m.monto_total for m in egresos)
     }
     
@@ -2541,7 +2510,9 @@ def detalle_caja(request, numero):
         'efectivo': totales_ingresos['efectivo'] - totales_egresos['efectivo'],
         'cheque': totales_ingresos['cheque'] - totales_egresos['cheque'],
         'tarjeta': totales_ingresos['tarjeta'] - totales_egresos['tarjeta'],
-        'deposito': totales_ingresos['deposito'] - totales_egresos['deposito']
+        'deposito': totales_ingresos['deposito'] - totales_egresos['deposito'],
+        'deposito_galicia': totales_ingresos['deposito_galicia'] - totales_egresos['deposito_galicia'],
+        'deposito_mp': totales_ingresos['deposito_mp'] - totales_egresos['deposito_mp']
     }
     
     # Preparar el contexto con todos los totales

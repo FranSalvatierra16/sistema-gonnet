@@ -51,6 +51,82 @@
         </div>
     </div>
 
+    <!-- Lista de Movimientos -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Movimientos</h5>
+            {% if caja.estado == 'abierta' %}
+            <a href="{% url 'inmobiliaria:nuevo_movimiento' caja.numero %}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Nuevo Movimiento
+            </a>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Concepto</th>
+                            <th>Efectivo</th>
+                            <th>Cheque</th>
+                            <th>Tarjeta</th>
+                            <th>Transferencia</th>
+                            <th>Total</th>
+                            <th>Destino</th>
+                            <th>Empleado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for movimiento in movimientos %}
+                        <tr>
+                            <td>{{ movimiento.fecha|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <span class="badge {% if movimiento.tipo == 'IN' %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ movimiento.get_tipo_display }}
+                                </span>
+                            </td>
+                            <td>{{ movimiento.concepto }}</td>
+                            <td>${{ movimiento.monto_efectivo|floatformat:2 }}</td>
+                            <td>${{ movimiento.monto_cheque|floatformat:2 }}</td>
+                            <td>${{ movimiento.monto_tarjeta|floatformat:2 }}</td>
+                            <td>
+                                ${{ movimiento.monto_deposito|floatformat:2 }}
+                                {% if movimiento.monto_deposito > 0 %}
+                                    <br><small class="text-muted">({{ movimiento.get_destino_deposito_display|default:"-" }})</small>
+                                {% endif %}
+                            </td>
+                            <td>${{ movimiento.monto_total|floatformat:2 }}</td>
+                            <td>{{ movimiento.a_descontar }}</td>
+                            <td>{{ movimiento.empleado }}</td>
+                            <td>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-sm btn-info" title="Ver detalles" 
+                                            data-bs-toggle="modal" data-bs-target="#modalDetalles{{ movimiento.id }}">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    {% if caja.estado == 'abierta' %}
+                                    <a href="#" class="btn btn-sm btn-danger" title="Eliminar"
+                                       onclick="confirmarEliminar('{% url 'inmobiliaria:eliminar_movimiento' movimiento.id %}')">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="11" class="text-center">No hay movimientos registrados</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- Resumen de Totales -->
     <div class="row mb-4">
         <div class="col-md-6">
@@ -66,7 +142,11 @@
                         </div>
                         <div class="col-md-6">
                             <p><strong>Tarjeta:</strong> ${{ totales.ingresos.tarjeta|floatformat:2 }}</p>
-                            <p><strong>Depósitos:</strong> ${{ totales.ingresos.deposito|floatformat:2 }}</p>
+                            <p><strong>Transferencias:</strong> ${{ totales.ingresos.deposito|floatformat:2 }}</p>
+                            <div class="ms-3">
+                                <small><strong>Galicia:</strong> ${{ totales.ingresos.deposito_galicia|floatformat:2 }}</small><br>
+                                <small><strong>MP:</strong> ${{ totales.ingresos.deposito_mp|floatformat:2 }}</small>
+                            </div>
                         </div>
                     </div>
                     <hr>
@@ -87,7 +167,11 @@
                         </div>
                         <div class="col-md-6">
                             <p><strong>Tarjeta:</strong> ${{ totales.egresos.tarjeta|floatformat:2 }}</p>
-                            <p><strong>Depósitos:</strong> ${{ totales.egresos.deposito|floatformat:2 }}</p>
+                            <p><strong>Transferencias:</strong> ${{ totales.egresos.deposito|floatformat:2 }}</p>
+                            <div class="ms-3">
+                                <small><strong>Galicia:</strong> ${{ totales.egresos.deposito_galicia|floatformat:2 }}</small><br>
+                                <small><strong>MP:</strong> ${{ totales.egresos.deposito_mp|floatformat:2 }}</small>
+                            </div>
                         </div>
                     </div>
                     <hr>
@@ -129,83 +213,16 @@
                         </div>
                         <div class="col-md-3">
                             <div class="info-box">
-                                <h6>Depósitos</h6>
+                                <h6>Transferencias</h6>
                                 <p>${{ totales.saldo_actual.deposito|floatformat:2|abs }}</p>
+                                <div class="small">
+                                    <div><strong>Galicia:</strong> ${{ totales.saldo_actual.deposito_galicia|floatformat:2|abs }}</div>
+                                    <div><strong>MP:</strong> ${{ totales.saldo_actual.deposito_mp|floatformat:2|abs }}</div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Lista de Movimientos -->
-    <div class="card">
-        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Movimientos</h5>
-            {% if caja.estado == 'abierta' %}
-            <a href="{% url 'inmobiliaria:nuevo_movimiento' caja.numero %}" class="btn btn-success">
-                <i class="fas fa-plus"></i> Nuevo Movimiento
-            </a>
-            {% endif %}
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Tipo</th>
-                            <th>Concepto</th>
-                            <th>Efectivo</th>
-                            <th>Cheque</th>
-                            <th>Tarjeta</th>
-                            <th>Depósito</th>
-                            <th>Total</th>
-                            <th>Destino</th>
-                            <th>Empleado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for movimiento in movimientos %}
-                        <tr>
-                            <td>{{ movimiento.fecha|date:"d/m/Y H:i" }}</td>
-                            <td>
-                                <span class="badge {% if movimiento.tipo == 'IN' %}bg-success{% else %}bg-danger{% endif %}">
-                                    {{ movimiento.get_tipo_display }}
-                                </span>
-                            </td>
-                            <td>{{ movimiento.concepto }}</td>
-                            <td>${{ movimiento.monto_efectivo|floatformat:2 }}</td>
-                            <td>${{ movimiento.monto_cheque|floatformat:2 }}</td>
-                            <td>${{ movimiento.monto_tarjeta|floatformat:2 }}</td>
-                            <td>${{ movimiento.monto_deposito|floatformat:2 }}</td>
-                            <td>${{ movimiento.monto_total|floatformat:2 }}</td>
-                            <td>{{ movimiento.a_descontar }}</td>
-                            <td>{{ movimiento.empleado }}</td>
-                            <td>
-                                <div class="btn-group">
-                                    <button type="button" class="btn btn-sm btn-info" title="Ver detalles" 
-                                            data-bs-toggle="modal" data-bs-target="#modalDetalles{{ movimiento.id }}">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                    {% if caja.estado == 'abierta' %}
-                                    <a href="#" class="btn btn-sm btn-danger" title="Eliminar"
-                                       onclick="confirmarEliminar('{% url 'inmobiliaria:eliminar_movimiento' movimiento.id %}')">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="11" class="text-center">No hay movimientos registrados</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
             </div>
         </div>
     </div>
@@ -227,12 +244,12 @@
                 <p><strong>Efectivo:</strong> ${{ movimiento.monto_efectivo|floatformat:2 }}</p>
                 <p><strong>Cheque:</strong> ${{ movimiento.monto_cheque|floatformat:2 }}</p>
                 <p><strong>Tarjeta:</strong> ${{ movimiento.monto_tarjeta|floatformat:2 }}</p>
-                <p><strong>Depósito:</strong> ${{ movimiento.monto_deposito|floatformat:2 }}</p>
+                <p><strong>Transferencia:</strong> ${{ movimiento.monto_deposito|floatformat:2 }}</p>
                 <p><strong>Total:</strong> ${{ movimiento.monto_total|floatformat:2 }}</p>
                 <p><strong>Destino:</strong> {{ movimiento.a_descontar }}</p>
                 <p><strong>Empleado:</strong> {{ movimiento.empleado }}</p>
                 {% if movimiento.destino_deposito %}
-                <p><strong>Destino del Depósito:</strong> {{ movimiento.get_destino_deposito_display }}</p>
+                <p><strong>Destino de la Transferencia:</strong> {{ movimiento.get_destino_deposito_display }}</p>
                 {% endif %}
             </div>
             <div class="modal-footer">
