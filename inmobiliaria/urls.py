@@ -163,5 +163,7 @@ urlpatterns = [
     path('caja/historial/', views.historial_caja, name='historial_caja'),
     path('caja/conceptos/buscar/', views.buscar_conceptos, name='buscar_conceptos'),
     path('caja/conceptos/crear/', views.crear_concepto, name='crear_concepto'),
+    path('caja/propiedad/buscar/', views.buscar_propiedad, name='buscar_propiedad'),
+    path('caja/propiedades/buscar/', views.buscar_propiedades, name='buscar_propiedades'),
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

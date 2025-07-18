@@ -3234,3 +3234,62 @@ def crear_concepto(request):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def buscar_propiedad(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+    
+    id = request.POST.get('id')
+    sucursal = request.user.sucursal
+    
+    try:
+        propiedad = Propiedad.objects.get(id=id, sucursal=sucursal)
+        return JsonResponse({
+            'success': True,
+            'propiedad': {
+                'id': propiedad.id,
+                'direccion': propiedad.direccion,
+                'ubicacion': propiedad.ubicacion
+            }
+        })
+    except Propiedad.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'No se encontró la propiedad'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@login_required
+def buscar_propiedades(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+    
+    termino = request.POST.get('termino', '')
+    sucursal = request.user.sucursal
+    
+    try:
+        propiedades = Propiedad.objects.filter(
+            sucursal=sucursal
+        ).filter(
+            Q(id__icontains=termino) |
+            Q(direccion__icontains=termino)
+        ).order_by('direccion')[:10]
+        
+        return JsonResponse({
+            'success': True,
+            'propiedades': [{
+                'id': p.id,
+                'direccion': p.direccion,
+                'ubicacion': p.ubicacion
+            } for p in propiedades]
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })

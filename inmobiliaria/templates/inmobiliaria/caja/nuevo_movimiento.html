@@ -121,6 +121,53 @@
                     </div>
                 </div>
 
+                <!-- Propiedad -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Propiedad</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <label class="form-label">ID Propiedad</label>
+                                        <div class="input-group">
+                                            <input type="text" id="propiedad_id" name="propiedad_id" class="form-control" placeholder="ID">
+                                            <div class="input-group-append">
+                                                <button type="button" class="btn btn-primary" id="buscar_propiedad_id">
+                                                    <i class="fas fa-search"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-7">
+                                        <label class="form-label">Dirección</label>
+                                        <input type="text" id="propiedad_direccion" class="form-control" readonly>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">&nbsp;</label>
+                                        <button type="button" class="btn btn-success btn-block" data-toggle="modal" data-target="#modalBuscarPropiedad">
+                                            <i class="fas fa-search"></i> Buscar Propiedad
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Propiedad seleccionada -->
+                                <div id="propiedad_seleccionada" class="d-none mt-3">
+                                    <div class="alert alert-success">
+                                        <strong>Propiedad seleccionada:</strong>
+                                        <span id="propiedad_seleccionada_texto"></span>
+                                        <button type="button" class="close" id="btn_limpiar_propiedad">
+                                            <span>&times;</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Detalles -->
                 <div class="row mb-3">
                     <div class="col-md-12">
@@ -169,6 +216,53 @@
                 <button type="button" class="btn btn-primary" id="btn_guardar_concepto">
                     <i class="fas fa-save"></i> Guardar Concepto
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Buscar Propiedad -->
+<div class="modal fade" id="modalBuscarPropiedad" tabindex="-1" role="dialog" aria-labelledby="modalBuscarPropiedadLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalBuscarPropiedadLabel">Buscar Propiedad</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Búsqueda -->
+                <div class="form-group">
+                    <div class="input-group mb-3">
+                        <input type="text" id="buscar_propiedad_texto" class="form-control" placeholder="Buscar por dirección o ID...">
+                        <div class="input-group-append">
+                            <button class="btn btn-primary" type="button" id="btn_buscar_propiedad">
+                                <i class="fas fa-search"></i> Buscar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resultados -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Dirección</th>
+                                <th>Ubicación</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="propiedades_lista">
+                            <!-- Los resultados se cargarán aquí -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -294,6 +388,118 @@ $(document).ready(function() {
     $('#formNuevoConcepto').on('submit', function(e) {
         e.preventDefault();
         $('#btn_guardar_concepto').click();
+    });
+
+    // Función para cargar los datos de una propiedad
+    function cargarPropiedad(id, direccion, ubicacion) {
+        $('#propiedad_id').val(id);
+        $('#propiedad_direccion').val(direccion);
+        $('#propiedad_seleccionada_texto').text(id + ' - ' + direccion);
+        $('#propiedad_seleccionada').removeClass('d-none');
+        $('#modalBuscarPropiedad').modal('hide');
+    }
+
+    // Buscar propiedad por ID
+    $('#buscar_propiedad_id').click(function() {
+        var id = $('#propiedad_id').val();
+        if (!id) {
+            alert('Ingrese un ID de propiedad');
+            return;
+        }
+
+        $.ajax({
+            url: '{% url "inmobiliaria:buscar_propiedad" %}',
+            data: {
+                id: id,
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+            },
+            method: 'POST',
+            success: function(response) {
+                if (response.success && response.propiedad) {
+                    cargarPropiedad(
+                        response.propiedad.id,
+                        response.propiedad.direccion,
+                        response.propiedad.ubicacion
+                    );
+                } else {
+                    alert('No se encontró la propiedad');
+                    $('#propiedad_direccion').val('');
+                    $('#propiedad_seleccionada').addClass('d-none');
+                }
+            },
+            error: function() {
+                alert('Error al buscar la propiedad');
+            }
+        });
+    });
+
+    // Buscar propiedades en el modal
+    $('#btn_buscar_propiedad').click(function() {
+        var termino = $('#buscar_propiedad_texto').val();
+        if (!termino) {
+            alert('Ingrese un término de búsqueda');
+            return;
+        }
+
+        $.ajax({
+            url: '{% url "inmobiliaria:buscar_propiedades" %}',
+            data: {
+                termino: termino,
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+            },
+            method: 'POST',
+            success: function(response) {
+                if (response.propiedades && response.propiedades.length > 0) {
+                    var html = '';
+                    response.propiedades.forEach(function(prop) {
+                        html += '<tr>' +
+                            '<td>' + prop.id + '</td>' +
+                            '<td>' + prop.direccion + '</td>' +
+                            '<td>' + prop.ubicacion + '</td>' +
+                            '<td><button type="button" class="btn btn-sm btn-primary seleccionar-propiedad" ' +
+                            'data-id="' + prop.id + '" ' +
+                            'data-direccion="' + prop.direccion + '" ' +
+                            'data-ubicacion="' + prop.ubicacion + '">' +
+                            '<i class="fas fa-check"></i> Seleccionar</button></td></tr>';
+                    });
+                    $('#propiedades_lista').html(html);
+                } else {
+                    $('#propiedades_lista').html('<tr><td colspan="4" class="text-center">No se encontraron propiedades</td></tr>');
+                }
+            },
+            error: function() {
+                alert('Error al buscar propiedades');
+            }
+        });
+    });
+
+    // Seleccionar propiedad desde la lista
+    $(document).on('click', '.seleccionar-propiedad', function() {
+        var id = $(this).data('id');
+        var direccion = $(this).data('direccion');
+        var ubicacion = $(this).data('ubicacion');
+        cargarPropiedad(id, direccion, ubicacion);
+    });
+
+    // Limpiar propiedad seleccionada
+    $('#btn_limpiar_propiedad').click(function() {
+        $('#propiedad_id').val('');
+        $('#propiedad_direccion').val('');
+        $('#propiedad_seleccionada').addClass('d-none');
+    });
+
+    // Permitir búsqueda con Enter
+    $('#buscar_propiedad_texto').keypress(function(e) {
+        if (e.which == 13) {
+            $('#btn_buscar_propiedad').click();
+        }
+    });
+
+    // También permitir búsqueda por ID con Enter
+    $('#propiedad_id').keypress(function(e) {
+        if (e.which == 13) {
+            $('#buscar_propiedad_id').click();
+        }
     });
 });
 </script>
