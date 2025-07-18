@@ -103,12 +103,14 @@ class MovimientoCaja(models.Model):
 class Concepto(models.Model):
     id = models.CharField(max_length=20, primary_key=True)  # ID personalizado
     nombre = models.CharField(max_length=100)
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_creacion = models.DateTimeField(default=timezone.now)  # Cambiado de auto_now_add a default
+    sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE, related_name='conceptos', null=True)  # null=True temporalmente
 
     class Meta:
         verbose_name = "Concepto"
         verbose_name_plural = "Conceptos"
         ordering = ['id']
+        unique_together = ['id', 'sucursal']  # ID único por sucursal
 
     def __str__(self):
         return f"{self.id} - {self.nombre}"
