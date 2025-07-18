@@ -156,12 +156,10 @@ urlpatterns = [
     path('imagen/<int:imagen_id>/eliminar/', views.imagen_eliminar, name='imagen_eliminar'),
     path('propiedad/<int:propiedad_id>/eliminar-todas-imagenes/', views.eliminar_todas_imagenes, name='eliminar_todas_imagenes'),
     
+    # Caja URLs
+    path('caja/dashboard/', views.dashboard_caja, name='dashboard_caja'),
+    path('caja/reportes/', views.reportes_caja, name='reportes_caja'),
+    path('caja/arqueo/', views.arqueo_caja, name='arqueo_caja'),
+    path('caja/historial/', views.historial_caja, name='historial_caja'),
+    
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
-# Caja URLs
-path('caja/dashboard/', views.dashboard_caja, name='dashboard_caja'),
-path('caja/nuevo-movimiento/', views.nuevo_movimiento, name='nuevo_movimiento'),
-path('caja/cerrar/', views.cerrar_caja, name='cerrar_caja'),
-path('caja/reportes/', views.reportes_caja, name='reportes_caja'),
-path('caja/arqueo/', views.arqueo_caja, name='arqueo_caja'),
-path('caja/historial/', views.historial_caja, name='historial_caja'),
