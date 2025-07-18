@@ -2507,25 +2507,27 @@ def detalle_caja(request, numero):
     
     # Calcular saldo actual por método de pago
     saldo_actual = {
-        'efectivo': totales_ingresos['efectivo'] - totales_egresos['efectivo'],
-        'cheque': totales_ingresos['cheque'] - totales_egresos['cheque'],
-        'tarjeta': totales_ingresos['tarjeta'] - totales_egresos['tarjeta'],
-        'deposito': totales_ingresos['deposito'] - totales_egresos['deposito'],
-        'deposito_galicia': totales_ingresos['deposito_galicia'] - totales_egresos['deposito_galicia'],
-        'deposito_mp': totales_ingresos['deposito_mp'] - totales_egresos['deposito_mp']
+        'efectivo': abs(totales_ingresos['efectivo'] - totales_egresos['efectivo']),
+        'cheque': abs(totales_ingresos['cheque'] - totales_egresos['cheque']),
+        'tarjeta': abs(totales_ingresos['tarjeta'] - totales_egresos['tarjeta']),
+        'deposito': abs(totales_ingresos['deposito'] - totales_egresos['deposito']),
+        'deposito_galicia': abs(totales_ingresos['deposito_galicia'] - totales_egresos['deposito_galicia']),
+        'deposito_mp': abs(totales_ingresos['deposito_mp'] - totales_egresos['deposito_mp'])
     }
     
     # Preparar el contexto con todos los totales
     totales = {
         'ingresos': totales_ingresos,
         'egresos': totales_egresos,
-        'saldo_actual': saldo_actual
+        'saldo_actual': saldo_actual,
+        'saldo_total': abs(caja.get_saldo_actual())  # Agregamos el saldo total como valor absoluto
     }
     
     context = {
         'caja': caja,
         'movimientos': movimientos,
-        'totales': totales
+        'totales': totales,
+        'es_saldo_positivo': caja.get_saldo_actual() >= 0  # Para el color del saldo
     }
     
     return render(request, 'inmobiliaria/caja/detalle_caja.html', context)
