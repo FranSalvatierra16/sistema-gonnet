@@ -32,14 +32,14 @@
             </div>
         </div>
 
-        <!-- Gestionar Caja -->
+        <!-- Caja Actual -->
         <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:caja' %}'">
+            <div class="menu-card" onclick="irACajaActual()">
                 <div class="card-icon">
-                    <i class="fas fa-cog"></i>
+                    <i class="fas fa-cash-register"></i>
                 </div>
-                <h3>Gestionar Caja</h3>
-                <p>Administrar caja actual</p>
+                <h3>Caja Actual</h3>
+                <p>Ver caja abierta</p>
             </div>
         </div>
 
@@ -53,101 +53,79 @@
                 <p>Ver informes y estadísticas</p>
             </div>
         </div>
-
-        <!-- Arqueo -->
-        <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:arqueo_caja' %}'">
-                <div class="card-icon">
-                    <i class="fas fa-calculator"></i>
-                </div>
-                <h3>Arqueo de Caja</h3>
-                <p>Control de efectivo</p>
-            </div>
-        </div>
-
-        <!-- Volver -->
-        <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:dashboard' %}'">
-                <div class="card-icon">
-                    <i class="fas fa-arrow-left"></i>
-                </div>
-                <h3>Volver</h3>
-                <p>Regresar al menú principal</p>
-            </div>
-        </div>
     </div>
 </div>
 
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function irACajaActual() {
+    fetch('{% url "inmobiliaria:obtener_caja_actual" %}', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.caja_numero) {
+            window.location.href = `/cajas/${data.caja_numero}/detalle/`;
+        } else {
+            alert('No hay una caja abierta. Por favor, abra una caja primero.');
+            window.location.href = '{% url "inmobiliaria:lista_cajas" %}';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ocurrió un error al buscar la caja actual.');
+    });
+}
+</script>
+
 <style>
 .menu-card {
-    background: white;
-    border-radius: 15px;
-    padding: 30px;
+    background: #fff;
+    border-radius: 10px;
+    padding: 20px;
     text-align: center;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     transition: all 0.3s ease;
     cursor: pointer;
-    height: 100%;
-    min-height: 200px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    margin: 10px;
 }
 
 .menu-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
 .card-icon {
-    font-size: 3em;
+    font-size: 2em;
     margin-bottom: 15px;
-}
-
-/* Colores específicos para cada tarjeta */
-.menu-card:nth-child(1) {
-    border-top: 4px solid #007bff;
-    .card-icon { color: #007bff; }
-}
-
-.menu-card:nth-child(2) {
-    border-top: 4px solid #28a745;
-    .card-icon { color: #28a745; }
-}
-
-.menu-card:nth-child(3) {
-    border-top: 4px solid #ffc107;
-    .card-icon { color: #ffc107; }
-}
-
-.menu-card:nth-child(4) {
-    border-top: 4px solid #dc3545;
-    .card-icon { color: #dc3545; }
-}
-
-.menu-card:nth-child(5) {
-    border-top: 4px solid #17a2b8;
-    .card-icon { color: #17a2b8; }
-}
-
-.menu-card:nth-child(6) {
-    border-top: 4px solid #6f42c1;
-    .card-icon { color: #6f42c1; }
+    color: #007bff;
 }
 
 .menu-card h3 {
-    color: #333;
     margin-bottom: 10px;
-    font-size: 1.5em;
-    font-weight: bold;
+    color: #333;
 }
 
 .menu-card p {
     color: #666;
-    margin: 0;
+    margin-bottom: 0;
 }
 </style>
-
 {% endblock %} 

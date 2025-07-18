@@ -3571,3 +3571,22 @@ def buscar_vendedores(request):
             'success': False,
             'error': str(e)
         })
+
+@login_required
+def obtener_caja_actual(request):
+    """Devuelve el número de la caja actual abierta para la sucursal del usuario"""
+    try:
+        caja_actual = Caja.objects.filter(
+            sucursal=request.user.sucursal,
+            estado='abierta'
+        ).first()
+        
+        return JsonResponse({
+            'success': True,
+            'caja_numero': caja_actual.numero if caja_actual else None
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })

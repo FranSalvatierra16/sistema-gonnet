@@ -179,5 +179,6 @@ urlpatterns = [
     path('caja/conceptos/crear/', views.crear_concepto, name='crear_concepto'),
     path('caja/propiedad/buscar/', views.buscar_propiedad, name='buscar_propiedad'),
     path('caja/propiedades/buscar/', views.buscar_propiedades, name='buscar_propiedades'),
+    path('caja/obtener-actual/', views.obtener_caja_actual, name='obtener_caja_actual'),
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
