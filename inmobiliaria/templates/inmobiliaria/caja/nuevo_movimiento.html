@@ -348,6 +348,89 @@
     </div>
 </div>
 
+<!-- Modal Buscar Productor -->
+<div class="modal fade" id="modalBuscarProductor" tabindex="-1" aria-labelledby="modalBuscarProductorLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalBuscarProductorLabel">Buscar Productor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Búsqueda -->
+                <div class="form-group">
+                    <div class="input-group mb-3">
+                        <input type="text" id="buscar_productor_texto" class="form-control" placeholder="Buscar por nombre, apellido o DNI...">
+                        <div class="input-group-append">
+                            <button class="btn btn-primary" type="button" id="btn_buscar_productor_modal">
+                                <i class="fas fa-search"></i> Buscar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resultados -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>DNI</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productores_lista">
+                            <!-- Los resultados se cargarán aquí -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Resultados de Búsqueda -->
+<div class="modal fade" id="modalResultadosMovimientos" tabindex="-1" aria-labelledby="modalResultadosMovimientosLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalResultadosMovimientosLabel">Resultados de la Búsqueda</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Operación</th>
+                                <th>Comprobante</th>
+                                <th>Productor</th>
+                                <th>Propiedad</th>
+                                <th>Concepto</th>
+                                <th>Detalles</th>
+                                <th>Monto</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="movimientos_lista">
+                            <!-- Los resultados se cargarán aquí -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -768,51 +851,36 @@ $(document).ready(function() {
             buscarPorFechas();
         }
     });
+
+    // Función para mostrar los resultados de la búsqueda
+    function mostrarResultadosMovimientos(movimientos) {
+        var html = '';
+        movimientos.forEach(function(mov) {
+            html += '<tr>' +
+                '<td>' + mov.fecha + '</td>' +
+                '<td>' + (mov.tipo === 'ingreso' ? 'Ingreso (I)' : 'Egreso (E)') + '</td>' +
+                '<td>' + mov.operacion + '</td>' +
+                '<td>' + mov.numero_liquidacion + '</td>' +
+                '<td>' + (mov.productor ? mov.productor.nombre + ' ' + mov.productor.apellido : '-') + '</td>' +
+                '<td>' + (mov.propiedad ? mov.propiedad.direccion : '-') + '</td>' +
+                '<td>' + (mov.concepto ? mov.concepto.nombre : '-') + '</td>' +
+                '<td>' + mov.detalles + '</td>' +
+                '<td>$' + mov.monto.toFixed(2) + '</td>' +
+                '<td><button type="button" class="btn btn-sm btn-primary cargar-movimiento" ' +
+                'data-operacion="' + mov.operacion + '">' +
+                '<i class="fas fa-check"></i> Seleccionar</button></td></tr>';
+        });
+        $('#movimientos_lista').html(html);
+        $('#modalResultadosMovimientos').modal('show');
+    }
+
+    // Evento para cargar un movimiento desde los resultados
+    $(document).on('click', '.cargar-movimiento', function() {
+        var operacion = $(this).data('operacion');
+        $('#buscar_operacion_num').val(operacion);
+        $('#btn_buscar_operacion').click();
+        $('#modalResultadosMovimientos').modal('hide');
+    });
 });
 </script>
-{% endblock %}
-
-<!-- Modal Buscar Productor -->
-<div class="modal fade" id="modalBuscarProductor" tabindex="-1" aria-labelledby="modalBuscarProductorLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalBuscarProductorLabel">Buscar Productor</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <!-- Búsqueda -->
-                <div class="form-group">
-                    <div class="input-group mb-3">
-                        <input type="text" id="buscar_productor_texto" class="form-control" placeholder="Buscar por nombre, apellido o DNI...">
-                        <div class="input-group-append">
-                            <button class="btn btn-primary" type="button" id="btn_buscar_productor_modal">
-                                <i class="fas fa-search"></i> Buscar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Resultados -->
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Nombre</th>
-                                <th>DNI</th>
-                                <th>Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody id="productores_lista">
-                            <!-- Los resultados se cargarán aquí -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-            </div>
-        </div>
-    </div>
-</div> 
+{% endblock %} 
