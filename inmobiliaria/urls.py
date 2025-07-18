@@ -55,6 +55,13 @@ urlpatterns = [
     path('disponibilidad-masiva/', views.agregar_disponibilidad_masiva, name='agregar_disponibilidad_masiva'),
     path('propiedad/<int:propiedad_id>/historial-disponibilidad/', views.ver_historial_disponibilidad, name='historial_disponibilidad'),
 
+    # Búsqueda URLs
+    path('buscar-propiedades/', views.buscar_propiedades, name='buscar_propiedades'),
+    path('buscar-propiedad/', views.buscar_propiedad, name='buscar_propiedad'),
+    path('buscar-propietarios/', views.buscar_propietarios, name='buscar_propietarios'),
+    path('buscar-movimiento/', views.buscar_movimiento, name='buscar_movimiento'),
+    path('buscar-movimientos/', views.buscar_movimientos, name='buscar_movimientos'),
+
     # Reserva URLs
     path('reservas/', views.reservas, name='reservas'),
     path('operaciones/', views.operaciones, name='operaciones'),

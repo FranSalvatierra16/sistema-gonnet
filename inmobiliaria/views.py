@@ -3293,3 +3293,111 @@ def buscar_propiedades(request):
             'success': False,
             'error': str(e)
         })
+
+@login_required
+def buscar_movimiento(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+    
+    operacion = request.POST.get('operacion')
+    sucursal = request.user.sucursal
+    
+    try:
+        movimiento = MovimientoCaja.objects.select_related(
+            'productor',
+            'propiedad',
+            'concepto'
+        ).get(operacion=operacion, caja__sucursal=sucursal)
+        
+        return JsonResponse({
+            'success': True,
+            'movimiento': {
+                'tipo': movimiento.tipo,
+                'tipo_comprobante': movimiento.tipo_comprobante,
+                'numero_liquidacion': movimiento.numero_liquidacion,
+                'detalles': movimiento.detalles,
+                'productor': {
+                    'id': movimiento.productor.id,
+                    'nombre': movimiento.productor.nombre,
+                    'apellido': movimiento.productor.apellido
+                } if movimiento.productor else None,
+                'propiedad': {
+                    'id': movimiento.propiedad.id,
+                    'direccion': movimiento.propiedad.direccion
+                } if movimiento.propiedad else None,
+                'concepto': {
+                    'id': movimiento.concepto.id,
+                    'nombre': movimiento.concepto.nombre
+                } if movimiento.concepto else None
+            }
+        })
+    except MovimientoCaja.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'No se encontró el movimiento'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@login_required
+def buscar_movimientos(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+    
+    fecha_desde = request.POST.get('fecha_desde')
+    fecha_fin = request.POST.get('fecha_hasta')
+    productor_id = request.POST.get('productor_id')
+    sucursal = request.user.sucursal
+    
+    try:
+        # Construir el query base
+        movimientos = MovimientoCaja.objects.filter(caja__sucursal=sucursal)
+        
+        # Aplicar filtros si se proporcionan
+        if fecha_desde:
+            movimientos = movimientos.filter(fecha__date__gte=fecha_desde)
+        if fecha_fin:
+            movimientos = movimientos.filter(fecha__date__lte=fecha_fin)
+        if productor_id:
+            movimientos = movimientos.filter(productor_id=productor_id)
+        
+        # Ordenar por fecha
+        movimientos = movimientos.order_by('-fecha')
+        
+        # Convertir a lista de diccionarios para la respuesta JSON
+        movimientos_data = [{
+            'id': mov.id,
+            'fecha': mov.fecha.strftime('%d/%m/%Y %H:%M'),
+            'tipo': mov.tipo,
+            'operacion': mov.operacion,
+            'tipo_comprobante': mov.tipo_comprobante,
+            'numero_liquidacion': mov.numero_liquidacion,
+            'detalles': mov.detalles,
+            'monto': float(mov.monto) if mov.monto else 0,
+            'productor': {
+                'id': mov.productor.id,
+                'nombre': mov.productor.nombre,
+                'apellido': mov.productor.apellido
+            } if mov.productor else None,
+            'propiedad': {
+                'id': mov.propiedad.id,
+                'direccion': mov.propiedad.direccion
+            } if mov.propiedad else None,
+            'concepto': {
+                'id': mov.concepto.id,
+                'nombre': mov.concepto.nombre
+            } if mov.concepto else None
+        } for mov in movimientos]
+        
+        return JsonResponse({
+            'success': True,
+            'movimientos': movimientos_data
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })

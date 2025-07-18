@@ -11,11 +11,95 @@
     background-color: #f8f9fa;
     border-top: 2px solid #dee2e6;
 }
+.btn i {
+    margin-right: 5px;
+    font-size: 1rem;
+    vertical-align: middle;
+}
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+.input-group .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.375rem 0.75rem;
+}
+.btn-block {
+    width: 100%;
+}
+.alert {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.alert .btn-close {
+    padding: 0.5rem;
+    margin: -0.5rem -0.5rem -0.5rem auto;
+}
+.table th {
+    background-color: #f8f9fa;
+}
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    display: inline-flex;
+    align-items: center;
+}
+.btn-sm i {
+    font-size: 0.875rem;
+}
+.input-group-text {
+    background-color: #e9ecef;
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-3">
+    <!-- Búsqueda -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Búsqueda de Movimientos</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-2">
+                    <label class="form-label">Operación</label>
+                    <div class="input-group">
+                        <input type="text" id="buscar_operacion_num" class="form-control" placeholder="0">
+                        <button type="button" class="btn btn-primary" id="btn_buscar_operacion">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Desde fecha</label>
+                    <input type="date" id="fecha_desde" class="form-control">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Hasta fecha</label>
+                    <input type="date" id="fecha_hasta" class="form-control">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Productor</label>
+                    <div class="input-group">
+                        <input type="text" id="buscar_productor_id" class="form-control" placeholder="0">
+                        <button type="button" class="btn btn-primary" id="btn_buscar_productor">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Productor Nombre</label>
+                    <input type="text" id="productor_nombre" class="form-control" readonly>
+                    <input type="hidden" id="productor_id_hidden">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario de Movimiento -->
     <div class="card">
         <div class="card-header">
             <h3>Nuevo Movimiento de Caja</h3>
@@ -28,35 +112,35 @@
                 <!-- Tipo de Movimiento y Comprobante -->
                 <div class="row mb-3">
                     <div class="col-md-2">
-                        <label class="form-label">Tipo de Movimiento</label>
-                        <select name="tipo" class="form-control" required>
-                            <option value="ingreso">Ingreso (I)</option>
-                            <option value="egreso">Egreso (E)</option>
-                        </select>
+                        <label class="form-label">Operación</label>
+                        <div class="input-group">
+                            <input type="text" name="operacion" class="form-control" placeholder="0">
+                            <button type="button" class="btn btn-primary" id="buscar_operacion">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label">Tipo de Comprobante</label>
-                        <select name="tipo_comprobante" class="form-control" required>
-                            <option value="recibo">Recibo</option>
-                            <option value="factura">Factura</option>
-                            <option value="nota_credito">Nota de Crédito</option>
-                            <option value="nota_debito">Nota de Débito</option>
-                            <option value="otro">Otro</option>
-                        </select>
+                        <label class="form-label">Desde fecha</label>
+                        <input type="date" id="fecha_desde" class="form-control">
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label">N° Operación (opcional)</label>
-                        <input type="text" name="operacion" class="form-control" placeholder="Auto: {{ siguiente_operacion }}">
-                        <small class="form-text text-muted">Dejar vacío para usar el siguiente número: {{ siguiente_operacion }}</small>
+                        <label class="form-label">Hasta fecha</label>
+                        <input type="date" id="fecha_hasta" class="form-control">
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">N° Liquidación/Comprobante (opcional)</label>
-                        <input type="text" name="numero_liquidacion" class="form-control">
+                    <div class="col-md-2">
+                        <label class="form-label">Productor</label>
+                        <div class="input-group">
+                            <input type="text" id="productor_id" class="form-control" placeholder="0">
+                            <button type="button" class="btn btn-primary" id="buscar_productor">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Fecha</label>
-                        <input type="text" class="form-control" value="{{ fecha_actual|date:'d/m/Y H:i' }}" readonly>
-                        <input type="hidden" name="fecha" value="{{ fecha_actual|date:'Y-m-d H:i:s' }}">
+                    <div class="col-md-4">
+                        <label class="form-label">Productor Nombre</label>
+                        <input type="text" id="productor_nombre" class="form-control" readonly>
+                        <input type="hidden" name="productor_id" id="productor_id_hidden">
                     </div>
                 </div>
 
@@ -81,7 +165,7 @@
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">&nbsp;</label>
-                                        <button type="button" class="btn btn-success btn-block" data-toggle="modal" data-target="#modalNuevoConcepto">
+                                        <button type="button" class="btn btn-success btn-block" data-bs-toggle="modal" data-bs-target="#modalNuevoConcepto">
                                             <i class="fas fa-plus"></i> Crear Nuevo Concepto
                                         </button>
                                     </div>
@@ -111,7 +195,7 @@
                                         <strong>Concepto seleccionado:</strong>
                                         <span id="concepto_seleccionado_texto"></span>
                                         <input type="hidden" name="concepto_id" id="concepto_id">
-                                        <button type="button" class="close" id="btn_limpiar_concepto">
+                                        <button type="button" class="btn-close" id="btn_limpiar_concepto">
                                             <span>&times;</span>
                                         </button>
                                     </div>
@@ -147,7 +231,7 @@
                                     </div>
                                     <div class="col-md-2">
                                         <label class="form-label">&nbsp;</label>
-                                        <button type="button" class="btn btn-success btn-block" data-toggle="modal" data-target="#modalBuscarPropiedad">
+                                        <button type="button" class="btn btn-success btn-block" data-bs-toggle="modal" data-bs-target="#modalBuscarPropiedad">
                                             <i class="fas fa-search"></i> Buscar Propiedad
                                         </button>
                                     </div>
@@ -158,7 +242,7 @@
                                     <div class="alert alert-success">
                                         <strong>Propiedad seleccionada:</strong>
                                         <span id="propiedad_seleccionada_texto"></span>
-                                        <button type="button" class="close" id="btn_limpiar_propiedad">
+                                        <button type="button" class="btn-close" id="btn_limpiar_propiedad">
                                             <span>&times;</span>
                                         </button>
                                     </div>
@@ -189,14 +273,12 @@
 </div>
 
 <!-- Modal Nuevo Concepto -->
-<div class="modal fade" id="modalNuevoConcepto" tabindex="-1" role="dialog" aria-labelledby="modalNuevoConceptoLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
+<div class="modal fade" id="modalNuevoConcepto" tabindex="-1" aria-labelledby="modalNuevoConceptoLabel" aria-hidden="true">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalNuevoConceptoLabel">Crear Nuevo Concepto</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="formNuevoConcepto">
@@ -212,7 +294,7 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="btn_guardar_concepto">
                     <i class="fas fa-save"></i> Guardar Concepto
                 </button>
@@ -222,14 +304,12 @@
 </div>
 
 <!-- Modal Buscar Propiedad -->
-<div class="modal fade" id="modalBuscarPropiedad" tabindex="-1" role="dialog" aria-labelledby="modalBuscarPropiedadLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
+<div class="modal fade" id="modalBuscarPropiedad" tabindex="-1" aria-labelledby="modalBuscarPropiedadLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalBuscarPropiedadLabel">Buscar Propiedad</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <!-- Búsqueda -->
@@ -262,7 +342,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -271,8 +351,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 $(document).ready(function() {
     // Limpiar el formulario cuando se abre el modal
@@ -368,7 +446,10 @@ $(document).ready(function() {
                     $('#concepto_seleccionado').removeClass('d-none');
                     
                     // Cerrar modal y mostrar mensaje
-                    $('#modalNuevoConcepto').modal('hide');
+                    var modalNuevoConcepto = bootstrap.Modal.getInstance(document.getElementById('modalNuevoConcepto'));
+                    if (modalNuevoConcepto) {
+                        modalNuevoConcepto.hide();
+                    }
                     alert('Concepto creado exitosamente');
                 } else {
                     alert(response.error || 'Error al crear el concepto');
@@ -396,7 +477,10 @@ $(document).ready(function() {
         $('#propiedad_direccion').val(direccion);
         $('#propiedad_seleccionada_texto').text(id + ' - ' + direccion);
         $('#propiedad_seleccionada').removeClass('d-none');
-        $('#modalBuscarPropiedad').modal('hide');
+        var modalBuscarPropiedad = bootstrap.Modal.getInstance(document.getElementById('modalBuscarPropiedad'));
+        if (modalBuscarPropiedad) {
+            modalBuscarPropiedad.hide();
+        }
     }
 
     // Buscar propiedad por ID
@@ -501,6 +585,234 @@ $(document).ready(function() {
             $('#buscar_propiedad_id').click();
         }
     });
+
+    // Búsqueda de productor por ID
+    $('#btn_buscar_productor').click(function() {
+        var id = $('#buscar_productor_id').val();
+        if (!id) {
+            alert('Ingrese un ID de productor');
+            return;
+        }
+
+        $.ajax({
+            url: '{% url "inmobiliaria:buscar_propietario" %}',
+            data: {
+                id: id,
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+            },
+            method: 'POST',
+            success: function(response) {
+                if (response.success && response.propietario) {
+                    $('#productor_nombre').val(response.propietario.nombre + ' ' + response.propietario.apellido);
+                    $('#productor_id_hidden').val(response.propietario.id);
+                } else {
+                    alert('No se encontró el productor');
+                    $('#productor_nombre').val('');
+                    $('#productor_id_hidden').val('');
+                }
+            },
+            error: function() {
+                alert('Error al buscar el productor');
+            }
+        });
+    });
+
+    // Modal para buscar productor
+    $('#btn_buscar_productor').click(function() {
+        $('#modalBuscarProductor').modal('show');
+    });
+
+    // Búsqueda de productores en el modal
+    $('#btn_buscar_productor_modal').click(function() {
+        var termino = $('#buscar_productor_texto').val();
+        if (!termino) {
+            alert('Ingrese un término de búsqueda');
+            return;
+        }
+
+        $.ajax({
+            url: '{% url "inmobiliaria:buscar_propietarios" %}',
+            data: {
+                termino: termino,
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+            },
+            method: 'POST',
+            success: function(response) {
+                if (response.propietarios && response.propietarios.length > 0) {
+                    var html = '';
+                    response.propietarios.forEach(function(prop) {
+                        html += '<tr>' +
+                            '<td>' + prop.id + '</td>' +
+                            '<td>' + prop.nombre + ' ' + prop.apellido + '</td>' +
+                            '<td>' + prop.dni + '</td>' +
+                            '<td><button type="button" class="btn btn-sm btn-primary seleccionar-productor" ' +
+                            'data-id="' + prop.id + '" ' +
+                            'data-nombre="' + prop.nombre + '" ' +
+                            'data-apellido="' + prop.apellido + '">' +
+                            '<i class="fas fa-check"></i> Seleccionar</button></td></tr>';
+                    });
+                    $('#productores_lista').html(html);
+                } else {
+                    $('#productores_lista').html('<tr><td colspan="4" class="text-center">No se encontraron productores</td></tr>');
+                }
+            },
+            error: function() {
+                alert('Error al buscar productores');
+            }
+        });
+    });
+
+    // Seleccionar productor desde la lista
+    $(document).on('click', '.seleccionar-productor', function() {
+        var id = $(this).data('id');
+        var nombre = $(this).data('nombre');
+        var apellido = $(this).data('apellido');
+        $('#buscar_productor_id').val(id);
+        $('#productor_nombre').val(nombre + ' ' + apellido);
+        $('#productor_id_hidden').val(id);
+        $('#modalBuscarProductor').modal('hide');
+    });
+
+    // Búsqueda de operación
+    $('#btn_buscar_operacion').click(function() {
+        var operacion = $('#buscar_operacion_num').val();
+        if (!operacion) {
+            alert('Ingrese un número de operación');
+            return;
+        }
+
+        $.ajax({
+            url: '{% url "inmobiliaria:buscar_movimiento" %}',
+            data: {
+                operacion: operacion,
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+            },
+            method: 'POST',
+            success: function(response) {
+                if (response.success && response.movimiento) {
+                    // Rellenar los campos con la información del movimiento
+                    $('select[name="tipo"]').val(response.movimiento.tipo);
+                    $('select[name="tipo_comprobante"]').val(response.movimiento.tipo_comprobante);
+                    $('input[name="numero_liquidacion"]').val(response.movimiento.numero_liquidacion);
+                    
+                    // Si hay un productor asociado
+                    if (response.movimiento.productor) {
+                        $('#buscar_productor_id').val(response.movimiento.productor.id);
+                        $('#productor_nombre').val(response.movimiento.productor.nombre + ' ' + response.movimiento.productor.apellido);
+                        $('#productor_id_hidden').val(response.movimiento.productor.id);
+                    }
+                    
+                    // Si hay una propiedad asociada
+                    if (response.movimiento.propiedad) {
+                        $('#propiedad_id').val(response.movimiento.propiedad.id);
+                        $('#propiedad_direccion').val(response.movimiento.propiedad.direccion);
+                        $('#propiedad_seleccionada_texto').text(response.movimiento.propiedad.id + ' - ' + response.movimiento.propiedad.direccion);
+                        $('#propiedad_seleccionada').removeClass('d-none');
+                    }
+                    
+                    // Si hay un concepto asociado
+                    if (response.movimiento.concepto) {
+                        $('#concepto_id').val(response.movimiento.concepto.id);
+                        $('#concepto_seleccionado_texto').text(response.movimiento.concepto.id + ' - ' + response.movimiento.concepto.nombre);
+                        $('#concepto_seleccionado').removeClass('d-none');
+                    }
+                    
+                    $('textarea[name="detalles"]').val(response.movimiento.detalles);
+                } else {
+                    alert('No se encontró la operación');
+                }
+            },
+            error: function() {
+                alert('Error al buscar la operación');
+            }
+        });
+    });
+
+    // Búsqueda por rango de fechas
+    function buscarPorFechas() {
+        var fechaDesde = $('#fecha_desde').val();
+        var fechaHasta = $('#fecha_hasta').val();
+        var productorId = $('#productor_id_hidden').val();
+
+        if (!fechaDesde && !fechaHasta && !productorId) {
+            alert('Ingrese al menos una fecha o seleccione un productor');
+            return;
+        }
+
+        $.ajax({
+            url: '{% url "inmobiliaria:buscar_movimientos" %}',
+            data: {
+                fecha_desde: fechaDesde,
+                fecha_hasta: fechaHasta,
+                productor_id: productorId,
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+            },
+            method: 'POST',
+            success: function(response) {
+                if (response.success && response.movimientos) {
+                    // Aquí podrías mostrar los resultados en una tabla o modal
+                    mostrarResultadosMovimientos(response.movimientos);
+                } else {
+                    alert('No se encontraron movimientos para los criterios especificados');
+                }
+            },
+            error: function() {
+                alert('Error al buscar movimientos');
+            }
+        });
+    }
+
+    // Evento para los campos de fecha
+    $('#fecha_desde, #fecha_hasta').change(function() {
+        if ($('#fecha_desde').val() && $('#fecha_hasta').val()) {
+            buscarPorFechas();
+        }
+    });
 });
 </script>
-{% endblock %} 
+{% endblock %}
+
+<!-- Modal Buscar Productor -->
+<div class="modal fade" id="modalBuscarProductor" tabindex="-1" aria-labelledby="modalBuscarProductorLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalBuscarProductorLabel">Buscar Productor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Búsqueda -->
+                <div class="form-group">
+                    <div class="input-group mb-3">
+                        <input type="text" id="buscar_productor_texto" class="form-control" placeholder="Buscar por nombre, apellido o DNI...">
+                        <div class="input-group-append">
+                            <button class="btn btn-primary" type="button" id="btn_buscar_productor_modal">
+                                <i class="fas fa-search"></i> Buscar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resultados -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>DNI</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productores_lista">
+                            <!-- Los resultados se cargarán aquí -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div> 
