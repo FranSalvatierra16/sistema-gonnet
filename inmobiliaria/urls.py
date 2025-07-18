@@ -58,7 +58,8 @@ urlpatterns = [
     # Búsqueda URLs
     path('buscar-propiedades/', views.buscar_propiedades, name='buscar_propiedades'),
     path('buscar-propiedad/', views.buscar_propiedad, name='buscar_propiedad'),
-    path('buscar-propietarios/', views.buscar_propietarios, name='buscar_propietarios'),
+    path('buscar-vendedor/', views.buscar_vendedor, name='buscar_vendedor'),
+    path('buscar-vendedores/', views.buscar_vendedores, name='buscar_vendedores'),
     path('buscar-movimiento/', views.buscar_movimiento, name='buscar_movimiento'),
     path('buscar-movimientos/', views.buscar_movimientos, name='buscar_movimientos'),
 

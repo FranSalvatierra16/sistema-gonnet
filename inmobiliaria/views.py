@@ -3401,3 +3401,63 @@ def buscar_movimientos(request):
             'success': False,
             'error': str(e)
         })
+
+@login_required
+def buscar_vendedor(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+    
+    id = request.POST.get('id')
+    sucursal = request.user.sucursal
+    
+    try:
+        vendedor = Vendedor.objects.get(id=id, sucursal=sucursal)
+        return JsonResponse({
+            'success': True,
+            'vendedor': {
+                'id': vendedor.id,
+                'nombre': vendedor.nombre,
+                'apellido': vendedor.apellido
+            }
+        })
+    except Vendedor.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'No se encontró el vendedor'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@login_required
+def buscar_vendedores(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+    
+    termino = request.POST.get('termino', '')
+    sucursal = request.user.sucursal
+    
+    try:
+        vendedores = Vendedor.objects.filter(
+            sucursal=sucursal
+        ).filter(
+            Q(nombre__icontains=termino) |
+            Q(apellido__icontains=termino) |
+            Q(id__icontains=termino)
+        ).order_by('apellido', 'nombre')[:10]
+        
+        return JsonResponse({
+            'success': True,
+            'vendedores': [{
+                'id': v.id,
+                'nombre': v.nombre,
+                'apellido': v.apellido
+            } for v in vendedores]
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })

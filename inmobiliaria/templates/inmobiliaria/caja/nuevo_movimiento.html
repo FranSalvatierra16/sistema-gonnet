@@ -678,16 +678,16 @@ $(document).ready(function() {
         }
 
         $.ajax({
-            url: '{% url "inmobiliaria:buscar_propietario" %}',
+            url: '{% url "inmobiliaria:buscar_vendedor" %}',
             data: {
                 id: id,
                 csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
             },
             method: 'POST',
             success: function(response) {
-                if (response.success && response.propietario) {
-                    $('#productor_nombre').val(response.propietario.nombre + ' ' + response.propietario.apellido);
-                    $('#productor_id_hidden').val(response.propietario.id);
+                if (response.success && response.vendedor) {
+                    $('#productor_nombre').val(response.vendedor.nombre + ' ' + response.vendedor.apellido);
+                    $('#productor_id_hidden').val(response.vendedor.id);
                 } else {
                     alert('No se encontró el productor');
                     $('#productor_nombre').val('');
@@ -714,24 +714,24 @@ $(document).ready(function() {
         }
 
         $.ajax({
-            url: '{% url "inmobiliaria:buscar_propietarios" %}',
+            url: '{% url "inmobiliaria:buscar_vendedores" %}',
             data: {
                 termino: termino,
                 csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
             },
             method: 'POST',
             success: function(response) {
-                if (response.propietarios && response.propietarios.length > 0) {
+                if (response.vendedores && response.vendedores.length > 0) {
                     var html = '';
-                    response.propietarios.forEach(function(prop) {
+                    response.vendedores.forEach(function(vend) {
                         html += '<tr>' +
-                            '<td>' + prop.id + '</td>' +
-                            '<td>' + prop.nombre + ' ' + prop.apellido + '</td>' +
-                            '<td>' + prop.dni + '</td>' +
+                            '<td>' + vend.id + '</td>' +
+                            '<td>' + vend.nombre + ' ' + vend.apellido + '</td>' +
+                            '<td>' + vend.id + '</td>' +
                             '<td><button type="button" class="btn btn-sm btn-primary seleccionar-productor" ' +
-                            'data-id="' + prop.id + '" ' +
-                            'data-nombre="' + prop.nombre + '" ' +
-                            'data-apellido="' + prop.apellido + '">' +
+                            'data-id="' + vend.id + '" ' +
+                            'data-nombre="' + vend.nombre + '" ' +
+                            'data-apellido="' + vend.apellido + '">' +
                             '<i class="fas fa-check"></i> Seleccionar</button></td></tr>';
                     });
                     $('#productores_lista').html(html);
