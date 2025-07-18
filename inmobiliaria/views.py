@@ -2483,7 +2483,7 @@ def detalle_caja(request, numero):
     ingresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
     egresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
     
-    # Calcular totales para ingresos
+    # Calcular totales para ingresos (valores positivos)
     totales_ingresos = {
         'efectivo': sum(m.monto_efectivo for m in ingresos),
         'cheque': sum(m.monto_cheque for m in ingresos),
@@ -2494,7 +2494,7 @@ def detalle_caja(request, numero):
         'total': sum(m.monto_total for m in ingresos)
     }
     
-    # Calcular totales para egresos
+    # Calcular totales para egresos (valores positivos)
     totales_egresos = {
         'efectivo': sum(m.monto_efectivo for m in egresos),
         'cheque': sum(m.monto_cheque for m in egresos),
@@ -2505,29 +2505,35 @@ def detalle_caja(request, numero):
         'total': sum(m.monto_total for m in egresos)
     }
     
-    # Calcular saldo actual por método de pago
+    # Calcular saldo actual por método de pago (ingresos - egresos)
     saldo_actual = {
-        'efectivo': abs(totales_ingresos['efectivo'] - totales_egresos['efectivo']),
-        'cheque': abs(totales_ingresos['cheque'] - totales_egresos['cheque']),
-        'tarjeta': abs(totales_ingresos['tarjeta'] - totales_egresos['tarjeta']),
-        'deposito': abs(totales_ingresos['deposito'] - totales_egresos['deposito']),
-        'deposito_galicia': abs(totales_ingresos['deposito_galicia'] - totales_egresos['deposito_galicia']),
-        'deposito_mp': abs(totales_ingresos['deposito_mp'] - totales_egresos['deposito_mp'])
+        'efectivo': totales_ingresos['efectivo'] - totales_egresos['efectivo'],
+        'cheque': totales_ingresos['cheque'] - totales_egresos['cheque'],
+        'tarjeta': totales_ingresos['tarjeta'] - totales_egresos['tarjeta'],
+        'deposito': totales_ingresos['deposito'] - totales_egresos['deposito'],
+        'deposito_galicia': totales_ingresos['deposito_galicia'] - totales_egresos['deposito_galicia'],
+        'deposito_mp': totales_ingresos['deposito_mp'] - totales_egresos['deposito_mp']
     }
+    
+    # Calcular saldo total
+    saldo_total = (
+        totales_ingresos['total'] -  # Suma todos los ingresos
+        totales_egresos['total']     # Resta todos los egresos
+    )
     
     # Preparar el contexto con todos los totales
     totales = {
         'ingresos': totales_ingresos,
         'egresos': totales_egresos,
         'saldo_actual': saldo_actual,
-        'saldo_total': abs(caja.get_saldo_actual())  # Agregamos el saldo total como valor absoluto
+        'saldo_total': saldo_total
     }
     
     context = {
         'caja': caja,
         'movimientos': movimientos,
         'totales': totales,
-        'es_saldo_positivo': caja.get_saldo_actual() >= 0  # Para el color del saldo
+        'es_saldo_positivo': saldo_total >= 0  # Para el color del saldo
     }
     
     return render(request, 'inmobiliaria/caja/detalle_caja.html', context)
