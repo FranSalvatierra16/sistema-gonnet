@@ -3185,3 +3185,39 @@ def arqueo_caja(request):
 @login_required
 def historial_caja(request):
     return render(request, 'inmobiliaria/caja/historial.html')
+
+@login_required
+def buscar_conceptos(request):
+    termino = request.POST.get('termino', '')
+    
+    # Buscar por ID o nombre
+    conceptos = Concepto.objects.filter(
+        Q(id__icontains=termino) |
+        Q(nombre__icontains=termino)
+    )[:10]  # Limitar a 10 resultados
+    
+    return JsonResponse({
+        'conceptos': [{'id': c.id, 'nombre': c.nombre} for c in conceptos]
+    })
+
+@login_required
+def crear_concepto(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+    
+    id = request.POST.get('id')
+    nombre = request.POST.get('nombre')
+    
+    if not id or not nombre:
+        return JsonResponse({'success': False, 'error': 'ID y nombre son requeridos'})
+    
+    try:
+        # Verificar si ya existe un concepto con ese ID
+        if Concepto.objects.filter(id=id).exists():
+            return JsonResponse({'success': False, 'error': 'Ya existe un concepto con ese ID'})
+        
+        # Crear el concepto
+        concepto = Concepto.objects.create(id=id, nombre=nombre)
+        return JsonResponse({'success': True, 'concepto': {'id': concepto.id, 'nombre': concepto.nombre}})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

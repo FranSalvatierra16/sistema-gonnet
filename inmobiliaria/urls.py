@@ -161,5 +161,7 @@ urlpatterns = [
     path('caja/reportes/', views.reportes_caja, name='reportes_caja'),
     path('caja/arqueo/', views.arqueo_caja, name='arqueo_caja'),
     path('caja/historial/', views.historial_caja, name='historial_caja'),
+    path('caja/conceptos/buscar/', views.buscar_conceptos, name='buscar_conceptos'),
+    path('caja/conceptos/crear/', views.crear_concepto, name='crear_concepto'),
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

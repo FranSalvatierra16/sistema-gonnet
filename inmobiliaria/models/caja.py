@@ -101,9 +101,15 @@ class MovimientoCaja(models.Model):
         ordering = ['-fecha']
 
 class Concepto(models.Model):
-    id = models.AutoField(primary_key=True)
-    nombre = models.CharField(max_length=200)
-    
+    id = models.CharField(max_length=20, primary_key=True)  # ID personalizado
+    nombre = models.CharField(max_length=100)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Concepto"
+        verbose_name_plural = "Conceptos"
+        ordering = ['id']
+
     def __str__(self):
         return f"{self.id} - {self.nombre}"
 

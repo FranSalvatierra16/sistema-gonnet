@@ -1,706 +1,157 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load static %}
-{% load bootstrap4 %}
-
-{% block extra_css %}
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap4-theme@1.0.0/dist/select2-bootstrap4.min.css">
-<style>
-    .card-header-tabs .nav-link.active {
-        background-color: #fff;
-        border-bottom-color: #fff;
-    }
-    .form-section {x
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-        border-radius: 0.25rem;
-        background-color: #f8f9fa;
-        border-left: 4px solid #007bff;
-    }
-    .monto-input {
-        font-size: 1.5rem;
-        height: 3rem;
-        text-align: right;
-        font-weight: bold;
-    }
-    .concepto-card {
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-    .concepto-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    .concepto-card.selected {
-        border-color: #007bff;
-        background-color: #f0f7ff;
-    }
-    .summary-box {
-        background-color: #f8f9fa;
-        border-radius: 0.25rem;
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-    .summary-value {
-        font-size: 1.2rem;
-        font-weight: bold;
-    }
-    .action-buttons {
-        position: sticky;
-        bottom: 0;
-        background-color: white;
-        padding: 1rem;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-        z-index: 100;
-    }
-    .select2-container .select2-selection--single {
-        height: 38px!important;
-        padding: 6px 12px;
-        font-size: 1rem;
-        line-height: 1.5;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__arrow {
-        height: 38px;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__rendered {
-        line-height: 24px;
-    }
-    .select2-result-vendedor {
-        padding: 6px 0;
-    }
-    .select2-result-vendedor__id {
-        color: #007bff;
-    }
-</style>
-{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
+<div class="container-fluid mt-3">
     <div class="card">
-        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-            <h3 class="card-title mb-0">
-                <i class="fas fa-money-bill-wave mr-2"></i> Nuevo Movimiento de Caja
-            </h3>
-            <span class="badge badge-light">Caja #{{ caja_actual.numero }}</span>
-        </div>
-        
         <div class="card-header">
-            <ul class="nav nav-tabs card-header-tabs" id="movimientoTabs" role="tablist">
-                <li class="nav-item">
-                    <a class="nav-link active" id="datos-tab" data-toggle="tab" href="#datos" role="tab">
-                        <i class="fas fa-info-circle mr-1"></i> Datos del Movimiento
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" id="conceptos-tab" data-toggle="tab" href="#conceptos" role="tab">
-                        <i class="fas fa-tags mr-1"></i> Conceptos Frecuentes
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" id="historial-tab" data-toggle="tab" href="#historial" role="tab">
-                        <i class="fas fa-history mr-1"></i> Últimos Movimientos
-                    </a>
-                </li>
-            </ul>
+            <h3>Nuevo Movimiento de Caja</h3>
+            <h5>Caja N°: {{ caja.numero }}</h5>
         </div>
-        
         <div class="card-body">
-            <div class="tab-content" id="movimientoTabsContent">
-                <!-- Pestaña de datos del movimiento -->
-                <div class="tab-pane fade show active" id="datos" role="tabpanel">
-                    <form method="post" id="movimientoForm">
-                        {% csrf_token %}
-                        
-                        <!-- Resumen del movimiento -->
-                        <div class="row mb-4">
-                            <div class="col-md-12">
-                                <div class="summary-box">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <span class="text-muted">Tipo:</span>
-                                            <span class="summary-value text-primary" id="tipoSummary">Ingreso</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-muted">Fecha:</span>
-                                            <span class="summary-value" id="fechaSummary">{% now "d/m/Y" %}</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-muted">Monto:</span>
-                                            <span class="summary-value text-success" id="montoSummary">$0.00</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <!-- Columna Izquierda -->
-                            <div class="col-md-6">
-                                <!-- Sección Tipo y Fecha -->
-                                <div class="form-section">
-                                    <h5><i class="fas fa-info-circle mr-2"></i>Información Básica</h5>
-                                    
-                                    <div class="form-group">
-                                        <label>Tipo de Movimiento <span class="text-danger">*</span></label>
-                                        <div class="btn-group btn-group-toggle w-100" data-toggle="buttons">
-                                            <label class="btn btn-outline-success active">
-                                                <input type="radio" name="tipo" value="ingreso" checked> 
-                                                <i class="fas fa-arrow-down mr-1"></i> INGRESO
-                                            </label>
-                                            <label class="btn btn-outline-danger">
-                                                <input type="radio" name="tipo" value="egreso"> 
-                                                <i class="fas fa-arrow-up mr-1"></i> EGRESO
-                                            </label>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label>Fecha</label>
-                                        <div class="input-group">
-                                            <div class="input-group-prepend">
-                                                <span class="input-group-text"><i class="fas fa-calendar"></i></span>
-                                            </div>
-                                            <input type="date" name="fecha" id="id_fecha" class="form-control" 
-                                                   value="{% now 'Y-m-d' %}" required>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="form-section mt-3">
-                                        <h5><i class="fas fa-file-invoice mr-2"></i>Datos del Comprobante</h5>
-                                        
-                                        <div class="form-group">
-                                            <label>Tipo de Comprobante <span class="text-danger">*</span></label>
-                                            <div class="btn-group-toggle d-flex flex-wrap" data-toggle="buttons">
-                                                <label class="btn btn-outline-primary m-1 flex-fill">
-                                                    <input type="radio" name="tipo_comprobante" value="recibo" required> 
-                                                    <i class="fas fa-receipt mr-1"></i> Recibo
-                                                </label>
-                                                <label class="btn btn-outline-primary m-1 flex-fill">
-                                                    <input type="radio" name="tipo_comprobante" value="liquidacion"> 
-                                                    <i class="fas fa-file-invoice-dollar mr-1"></i> Liquidación
-                                                </label>
-                                                <label class="btn btn-outline-primary m-1 flex-fill">
-                                                    <input type="radio" name="tipo_comprobante" value="gasto"> 
-                                                    <i class="fas fa-file-invoice mr-1"></i> Gasto
-                                                </label>
-                                                <label class="btn btn-outline-primary m-1 flex-fill">
-                                                    <input type="radio" name="tipo_comprobante" value="otro"> 
-                                                    <i class="fas fa-file-alt mr-1"></i> Otro
-                                                </label>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- Número de operación con autocompletado -->
-                                        <div class="form-group">
-                                            <label for="id_operacion">Número de Operación</label>
-                                            <div class="input-group">
-                                                <input type="text" id="id_operacion" name="operacion" class="form-control" 
-                                                       placeholder="Ingrese número de registro...">
-                                                <div class="input-group-append">
-                                                    <button type="button" class="btn btn-outline-secondary" id="buscarOperacion">
-                                                        <i class="fas fa-search"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <small class="form-text text-muted">
-                                                Ingrese un número de registro para autocompletar los campos
-                                            </small>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label>Nº Liquidación/Comprobante (opcional)</label>
-                                        <div class="input-group">
-                                            <div class="input-group-prepend">
-                                                <span class="input-group-text"><i class="fas fa-hashtag"></i></span>
-                                            </div>
-                                            <input type="text" name="numero_liquidacion" id="id_numero_liquidacion" 
-                                                   class="form-control" placeholder="Nº de comprobante">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Columna Derecha -->
-                            <div class="col-md-6">
-                                <!-- Sección Monto y Cuenta -->
-                                <div class="form-section">
-                                    <h5><i class="fas fa-dollar-sign mr-2"></i>Detalles de Pago</h5>
-                                    
-                                    <div class="form-group">
-                                        <label>Monto Total</label>
-                                        <div class="input-group">
-                                            <div class="input-group-prepend">
-                                                <span class="input-group-text">$</span>
-                                            </div>
-                                            <input type="number" id="montoTotal" class="form-control monto-input" 
-                                                   step="0.01" min="0.01" placeholder="0.00" readonly>
-                                        </div>
-                                        <small class="form-text text-muted">Total de todas las formas de pago</small>
-                                    </div>
-                                    
-                                    <div id="formasPagoContainer">
-                                        <div class="card mb-3 forma-pago-card">
-                                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                                <h6 class="mb-0">Forma de Pago #1</h6>
-                                                <button type="button" class="btn btn-sm btn-outline-danger eliminar-forma-pago" 
-                                                        style="display:none;">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
-                                            <div class="card-body">
-                                                <div class="row">
-                                                    <div class="col-md-6">
-                                                        <div class="form-group">
-                                                            <label>Método de Pago</label>
-                                                            <select name="metodo_pago[]" class="form-control metodo-pago" required>
-                                                                <option value="efectivo">Efectivo</option>
-                                                                <option value="tarjeta_debito">Tarjeta de Débito</option>
-                                                                <option value="tarjeta_credito">Tarjeta de Crédito</option>
-                                                                <option value="transferencia">Transferencia Bancaria</option>
-                                                                <option value="mercado_pago">Mercado Pago</option>
-                                                                <option value="codigo_qr">Código QR</option>
-                                                                <option value="otro">Otro</option>
-                                                            </select>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-6">
-                                                        <div class="form-group">
-                                                            <label>Monto</label>
-                                                            <div class="input-group">
-                                                                <div class="input-group-prepend">
-                                                                    <span class="input-group-text">$</span>
-                                                                </div>
-                                                                <input type="number" name="monto_pago[]" class="form-control monto-pago" 
-                                                                       step="0.01" min="0.01" required>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                
-                                                <div class="form-group detalles-adicionales" style="display:none;">
-                                                    <label>Detalles Adicionales</label>
-                                                    <input type="text" name="detalles_pago[]" class="form-control" 
-                                                           placeholder="Número de operación, últimos 4 dígitos, etc.">
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <button type="button" id="agregarFormaPago" class="btn btn-secondary btn-block">
-                                        <i class="fas fa-plus mr-1"></i> Agregar Otra Forma de Pago
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Observaciones -->
-                        <div class="form-section mt-3">
-                            <h5><i class="fas fa-comment mr-2"></i>Observaciones</h5>
-                            <div class="form-group">
-                                <textarea name="observaciones" id="id_observaciones" 
-                                          class="form-control" rows="3" 
-                                          placeholder="Detalles adicionales sobre este movimiento..."></textarea>
-                            </div>
-                        </div>
+            <form method="POST" id="formMovimiento">
+                {% csrf_token %}
+                
+                <!-- Tipo de Movimiento y Comprobante -->
+                <div class="row mb-3">
+                    <div class="col-md-2">
+                        <label class="form-label">Tipo de Movimiento</label>
+                        <select name="tipo" class="form-control" required>
+                            <option value="ingreso">Ingreso (I)</option>
+                            <option value="egreso">Egreso (E)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Tipo de Comprobante</label>
+                        <select name="tipo_comprobante" class="form-control" required>
+                            <option value="recibo">Recibo</option>
+                            <option value="factura">Factura</option>
+                            <option value="nota_credito">Nota de Crédito</option>
+                            <option value="nota_debito">Nota de Débito</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">N° Operación (opcional)</label>
+                        <input type="text" name="operacion" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">N° Liquidación/Comprobante (opcional)</label>
+                        <input type="text" name="numero_liquidacion" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Fecha</label>
+                        <input type="date" name="fecha" class="form-control" value="{{ fecha_actual|date:'Y-m-d' }}" required>
+                    </div>
+                </div>
 
-                        <!-- Concepto -->
-                        <div class="form-group">
-                            <label for="id_concepto">Concepto <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <select class="form-control" id="id_concepto" name="concepto" required>
-                                    <option value="">Seleccione un concepto</option>
-                                    {% for concepto in conceptos %}
-                                        <option value="{{ concepto.id }}">{{ concepto.nombre }}</option>
-                                    {% endfor %}
-                                </select>
-                                <div class="input-group-append">
-                                    <button type="button" class="btn btn-outline-primary" id="btnNuevoConcepto">
-                                        <i class="fas fa-plus"></i> Nuevo Concepto
-                                    </button>
-                                </div>
+                <!-- Concepto -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Concepto</h5>
                             </div>
-                        </div>
-
-                        <!-- Sección para búsqueda de cuenta/propietario -->
-                        <div class="form-section mt-3">
-                            <h5><i class="fas fa-user mr-2"></i>Datos del Propietario/Cuenta</h5>
-                            
-                            <div class="form-group">
-                                <label for="id_cuenta">Cuenta Bancaria <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="id_cuenta" name="cuenta" required placeholder="Ingrese o edite la cuenta bancaria">
-                            </div>
-                            <div class="form-group">
-                                <label for="id_nombre_propietario">Nombre del Propietario</label>
-                                <input type="text" class="form-control" id="id_nombre_propietario" name="nombre_propietario" readonly>
-                            </div>
-                            <input type="hidden" id="id_propietario" name="propietario">
-                            
-                            <div class="form-group">
-                                <label for="id_busqueda_propietario">Buscar por nombre o ID</label>
-                                <div class="input-group">
-                                    <div class="input-group-prepend">
-                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                    </div>
-                                    <input type="text" id="id_busqueda_propietario" class="form-control" 
-                                           placeholder="Buscar propietario...">
-                                </div>
-                                <div id="resultados_propietarios" class="mt-2" style="display:none;">
-                                    <div class="list-group" id="lista_propietarios">
-                                        <!-- Los resultados se cargarán aquí dinámicamente -->
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Sección para productor/vendedor -->
-                        <div class="form-section mt-3">
-                            <h5><i class="fas fa-user-tag mr-2"></i>Datos del Productor</h5>
-                            
-                            <div class="form-group">
-                                <label for="id_productor">Productor</label>
-                                <div class="row">
-                                 
-                                    <div class="col-md-8">
+                            <div class="card-body">
+                                <!-- Búsqueda de Concepto -->
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Buscar Concepto</label>
                                         <div class="input-group">
-                                            <select class="form-control" id="id_productor" name="productor">
-                                                <option value="">Seleccione un productor</option>
-                                            </select>
-                                            <div class="input-group-append">
-                                                <button type="button" class="btn btn-outline-secondary" id="buscarVendedor">
-                                                    <i class="fas fa-search"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Modal para búsqueda de vendedores -->
-                            <div class="modal fade" id="vendedoresModal" tabindex="-1" role="dialog" aria-labelledby="vendedoresModalLabel">
-                                <div class="modal-dialog modal-lg" role="document">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title" id="vendedoresModalLabel">Seleccionar Vendedor</h5>
-                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                                <span aria-hidden="true">&times;</span>
+                                            <input type="text" id="buscar_concepto" class="form-control" placeholder="Buscar por ID o nombre...">
+                                            <button type="button" class="btn btn-primary" id="btn_buscar_concepto">
+                                                <i class="fas fa-search"></i> Buscar
                                             </button>
                                         </div>
-                                        <div class="modal-body">
-                                            <div class="form-group">
-                                                <input type="text" id="busquedaVendedor" class="form-control" placeholder="Buscar por nombre...">
-                                            </div>
-                                            <div class="table-responsive">
-                                                <table id="tablaVendedores" class="table table-striped">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>ID</th>
-                                                            <th>Nombre</th>
-                                                            <th>Teléfono</th>
-                                                            <th>Acción</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <!-- Aquí se cargarán los vendedores -->
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">&nbsp;</label>
+                                        <button type="button" class="btn btn-success btn-block" data-toggle="modal" data-target="#modalNuevoConcepto">
+                                            <i class="fas fa-plus"></i> Crear Nuevo Concepto
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Resultados de búsqueda -->
+                                <div id="resultados_conceptos" class="d-none">
+                                    <h6>Resultados de la búsqueda:</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered">
+                                            <thead>
+                                                <tr>
+                                                    <th>ID</th>
+                                                    <th>Nombre</th>
+                                                    <th>Acción</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="conceptos_lista">
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Concepto seleccionado -->
+                                <div id="concepto_seleccionado" class="d-none">
+                                    <div class="alert alert-success">
+                                        <strong>Concepto seleccionado:</strong>
+                                        <span id="concepto_seleccionado_texto"></span>
+                                        <input type="hidden" name="concepto_id" id="concepto_id">
+                                        <button type="button" class="close" id="btn_limpiar_concepto">
+                                            <span>&times;</span>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </form>
-                </div>
-                
-                <!-- Pestaña de conceptos frecuentes -->
-                <div class="tab-pane fade" id="conceptos" role="tabpanel">
-                    <div class="row">
-                        <div class="col-12 mb-3">
-                            <h5>Conceptos Frecuentes</h5>
-                            <p class="text-muted">Seleccione un concepto para usar en el movimiento actual</p>
-                            <div class="input-group mb-3">
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                </div>
-                                <input type="text" id="conceptoSearch" class="form-control" 
-                                       placeholder="Buscar concepto...">
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row" id="conceptosList">
-                        {% for concepto in conceptos_frecuentes %}
-                        <div class="col-md-4 mb-3 concepto-item">
-                            <div class="card concepto-card" data-id="{{ concepto.id }}" 
-                                 data-nombre="{{ concepto.nombre }}">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ concepto.nombre }}</h5>
-                                    <p class="card-text text-muted small">
-                                        Usado {{ concepto.frecuencia }} veces
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        {% empty %}
-                        <div class="col-12">
-                            <div class="alert alert-info">
-                                No hay conceptos frecuentes disponibles
-                            </div>
-                        </div>
-                        {% endfor %}
                     </div>
                 </div>
-                
-                <!-- Pestaña de historial reciente -->
-                <div class="tab-pane fade" id="historial" role="tabpanel">
-                    <div class="row">
-                        <div class="col-12 mb-3">
-                            <h5>Últimos Movimientos de Caja</h5>
-                            <p class="text-muted">Movimientos registrados en la caja actual</p>
-                        </div>
-                    </div>
-                    
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Tipo</th>
-                                    <th>Concepto</th>
-                                    <th>Cuenta</th>
-                                    <th class="text-right">Monto</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for mov in ultimos_movimientos %}
-                                <tr>
-                                    <td>{{ mov.fecha|date:"d/m/Y" }}</td>
-                                    <td>
-                                        <span class="badge {% if mov.tipo == 'ingreso' %}badge-success{% else %}badge-danger{% endif %}">
-                                            {{ mov.get_tipo_display }}
-                                        </span>
-                                    </td>
-                                    <td>{{ mov.concepto.nombre }}</td>
-                                    <td>{{ mov.cuenta.nombre }}</td>
-                                    <td class="text-right font-weight-bold">
-                                        ${{ mov.monto|floatformat:2 }}
-                                    </td>
-                                    <td>
-                                        <button type="button" class="btn btn-sm btn-outline-primary duplicar-movimiento"
-                                                data-id="{{ mov.id }}" data-tipo="{{ mov.tipo }}"
-                                                data-concepto="{{ mov.concepto.id }}"
-                                                data-cuenta="{{ mov.cuenta.id }}"
-                                                data-monto="{{ mov.monto }}">
-                                            <i class="fas fa-copy"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="6" class="text-center">No hay movimientos recientes</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+
+                <!-- Detalles -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label">Detalles</label>
+                        <textarea name="detalles" class="form-control" rows="3"></textarea>
                     </div>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Botones de acción fijos en la parte inferior -->
-        <div class="action-buttons text-right">
-            <a href="{% url 'inmobiliaria:gestionar_caja' %}" class="btn btn-secondary">
-                <i class="fas fa-times mr-1"></i> Cancelar
-            </a>
-            <button type="button" id="guardarMovimiento" class="btn btn-success ml-2">
-                <i class="fas fa-save mr-1"></i> Guardar Movimiento
-            </button>
-            <button type="button" id="guardarYNuevo" class="btn btn-primary ml-2">
-                <i class="fas fa-plus mr-1"></i> Guardar y Crear Otro
-            </button>
+
+                <!-- Botones -->
+                <div class="row">
+                    <div class="col">
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                        <a href="{% url 'inmobiliaria:caja' %}" class="btn btn-secondary">Cancelar</a>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
-<!-- Modal para crear conceptos (estructura simple) -->
-<div class="modal fade" id="nuevoConceptoModal" tabindex="-1" role="dialog">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Nuevo Concepto</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="mb-3">
-          <label for="nombreConcepto" class="form-label">Nombre del Concepto *</label>
-          <input type="text" class="form-control" id="nombreConcepto" required>
-        </div>
-        <div class="mb-3">
-          <label for="tipoConcepto" class="form-label">Tipo</label>
-          <select class="form-control" id="tipoConcepto">
-            <option value="general">General</option>
-            <option value="ingreso">Ingreso</option>
-            <option value="egreso">Egreso</option>
-          </select>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <!-- Botón simple con onclick -->
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-primary" id="guardarConcepto">Guardar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Script simplificado para el modal -->
-<script>
-// Función para abrir el modal de concepto
-function abrirModalConcepto() {
-    $('#nombreConcepto').val('');
-    $('#tipoConcepto').val('general');
-    $('#nuevoConceptoModal').show();
-}
-
-// Función simple para guardar concepto
-function guardarConceptoSimple() {
-    var nombre = $('#nombreConcepto').val();
-    var tipo = $('#tipoConcepto').val();
-    
-    if (!nombre) {
-        alert("Por favor ingrese un nombre para el concepto");
-        return;
-    }
-    
-    // Enviar mediante AJAX simple
-    $.post('/caja/crear-concepto/', {
-        nombre: nombre,
-        tipo: tipo,
-        csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-    })
-    .done(function(response) {
-        if (response.id) {
-            // Ocultar modal
-            $('#nuevoConceptoModal').hide();
-            
-            // Agregar nueva opción al select
-            var texto = response.codigo ? 
-                response.codigo + ' - ' + response.nombre : 
-                response.nombre;
-                
-            var newOption = new Option(texto, response.id, true, true);
-            $('#id_concepto').append(newOption).trigger('change');
-            
-            // Mensaje de éxito
-            alert("Concepto creado con éxito: " + texto);
-        } else {
-            alert("Error al crear el concepto");
-        }
-    })
-    .fail(function() {
-        alert("Error al conectar con el servidor");
-    });
-}
-
-// Inicializar botón
-$(document).ready(function() {
-    // Asignar evento al botón
-    $('#btnNuevoConcepto').off('click').on('click', function() {
-        abrirModalConcepto();
-    });
-});
-</script>
-
-<!-- Modal para nueva cuenta -->
-<div class="modal fade" id="nuevaCuentaModal" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
+<!-- Modal Nuevo Concepto -->
+<div class="modal fade" id="modalNuevoConcepto" tabindex="-1">
+    <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="fas fa-wallet mr-2"></i>Nueva Cuenta</h5>
-                <button type="button" class="close text-white" data-dismiss="modal">
+            <div class="modal-header">
+                <h5 class="modal-title">Crear Nuevo Concepto</h5>
+                <button type="button" class="close" data-dismiss="modal">
                     <span>&times;</span>
                 </button>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label for="nombreCuenta">Nombre de la Cuenta</label>
-                    <input type="text" id="nombreCuenta" class="form-control" 
-                           placeholder="Ej: Efectivo, Banco Provincia, Mercado Pago..." required>
-                </div>
-                <div class="form-group">
-                    <label for="tipoCuenta">Tipo de Cuenta</label>
-                    <select id="tipoCuenta" class="form-control">
-                        <option value="efectivo">Efectivo</option>
-                        <option value="banco">Cuenta Bancaria</option>
-                        <option value="virtual">Billetera Virtual</option>
-                        <option value="otro">Otro</option>
-                    </select>
-                </div>
-                <div class="form-group" id="datosBancarios" style="display: none;">
-                    <label>Datos Bancarios (opcional)</label>
-                    <input type="text" id="numeroCuenta" class="form-control mb-2" 
-                           placeholder="Número de cuenta">
-                    <input type="text" id="cbu" class="form-control" 
-                           placeholder="CBU/Alias">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-                <button type="button" id="guardarCuenta" class="btn btn-primary">
-                    <i class="fas fa-save mr-1"></i> Guardar Cuenta
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal de confirmación -->
-<div class="modal fade" id="confirmacionModal" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">
-                    <i class="fas fa-check-circle mr-2"></i>Confirmar Movimiento
-                </h5>
-                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <p class="lead">¿Está seguro de registrar este movimiento?</p>
-                
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-5 text-muted">Tipo:</div>
-                            <div class="col-7 font-weight-bold" id="confirmacionTipo">INGRESO</div>
-                        </div>
-                        <div class="row">
-                            <div class="col-5 text-muted">Monto:</div>
-                            <div class="col-7 font-weight-bold" id="confirmacionMonto">$0.00</div>
-                        </div>
-                        <div class="row">
-                            <div class="col-5 text-muted">Concepto:</div>
-                            <div class="col-7" id="confirmacionConcepto">-</div>
-                        </div>
+                <form id="formNuevoConcepto">
+                    <div class="form-group">
+                        <label>ID del Concepto</label>
+                        <input type="text" class="form-control" id="nuevo_concepto_id" required>
+                        <small class="form-text text-muted">Ingrese un ID único para el concepto</small>
                     </div>
-                </div>
-                
-                <div class="alert alert-warning">
-                    <i class="fas fa-exclamation-triangle mr-2"></i>
-                    Esta acción no se puede deshacer.
-                </div>
+                    <div class="form-group">
+                        <label>Nombre del Concepto</label>
+                        <input type="text" class="form-control" id="nuevo_concepto_nombre" required>
+                    </div>
+                </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="confirmarMovimiento">Confirmar</button>
+                <button type="button" class="btn btn-primary" id="btn_guardar_concepto">Guardar Concepto</button>
             </div>
         </div>
     </div>
@@ -708,1117 +159,104 @@ $(document).ready(function() {
 
 <script>
 $(document).ready(function() {
-    // Buscar propietarios al escribir
-    $('#id_busqueda_propietario').on('keyup', function() {
-        var termino = $(this).val();
-        if (termino.length < 2) {
-            $('#resultados_propietarios').hide();
-            $('#lista_propietarios').empty();
+    // Búsqueda de conceptos
+    $('#btn_buscar_concepto').click(function() {
+        var busqueda = $('#buscar_concepto').val();
+        if (!busqueda) {
+            alert('Ingrese un ID o nombre para buscar');
             return;
         }
-        $.ajax({
-            url: '/propietarios/',
-            method: 'GET',
-            data: { termino: termino },
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            success: function(data) {
-                var propietarios = data.propietarios || [];
-                var html = '';
-                if (propietarios.length === 0) {
-                    html = '<div class="list-group-item text-center text-muted">No se encontraron propietarios</div>';
-                } else {
-                    propietarios.forEach(function(p) {
-                        html += '<button type="button" class="list-group-item list-group-item-action seleccionar-propietario" ' +
-                                'data-id="' + p.id + '" ' +
-                                'data-nombre="' + p.nombre + ' ' + p.apellido + '" ' +
-                                'data-cuenta="' + (p.cuenta_bancaria || '') + '">' +
-                                '<strong>' + p.nombre + ' ' + p.apellido + '</strong> - ' +
-                                'Cuenta: <span class="text-primary">' + (p.cuenta_bancaria || 'Sin cuenta') + '</span>' +
-                                '</button>';
-                    });
-                }
-                $('#lista_propietarios').html(html);
-                $('#resultados_propietarios').show();
-            }
-        });
-    });
 
-    // Al seleccionar un propietario de la lista
-    $(document).on('click', '.seleccionar-propietario', function() {
-        var nombre = $(this).data('nombre');
-        var cuenta = $(this).data('cuenta');
-        var id = $(this).data('id');
-        $('#id_cuenta').val(cuenta); // editable
-        $('#id_nombre_propietario').val(nombre);
-        $('#id_propietario').val(id);
-        $('#resultados_propietarios').hide();
-        $('#lista_propietarios').empty();
-    });
-});
-</script>
-
-<!-- Código para modal y búsqueda de vendedores -->
-<script>
-$(document).ready(function() {
-    // Cargar productores al cargar la página
-    function cargarProductoresAutomatico() {
-        // URL correcta que ya sabemos que funciona
+        // Realizar búsqueda mediante AJAX
         $.ajax({
-            url: '/buscar/productores/',
-            method: 'GET',
-            data: { term: '' },
-            success: function(data) {
-                console.log("Productores automáticos:", data);
-                
-                if (data.success && data.resultados && data.resultados.length > 0) {
-                    // Limpiar selector actual
-                    $('#id_productor').empty().append('<option value="">Seleccione un productor</option>');
-                    
-                    // Agregar cada productor al selector
-                    data.resultados.forEach(function(p) {
-                        $('#id_productor').append(`<option value="${p.id}">${p.nombre}</option>`);
-                    });
-                    
-                    console.log("Productores cargados automáticamente");
-                }
+            url: '{% url "inmobiliaria:buscar_conceptos" %}',
+            data: { 
+                termino: busqueda,
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
             },
-            error: function(xhr, status, error) {
-                console.error("Error al cargar productores:", error);
-            }
-        });
-    }
-    
-    // Cargar inmediatamente
-    cargarProductoresAutomatico();
-    
-    // Bind al botón de buscar para que muestre los productores disponibles
-    $('#buscarVendedor').off('click').on('click', function() {
-        // Abrir modal
-        $('#vendedoresModal').modal('show');
-        
-        // Cargar datos en la tabla
-        $('#tablaVendedores tbody').html('<tr><td colspan="3" class="text-center">Cargando...</td></tr>');
-        
-        $.ajax({
-            url: '/buscar/productores/',
-            method: 'GET',
-            data: { term: '' },
-            success: function(data) {
-                // Limpiar tabla
-                $('#tablaVendedores tbody').empty();
-                
-                if (data.success && data.resultados && data.resultados.length > 0) {
-                    // Agregar cada productor
-                    data.resultados.forEach(function(p) {
-                        $('#tablaVendedores tbody').append(`
-                            <tr>
-                                <td>${p.id}</td>
-                                <td>${p.nombre}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary seleccionar-productor" 
-                                            data-id="${p.id}" data-nombre="${p.nombre}">
-                                        Seleccionar
-                                    </button>
-                                </td>
-                            </tr>
-                        `);
-                    });
-                } else {
-                    $('#tablaVendedores tbody').html('<tr><td colspan="3" class="text-center">No hay productores disponibles</td></tr>');
-                }
-            },
-            error: function() {
-                $('#tablaVendedores tbody').html('<tr><td colspan="3" class="text-center">Error al cargar productores</td></tr>');
-            }
-        });
-    });
-    
-    // Manejar selección de productor
-    $(document).on('click', '.seleccionar-productor', function() {
-        const id = $(this).data('id');
-        const nombre = $(this).data('nombre');
-        
-        // Actualizar el selector
-        if (!$('#id_productor option[value="' + id + '"]').length) {
-            $('#id_productor').append(`<option value="${id}">${nombre}</option>`);
-        }
-        
-        // Seleccionar el valor
-        $('#id_productor').val(id);
-        
-        // Cerrar modal
-        $('#vendedoresModal').modal('hide');
-    });
-});
-</script>
-
-<!-- BOTÓN PARA DEPURACIÓN -->
-<div class="row mb-4">
-    <div class="col-12">
-        <button type="button" class="btn btn-warning w-100" onclick="depurarProblemas()">
-            <i class="fas fa-bug"></i> DEPURAR PROBLEMAS DE CONEXIÓN
-        </button>
-    </div>
-</div>
-
-<!-- SCRIPT DE DEPURACIÓN - COLOCA ESTO AL FINAL DEL ARCHIVO -->
-<script>
-function depurarProblemas() {
-    // Verificar jQuery
-    if (typeof $ === 'undefined') {
-        alert("ERROR CRÍTICO: jQuery no está disponible");
-        return;
-    }
-    
-    // Mostrar información básica
-    var info = "DIAGNÓSTICO DEL SISTEMA:\n\n";
-    info += "jQuery versión: " + $.fn.jquery + "\n";
-    info += "Bootstrap versión: " + (typeof bootstrap !== 'undefined' ? bootstrap.Tooltip.VERSION : "No disponible") + "\n";
-    info += "CSRF Token: " + ($('input[name="csrfmiddlewaretoken"]').length ? "Presente" : "AUSENTE") + "\n";
-    info += "URL base: " + window.location.origin + "\n";
-    
-    // Probar AJAX básico
-    info += "\nPROBANDO CONEXIONES AJAX...\n";
-    
-    // Crear ventana de depuración
-    var debugWin = window.open("", "debugWin", "width=800,height=600");
-    debugWin.document.write('<html><head><title>Diagnóstico de Sistema</title>' +
-                          '<style>body{font-family:monospace;padding:20px;}</style></head>' +
-                          '<body><h2>Diagnóstico en curso...</h2>' +
-                          '<pre id="results">' + info + '</pre>' +
-                          '</body></html>');
-    
-    var resultsEl = debugWin.document.getElementById('results');
-    
-    // Probar conexión a propietarios
-    $.ajax({
-        url: '/buscar/propietarios/',
-        method: 'GET',
-        data: { term: ' ' },
-        success: function(data) {
-            resultsEl.innerHTML += "\n✅ CONEXIÓN A PROPIETARIOS EXITOSA\n";
-            resultsEl.innerHTML += "Respuesta: " + JSON.stringify(data, null, 2) + "\n";
-            
-            // Mostrar cantidad de resultados
-            if (data.results) {
-                resultsEl.innerHTML += "Total propietarios: " + data.results.length + "\n";
-                
-                // Mostrar primeros 3 propietarios
-                if (data.results.length > 0) {
-                    resultsEl.innerHTML += "\nEjemplos de propietarios encontrados:\n";
-                    for (var i = 0; i < Math.min(3, data.results.length); i++) {
-                        resultsEl.innerHTML += "- " + data.results[i].text + " (ID: " + data.results[i].id + ")\n";
-                    }
-                }
-            }
-        },
-        error: function(xhr, status, error) {
-            resultsEl.innerHTML += "\n❌ ERROR EN PROPIETARIOS: " + error + "\n";
-            resultsEl.innerHTML += "Status: " + status + "\n";
-            resultsEl.innerHTML += "Respuesta: " + xhr.responseText + "\n";
-        }
-    });
-    
-    // Probar conexión a productores
-    $.ajax({
-        url: '/buscar/productores/',
-        method: 'GET',
-        data: { term: ' ' },
-        success: function(data) {
-            resultsEl.innerHTML += "\n✅ CONEXIÓN A PRODUCTORES EXITOSA\n";
-            resultsEl.innerHTML += "Respuesta: " + JSON.stringify(data, null, 2) + "\n";
-            
-            // Mostrar cantidad de resultados
-            if (data.resultados) {
-                resultsEl.innerHTML += "Total productores: " + data.resultados.length + "\n";
-                
-                // Mostrar primeros 3 productores
-                if (data.resultados.length > 0) {
-                    resultsEl.innerHTML += "\nEjemplos de productores encontrados:\n";
-                    for (var i = 0; i < Math.min(3, data.resultados.length); i++) {
-                        resultsEl.innerHTML += "- " + data.resultados[i].nombre + " (ID: " + data.resultados[i].id + ")\n";
-                    }
-                }
-            }
-        },
-        error: function(xhr, status, error) {
-            resultsEl.innerHTML += "\n❌ ERROR EN PRODUCTORES: " + error + "\n";
-            resultsEl.innerHTML += "Status: " + status + "\n";
-            resultsEl.innerHTML += "Respuesta: " + xhr.responseText + "\n";
-        }
-    });
-    
-    // Verificar estructura HTML
-    resultsEl.innerHTML += "\nESTRUCTURA DE LOS ELEMENTOS:\n";
-    resultsEl.innerHTML += "Modal vendedores: " + ($('#vendedoresModal').length ? "Presente" : "AUSENTE") + "\n";
-    resultsEl.innerHTML += "Modal conceptos: " + ($('#nuevoConceptoModal').length ? "Presente" : "AUSENTE") + "\n";
-    resultsEl.innerHTML += "Selector de propietarios: " + ($('#id_cuenta').length ? "Presente" : "AUSENTE") + "\n";
-    resultsEl.innerHTML += "Selector de productores: " + ($('#id_productor').length ? "Presente" : "AUSENTE") + "\n";
-    
-    // Sugerir soluciones
-    resultsEl.innerHTML += "\n\nSOLUCIONES RECOMENDADAS:\n";
-    resultsEl.innerHTML += "1. Revisa la consola del navegador (F12) para ver errores JavaScript\n";
-    resultsEl.innerHTML += "2. Verifica que las URLs estén correctamente definidas en urls.py\n";
-    resultsEl.innerHTML += "3. Prueba acceder directamente a las URLs de búsqueda\n";
-    resultsEl.innerHTML += "4. Revisa los logs del servidor Django\n";
-    resultsEl.innerHTML += "5. Limpia la caché del navegador\n";
-}
-</script>
-
-
-
-<!-- Script para crear conceptos -->
-<script>
-$(document).ready(function() {
-    // Botón para nuevo concepto
-    $('#btnNuevoConcepto').click(function() {
-        $('#nuevoConceptoModal').modal('show');
-    });
-    
-    // Guardar concepto directo
-    $('#guardarConcepto').click(function() {
-        const nombre = $('#nombreConcepto').val();
-        const tipo = $('#tipoConcepto').val();
-        
-        if (!nombre) {
-            alert('Por favor ingrese un nombre para el concepto');
-            return;
-        }
-        
-        // Mostrar estado
-        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
-        
-        // Enviar datos
-        $.ajax({
-            url: '/caja/crear-concepto/',
             method: 'POST',
-            data: {
-                nombre: nombre,
-                tipo: tipo,
-                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-            },
-            success: function(data) {
-                if (data.id) {
-                    // Éxito
-                    alert('Concepto creado correctamente: ' + data.nombre);
-                    
-                    // Agregar al selector
-                    $('#id_concepto').append(`<option value="${data.id}">${data.nombre}</option>`);
-                    $('#id_concepto').val(data.id);
-                    
-                    // Cerrar modal
-                    $('#nuevoConceptoModal').modal('hide');
+            success: function(response) {
+                if (response.conceptos && response.conceptos.length > 0) {
+                    var html = '';
+                    response.conceptos.forEach(function(concepto) {
+                        html += '<tr>' +
+                            '<td>' + concepto.id + '</td>' +
+                            '<td>' + concepto.nombre + '</td>' +
+                            '<td><button type="button" class="btn btn-sm btn-primary seleccionar-concepto" ' +
+                            'data-id="' + concepto.id + '" data-nombre="' + concepto.nombre + '">' +
+                            'Seleccionar</button></td></tr>';
+                    });
+                    $('#conceptos_lista').html(html);
+                    $('#resultados_conceptos').removeClass('d-none');
                 } else {
-                    alert('Error al crear concepto: ' + (data.message || 'Error desconocido'));
-                }
-            },
-            error: function(xhr, status, error) {
-                alert('Error al procesar la solicitud: ' + error);
-            },
-            complete: function() {
-                $('#guardarConcepto').prop('disabled', false).html('Guardar');
-            }
-        });
-    });
-});
-</script>
-
-<!-- MEJORAS PARA PRODUCTORES, PROPIETARIOS Y CONCEPTOS -->
-
-<!-- 1. MEJORAS PARA PRODUCTORES - BUSCAR POR ID -->
-<script>
-$(document).ready(function() {
-    // Buscar productor por ID
-    $('#id_productor_id').on('change keyup', function() {
-        var idBuscado = $(this).val().trim();
-        if (idBuscado) {
-            console.log("Buscando productor con ID:", idBuscado);
-            
-            // Buscar productor por ID
-            $.ajax({
-                url: '/buscar/productores/',
-                method: 'GET',
-                data: { id: idBuscado },
-                success: function(data) {
-                    if (data.success && data.resultados && data.resultados.length > 0) {
-                        // Encontramos al menos un productor
-                        var productor = data.resultados[0]; // Tomamos el primero que coincida
-                        
-                        // Actualizar selector
-                        if (!$('#id_productor option[value="' + productor.id + '"]').length) {
-                            $('#id_productor').append(`<option value="${productor.id}">${productor.nombre}</option>`);
-                        }
-                        
-                        // Seleccionar
-                        $('#id_productor').val(productor.id);
-                        
-                        // Mostrar mensaje
-                        $('#productor_info').html(`<div class="alert alert-success">Productor encontrado: ${productor.nombre}</div>`);
-                    } else {
-                        $('#productor_info').html(`<div class="alert alert-warning">No se encontró productor con ID: ${idBuscado}</div>`);
-                    }
-                },
-                error: function() {
-                    $('#productor_info').html(`<div class="alert alert-danger">Error al buscar productor</div>`);
-                }
-            });
-        } else {
-            $('#productor_info').html('');
-        }
-    });
-
-    // Mostrar ID en lista de productores
-    function cargarProductoresConId() {
-        $.ajax({
-            url: '/buscar/productores/',
-            method: 'GET',
-            data: { term: '' },
-            success: function(data) {
-                if (data.success && data.resultados && data.resultados.length > 0) {
-                    // Limpiar selector
-                    $('#id_productor').empty().append('<option value="">Seleccione un productor</option>');
-                    
-                    // Agregar cada productor CON ID
-                    data.resultados.forEach(function(p) {
-                        $('#id_productor').append(`<option value="${p.id}">[ID: ${p.id}] ${p.nombre}</option>`);
-                    });
-                    
-                    console.log("Productores con ID cargados correctamente");
-                }
-            }
-        });
-    }
-    
-    // Cargar al inicio
-    cargarProductoresConId();
-});
-</script>
-
-<!-- 3. MEJORAS PARA PROPIETARIOS - CREAR Y LISTAR -->
-<script>
-$(document).ready(function() {
-    // Función para listar propietarios disponibles
-    function listarPropietariosDisponibles() {
-        $.ajax({
-            url: '/buscar-propietarios/',  // Probamos otra URL
-            method: 'GET',
-            data: { term: '' },
-            success: function(data) {
-                console.log("Respuesta propietarios:", data);
-                
-                // Verificar formato de respuesta
-                var propietarios = data.results || data.resultados || [];
-                
-                if (propietarios.length > 0) {
-                    // Limpiar y mostrar lista
-                    var $lista = $('#listaPropietariosDisponibles').empty();
-                    
-                    propietarios.forEach(function(prop) {
-                        // Extraer id y texto según la estructura
-                        var id = prop.id;
-                        var texto = prop.text || prop.nombre;
-                        
-                        $lista.append(`
-                            <div class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong>[ID: ${id}]</strong> ${texto}
-                                </div>
-                                <button class="btn btn-sm btn-primary usar-propietario" 
-                                        data-id="${id}" data-nombre="${texto}">
-                                    Usar
-                                </button>
-                            </div>
-                        `);
-                    });
-                    
-                    $('#propietariosDisponiblesCard').show();
-                } else {
-                    // No hay propietarios
-                    $('#listaPropietariosDisponibles').html(
-                        '<div class="alert alert-info">No hay propietarios disponibles. Cree uno nuevo.</div>'
-                    );
-                    $('#propietariosDisponiblesCard').show();
-                }
-            },
-            error: function(xhr) {
-                console.error("Error al listar propietarios:", xhr.responseText);
-                
-                // Intentar con otra URL alternativa
-                $.ajax({
-                    url: '/buscar/propietarios/',
-                    method: 'GET',
-                    data: { term: ' ' },
-                    success: function(data) {
-                        console.log("Propietarios (URL alternativa):", data);
-                        // Procesar igual que antes...
-                    },
-                    error: function() {
-                        $('#listaPropietariosDisponibles').html(
-                            '<div class="alert alert-danger">Error al cargar propietarios</div>'
-                        );
-                    }
-                });
-            }
-        });
-    }
-    
-    // Usar propietario seleccionado
-    $(document).on('click', '.usar-propietario', function() {
-        var id = $(this).data('id');
-        var nombre = $(this).data('nombre');
-        
-        if (!$('#id_cuenta option[value="' + id + '"]').length) {
-            $('#id_cuenta').append(`<option value="${id}">[ID: ${id}] ${nombre}</option>`);
-        }
-        
-        $('#id_cuenta').val(id);
-    });
-    
-    // Botón para listar propietarios
-    $('#btnListarPropietarios').click(function() {
-        listarPropietariosDisponibles();
-    });
-    
-    // Buscar propietario por ID
-    $('#buscarPropietarioPorId').click(function() {
-        var idBuscado = $('#id_propietario_id').val().trim();
-        
-        if (!idBuscado) {
-            alert('Ingrese un ID de propietario');
-            return;
-        }
-        
-        $.ajax({
-            url: '/buscar-propietarios/',
-            method: 'GET',
-            data: { id: idBuscado },
-            success: function(data) {
-                var encontrado = false;
-                
-                // Buscar en los resultados
-                if (data.results) {
-                    data.results.forEach(function(prop) {
-                        if (prop.id == idBuscado) {
-                            encontrado = true;
-                            
-                            // Agregar al selector si no existe
-                            if (!$('#id_cuenta option[value="' + prop.id + '"]').length) {
-                                $('#id_cuenta').append(`<option value="${prop.id}">[ID: ${prop.id}] ${prop.text}</option>`);
-                            }
-                            
-                            // Seleccionar
-                            $('#id_cuenta').val(prop.id);
-                            
-                            // Mostrar mensaje
-                            $('#propietario_info').html(`<div class="alert alert-success">Propietario encontrado: ${prop.text}</div>`);
-                        }
-                    });
-                }
-                
-                if (!encontrado) {
-                    $('#propietario_info').html(`<div class="alert alert-warning">No se encontró propietario con ID: ${idBuscado}</div>`);
+                    $('#conceptos_lista').html('<tr><td colspan="3" class="text-center">No se encontraron conceptos</td></tr>');
+                    $('#resultados_conceptos').removeClass('d-none');
                 }
             },
             error: function() {
-                $('#propietario_info').html(`<div class="alert alert-danger">Error al buscar propietario</div>`);
+                alert('Error al buscar conceptos');
             }
         });
     });
-    
-    // Intentar listar al cargar la página
-    listarPropietariosDisponibles();
-});
-</script>
 
-
-
-<!-- 6. MEJORAR CONCEPTOS PARA MOSTRAR ID -->
-<script>
-$(document).ready(function() {
-    // Cargar conceptos con ID
-    function cargarConceptosConId() {
-        $.ajax({
-            url: '/caja/buscar-conceptos/',  // URL para buscar conceptos
-            method: 'GET',
-            data: { term: '' },
-            success: function(data) {
-                console.log("Conceptos disponibles:", data);
-                
-                // Identificar el formato de respuesta
-                var conceptos = data.results || data.resultados || [];
-                
-                if (conceptos.length > 0) {
-                    // Limpiar selector
-                    $('#id_concepto').empty().append('<option value="">Seleccione un concepto</option>');
-                    
-                    // Agregar cada concepto CON ID
-                    conceptos.forEach(function(c) {
-                        var id = c.id;
-                        var nombre = c.text || c.nombre || c.name;
-                        $('#id_concepto').append(`<option value="${id}">[ID: ${id}] ${nombre}</option>`);
-                    });
-                }
-            },
-            error: function(xhr) {
-                console.error("Error al cargar conceptos:", xhr.responseText);
-            }
-        });
-    }
-    
-    // Intentar cargar conceptos
-    cargarConceptosConId();
-    
-    // Agregar ID al crear nuevo concepto
-    var originalGuardarConcepto = $('#guardarConcepto').click;
-    $('#guardarConcepto').off('click').on('click', function() {
-        const nombre = $('#nombreConcepto').val();
-        const tipo = $('#tipoConcepto').val();
-        
-        if (!nombre) {
-            alert('Por favor ingrese un nombre para el concepto');
-            return;
-        }
-        
-        // Mostrar estado
-        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
-        
-        // Enviar datos
-        $.ajax({
-            url: '/caja/crear-concepto/',
-            method: 'POST',
-            data: {
-                nombre: nombre,
-                tipo: tipo,
-                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-            },
-            success: function(data) {
-                if (data.id) {
-                    // Éxito
-                    alert('Concepto creado correctamente: ' + data.nombre);
-                    
-                    // Agregar al selector CON ID
-                    $('#id_concepto').append(`<option value="${data.id}">[ID: ${data.id}] ${data.nombre}</option>`);
-                    $('#id_concepto').val(data.id);
-                    
-                    // Cerrar modal
-                    $('#nuevoConceptoModal').modal('hide');
-                } else {
-                    alert('Error al crear concepto: ' + (data.message || 'Error desconocido'));
-                }
-            },
-            error: function(xhr, status, error) {
-                alert('Error al procesar la solicitud: ' + error);
-            },
-            complete: function() {
-                $('#guardarConcepto').prop('disabled', false).html('Guardar');
-            }
-        });
-    });
-});
-</script>
-
-<!-- SOLUCIÓN DIRECTA PARA PROPIETARIOS Y CONCEPTOS -->
-
-
-<!-- SCRIPT PARA CARGAR PROPIETARIOS Y CONCEPTOS -->
-<script>
-$(document).ready(function() {
-    // 1. CARGAR PROPIETARIOS
-    $('#btnCargarPropietariosDirecto').click(function() {
-        var $lista = $('#propietariosLista');
-        $lista.html('<div class="text-center p-3"><i class="fas fa-spinner fa-spin"></i> Cargando propietarios...</div>');
-        
-        // Intentar con diferentes URLs para encontrar propietarios
-        var urls = [
-            '/buscar-propietarios/',
-            '/buscar/propietarios/',
-            '/propietarios/listar/',
-            '/api/propietarios/',
-            '/inmobiliaria/propietarios/listar/',
-            '/caja/buscar-cuentas/'
-        ];
-        
-        // Probar cada URL
-        function probarSiguienteURL(index) {
-            if (index >= urls.length) {
-                $lista.html('<div class="alert alert-danger">No se encontraron propietarios en ninguna URL.</div>');
-                return;
-            }
-            
-            var url = urls[index];
-            console.log("Probando URL para propietarios:", url);
-            
-            $.ajax({
-                url: url,
-                method: 'GET',
-                data: { term: '' },
-                success: function(data) {
-                    console.log("Respuesta de " + url + ":", data);
-                    
-                    // Determinar el formato de la respuesta
-                    var propietarios = [];
-                    if (data.results) propietarios = data.results;
-                    else if (data.resultados) propietarios = data.resultados;
-                    else if (Array.isArray(data)) propietarios = data;
-                    
-                    if (propietarios.length > 0) {
-                        // Éxito! Mostrar la lista
-                        $lista.empty();
-                        
-                        propietarios.forEach(function(prop) {
-                            // Determinar id y nombre según estructura
-                            var id = prop.id;
-                            var nombre = prop.text || prop.nombre || prop.name;
-                            
-                            $lista.append(`
-                                <div class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <strong>[ID: ${id}]</strong> ${nombre}
-                                    </div>
-                                    <button class="btn btn-sm btn-primary usar-propietario" 
-                                            data-id="${id}" data-nombre="${nombre}">
-                                        Usar
-                                    </button>
-                                </div>
-                            `);
-                        });
-                        
-                        // Agregar evento para usar propietario
-                        $('.usar-propietario').click(function() {
-                            var id = $(this).data('id');
-                            var nombre = $(this).data('nombre');
-                            
-                            // Actualizar el selector
-                            var option = new Option(nombre, id, true, true);
-                            $('#id_cuenta').append(option).trigger('change');
-                            $('#id_cuenta').val(id);
-                            
-                            alert("Propietario seleccionado: " + nombre);
-                        });
-                    } else {
-                        // Intentar con la siguiente URL
-                        probarSiguienteURL(index + 1);
-                    }
-                },
-                error: function() {
-                    // Intentar con la siguiente URL
-                    probarSiguienteURL(index + 1);
-                }
-            });
-        }
-        
-        // Comenzar a probar URLs
-        probarSiguienteURL(0);
-    });
-    
-    // 2. CARGAR CONCEPTOS
-    $('#btnCargarConceptosDirecto').click(function() {
-        var $lista = $('#conceptosLista');
-        $lista.html('<div class="text-center p-3"><i class="fas fa-spinner fa-spin"></i> Cargando conceptos...</div>');
-        
-        // Intentar con diferentes URLs para encontrar conceptos
-        var urls = [
-            '/caja/buscar-conceptos/',
-            '/caja/conceptos/',
-            '/buscar/conceptos/',
-            '/api/conceptos/',
-            '/inmobiliaria/caja/conceptos/'
-        ];
-        
-        // Probar cada URL
-        function probarSiguienteURLConceptos(index) {
-            if (index >= urls.length) {
-                $lista.html('<div class="alert alert-danger">No se encontraron conceptos en ninguna URL.</div>');
-                return;
-            }
-            
-            var url = urls[index];
-            console.log("Probando URL para conceptos:", url);
-            
-            $.ajax({
-                url: url,
-                method: 'GET',
-                data: { term: '' },
-                success: function(data) {
-                    console.log("Respuesta de " + url + ":", data);
-                    
-                    // Determinar el formato de la respuesta
-                    var conceptos = [];
-                    if (data.results) conceptos = data.results;
-                    else if (data.resultados) conceptos = data.resultados;
-                    else if (Array.isArray(data)) conceptos = data;
-                    
-                    if (conceptos.length > 0) {
-                        // Éxito! Mostrar la lista
-                        $lista.empty();
-                        
-                        conceptos.forEach(function(concepto) {
-                            // Determinar id y nombre según estructura
-                            var id = concepto.id;
-                            var nombre = concepto.text || concepto.nombre || concepto.name;
-                            
-                            $lista.append(`
-                                <div class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <strong>[ID: ${id}]</strong> ${nombre}
-                                    </div>
-                                    <button class="btn btn-sm btn-success usar-concepto" 
-                                            data-id="${id}" data-nombre="${nombre}">
-                                        Usar
-                                    </button>
-                                </div>
-                            `);
-                        });
-                        
-                        // Agregar evento para usar concepto
-                        $('.usar-concepto').click(function() {
-                            var id = $(this).data('id');
-                            var nombre = $(this).data('nombre');
-                            
-                            // Actualizar el selector
-                            var option = new Option(nombre, id, true, true);
-                            $('#id_concepto').append(option).trigger('change');
-                            $('#id_concepto').val(id);
-                            
-                            alert("Concepto seleccionado: " + nombre);
-                        });
-                        
-                        // También actualizar el selector original con todos los conceptos
-                        $('#id_concepto').empty().append('<option value="">Seleccione un concepto</option>');
-                        conceptos.forEach(function(concepto) {
-                            var id = concepto.id;
-                            var nombre = concepto.text || concepto.nombre || concepto.name;
-                            $('#id_concepto').append(`<option value="${id}">[ID: ${id}] ${nombre}</option>`);
-                        });
-                    } else {
-                        // Intentar con la siguiente URL
-                        probarSiguienteURLConceptos(index + 1);
-                    }
-                },
-                error: function() {
-                    // Intentar con la siguiente URL
-                    probarSiguienteURLConceptos(index + 1);
-                }
-            });
-        }
-        
-        // Comenzar a probar URLs
-        probarSiguienteURLConceptos(0);
-    });
-    
-    // Auto-cargar al inicio
-    setTimeout(function() {
-        $('#btnCargarPropietariosDirecto').click();
-        $('#btnCargarConceptosDirecto').click();
-    }, 1000);
-});
-</script>
-
-
-<!-- SCRIPT PARA MOSTRAR PROPIETARIOS EXACTAMENTE COMO EN EL ORIGINAL -->
-<script>
-$(document).ready(function() {
-    // Cargar propietarios al hacer clic en el botón
-    $('#btn-cargar-propietarios').click(function() {
-        cargarPropietarios();
-    });
-    
-    // Función para cargar propietarios
-    function cargarPropietarios(termino = '') {
-        $('#propietarios-body').html('<tr><td colspan="5" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando propietarios...</td></tr>');
-        
-        console.log("Cargando propietarios con término:", termino);
-        
-        // Usar la vista de propietarios existente con AJAX
-        $.ajax({
-            url: '/propietarios/',  // URL de la vista de propietarios
-            method: 'GET',
-            data: { termino: termino },
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'  // Indicar que es una solicitud AJAX
-            },
-            success: function(data) {
-                console.log("Respuesta de propietarios:", data);
-                
-                if (data.propietarios && Array.isArray(data.propietarios)) {
-                    actualizarListaPropietarios(data.propietarios);
-                } else {
-                    $('#propietarios-body').html('<tr><td colspan="5" class="text-center">No se encontraron propietarios</td></tr>');
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error("Error al cargar propietarios:", error);
-                $('#propietarios-body').html(
-                    '<tr><td colspan="5" class="text-center">' +
-                    '<div class="alert alert-danger">' +
-                    '<i class="fas fa-exclamation-triangle"></i> Error al cargar propietarios: ' + error +
-                    '</div></td></tr>'
-                );
-            }
-        });
-    }
-    
-    function actualizarListaPropietarios(propietarios) {
-        console.log("Actualizando lista con propietarios:", propietarios);
-        var html = '';
-        
-        if (!propietarios || propietarios.length === 0) {
-            html = '<tr><td colspan="5" class="text-center">No se encontraron propietarios</td></tr>';
-        } else {
-            propietarios.forEach(function(propietario) {
-                var id = propietario.id;
-                var nombre = propietario.nombre || '';
-                var apellido = propietario.apellido || '';
-                var cuenta = propietario.cuenta_bancaria || '';
-                
-                html += '<tr>' +
-                        '<td>' + id + '</td>' +
-                        '<td>' + nombre + '</td>' +
-                        '<td>' + apellido + '</td>' +
-                        '<td>' + cuenta + '</td>' +
-                        '<td><button class="btn btn-sm btn-success seleccionar-propietario" ' +
-                        'data-id="' + id + '" data-nombre="' + nombre + ' ' + apellido + '" ' +
-                        'data-cuenta="' + cuenta + '">' +
-                        '<i class="fas fa-check"></i> Seleccionar</button></td>' +
-                        '</tr>';
-            });
-        }
-        
-        $('#propietarios-body').html(html);
-    }
-    
-    // Buscar propietarios al escribir
-    $('#id_termino').on('input', function() {
-        var searchTerm = $(this).val();
-        clearTimeout(window.typingTimer);
-        window.typingTimer = setTimeout(function() {
-            cargarPropietarios(searchTerm);
-        }, 300);
-    });
-    
-    // Seleccionar propietario
-    $(document).on('click', '.seleccionar-propietario', function() {
-        var nombre = $(this).data('nombre');
-        var cuenta = $(this).data('cuenta');
-        var id = $(this).data('id');
-        $('#id_cuenta').val(cuenta); // editable
-        $('#id_nombre_propietario').val(nombre);
-        $('#id_propietario').val(id);
-        $('#resultados_propietarios').hide();
-        $('#lista_propietarios').empty();
-    });
-    
-    // Cargar propietarios al inicio
-    cargarPropietarios();
-});
-</script>
-
-<!-- COMPONENTES MEJORADOS PARA BÚSQUEDA DE CONCEPTOS, PROPIETARIOS Y VENDEDORES -->
-
-<!-- SCRIPTS PARA CADA COMPONENTE -->
-<script>
-$(document).ready(function() {
-    // =========================
-    // 1. CONCEPTOS
-    // =========================
-    function cargarConceptos(termino = '') {
-        $('#conceptos-lista').html('<tr><td colspan="3" class="text-center">Cargando conceptos...</td></tr>');
-        $.ajax({
-            url: '/conceptos/', // Esta URL debe coincidir con la de Django
-            type: 'GET',
-            data: { termino: termino },
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            success: function(data) {
-                var conceptos = data.conceptos || [];
-                if (!conceptos.length) {
-                    $('#conceptos-lista').html('<tr><td colspan="3" class="text-center">No se encontraron conceptos</td></tr>');
-                    return;
-                }
-                var html = '';
-                conceptos.forEach(function(concepto) {
-                    html += '<tr>' +
-                        '<td>' + concepto.id + '</td>' +
-                        '<td>' + (concepto.nombre || '') + '</td>' +
-                        '<td><button class="btn btn-sm btn-success seleccionar-concepto" data-id="' + concepto.id + '" data-nombre="' + (concepto.nombre || '') + '"><i class="fas fa-check"></i> Seleccionar</button></td>' +
-                        '</tr>';
-                });
-                $('#conceptos-lista').html(html);
-            },
-            error: function() {
-                $('#conceptos-lista').html('<tr><td colspan="3" class="text-center">No se pudieron cargar los conceptos</td></tr>');
-            }
-        });
-    }
-    $('#btn-cargar-conceptos').click(function() { cargarConceptos(); });
-    $('#buscar-concepto').on('keyup', function() {
-        var termino = $(this).val();
-        if (termino.length >= 2 || termino.length === 0) cargarConceptos(termino);
-    });
-    $('#btn-crear-concepto').click(function() {
-        var nombre = $('#nuevo-concepto-nombre').val();
-        if (!nombre.trim()) { alert('Ingrese un nombre'); return; }
-        $('#btn-crear-concepto').prop('disabled', true);
-        $.ajax({
-            url: '/concepto/nuevo/',
-            type: 'POST',
-            data: {
-                nombre: nombre,
-                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-            },
-            success: function(data) {
-                $('#nuevo-concepto-nombre').val('');
-                $('#btn-crear-concepto').prop('disabled', false);
-                if (data.success) {
-                    cargarConceptos();
-                } else {
-                    alert('Error al crear concepto');
-                }
-            },
-            error: function() {
-                $('#btn-crear-concepto').prop('disabled', false);
-                alert('Error al crear concepto');
-            }
-        });
-    });
+    // Seleccionar concepto
     $(document).on('click', '.seleccionar-concepto', function() {
         var id = $(this).data('id');
         var nombre = $(this).data('nombre');
-        if (!$('#id_concepto option[value="' + id + '"]').length) {
-            $('#id_concepto').append(new Option(nombre, id));
-        }
-        $('#id_concepto').val(id).trigger('change');
-        alert('Concepto seleccionado: ' + nombre);
+        
+        $('#concepto_id').val(id);
+        $('#concepto_seleccionado_texto').text(id + ' - ' + nombre);
+        $('#concepto_seleccionado').removeClass('d-none');
+        $('#resultados_conceptos').addClass('d-none');
+        $('#buscar_concepto').val('');
     });
-    cargarConceptos();
 
-    // =========================
-    // 2. PROPIETARIOS
-    // =========================
-    function cargarPropietarios(termino = '') {
-        $('#propietarios-lista').html('<tr><td colspan="5" class="text-center">Cargando propietarios...</td></tr>');
+    // Limpiar concepto seleccionado
+    $('#btn_limpiar_concepto').click(function() {
+        $('#concepto_id').val('');
+        $('#concepto_seleccionado').addClass('d-none');
+    });
+
+    // Guardar nuevo concepto
+    $('#btn_guardar_concepto').click(function() {
+        var id = $('#nuevo_concepto_id').val();
+        var nombre = $('#nuevo_concepto_nombre').val();
+
+        if (!id || !nombre) {
+            alert('Complete todos los campos');
+            return;
+        }
+
         $.ajax({
-            url: '/propietarios/',
-            method: 'GET',
-            data: { termino: termino },
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            success: function(data) {
-                var propietarios = data.propietarios || [];
-                if (!propietarios.length) {
-                    $('#propietarios-lista').html('<tr><td colspan="5" class="text-center">No se encontraron propietarios</td></tr>');
-                    return;
+            url: '{% url "inmobiliaria:crear_concepto" %}',
+            data: {
+                id: id,
+                nombre: nombre,
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+            },
+            method: 'POST',
+            success: function(response) {
+                if (response.success) {
+                    alert('Concepto creado exitosamente');
+                    $('#modalNuevoConcepto').modal('hide');
+                    
+                    // Seleccionar el concepto recién creado
+                    $('#concepto_id').val(id);
+                    $('#concepto_seleccionado_texto').text(id + ' - ' + nombre);
+                    $('#concepto_seleccionado').removeClass('d-none');
+                    
+                    // Limpiar el formulario
+                    $('#nuevo_concepto_id').val('');
+                    $('#nuevo_concepto_nombre').val('');
+                } else {
+                    alert(response.error || 'Error al crear el concepto');
                 }
-                var html = '';
-                propietarios.forEach(function(p) {
-                    html += '<tr>' +
-                        '<td>' + p.id + '</td>' +
-                        '<td>' + (p.nombre || '') + '</td>' +
-                        '<td>' + (p.apellido || '') + '</td>' +
-                        '<td>' + (p.cuenta_bancaria || '') + '</td>' +
-                        '<td><button class="btn btn-sm btn-success seleccionar-propietario" data-id="' + p.id + '" data-nombre="' + p.nombre + ' ' + p.apellido + '" data-cuenta="' + (p.cuenta_bancaria || '') + '"><i class="fas fa-check"></i> Seleccionar</button></td>' +
-                        '</tr>';
-                });
-                $('#propietarios-lista').html(html);
             },
             error: function() {
-                $('#propietarios-lista').html('<tr><td colspan="5" class="text-center">No se pudieron cargar los propietarios</td></tr>');
+                alert('Error al crear el concepto');
             }
         });
-    }
-    $('#btn-cargar-propietarios').click(function() { cargarPropietarios(); });
-    $('#buscar-propietario').on('keyup', function() {
-        var termino = $(this).val();
-        if (termino.length >= 2 || termino.length === 0) cargarPropietarios(termino);
-    });
-    $(document).on('click', '.seleccionar-propietario', function() {
-        var id = $(this).data('id');
-        var nombre = $(this).data('nombre');
-        var cuenta = $(this).data('cuenta');
-        var textoOpcion = nombre + (cuenta ? ' - Cuenta: ' + cuenta : '');
-        if (!$('#id_cuenta option[value="' + id + '"]').length) {
-            $('#id_cuenta').append(new Option(textoOpcion, id));
-        }
-        $('#id_cuenta').val(id).trigger('change');
-        alert('Propietario seleccionado: ' + nombre);
-    });
-    cargarPropietarios();
-
-    // =========================
-    // 3. VENDEDORES (SELECT2)
-    // =========================
-    $('.select2-vendedores').select2({
-        placeholder: "Escriba ID o nombre del vendedor...",
-        allowClear: true,
-        minimumInputLength: 1,
-        language: {
-            inputTooShort: function() { return "Escriba al menos 1 carácter para buscar..."; },
-            noResults: function() { return "No se encontraron vendedores"; },
-            searching: function() { return "Buscando..."; }
-        },
-        ajax: {
-            url: '/vendedores/',
-            dataType: 'json',
-            delay: 250,
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            data: function(params) {
-                return { termino: params.term, page: params.page };
-            },
-            processResults: function(data) {
-                var vendedores = data.vendedores || [];
-                return {
-                    results: $.map(vendedores, function(v) {
-                        return {
-                            id: v.id,
-                            text: '[ID: ' + v.id + '] ' + v.nombre + ' ' + (v.apellido || ''),
-                            nombre: v.nombre,
-                            apellido: v.apellido || ''
-                        };
-                    })
-                };
-            },
-            cache: true
-        },
-        escapeMarkup: function(markup) { return markup; },
-        templateResult: function(v) {
-            if (v.loading) return v.text;
-            return '<div><strong>ID: ' + v.id + '</strong> ' + v.nombre + ' ' + (v.apellido || '') + '</div>';
-        },
-        templateSelection: function(v) { return v.text || v.id; }
-    });
-    $('.select2-vendedores').on('select2:select', function(e) {
-        var data = e.params.data;
-        $('#id_vendedor').val(data.id);
-        $('#vendedor-nombre-display').text(data.text);
-        $('#vendedor-seleccionado').removeClass('d-none');
-    });
-    $('#btn-cambiar-vendedor').click(function() {
-        $('.select2-vendedores').val(null).trigger('change');
-        $('#vendedor-seleccionado').addClass('d-none');
-        $('#id_vendedor').val('');
     });
 });
 </script>
-
-<!-- ASEGURARSE DE INCLUIR SELECT2 -->
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<style>
-.select2-container .select2-selection--single {
-    height: 38px!important;
-    padding: 6px 12px;
-    font-size: 1rem;
-    line-height: 1.5;
-}
-.select2-container--default .select2-selection--single .select2-selection__arrow {
-    height: 38px;
-}
-.select2-container--default .select2-selection--single .select2-selection__rendered {
-    line-height: 24px;
-}
-.select2-result-vendedor {
-    padding: 6px 0;
-}
-.select2-result-vendedor__id {
-    color: #007bff;
-}
-</style>
 {% endblock %} 
