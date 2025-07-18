@@ -2508,7 +2508,7 @@ def caja(request):
 @login_required
 def detalle_caja(request, numero):
     caja = get_object_or_404(Caja, numero=numero, sucursal=request.user.sucursal)
-    movimientos = caja.movimientos.all().order_by('-fecha')
+    movimientos = MovimientoCaja.objects.filter(caja=caja).order_by('-fecha')
     
     context = {
         'caja': caja,
@@ -2517,27 +2517,80 @@ def detalle_caja(request, numero):
     return render(request, 'inmobiliaria/caja/detalle_caja.html', context)
 
 @login_required
-def nuevo_movimiento(request, numero_caja):
-    caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
+def nuevo_movimiento(request, numero_caja=None):
+    if numero_caja:
+        caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
+    else:
+        caja = get_object_or_404(Caja, sucursal=request.user.sucursal, estado='abierta')
     
     if request.method == 'POST':
-        # Lógica para crear nuevo movimiento
-        tipo = request.POST.get('tipo')
-        monto = Decimal(request.POST.get('monto'))
-        concepto = request.POST.get('concepto')
-        
-        MovimientoCaja.objects.create(
-            caja=caja,
-            tipo=tipo,
-            monto=monto,
-            concepto=concepto,
-            usuario=request.user
-        )
-        
-        messages.success(request, 'Movimiento registrado exitosamente')
-        return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+        try:
+            # Procesar fechas
+            fecha_desde = None
+            fecha_hasta = None
+            try:
+                if request.POST.get('fecha_desde'):
+                    fecha_desde = datetime.strptime(request.POST.get('fecha_desde'), '%Y-%m-%d').date()
+                if request.POST.get('fecha_hasta'):
+                    fecha_hasta = datetime.strptime(request.POST.get('fecha_hasta'), '%Y-%m-%d').date()
+            except ValueError:
+                messages.error(request, 'Formato de fecha inválido')
+                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
+                    'caja': caja,
+                    'fecha_actual': timezone.now()
+                })
+
+            # Crear el movimiento con valores iniciales
+            movimiento = MovimientoCaja(
+                caja=caja,
+                tipo=request.POST.get('tipo'),
+                tipo_comprobante=request.POST.get('tipo_comprobante'),
+                numero_liquidacion=request.POST.get('numero_liquidacion', ''),
+                concepto=request.POST.get('concepto_id', ''),
+                propiedad_id=request.POST.get('propiedad_id') if request.POST.get('propiedad_id') else None,
+                fecha_desde=fecha_desde,
+                fecha_hasta=fecha_hasta,
+                monto_efectivo=0,
+                monto_cheque=0,
+                monto_tarjeta=0,
+                monto_deposito=0,
+                destino_deposito=request.POST.get('destino_deposito'),
+                a_descontar=request.POST.get('a_descontar', 'oficina'),
+                sucursal=request.user.sucursal,
+                empleado=request.user
+            )
+
+            # Procesar los montos
+            try:
+                movimiento.monto_efectivo = float(request.POST.get('monto_efectivo', '0').replace(',', '.') or '0')
+                movimiento.monto_cheque = float(request.POST.get('monto_cheque', '0').replace(',', '.') or '0')
+                movimiento.monto_tarjeta = float(request.POST.get('monto_tarjeta', '0').replace(',', '.') or '0')
+                movimiento.monto_deposito = float(request.POST.get('monto_deposito', '0').replace(',', '.') or '0')
+            except (ValueError, TypeError):
+                messages.error(request, 'Error en los montos ingresados')
+                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
+                    'caja': caja,
+                    'fecha_actual': timezone.now()
+                })
+
+            # Guardar el movimiento
+            movimiento.save()
+
+            messages.success(request, 'Movimiento creado exitosamente')
+            return redirect('inmobiliaria:caja')
+
+        except Exception as e:
+            messages.error(request, f'Error al crear el movimiento: {str(e)}')
+            return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
+                'caja': caja,
+                'fecha_actual': timezone.now()
+            })
     
-    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {'caja': caja})
+    context = {
+        'caja': caja,
+        'fecha_actual': timezone.now(),
+    }
+    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
 
 @login_required
 def cerrar_caja(request, numero_caja):
