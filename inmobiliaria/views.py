@@ -3182,15 +3182,22 @@ def historial_caja(request):
 @login_required
 def buscar_conceptos(request):
     termino = request.POST.get('termino', '')
+    sucursal = request.user.sucursal
     
-    # Buscar por ID o nombre
+    # Buscar por ID o nombre dentro de la sucursal actual
     conceptos = Concepto.objects.filter(
+        sucursal=sucursal
+    ).filter(
         Q(id__icontains=termino) |
         Q(nombre__icontains=termino)
-    )[:10]  # Limitar a 10 resultados
+    ).order_by('id')[:10]  # Limitar a 10 resultados, ordenados por ID
     
     return JsonResponse({
-        'conceptos': [{'id': c.id, 'nombre': c.nombre} for c in conceptos]
+        'conceptos': [{
+            'id': c.id,
+            'nombre': c.nombre,
+            'fecha_creacion': c.fecha_creacion.strftime('%d/%m/%Y %H:%M')
+        } for c in conceptos]
     })
 
 @login_required
@@ -3200,17 +3207,30 @@ def crear_concepto(request):
     
     id = request.POST.get('id')
     nombre = request.POST.get('nombre')
+    sucursal = request.user.sucursal
     
     if not id or not nombre:
         return JsonResponse({'success': False, 'error': 'ID y nombre son requeridos'})
     
     try:
-        # Verificar si ya existe un concepto con ese ID
-        if Concepto.objects.filter(id=id).exists():
-            return JsonResponse({'success': False, 'error': 'Ya existe un concepto con ese ID'})
+        # Verificar si ya existe un concepto con ese ID en esta sucursal
+        if Concepto.objects.filter(id=id, sucursal=sucursal).exists():
+            return JsonResponse({'success': False, 'error': 'Ya existe un concepto con ese ID en esta sucursal'})
         
-        # Crear el concepto
-        concepto = Concepto.objects.create(id=id, nombre=nombre)
-        return JsonResponse({'success': True, 'concepto': {'id': concepto.id, 'nombre': concepto.nombre}})
+        # Crear el concepto (fecha_creacion se asignará automáticamente)
+        concepto = Concepto.objects.create(
+            id=id,
+            nombre=nombre,
+            sucursal=sucursal
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'concepto': {
+                'id': concepto.id,
+                'nombre': concepto.nombre,
+                'fecha_creacion': concepto.fecha_creacion.strftime('%d/%m/%Y %H:%M')
+            }
+        })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
