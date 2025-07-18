@@ -1,6 +1,19 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load static %}
 
+{% block extra_css %}
+<style>
+.modal-header {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+.modal-footer {
+    background-color: #f8f9fa;
+    border-top: 2px solid #dee2e6;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid mt-3">
     <div class="card">
@@ -33,7 +46,8 @@
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">N° Operación (opcional)</label>
-                        <input type="text" name="operacion" class="form-control">
+                        <input type="text" name="operacion" class="form-control" placeholder="Auto: {{ siguiente_operacion }}">
+                        <small class="form-text text-muted">Dejar vacío para usar el siguiente número: {{ siguiente_operacion }}</small>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">N° Liquidación/Comprobante (opcional)</label>
@@ -41,7 +55,8 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Fecha</label>
-                        <input type="date" name="fecha" class="form-control" value="{{ fecha_actual|date:'Y-m-d' }}" required>
+                        <input type="text" class="form-control" value="{{ fecha_actual|date:'d/m/Y H:i' }}" readonly>
+                        <input type="hidden" name="fecha" value="{{ fecha_actual|date:'Y-m-d H:i:s' }}">
                     </div>
                 </div>
 
@@ -127,38 +142,51 @@
 </div>
 
 <!-- Modal Nuevo Concepto -->
-<div class="modal fade" id="modalNuevoConcepto" tabindex="-1">
-    <div class="modal-dialog">
+<div class="modal fade" id="modalNuevoConcepto" tabindex="-1" role="dialog" aria-labelledby="modalNuevoConceptoLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Crear Nuevo Concepto</h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
+                <h5 class="modal-title" id="modalNuevoConceptoLabel">Crear Nuevo Concepto</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
                 </button>
             </div>
             <div class="modal-body">
                 <form id="formNuevoConcepto">
                     <div class="form-group">
-                        <label>ID del Concepto</label>
+                        <label for="nuevo_concepto_id">ID del Concepto</label>
                         <input type="text" class="form-control" id="nuevo_concepto_id" required>
                         <small class="form-text text-muted">Ingrese un ID único para el concepto</small>
                     </div>
                     <div class="form-group">
-                        <label>Nombre del Concepto</label>
+                        <label for="nuevo_concepto_nombre">Nombre del Concepto</label>
                         <input type="text" class="form-control" id="nuevo_concepto_nombre" required>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btn_guardar_concepto">Guardar Concepto</button>
+                <button type="button" class="btn btn-primary" id="btn_guardar_concepto">
+                    <i class="fas fa-save"></i> Guardar Concepto
+                </button>
             </div>
         </div>
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 $(document).ready(function() {
+    // Limpiar el formulario cuando se abre el modal
+    $('#modalNuevoConcepto').on('show.bs.modal', function() {
+        $('#nuevo_concepto_id').val('');
+        $('#nuevo_concepto_nombre').val('');
+    });
+
     // Búsqueda de conceptos
     $('#btn_buscar_concepto').click(function() {
         var busqueda = $('#buscar_concepto').val();
@@ -167,7 +195,6 @@ $(document).ready(function() {
             return;
         }
 
-        // Realizar búsqueda mediante AJAX
         $.ajax({
             url: '{% url "inmobiliaria:buscar_conceptos" %}',
             data: { 
@@ -184,7 +211,7 @@ $(document).ready(function() {
                             '<td>' + concepto.nombre + '</td>' +
                             '<td><button type="button" class="btn btn-sm btn-primary seleccionar-concepto" ' +
                             'data-id="' + concepto.id + '" data-nombre="' + concepto.nombre + '">' +
-                            'Seleccionar</button></td></tr>';
+                            '<i class="fas fa-check"></i> Seleccionar</button></td></tr>';
                     });
                     $('#conceptos_lista').html(html);
                     $('#resultados_conceptos').removeClass('d-none');
@@ -227,6 +254,10 @@ $(document).ready(function() {
             return;
         }
 
+        // Mostrar indicador de carga
+        var $btn = $(this);
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
+
         $.ajax({
             url: '{% url "inmobiliaria:crear_concepto" %}',
             data: {
@@ -237,25 +268,32 @@ $(document).ready(function() {
             method: 'POST',
             success: function(response) {
                 if (response.success) {
-                    alert('Concepto creado exitosamente');
-                    $('#modalNuevoConcepto').modal('hide');
-                    
                     // Seleccionar el concepto recién creado
                     $('#concepto_id').val(id);
                     $('#concepto_seleccionado_texto').text(id + ' - ' + nombre);
                     $('#concepto_seleccionado').removeClass('d-none');
                     
-                    // Limpiar el formulario
-                    $('#nuevo_concepto_id').val('');
-                    $('#nuevo_concepto_nombre').val('');
+                    // Cerrar modal y mostrar mensaje
+                    $('#modalNuevoConcepto').modal('hide');
+                    alert('Concepto creado exitosamente');
                 } else {
                     alert(response.error || 'Error al crear el concepto');
                 }
             },
             error: function() {
                 alert('Error al crear el concepto');
+            },
+            complete: function() {
+                // Restaurar botón
+                $btn.prop('disabled', false).html('<i class="fas fa-save"></i> Guardar Concepto');
             }
         });
+    });
+
+    // Permitir enviar el formulario con Enter en el modal
+    $('#formNuevoConcepto').on('submit', function(e) {
+        e.preventDefault();
+        $('#btn_guardar_concepto').click();
     });
 });
 </script>
