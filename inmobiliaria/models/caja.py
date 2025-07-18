@@ -106,6 +106,16 @@ class MovimientoCaja(models.Model):
     def __str__(self):
         return f"{self.get_tipo_display()} - ${self.monto_efectivo + self.monto_cheque + self.monto_tarjeta + self.monto_deposito}"
     
+    @property
+    def monto_total(self):
+        """Calcula el monto total sumando todos los métodos de pago"""
+        return (
+            self.monto_efectivo +
+            self.monto_cheque +
+            self.monto_tarjeta +
+            self.monto_deposito
+        )
+    
     class Meta:
         db_table = 'inmobiliaria_movimientocaja'
         ordering = ['-fecha']

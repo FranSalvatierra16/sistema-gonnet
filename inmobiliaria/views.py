@@ -2507,13 +2507,55 @@ def caja(request):
 
 @login_required
 def detalle_caja(request, numero):
+    # Obtener la caja específica
     caja = get_object_or_404(Caja, numero=numero, sucursal=request.user.sucursal)
+    
+    # Obtener todos los movimientos de la caja
     movimientos = MovimientoCaja.objects.filter(caja=caja).order_by('-fecha')
+    
+    # Calcular totales por tipo de movimiento
+    ingresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
+    egresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
+    
+    # Calcular totales para ingresos
+    totales_ingresos = {
+        'efectivo': sum(m.monto_efectivo for m in ingresos),
+        'cheque': sum(m.monto_cheque for m in ingresos),
+        'tarjeta': sum(m.monto_tarjeta for m in ingresos),
+        'deposito': sum(m.monto_deposito for m in ingresos),
+        'total': sum(m.monto_total for m in ingresos)
+    }
+    
+    # Calcular totales para egresos
+    totales_egresos = {
+        'efectivo': sum(m.monto_efectivo for m in egresos),
+        'cheque': sum(m.monto_cheque for m in egresos),
+        'tarjeta': sum(m.monto_tarjeta for m in egresos),
+        'deposito': sum(m.monto_deposito for m in egresos),
+        'total': sum(m.monto_total for m in egresos)
+    }
+    
+    # Calcular saldo actual por método de pago
+    saldo_actual = {
+        'efectivo': totales_ingresos['efectivo'] - totales_egresos['efectivo'],
+        'cheque': totales_ingresos['cheque'] - totales_egresos['cheque'],
+        'tarjeta': totales_ingresos['tarjeta'] - totales_egresos['tarjeta'],
+        'deposito': totales_ingresos['deposito'] - totales_egresos['deposito']
+    }
+    
+    # Preparar el contexto con todos los totales
+    totales = {
+        'ingresos': totales_ingresos,
+        'egresos': totales_egresos,
+        'saldo_actual': saldo_actual
+    }
     
     context = {
         'caja': caja,
         'movimientos': movimientos,
+        'totales': totales
     }
+    
     return render(request, 'inmobiliaria/caja/detalle_caja.html', context)
 
 @login_required
