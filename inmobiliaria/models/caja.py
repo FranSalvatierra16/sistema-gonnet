@@ -41,10 +41,16 @@ class Caja(models.Model):
         movimientos = MovimientoCaja.objects.filter(caja=self)
         
         for movimiento in movimientos:
-            if movimiento.tipo == 'ingreso':
-                saldo += movimiento.monto_total
+            total_movimiento = (
+                movimiento.monto_efectivo +
+                movimiento.monto_cheque +
+                movimiento.monto_tarjeta +
+                movimiento.monto_deposito
+            )
+            if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
+                saldo += total_movimiento
             else:
-                saldo -= movimiento.monto_total
+                saldo -= total_movimiento
         return saldo
 
     def __str__(self):
