@@ -75,26 +75,30 @@ class MovimientoCaja(models.Model):
     monto_efectivo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     monto_cheque = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     monto_tarjeta = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    banco = models.ForeignKey('BancoTarjeta', on_delete=models.SET_NULL, null=True, blank=True)
     monto_deposito = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    monto_qr = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    destino_deposito = models.CharField(
+        max_length=10,
+        choices=[
+            ('galicia', 'Galicia'),
+            ('mp', 'Mercado Pago')
+        ],
+        null=True,
+        blank=True
+    )
     a_descontar = models.CharField(
         max_length=20, 
         choices=[
             ('propietario', 'Propietario'),
-            ('inquilino', 'Inquilino'),
             ('oficina', 'Oficina')
         ],
-        blank=True
+        default='oficina'
     )
-    con_iva = models.BooleanField(default=False)
-    pasa_liquidaciones = models.BooleanField(default=False)
     sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
     empleado = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     caja = models.ForeignKey('Caja', on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
-        return f"{self.get_tipo_display()} - ${self.monto_efectivo + self.monto_cheque + self.monto_tarjeta + self.monto_deposito + self.monto_qr}"
+        return f"{self.get_tipo_display()} - ${self.monto_efectivo + self.monto_cheque + self.monto_tarjeta + self.monto_deposito}"
     
     class Meta:
         db_table = 'inmobiliaria_movimientocaja'

@@ -2359,7 +2359,6 @@ def cerrar_caja(request, numero_caja):
 @login_required
 def nuevo_movimiento(request):
     caja = get_object_or_404(Caja, sucursal=request.user.sucursal, estado='abierta')
-    bancos = BancoTarjeta.objects.all()
     
     if request.method == 'POST':
         # Procesar el formulario
@@ -2368,7 +2367,6 @@ def nuevo_movimiento(request):
         context = {
             'caja': caja,
             'fecha_actual': timezone.now(),
-            'bancos': bancos,
         }
         return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
 
