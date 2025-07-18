@@ -549,20 +549,13 @@ class MovimientoCajaForm(forms.ModelForm):
             'monto_efectivo',
             'monto_cheque',
             'monto_tarjeta',
-            'banco',
             'monto_deposito',
-            'monto_qr',
+            'destino_deposito',
             'a_descontar',
-            'con_iva',
-            'pasa_liquidaciones'
+            'sucursal',
+            'empleado',
+            'caja'
         ]
-        widgets = {
-            'tipo': forms.RadioSelect,
-            'tipo_comprobante': forms.RadioSelect,
-            'fecha_desde': forms.DateInput(attrs={'type': 'date'}),
-            'fecha_hasta': forms.DateInput(attrs={'type': 'date'}),
-            'a_descontar': forms.RadioSelect,
-        }
 
 class RegistroForm(forms.ModelForm):
     class Meta:
