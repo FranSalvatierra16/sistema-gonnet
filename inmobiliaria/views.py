@@ -2361,8 +2361,49 @@ def nuevo_movimiento(request):
     caja = get_object_or_404(Caja, sucursal=request.user.sucursal, estado='abierta')
     
     if request.method == 'POST':
-        # Procesar el formulario
-        pass
+        try:
+            # Convertir valores monetarios a Decimal, usando 0 si están vacíos
+            monto_efectivo = Decimal(request.POST.get('monto_efectivo', '0') or '0')
+            monto_cheque = Decimal(request.POST.get('monto_cheque', '0') or '0')
+            monto_tarjeta = Decimal(request.POST.get('monto_tarjeta', '0') or '0')
+            monto_deposito = Decimal(request.POST.get('monto_deposito', '0') or '0')
+
+            # Crear el movimiento
+            movimiento = MovimientoCaja.objects.create(
+                caja=caja,
+                tipo=request.POST.get('tipo'),
+                tipo_comprobante=request.POST.get('tipo_comprobante'),
+                numero_liquidacion=request.POST.get('numero_liquidacion', ''),
+                concepto=request.POST.get('concepto', ''),
+                cuenta_id=request.POST.get('cuenta') if request.POST.get('cuenta') else None,
+                propiedad_id=request.POST.get('propiedad') if request.POST.get('propiedad') else None,
+                fecha_desde=request.POST.get('fecha_desde') if request.POST.get('fecha_desde') else None,
+                fecha_hasta=request.POST.get('fecha_hasta') if request.POST.get('fecha_hasta') else None,
+                monto_efectivo=monto_efectivo,
+                monto_cheque=monto_cheque,
+                monto_tarjeta=monto_tarjeta,
+                monto_deposito=monto_deposito,
+                destino_deposito=request.POST.get('destino_deposito') if monto_deposito > 0 else None,
+                a_descontar=request.POST.get('a_descontar', 'oficina'),
+                sucursal=request.user.sucursal,
+                empleado=request.user
+            )
+
+            messages.success(request, f'Movimiento creado exitosamente')
+            return redirect('inmobiliaria:caja')
+
+        except (ValueError, TypeError) as e:
+            messages.error(request, f'Error al procesar los montos: asegúrese de ingresar valores numéricos válidos')
+            return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
+                'caja': caja,
+                'fecha_actual': timezone.now()
+            })
+        except Exception as e:
+            messages.error(request, f'Error al crear el movimiento: {str(e)}')
+            return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
+                'caja': caja,
+                'fecha_actual': timezone.now()
+            })
     else:
         context = {
             'caja': caja,
