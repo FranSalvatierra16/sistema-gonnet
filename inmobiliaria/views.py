@@ -2372,13 +2372,20 @@ def nuevo_movimiento(request):
             # Procesar fechas
             fecha_desde = None
             fecha_hasta = None
-            if request.POST.get('fecha_desde'):
-                fecha_desde = datetime.strptime(request.POST.get('fecha_desde'), '%Y-%m-%d').date()
-            if request.POST.get('fecha_hasta'):
-                fecha_hasta = datetime.strptime(request.POST.get('fecha_hasta'), '%Y-%m-%d').date()
+            try:
+                if request.POST.get('fecha_desde'):
+                    fecha_desde = datetime.strptime(request.POST.get('fecha_desde'), '%Y-%m-%d').date()
+                if request.POST.get('fecha_hasta'):
+                    fecha_hasta = datetime.strptime(request.POST.get('fecha_hasta'), '%Y-%m-%d').date()
+            except ValueError:
+                messages.error(request, 'Formato de fecha inválido')
+                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
+                    'caja': caja,
+                    'fecha_actual': timezone.now()
+                })
 
-            # Crear el movimiento
-            movimiento = MovimientoCaja.objects.create(
+            # Crear el movimiento con valores iniciales
+            movimiento = MovimientoCaja(
                 caja=caja,
                 tipo=request.POST.get('tipo'),
                 tipo_comprobante=request.POST.get('tipo_comprobante'),
@@ -2397,22 +2404,25 @@ def nuevo_movimiento(request):
                 empleado=request.user
             )
 
-            # Actualizar los montos después de crear el movimiento
-            movimiento.monto_efectivo = float(request.POST.get('monto_efectivo', 0) or 0)
-            movimiento.monto_cheque = float(request.POST.get('monto_cheque', 0) or 0)
-            movimiento.monto_tarjeta = float(request.POST.get('monto_tarjeta', 0) or 0)
-            movimiento.monto_deposito = float(request.POST.get('monto_deposito', 0) or 0)
+            # Procesar los montos
+            try:
+                movimiento.monto_efectivo = float(request.POST.get('monto_efectivo', '0').replace(',', '.') or '0')
+                movimiento.monto_cheque = float(request.POST.get('monto_cheque', '0').replace(',', '.') or '0')
+                movimiento.monto_tarjeta = float(request.POST.get('monto_tarjeta', '0').replace(',', '.') or '0')
+                movimiento.monto_deposito = float(request.POST.get('monto_deposito', '0').replace(',', '.') or '0')
+            except (ValueError, TypeError):
+                messages.error(request, 'Error en los montos ingresados')
+                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
+                    'caja': caja,
+                    'fecha_actual': timezone.now()
+                })
+
+            # Guardar el movimiento
             movimiento.save()
 
             messages.success(request, 'Movimiento creado exitosamente')
             return redirect('inmobiliaria:caja')
 
-        except (ValueError, TypeError) as e:
-            messages.error(request, f'Error al procesar los montos: asegúrese de ingresar valores numéricos válidos')
-            return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
-                'caja': caja,
-                'fecha_actual': timezone.now()
-            })
         except Exception as e:
             messages.error(request, f'Error al crear el movimiento: {str(e)}')
             return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
