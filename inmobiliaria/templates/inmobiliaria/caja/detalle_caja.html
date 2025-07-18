@@ -188,7 +188,7 @@
                 <div class="col-md-3">
                     <div class="info-box {% if caja.get_saldo_actual >= 0 %}bg-success{% else %}bg-danger{% endif %} text-white">
                         <h5>Saldo Actual</h5>
-                        <h3>${{ caja.get_saldo_actual|floatformat:2|abs }}</h3>
+                        <h3>${{ caja.get_saldo_actual|abs|floatformat:2 }}</h3>
                     </div>
                 </div>
                 <div class="col-md-9">
@@ -196,28 +196,28 @@
                         <div class="col-md-3">
                             <div class="info-box">
                                 <h6>Efectivo</h6>
-                                <p>${{ totales.saldo_actual.efectivo|floatformat:2|abs }}</p>
+                                <p>${{ totales.saldo_actual.efectivo|abs|floatformat:2 }}</p>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="info-box">
                                 <h6>Cheques</h6>
-                                <p>${{ totales.saldo_actual.cheque|floatformat:2|abs }}</p>
+                                <p>${{ totales.saldo_actual.cheque|abs|floatformat:2 }}</p>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="info-box">
                                 <h6>Tarjeta</h6>
-                                <p>${{ totales.saldo_actual.tarjeta|floatformat:2|abs }}</p>
+                                <p>${{ totales.saldo_actual.tarjeta|abs|floatformat:2 }}</p>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="info-box">
                                 <h6>Transferencias</h6>
-                                <p>${{ totales.saldo_actual.deposito|floatformat:2|abs }}</p>
+                                <p>${{ totales.saldo_actual.deposito|abs|floatformat:2 }}</p>
                                 <div class="small">
-                                    <div><strong>Galicia:</strong> ${{ totales.saldo_actual.deposito_galicia|floatformat:2|abs }}</div>
-                                    <div><strong>MP:</strong> ${{ totales.saldo_actual.deposito_mp|floatformat:2|abs }}</div>
+                                    <div><strong>Galicia:</strong> ${{ totales.saldo_actual.deposito_galicia|abs|floatformat:2 }}</div>
+                                    <div><strong>MP:</strong> ${{ totales.saldo_actual.deposito_mp|abs|floatformat:2 }}</div>
                                 </div>
                             </div>
                         </div>
