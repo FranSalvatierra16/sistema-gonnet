@@ -2369,21 +2369,6 @@ def nuevo_movimiento(request):
     
     if request.method == 'POST':
         try:
-            # Función auxiliar para convertir valores
-            def to_decimal(value):
-                if value is None or value == '':
-                    return 0
-                try:
-                    return float(str(value).replace(',', '.'))
-                except (ValueError, TypeError):
-                    return 0
-
-            # Convertir valores monetarios
-            monto_efectivo = to_decimal(request.POST.get('monto_efectivo'))
-            monto_cheque = to_decimal(request.POST.get('monto_cheque'))
-            monto_tarjeta = to_decimal(request.POST.get('monto_tarjeta'))
-            monto_deposito = to_decimal(request.POST.get('monto_deposito'))
-
             # Procesar fechas
             fecha_desde = None
             fecha_hasta = None
@@ -2402,15 +2387,22 @@ def nuevo_movimiento(request):
                 propiedad_id=request.POST.get('propiedad_id') if request.POST.get('propiedad_id') else None,
                 fecha_desde=fecha_desde,
                 fecha_hasta=fecha_hasta,
-                monto_efectivo=monto_efectivo,
-                monto_cheque=monto_cheque,
-                monto_tarjeta=monto_tarjeta,
-                monto_deposito=monto_deposito,
-                destino_deposito=request.POST.get('destino_deposito') if monto_deposito > 0 else None,
+                monto_efectivo=0,
+                monto_cheque=0,
+                monto_tarjeta=0,
+                monto_deposito=0,
+                destino_deposito=request.POST.get('destino_deposito'),
                 a_descontar=request.POST.get('a_descontar', 'oficina'),
                 sucursal=request.user.sucursal,
                 empleado=request.user
             )
+
+            # Actualizar los montos después de crear el movimiento
+            movimiento.monto_efectivo = float(request.POST.get('monto_efectivo', 0) or 0)
+            movimiento.monto_cheque = float(request.POST.get('monto_cheque', 0) or 0)
+            movimiento.monto_tarjeta = float(request.POST.get('monto_tarjeta', 0) or 0)
+            movimiento.monto_deposito = float(request.POST.get('monto_deposito', 0) or 0)
+            movimiento.save()
 
             messages.success(request, 'Movimiento creado exitosamente')
             return redirect('inmobiliaria:caja')
