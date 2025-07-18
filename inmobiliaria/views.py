@@ -2,7 +2,15 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal, BancoTarjeta  # Added BancoTarjeta import
+from django.utils import timezone
+from decimal import Decimal
+from datetime import datetime
+from .models import (
+    Vendedor, Inquilino, Propietario, Propiedad, Reserva, 
+    Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, 
+    Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, 
+    AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal
+)
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
@@ -14,12 +22,6 @@ from django.contrib.auth.signals import user_logged_in
 from django.dispatch import receiver
 from dateutil.parser import parse
 from django.contrib.auth.models import User
-from decimal import Decimal
-from django.forms import inlineformset_factory
-from xhtml2pdf import pisa
-from io import BytesIO
-from django.template.loader import render_to_string
-from django.contrib.auth import authenticate
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.views.decorators.csrf import csrf_exempt
@@ -2368,17 +2370,24 @@ def nuevo_movimiento(request):
             monto_tarjeta = Decimal(request.POST.get('monto_tarjeta', '0') or '0')
             monto_deposito = Decimal(request.POST.get('monto_deposito', '0') or '0')
 
+            # Procesar fechas
+            fecha_desde = None
+            fecha_hasta = None
+            if request.POST.get('fecha_desde'):
+                fecha_desde = datetime.strptime(request.POST.get('fecha_desde'), '%Y-%m-%d').date()
+            if request.POST.get('fecha_hasta'):
+                fecha_hasta = datetime.strptime(request.POST.get('fecha_hasta'), '%Y-%m-%d').date()
+
             # Crear el movimiento
             movimiento = MovimientoCaja.objects.create(
                 caja=caja,
                 tipo=request.POST.get('tipo'),
                 tipo_comprobante=request.POST.get('tipo_comprobante'),
                 numero_liquidacion=request.POST.get('numero_liquidacion', ''),
-                concepto=request.POST.get('concepto', ''),
-                cuenta_id=request.POST.get('cuenta') if request.POST.get('cuenta') else None,
-                propiedad_id=request.POST.get('propiedad') if request.POST.get('propiedad') else None,
-                fecha_desde=request.POST.get('fecha_desde') if request.POST.get('fecha_desde') else None,
-                fecha_hasta=request.POST.get('fecha_hasta') if request.POST.get('fecha_hasta') else None,
+                concepto=request.POST.get('concepto_id', ''),  # Cambiado a concepto_id
+                propiedad_id=request.POST.get('propiedad_id') if request.POST.get('propiedad_id') else None,
+                fecha_desde=fecha_desde,
+                fecha_hasta=fecha_hasta,
                 monto_efectivo=monto_efectivo,
                 monto_cheque=monto_cheque,
                 monto_tarjeta=monto_tarjeta,
@@ -2389,27 +2398,19 @@ def nuevo_movimiento(request):
                 empleado=request.user
             )
 
-            messages.success(request, f'Movimiento creado exitosamente')
+            messages.success(request, 'Movimiento creado exitosamente')
             return redirect('inmobiliaria:caja')
 
         except (ValueError, TypeError) as e:
-            messages.error(request, f'Error al procesar los montos: asegúrese de ingresar valores numéricos válidos')
-            return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
-                'caja': caja,
-                'fecha_actual': timezone.now()
-            })
+            messages.error(request, f'Error al procesar los montos: asegúrese de ingresar valores numéricos válidos. Error: {str(e)}')
         except Exception as e:
             messages.error(request, f'Error al crear el movimiento: {str(e)}')
-            return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
-                'caja': caja,
-                'fecha_actual': timezone.now()
-            })
-    else:
-        context = {
-            'caja': caja,
-            'fecha_actual': timezone.now(),
-        }
-        return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
+    
+    context = {
+        'caja': caja,
+        'fecha_actual': timezone.now(),
+    }
+    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
 
 @login_required
 def eliminar_movimiento(request, movimiento_id):
