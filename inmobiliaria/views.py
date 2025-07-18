@@ -2364,11 +2364,11 @@ def nuevo_movimiento(request):
     
     if request.method == 'POST':
         try:
-            # Convertir valores monetarios a Decimal, usando 0 si están vacíos
-            monto_efectivo = Decimal(request.POST.get('monto_efectivo', '0') or '0')
-            monto_cheque = Decimal(request.POST.get('monto_cheque', '0') or '0')
-            monto_tarjeta = Decimal(request.POST.get('monto_tarjeta', '0') or '0')
-            monto_deposito = Decimal(request.POST.get('monto_deposito', '0') or '0')
+            # Convertir valores monetarios a float primero y luego a Decimal
+            monto_efectivo = float(request.POST.get('monto_efectivo', '0').replace(',', '.') or '0')
+            monto_cheque = float(request.POST.get('monto_cheque', '0').replace(',', '.') or '0')
+            monto_tarjeta = float(request.POST.get('monto_tarjeta', '0').replace(',', '.') or '0')
+            monto_deposito = float(request.POST.get('monto_deposito', '0').replace(',', '.') or '0')
 
             # Procesar fechas
             fecha_desde = None
@@ -2384,7 +2384,7 @@ def nuevo_movimiento(request):
                 tipo=request.POST.get('tipo'),
                 tipo_comprobante=request.POST.get('tipo_comprobante'),
                 numero_liquidacion=request.POST.get('numero_liquidacion', ''),
-                concepto=request.POST.get('concepto_id', ''),  # Cambiado a concepto_id
+                concepto=request.POST.get('concepto_id', ''),
                 propiedad_id=request.POST.get('propiedad_id') if request.POST.get('propiedad_id') else None,
                 fecha_desde=fecha_desde,
                 fecha_hasta=fecha_hasta,
@@ -2402,9 +2402,17 @@ def nuevo_movimiento(request):
             return redirect('inmobiliaria:caja')
 
         except (ValueError, TypeError) as e:
-            messages.error(request, f'Error al procesar los montos: asegúrese de ingresar valores numéricos válidos. Error: {str(e)}')
+            messages.error(request, f'Error al procesar los montos: asegúrese de ingresar valores numéricos válidos')
+            return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
+                'caja': caja,
+                'fecha_actual': timezone.now()
+            })
         except Exception as e:
             messages.error(request, f'Error al crear el movimiento: {str(e)}')
+            return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
+                'caja': caja,
+                'fecha_actual': timezone.now()
+            })
     
     context = {
         'caja': caja,
