@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal  # Added CuentaBancaria import and Movimiento import
+from .models import Vendedor, Inquilino, Propietario, Propiedad, Reserva, Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal, BancoTarjeta  # Added BancoTarjeta import
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
@@ -2358,71 +2358,19 @@ def cerrar_caja(request, numero_caja):
 
 @login_required
 def nuevo_movimiento(request):
-    sucursal = request.user.sucursal
-    caja = Caja.objects.filter(sucursal=sucursal, estado='abierta').first()
+    caja = get_object_or_404(Caja, sucursal=request.user.sucursal, estado='abierta')
+    bancos = BancoTarjeta.objects.all()
     
-    if not caja:
-        messages.error(request, "No hay una caja abierta")
-        return redirect('inmobiliaria:gestionar_caja')
-
     if request.method == 'POST':
-        # Obtener datos del formulario
-        tipo = request.POST.get('tipo')
-        tipo_comprobante = request.POST.get('tipo_comprobante')
-        operacion = request.POST.get('operacion')
-        numero_liquidacion = request.POST.get('numero_liquidacion')
-        concepto_id = request.POST.get('concepto_id')
-        detalles = request.POST.get('detalles')
-
-        try:
-            # Si no se proporcionó número de operación, usar el siguiente disponible para esta sucursal
-            if not operacion:
-                ultimo_movimiento = MovimientoCaja.objects.filter(
-                    sucursal=sucursal  # Filtrar por sucursal
-                ).order_by('-numero').first()
-                operacion = str((int(ultimo_movimiento.numero) + 1) if ultimo_movimiento else 1)
-
-            # Verificar que el número de operación no exista para esta sucursal
-            if MovimientoCaja.objects.filter(sucursal=sucursal, numero=operacion).exists():
-                messages.error(request, f'El número de operación {operacion} ya existe en esta sucursal')
-                return redirect('inmobiliaria:nuevo_movimiento')
-
-            # Crear el movimiento
-            movimiento = MovimientoCaja.objects.create(
-                caja=caja,
-                tipo=tipo,
-                tipo_comprobante=tipo_comprobante,
-                numero=operacion,
-                numero_liquidacion=numero_liquidacion,
-                concepto_id=concepto_id,
-                observaciones=detalles,
-                fecha=timezone.now(),  # Usar la fecha y hora actual
-                sucursal=sucursal,
-                empleado=request.user
-            )
-
-            messages.success(request, f'Movimiento #{movimiento.numero} creado exitosamente')
-            return redirect('inmobiliaria:caja')
-
-        except Exception as e:
-            messages.error(request, f'Error al crear el movimiento: {str(e)}')
-            return redirect('inmobiliaria:nuevo_movimiento')
-
-    # Para GET request
-    # Obtener el siguiente número de operación para esta sucursal
-    ultimo_movimiento = MovimientoCaja.objects.filter(
-        sucursal=sucursal  # Filtrar por sucursal
-    ).order_by('-numero').first()
-    siguiente_operacion = str((int(ultimo_movimiento.numero) + 1) if ultimo_movimiento else 1)
-
-    context = {
-        'caja': caja,
-        'fecha_actual': timezone.now(),
-        'siguiente_operacion': siguiente_operacion,
-        'sucursal': sucursal,  # Agregar la sucursal al contexto
-    }
-
-    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
+        # Procesar el formulario
+        pass
+    else:
+        context = {
+            'caja': caja,
+            'fecha_actual': timezone.now(),
+            'bancos': bancos,
+        }
+        return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
 
 @login_required
 def eliminar_movimiento(request, movimiento_id):
