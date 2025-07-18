@@ -3154,3 +3154,19 @@ def eliminar_todas_imagenes(request, propiedad_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+@login_required
+def dashboard_caja(request):
+    return render(request, 'inmobiliaria/caja/dashboard_caja.html')
+
+@login_required
+def reportes_caja(request):
+    return render(request, 'inmobiliaria/caja/reportes.html')
+
+@login_required
+def arqueo_caja(request):
+    return render(request, 'inmobiliaria/caja/arqueo.html')
+
+@login_required
+def historial_caja(request):
+    return render(request, 'inmobiliaria/caja/historial.html')

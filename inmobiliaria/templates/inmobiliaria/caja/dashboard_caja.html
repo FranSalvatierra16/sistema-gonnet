@@ -5,74 +5,74 @@
 <div class="container mt-5">
     <div class="row justify-content-center">
         <div class="col-12 text-center mb-4">
-            <h1>Sistema Inmobiliario</h1>
+            <h1>Gestión de Caja</h1>
         </div>
     </div>
     
     <div class="row justify-content-center">
-        <!-- Alquiler por día -->
+        <!-- Movimientos -->
         <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:buscar_propiedades' %}'">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:nuevo_movimiento' %}'">
                 <div class="card-icon">
-                    <i class="fas fa-calendar-day"></i>
+                    <i class="fas fa-exchange-alt"></i>
                 </div>
-                <h3>Alquiler por Día</h3>
-                <p>Gestión de alquileres temporarios</p>
+                <h3>Nuevo Movimiento</h3>
+                <p>Registrar ingresos y egresos</p>
             </div>
         </div>
 
-        <!-- Ventas -->
+        <!-- Lista de Cajas -->
         <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:dashboard_ventas' %}'">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:lista_cajas' %}'">
                 <div class="card-icon">
-                    <i class="fas fa-home"></i>
+                    <i class="fas fa-list"></i>
                 </div>
-                <h3>Ventas</h3>
-                <p>Gestión de ventas de propiedades</p>
+                <h3>Lista de Cajas</h3>
+                <p>Ver todas las cajas</p>
             </div>
         </div>
 
-        <!-- 24 Meses -->
+        <!-- Gestionar Caja -->
         <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:alquileres_24_meses' %}'">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:gestionar_caja' %}'">
                 <div class="card-icon">
-                    <i class="fas fa-calendar-alt"></i>
+                    <i class="fas fa-cog"></i>
                 </div>
-                <h3>24 Meses</h3>
-                <p>Alquileres de larga duración</p>
+                <h3>Gestionar Caja</h3>
+                <p>Administrar caja actual</p>
             </div>
         </div>
 
-        <!-- Caja -->
+        <!-- Reportes -->
         <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:dashboard_caja' %}'">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:reportes_caja' %}'">
                 <div class="card-icon">
-                    <i class="fas fa-cash-register"></i>
+                    <i class="fas fa-chart-bar"></i>
                 </div>
-                <h3>Caja</h3>
-                <p>Control de ingresos y egresos</p>
+                <h3>Reportes</h3>
+                <p>Ver informes y estadísticas</p>
             </div>
         </div>
 
-        <!-- Sucursales -->
+        <!-- Arqueo -->
         <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:sucursales' %}'">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:arqueo_caja' %}'">
                 <div class="card-icon">
-                    <i class="fas fa-building"></i>
+                    <i class="fas fa-calculator"></i>
                 </div>
-                <h3>Sucursales</h3>
-                <p>Gestión de sucursales</p>
+                <h3>Arqueo de Caja</h3>
+                <p>Control de efectivo</p>
             </div>
         </div>
 
-        <!-- Estudiantes -->
+        <!-- Volver -->
         <div class="col-md-4 mb-4">
-            <div class="menu-card">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:dashboard' %}'">
                 <div class="card-icon">
-                    <i class="fas fa-graduation-cap"></i>
+                    <i class="fas fa-arrow-left"></i>
                 </div>
-                <h3>Estudiantes</h3>
-                <p>Alquileres estudiantiles</p>
+                <h3>Volver</h3>
+                <p>Regresar al menú principal</p>
             </div>
         </div>
     </div>
@@ -150,4 +150,4 @@
 }
 </style>
 
-{% endblock %}
+{% endblock %} 
