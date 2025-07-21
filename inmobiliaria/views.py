@@ -1911,39 +1911,77 @@ def confirmar_pago(request, reserva_id):
 
 @login_required
 def agregar_pago(request, reserva_id):
-    if request.method == 'POST':
+    try:
         reserva = get_object_or_404(Reserva, id=reserva_id)
-        try:
-            # Convertir el monto a Decimal
-            monto = Decimal(request.POST['monto'])
-
-            # Obtener el valor del concepto (puede ser ID o nombre)
-            concepto_valor = request.POST.get('concepto')
-
-            # Buscar por ID si es número, o crear/buscar por nombre si es texto
-            if concepto_valor.isdigit():
-                concepto = get_object_or_404(ConceptoPago, id=concepto_valor)
-            else:
-                concepto, creado = ConceptoPago.objects.get_or_create(nombre=concepto_valor)
-
-            # Crear el pago
-            pago = Pago.objects.create(
-                reserva=reserva,
-                concepto=concepto,
-                forma_pago=request.POST['forma_pago'],
-                monto=monto
-            )
-
-            # Forzar la actualización de saldos
-            reserva.actualizar_saldos()
-
-            messages.success(request, 'Pago registrado exitosamente.')
-        except ValueError as e:
-            messages.error(request, f'Error al procesar el pago: {str(e)}')
-        except Exception as e:
-            messages.error(request, f'Error inesperado: {str(e)}')
-
-    return redirect('inmobiliaria:confirmar_pago', reserva_id=reserva_id)
+        
+        if request.method == 'POST':
+            with transaction.atomic():
+                # Obtener datos del formulario
+                monto = Decimal(request.POST.get('monto', '0'))
+                forma_pago = request.POST.get('forma_pago')
+                concepto_id = request.POST.get('concepto')
+                
+                # Validaciones
+                if monto <= 0:
+                    raise ValueError('El monto debe ser mayor que cero')
+                
+                if monto > reserva.cuota_pendiente:
+                    raise ValueError('El monto no puede ser mayor al saldo pendiente')
+                
+                # Obtener el concepto
+                concepto = get_object_or_404(ConceptoPago, id=concepto_id)
+                
+                # Obtener datos adicionales de tarjeta si es necesario
+                numero_tarjeta = None
+                tipo_tarjeta = None
+                if 'tarjeta' in forma_pago:
+                    numero_tarjeta = request.POST.get('numero_tarjeta')
+                    tipo_tarjeta = request.POST.get('tipo_tarjeta')
+                    
+                    if not numero_tarjeta or not tipo_tarjeta:
+                        raise ValueError('Los datos de la tarjeta son requeridos')
+                
+                # Crear el pago
+                pago = Pago.objects.create(
+                    reserva=reserva,
+                    monto=monto,
+                    forma_pago=forma_pago,
+                    concepto=concepto,
+                    numero_tarjeta=numero_tarjeta,
+                    tipo_tarjeta=tipo_tarjeta
+                )
+                
+                # Actualizar saldos de la reserva
+                total_pagado = Pago.objects.filter(reserva=reserva).aggregate(
+                    total=models.Sum('monto'))['total'] or Decimal('0')
+                
+                reserva.senia = total_pagado
+                reserva.cuota_pendiente = reserva.precio_total - total_pagado
+                
+                # Si se completó el pago, finalizar la reserva
+                if reserva.cuota_pendiente <= 0:
+                    reserva.estado = 'finalizada'
+                else:
+                    reserva.estado = 'en_espera'
+                
+                reserva.save()
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Pago registrado exitosamente',
+                    'redirect_url': reverse('inmobiliaria:finalizar_reserva', args=[reserva.id]),
+                    'detalles': {
+                        'total_pagado': float(total_pagado),
+                        'saldo_pendiente': float(reserva.cuota_pendiente),
+                        'estado': reserva.estado
+                    }
+                })
+                
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
 
 @login_required
 def eliminar_pago(request, pago_id):
@@ -1966,19 +2004,19 @@ def agregar_deposito(request, reserva_id):
         if request.method == 'POST':
             monto_deposito = Decimal(request.POST.get('monto_deposito', '0'))
             
-            # Actualizar el depósito de garantía en la reserva
+            if monto_deposito <= 0:
+                raise ValueError('El monto del depósito debe ser mayor que cero')
+            
+            # Actualizar el depósito de garantía
             reserva.deposito_garantia = monto_deposito
             reserva.save()
             
-            messages.success(request, 'Depósito de garantía agregado correctamente')
-            
-            # Print de debug
-            print(f"Depósito guardado: {reserva.deposito_garantia}")
-            
-        return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva.id)
+            messages.success(request, 'Depósito de garantía registrado exitosamente')
+        
+        return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva_id)
         
     except Exception as e:
-        messages.error(request, f'Error al agregar el depósito: {str(e)}')
+        messages.error(request, f'Error al registrar el depósito: {str(e)}')
         return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva_id)
 
 from django.contrib.auth import logout

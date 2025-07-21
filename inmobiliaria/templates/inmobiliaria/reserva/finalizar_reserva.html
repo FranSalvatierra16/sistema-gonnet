@@ -212,7 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const formData = new FormData(this);
                 
-                fetch('{% url "inmobiliaria:terminar_reserva" reserva.id %}', {
+                fetch('{% url "inmobiliaria:agregar_pago" reserva.id %}', {
                     method: 'POST',
                     body: formData,
                     headers: {
