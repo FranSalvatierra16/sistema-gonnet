@@ -14,8 +14,8 @@
             <h5 class="card-title">Detalles de la Reserva</h5>
             <p><strong>Cliente:</strong> {{ reserva.inquilino.nombre_completo }}</p>
             <p><strong>Propiedad:</strong> {{ reserva.propiedad.direccion }}</p>
-            <p><strong>Precio Total:</strong> {{ reserva.precio_total|format_price }}</p>
-            <p><strong>Saldo Pendiente:</strong> {{ reserva.cuota_pendiente|format_price }}</p>
+            <p><strong>Precio Total:</strong> ${{ reserva.precio_total|floatformat:2 }}</p>
+            <p><strong>Saldo Pendiente:</strong> ${{ reserva.cuota_pendiente|floatformat:2 }}</p>
         </div>
     </div>
 
@@ -37,13 +37,13 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for pago in reserva.pagos.all %}
+                        {% for pago in pagos_previos %}
                         <tr>
                             <td>{{ pago.fecha|date:"d/m/Y" }}</td>
                             <td>{{ pago.codigo }}</td>
                             <td>{{ pago.concepto.nombre }}</td>
                             <td>{{ pago.get_forma_pago_display }}</td>
-                            <td class="text-right">{{ pago.monto|format_price }}</td>
+                            <td class="text-right">${{ pago.monto|floatformat:2 }}</td>
                         </tr>
                         {% endfor %}
                         
@@ -53,22 +53,22 @@
                             <td>DEP-{{ reserva.id }}</td>
                             <td>Depósito de Garantía</td>
                             <td>-</td>
-                            <td class="text-right">{{ reserva.deposito_garantia|format_price }}</td>
+                            <td class="text-right">${{ reserva.deposito_garantia|floatformat:2 }}</td>
                         </tr>
                         {% endif %}
                     </tbody>
                     <tfoot>
                         <tr>
                             <td colspan="4" class="text-right"><strong>Total Pagado:</strong></td>
-                            <td class="text-right"><strong>${{ reserva.senia|format_price }}</strong></td>
+                            <td class="text-right"><strong>${{ total_pagado|floatformat:2 }}</strong></td>
                         </tr>
                         <tr>
                             <td colspan="4" class="text-right"><strong>Depósito de Garantía:</strong></td>
-                            <td class="text-right"><strong>${{ reserva.deposito_garantia|format_price }}</strong></td>
+                            <td class="text-right"><strong>${{ deposito|floatformat:2 }}</strong></td>
                         </tr>
                         <tr>
                             <td colspan="4" class="text-right"><strong>Saldo Pendiente:</strong></td>
-                            <td class="text-right"><strong>${{ reserva.cuota_pendiente|format_price }}</strong></td>
+                            <td class="text-right"><strong>${{ saldo_pendiente|floatformat:2 }}</strong></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -79,33 +79,24 @@
     <!-- Botones -->
     <div class="mt-3">
         <!-- Botón para agregar pago -->
-        <button type="button" class="btn btn-primary mb-3" data-toggle="modal" data-target="#agregarPagoModal">
+        <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#agregarPagoModal">
             <i class="fas fa-plus"></i> Agregar Nuevo Pago
         </button>
 
         {% if not reserva.deposito_garantia > 0 %}
-        <button type="button" class="btn btn-primary mb-3" data-toggle="modal" data-target="#agregarDepositoModal">
+        <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#agregarDepositoModal">
             <i class="fas fa-plus"></i> Agregar Depósito de Garantía
         </button>
         {% endif %}
-
-        <form method="post" action="{% url 'inmobiliaria:ver_recibo' reserva.id %}">
-            {% csrf_token %}
-            <button type="submit" name="confirmar" class="btn btn-success">
-                <i class="fas fa-check"></i> Confirmar y Ver Recibo
-            </button>
-        </form>
     </div>
 
     <!-- Modal para agregar depósito -->
-    <div class="modal fade" id="agregarDepositoModal" tabindex="-1" role="dialog">
-        <div class="modal-dialog" role="document">
+    <div class="modal fade" id="agregarDepositoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Agregar Depósito de Garantía</h5>
-                    <button type="button" class="close" data-dismiss="modal">
-                        <span>&times;</span>
-                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form method="post" action="{% url 'inmobiliaria:agregar_deposito' reserva.id %}">
                     {% csrf_token %}
@@ -117,7 +108,7 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-primary">Guardar Depósito</button>
                     </div>
                 </form>
@@ -127,16 +118,14 @@
 </div>
 
 <!-- Modal para agregar pago -->
-<div class="modal fade" id="agregarPagoModal" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
+<div class="modal fade" id="agregarPagoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Agregar Pago</h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="post" action="{% url 'inmobiliaria:agregar_pago' reserva.id %}">
+            <form method="post" id="formPago">
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="form-group">
@@ -199,7 +188,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary">Guardar Pago</button>
                 </div>
             </form>
@@ -207,75 +196,23 @@
     </div>
 </div>
 
-<!-- Agregar este script al final del archivo -->
 <script>
-document.getElementById('forma_pago').addEventListener('change', function() {
-    const camposTarjeta = document.getElementById('campos_tarjeta');
-    const numeroTarjeta = document.querySelector('input[name="numero_tarjeta"]');
-    const tipoTarjeta = document.querySelector('select[name="tipo_tarjeta"]');
-    
-    if (this.value.includes('tarjeta')) {
-        camposTarjeta.style.display = 'block';
-        numeroTarjeta.required = true;
-        tipoTarjeta.required = true;
-    } else {
-        camposTarjeta.style.display = 'none';
-        numeroTarjeta.required = false;
-        tipoTarjeta.required = false;
-    }
-});
-
 document.addEventListener('DOMContentLoaded', function() {
-    // Evento para cuando se ingresa el código
-    document.getElementById('codigo_concepto').addEventListener('input', function(e) {
-        const codigo = e.target.value;
-        const conceptoInput = document.getElementById('concepto_input');
-        const options = document.getElementById('conceptos_list').options;
-        
-        for (let option of options) {
-            if (option.dataset.codigo === codigo) {
-                conceptoInput.value = option.value;
-                document.getElementById('concepto_id').value = option.dataset.id;
-                break;
-            }
-        }
-    });
-
-    // Evento para cuando se selecciona un concepto
-    document.getElementById('concepto_input').addEventListener('input', function(e) {
-        const selectedValue = e.target.value;
-        const options = document.getElementById('conceptos_list').options;
-        
-        for (let option of options) {
-            if (option.value === selectedValue) {
-                document.getElementById('concepto_id').value = option.dataset.id;
-                document.getElementById('codigo_concepto').value = option.dataset.codigo;
-                break;
-            }
-        }
-    });
-
-    // Función para validar y obtener el ID del concepto
-    function getConceptoId() {
-        const conceptoId = document.getElementById('concepto_id').value;
-        if (!conceptoId) {
-            throw new Error('Por favor seleccione un concepto válido');
-        }
-        return conceptoId;
-    }
-
     // Manejo del formulario de pago
-    const formPago = document.querySelector('form[action*="agregar_pago"]');
+    const formPago = document.getElementById('formPago');
     if (formPago) {
         formPago.addEventListener('submit', function(e) {
             e.preventDefault();
             
             try {
-                const conceptoId = getConceptoId();
-                const formData = new FormData(this);
-                formData.set('concepto', conceptoId);
+                const conceptoId = document.getElementById('concepto_id').value;
+                if (!conceptoId) {
+                    throw new Error('Por favor seleccione un concepto válido');
+                }
 
-                fetch(this.action, {
+                const formData = new FormData(this);
+                
+                fetch('{% url "inmobiliaria:terminar_reserva" reserva.id %}', {
                     method: 'POST',
                     body: formData,
                     headers: {
@@ -285,9 +222,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        // Redirección explícita
-                        console.log('Redirigiendo a:', data.redirect_url);
-                        window.location.replace(data.redirect_url);
+                        window.location.href = data.redirect_url;
                     } else {
                         Swal.fire({
                             icon: 'error',
@@ -313,11 +248,55 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Manejo del campo de concepto
+    document.getElementById('codigo_concepto').addEventListener('input', function(e) {
+        const codigo = e.target.value;
+        const conceptoInput = document.getElementById('concepto_input');
+        const options = document.getElementById('conceptos_list').options;
+        
+        for (let option of options) {
+            if (option.dataset.codigo === codigo) {
+                conceptoInput.value = option.value;
+                document.getElementById('concepto_id').value = option.dataset.id;
+                break;
+            }
+        }
+    });
+
+    document.getElementById('concepto_input').addEventListener('input', function(e) {
+        const selectedValue = e.target.value;
+        const options = document.getElementById('conceptos_list').options;
+        
+        for (let option of options) {
+            if (option.value === selectedValue) {
+                document.getElementById('concepto_id').value = option.dataset.id;
+                document.getElementById('codigo_concepto').value = option.dataset.codigo;
+                break;
+            }
+        }
+    });
+
+    // Manejo de campos de tarjeta
+    document.getElementById('forma_pago').addEventListener('change', function() {
+        const camposTarjeta = document.getElementById('campos_tarjeta');
+        const numeroTarjeta = document.querySelector('input[name="numero_tarjeta"]');
+        const tipoTarjeta = document.querySelector('select[name="tipo_tarjeta"]');
+        
+        if (this.value.includes('tarjeta')) {
+            camposTarjeta.style.display = 'block';
+            numeroTarjeta.required = true;
+            tipoTarjeta.required = true;
+        } else {
+            camposTarjeta.style.display = 'none';
+            numeroTarjeta.required = false;
+            tipoTarjeta.required = false;
+        }
+    });
 });
 </script>
 
 <style>
-/* Estilos para mejorar la apariencia */
 .input-group {
     display: flex;
     gap: 10px;
@@ -329,6 +308,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
 #concepto_input {
     flex: 1;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.modal-body {
+    padding: 1rem;
 }
 </style>
 {% endblock %}
