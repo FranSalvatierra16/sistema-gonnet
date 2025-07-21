@@ -1041,251 +1041,126 @@ def reserva_exitosa(request, reserva_id):
 
 @login_required
 def terminar_reserva(request, reserva_id):
-    reserva = get_object_or_404(Reserva, id=reserva_id)
-    conceptos_pago = ConceptoPago.objects.all()
-    pagos_previos = Pago.objects.filter(reserva=reserva).order_by('-fecha')
-    
-    # Verificar si hay pagos y actualizar el estado
-    if pagos_previos.exists():
-        reserva.estado = 'pagada'
+    try:
+        reserva = get_object_or_404(Reserva, id=reserva_id)
+        
+        # Verificar si hay una caja abierta
+        caja_actual = Caja.objects.filter(
+            sucursal=request.user.sucursal,
+            estado='abierta'
+        ).first()
+        
+        if not caja_actual:
+            messages.error(request, 'No hay una caja abierta. Por favor, abra una caja antes de finalizar la reserva.')
+            return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva_id)
+        
+        # Crear el movimiento de caja
+        movimiento = MovimientoCaja(
+            caja=caja_actual,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+            tipo_comprobante=TipoComprobanteEnum.RECIBO,
+            concepto=f"Reserva #{reserva.id} - {reserva.propiedad.direccion}",
+            fecha_desde=reserva.fecha_inicio,
+            fecha_hasta=reserva.fecha_fin,
+            propiedad=reserva.propiedad,
+            sucursal=request.user.sucursal,
+            empleado=request.user
+        )
+        
+        # Asignar montos según los pagos de la reserva
+        for pago in reserva.pagos.all():
+            if pago.forma_pago == 'efectivo':
+                movimiento.monto_efectivo += pago.monto
+            elif pago.forma_pago in ['tarjeta_credito', 'tarjeta_debito']:
+                movimiento.monto_tarjeta += pago.monto
+            elif pago.forma_pago == 'transferencia':
+                movimiento.monto_deposito += pago.monto
+                movimiento.destino_deposito = 'galicia'  # Por defecto, ajustar según necesidad
+            elif pago.forma_pago == 'cheque':
+                movimiento.monto_cheque += pago.monto
+            elif pago.forma_pago == 'qr':
+                movimiento.monto_deposito += pago.monto
+                movimiento.destino_deposito = 'mp'
+        
+        # Guardar el movimiento
+        movimiento.save()
+        
+        # Actualizar estado de la reserva
+        reserva.estado = 'finalizada'
         reserva.save()
-    print("la reserva es ",reserva.estado) 
-    # Inicializar o actualizar cuota_pendiente si es necesario
-    if reserva.cuota_pendiente is None or reserva.cuota_pendiente == 0:
-        reserva.cuota_pendiente = reserva.precio_total
-        reserva.save()
-    
-    if request.method == 'POST':
-        try:
-            with transaction.atomic():
-                # Obtener datos del formulario
-                monto = Decimal(request.POST.get('monto', '0'))
-                forma_pago = request.POST.get('forma_pago')
-                concepto_id = request.POST.get('concepto')
-                deposito = Decimal(request.POST.get('deposito', '0'))
-                
-                # Validaciones
-                if monto <= 0:
-                    raise ValueError('El monto debe ser mayor que cero')
-                
-                if monto > reserva.cuota_pendiente:
-                    raise ValueError('El monto no puede ser mayor al saldo pendiente')
-                
-                # Obtener el concepto
-                concepto = get_object_or_404(ConceptoPago, id=concepto_id)
-                
-                # Obtener datos adicionales de tarjeta si es necesario
-                numero_tarjeta = None
-                tipo_tarjeta = None
-                if 'tarjeta' in forma_pago:
-                    numero_tarjeta = request.POST.get('numero_tarjeta')
-                    tipo_tarjeta = request.POST.get('tipo_tarjeta')
-                    
-                    if not numero_tarjeta or not tipo_tarjeta:
-                        raise ValueError('Los datos de la tarjeta son requeridos')
-                
-                # Crear el pago con los datos adicionales
-                pago = Pago.objects.create(
-                    reserva=reserva,
-                    monto=monto,
-                    forma_pago=forma_pago,
-                    concepto=concepto,
-                    numero_tarjeta=numero_tarjeta,
-                    tipo_tarjeta=tipo_tarjeta
-                )
-                
-                # Calcular total pagado y actualizar saldo pendiente
-                total_pagado = Pago.objects.filter(reserva=reserva).aggregate(
-                    total=models.Sum('monto'))['total'] or Decimal('0')
-                
-                # Actualizar la reserva
-                reserva.senia = total_pagado
-                reserva.deposito = deposito
-                reserva.cuota_pendiente = reserva.precio_total - total_pagado
-                reserva.estado = 'pagada'  # Siempre marcar como pagada cuando hay un pago
-                
-                print(f"Debug - Precio Total: {reserva.precio_total}")
-                print(f"Debug - Total Pagado: {total_pagado}")
-                print(f"Debug - Cuota Pendiente: {reserva.cuota_pendiente}")
-                print(f"Debug - Depósito de Garantía: {reserva.deposito_garantia}")
-                
-                # Actualizar estado según el saldo pendiente
-                if reserva.cuota_pendiente <= 0:
-                    reserva.estado = 'pagada'
-                    messages.success(request, 'Reserva pagada completamente')
-                else:
-                    reserva.estado = 'en_espera'
-                    messages.success(request, f'Pago registrado. Saldo pendiente: ${reserva.cuota_pendiente}')
-                
-                reserva.save()
-                
-                messages.success(request, 'Pago registrado exitosamente')
-                
-                return JsonResponse({
-                    'success': True,
-                    'message': 'Pago registrado exitosamente',
-                    'redirect_url': reverse('inmobiliaria:ver_recibo', args=[reserva.id]),
-                    'detalles': {
-                        'total_pagado': float(total_pagado),
-                        'saldo_pendiente': float(reserva.cuota_pendiente),
-                        'deposit_garantia': float(reserva.deposito_garantia),
-                        'estado': reserva.estado
-                    }
-                })
-                
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'message': str(e)
-            })
-    
-    # Calcular saldo pendiente actual para el contexto
-    total_pagado = sum(pago.monto for pago in pagos_previos)
-    saldo_pendiente = reserva.precio_total - total_pagado
-    
-    context = {
-        'reserva': reserva,
-        'conceptos_pago': conceptos_pago,
-        'pagos_previos': pagos_previos,
-        'formas_pago': Pago.FORMA_PAGO_CHOICES,
-        'total_pagado': sum(pago.monto for pago in pagos_previos),
-        'saldo_pendiente': reserva.cuota_pendiente,
-        'deposito': reserva.deposito_garantia or 0  # Aseguramos que siempre haya un valor
-    }
-    
-    return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
+        
+        messages.success(request, 'Reserva finalizada y movimiento de caja registrado exitosamente')
+        return redirect('inmobiliaria:ver_recibo', reserva_id=reserva.id)
+        
+    except Exception as e:
+        messages.error(request, f'Error al finalizar la reserva: {str(e)}')
+        return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva_id)
+
 @login_required
 def ver_recibo(request, reserva_id):
     try:
         reserva = get_object_or_404(Reserva, id=reserva_id)
-        fecha_actual = datetime.now()
         
-        propiedad = reserva.propiedad
+        # Crear movimiento de caja automáticamente
+        caja_actual = Caja.objects.filter(
+            sucursal=request.user.sucursal,
+            estado='abierta'
+        ).first()
         
-        # Obtener todos los pagos de la reserva ordenados por fecha
-        pagos = reserva.pagos.all().order_by('fecha')
-        formas_de_pago = ', '.join(set(pago.get_forma_pago_display() for pago in pagos))
+        if caja_actual:
+            # Crear el movimiento
+            movimiento = MovimientoCaja(
+                caja=caja_actual,
+                tipo=TipoMovimientoCajaEnum.INGRESO,
+                concepto=f"Reserva #{reserva.id} - {reserva.propiedad.direccion}",
+                fecha_desde=reserva.fecha_inicio,
+                fecha_hasta=reserva.fecha_fin,
+                propiedad=reserva.propiedad,
+                sucursal=request.user.sucursal,
+                empleado=request.user
+                # Removemos a_descontar ya que es un ingreso
+            )
+            
+            # Asignar montos según los pagos de la reserva
+            for pago in reserva.pagos.all():
+                if pago.forma_pago == 'efectivo':
+                    movimiento.monto_efectivo += pago.monto
+                elif pago.forma_pago in ['tarjeta_credito', 'tarjeta_debito']:
+                    movimiento.monto_tarjeta += pago.monto
+                elif pago.forma_pago == 'transferencia':
+                    movimiento.monto_deposito += pago.monto
+                    # Asumimos Galicia por defecto, ajustar según necesidad
+                    movimiento.destino_deposito = 'galicia'
+                elif pago.forma_pago == 'cheque':
+                    movimiento.monto_cheque += pago.monto
+            
+            movimiento.save()
+            
+            messages.success(request, 'Movimiento de caja creado exitosamente')
+        else:
+            messages.warning(request, 'No hay una caja abierta para registrar el movimiento')
         
-        # Convertir el precio total a palabras
-        monto_en_palabras = numero_a_palabras(int(sum(pago.monto for pago in pagos)))
-        
-        # Crear lista de características con SI/NO
-        caracteristicas = []
-        caracteristicas_base = [
-            ('WiFi', propiedad.wifi),
-            ('Cochera', propiedad.cochera),
-            ('TV Smart', propiedad.tv_smart),
-            ('Piscina', propiedad.piscina),
-            ('Parrilla', propiedad.parrilla),
-
-        ]
-        
-        # Convertir cada característica a su formato "Nombre: SI/NO"
-        caracteristicas = [f"{nombre}: {'SI' if valor else 'NO'}" for nombre, valor in caracteristicas_base]
-        
-        # Crear descripción
-        vista = getattr(propiedad, 'vista', 'No especificada')
-        ambientes = getattr(propiedad, 'ambientes', 'No especificados')
-        
-        descripcion = f"Vista {vista}, {ambientes} ambientes"
-        if caracteristicas:
-            descripcion += f" con {', '.join(caracteristicas)}"
-        
-        # Print de debug
-        print("Características encontradas:", caracteristicas)
-        print("Descripción generada:", descripcion)
-        
+        # Continuar con la generación del recibo
+        template = get_template('inmobiliaria/html.recibo/recibo.html')
         context = {
-            # Datos básicos del recibo
-            'numero_recibo': f'0007-{reserva.id:06d}',
-            'fecha': fecha_actual.strftime('%d/%m/%Y'),
-            'hora': fecha_actual.strftime('%H:%M'),
-            
-            # Datos de la reserva
             'reserva': reserva,
-            'operacion': f'{reserva.id:04d}',
-            'precio_total': reserva.precio_total,
-            'senia': reserva.senia,
-            'saldo': reserva.cuota_pendiente,
-            'deposito': getattr(reserva, 'deposito', 0),
-            'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
-            'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
-            'monto_en_palabras': monto_en_palabras,
-            
-            # Datos del cliente
-            'cliente': {
-                'nombre_completo': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
-                'dni': reserva.cliente.dni,
-                'telefono': reserva.cliente.celular,
-                'domicilio': reserva.cliente.domicilio,
-                'localidad': reserva.cliente.localidad,
-                'provincia': reserva.cliente.provincia,
-                'cuit': reserva.cliente.cuit if reserva.cliente.cuit not in [None, ''] else '',
-                'iva': reserva.cliente.tipo_ins
-            },
-            
-            # Datos de la propiedad
-            'propiedad': {
-                'id': propiedad.id,
-                'direccion': propiedad.direccion,
-                'numero': getattr(propiedad, 'numero', ''),
-                'piso': getattr(propiedad, 'piso', ''),
-                'departamento': getattr(propiedad, 'departamento', ''),
-                'localidad': getattr(propiedad, 'localidad', ''),
-                'provincia': getattr(propiedad, 'provincia', ''),
-                'codigo_postal': getattr(propiedad, 'codigo_postal', ''),
-                'tipo_propiedad': getattr(propiedad, 'tipo_propiedad', ''),
-                'superficie': getattr(propiedad, 'superficie', ''),
-                'ambientes': ambientes,
-                'dormitorios': getattr(propiedad, 'dormitorios', ''),
-                'baños': getattr(propiedad, 'baños', ''),
-                'garage': getattr(propiedad, 'garage', ''),
-                'descripcion': descripcion,
-                'precio': getattr(propiedad, 'precio', ''),
-                'moneda': getattr(propiedad, 'moneda', ''),
-                'estado': getattr(propiedad, 'estado', ''),
-                'disponibilidad': getattr(propiedad, 'disponibilidad', ''),
-                'fecha_publicacion': getattr(propiedad, 'fecha_publicacion', ''),
-                'propietario': propiedad.propietario.nombre if getattr(propiedad, 'propietario', None) else '',
-                'ficha': getattr(propiedad, 'ficha', ''),
-                'llave': getattr(propiedad, 'llave', ''),
-                'comodidades': ', '.join(caracteristicas),
-                'vista': vista,
-                'wifi': 'SI' if propiedad.wifi else 'NO',
-                'cochera': 'SI' if propiedad.cochera else 'NO',
-                'tv_smart': 'SI' if propiedad.tv_smart else 'NO',
-                'piscina': 'SI' if propiedad.piscina else 'NO',
-                'parrilla': 'SI' if propiedad.parrilla else 'NO',
-          
-            },
-            
-            # Datos del vendedor
-            'vendedor': {
-                'nombre_completo': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else '',
-                'dni': getattr(reserva.vendedor, 'dni', '') if reserva.vendedor else '',
-                'telefono': getattr(reserva.vendedor, 'celular', '') if reserva.vendedor else ''
-            },
-            
-            # Agregar los pagos al contexto
-            'pagos': [{
-                'fecha': pago.fecha.strftime('%d/%m/%Y'),
-                'codigo': pago.codigo,
-                'concepto': pago.concepto.nombre,
-                'forma_pago': pago.get_forma_pago_display(),
-                'monto': pago.monto
-            } for pago in pagos],
-            
-            # Total de pagos
-            'total_pagado': sum(pago.monto for pago in pagos),
-            'formas_de_pago': formas_de_pago,
+            'fecha_actual': timezone.now(),
         }
+        html = template.render(context)
         
-        return render(request, 'inmobiliaria/reserva/recibo.html', context)
+        # Crear el PDF
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'filename=recibo_{reserva.id}.pdf'
+        
+        pisa_status = pisa.CreatePDF(html, dest=response)
+        if pisa_status.err:
+            return HttpResponse('Error al generar el PDF', status=500)
+        
+        return response
         
     except Exception as e:
-        print(f"Error en ver_recibo: {str(e)}")
         messages.error(request, f'Error al generar el recibo: {str(e)}')
-        return redirect('inmobiliaria:buscar_propiedades')
+        return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva_id)
 
 def generar_recibo_pdf(reserva, pago_senia):
     template_name = 'inmobiliaria/reserva/recibo.html'

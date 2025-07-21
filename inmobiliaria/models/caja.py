@@ -97,14 +97,24 @@ class MovimientoCaja(models.Model):
             ('propietario', 'Propietario'),
             ('oficina', 'Oficina')
         ],
-        default='oficina'
+        null=True,  # Hacemos el campo opcional
+        blank=True,  # Permitimos que esté vacío
+        help_text='Solo necesario para egresos'  # Agregamos ayuda
     )
     sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
     empleado = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     caja = models.ForeignKey('Caja', on_delete=models.CASCADE, null=True, blank=True)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Inicializar montos en 0 si son None
+        self.monto_efectivo = self.monto_efectivo or 0
+        self.monto_cheque = self.monto_cheque or 0
+        self.monto_tarjeta = self.monto_tarjeta or 0
+        self.monto_deposito = self.monto_deposito or 0
+
     def __str__(self):
-        return f"{self.get_tipo_display()} - ${self.monto_efectivo + self.monto_cheque + self.monto_tarjeta + self.monto_deposito}"
+        return f"{self.get_tipo_display()} - ${self.monto_total}"
     
     @property
     def monto_total(self):
