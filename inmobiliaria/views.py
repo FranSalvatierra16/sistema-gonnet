@@ -1043,57 +1043,153 @@ def reserva_exitosa(request, reserva_id):
 def terminar_reserva(request, reserva_id):
     try:
         reserva = get_object_or_404(Reserva, id=reserva_id)
+        conceptos_pago = ConceptoPago.objects.all()
+        pagos_previos = Pago.objects.filter(reserva=reserva).order_by('-fecha')
         
-        # Verificar si hay una caja abierta
-        caja_actual = Caja.objects.filter(
-            sucursal=request.user.sucursal,
-            estado='abierta'
-        ).first()
+        # Verificar si hay pagos y actualizar el estado
+        if pagos_previos.exists():
+            reserva.estado = 'pagada'
+            reserva.save()
         
-        if not caja_actual:
-            messages.error(request, 'No hay una caja abierta. Por favor, abra una caja antes de finalizar la reserva.')
-            return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva_id)
+        # Inicializar o actualizar cuota_pendiente si es necesario
+        if reserva.cuota_pendiente is None or reserva.cuota_pendiente == 0:
+            reserva.cuota_pendiente = reserva.precio_total
+            reserva.save()
         
-        # Crear el movimiento de caja
-        movimiento = MovimientoCaja(
-            caja=caja_actual,
-            tipo=TipoMovimientoCajaEnum.INGRESO,
-            tipo_comprobante=TipoComprobanteEnum.RECIBO,
-            concepto=f"Reserva #{reserva.id} - {reserva.propiedad.direccion}",
-            fecha_desde=reserva.fecha_inicio,
-            fecha_hasta=reserva.fecha_fin,
-            propiedad=reserva.propiedad,
-            sucursal=request.user.sucursal,
-            empleado=request.user
-        )
+        if request.method == 'POST':
+            try:
+                with transaction.atomic():
+                    # Obtener datos del formulario
+                    monto = Decimal(request.POST.get('monto', '0'))
+                    forma_pago = request.POST.get('forma_pago')
+                    concepto_id = request.POST.get('concepto')
+                    deposito = Decimal(request.POST.get('deposito', '0'))
+                    
+                    # Validaciones
+                    if monto <= 0:
+                        raise ValueError('El monto debe ser mayor que cero')
+                    
+                    if monto > reserva.cuota_pendiente:
+                        raise ValueError('El monto no puede ser mayor al saldo pendiente')
+                    
+                    # Obtener el concepto
+                    concepto = get_object_or_404(ConceptoPago, id=concepto_id)
+                    
+                    # Obtener datos adicionales de tarjeta si es necesario
+                    numero_tarjeta = None
+                    tipo_tarjeta = None
+                    if 'tarjeta' in forma_pago:
+                        numero_tarjeta = request.POST.get('numero_tarjeta')
+                        tipo_tarjeta = request.POST.get('tipo_tarjeta')
+                        
+                        if not numero_tarjeta or not tipo_tarjeta:
+                            raise ValueError('Los datos de la tarjeta son requeridos')
+                    
+                    # Crear el pago con los datos adicionales
+                    pago = Pago.objects.create(
+                        reserva=reserva,
+                        monto=monto,
+                        forma_pago=forma_pago,
+                        concepto=concepto,
+                        numero_tarjeta=numero_tarjeta,
+                        tipo_tarjeta=tipo_tarjeta
+                    )
+                    
+                    # Calcular total pagado y actualizar saldo pendiente
+                    total_pagado = Pago.objects.filter(reserva=reserva).aggregate(
+                        total=models.Sum('monto'))['total'] or Decimal('0')
+                    
+                    # Actualizar la reserva
+                    reserva.senia = total_pagado
+                    reserva.deposito = deposito
+                    reserva.cuota_pendiente = reserva.precio_total - total_pagado
+                    
+                    # Si la cuota pendiente es 0 o menor, finalizar la reserva y crear movimiento de caja
+                    if reserva.cuota_pendiente <= 0:
+                        # Verificar si hay una caja abierta
+                        caja_actual = Caja.objects.filter(
+                            sucursal=request.user.sucursal,
+                            estado='abierta'
+                        ).first()
+                        
+                        if not caja_actual:
+                            messages.error(request, 'No hay una caja abierta. Por favor, abra una caja antes de finalizar la reserva.')
+                            return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva_id)
+                        
+                        # Crear el movimiento de caja
+                        movimiento = MovimientoCaja(
+                            caja=caja_actual,
+                            tipo=TipoMovimientoCajaEnum.INGRESO,
+                            tipo_comprobante=TipoComprobanteEnum.RECIBO,
+                            concepto=f"Reserva #{reserva.id} - {reserva.propiedad.direccion}",
+                            fecha_desde=reserva.fecha_inicio,
+                            fecha_hasta=reserva.fecha_fin,
+                            propiedad=reserva.propiedad,
+                            sucursal=request.user.sucursal,
+                            empleado=request.user
+                        )
+                        
+                        # Asignar montos según los pagos de la reserva
+                        for pago in reserva.pagos.all():
+                            if pago.forma_pago == 'efectivo':
+                                movimiento.monto_efectivo += pago.monto
+                            elif pago.forma_pago in ['tarjeta_credito', 'tarjeta_debito']:
+                                movimiento.monto_tarjeta += pago.monto
+                            elif pago.forma_pago == 'transferencia':
+                                movimiento.monto_deposito += pago.monto
+                                movimiento.destino_deposito = 'galicia'
+                            elif pago.forma_pago == 'cheque':
+                                movimiento.monto_cheque += pago.monto
+                            elif pago.forma_pago == 'qr':
+                                movimiento.monto_deposito += pago.monto
+                                movimiento.destino_deposito = 'mp'
+                        
+                        # Guardar el movimiento
+                        movimiento.save()
+                        reserva.estado = 'finalizada'
+                        messages.success(request, 'Reserva finalizada y movimiento de caja registrado exitosamente')
+                    else:
+                        reserva.estado = 'en_espera'
+                        messages.success(request, f'Pago registrado. Saldo pendiente: ${reserva.cuota_pendiente}')
+                    
+                    reserva.save()
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Pago registrado exitosamente',
+                        'redirect_url': reverse('inmobiliaria:ver_recibo', args=[reserva.id]),
+                        'detalles': {
+                            'total_pagado': float(total_pagado),
+                            'saldo_pendiente': float(reserva.cuota_pendiente),
+                            'deposito_garantia': float(reserva.deposito_garantia or 0),
+                            'estado': reserva.estado
+                        }
+                    })
+                    
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': str(e)
+                })
         
-        # Asignar montos según los pagos de la reserva
-        for pago in reserva.pagos.all():
-            if pago.forma_pago == 'efectivo':
-                movimiento.monto_efectivo += pago.monto
-            elif pago.forma_pago in ['tarjeta_credito', 'tarjeta_debito']:
-                movimiento.monto_tarjeta += pago.monto
-            elif pago.forma_pago == 'transferencia':
-                movimiento.monto_deposito += pago.monto
-                movimiento.destino_deposito = 'galicia'  # Por defecto, ajustar según necesidad
-            elif pago.forma_pago == 'cheque':
-                movimiento.monto_cheque += pago.monto
-            elif pago.forma_pago == 'qr':
-                movimiento.monto_deposito += pago.monto
-                movimiento.destino_deposito = 'mp'
+        # Calcular saldo pendiente actual para el contexto
+        total_pagado = sum(pago.monto for pago in pagos_previos)
+        saldo_pendiente = reserva.precio_total - total_pagado
         
-        # Guardar el movimiento
-        movimiento.save()
+        context = {
+            'reserva': reserva,
+            'conceptos_pago': conceptos_pago,
+            'pagos_previos': pagos_previos,
+            'formas_pago': Pago.FORMA_PAGO_CHOICES,
+            'total_pagado': total_pagado,
+            'saldo_pendiente': reserva.cuota_pendiente,
+            'deposito': reserva.deposito_garantia or 0
+        }
         
-        # Actualizar estado de la reserva
-        reserva.estado = 'finalizada'
-        reserva.save()
-        
-        messages.success(request, 'Reserva finalizada y movimiento de caja registrado exitosamente')
-        return redirect('inmobiliaria:ver_recibo', reserva_id=reserva.id)
+        return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
         
     except Exception as e:
-        messages.error(request, f'Error al finalizar la reserva: {str(e)}')
+        messages.error(request, f'Error al procesar la reserva: {str(e)}')
         return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva_id)
 
 @login_required
