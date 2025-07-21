@@ -139,21 +139,26 @@
                                 minlength="3" 
                                 pattern=".{3,3}"
                                 style="width: 100px;"
+                                list="codigos_list"
                                 required>
                             <input 
                                 type="text" 
                                 id="concepto_input" 
                                 class="form-control" 
-                                list="conceptos_list" 
                                 placeholder="Buscar concepto..." 
+                                list="conceptos_list"
                                 required
-                                readonly
                             >
                             <input type="hidden" id="concepto_id" name="concepto">
+                            <datalist id="codigos_list">
+                                {% for concepto in conceptos_pago %}
+                                    <option value="{{ concepto.codigo }}">
+                                {% endfor %}
+                            </datalist>
                             <datalist id="conceptos_list">
                                 {% for concepto in conceptos_pago %}
                                     <option 
-                                        value="{{ concepto.codigo }} - {{ concepto.nombre }}"
+                                        value="{{ concepto.nombre }}"
                                         data-id="{{ concepto.id }}"
                                         data-codigo="{{ concepto.codigo }}"
                                     >
@@ -221,15 +226,40 @@ document.addEventListener('DOMContentLoaded', function() {
     const conceptoId = document.getElementById('concepto_id');
     const conceptosList = document.getElementById('conceptos_list');
 
+    // Crear un mapa de conceptos para búsqueda rápida
+    const conceptosMap = new Map();
+    const conceptosPorNombre = new Map();
+    {% for concepto in conceptos_pago %}
+        conceptosMap.set('{{ concepto.codigo }}', {
+            id: '{{ concepto.id }}',
+            nombre: '{{ concepto.nombre }}',
+            codigo: '{{ concepto.codigo }}'
+        });
+        conceptosPorNombre.set('{{ concepto.nombre }}', {
+            id: '{{ concepto.id }}',
+            nombre: '{{ concepto.nombre }}',
+            codigo: '{{ concepto.codigo }}'
+        });
+    {% endfor %}
+
     // Función para buscar concepto por código
     function buscarConceptoPorCodigo(codigo) {
-        const options = conceptosList.getElementsByTagName('option');
-        for (let option of options) {
-            if (option.dataset.codigo === codigo) {
-                conceptoInput.value = option.value;
-                conceptoId.value = option.dataset.id;
-                return true;
-            }
+        const concepto = conceptosMap.get(codigo);
+        if (concepto) {
+            conceptoInput.value = concepto.nombre;
+            conceptoId.value = concepto.id;
+            return true;
+        }
+        return false;
+    }
+
+    // Función para buscar concepto por nombre
+    function buscarConceptoPorNombre(nombre) {
+        const concepto = conceptosPorNombre.get(nombre);
+        if (concepto) {
+            codigoConcepto.value = concepto.codigo;
+            conceptoId.value = concepto.id;
+            return true;
         }
         return false;
     }
@@ -237,11 +267,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Manejar entrada de código
     codigoConcepto.addEventListener('input', function(e) {
         const codigo = e.target.value;
-        
-        // Si el código tiene 3 caracteres, buscar automáticamente
         if (codigo.length === 3) {
             if (!buscarConceptoPorCodigo(codigo)) {
-                // Si no se encuentra el concepto, limpiar los campos
                 conceptoInput.value = '';
                 conceptoId.value = '';
                 Swal.fire({
@@ -251,9 +278,47 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
         } else {
-            // Si el código no tiene 3 caracteres, limpiar los campos
             conceptoInput.value = '';
             conceptoId.value = '';
+        }
+    });
+
+    // Manejar entrada de nombre de concepto
+    conceptoInput.addEventListener('input', function(e) {
+        const nombre = e.target.value;
+        if (!buscarConceptoPorNombre(nombre)) {
+            codigoConcepto.value = '';
+            conceptoId.value = '';
+        }
+    });
+
+    // Manejar selección de concepto
+    conceptoInput.addEventListener('change', function(e) {
+        const nombre = e.target.value;
+        if (!buscarConceptoPorNombre(nombre)) {
+            codigoConcepto.value = '';
+            conceptoId.value = '';
+            conceptoInput.value = '';
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Por favor seleccione un concepto válido de la lista'
+            });
+        }
+    });
+
+    // También validar cuando el campo de código pierde el foco
+    codigoConcepto.addEventListener('blur', function(e) {
+        const codigo = e.target.value;
+        if (codigo && codigo.length === 3 && !buscarConceptoPorCodigo(codigo)) {
+            e.target.value = '';
+            conceptoInput.value = '';
+            conceptoId.value = '';
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Código de concepto no encontrado'
+            });
         }
     });
 
