@@ -164,6 +164,18 @@
                         </select>
                     </div>
                     
+                    <!-- Campo para destino de transferencia (inicialmente oculto) -->
+                    <div id="campos_transferencia" style="display: none;">
+                        <div class="form-group">
+                            <label>Destino de la Transferencia</label>
+                            <select name="destino_deposito" class="form-control">
+                                <option value="">Seleccione destino</option>
+                                <option value="galicia">Galicia</option>
+                                <option value="mp">Mercado Pago</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <!-- Campos para tarjeta (inicialmente ocultos) -->
                     <div id="campos_tarjeta" style="display: none;">
                         <div class="form-group">
@@ -280,17 +292,26 @@ document.addEventListener('DOMContentLoaded', function() {
     // Manejo de campos de tarjeta
     document.getElementById('forma_pago').addEventListener('change', function() {
         const camposTarjeta = document.getElementById('campos_tarjeta');
+        const camposTransferencia = document.getElementById('campos_transferencia');
         const numeroTarjeta = document.querySelector('input[name="numero_tarjeta"]');
         const tipoTarjeta = document.querySelector('select[name="tipo_tarjeta"]');
+        const destinoDeposito = document.querySelector('select[name="destino_deposito"]');
         
+        // Ocultar todos los campos adicionales primero
+        camposTarjeta.style.display = 'none';
+        camposTransferencia.style.display = 'none';
+        numeroTarjeta.required = false;
+        tipoTarjeta.required = false;
+        destinoDeposito.required = false;
+        
+        // Mostrar campos según la forma de pago
         if (this.value.includes('tarjeta')) {
             camposTarjeta.style.display = 'block';
             numeroTarjeta.required = true;
             tipoTarjeta.required = true;
-        } else {
-            camposTarjeta.style.display = 'none';
-            numeroTarjeta.required = false;
-            tipoTarjeta.required = false;
+        } else if (this.value === 'transferencia' || this.value === 'qr') {
+            camposTransferencia.style.display = 'block';
+            destinoDeposito.required = true;
         }
     });
 });

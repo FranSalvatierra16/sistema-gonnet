@@ -1137,12 +1137,12 @@ def terminar_reserva(request, reserva_id):
                                 movimiento.monto_tarjeta += pago.monto
                             elif pago.forma_pago == 'transferencia':
                                 movimiento.monto_deposito += pago.monto
-                                movimiento.destino_deposito = 'galicia'
+                                movimiento.destino_deposito = pago.destino_deposito
                             elif pago.forma_pago == 'cheque':
                                 movimiento.monto_cheque += pago.monto
                             elif pago.forma_pago == 'qr':
                                 movimiento.monto_deposito += pago.monto
-                                movimiento.destino_deposito = 'mp'
+                                movimiento.destino_deposito = pago.destino_deposito
                         
                         # Guardar el movimiento
                         movimiento.save()
@@ -1225,8 +1225,7 @@ def ver_recibo(request, reserva_id):
                     movimiento.monto_tarjeta += pago.monto
                 elif pago.forma_pago == 'transferencia':
                     movimiento.monto_deposito += pago.monto
-                    # Asumimos Galicia por defecto, ajustar según necesidad
-                    movimiento.destino_deposito = 'galicia'
+                    movimiento.destino_deposito = pago.destino_deposito
                 elif pago.forma_pago == 'cheque':
                     movimiento.monto_cheque += pago.monto
             
@@ -1931,15 +1930,22 @@ def agregar_pago(request, reserva_id):
                 # Obtener el concepto
                 concepto = get_object_or_404(ConceptoPago, id=concepto_id)
                 
-                # Obtener datos adicionales de tarjeta si es necesario
+                # Obtener datos adicionales según forma de pago
                 numero_tarjeta = None
                 tipo_tarjeta = None
+                destino_deposito = None
+
                 if 'tarjeta' in forma_pago:
                     numero_tarjeta = request.POST.get('numero_tarjeta')
                     tipo_tarjeta = request.POST.get('tipo_tarjeta')
                     
                     if not numero_tarjeta or not tipo_tarjeta:
                         raise ValueError('Los datos de la tarjeta son requeridos')
+                
+                elif forma_pago in ['transferencia', 'qr']:
+                    destino_deposito = request.POST.get('destino_deposito')
+                    if not destino_deposito:
+                        raise ValueError('El destino de la transferencia es requerido')
                 
                 # Crear el pago
                 pago = Pago.objects.create(
@@ -1948,7 +1954,8 @@ def agregar_pago(request, reserva_id):
                     forma_pago=forma_pago,
                     concepto=concepto,
                     numero_tarjeta=numero_tarjeta,
-                    tipo_tarjeta=tipo_tarjeta
+                    tipo_tarjeta=tipo_tarjeta,
+                    destino_deposito=destino_deposito
                 )
                 
                 # Actualizar saldos de la reserva

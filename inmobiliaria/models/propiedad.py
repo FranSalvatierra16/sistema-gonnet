@@ -674,6 +674,18 @@ class Pago(models.Model):
             ('otro', 'Otro')
         ]
     )
+    
+    # Campo para destino de transferencia
+    destino_deposito = models.CharField(
+        max_length=10,
+        choices=[
+            ('galicia', 'Galicia'),
+            ('mp', 'Mercado Pago')
+        ],
+        null=True,
+        blank=True,
+        verbose_name="Destino de la Transferencia"
+    )
 
     def clean(self):
         super().clean()
@@ -690,6 +702,10 @@ class Pago(models.Model):
         if 'tarjeta' in self.forma_pago and not self.tipo_tarjeta:
             raise ValidationError({
                 'tipo_tarjeta': 'El tipo de tarjeta es requerido para pagos con tarjeta'
+            })
+        if self.forma_pago in ['transferencia', 'qr'] and not self.destino_deposito:
+            raise ValidationError({
+                'destino_deposito': 'El destino de la transferencia es requerido para pagos por transferencia o QR'
             })
 
     def save(self, *args, **kwargs):
