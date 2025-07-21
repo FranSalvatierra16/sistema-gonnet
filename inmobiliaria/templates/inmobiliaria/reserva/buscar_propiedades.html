@@ -1012,7 +1012,7 @@
                     timer: 1500
                 }).then(() => {
                     // Aqu puedes poner el código que se ejecuta después de que se cierre la alerta
-                    window.location.href = '{% url "inmobiliaria:finalizar_reserva" 0 %}'.replace('0', response.reserva_id);
+                    window.location.href = '{% url "inmobiliaria:terminar_reserva" 0 %}'.replace('0', response.reserva_id);
                 });
             } else {
                 Swal.fire({
