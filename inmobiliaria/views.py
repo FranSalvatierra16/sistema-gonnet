@@ -1133,7 +1133,7 @@ def terminar_reserva(request, reserva_id):
                         for pago in reserva.pagos.all():
                             if pago.forma_pago == 'efectivo':
                                 movimiento.monto_efectivo += pago.monto
-                            elif pago.forma_pago in ['tarjeta_credito', 'tarjeta_debito']:
+                            elif pago.forma_pago == 'tarjeta':
                                 movimiento.monto_tarjeta += pago.monto
                             elif pago.forma_pago == 'transferencia':
                                 movimiento.monto_deposito += pago.monto
@@ -1221,7 +1221,7 @@ def ver_recibo(request, reserva_id):
             for pago in reserva.pagos.all():
                 if pago.forma_pago == 'efectivo':
                     movimiento.monto_efectivo += pago.monto
-                elif pago.forma_pago in ['tarjeta_credito', 'tarjeta_debito']:
+                elif pago.forma_pago == 'tarjeta':
                     movimiento.monto_tarjeta += pago.monto
                 elif pago.forma_pago == 'transferencia':
                     movimiento.monto_deposito += pago.monto

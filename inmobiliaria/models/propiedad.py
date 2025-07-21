@@ -641,8 +641,7 @@ class Pago(models.Model):
     FORMA_PAGO_CHOICES = [
         ('efectivo', 'Efectivo'),
         ('transferencia', 'Transferencia'),
-        ('tarjeta_credito', 'Tarjeta de Crédito'),
-        ('tarjeta_debito', 'Tarjeta de Débito'),
+        ('tarjeta', 'Tarjeta'),
         ('cheque', 'Cheque'),
         ('qr', 'QR'),
     ]
@@ -654,14 +653,7 @@ class Pago(models.Model):
     concepto = models.ForeignKey('ConceptoPago', on_delete=models.PROTECT)
     monto = models.DecimalField(max_digits=10, decimal_places=2)
     
-    # Nuevos campos para tarjetas
-    numero_tarjeta = models.CharField(
-        max_length=16, 
-        blank=True, 
-        null=True,
-        verbose_name="Número de Tarjeta",
-        help_text="Últimos 4 dígitos de la tarjeta"
-    )
+    # Campo para tipo de tarjeta
     tipo_tarjeta = models.CharField(
         max_length=20,
         blank=True,
@@ -695,11 +687,7 @@ class Pago(models.Model):
                 raise ValidationError({
                     'monto': f'El monto del pago (${self.monto}) no puede superar el saldo pendiente (${self.reserva.cuota_pendiente})'
                 })
-        if 'tarjeta' in self.forma_pago and not self.numero_tarjeta:
-            raise ValidationError({
-                'numero_tarjeta': 'El número de tarjeta es requerido para pagos con tarjeta'
-            })
-        if 'tarjeta' in self.forma_pago and not self.tipo_tarjeta:
+        if self.forma_pago == 'tarjeta' and not self.tipo_tarjeta:
             raise ValidationError({
                 'tipo_tarjeta': 'El tipo de tarjeta es requerido para pagos con tarjeta'
             })

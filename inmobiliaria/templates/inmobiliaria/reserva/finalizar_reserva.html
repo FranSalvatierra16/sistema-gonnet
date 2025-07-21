@@ -131,7 +131,15 @@
                     <div class="form-group">
                         <label>Concepto</label>
                         <div class="input-group">
-                            <input type="text" id="codigo_concepto" class="form-control" placeholder="Código" maxlength="3">
+                            <input type="text" 
+                                id="codigo_concepto" 
+                                class="form-control" 
+                                placeholder="Código" 
+                                maxlength="3" 
+                                minlength="3" 
+                                pattern=".{3,3}"
+                                style="width: 100px;"
+                                required>
                             <input 
                                 type="text" 
                                 id="concepto_input" 
@@ -139,6 +147,7 @@
                                 list="conceptos_list" 
                                 placeholder="Buscar concepto..." 
                                 required
+                                readonly
                             >
                             <input type="hidden" id="concepto_id" name="concepto">
                             <datalist id="conceptos_list">
@@ -157,8 +166,7 @@
                         <select name="forma_pago" id="forma_pago" class="form-control" required>
                             <option value="efectivo">Efectivo</option>
                             <option value="transferencia">Transferencia</option>
-                            <option value="tarjeta_credito">Tarjeta de Crédito</option>
-                            <option value="tarjeta_debito">Tarjeta de Débito</option>
+                            <option value="tarjeta">Tarjeta</option>
                             <option value="cheque">Cheque</option>
                             <option value="qr">QR</option>
                         </select>
@@ -178,10 +186,6 @@
 
                     <!-- Campos para tarjeta (inicialmente ocultos) -->
                     <div id="campos_tarjeta" style="display: none;">
-                        <div class="form-group">
-                            <label>Número de Tarjeta (últimos 4 dígitos)</label>
-                            <input type="text" name="numero_tarjeta" class="form-control" maxlength="4" pattern="\d{4}">
-                        </div>
                         <div class="form-group">
                             <label>Tipo de Tarjeta</label>
                             <select name="tipo_tarjeta" class="form-control">
@@ -212,14 +216,72 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Manejo del formulario de pago
     const formPago = document.getElementById('formPago');
+    const codigoConcepto = document.getElementById('codigo_concepto');
+    const conceptoInput = document.getElementById('concepto_input');
+    const conceptoId = document.getElementById('concepto_id');
+    const conceptosList = document.getElementById('conceptos_list');
+
+    // Función para buscar concepto por código
+    function buscarConceptoPorCodigo(codigo) {
+        const options = conceptosList.getElementsByTagName('option');
+        for (let option of options) {
+            if (option.dataset.codigo === codigo) {
+                conceptoInput.value = option.value;
+                conceptoId.value = option.dataset.id;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Manejar entrada de código
+    codigoConcepto.addEventListener('input', function(e) {
+        const codigo = e.target.value;
+        
+        // Si el código tiene 3 caracteres, buscar automáticamente
+        if (codigo.length === 3) {
+            if (!buscarConceptoPorCodigo(codigo)) {
+                // Si no se encuentra el concepto, limpiar los campos
+                conceptoInput.value = '';
+                conceptoId.value = '';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Código de concepto no encontrado'
+                });
+            }
+        } else {
+            // Si el código no tiene 3 caracteres, limpiar los campos
+            conceptoInput.value = '';
+            conceptoId.value = '';
+        }
+    });
+
     if (formPago) {
         formPago.addEventListener('submit', function(e) {
             e.preventDefault();
             
             try {
-                const conceptoId = document.getElementById('concepto_id').value;
-                if (!conceptoId) {
+                // Validar que se haya seleccionado un concepto
+                if (!conceptoId.value) {
                     throw new Error('Por favor seleccione un concepto válido');
+                }
+
+                // Validar campos de tarjeta si es necesario
+                const formaPago = document.getElementById('forma_pago').value;
+                if (formaPago === 'tarjeta') {
+                    const tipoTarjeta = document.querySelector('select[name="tipo_tarjeta"]').value;
+                    if (!tipoTarjeta) {
+                        throw new Error('Por favor seleccione el tipo de tarjeta');
+                    }
+                }
+
+                // Validar campos de transferencia si es necesario
+                if (formaPago === 'transferencia' || formaPago === 'qr') {
+                    const destinoDeposito = document.querySelector('select[name="destino_deposito"]').value;
+                    if (!destinoDeposito) {
+                        throw new Error('Por favor seleccione el destino de la transferencia');
+                    }
                 }
 
                 const formData = new FormData(this);
@@ -234,7 +296,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        window.location.href = data.redirect_url;
+                        // Mostrar mensaje de éxito
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Éxito',
+                            text: 'Pago registrado correctamente',
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(() => {
+                            window.location.href = data.redirect_url;
+                        });
                     } else {
                         Swal.fire({
                             icon: 'error',
@@ -261,34 +332,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Manejo del campo de concepto
-    document.getElementById('codigo_concepto').addEventListener('input', function(e) {
-        const codigo = e.target.value;
-        const conceptoInput = document.getElementById('concepto_input');
-        const options = document.getElementById('conceptos_list').options;
-        
-        for (let option of options) {
-            if (option.dataset.codigo === codigo) {
-                conceptoInput.value = option.value;
-                document.getElementById('concepto_id').value = option.dataset.id;
-                break;
-            }
-        }
-    });
-
-    document.getElementById('concepto_input').addEventListener('input', function(e) {
-        const selectedValue = e.target.value;
-        const options = document.getElementById('conceptos_list').options;
-        
-        for (let option of options) {
-            if (option.value === selectedValue) {
-                document.getElementById('concepto_id').value = option.dataset.id;
-                document.getElementById('codigo_concepto').value = option.dataset.codigo;
-                break;
-            }
-        }
-    });
-
     // Manejo de campos de tarjeta
     document.getElementById('forma_pago').addEventListener('change', function() {
         const camposTarjeta = document.getElementById('campos_tarjeta');
@@ -305,9 +348,8 @@ document.addEventListener('DOMContentLoaded', function() {
         destinoDeposito.required = false;
         
         // Mostrar campos según la forma de pago
-        if (this.value.includes('tarjeta')) {
+        if (this.value === 'tarjeta') {
             camposTarjeta.style.display = 'block';
-            numeroTarjeta.required = true;
             tipoTarjeta.required = true;
         } else if (this.value === 'transferencia' || this.value === 'qr') {
             camposTransferencia.style.display = 'block';
