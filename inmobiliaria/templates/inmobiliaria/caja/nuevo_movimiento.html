@@ -686,7 +686,7 @@ $(document).ready(function() {
         }
 
         $.ajax({
-            url: '{% url "inmobiliaria:buscar_propiedades" %}',
+            url: '{% url "inmobiliaria:buscar_propiedades_caja" %}',
             data: {
                 termino: termino,
                 csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()

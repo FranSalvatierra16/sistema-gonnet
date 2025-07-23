@@ -3586,3 +3586,33 @@ def obtener_caja_actual(request):
             'success': False,
             'error': str(e)
         })
+
+@login_required
+def buscar_propiedades_caja(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+    
+    termino = request.POST.get('termino', '')
+    sucursal = request.user.sucursal
+    
+    try:
+        propiedades = Propiedad.objects.filter(
+            sucursal=sucursal
+        ).filter(
+            Q(id__icontains=termino) |
+            Q(direccion__icontains=termino)
+        ).order_by('direccion')[:10]
+        
+        return JsonResponse({
+            'success': True,
+            'propiedades': [{
+                'id': p.id,
+                'direccion': p.direccion,
+                'ubicacion': p.ubicacion
+            } for p in propiedades]
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
