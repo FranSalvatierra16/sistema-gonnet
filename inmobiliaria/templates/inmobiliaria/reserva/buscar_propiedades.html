@@ -1962,6 +1962,204 @@ document.addEventListener('DOMContentLoaded', function() {
     margin-top: 15px;
 }
 </style>
+
+<!-- Modal para crear inquilino -->
+<div class="modal fade" id="crearInquilinoModal" tabindex="-1" aria-labelledby="crearInquilinoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="crearInquilinoModalLabel">Crear Nuevo Inquilino</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="crearInquilinoForm">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="nombre" class="form-label">Nombre</label>
+                                <input type="text" class="form-control" id="nombre" name="nombre" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="apellido" class="form-label">Apellido</label>
+                                <input type="text" class="form-control" id="apellido" name="apellido" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="fecha_nacimiento" class="form-label">Fecha de Nacimiento</label>
+                                <input type="date" class="form-control" id="fecha_nacimiento" name="fecha_nacimiento" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email" name="email" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="celular" class="form-label">Celular</label>
+                                <input type="text" class="form-control" id="celular" name="celular" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="tipo_doc" class="form-label">Tipo de Documento</label>
+                                <select class="form-control" id="tipo_doc" name="tipo_doc" required>
+                                    <option value="DNI">DNI</option>
+                                    <option value="PASAPORTE">Pasaporte</option>
+                                    <option value="OTRO">Otro</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="dni" class="form-label">Número de Documento</label>
+                                <input type="text" class="form-control" id="dni" name="dni" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="tipo_ins" class="form-label">Tipo de Inscripción</label>
+                                <select class="form-control" id="tipo_ins" name="tipo_ins" required>
+                                    <option value="MONOTRIBUTO">Monotributo</option>
+                                    <option value="RESPONSABLE_INSCRIPTO">Responsable Inscripto</option>
+                                    <option value="CONSUMIDOR_FINAL">Consumidor Final</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="cuit" class="form-label">CUIT</label>
+                                <input type="text" class="form-control" id="cuit" name="cuit">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="localidad" class="form-label">Localidad</label>
+                                <input type="text" class="form-control" id="localidad" name="localidad" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="provincia" class="form-label">Provincia</label>
+                                <input type="text" class="form-control" id="provincia" name="provincia" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="domicilio" class="form-label">Domicilio</label>
+                                <input type="text" class="form-control" id="domicilio" name="domicilio" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="codigo_postal" class="form-label">Código Postal</label>
+                                <input type="text" class="form-control" id="codigo_postal" name="codigo_postal" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="observaciones" class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="observaciones" name="observaciones" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="garantia" class="form-label">Garantía</label>
+                        <textarea class="form-control" id="garantia" name="garantia" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarInquilino()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Función para guardar el inquilino
+function guardarInquilino() {
+    const form = document.getElementById('crearInquilinoForm');
+    const formData = new FormData(form);
+
+    fetch('{% url "inmobiliaria:crear_inquilino_ajax" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Agregar el nuevo inquilino al select
+            const inquilinoSelect = document.getElementById('inquilino');
+            const option = new Option(`${data.inquilino.nombre} ${data.inquilino.apellido} (DNI: ${data.inquilino.dni})`, data.inquilino.id);
+            inquilinoSelect.add(option);
+            inquilinoSelect.value = data.inquilino.id;
+
+            // Actualizar el campo oculto
+            document.getElementById("modalInquilinoId").value = data.inquilino.id;
+
+            // Cerrar el modal y mostrar mensaje de éxito
+            $('#crearInquilinoModal').modal('hide');
+            Swal.fire({
+                icon: 'success',
+                title: 'Éxito',
+                text: 'Inquilino creado correctamente'
+            });
+
+            // Limpiar el formulario
+            form.reset();
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.error || 'Error al crear el inquilino'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al procesar la solicitud'
+        });
+    });
+}
+
+// Agregar botón para abrir el modal de crear inquilino
+document.addEventListener('DOMContentLoaded', function() {
+    const inquilinoSelect = document.getElementById('inquilino');
+    if (inquilinoSelect) {
+        const btnCrearInquilino = document.createElement('button');
+        btnCrearInquilino.type = 'button';
+        btnCrearInquilino.className = 'btn btn-primary btn-sm ms-2';
+        btnCrearInquilino.textContent = 'Crear Nuevo';
+        btnCrearInquilino.onclick = function() {
+            $('#crearInquilinoModal').modal('show');
+        };
+        inquilinoSelect.parentNode.appendChild(btnCrearInquilino);
+    }
+});
+</script>
 {% endblock content %}
 
 {% block extra_js %}
