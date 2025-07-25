@@ -53,8 +53,21 @@ class SessionTimeoutMiddleware:
         return response
 
     def process_view(self, request, view_func, view_args, view_kwargs):
+        # Lista de URLs que no requieren autenticación
+        public_urls = [
+            '/login/',
+            '/recuperar-password/',  # URL correcta para recuperación de contraseña
+            '/admin/login/',
+            '/admin/password_reset/',
+            '/password_reset/',
+            '/reset/',
+        ]
+        
+        # Si la URL actual está en la lista de URLs públicas, permitir el acceso
+        if any(request.path.startswith(url) for url in public_urls):
+            return None
+
         if not request.user.is_authenticated:
-            if not request.path.startswith('/login/'):
-                messages.warning(request, 'Por favor, inicia sesión para continuar.')
-                return redirect('inmobiliaria:login')
+            messages.warning(request, 'Por favor, inicia sesión para continuar.')
+            return redirect('inmobiliaria:login')
         return None
