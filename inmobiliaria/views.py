@@ -757,7 +757,7 @@ def formato_fecha(fecha):
 
 
 @login_required
-def buscar_propiedades(request):
+def buscar_propiedades_reserva(request):
     # Obtener la sucursal del vendedor logueado
     sucursal_vendedor = request.user.sucursal
     
@@ -3370,35 +3370,7 @@ def buscar_propiedad(request):
             'error': str(e)
         })
 
-@login_required
-def buscar_propiedades(request):
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Método no permitido'})
-    
-    termino = request.POST.get('termino', '')
-    sucursal = request.user.sucursal
-    
-    try:
-        propiedades = Propiedad.objects.filter(
-            sucursal=sucursal
-        ).filter(
-            Q(id__icontains=termino) |
-            Q(direccion__icontains=termino)
-        ).order_by('direccion')[:10]
-        
-        return JsonResponse({
-            'success': True,
-            'propiedades': [{
-                'id': p.id,
-                'direccion': p.direccion,
-                'ubicacion': p.ubicacion
-            } for p in propiedades]
-        })
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        })
+
 
 @login_required
 def buscar_movimiento(request):
@@ -3616,3 +3588,233 @@ def buscar_propiedades_caja(request):
             'success': False,
             'error': str(e)
         })
+
+@login_required
+def buscar_propiedades(request):
+    # Obtener la sucursal del vendedor logueado
+    sucursal_vendedor = request.user.sucursal
+    
+    inquilinos = Inquilino.objects.filter(sucursal=sucursal_vendedor)
+    form = BuscarPropiedadesForm(request.POST or None)
+    inquilino_form = InquilinoForm(request.POST)
+    propiedades_disponibles = []
+    propiedades_sin_precio = []
+    vendedores = Vendedor.objects.filter(sucursal=sucursal_vendedor)
+    total_dias_reserva = 0
+
+    fecha_inicio = None
+    fecha_fin = None
+    origen = None
+    destino = None
+
+    if form.is_valid():
+        fecha_inicio = form.cleaned_data['fecha_inicio']
+        fecha_fin = form.cleaned_data['fecha_fin']
+        origen = form.cleaned_data['origen']
+        destino = form.cleaned_data['destino']
+        ver_todas = form.cleaned_data.get('ver_todas', False)
+
+        # Filtrar propiedades según la opción seleccionada
+        if ver_todas:
+            propiedades = Propiedad.objects.all()
+        else:
+            propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor)
+
+        # Prefetch los precios para cada propiedad
+        propiedades = propiedades.prefetch_related(
+            Prefetch('precios', queryset=Precio.objects.all(), to_attr='todos_precios')
+        ).select_related('sucursal')
+
+        # Aplicar filtros del formulario
+        if origen:
+            propiedades = propiedades.filter(ubicacion__icontains=origen)
+        
+        if destino:
+            propiedades = propiedades.filter(ubicacion__icontains=destino)
+
+        tipo_inmueble = form.cleaned_data.get('tipo_inmueble')
+        if tipo_inmueble:
+            propiedades = propiedades.filter(tipo_inmueble__in=tipo_inmueble)
+
+        vista = form.cleaned_data.get('vista')
+        if vista:
+            propiedades = propiedades.filter(vista__in=vista)
+
+        ambientes = form.cleaned_data.get('ambientes')
+        if ambientes:
+            propiedades = propiedades.filter(ambientes=ambientes)
+
+        valoracion = form.cleaned_data.get('valoracion')
+        if valoracion:
+            propiedades = propiedades.filter(valoracion=valoracion)
+
+        precio_min = form.cleaned_data.get('precio_min')
+        if precio_min is not None:
+            propiedades = propiedades.filter(precio__gte=precio_min)
+
+        precio_max = form.cleaned_data.get('precio_max')
+        if precio_max is not None:
+            propiedades = propiedades.filter(precio__lte=precio_max)
+
+        # Filtros booleanos
+        caracteristicas_booleanas = [
+            'amoblado', 'cochera', 'tv_smart', 'wifi', 'dependencia', 'patio',
+            'parrilla', 'piscina', 'reciclado', 'a_estrenar', 'terraza', 'balcon',
+            'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito'
+        ]
+        for caracteristica in caracteristicas_booleanas:
+            if form.cleaned_data.get(caracteristica):
+                propiedades = propiedades.filter(**{caracteristica: True})
+
+        # Filtrar propiedades que están disponibles en las fechas indicadas
+        for propiedad in propiedades:
+            disponibilidades = Disponibilidad.objects.filter(
+                propiedad=propiedad,
+                fecha_inicio__lte=fecha_fin,
+                fecha_fin__gte=fecha_inicio,
+            )
+
+            # Obtener las reservas asociadas a la propiedad
+            reservas = propiedad.reservas.filter(
+                Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
+            )
+            
+            if reservas.filter(estado='pagada').exists():
+                continue  # Saltar esta propiedad si ya tiene una reserva pagada
+
+            # Verificar si existe una reserva en estado 'en espera' (confirmada no pagada)
+            reserva_confirmada_no_pagada = reservas.filter(estado='en_espera').first()
+
+            # Evaluar la disponibilidad y las reservas de la propiedad
+            if disponibilidades.exists() and not reservas.filter(estado='confirmada').exists():
+                if reserva_confirmada_no_pagada:
+                    propiedad.reserva = reserva_confirmada_no_pagada
+                    propiedad.estado_reserva = 'confirmada_no_pagada'
+                    propiedad.precio_total_reserva = reserva_confirmada_no_pagada.precio_total
+                else:
+                    propiedad.estado_reserva = 'disponible'
+
+                # Calcular el precio total de la reserva según las fechas seleccionadas
+                precio_total = 0
+                precio_mas_caro = 0
+                primer_dia = True
+                print('fecha de inicio',fecha_inicio)
+                print('fecha de fin',fecha_fin)
+                dias_reserva = (fecha_fin - fecha_inicio).days + 1
+                total_dias_reserva = dias_reserva - 1
+
+                for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
+                    # Determinar el tipo de precio según la fecha
+                    tipo_precio = None
+                    if single_date.month == 1:  # Enero
+                        tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
+                    elif single_date.month == 2:  # Febrero
+                        tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day <= 15 else 'QUINCENA_2_FEBRERO'
+                    elif single_date.month == 3:  # Marzo
+                        tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
+                    elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
+                        tipo_precio = 'VACACIONES_INVIERNO'
+                    elif single_date.month == 12:  # Diciembre
+                        tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
+                    else:
+                        tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
+
+                    # Obtener el precio para la propiedad y la quincena correspondiente
+                    try:
+                        precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
+                        precio_dia = precio.precio_por_dia or 0
+                    except Precio.DoesNotExist:
+                        precio_dia = 0
+
+                    if precio_dia > precio_mas_caro:
+                        precio_mas_caro = precio_dia
+
+                    if not primer_dia:
+                        precio_total += precio_dia
+                    else:
+                        primer_dia = False
+
+                propiedad.precio_total_reserva = precio_total + precio_mas_caro
+
+                if not reservas.exists():
+                    primera_disponibilidad = disponibilidades.order_by('fecha_inicio').first()
+                    ultima_disponibilidad = disponibilidades.order_by('-fecha_fin').first()
+
+                    if primera_disponibilidad:
+                        propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
+                    if ultima_disponibilidad:
+                        propiedad.disponibilidad_fin = ultima_disponibilidad.fecha_fin
+
+                # Obtener la reserva más cercana antes de la fecha de inicio
+                reserva_cercana = propiedad.reservas.filter(fecha_fin__lte=fecha_inicio).order_by('-fecha_fin').first()
+                reserva_cercana_fin = propiedad.reservas.filter(fecha_inicio__gte=fecha_fin).order_by('fecha_inicio').first()
+
+                if reserva_cercana:
+                    propiedad.disponibilidad_inicio = reserva_cercana.fecha_fin
+
+                if reserva_cercana_fin:
+                    propiedad.disponibilidad_fin = reserva_cercana_fin.fecha_inicio
+
+                if reserva_confirmada_no_pagada:
+                    propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio 
+                    propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
+
+                # Añadir la propiedad disponible a la lista
+                dias_disponibles = (fecha_inicio - propiedad.disponibilidad_inicio).days
+                propiedad.dias_disponibles = max(dias_disponibles, 0)
+                propiedades_disponibles.append(propiedad)
+                propiedades_disponibles.sort(key=lambda x: x.dias_disponibles)
+
+                # Asegúrate de que todos los precios estén disponibles
+                try:
+                    # Función auxiliar para manejar tipos de precio no válidos
+                    def get_precio_order(precio):
+                        try:
+                            return TipoPrecio[precio.tipo_precio].value
+                        except KeyError:
+                            # Si el tipo no existe en el enum, ponerlo al final
+                            return 999
+                        
+                    propiedad.todos_precios = sorted(propiedad.todos_precios, key=get_precio_order)
+                except Exception as e:
+                    print(f"Error ordenando precios para propiedad {propiedad.id}: {e}")
+                    # En caso de error, no ordenar los precios
+                    pass
+
+    # Alerta si hay propiedades sin precio
+    alerta_sin_precio = len(propiedades_sin_precio) > 0
+    print("las fechas de inicio y fin son ",fecha_inicio,fecha_fin)
+    print("los dias de reserva son ",total_dias_reserva)
+
+    for propiedad in propiedades_disponibles:
+        try:
+            # Obtener los precios para la propiedad
+            precios = propiedad.precios.all()
+            precio_total = 0
+            
+            if fecha_inicio and fecha_fin:
+                dias_totales = (fecha_fin - fecha_inicio).days + 1
+                # Buscar el precio correspondiente según el período
+                for precio in precios:
+                    if precio.precio_por_dia:
+                        precio_total = float(precio.precio_por_dia) * dias_totales
+                        break
+            
+            propiedad.precio_total_reserva = precio_total
+            
+        except Exception as e:
+            print(f"Error calculando precio para propiedad {propiedad.id}: {str(e)}")
+            propiedad.precio_total_reserva = 0
+
+    return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
+        'form': form,
+        'propiedades_disponibles': propiedades_disponibles,
+        'alerta_sin_precio': alerta_sin_precio,
+        'fecha_inicio': fecha_inicio.strftime('%d/%m/%Y') if fecha_inicio else '',
+        'fecha_fin': fecha_fin.strftime('%d/%m/%Y') if fecha_fin else '',
+        'inquilinos': Inquilino.objects.all().order_by('apellido', 'nombre'),
+        'vendedores': vendedores,
+        'tipos_precio': TipoPrecio,
+        'inquilino_form': inquilino_form,
+        'total_dias': total_dias_reserva,
+    })
