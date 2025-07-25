@@ -55,25 +55,16 @@ urlpatterns = [
     path('disponibilidad-masiva/', views.agregar_disponibilidad_masiva, name='agregar_disponibilidad_masiva'),
     path('propiedad/<int:propiedad_id>/historial-disponibilidad/', views.ver_historial_disponibilidad, name='historial_disponibilidad'),
 
-    # Búsqueda URLs
-    path('buscar-propiedad/', views.buscar_propiedad, name='buscar_propiedad'),
-    path('buscar-vendedor/', views.buscar_vendedor, name='buscar_vendedor'),
-    path('buscar-vendedores/', views.buscar_vendedores, name='buscar_vendedores'),
-    path('buscar-movimiento/', views.buscar_movimiento, name='buscar_movimiento'),
-    path('buscar-movimientos/', views.buscar_movimientos, name='buscar_movimientos'),
-
     # Reserva URLs
     path('reservas/', views.reservas, name='reservas'),
     path('operaciones/', views.operaciones, name='operaciones'),
-    path('reserva/buscar_propiedades/', views.buscar_propiedades, name='buscar_propiedades'),
+    path('reservas/nuevo/', views.buscar_propiedades, name='buscar_propiedades'),
     path('reservas/crear/', views.crear_reserva, name='crear_reserva'),
     path('reservas/<int:reserva_id>/', views.reserva_detalle, name='reserva_detalle'),
     path('confirmar_reserva/', views.confirmar_reserva, name='confirmar_reserva'),
     path('reserva_exitosa/<int:reserva_id>/', views.reserva_exitosa, name='reserva_exitosa'),
-    path('reservas/finalizar/<int:reserva_id>/', views.terminar_reserva, name='terminar_reserva'),
+    path('reservas/finalizar/<int:reserva_id>/', views.terminar_reserva, name='finalizar_reserva'),
     path('reservas/<int:reserva_id>/editar/', views.reserva_editar, name='reserva_editar'),
-    path('reservas/<int:reserva_id>/agregar-pago/', views.agregar_pago, name='agregar_pago'),
-    path('reservas/<int:reserva_id>/agregar-deposito/', views.agregar_deposito, name='agregar_deposito'),
     path('buscar-propietarios/', views.buscar_propietarios, name='buscar_propietarios'),
     path('buscar-inquilinos/', views.buscar_inquilinos, name='buscar_inquilinos'),
     path('reserva/eliminar/<int:reserva_id>/', views.reserva_eliminar, name='reserva_eliminar'),
@@ -166,20 +157,11 @@ urlpatterns = [
     path('propiedad/<int:propiedad_id>/eliminar-todas-imagenes/', views.eliminar_todas_imagenes, name='eliminar_todas_imagenes'),
     
     # Caja URLs
-    path('cajas/', views.lista_cajas, name='lista_cajas'),
-    path('cajas/<int:numero_caja>/movimiento/', views.nuevo_movimiento, name='nuevo_movimiento'),
-    path('cajas/<int:numero_caja>/cerrar/', views.cerrar_caja, name='cerrar_caja'),
-    path('cajas/<int:numero>/detalle/', views.detalle_caja, name='detalle_caja'),
-    path('caja/', views.caja, name='caja'),
-    path('caja/nuevo-movimiento/', views.nuevo_movimiento, name='nuevo_movimiento_sin_caja'),
     path('caja/dashboard/', views.dashboard_caja, name='dashboard_caja'),
     path('caja/reportes/', views.reportes_caja, name='reportes_caja'),
     path('caja/arqueo/', views.arqueo_caja, name='arqueo_caja'),
     path('caja/historial/', views.historial_caja, name='historial_caja'),
     path('caja/conceptos/buscar/', views.buscar_conceptos, name='buscar_conceptos'),
     path('caja/conceptos/crear/', views.crear_concepto, name='crear_concepto'),
-   
-    path('caja/propiedades/buscar/', views.buscar_propiedades_caja, name='buscar_propiedades_caja'),
-    path('caja/obtener-actual/', views.obtener_caja_actual, name='obtener_caja_actual'),
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
