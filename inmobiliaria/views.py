@@ -1522,9 +1522,13 @@ def buscar_clientes(request):
     results = [{'id': c.id, 'text': f"{c.nombre} {c.apellido} (DNI: {c.dni})"} for c in clientes]
     return JsonResponse({'results': results})
 
+@login_required
 def crear_inquilino_ajax(request):
     if request.method == 'POST':
         try:
+            # Obtener la sucursal del usuario logueado
+            sucursal = request.user.sucursal
+            
             inquilino = Inquilino.objects.create(
                 nombre=request.POST['nombre'],
                 apellido=request.POST['apellido'],
@@ -1540,7 +1544,8 @@ def crear_inquilino_ajax(request):
                 domicilio=request.POST['domicilio'],
                 codigo_postal=request.POST['codigo_postal'],
                 observaciones=request.POST.get('observaciones', ''),
-                garantia=request.POST.get('garantia', '')
+                garantia=request.POST.get('garantia', ''),
+                sucursal=sucursal  # Agregar la sucursal
             )
             return JsonResponse({
                 'success': True,
