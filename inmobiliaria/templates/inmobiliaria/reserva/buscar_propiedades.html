@@ -1754,8 +1754,44 @@ function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, prec
             return;
         }
 
-        // Si todo está correcto, enviar el formulario
-        this.submit();
+        // Enviar el formulario usando fetch
+        const formData = new FormData(this);
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Reserva Confirmada',
+                    text: 'La reserva se ha creado exitosamente',
+                    showConfirmButton: false,
+                    timer: 1500
+                }).then(() => {
+                    // Redirigir a la página de éxito
+                    window.location.href = data.redirect_url;
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: data.error || 'Hubo un error al procesar la reserva'
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Hubo un error al procesar la solicitud'
+            });
+        });
     });
 
     // Mostrar el modal
