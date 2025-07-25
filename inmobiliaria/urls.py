@@ -56,7 +56,7 @@ urlpatterns = [
     path('propiedad/<int:propiedad_id>/historial-disponibilidad/', views.ver_historial_disponibilidad, name='historial_disponibilidad'),
 
     # Búsqueda URLs
-    path('buscar-propiedades/', views.buscar_propiedades, name='buscar_propiedades'),
+    path('buscar-propiedades/', views.buscar_propiedades_reserva, name='buscar_propiedades'),
     path('buscar-propiedad/', views.buscar_propiedad, name='buscar_propiedad'),
     path('buscar-vendedor/', views.buscar_vendedor, name='buscar_vendedor'),
     path('buscar-vendedores/', views.buscar_vendedores, name='buscar_vendedores'),
@@ -66,7 +66,6 @@ urlpatterns = [
     # Reserva URLs
     path('reservas/', views.reservas, name='reservas'),
     path('operaciones/', views.operaciones, name='operaciones'),
-    path('reservas/nuevo/', views.buscar_propiedades, name='buscar_propiedades'),
     path('reservas/crear/', views.crear_reserva, name='crear_reserva'),
     path('reservas/<int:reserva_id>/', views.reserva_detalle, name='reserva_detalle'),
     path('confirmar_reserva/', views.confirmar_reserva, name='confirmar_reserva'),
