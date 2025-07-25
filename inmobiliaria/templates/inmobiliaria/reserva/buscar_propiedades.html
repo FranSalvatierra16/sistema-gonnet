@@ -758,11 +758,19 @@
                         <!-- Campo de Precio Total con opción de editar -->
                         <div class="form-group">
                             <label for="precio_total">Precio Total:</label>
-                            <span id="precio_total_display">{{ precio_total }}</span>
-                            <button type="button" id="editar_precio_btn" class="btn btn-link">Editar</button>
-                            <input type="number" step="0.01" class="form-control" id="precio_total" name="precio_total" style="display: none;" required>
-                            <button type="button" id="guardar_precio_btn" class="btn btn-link" style="display: none;">Guardar</button>
-                            <button type="button" id="cancelar_precio_btn" class="btn btn-link" style="display: none;">Cancelar</button>
+                            <div class="d-flex align-items-center">
+                                <span id="precio_total_display" class="me-2"></span>
+                                <input type="text" class="form-control" id="precio_total" name="precio_total" style="display: none;">
+                                <button type="button" id="editar_precio_btn" class="btn btn-link" onclick="editarPrecio()">
+                                    <i class="fas fa-edit"></i> Editar
+                                </button>
+                                <button type="button" id="guardar_precio_btn" class="btn btn-success btn-sm" onclick="guardarPrecioEditado()" style="display: none;">
+                                    <i class="fas fa-check"></i> Guardar
+                                </button>
+                                <button type="button" id="cancelar_precio_btn" class="btn btn-danger btn-sm" onclick="cancelarEdicionPrecio()" style="display: none;">
+                                    <i class="fas fa-times"></i> Cancelar
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -774,7 +782,7 @@
                             <input type="hidden" name="fecha_fin" id="modalFechaFin">
                             <input type="hidden" name="vendedor_id" id="modalVendedorId">
                             <input type="hidden" name="inquilino_id" id="modalInquilinoId">
-                            <input type="hidden" name="precio_total" id="modalPrecioTotal"  >
+                            <input type="hidden" name="precio_total" id="modalPrecioTotal">
                             <button type="submit" class="btn btn-primary" id="confirmar-reserva-btn">Confirmar Reserva</button>
                         </form>
                     </div>
@@ -1656,13 +1664,11 @@ function formatearFecha(fecha) {
     }
 }
 function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
-    console.log("Fechas a mostrar:", fechaInicio, fechaFin); // Para debug
+    console.log("Precio recibido:", precio); // Debug
 
     // Formatear fechas
     const fechaInicioFormateada = formatearFecha(fechaInicio);
     const fechaFinFormateada = formatearFecha(fechaFin);
-
-    console.log("Fechas formateadas:", fechaInicioFormateada, fechaFinFormateada); // Para debug
 
     // Datos básicos de la propiedad
     document.getElementById("propiedadDireccion").textContent = direccion;
@@ -1678,85 +1684,6 @@ function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, prec
     document.getElementById("modalPrecioTotal").value = precio;
     document.getElementById("precio_total_display").textContent = precio;
     document.getElementById("precio_total").value = precio;
-
-    // Vendedor ID - Agregar evento para actualizar el campo oculto
-    const vendedorInput = document.getElementById('vendedor_id');
-    vendedorInput.addEventListener('change', function() {
-        document.getElementById("modalVendedorId").value = this.value;
-    });
-
-    // Inquilino ID - Agregar evento para actualizar el campo oculto
-    const inquilinoSelect = document.getElementById('inquilino');
-    inquilinoSelect.addEventListener('change', function() {
-        document.getElementById("modalInquilinoId").value = this.value;
-    });
-
-    // Configurar eventos para editar precio
-    const precioTotalDisplay = document.getElementById('precio_total_display');
-    const precioTotalInput = document.getElementById('precio_total');
-    const editarPrecioBtn = document.getElementById('editar_precio_btn');
-    const guardarPrecioBtn = document.getElementById('guardar_precio_btn');
-    const cancelarPrecioBtn = document.getElementById('cancelar_precio_btn');
-
-    editarPrecioBtn.onclick = function() {
-        precioTotalDisplay.style.display = 'none';
-        precioTotalInput.style.display = 'inline-block';
-        editarPrecioBtn.style.display = 'none';
-        guardarPrecioBtn.style.display = 'inline-block';
-        cancelarPrecioBtn.style.display = 'inline-block';
-    };
-
-    guardarPrecioBtn.onclick = function() {
-        const nuevoPrecio = precioTotalInput.value;
-        precioTotalDisplay.textContent = nuevoPrecio;
-        document.getElementById("modalPrecioTotal").value = nuevoPrecio;
-        document.getElementById("precioTotalSuperior").textContent = nuevoPrecio;
-        
-        precioTotalDisplay.style.display = 'inline';
-        precioTotalInput.style.display = 'none';
-        guardarPrecioBtn.style.display = 'none';
-        cancelarPrecioBtn.style.display = 'none';
-        editarPrecioBtn.style.display = 'inline';
-    };
-
-    cancelarPrecioBtn.onclick = function() {
-        precioTotalInput.value = precio;
-        precioTotalDisplay.style.display = 'inline';
-        precioTotalInput.style.display = 'none';
-        guardarPrecioBtn.style.display = 'none';
-        cancelarPrecioBtn.style.display = 'none';
-        editarPrecioBtn.style.display = 'inline';
-    };
-
-    // Validación antes de enviar el formulario
-    const confirmarReservaForm = document.getElementById('confirmar-reserva-form');
-    confirmarReservaForm.addEventListener('submit', function(event) {
-        event.preventDefault();
-        
-        const vendedorId = document.getElementById("modalVendedorId").value;
-        const inquilinoId = document.getElementById("modalInquilinoId").value;
-
-        if (!vendedorId || vendedorId.trim() === '') {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Por favor, ingrese el ID del vendedor'
-            });
-            return;
-        }
-
-        if (!inquilinoId || inquilinoId.trim() === '') {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Por favor, seleccione un inquilino'
-            });
-            return;
-        }
-
-        // Si todo está correcto, enviar el formulario
-        this.submit();
-    });
 
     // Mostrar el modal
     $('#modalConfirmarReserva').modal('show');
@@ -2153,6 +2080,44 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<!-- Función para guardar el precio editado -->
+function guardarPrecioEditado() {
+    const nuevoPrecio = document.getElementById("precio_total").value;
+    document.getElementById("precio_total_display").textContent = nuevoPrecio;
+    document.getElementById("modalPrecioTotal").value = nuevoPrecio;
+    document.getElementById("precioTotalSuperior").textContent = nuevoPrecio;
+    
+    // Ocultar campos de edición
+    document.getElementById("precio_total_display").style.display = 'inline';
+    document.getElementById("precio_total").style.display = 'none';
+    document.getElementById("guardar_precio_btn").style.display = 'none';
+    document.getElementById("cancelar_precio_btn").style.display = 'none';
+    document.getElementById("editar_precio_btn").style.display = 'inline';
+}
+
+// Función para cancelar la edición del precio
+function cancelarEdicionPrecio() {
+    const precioOriginal = document.getElementById("modalPrecioTotal").value;
+    document.getElementById("precio_total").value = precioOriginal;
+    document.getElementById("precio_total_display").textContent = precioOriginal;
+    
+    // Ocultar campos de edición
+    document.getElementById("precio_total_display").style.display = 'inline';
+    document.getElementById("precio_total").style.display = 'none';
+    document.getElementById("guardar_precio_btn").style.display = 'none';
+    document.getElementById("cancelar_precio_btn").style.display = 'none';
+    document.getElementById("editar_precio_btn").style.display = 'inline';
+}
+
+// Función para editar el precio
+function editarPrecio() {
+    document.getElementById("precio_total_display").style.display = 'none';
+    document.getElementById("precio_total").style.display = 'inline-block';
+    document.getElementById("editar_precio_btn").style.display = 'none';
+    document.getElementById("guardar_precio_btn").style.display = 'inline';
+    document.getElementById("cancelar_precio_btn").style.display = 'inline';
+}
 {% endblock content %}
 
 {% block extra_js %}
