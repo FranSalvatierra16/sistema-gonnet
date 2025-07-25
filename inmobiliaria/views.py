@@ -1833,42 +1833,46 @@ def enviar_recuperacion(request):
         email = request.POST.get("email")
         User = get_user_model()
         
-        if User.objects.filter(email=email).exists():
-            user = User.objects.get(email=email)
+        try:
+            # Obtener el primer usuario con ese email
+            user = User.objects.filter(email=email).first()
             
-            # Generar una nueva contraseña temporal
-            nueva_password = User.objects.make_random_password()
-            user.set_password(nueva_password)
-            user.password_temporal = True  # Marcar como contraseña temporal
-            user.save()
-            
-            # Enviar email con la nueva contraseña
-            subject = 'Tu nueva contraseña - Gonnet'
-            message = f'''
-            Hola {user.username},
-            
-            Tu nueva contraseña temporal es: {nueva_password}
-            
-            Por favor, ingresa con esta contraseña y cámbiala inmediatamente por una de tu preferencia.
-            
-            Saludos,
-            El equipo de Gonnet
-            '''
-            
-            try:
-                send_mail(
-                    subject,
-                    message,
-                    'gonnetinterno@gmail.com',  # Remitente
-                    [email],  # Destinatario
-                    fail_silently=False,
-                )
-                messages.success(request, 'Se ha enviado un correo con tu nueva contraseña.')
-                return redirect('login')
-            except Exception as e:
-                messages.error(request, f'Error al enviar el correo: {str(e)}')
-        else:
-            messages.error(request, 'No existe una cuenta con ese correo electrónico.')
+            if user:
+                # Generar una nueva contraseña temporal
+                nueva_password = User.objects.make_random_password()
+                user.set_password(nueva_password)
+                user.password_temporal = True  # Marcar como contraseña temporal
+                user.save()
+                
+                # Enviar email con la nueva contraseña
+                subject = 'Tu nueva contraseña - Gonnet'
+                message = f'''
+                Hola {user.username},
+                
+                Tu nueva contraseña temporal es: {nueva_password}
+                
+                Por favor, ingresa con esta contraseña y cámbiala inmediatamente por una de tu preferencia.
+                
+                Saludos,
+                El equipo de Gonnet
+                '''
+                
+                try:
+                    send_mail(
+                        subject,
+                        message,
+                        'gonnetinterno@gmail.com',  # Remitente
+                        [email],  # Destinatario
+                        fail_silently=False,
+                    )
+                    messages.success(request, 'Se ha enviado un correo con tu nueva contraseña.')
+                    return redirect('login')
+                except Exception as e:
+                    messages.error(request, f'Error al enviar el correo: {str(e)}')
+            else:
+                messages.error(request, 'No existe una cuenta con ese correo electrónico.')
+        except Exception as e:
+            messages.error(request, f'Error al procesar la solicitud: {str(e)}')
     
     return render(request, 'inmobiliaria/autenticacion/password_reset_form.html')
 
