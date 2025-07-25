@@ -44,17 +44,9 @@ class SessionTimeoutMiddleware:
                 last_activity = timezone.datetime.fromisoformat(last_activity)
                 if timezone.now() - last_activity > timedelta(seconds=settings.SESSION_COOKIE_AGE):
                     logout(request)
-                    messages.warning(request, 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.')
-                    return redirect('inmobiliaria:login')
+                    return self.get_response(request)
             
             request.session['last_activity'] = timezone.now().isoformat()
 
         response = self.get_response(request)
         return response
-
-    def process_view(self, request, view_func, view_args, view_kwargs):
-        if not request.user.is_authenticated:
-            if not request.path.startswith('/login/'):
-                messages.warning(request, 'Por favor, inicia sesión para continuar.')
-                return redirect('inmobiliaria:login')
-        return None
