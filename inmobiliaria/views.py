@@ -640,10 +640,8 @@ def confirmar_reserva(request):
                     fecha_inicio = datetime.strptime(fecha_inicio_str, '%d/%m/%Y').date()
                     fecha_fin = datetime.strptime(fecha_fin_str, '%d/%m/%Y').date()
                 except ValueError as e:
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Error en el formato de las fechas: {str(e)}'
-                    })
+                    messages.error(request, f'Error en el formato de las fechas: {str(e)}')
+                    return redirect('inmobiliaria:buscar_propiedades')
 
                 # Obtener los objetos necesarios
                 try:
@@ -651,10 +649,8 @@ def confirmar_reserva(request):
                     vendedor = Vendedor.objects.get(id=vendedor_id)
                     inquilino = Inquilino.objects.get(id=inquilino_id)
                 except (Propiedad.DoesNotExist, Vendedor.DoesNotExist, Inquilino.DoesNotExist) as e:
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Error al obtener los datos: {str(e)}'
-                    })
+                    messages.error(request, f'Error al obtener los datos: {str(e)}')
+                    return redirect('inmobiliaria:buscar_propiedades')
 
                 # Verificar que no haya reservas en el período
                 reservas_existentes = Reserva.objects.filter(
@@ -664,20 +660,16 @@ def confirmar_reserva(request):
                 )
 
                 if reservas_existentes.exists():
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'El período seleccionado ya tiene una reserva'
-                    })
+                    messages.error(request, 'El período seleccionado ya tiene una reserva')
+                    return redirect('inmobiliaria:buscar_propiedades')
 
                 # Limpiar el precio y convertirlo a float
                 precio_limpio = precio.replace('$', '').replace(',', '').replace('.', '').strip()
                 try:
                     precio_float = float(precio_limpio) / 100  # Dividir por 100 para corregir el formato
                 except ValueError:
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'El precio no tiene un formato válido'
-                    })
+                    messages.error(request, 'El precio no tiene un formato válido')
+                    return redirect('inmobiliaria:buscar_propiedades')
 
                 # Crear la reserva
                 reserva = Reserva.objects.create(
@@ -727,22 +719,13 @@ def confirmar_reserva(request):
                     reserva=reserva
                 )
 
-                return JsonResponse({
-                    'success': True,
-                    'reserva_id': reserva.id,
-                    'redirect_url': reverse('inmobiliaria:reserva_exitosa', args=[reserva.id])
-                })
+                return redirect('inmobiliaria:reserva_exitosa', reserva_id=reserva.id)
 
         except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': str(e)
-            })
+            messages.error(request, f'Error al procesar la reserva: {str(e)}')
+            return redirect('inmobiliaria:buscar_propiedades')
 
-    return JsonResponse({
-        'success': False,
-        'error': 'Método no permitido'
-    })
+    return redirect('inmobiliaria:buscar_propiedades')
 
 def consolidar_disponibilidades(propiedad):
     """
