@@ -805,8 +805,8 @@
                                 <th class="text-end">POR DÍA</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <!-- Se llenará dinámicamente con JavaScript -->
+                        <tbody id="preciosTableBody">
+                            <!-- Los precios se cargarán dinámicamente aquí -->
                         </tbody>
                     </table>
                 </div>
@@ -2118,6 +2118,35 @@ function editarPrecio() {
     document.getElementById("guardar_precio_btn").style.display = 'inline';
     document.getElementById("cancelar_precio_btn").style.display = 'inline';
 }
+
+// Función para actualizar la tabla de precios
+window.actualizarTablaPrecios = function(propiedadId) {
+    if (!propiedadId) return;
+    
+    const tbody = document.getElementById('preciosTableBody');
+    tbody.innerHTML = '<tr><td colspan="3" class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div></td></tr>';
+
+    fetch(`/obtener_precios_propiedad/${propiedadId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.precios && data.precios.length > 0) {
+                tbody.innerHTML = data.precios.map(precio => `
+                    <tr>
+                        <td>${precio.tipo_precio_display}</td>
+                        <td class="text-end">$${formatPrice(precio.precio_total)}</td>
+                        <td class="text-end">$${formatPrice(precio.precio_por_dia)}</td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No hay precios disponibles</td></tr>';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Error al cargar los precios</td></tr>';
+        });
+};
+</script>
 {% endblock content %}
 
 {% block extra_js %}
