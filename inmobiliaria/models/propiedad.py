@@ -218,21 +218,21 @@ class Propiedad(models.Model):
 
         # Verificar si hay disponibilidades que cubran el período
         disponibilidades = self.disponibilidades.filter(
-            fecha_inicio__lte=fecha_fin,
-            fecha_fin__gte=fecha_inicio
+            fecha_inicio__lte=fecha_inicio,
+            fecha_fin__gte=fecha_fin
         ).exists()
 
         # Verificar si hay reservas que se superpongan
         reservas_superpuestas = self.reservas.filter(
-            fecha_inicio__lte=fecha_fin,
-            fecha_fin__gte=fecha_inicio
+            fecha_inicio__lt=fecha_fin,
+            fecha_fin__gt=fecha_inicio,
+            estado__in=['confirmada', 'confirmada_no_pagada']
         ).exists()
 
         # La propiedad está disponible si:
-        # 1. No hay disponibilidades específicas definidas (está siempre disponible) O hay una 
-        # disponibilidad que cubre el período
+        # 1. Hay una disponibilidad que cubre el período
         # 2. Y no hay reservas que se superpongan
-        return (not self.disponibilidades.exists() or disponibilidades) and not reservas_superpuestas
+        return disponibilidades and not reservas_superpuestas
 
     # def clean(self):
     #     super().clean()
