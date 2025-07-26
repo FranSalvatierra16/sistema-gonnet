@@ -656,17 +656,42 @@ def confirmar_reserva(request):
                         'error': f'Error al obtener los datos: {str(e)}'
                     })
 
-                # Verificar que no haya reservas en el período
-                reservas_existentes = Reserva.objects.filter(
+                # Verificar disponibilidad
+                disponibilidad_existe = Disponibilidad.objects.filter(
+                    propiedad=propiedad,
+                    fecha_inicio__lte=fecha_inicio,
+                    fecha_fin__gte=fecha_fin
+                ).exists()
+
+                # Verificar si hay reservas que se superpongan
+                reservas_superpuestas = Reserva.objects.filter(
                     propiedad=propiedad,
                     fecha_inicio__lt=fecha_fin,
-                    fecha_fin__gt=fecha_inicio
-                )
+                    fecha_fin__gt=fecha_inicio,
+                    estado__in=['confirmada', 'confirmada_no_pagada']
+                ).exists()
 
-                if reservas_existentes.exists():
+                # Si no hay disponibilidad o hay reservas superpuestas
+                if not disponibilidad_existe:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'La propiedad no está disponible para las fechas seleccionadas.'
+                    })
+
+                if reservas_superpuestas:
                     return JsonResponse({
                         'success': False,
                         'error': 'El período seleccionado ya tiene una reserva'
+                    })
+
+                # Limpiar el precio y convertirlo a float
+                precio_limpio = precio.replace('$', '').replace(',', '').replace('.', '').strip()
+                try:
+                    precio_float = float(precio_limpio) / 100  # Dividir por 100 para corregir el formato
+                except ValueError:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'El precio no tiene un formato válido'
                     })
 
                 # Crear la reserva
@@ -676,39 +701,58 @@ def confirmar_reserva(request):
                     fecha_fin=fecha_fin,
                     vendedor=vendedor,
                     cliente=inquilino,
-                    precio_total=float(precio.replace(',', '').replace('$', ''))
+                    precio_total=precio_float
                 )
 
-                # Buscar la disponibilidad que cubre el período de la reserva
-                disponibilidad = Disponibilidad.objects.filter(
+                # Actualizar disponibilidades
+                disponibilidad = Disponibilidad.objects.get(
                     propiedad=propiedad,
                     fecha_inicio__lte=fecha_inicio,
                     fecha_fin__gte=fecha_fin
-                ).first()
+                )
 
-                if disponibilidad:
-                    # Eliminar la disponibilidad actual
-                    disponibilidad_inicio = disponibilidad.fecha_inicio
-                    disponibilidad_fin = disponibilidad.fecha_fin
+                # Si la disponibilidad coincide exactamente con las fechas de la reserva
+                if disponibilidad.fecha_inicio == fecha_inicio and disponibilidad.fecha_fin == fecha_fin:
                     disponibilidad.delete()
-
-                    # Crear disponibilidad antes de la reserva si es necesario
-                    if disponibilidad_inicio < fecha_inicio:
+                else:
+                    # Si la reserva está al inicio del período
+                    if disponibilidad.fecha_inicio == fecha_inicio:
+                        disponibilidad.fecha_inicio = fecha_fin
+                        disponibilidad.save()
+                    # Si la reserva está al final del período
+                    elif disponibilidad.fecha_fin == fecha_fin:
+                        disponibilidad.fecha_fin = fecha_inicio
+                        disponibilidad.save()
+                    # Si la reserva está en medio del período
+                    else:
+                        # Crear disponibilidad antes de la reserva
                         Disponibilidad.objects.create(
                             propiedad=propiedad,
-                            fecha_inicio=disponibilidad_inicio,
+                            fecha_inicio=disponibilidad.fecha_inicio,
                             fecha_fin=fecha_inicio
                         )
-
-                    # Crear disponibilidad después de la reserva si es necesario
-                    if disponibilidad_fin > fecha_fin:
+                        # Crear disponibilidad después de la reserva
                         Disponibilidad.objects.create(
                             propiedad=propiedad,
                             fecha_inicio=fecha_fin,
-                            fecha_fin=disponibilidad_fin
+                            fecha_fin=disponibilidad.fecha_fin
                         )
+                        disponibilidad.delete()
 
-                return redirect('inmobiliaria:reserva_exitosa', reserva_id=reserva.id)
+                # Crear historial de disponibilidad
+                HistorialDisponibilidad.objects.create(
+                    propiedad=propiedad,
+                    fecha_inicio=fecha_inicio,
+                    fecha_fin=fecha_fin,
+                    estado='reservado',
+                    reserva=reserva
+                )
+
+                return JsonResponse({
+                    'success': True,
+                    'reserva_id': reserva.id,
+                    'redirect_url': reverse('inmobiliaria:reserva_exitosa', args=[reserva.id])
+                })
 
         except Exception as e:
             return JsonResponse({
