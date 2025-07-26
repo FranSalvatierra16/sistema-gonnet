@@ -46,7 +46,7 @@
                     <td><span class="badge badge-warning">Saldo Pendiente</span></td>
                     <td>
                         <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn btn-sm btn-info">Ver</a>
-                        <a href="{% url 'inmobiliaria:terminar_reserva' reserva.id %}" class="btn btn-sm btn-warning">Finalizar</a>
+                        <a href="{% url 'inmobiliaria:finalizar_reserva' reserva.id %}" class="btn btn-sm btn-warning">Finalizar</a>
                         <a href="{% url 'inmobiliaria:ver_recibo' reserva.id %}" class="btn btn-sm btn-secondary">Recibo</a>
                         <a href="{% url 'inmobiliaria:reserva_eliminar' reserva.id %}" class="btn btn-sm btn-danger">Eliminar</a>
                     </td>
