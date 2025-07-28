@@ -1133,74 +1133,110 @@ function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, dis
     document.querySelector('#modalAutenticacionVendedor .btn-primary').onclick = autenticarYReservar;
 }
 function autenticarYReservar() {
+    console.log('Iniciando autenticación');
+    
     var usuario = document.getElementById('usuarioVendedor').value;
     var contrasena = document.getElementById('contrasenaVendedor').value;
-    var reservaId = window.reservaIdActual;
-    var esOperacionDirecta = window.datosReserva.esOperacionDirecta;
+
+    if (!usuario || !contrasena) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Campos requeridos',
+            text: 'Por favor complete todos los campos'
+        });
+        return;
+    }
+
+    console.log('Enviando solicitud de autenticación');
+
+    // Mostrar indicador de carga
+    Swal.fire({
+        title: 'Autenticando...',
+        text: 'Por favor espere',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        willOpen: () => {
+            Swal.showLoading();
+        }
+    });
 
     // Enviar los datos a través de AJAX
-    $.ajax({
-        url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
-        type: 'POST',
-        data: {
+    fetch('{% url "inmobiliaria:autenticacion_vendedor" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: new URLSearchParams({
             'username': usuario,
-            'password': contrasena,
-            'csrfmiddlewaretoken': '{{ csrf_token }}',
-        },
-        success: function(response) {
-            if (response.success) {
-                // Primero ocultamos el modal de autenticación
-                const modalAutenticacion = bootstrap.Modal.getInstance(document.getElementById('modalAutenticacionVendedor'));
-                modalAutenticacion.hide();
-                
-                // Esperamos a que se oculte completamente
-                setTimeout(() => {
-                    // Mostramos el mensaje de éxito
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Autenticación exitosa',
-                        text: 'Procediendo con la reserva...',
-                        showConfirmButton: false,
-                        timer: 1500
-                    }).then(() => {
-                        // Limpiamos los campos del modal de autenticación
-                        document.getElementById('usuarioVendedor').value = '';
-                        document.getElementById('contrasenaVendedor').value = '';
-                        
-                        // Mostramos el modal de reserva
-                        const modalReserva = new bootstrap.Modal(document.getElementById('modalConfirmarReserva'));
-                        modalReserva.show();
-                        
-                        // Actualizamos los campos del modal
-                        mostrarModalReserva(
-                            window.datosReserva.ficha,
-                            window.datosReserva.direccion,
-                            window.datosReserva.propietario,
-                            window.datosReserva.disponibilidad,
-                            window.datosReserva.precio,
-                            window.datosReserva.fechaInicio,
-                            window.datosReserva.fechaFin,
-                            window.datosReserva.totalDias,
-                            window.datosReserva.esOperacionDirecta
-                        );
-                    });
-                }, 300);
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error de autenticación',
-                    text: 'Credenciales incorrectas, por favor intente de nuevo.'
-                });
+            'password': contrasena
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Respuesta recibida:', data);
+        
+        if (data.success) {
+            // Cerrar el modal de autenticación
+            const modalAutenticacion = document.getElementById('modalAutenticacionVendedor');
+            const bsModalAutenticacion = bootstrap.Modal.getInstance(modalAutenticacion);
+            if (bsModalAutenticacion) {
+                bsModalAutenticacion.hide();
             }
-        },
-        error: function(xhr, status, error) {
-            console.error('Error en la autenticación:', error);
+
+            // Limpiar campos
+            document.getElementById('usuarioVendedor').value = '';
+            document.getElementById('contrasenaVendedor').value = '';
+
+            // Mostrar mensaje de éxito
+            Swal.fire({
+                icon: 'success',
+                title: 'Autenticación exitosa',
+                text: 'Procediendo con la reserva...',
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => {
+                // Mostrar el modal de reserva
+                const modalReserva = new bootstrap.Modal(document.getElementById('modalConfirmarReserva'));
+                modalReserva.show();
+
+                // Actualizar los campos
+                if (window.datosReserva) {
+                    mostrarModalReserva(
+                        window.datosReserva.ficha,
+                        window.datosReserva.direccion,
+                        window.datosReserva.propietario,
+                        window.datosReserva.disponibilidad,
+                        window.datosReserva.precio,
+                        window.datosReserva.fechaInicio,
+                        window.datosReserva.fechaFin,
+                        window.datosReserva.totalDias,
+                        window.datosReserva.esOperacionDirecta
+                    );
+                } else {
+                    console.error('No se encontraron datos de reserva');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'No se encontraron los datos de la reserva'
+                    });
+                }
+            });
+        } else {
             Swal.fire({
                 icon: 'error',
-                title: 'Error del servidor',
-                text: 'Ocurrió un error en el servidor. Por favor, intente de nuevo.'
+                title: 'Error de autenticación',
+                text: 'Credenciales incorrectas, por favor intente de nuevo'
             });
         }
+    })
+    .catch(error => {
+        console.error('Error en la autenticación:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Ocurrió un error al procesar la solicitud'
+        });
     });
 }
     function actualizarTablaPrecios(propiedadId, fechaInicio, fechaFin) {
@@ -1814,6 +1850,8 @@ function verPrecios() {
 </script>
 <script>
     function confirmarReserva() {
+    console.log('Iniciando confirmarReserva');
+    
     // Verificar que tengamos una propiedad seleccionada
     if (!propiedadSeleccionada) {
         Swal.fire({
@@ -1824,18 +1862,34 @@ function verPrecios() {
         return;
     }
 
-    // Mostrar el modal de autenticación primero
-    mostrarModalAutenticacionParaReserva(
-        propiedadSeleccionada.id,
-        propiedadSeleccionada.direccion,
-        propiedadSeleccionada.propietario,
-        propiedadSeleccionada.disponibilidad,
-        propiedadSeleccionada.precio,
-        propiedadSeleccionada.fechaInicio,
-        propiedadSeleccionada.fechaFin,
-        propiedadSeleccionada.totalDias,
-        false // flag para operación directa en false
-    );
+    console.log('Propiedad seleccionada:', propiedadSeleccionada);
+
+    // Guardar los datos en el objeto global
+    window.datosReserva = {
+        ficha: propiedadSeleccionada.id,
+        direccion: propiedadSeleccionada.direccion,
+        propietario: propiedadSeleccionada.propietario,
+        disponibilidad: propiedadSeleccionada.disponibilidad,
+        precio: propiedadSeleccionada.precio,
+        fechaInicio: propiedadSeleccionada.fechaInicio,
+        fechaFin: propiedadSeleccionada.fechaFin,
+        totalDias: propiedadSeleccionada.totalDias,
+        esOperacionDirecta: false
+    };
+
+    console.log('Datos de reserva guardados:', window.datosReserva);
+
+    // Mostrar el modal de autenticación
+    const modalAutenticacion = new bootstrap.Modal(document.getElementById('modalAutenticacionVendedor'));
+    modalAutenticacion.show();
+
+    // Actualizar el texto del botón
+    const btnAutenticar = document.querySelector('#modalAutenticacionVendedor .btn-primary');
+    if (btnAutenticar) {
+        btnAutenticar.textContent = 'Autenticar y Reservar';
+    }
+
+    console.log('Modal de autenticación mostrado');
 }
 function formatearFecha(fecha) {
     if (!fecha) return '';
