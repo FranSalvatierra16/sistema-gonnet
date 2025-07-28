@@ -695,12 +695,12 @@
             {% endif %}
         </div>
         <div class="modal fade" id="modalConfirmarReserva" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
-            <div class="modal-dialog" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="modalLabel">Confirmar Reserva</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
+                    <div class="modal-dialog" role="document">
+            <div class="modal-content" style="background-color: white; box-shadow: 0 0 20px rgba(0,0,0,0.3);">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="modalLabel">Confirmar Reserva</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
                     <div class="modal-body">
                         <!-- Información de la propiedad -->
                         <div class="card mb-3">
@@ -1861,17 +1861,24 @@ function formatearFecha(fecha) {
     }
 }
 
+let busquedaVendedorTimeout = null;
+
 function buscarVendedor() {
     const vendedorId = document.getElementById('vendedor_id').value.trim();
     const vendedorInfo = document.getElementById('vendedor_info');
+    const vendedorInput = document.getElementById('vendedor_id');
+    
+    // Limpiar el timeout anterior si existe
+    if (busquedaVendedorTimeout) {
+        clearTimeout(busquedaVendedorTimeout);
+    }
+
+    // Habilitar siempre el input
+    vendedorInput.disabled = false;
     
     if (!vendedorId) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Campo requerido',
-            text: 'Por favor ingrese el ID del vendedor'
-        });
         vendedorInfo.style.display = 'none';
+        document.getElementById('modalVendedorId').value = '';
         return;
     }
 
@@ -1885,36 +1892,40 @@ function buscarVendedor() {
         </div>
     `;
 
-    fetch(`{% url 'inmobiliaria:obtener_vendedor' '0' %}`.replace('0', vendedorId))
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById('modalVendedorId').value = vendedorId;
-                vendedorInfo.innerHTML = `
-                    <div class="alert alert-success">
-                        <i class="fas fa-user-check"></i> <strong>Vendedor encontrado:</strong><br>
-                        <span id="vendedor_nombre" class="ms-4">${data.vendedor.nombre_completo}</span>
-                    </div>
-                `;
-            } else {
+    // Esperar 500ms antes de hacer la búsqueda
+    busquedaVendedorTimeout = setTimeout(() => {
+        fetch(`{% url 'inmobiliaria:obtener_vendedor' '0' %}`.replace('0', vendedorId))
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('modalVendedorId').value = vendedorId;
+                    vendedorInfo.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="fas fa-user-check"></i> <strong>Vendedor encontrado:</strong><br>
+                            <span id="vendedor_nombre" class="ms-4">${data.vendedor.nombre_completo}</span>
+                        </div>
+                    `;
+                } else {
+                    vendedorInfo.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i> <strong>Error:</strong><br>
+                            Vendedor no encontrado
+                        </div>
+                    `;
+                    document.getElementById('modalVendedorId').value = '';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
                 vendedorInfo.innerHTML = `
                     <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle"></i> <strong>Error:</strong><br>
-                        Vendedor no encontrado
+                        <i class="fas fa-exclamation-circle"></i> <strong>Error:</strong><br>
+                        Error al buscar el vendedor
                     </div>
                 `;
-                document.getElementById('modalVendedorId').value = '';
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            vendedorInfo.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-circle"></i> <strong>Error:</strong><br>
-                    Error al buscar el vendedor
-                </div>
-            `;
-        });
+            });
+    }, 500);
+}
 }
 
 // Mejorar el manejo del precio
@@ -2024,12 +2035,23 @@ document.addEventListener('DOMContentLoaded', function() {
     // Manejar el evento de cambio del vendedor
     const vendedorInput = document.getElementById('vendedor_id');
     if (vendedorInput) {
-        vendedorInput.addEventListener('change', function() {
-            if (this.value.trim()) {
-                buscarVendedor();
-            } else {
-                document.getElementById('vendedor_nombre').textContent = '';
-                document.getElementById('modalVendedorId').value = '';
+        // Usar input en lugar de change para detectar cambios mientras se escribe
+        vendedorInput.addEventListener('input', function() {
+            buscarVendedor();
+        });
+
+        // Prevenir que se pegue contenido no numérico
+        vendedorInput.addEventListener('paste', function(e) {
+            let paste = (e.clipboardData || window.clipboardData).getData('text');
+            if (!/^\d*$/.test(paste)) {
+                e.preventDefault();
+            }
+        });
+
+        // Permitir solo números
+        vendedorInput.addEventListener('keypress', function(e) {
+            if (!/[\d]/.test(e.key)) {
+                e.preventDefault();
             }
         });
     } else {
