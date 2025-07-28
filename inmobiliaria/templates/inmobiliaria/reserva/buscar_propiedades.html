@@ -1090,7 +1090,7 @@ function autenticarYReservar() {
     var reservaId = window.reservaIdActual;
     var esOperacionDirecta = window.datosReserva.esOperacionDirecta;
 
-    // Enviar los datos a través de AJAX     s
+    // Enviar los datos a través de AJAX
     $.ajax({
         url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
         type: 'POST',
@@ -1101,26 +1101,42 @@ function autenticarYReservar() {
         },
         success: function(response) {
             if (response.success) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Autenticación exitosa',
-                    text: 'Procediendo con la reserva...',
-                    showConfirmButton: false,
-                    timer: 1500
-                }).then(() => {
-                    $('#modalAutenticacionVendedor').modal('hide');
-                    // Si la autenticación es exitosa, mostramos el modal de reserva
-                    mostrarModalReserva(
-                        window.datosReserva.ficha,
-                        window.datosReserva.direccion,
-                        window.datosReserva.propietario,
-                        window.datosReserva.disponibilidad,
-                        window.datosReserva.precio,
-                        window.datosReserva.fechaInicio,
-                        window.datosReserva.fechaFin,
-                        window.datosReserva.totalDias
-                    );
-                });
+                // Primero ocultamos el modal de autenticación
+                const modalAutenticacion = bootstrap.Modal.getInstance(document.getElementById('modalAutenticacionVendedor'));
+                modalAutenticacion.hide();
+                
+                // Esperamos a que se oculte completamente
+                setTimeout(() => {
+                    // Mostramos el mensaje de éxito
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Autenticación exitosa',
+                        text: 'Procediendo con la reserva...',
+                        showConfirmButton: false,
+                        timer: 1500
+                    }).then(() => {
+                        // Limpiamos los campos del modal de autenticación
+                        document.getElementById('usuarioVendedor').value = '';
+                        document.getElementById('contrasenaVendedor').value = '';
+                        
+                        // Mostramos el modal de reserva
+                        const modalReserva = new bootstrap.Modal(document.getElementById('modalConfirmarReserva'));
+                        modalReserva.show();
+                        
+                        // Actualizamos los campos del modal
+                        mostrarModalReserva(
+                            window.datosReserva.ficha,
+                            window.datosReserva.direccion,
+                            window.datosReserva.propietario,
+                            window.datosReserva.disponibilidad,
+                            window.datosReserva.precio,
+                            window.datosReserva.fechaInicio,
+                            window.datosReserva.fechaFin,
+                            window.datosReserva.totalDias,
+                            window.datosReserva.esOperacionDirecta
+                        );
+                    });
+                }, 300);
             } else {
                 Swal.fire({
                     icon: 'error',
@@ -1130,6 +1146,7 @@ function autenticarYReservar() {
             }
         },
         error: function(xhr, status, error) {
+            console.error('Error en la autenticación:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error del servidor',
