@@ -724,7 +724,7 @@
                         <div class="form-group mb-3">
                             <label for="inquilino" class="form-label">Buscar Inquilino:</label>
                             <div class="input-group">
-                                <select id="inquilino" name="inquilino" class="form-select" required>
+                                <select id="inquilino" name="inquilino" class="form-select" required onchange="actualizarInquilinoId()">
                                     <option value="">Seleccione un inquilino</option>
                                     {% for inquilino in inquilinos %}
                                         <option value="{{ inquilino.id }}">{{ inquilino.nombre }} {{ inquilino.apellido }} - {{ inquilino.dni }}</option>
@@ -735,6 +735,14 @@
                                 </button>
                             </div>
                         </div>
+                        
+                        <script>
+                        function actualizarInquilinoId() {
+                            const inquilinoSelect = document.getElementById('inquilino');
+                            const inquilinoId = inquilinoSelect.value;
+                            document.getElementById('modalInquilinoId').value = inquilinoId;
+                        }
+                        </script>
 
                         <!-- Campo de Precio Total con opción de editar -->
                         <div class="form-group mb-3">
@@ -1722,7 +1730,7 @@ function buscarVendedor() {
         return;
     }
 
-    fetch(`{% url 'inmobiliaria:obtener_vendedor' %}${vendedorId}/`)
+    fetch(`{% url 'inmobiliaria:obtener_vendedor' '0' %}`.replace('0', vendedorId))
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -1852,33 +1860,15 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 document.addEventListener('DOMContentLoaded', function() {
+    // Manejar el evento de cambio del vendedor
     const vendedorInput = document.getElementById('vendedor_id');
-    const vendedorNombre = document.getElementById('vendedor_nombre');
-
     if (vendedorInput) {
         vendedorInput.addEventListener('change', function() {
-            const vendedorId = this.value;
-            if (vendedorId) {
-                fetch(`${obtenerVendedorUrl}${vendedorId}/`)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.success) {
-                            vendedorNombre.textContent = data.vendedor.nombre_completo;
-                        } else {
-                            vendedorNombre.textContent = 'Vendedor no encontrado';
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        vendedorNombre.textContent = 'Error al cargar el vendedor';
-                    });
+            if (this.value.trim()) {
+                buscarVendedor();
             } else {
-                vendedorNombre.textContent = '';
+                document.getElementById('vendedor_nombre').textContent = '';
+                document.getElementById('modalVendedorId').value = '';
             }
         });
     } else {
