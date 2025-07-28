@@ -19,13 +19,14 @@
     }
 
     .container-fluid {
-        background: rgba(255, 255, 255, 0.95) !important;
+        background: rgba(255, 255, 255, 0.97) !important;
         border-radius: 20px !important;
         margin: 0 auto !important;
         max-width: 98% !important;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.1) !important;
+        box-shadow: 0 20px 40px rgba(27, 94, 32, 0.15) !important;
         backdrop-filter: blur(10px) !important;
         padding: 25px !important;
+        border: 1px solid rgba(67, 160, 71, 0.1) !important;
     }
 
     /* Estilos para el formulario de filtros */
@@ -35,10 +36,67 @@
         gap: 15px !important;
         flex-wrap: wrap !important;
         margin-bottom: 20px !important;
-        padding: 15px !important;
-        background: rgba(255, 255, 255, 0.9) !important;
+        padding: 20px !important;
+        background: linear-gradient(135deg, rgba(67, 160, 71, 0.05), rgba(27, 94, 32, 0.05)) !important;
         border-radius: 12px !important;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05) !important;
+        box-shadow: 0 4px 6px rgba(27, 94, 32, 0.05) !important;
+        border: 1px solid rgba(67, 160, 71, 0.1) !important;
+    }
+
+    .main-search-box {
+        background: linear-gradient(135deg, #43a047, #2e7d32) !important;
+        border-radius: 15px !important;
+        padding: 25px !important;
+        box-shadow: 0 8px 32px rgba(27, 94, 32, 0.15) !important;
+        margin-bottom: 30px !important;
+    }
+
+    #propiedadesTable thead th {
+        background: linear-gradient(135deg, #43a047, #2e7d32) !important;
+        color: white !important;
+        border: none !important;
+        padding: 15px !important;
+    }
+
+    .card {
+        border: 1px solid rgba(67, 160, 71, 0.1) !important;
+        box-shadow: 0 4px 6px rgba(27, 94, 32, 0.05) !important;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #43a047, #2e7d32) !important;
+        color: white !important;
+        border-bottom: none !important;
+    }
+
+    .form-control {
+        border: 1px solid rgba(67, 160, 71, 0.2) !important;
+    }
+
+    .form-control:focus {
+        border-color: #43a047 !important;
+        box-shadow: 0 0 0 0.2rem rgba(67, 160, 71, 0.25) !important;
+    }
+
+    .btn-info {
+        background: linear-gradient(135deg, #26a69a, #00897b) !important;
+        border: none !important;
+    }
+
+    .btn-info:hover {
+        background: linear-gradient(135deg, #00897b, #00796b) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 5px 15px rgba(0, 137, 123, 0.3) !important;
+    }
+
+    .alert-success {
+        background-color: rgba(67, 160, 71, 0.1) !important;
+        border-color: rgba(67, 160, 71, 0.2) !important;
+        color: #2e7d32 !important;
+    }
+
+    .badge.bg-primary {
+        background: linear-gradient(135deg, #43a047, #2e7d32) !important;
     }
 
     .filters-row .form-group {
@@ -101,36 +159,71 @@
         margin-bottom: 20px !important;
     }
 
+    #propiedadesTable {
+        border-collapse: separate !important;
+        border-spacing: 0 8px !important;
+        background: transparent !important;
+    }
+
     #propiedadesTable thead th {
         position: sticky !important;
         top: 0 !important;
-        background: linear-gradient(135deg, #667eea, #764ba2) !important;
+        background: linear-gradient(135deg, #43a047, #2e7d32) !important;
         color: white !important;
         z-index: 1 !important;
+        padding: 15px !important;
+        font-weight: 500 !important;
+        border: none !important;
+        text-transform: uppercase !important;
+        font-size: 0.9rem !important;
+        letter-spacing: 0.5px !important;
     }
 
     #propiedadesTable tbody tr {
         height: 65px !important;
         cursor: pointer;
         transition: all 0.3s ease !important;
-        border-left: 4px solid transparent !important;
+        background: white !important;
+        margin-bottom: 8px !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 4px rgba(27, 94, 32, 0.05) !important;
+    }
+
+    #propiedadesTable tbody tr td {
+        padding: 15px !important;
+        border: none !important;
+        border-top: 1px solid rgba(67, 160, 71, 0.1) !important;
+        border-bottom: 1px solid rgba(67, 160, 71, 0.1) !important;
+    }
+
+    #propiedadesTable tbody tr td:first-child {
+        border-left: 1px solid rgba(67, 160, 71, 0.1) !important;
+        border-top-left-radius: 8px !important;
+        border-bottom-left-radius: 8px !important;
+    }
+
+    #propiedadesTable tbody tr td:last-child {
+        border-right: 1px solid rgba(67, 160, 71, 0.1) !important;
+        border-top-right-radius: 8px !important;
+        border-bottom-right-radius: 8px !important;
     }
 
     #propiedadesTable tbody tr.selected {
-        background-color: rgba(67, 160, 71, 0.1) !important;
+        background: linear-gradient(135deg, rgba(67, 160, 71, 0.1), rgba(46, 125, 50, 0.1)) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 8px rgba(27, 94, 32, 0.1) !important;
         border-left: 4px solid #43a047 !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-        transform: translateX(5px) !important;
     }
 
     #propiedadesTable tbody tr.selected td {
-        color: #1b5e20 !important;
+        color: #2e7d32 !important;
         font-weight: 500 !important;
+        border-color: rgba(67, 160, 71, 0.2) !important;
     }
 
     #propiedadesTable tbody tr:hover {
-        background-color: rgba(67, 160, 71, 0.05) !important;
-        border-left: 4px solid rgba(67, 160, 71, 0.5) !important;
+        background: rgba(67, 160, 71, 0.05) !important;
+        box-shadow: 0 4px 12px rgba(27, 94, 32, 0.1) !important;
     }
 
     #propiedadesTable tbody td {
