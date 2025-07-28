@@ -657,7 +657,9 @@
                                 <button type="button" class="btn btn-sm btn-success" onclick="window.autenticarYFinalizar()">Operacion</button>
                             {% else %}
                                 <div>
-                                    <button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>
+                                    <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
+                                        <i class="fas fa-calendar-plus"></i> Reservar
+                                    </button>
                                     <button type="button" class="btn btn-info ml-2" onclick="window.verPrecios()">
                                         <i class="fas fa-file-contract"></i> Operación
                                     </button>
@@ -1849,7 +1851,8 @@ function verPrecios() {
 }
 </script>
 <script>
-    function confirmarReserva() {
+    // Asignar la función al objeto window para que esté disponible globalmente
+window.confirmarReserva = function() {
     console.log('Iniciando confirmarReserva');
     
     // Verificar que tengamos una propiedad seleccionada
@@ -2422,6 +2425,52 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-// Tu código JavaScript aquí
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar todas las funciones globales necesarias
+    window.confirmarReserva = function() {
+        console.log('Iniciando confirmarReserva');
+        
+        // Verificar que tengamos una propiedad seleccionada
+        if (!propiedadSeleccionada) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Atención',
+                text: 'Por favor, seleccione una propiedad primero'
+            });
+            return;
+        }
+
+        console.log('Propiedad seleccionada:', propiedadSeleccionada);
+
+        // Guardar los datos en el objeto global
+        window.datosReserva = {
+            ficha: propiedadSeleccionada.id,
+            direccion: propiedadSeleccionada.direccion,
+            propietario: propiedadSeleccionada.propietario,
+            disponibilidad: propiedadSeleccionada.disponibilidad,
+            precio: propiedadSeleccionada.precio,
+            fechaInicio: propiedadSeleccionada.fechaInicio,
+            fechaFin: propiedadSeleccionada.fechaFin,
+            totalDias: propiedadSeleccionada.totalDias,
+            esOperacionDirecta: false
+        };
+
+        console.log('Datos de reserva guardados:', window.datosReserva);
+
+        // Mostrar el modal de autenticación
+        const modalAutenticacion = new bootstrap.Modal(document.getElementById('modalAutenticacionVendedor'));
+        modalAutenticacion.show();
+
+        // Actualizar el texto del botón
+        const btnAutenticar = document.querySelector('#modalAutenticacionVendedor .btn-primary');
+        if (btnAutenticar) {
+            btnAutenticar.textContent = 'Autenticar y Reservar';
+        }
+
+        console.log('Modal de autenticación mostrado');
+    };
+
+    // Inicializar otros eventos y funcionalidades aquí
+});
 </script>
 {% endblock extra_js %}
