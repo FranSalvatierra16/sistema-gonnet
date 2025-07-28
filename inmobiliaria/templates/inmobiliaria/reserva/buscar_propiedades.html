@@ -737,11 +737,20 @@
                         <p><strong>Precio total:</strong> <span id="precioTotalSuperior"></span></p>
         
                         <!-- Campo de Vendedor -->
-                        <div class="form-group">
-                            <label for="vendedor_id">ID del Vendedor:</label>
-                            <input type="number" id="vendedor_id" name="vendedor" class="form-control" required>
-                            <p><strong>Nombre del Vendedor:</strong> <span id="vendedor_nombre"></span></p>
-                        </div>
+                                    <div class="form-group">
+                <label for="vendedor_id">ID del Vendedor:</label>
+                <input type="number" id="vendedor_id" name="vendedor" class="form-control" required min="1">
+                <p><strong>Nombre del Vendedor:</strong> <span id="vendedor_nombre"></span></p>
+            </div>
+            <script>
+                // Validación inmediata del vendedor
+                document.getElementById('vendedor_id').addEventListener('change', function() {
+                    const vendedorId = this.value.trim();
+                    if (vendedorId) {
+                        document.getElementById('modalVendedorId').value = vendedorId;
+                    }
+                });
+            </script>
 
                         <!-- Campo de Inquilino con opción de crear nuevo -->
                         <div class="form-group">
@@ -769,12 +778,13 @@
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                         <form id="confirmar-reserva-form" method="post" action="{% url 'inmobiliaria:confirmar_reserva' %}">
                             {% csrf_token %}
-                            <input type="hidden" name="propiedad_id" id="modalPropiedadId">
-                            <input type="hidden" name="fecha_inicio" id="modalFechaInicio">
-                            <input type="hidden" name="fecha_fin" id="modalFechaFin">
-                            <input type="hidden" name="vendedor_id" id="modalVendedorId">
-                            <input type="hidden" name="inquilino_id" id="modalInquilinoId">
-                            <input type="hidden" name="precio_total" id="modalPrecioTotal"  >
+                            <input type="hidden" name="propiedad_id" id="modalPropiedadId" required>
+                            <input type="hidden" name="fecha_inicio" id="modalFechaInicio" required>
+                            <input type="hidden" name="fecha_fin" id="modalFechaFin" required>
+                            <input type="hidden" name="vendedor_id" id="modalVendedorId" required>
+                            <input type="hidden" name="inquilino_id" id="modalInquilinoId" required>
+                            <input type="hidden" name="precio_total" id="modalPrecioTotal" required>
+                            <input type="hidden" name="es_operacion_directa" id="esOperacionDirecta" value="0">
                             <button type="submit" class="btn btn-primary" id="confirmar-reserva-btn">Confirmar Reserva</button>
                         </form>
                     </div>
@@ -1549,6 +1559,8 @@ window.mostrarModalAutenticacion = function(reservaId) {
 
 // Actualizar la función mostrarModalReserva para manejar operaciones directas
 function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias, esOperacionDirecta = false) {
+    console.log('Datos recibidos:', { ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias, esOperacionDirecta });
+    
     // Formatear fechas
     const fechaInicioFormateada = formatearFecha(fechaInicio);
     const fechaFinFormateada = formatearFecha(fechaFin);
@@ -1559,6 +1571,9 @@ function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, prec
     // Actualizar texto del botón según el tipo de operación
     const confirmarBtn = document.getElementById("confirmar-reserva-btn");
     confirmarBtn.textContent = esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
+    
+    // Establecer el valor de operación directa
+    document.getElementById("esOperacionDirecta").value = esOperacionDirecta ? "1" : "0";
 
     // Limpiar campos previos
     document.getElementById("vendedor_id").value = '';
