@@ -798,18 +798,66 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                        <form id="confirmar-reserva-form" method="post" action="{% url 'inmobiliaria:confirmar_reserva' %}">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                        <form id="confirmar-reserva-form" method="post" action="{% url 'inmobiliaria:confirmar_reserva' %}" onsubmit="return validarFormularioReserva(event)">
                             {% csrf_token %}
-                            <input type="hidden" name="propiedad_id" id="modalPropiedadId">
-                            <input type="hidden" name="fecha_inicio" id="modalFechaInicio">
-                            <input type="hidden" name="fecha_fin" id="modalFechaFin">
-                            <input type="hidden" name="vendedor_id" id="modalVendedorId">
-                            <input type="hidden" name="inquilino_id" id="modalInquilinoId">
-                            <input type="hidden" name="precio_total" id="modalPrecioTotal"  >
-                            <button type="submit" class="btn btn-primary" id="confirmar-reserva-btn">Confirmar Reserva</button>
+                            <input type="hidden" name="propiedad_id" id="modalPropiedadId" required>
+                            <input type="hidden" name="fecha_inicio" id="modalFechaInicio" required>
+                            <input type="hidden" name="fecha_fin" id="modalFechaFin" required>
+                            <input type="hidden" name="vendedor_id" id="modalVendedorId" required>
+                            <input type="hidden" name="inquilino_id" id="modalInquilinoId" required>
+                            <input type="hidden" name="precio_total" id="modalPrecioTotal" required>
+                            <button type="submit" class="btn btn-primary" id="confirmar-reserva-btn">
+                                <i class="fas fa-check"></i> Confirmar Reserva
+                            </button>
                         </form>
                     </div>
+
+<script>
+function validarFormularioReserva(event) {
+    // Prevenir envío por defecto
+    event.preventDefault();
+
+    // Verificar vendedor
+    const vendedorId = document.getElementById('modalVendedorId').value;
+    if (!vendedorId) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Campo requerido',
+            text: 'Por favor seleccione un vendedor'
+        });
+        return false;
+    }
+
+    // Verificar inquilino
+    const inquilinoId = document.getElementById('modalInquilinoId').value;
+    if (!inquilinoId) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Campo requerido',
+            text: 'Por favor seleccione un inquilino'
+        });
+        return false;
+    }
+
+    // Verificar precio
+    const precioTotal = document.getElementById('modalPrecioTotal').value;
+    if (!precioTotal || precioTotal <= 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Campo requerido',
+            text: 'Por favor ingrese un precio válido'
+        });
+        return false;
+    }
+
+    // Si todo está bien, enviar el formulario
+    document.getElementById('confirmar-reserva-form').submit();
+    return true;
+}
+</script>
                 </div>
             </div>
         </div>
@@ -1597,45 +1645,91 @@ window.mostrarModalOperacion = function() {
 
 // Actualizar la función mostrarModalReserva para manejar operaciones directas
 function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias, esOperacionDirecta = false) {
-    // Formatear fechas
-    const fechaInicioFormateada = formatearFecha(fechaInicio);
-    const fechaFinFormateada = formatearFecha(fechaFin);
+    console.log('Iniciando mostrarModalReserva con:', { ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias, esOperacionDirecta });
 
-    // Actualizar título del modal según el tipo de operación
-    document.getElementById("modalLabel").textContent = esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
+    try {
+        // Formatear fechas
+        const fechaInicioFormateada = formatearFecha(fechaInicio);
+        const fechaFinFormateada = formatearFecha(fechaFin);
 
-    // Actualizar texto del botón según el tipo de operación
-    const confirmarBtn = document.getElementById("confirmar-reserva-btn");
-    confirmarBtn.textContent = esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
+        // Limpiar campos previos
+        document.getElementById('vendedor_id').value = '';
+        document.getElementById('vendedor_info').style.display = 'none';
+        document.getElementById('inquilino').value = '';
+        document.getElementById('modalVendedorId').value = '';
+        document.getElementById('modalInquilinoId').value = '';
 
-    // Datos básicos de la propiedad
-    document.getElementById("propiedadDireccion").textContent = direccion;
-    document.getElementById("fechaInicio").textContent = fechaInicioFormateada;
-    document.getElementById("fechaFin").textContent = fechaFinFormateada;
-    document.getElementById("totalDias").textContent = `${totalDias} días`;
-    document.getElementById("precioTotalSuperior").textContent = precio;
+        // Actualizar título y botón según el tipo de operación
+        const modalTitle = document.getElementById("modalLabel");
+        const confirmarBtn = document.getElementById("confirmar-reserva-btn");
+        if (modalTitle) modalTitle.textContent = esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
+        if (confirmarBtn) confirmarBtn.textContent = esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
 
-    // Campos del formulario
-    document.getElementById("modalPropiedadId").value = ficha;
-    document.getElementById("modalFechaInicio").value = fechaInicioFormateada;
-    document.getElementById("modalFechaFin").value = fechaFinFormateada;
-    document.getElementById("modalPrecioTotal").value = precio;
-    document.getElementById("precio_total_display").textContent = precio;
-    document.getElementById("precio_total").value = precio;
+        // Actualizar información de la propiedad
+        const elementos = {
+            "propiedadDireccion": direccion,
+            "fechaInicio": fechaInicioFormateada,
+            "fechaFin": fechaFinFormateada,
+            "totalDias": `${totalDias} días`,
+            "precio_total_display": precio,
+            "modalPropiedadId": ficha,
+            "modalFechaInicio": fechaInicioFormateada,
+            "modalFechaFin": fechaFinFormateada,
+            "modalPrecioTotal": precio,
+            "precio_total": precio
+        };
 
-    // Agregar campo oculto para indicar si es operación directa
-    let operacionDirectaInput = document.getElementById("esOperacionDirecta");
-    if (!operacionDirectaInput) {
-        operacionDirectaInput = document.createElement("input");
-        operacionDirectaInput.type = "hidden";
-        operacionDirectaInput.id = "esOperacionDirecta";
-        operacionDirectaInput.name = "es_operacion_directa";
-        document.getElementById("confirmar-reserva-form").appendChild(operacionDirectaInput);
+        // Actualizar cada elemento verificando su existencia
+        Object.entries(elementos).forEach(([id, valor]) => {
+            const elemento = document.getElementById(id);
+            if (elemento) {
+                if (elemento.tagName === 'INPUT') {
+                    elemento.value = valor;
+                } else {
+                    elemento.textContent = valor;
+                }
+            } else {
+                console.warn(`Elemento con id '${id}' no encontrado`);
+            }
+        });
+
+        // Configurar operación directa
+        let operacionDirectaInput = document.getElementById("esOperacionDirecta");
+        if (!operacionDirectaInput) {
+            operacionDirectaInput = document.createElement("input");
+            operacionDirectaInput.type = "hidden";
+            operacionDirectaInput.id = "esOperacionDirecta";
+            operacionDirectaInput.name = "es_operacion_directa";
+            const form = document.getElementById("confirmar-reserva-form");
+            if (form) form.appendChild(operacionDirectaInput);
+        }
+        operacionDirectaInput.value = esOperacionDirecta ? "1" : "0";
+
+        // Mostrar el modal usando Bootstrap 5
+        const modalElement = document.getElementById('modalConfirmarReserva');
+        if (modalElement) {
+            const modalInstance = new bootstrap.Modal(modalElement, {
+                backdrop: 'static',
+                keyboard: false
+            });
+            modalInstance.show();
+            
+            // Enfocar el campo de vendedor
+            modalElement.addEventListener('shown.bs.modal', function () {
+                const vendedorInput = document.getElementById('vendedor_id');
+                if (vendedorInput) vendedorInput.focus();
+            });
+        } else {
+            console.error('Modal element not found');
+        }
+    } catch (error) {
+        console.error('Error en mostrarModalReserva:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Hubo un error al mostrar el modal. Por favor, intente nuevamente.'
+        });
     }
-    operacionDirectaInput.value = esOperacionDirecta ? "1" : "0";
-
-    // Mostrar el modal
-    $('#modalConfirmarReserva').modal('show');
 }
 
 function verPrecios() {
