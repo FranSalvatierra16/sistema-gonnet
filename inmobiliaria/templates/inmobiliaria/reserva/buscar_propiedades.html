@@ -11,7 +11,7 @@
     }
 
     body {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        background: linear-gradient(135deg, #43a047 0%, #1b5e20 100%) !important;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
         min-height: 100vh !important;
         margin: 0 !important;
@@ -112,20 +112,25 @@
     #propiedadesTable tbody tr {
         height: 65px !important;
         cursor: pointer;
-        transition: background-color 0.3s ease;
+        transition: all 0.3s ease !important;
+        border-left: 4px solid transparent !important;
     }
 
     #propiedadesTable tbody tr.selected {
-        background-color: #007bff !important;
-        color: white !important;
+        background-color: rgba(67, 160, 71, 0.1) !important;
+        border-left: 4px solid #43a047 !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        transform: translateX(5px) !important;
     }
 
     #propiedadesTable tbody tr.selected td {
-        color: white !important;
+        color: #1b5e20 !important;
+        font-weight: 500 !important;
     }
 
     #propiedadesTable tbody tr:hover {
-        background-color: rgba(0, 123, 255, 0.1);
+        background-color: rgba(67, 160, 71, 0.05) !important;
+        border-left: 4px solid rgba(67, 160, 71, 0.5) !important;
     }
 
     #propiedadesTable tbody td {
@@ -1064,49 +1069,98 @@ function validarFormularioReserva(event) {
         });
     }
     function autenticarYFinalizar() {
+    console.log('Iniciando autenticarYFinalizar');
+    
+    // Verificar que tengamos una propiedad seleccionada
+    if (!propiedadSeleccionada || !propiedadSeleccionada.reservaId) {
+        console.error('No hay reserva seleccionada o ID de reserva faltante');
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'No se encontró la reserva para finalizar'
+        });
+        return;
+    }
+
     var usuario = document.getElementById('usuarioVendedor').value;
     var contrasena = document.getElementById('contrasenaVendedor').value;
-    var reservaId = window.reservaIdActual;
-    console.log("hola soy el reservaId",reservaId);
-     // Usar el ID guardado
+    var reservaId = propiedadSeleccionada.reservaId;
 
-    // Enviar los datos a través de AJAX
-    $.ajax({
-        url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
-        type: 'POST',
-        data: {
+    console.log('Datos de autenticación:', {
+        usuario: usuario ? 'presente' : 'faltante',
+        contrasena: contrasena ? 'presente' : 'faltante',
+        reservaId: reservaId
+    });
+
+    if (!usuario || !contrasena) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Campos requeridos',
+            text: 'Por favor complete todos los campos'
+        });
+        return;
+    }
+
+    // Mostrar indicador de carga
+    Swal.fire({
+        title: 'Autenticando...',
+        text: 'Por favor espere',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        willOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    // Enviar los datos a través de fetch
+    fetch('{% url "inmobiliaria:autenticacion_vendedor" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: new URLSearchParams({
             'username': usuario,
             'password': contrasena,
-            'reserva_id': reservaId,
-            'csrfmiddlewaretoken': '{{ csrf_token }}',
-        },
-        success: function(response) {
-            if (response.success) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Autenticación exitosa',
-                    text: 'Finalizando operación...',
-                    showConfirmButton: false,
-                    timer: 1500
-                }).then(() => {
-                    // Aquí puedes poner el código que se ejecuta después de que se cierre la alerta
-                    window.location.href = '{% url "inmobiliaria:finalizar_reserva" 0 %}'.replace('0', response.reserva_id);
-                });
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error de autenticación',
-                    text: 'Credenciales incorrectas, por favor intente de nuevo.'
-                });
+            'reserva_id': reservaId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Respuesta del servidor:', data);
+        
+        if (data.success && data.reserva_id) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Autenticación exitosa',
+                text: 'Finalizando operación...',
+                showConfirmButton: false,
+                timer: 1500
+            }).then(() => {
+                // Construir y verificar la URL antes de redirigir
+                const url = '{% url "inmobiliaria:finalizar_reserva" 0 %}'.replace('0', data.reserva_id);
+                console.log('Redirigiendo a:', url);
+                window.location.href = url;
+            });
+        } else {
+            let errorMessage = 'Credenciales incorrectas o respuesta inválida del servidor';
+            if (data.error) {
+                errorMessage = data.error;
             }
-        },
-        error: function(xhr, status, error) {
             Swal.fire({
                 icon: 'error',
-                title: 'Error del servidor',
-                text: 'Ocurrió un error en el servidor. Por favor, intente de nuevo.'
+                title: 'Error de autenticación',
+                text: errorMessage
             });
         }
+    })
+    .catch(error => {
+        console.error('Error en la petición:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error del servidor',
+            text: 'Ocurrió un error al procesar la solicitud. Por favor, intente de nuevo.'
+        });
     });
 }
 function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias, esOperacionDirecta = false) {
@@ -1574,22 +1628,37 @@ function autenticarYReservar() {
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
+    console.log('Seleccionando propiedad:', {
+        id, direccion, estadoReserva, reserva_id
+    });
+
+    // Remover la clase selected de todas las filas
+    document.querySelectorAll('#propiedadesTable tbody tr').forEach(tr => {
+        tr.classList.remove('selected');
+    });
+
+    // Agregar la clase selected a la fila clickeada
+    const clickedRow = event.currentTarget;
+    clickedRow.classList.add('selected');
+
     // Guardar los datos de la propiedad seleccionada
     propiedadSeleccionada = {
         id: id,
         direccion: direccion,
         propietario: propietario,
         disponibilidad: disponibilidad,
-        precio: precio,
+        precio: parseFloat(precio),
         fechaInicio: fechaInicio,
         fechaFin: fechaFin,
-        totalDias: total_dias,
+        totalDias: parseInt(total_dias),
         estadoReserva: estadoReserva,
-        reservaId: reserva_id || '',
+        reservaId: reserva_id || null,  // Asegurarnos de que sea null si no hay valor
         ambientes: ambientes || 'No especificado',
         descripcion: descripcion || 'No disponible',
         caracteristicas: caracteristicas || 'No disponible'
     };
+
+    console.log('Propiedad seleccionada:', propiedadSeleccionada);
 
     // Actualizar la tarjeta de propiedad con todos los datos
     document.getElementById("cardPropiedad").innerText = id;
