@@ -1426,8 +1426,6 @@ function autenticarYReservar() {
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
-    console.log("Fechas recibidas:", fechaInicio, fechaFin); // Para debug
-
     // Guardar los datos de la propiedad seleccionada
     propiedadSeleccionada = {
         id: id,
@@ -1478,24 +1476,106 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
     const cardButtons = document.getElementById("cardButtons");
     if (estadoReserva === 'confirmada_no_pagada') {
         cardButtons.innerHTML = `
-            <button type="button" class="btn btn-sm btn-success" onclick="window.mostrarModalAutenticacion('${reserva_id}')">Operacion</button>
-            <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-            <button type="button" class="btn btn-warning" onclick="window.verPrecios()">
-                <i class="fas fa-dollar-sign"></i> Ver Precios
-            </button>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-primary" disabled>
+                    <i class="fas fa-calendar-check"></i> Reservado
+                </button>
+                <button type="button" class="btn btn-success" onclick="window.mostrarModalAutenticacion('${reserva_id}')">
+                    <i class="fas fa-check-circle"></i> Finalizar Operación
+                </button>
+                <button type="button" class="btn btn-info" onclick="window.verPrecios()">
+                    <i class="fas fa-dollar-sign"></i> Ver Precios
+                </button>
+            </div>
         `;
     } else {
-        cardButtons.innerHTML = `            <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">Reservar</button>
-            <button type="button" class="btn btn-info" data-toggle="modal" data-target="#modalDetalles${id}">Ver</button>
-            <button type="button" class="btn btn-warning" onclick="window.verPrecios()">
-                <i class="fas fa-dollar-sign"></i> Ver Precios
-            </button>
+        cardButtons.innerHTML = `
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
+                    <i class="fas fa-calendar-plus"></i> Reservar
+                </button>
+                <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
+                    <i class="fas fa-check-circle"></i> Operación Directa
+                </button>
+                <button type="button" class="btn btn-info" onclick="window.verPrecios()">
+                    <i class="fas fa-dollar-sign"></i> Ver Precios
+                </button>
+            </div>
         `;
     }
 
     // Actualizar tabla de precios
-    actualizarTablaPrecios(id, fechaInicio, fechaFin);
+    actualizarTablaPrecios(id);
 }
+
+// Función para mostrar el modal de operación directa
+window.mostrarModalOperacion = function() {
+    if (!propiedadSeleccionada) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Por favor, seleccione una propiedad primero'
+        });
+        return;
+    }
+
+    // Usar el mismo modal de reserva pero con un flag para operación directa
+    mostrarModalReserva(
+        propiedadSeleccionada.id,
+        propiedadSeleccionada.direccion,
+        propiedadSeleccionada.propietario,
+        propiedadSeleccionada.disponibilidad,
+        propiedadSeleccionada.precio,
+        propiedadSeleccionada.fechaInicio,
+        propiedadSeleccionada.fechaFin,
+        propiedadSeleccionada.totalDias,
+        true // flag para operación directa
+    );
+}
+
+// Actualizar la función mostrarModalReserva para manejar operaciones directas
+function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias, esOperacionDirecta = false) {
+    // Formatear fechas
+    const fechaInicioFormateada = formatearFecha(fechaInicio);
+    const fechaFinFormateada = formatearFecha(fechaFin);
+
+    // Actualizar título del modal según el tipo de operación
+    document.getElementById("modalLabel").textContent = esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
+
+    // Actualizar texto del botón según el tipo de operación
+    const confirmarBtn = document.getElementById("confirmar-reserva-btn");
+    confirmarBtn.textContent = esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
+
+    // Datos básicos de la propiedad
+    document.getElementById("propiedadDireccion").textContent = direccion;
+    document.getElementById("fechaInicio").textContent = fechaInicioFormateada;
+    document.getElementById("fechaFin").textContent = fechaFinFormateada;
+    document.getElementById("totalDias").textContent = `${totalDias} días`;
+    document.getElementById("precioTotalSuperior").textContent = precio;
+
+    // Campos del formulario
+    document.getElementById("modalPropiedadId").value = ficha;
+    document.getElementById("modalFechaInicio").value = fechaInicioFormateada;
+    document.getElementById("modalFechaFin").value = fechaFinFormateada;
+    document.getElementById("modalPrecioTotal").value = precio;
+    document.getElementById("precio_total_display").textContent = precio;
+    document.getElementById("precio_total").value = precio;
+
+    // Agregar campo oculto para indicar si es operación directa
+    let operacionDirectaInput = document.getElementById("esOperacionDirecta");
+    if (!operacionDirectaInput) {
+        operacionDirectaInput = document.createElement("input");
+        operacionDirectaInput.type = "hidden";
+        operacionDirectaInput.id = "esOperacionDirecta";
+        operacionDirectaInput.name = "es_operacion_directa";
+        document.getElementById("confirmar-reserva-form").appendChild(operacionDirectaInput);
+    }
+    operacionDirectaInput.value = esOperacionDirecta ? "1" : "0";
+
+    // Mostrar el modal
+    $('#modalConfirmarReserva').modal('show');
+}
+
 function verPrecios() {
     console.log("=== ABRIENDO MODAL DE PRECIOS ===");
     
@@ -1654,149 +1734,6 @@ function formatearFecha(fecha) {
         console.error('Error formateando fecha:', error);
         return '';
     }
-}
-function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
-    console.log("Fechas a mostrar:", fechaInicio, fechaFin); // Para debug
-
-    // Formatear fechas
-    const fechaInicioFormateada = formatearFecha(fechaInicio);
-    const fechaFinFormateada = formatearFecha(fechaFin);
-
-    console.log("Fechas formateadas:", fechaInicioFormateada, fechaFinFormateada); // Para debug
-
-    // Datos básicos de la propiedad
-    document.getElementById("propiedadDireccion").textContent = direccion;
-    document.getElementById("fechaInicio").textContent = fechaInicioFormateada;
-    document.getElementById("fechaFin").textContent = fechaFinFormateada;
-    document.getElementById("totalDias").textContent = `${totalDias} días`;
-    document.getElementById("precioTotalSuperior").textContent = precio;
-
-    // Campos del formulario
-    document.getElementById("modalPropiedadId").value = ficha;
-    document.getElementById("modalFechaInicio").value = fechaInicioFormateada;
-    document.getElementById("modalFechaFin").value = fechaFinFormateada;
-    document.getElementById("modalPrecioTotal").value = precio;
-    document.getElementById("precio_total_display").textContent = precio;
-    document.getElementById("precio_total").value = precio;
-
-    // Vendedor ID - Agregar evento para actualizar el campo oculto
-    const vendedorInput = document.getElementById('vendedor_id');
-    vendedorInput.addEventListener('change', function() {
-        document.getElementById("modalVendedorId").value = this.value;
-    });
-
-    // Inquilino ID - Agregar evento para actualizar el campo oculto
-    const inquilinoSelect = document.getElementById('inquilino');
-    inquilinoSelect.addEventListener('change', function() {
-        document.getElementById("modalInquilinoId").value = this.value;
-    });
-
-    // Configurar eventos para editar precio
-    const precioTotalDisplay = document.getElementById('precio_total_display');
-    const precioTotalInput = document.getElementById('precio_total');
-    const editarPrecioBtn = document.getElementById('editar_precio_btn');
-    const guardarPrecioBtn = document.getElementById('guardar_precio_btn');
-    const cancelarPrecioBtn = document.getElementById('cancelar_precio_btn');
-
-    editarPrecioBtn.onclick = function() {
-        precioTotalDisplay.style.display = 'none';
-        precioTotalInput.style.display = 'inline-block';
-        editarPrecioBtn.style.display = 'none';
-        guardarPrecioBtn.style.display = 'inline-block';
-        cancelarPrecioBtn.style.display = 'inline-block';
-    };
-
-    guardarPrecioBtn.onclick = function() {
-        const nuevoPrecio = precioTotalInput.value;
-        precioTotalDisplay.textContent = nuevoPrecio;
-        document.getElementById("modalPrecioTotal").value = nuevoPrecio;
-        document.getElementById("precioTotalSuperior").textContent = nuevoPrecio;
-        
-        precioTotalDisplay.style.display = 'inline';
-        precioTotalInput.style.display = 'none';
-        guardarPrecioBtn.style.display = 'none';
-        cancelarPrecioBtn.style.display = 'none';
-        editarPrecioBtn.style.display = 'inline';
-    };
-
-    cancelarPrecioBtn.onclick = function() {
-        precioTotalInput.value = precio;
-        precioTotalDisplay.style.display = 'inline';
-        precioTotalInput.style.display = 'none';
-        guardarPrecioBtn.style.display = 'none';
-        cancelarPrecioBtn.style.display = 'none';
-        editarPrecioBtn.style.display = 'inline';
-    };
-
-    // Validación antes de enviar el formulario
-    const confirmarReservaForm = document.getElementById('confirmar-reserva-form');
-    confirmarReservaForm.addEventListener('submit', function(event) {
-        event.preventDefault();
-        
-        const vendedorId = document.getElementById("modalVendedorId").value;
-        const inquilinoId = document.getElementById("modalInquilinoId").value;
-
-        if (!vendedorId || vendedorId.trim() === '') {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Por favor, ingrese el ID del vendedor'
-            });
-            return;
-        }
-
-        if (!inquilinoId || inquilinoId.trim() === '') {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Por favor, seleccione un inquilino'
-            });
-            return;
-        }
-
-        // Enviar el formulario usando fetch
-        const formData = new FormData(this);
-        fetch(this.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Mostrar mensaje de éxito y redireccionar
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Reserva Confirmada',
-                    text: 'La reserva se ha creado exitosamente',
-                    showConfirmButton: false,
-                    timer: 1500
-                }).then(() => {
-                    window.location.href = data.redirect_url;
-                });
-            } else {
-                // Mostrar mensaje de error
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: data.error || 'Hubo un error al procesar la reserva'
-                });
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Hubo un error al procesar la solicitud'
-            });
-        });
-    });
-
-    // Mostrar el modal
-    $('#modalConfirmarReserva').modal('show');
 }
 
     $('#cancelarReservaBtnA').on('click', function() {

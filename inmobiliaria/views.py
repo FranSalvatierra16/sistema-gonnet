@@ -634,6 +634,7 @@ def confirmar_reserva(request):
                 vendedor_id = request.POST.get('vendedor_id')
                 inquilino_id = request.POST.get('inquilino_id')
                 precio = request.POST.get('precio_total', '0')
+                es_operacion_directa = request.POST.get('es_operacion_directa') == '1'
 
                 # Convertir fechas
                 try:
@@ -694,7 +695,8 @@ def confirmar_reserva(request):
                     fecha_fin=fecha_fin,
                     vendedor=vendedor,
                     cliente=inquilino,
-                    precio_total=precio_float
+                    precio_total=precio_float,
+                    estado='confirmada' if es_operacion_directa else 'confirmada_no_pagada'
                 )
 
                 # Buscar la disponibilidad que cubre el período de la reserva
@@ -731,14 +733,37 @@ def confirmar_reserva(request):
                     propiedad=propiedad,
                     fecha_inicio=fecha_inicio,
                     fecha_fin=fecha_fin,
-                    estado='reservado',
+                    estado='ocupado' if es_operacion_directa else 'reservado',
                     reserva=reserva
                 )
+
+                # Si es operación directa, crear el movimiento de caja
+                if es_operacion_directa:
+                    # Crear el movimiento de caja aquí
+                    caja_actual = Caja.objects.filter(
+                        sucursal=request.user.sucursal,
+                        fecha_cierre__isnull=True
+                    ).first()
+
+                    if not caja_actual:
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'No hay una caja abierta para registrar la operación'
+                        })
+
+                    MovimientoCaja.objects.create(
+                        caja=caja_actual,
+                        tipo=TipoMovimientoCajaEnum.INGRESO,
+                        concepto='Alquiler por día',
+                        monto_efectivo=precio_float,  # Ajustar según la forma de pago
+                        descripcion=f'Alquiler por día - {propiedad.direccion}',
+                        reserva=reserva
+                    )
 
                 return JsonResponse({
                     'success': True,
                     'reserva_id': reserva.id,
-                    'redirect_url': reverse('inmobiliaria:reserva_exitosa', args=[reserva.id])
+                    'redirect_url': reverse('inmobiliaria:ver_recibo', args=[reserva.id]) if es_operacion_directa else reverse('inmobiliaria:reserva_exitosa', args=[reserva.id])
                 })
 
         except Exception as e:
