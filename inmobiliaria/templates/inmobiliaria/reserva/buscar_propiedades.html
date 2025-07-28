@@ -706,35 +706,56 @@
                         <p><strong>Fecha de inicio:</strong> <span id="fechaInicio"></span></p>
                         <p><strong>Fecha de fin:</strong> <span id="fechaFin"></span></p>
                         <p><strong>Total de días:</strong> <span id="totalDias"></span></p>
-                        <p><strong>Precio total:</strong> <span id="precioTotalSuperior"></span></p>
+                        <p><strong>Precio total:</strong> $<span id="precioTotalSuperior"></span></p>
         
                         <!-- Campo de Vendedor -->
-                        <div class="form-group">
-                            <label for="vendedor_id">ID del Vendedor:</label>
-                            <input type="number" id="vendedor_id" name="vendedor" class="form-control" required>
-                            <p><strong>Nombre del Vendedor:</strong> <span id="vendedor_nombre"></span></p>
+                        <div class="form-group mb-3">
+                            <label for="vendedor_id" class="form-label">ID del Vendedor:</label>
+                            <div class="input-group">
+                                <input type="number" id="vendedor_id" name="vendedor" class="form-control" required min="1">
+                                <button type="button" class="btn btn-outline-secondary" onclick="buscarVendedor()">Buscar</button>
+                            </div>
+                            <div class="mt-2">
+                                <strong>Nombre del Vendedor:</strong> <span id="vendedor_nombre" class="text-primary"></span>
+                            </div>
                         </div>
 
                         <!-- Campo de Inquilino con opción de crear nuevo -->
-                        <div class="form-group">
-                            <label for="inquilino">Buscar Inquilino:</label>
-                            <select id="inquilino" name="inquilino" class="form-control" required>
-                                <option value="">Seleccione un inquilino</option>
-                                {% for inquilino in inquilinos %}
-                                    <option value="{{ inquilino.id }}">{{ inquilino.nombre }} {{ inquilino.apellido }} - {{ inquilino.dni }}</option>
-                                {% endfor %}
-                            </select>
-                            
+                        <div class="form-group mb-3">
+                            <label for="inquilino" class="form-label">Buscar Inquilino:</label>
+                            <div class="input-group">
+                                <select id="inquilino" name="inquilino" class="form-select" required>
+                                    <option value="">Seleccione un inquilino</option>
+                                    {% for inquilino in inquilinos %}
+                                        <option value="{{ inquilino.id }}">{{ inquilino.nombre }} {{ inquilino.apellido }} - {{ inquilino.dni }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="btn btn-primary" onclick="$('#crearInquilinoModal').modal('show')">
+                                    <i class="fas fa-plus"></i> Crear Nuevo
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Campo de Precio Total con opción de editar -->
-                        <div class="form-group">
-                            <label for="precio_total">Precio Total:</label>
-                            <span id="precio_total_display">{{ precio_total }}</span>
-                            <button type="button" id="editar_precio_btn" class="btn btn-link">Editar</button>
-                            <input type="number" step="0.01" class="form-control" id="precio_total" name="precio_total" style="display: none;" required>
-                            <button type="button" id="guardar_precio_btn" class="btn btn-link" style="display: none;">Guardar</button>
-                            <button type="button" id="cancelar_precio_btn" class="btn btn-link" style="display: none;">Cancelar</button>
+                        <div class="form-group mb-3">
+                            <label for="precio_total" class="form-label">Precio Total:</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <span id="precio_total_display" class="form-control-plaintext px-2">{{ precio_total }}</span>
+                                <button type="button" id="editar_precio_btn" class="btn btn-outline-primary">
+                                    <i class="fas fa-edit"></i> Editar
+                                </button>
+                            </div>
+                            <div class="input-group" style="display: none;" id="precio_total_edit">
+                                <span class="input-group-text">$</span>
+                                <input type="number" step="0.01" class="form-control" id="precio_total" name="precio_total" required>
+                                <button type="button" id="guardar_precio_btn" class="btn btn-success">
+                                    <i class="fas fa-save"></i> Guardar
+                                </button>
+                                <button type="button" id="cancelar_precio_btn" class="btn btn-danger">
+                                    <i class="fas fa-times"></i> Cancelar
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1689,6 +1710,86 @@ function formatearFecha(fecha) {
         return '';
     }
 }
+
+function buscarVendedor() {
+    const vendedorId = document.getElementById('vendedor_id').value.trim();
+    if (!vendedorId) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Campo requerido',
+            text: 'Por favor ingrese el ID del vendedor'
+        });
+        return;
+    }
+
+    fetch(`{% url 'inmobiliaria:obtener_vendedor' %}${vendedorId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('vendedor_nombre').textContent = data.vendedor.nombre_completo;
+                document.getElementById('modalVendedorId').value = vendedorId;
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Vendedor no encontrado'
+                });
+                document.getElementById('vendedor_nombre').textContent = '';
+                document.getElementById('modalVendedorId').value = '';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al buscar el vendedor'
+            });
+        });
+}
+
+// Mejorar el manejo del precio
+document.getElementById('editar_precio_btn').addEventListener('click', function() {
+    const precioDisplay = document.getElementById('precio_total_display');
+    const precioEdit = document.getElementById('precio_total_edit');
+    const precioInput = document.getElementById('precio_total');
+    
+    precioInput.value = precioDisplay.textContent.replace(/[^\d.-]/g, '');
+    precioDisplay.parentElement.style.display = 'none';
+    precioEdit.style.display = 'flex';
+});
+
+document.getElementById('guardar_precio_btn').addEventListener('click', function() {
+    const precioDisplay = document.getElementById('precio_total_display');
+    const precioEdit = document.getElementById('precio_total_edit');
+    const precioInput = document.getElementById('precio_total');
+    const precioTotalSuperior = document.getElementById('precioTotalSuperior');
+    
+    const nuevoPrecio = parseFloat(precioInput.value);
+    if (isNaN(nuevoPrecio) || nuevoPrecio <= 0) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Por favor ingrese un precio válido'
+        });
+        return;
+    }
+    
+    precioDisplay.textContent = nuevoPrecio.toLocaleString('es-AR');
+    precioTotalSuperior.textContent = nuevoPrecio.toLocaleString('es-AR');
+    document.getElementById('modalPrecioTotal').value = nuevoPrecio;
+    
+    precioDisplay.parentElement.style.display = 'flex';
+    precioEdit.style.display = 'none';
+});
+
+document.getElementById('cancelar_precio_btn').addEventListener('click', function() {
+    const precioDisplay = document.getElementById('precio_total_display');
+    const precioEdit = document.getElementById('precio_total_edit');
+    
+    precioDisplay.parentElement.style.display = 'flex';
+    precioEdit.style.display = 'none';
+});
 
     $('#cancelarReservaBtnA').on('click', function() {
     $('#modalAutenticacionVendedor').modal('hide');
