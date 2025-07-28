@@ -2649,6 +2649,17 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
+// Variables globales
+let propiedadSeleccionada = null;
+let modalConfirmacion = null;
+let modalAutenticacion = null;
+
+// Inicialización cuando el DOM está listo
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar referencias a modales
+    modalConfirmacion = new bootstrap.Modal(document.getElementById('modalConfirmarReserva'));
+    modalAutenticacion = new bootstrap.Modal(document.getElementById('modalAutenticacionVendedor'));
+});
 // Función para iniciar el proceso de reserva/operación
 function iniciarProceso(esOperacionDirecta = false) {
     console.log('Iniciando proceso:', esOperacionDirecta ? 'Operación' : 'Reserva');
@@ -2663,26 +2674,42 @@ function iniciarProceso(esOperacionDirecta = false) {
         return;
     }
 
-    // Guardar datos de la operación
-    window.datosOperacion = {
-        ficha: propiedadSeleccionada.id,
-        direccion: propiedadSeleccionada.direccion,
-        propietario: propiedadSeleccionada.propietario,
-        disponibilidad: propiedadSeleccionada.disponibilidad,
-        precio: propiedadSeleccionada.precio,
-        fechaInicio: propiedadSeleccionada.fechaInicio,
-        fechaFin: propiedadSeleccionada.fechaFin,
-        totalDias: propiedadSeleccionada.totalDias,
-        esOperacionDirecta: esOperacionDirecta
-    };
+    try {
+        // Verificar que los modales existen
+        if (!modalConfirmacion || !modalAutenticacion) {
+            throw new Error('Los modales no están inicializados');
+        }
 
-    console.log('Datos guardados:', window.datosOperacion);
+        // Guardar datos de la operación
+        window.datosOperacion = {
+            ficha: propiedadSeleccionada.id,
+            direccion: propiedadSeleccionada.direccion,
+            propietario: propiedadSeleccionada.propietario,
+            disponibilidad: propiedadSeleccionada.disponibilidad,
+            precio: propiedadSeleccionada.precio,
+            fechaInicio: propiedadSeleccionada.fechaInicio,
+            fechaFin: propiedadSeleccionada.fechaFin,
+            totalDias: propiedadSeleccionada.totalDias,
+            esOperacionDirecta: esOperacionDirecta
+        };
 
-    // Verificar autenticación
-    if (document.cookie.includes('sessionid')) {
-        mostrarModalConfirmacion();
-    } else {
-        mostrarModalAutenticacion();
+        console.log('Datos guardados:', window.datosOperacion);
+
+        // Verificar autenticación y mostrar modal correspondiente
+        if (document.cookie.includes('sessionid')) {
+            console.log('Usuario autenticado, mostrando modal de confirmación');
+            mostrarModalConfirmacion();
+        } else {
+            console.log('Usuario no autenticado, mostrando modal de autenticación');
+            mostrarModalAutenticacion();
+        }
+    } catch (error) {
+        console.error('Error al iniciar proceso:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: error.message
+        });
     }
 }
 
@@ -2708,15 +2735,21 @@ function mostrarModalAutenticacion() {
 
 // Función para mostrar el modal de confirmación
 function mostrarModalConfirmacion() {
-    const modalConfirmacion = document.getElementById('modalConfirmarReserva');
-    if (!modalConfirmacion) {
-        console.error('Modal de confirmación no encontrado');
-        return;
-    }
-
+    console.log('Intentando mostrar modal de confirmación');
+    
     try {
         const datos = window.datosOperacion;
-        if (!datos) throw new Error('No hay datos de la operación');
+        if (!datos) {
+            throw new Error('No hay datos de la operación');
+        }
+        
+        // Obtener el modal
+        const modalElement = document.getElementById('modalConfirmarReserva');
+        if (!modalElement) {
+            throw new Error('No se encontró el elemento del modal');
+        }
+        
+        console.log('Modal y datos encontrados:', { datos });
 
         // Actualizar título y botón
         const titulo = modalConfirmacion.querySelector('.modal-title');
@@ -2778,15 +2811,28 @@ function mostrarModalConfirmacion() {
 }
 
 // Funciones de acceso público
-function confirmarReserva() {
+window.confirmarReserva = function() {
+    console.log('Llamando a confirmarReserva');
     iniciarProceso(false);
-}
+};
 
-function realizarOperacion() {
+window.realizarOperacion = function() {
+    console.log('Llamando a realizarOperacion');
     iniciarProceso(true);
-}
+};
 
-// Función para ver precios
+window.verPrecios = function() {
+    console.log('Llamando a verPrecios');
+    if (!propiedadSeleccionada) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Por favor, seleccione una propiedad primero'
+        });
+        return;
+    }
+    // Aquí va la lógica para mostrar los precios
+};
 function confirmarReserva() {
     console.log('Iniciando confirmarReserva');
     
