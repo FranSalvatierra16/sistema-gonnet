@@ -3,23 +3,9 @@
 {% load custom_filters %}
 {% load static %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
-    <!-- Incluir jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    
-    <!-- Incluir Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Incluir SweetAlert2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-    <!-- Script de inicialización de funciones -->
-  
-    <style>
-    /* RESET COMPLETO Y DISEÑO MODERNO */
+{% block extra_css %}
+<style>
+/* RESET COMPLETO Y DISEÑO MODERNO */
     * {
         box-sizing: border-box !important;
     }
@@ -404,7 +390,7 @@
         font-weight: 600;
     }
     </style>
-</head>
+{% endblock extra_css %}
 
 {% block content %}
 <div class="container-fluid">
@@ -590,7 +576,7 @@
                             '{{ fecha_inicio }}',
                             '{{ fecha_fin }}',
                             '{{ propiedad.estado_reserva }}',
-                            '{{ propiedad.reserva.id|default:'' }}',
+                            '{{ propiedad.reserva.id|default:"" }}',
                             '{{ propiedad.ambientes }}',
                             '{{ propiedad.descripcion|escapejs }}',
                             '{{ propiedad.caracteristicas|escapejs }}'
@@ -1027,15 +1013,27 @@
         }
     });
 }
-function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias) {
+function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias, esOperacionDirecta = false) {
     // Guardamos los datos de la reserva en variables globales
-    window.datosReserva = {ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin,totalDias};
-    console.log("hola soy el window.datosReserva",window.datosReserva);
+    window.datosReserva = {
+        ficha, 
+        direccion, 
+        propietario, 
+        disponibilidad, 
+        precio, 
+        fechaInicio, 
+        fechaFin,
+        totalDias,
+        esOperacionDirecta
+    };
+    console.log("Datos de la reserva:", window.datosReserva);
+    
     // Mostramos el modal de autenticación
     $('#modalAutenticacionVendedor').modal('show');
     
-    // Cambiamos el texto del botón de autenticación
-    document.querySelector('#modalAutenticacionVendedor .btn-primary').textContent = 'Autenticar y Reservar';
+    // Cambiamos el texto del botón de autenticación según el tipo de operación
+    const btnText = esOperacionDirecta ? 'Autenticar y Realizar Operación' : 'Autenticar y Reservar';
+    document.querySelector('#modalAutenticacionVendedor .btn-primary').textContent = btnText;
     
     // Cambiamos la función que se ejecuta al hacer clic en el botón
     document.querySelector('#modalAutenticacionVendedor .btn-primary').onclick = autenticarYReservar;
@@ -1519,8 +1517,8 @@ window.mostrarModalOperacion = function() {
         return;
     }
 
-    // Usar el mismo modal de reserva pero con un flag para operación directa
-    mostrarModalReserva(
+    // Mostrar el modal de autenticación primero
+    mostrarModalAutenticacionParaReserva(
         propiedadSeleccionada.id,
         propiedadSeleccionada.direccion,
         propiedadSeleccionada.propietario,
@@ -2126,6 +2124,8 @@ document.addEventListener('DOMContentLoaded', function() {
         inquilinoSelect.parentNode.appendChild(btnCrearInquilino);
     }
 });
+</script>
+{% endblock extra_js %}
 </script>
 {% endblock content %}
 
