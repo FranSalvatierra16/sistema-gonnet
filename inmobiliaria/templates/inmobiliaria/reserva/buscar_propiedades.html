@@ -790,12 +790,12 @@
                             {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
                                 <button type="button" class="btn btn-sm btn-success" onclick="window.autenticarYFinalizar()">Operacion</button>
                             {% else %}
-                                <div>
-                                    <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
-                                        <i class="fas fa-calendar-plus"></i> Reservar
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-primary" onclick="confirmarReserva()">
+                                        <i class="fas fa-calendar-plus me-2"></i> Reservar
                                     </button>
-                                    <button type="button" class="btn btn-info ml-2" onclick="window.verPrecios()">
-                                        <i class="fas fa-file-contract"></i> Operación
+                                    <button type="button" class="btn btn-info" onclick="verPrecios()">
+                                        <i class="fas fa-file-contract me-2"></i> Operación
                                     </button>
                                 </div>
                             {% endif %}
@@ -2647,9 +2647,8 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar todas las funciones globales necesarias
-    window.confirmarReserva = function() {
+// Función para confirmar reserva
+function confirmarReserva() {
         console.log('Iniciando confirmarReserva');
         
         // Verificar que tengamos una propiedad seleccionada
