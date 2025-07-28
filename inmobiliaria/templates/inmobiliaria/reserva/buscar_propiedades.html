@@ -51,6 +51,33 @@
         margin-bottom: 30px !important;
     }
 
+    .main-search-box .form-control,
+    .main-search-box .form-select {
+        border: none !important;
+        height: 45px !important;
+        border-radius: 8px !important;
+        padding: 0.5rem 1rem !important;
+        font-size: 1rem !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    }
+
+    .main-search-box .btn-light {
+        background: white !important;
+        border: none !important;
+        height: 45px !important;
+        padding: 0 2rem !important;
+        font-weight: 500 !important;
+        color: #2e7d32 !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        transition: all 0.3s ease !important;
+    }
+
+    .main-search-box .btn-light:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
+        background: #f8f9fa !important;
+    }
+
     #propiedadesTable thead th {
         background: linear-gradient(135deg, #43a047, #2e7d32) !important;
         color: white !important;
@@ -165,6 +192,14 @@
         background: transparent !important;
     }
 
+    /* Estilos para la tabla de propiedades */
+    .table-wrapper {
+        background: linear-gradient(135deg, rgba(67, 160, 71, 0.05), rgba(46, 125, 50, 0.05)) !important;
+        border-radius: 15px !important;
+        padding: 20px !important;
+        margin-top: 20px !important;
+    }
+
     #propiedadesTable thead th {
         position: sticky !important;
         top: 0 !important;
@@ -177,6 +212,7 @@
         text-transform: uppercase !important;
         font-size: 0.9rem !important;
         letter-spacing: 0.5px !important;
+        border-radius: 8px !important;
     }
 
     #propiedadesTable tbody tr {
@@ -503,9 +539,9 @@
                     <div class="d-flex flex-wrap align-items-end gap-3">
                         <!-- Fecha Inicio -->
                         <div class="form-group">
-                            <label>Fecha de Inicio</label>
+                            <label class="text-white">Fecha de Inicio</label>
                             <div class="input-group">
-                                <span class="input-group-text">
+                                <span class="input-group-text bg-white text-success border-0">
                                     <i class="fas fa-calendar"></i>
                                 </span>
                                 {{ form.fecha_inicio }}
@@ -514,9 +550,9 @@
 
                         <!-- Fecha Fin -->
                         <div class="form-group">
-                            <label>Fecha de Fin</label>
+                            <label class="text-white">Fecha de Fin</label>
                             <div class="input-group">
-                                <span class="input-group-text">
+                                <span class="input-group-text bg-white text-success border-0">
                                     <i class="fas fa-calendar"></i>
                                 </span>
                                 {{ form.fecha_fin }}
@@ -525,9 +561,9 @@
 
                         <!-- Ambientes -->
                         <div class="form-group">
-                            <label>Ambientes</label>
+                            <label class="text-white">Ambientes</label>
                             <div class="input-group">
-                                <span class="input-group-text">
+                                <span class="input-group-text bg-white text-success border-0">
                                     <i class="fas fa-door-open"></i>
                                 </span>
                                 {{ form.ambientes }}
@@ -536,8 +572,8 @@
 
                         <!-- Botón de búsqueda -->
                         <div class="form-group">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-search me-2"></i>Buscar
+                            <button type="submit" class="btn btn-light">
+                                <i class="fas fa-search me-2 text-success"></i>Buscar
                             </button>
                         </div>
                     </div>
@@ -1282,7 +1318,20 @@ function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, dis
     document.querySelector('#modalAutenticacionVendedor .btn-primary').onclick = autenticarYReservar;
 }
 function autenticarYReservar() {
-    console.log('Iniciando autenticación');
+    console.log('Iniciando autenticación para reserva');
+    
+    // Verificar que tengamos datos de reserva
+    if (!window.datosReserva) {
+        console.error('No hay datos de reserva');
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'No se encontraron los datos de la reserva'
+        });
+        return;
+    }
+
+    console.log('Datos de reserva:', window.datosReserva);
     
     var usuario = document.getElementById('usuarioVendedor').value;
     var contrasena = document.getElementById('contrasenaVendedor').value;
@@ -1296,8 +1345,6 @@ function autenticarYReservar() {
         return;
     }
 
-    console.log('Enviando solicitud de autenticación');
-
     // Mostrar indicador de carga
     Swal.fire({
         title: 'Autenticando...',
@@ -1309,7 +1356,7 @@ function autenticarYReservar() {
         }
     });
 
-    // Enviar los datos a través de AJAX
+    // Enviar los datos a través de fetch
     fetch('{% url "inmobiliaria:autenticacion_vendedor" %}', {
         method: 'POST',
         headers: {
@@ -1321,9 +1368,14 @@ function autenticarYReservar() {
             'password': contrasena
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error en la respuesta del servidor');
+        }
+        return response.json();
+    })
     .then(data => {
-        console.log('Respuesta recibida:', data);
+        console.log('Respuesta del servidor:', data);
         
         if (data.success) {
             // Cerrar el modal de autenticación
@@ -1337,7 +1389,7 @@ function autenticarYReservar() {
             document.getElementById('usuarioVendedor').value = '';
             document.getElementById('contrasenaVendedor').value = '';
 
-            // Mostrar mensaje de éxito
+            // Mostrar mensaje de éxito y luego el modal de reserva
             Swal.fire({
                 icon: 'success',
                 title: 'Autenticación exitosa',
@@ -1349,33 +1401,25 @@ function autenticarYReservar() {
                 const modalReserva = new bootstrap.Modal(document.getElementById('modalConfirmarReserva'));
                 modalReserva.show();
 
-                // Actualizar los campos
-                if (window.datosReserva) {
-                    mostrarModalReserva(
-                        window.datosReserva.ficha,
-                        window.datosReserva.direccion,
-                        window.datosReserva.propietario,
-                        window.datosReserva.disponibilidad,
-                        window.datosReserva.precio,
-                        window.datosReserva.fechaInicio,
-                        window.datosReserva.fechaFin,
-                        window.datosReserva.totalDias,
-                        window.datosReserva.esOperacionDirecta
-                    );
-                } else {
-                    console.error('No se encontraron datos de reserva');
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'No se encontraron los datos de la reserva'
-                    });
-                }
+                // Actualizar los campos del modal
+                mostrarModalReserva(
+                    window.datosReserva.ficha,
+                    window.datosReserva.direccion,
+                    window.datosReserva.propietario,
+                    window.datosReserva.disponibilidad,
+                    window.datosReserva.precio,
+                    window.datosReserva.fechaInicio,
+                    window.datosReserva.fechaFin,
+                    window.datosReserva.totalDias,
+                    false  // No es operación directa
+                );
             });
         } else {
+            let errorMessage = data.error || 'Credenciales incorrectas, por favor intente de nuevo';
             Swal.fire({
                 icon: 'error',
                 title: 'Error de autenticación',
-                text: 'Credenciales incorrectas, por favor intente de nuevo'
+                text: errorMessage
             });
         }
     })
@@ -1384,7 +1428,7 @@ function autenticarYReservar() {
         Swal.fire({
             icon: 'error',
             title: 'Error',
-            text: 'Ocurrió un error al procesar la solicitud'
+            text: 'Ocurrió un error al procesar la solicitud. Por favor, intente nuevamente.'
         });
     });
 }
@@ -2029,7 +2073,23 @@ window.confirmarReserva = function() {
 
     console.log('Propiedad seleccionada:', propiedadSeleccionada);
 
-    // Guardar los datos en el objeto global
+    // Mostrar directamente el modal de reserva si ya estamos autenticados
+    if (document.cookie.includes('sessionid')) {
+        mostrarModalReserva(
+            propiedadSeleccionada.id,
+            propiedadSeleccionada.direccion,
+            propiedadSeleccionada.propietario,
+            propiedadSeleccionada.disponibilidad,
+            propiedadSeleccionada.precio,
+            propiedadSeleccionada.fechaInicio,
+            propiedadSeleccionada.fechaFin,
+            propiedadSeleccionada.totalDias,
+            false
+        );
+        return;
+    }
+
+    // Si no estamos autenticados, guardar datos y mostrar modal de autenticación
     window.datosReserva = {
         ficha: propiedadSeleccionada.id,
         direccion: propiedadSeleccionada.direccion,
