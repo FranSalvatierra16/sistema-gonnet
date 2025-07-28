@@ -702,67 +702,98 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <p><strong>Propiedad:</strong> <span id="propiedadDireccion"></span></p>
-                        <p><strong>Fecha de inicio:</strong> <span id="fechaInicio"></span></p>
-                        <p><strong>Fecha de fin:</strong> <span id="fechaFin"></span></p>
-                        <p><strong>Total de días:</strong> <span id="totalDias"></span></p>
-                        <p><strong>Precio total:</strong> $<span id="precioTotalSuperior"></span></p>
-        
+                        <!-- Información de la propiedad -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">Información de la Propiedad</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p><strong>Dirección:</strong><br><span id="propiedadDireccion" class="text-primary"></span></p>
+                                        <p><strong>Total de días:</strong><br><span id="totalDias" class="text-primary"></span></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p><strong>Fecha de inicio:</strong><br><span id="fechaInicio" class="text-primary"></span></p>
+                                        <p><strong>Fecha de fin:</strong><br><span id="fechaFin" class="text-primary"></span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Campo de Vendedor -->
-                        <div class="form-group mb-3">
-                            <label for="vendedor_id" class="form-label">ID del Vendedor:</label>
-                            <div class="input-group">
-                                <input type="number" id="vendedor_id" name="vendedor" class="form-control" required min="1">
-                                <button type="button" class="btn btn-outline-secondary" onclick="buscarVendedor()">Buscar</button>
+                        <div class="card mb-3">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="mb-0">Información del Vendedor</h5>
                             </div>
-                            <div class="mt-2">
-                                <strong>Nombre del Vendedor:</strong> <span id="vendedor_nombre" class="text-primary"></span>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label for="vendedor_id" class="form-label">ID del Vendedor:</label>
+                                    <div class="input-group">
+                                        <input type="number" id="vendedor_id" name="vendedor" class="form-control" required min="1" placeholder="Ingrese ID del vendedor">
+                                        <button type="button" class="btn btn-primary" onclick="buscarVendedor()">
+                                            <i class="fas fa-search"></i> Buscar
+                                        </button>
+                                    </div>
+                                    <div class="mt-2" id="vendedor_info" style="display: none;">
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-user"></i> <strong>Vendedor:</strong> 
+                                            <span id="vendedor_nombre"></span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Campo de Inquilino con opción de crear nuevo -->
-                        <div class="form-group mb-3">
-                            <label for="inquilino" class="form-label">Buscar Inquilino:</label>
-                            <div class="input-group">
-                                <select id="inquilino" name="inquilino" class="form-select" required onchange="actualizarInquilinoId()">
-                                    <option value="">Seleccione un inquilino</option>
-                                    {% for inquilino in inquilinos %}
-                                        <option value="{{ inquilino.id }}">{{ inquilino.nombre }} {{ inquilino.apellido }} - {{ inquilino.dni }}</option>
-                                    {% endfor %}
-                                </select>
-                                <button type="button" class="btn btn-primary" onclick="$('#crearInquilinoModal').modal('show')">
-                                    <i class="fas fa-plus"></i> Crear Nuevo
-                                </button>
+                        <!-- Campo de Inquilino -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0">Información del Inquilino</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label for="inquilino" class="form-label">Seleccionar Inquilino:</label>
+                                    <div class="input-group">
+                                        <select id="inquilino" name="inquilino" class="form-select" required onchange="actualizarInquilinoId()">
+                                            <option value="">Seleccione un inquilino</option>
+                                            {% for inquilino in inquilinos %}
+                                                <option value="{{ inquilino.id }}">{{ inquilino.nombre }} {{ inquilino.apellido }} - {{ inquilino.dni }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <button type="button" class="btn btn-success" onclick="$('#crearInquilinoModal').modal('show')">
+                                            <i class="fas fa-plus"></i> Crear Nuevo
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        
-                        <script>
-                        function actualizarInquilinoId() {
-                            const inquilinoSelect = document.getElementById('inquilino');
-                            const inquilinoId = inquilinoSelect.value;
-                            document.getElementById('modalInquilinoId').value = inquilinoId;
-                        }
-                        </script>
 
-                        <!-- Campo de Precio Total con opción de editar -->
-                        <div class="form-group mb-3">
-                            <label for="precio_total" class="form-label">Precio Total:</label>
-                            <div class="input-group">
-                                <span class="input-group-text">$</span>
-                                <span id="precio_total_display" class="form-control-plaintext px-2">{{ precio_total }}</span>
-                                <button type="button" id="editar_precio_btn" class="btn btn-outline-primary">
-                                    <i class="fas fa-edit"></i> Editar
-                                </button>
+                        <!-- Campo de Precio Total -->
+                        <div class="card">
+                            <div class="card-header bg-warning">
+                                <h5 class="mb-0">Información del Precio</h5>
                             </div>
-                            <div class="input-group" style="display: none;" id="precio_total_edit">
-                                <span class="input-group-text">$</span>
-                                <input type="number" step="0.01" class="form-control" id="precio_total" name="precio_total" required>
-                                <button type="button" id="guardar_precio_btn" class="btn btn-success">
-                                    <i class="fas fa-save"></i> Guardar
-                                </button>
-                                <button type="button" id="cancelar_precio_btn" class="btn btn-danger">
-                                    <i class="fas fa-times"></i> Cancelar
-                                </button>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label for="precio_total" class="form-label">Precio Total:</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <span id="precio_total_display" class="form-control bg-light">{{ precio_total }}</span>
+                                        <button type="button" id="editar_precio_btn" class="btn btn-warning">
+                                            <i class="fas fa-edit"></i> Editar
+                                        </button>
+                                    </div>
+                                    <div class="input-group mt-2" style="display: none;" id="precio_total_edit">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" step="0.01" class="form-control" id="precio_total" name="precio_total" required>
+                                        <button type="button" id="guardar_precio_btn" class="btn btn-success">
+                                            <i class="fas fa-save"></i> Guardar
+                                        </button>
+                                        <button type="button" id="cancelar_precio_btn" class="btn btn-danger">
+                                            <i class="fas fa-times"></i> Cancelar
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1721,38 +1752,57 @@ function formatearFecha(fecha) {
 
 function buscarVendedor() {
     const vendedorId = document.getElementById('vendedor_id').value.trim();
+    const vendedorInfo = document.getElementById('vendedor_info');
+    
     if (!vendedorId) {
         Swal.fire({
             icon: 'warning',
             title: 'Campo requerido',
             text: 'Por favor ingrese el ID del vendedor'
         });
+        vendedorInfo.style.display = 'none';
         return;
     }
+
+    // Mostrar spinner mientras se busca
+    vendedorInfo.style.display = 'block';
+    vendedorInfo.innerHTML = `
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Buscando vendedor...</span>
+            </div>
+        </div>
+    `;
 
     fetch(`{% url 'inmobiliaria:obtener_vendedor' '0' %}`.replace('0', vendedorId))
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                document.getElementById('vendedor_nombre').textContent = data.vendedor.nombre_completo;
                 document.getElementById('modalVendedorId').value = vendedorId;
+                vendedorInfo.innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="fas fa-user-check"></i> <strong>Vendedor encontrado:</strong><br>
+                        <span id="vendedor_nombre" class="ms-4">${data.vendedor.nombre_completo}</span>
+                    </div>
+                `;
             } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Vendedor no encontrado'
-                });
-                document.getElementById('vendedor_nombre').textContent = '';
+                vendedorInfo.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> <strong>Error:</strong><br>
+                        Vendedor no encontrado
+                    </div>
+                `;
                 document.getElementById('modalVendedorId').value = '';
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Error al buscar el vendedor'
-            });
+            vendedorInfo.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle"></i> <strong>Error:</strong><br>
+                    Error al buscar el vendedor
+                </div>
+            `;
         });
 }
 
