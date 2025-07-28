@@ -1028,6 +1028,7 @@ function autenticarYReservar() {
     var usuario = document.getElementById('usuarioVendedor').value;
     var contrasena = document.getElementById('contrasenaVendedor').value;
     var reservaId = window.reservaIdActual;
+    var esOperacionDirecta = window.datosReserva.esOperacionDirecta;
 
     // Enviar los datos a través de AJAX     s
     $.ajax({
@@ -1652,49 +1653,18 @@ function verPrecios() {
         return;
     }
 
-    // Usar los datos de propiedadSeleccionada en lugar de buscar en el DOM
-    const ficha = propiedadSeleccionada.id;
-    const direccion = propiedadSeleccionada.direccion;
-    const propietario = propiedadSeleccionada.propietario;
-    const precio = propiedadSeleccionada.precio;
-    const fechaInicio = propiedadSeleccionada.fechaInicio;
-    const fechaFin = propiedadSeleccionada.fechaFin;
-    const totalDias = propiedadSeleccionada.totalDias;
-
-    // Verificar que tengamos todos los datos necesarios
-    if (!ficha || !direccion || !propietario || !precio || !fechaInicio || !fechaFin || !totalDias) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Faltan datos necesarios para la reserva'
-        });
-        return;
-    }
-
-    // Continuar con la lógica de confirmación
-    Swal.fire({
-        title: '¿Está seguro?',
-        text: "¿Desea reservar esta propiedad?",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Sí, reservar',
-        cancelButtonText: 'Cancelar'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            mostrarModalReserva(
-                ficha, 
-                direccion, 
-                propietario, 
-                propiedadSeleccionada.disponibilidad, 
-                precio, 
-                fechaInicio, 
-                fechaFin, 
-                totalDias
-            );
-        }
-    });
+    // Mostrar el modal de autenticación primero
+    mostrarModalAutenticacionParaReserva(
+        propiedadSeleccionada.id,
+        propiedadSeleccionada.direccion,
+        propiedadSeleccionada.propietario,
+        propiedadSeleccionada.disponibilidad,
+        propiedadSeleccionada.precio,
+        propiedadSeleccionada.fechaInicio,
+        propiedadSeleccionada.fechaFin,
+        propiedadSeleccionada.totalDias,
+        false // flag para operación directa en false
+    );
 }
 function formatearFecha(fecha) {
     if (!fecha) return '';
