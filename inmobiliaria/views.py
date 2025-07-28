@@ -1174,7 +1174,6 @@ def ver_recibo(request, reserva_id):
                 propiedad=reserva.propiedad,
                 sucursal=request.user.sucursal,
                 empleado=request.user
-                # Removemos a_descontar ya que es un ingreso
             )
             
             # Asignar montos según los pagos de la reserva
@@ -1188,56 +1187,32 @@ def ver_recibo(request, reserva_id):
                     movimiento.destino_deposito = pago.destino_deposito
                 elif pago.forma_pago == 'cheque':
                     movimiento.monto_cheque += pago.monto
-                elif pago.forma_pago == 'qr':
-                    movimiento.monto_deposito += pago.monto
-                    movimiento.destino_deposito = pago.destino_deposito
-                        
-                        # Guardar el movimiento
-                        movimiento.save()
-                        reserva.estado = 'finalizada'
-                        messages.success(request, 'Reserva finalizada y movimiento de caja registrado exitosamente')
-                    else:
-                        reserva.estado = 'en_espera'
-                        messages.success(request, f'Pago registrado. Saldo pendiente: ${reserva.cuota_pendiente}')
-                    
-                    reserva.save()
-                    
-                    return JsonResponse({
-                        'success': True,
-                        'message': 'Pago registrado exitosamente',
-                        'redirect_url': reverse('inmobiliaria:ver_recibo', args=[reserva.id]),
-                        'detalles': {
-                            'total_pagado': float(total_pagado),
-                            'saldo_pendiente': float(reserva.cuota_pendiente),
-                            'deposito_garantia': float(reserva.deposito_garantia or 0),
-                            'estado': reserva.estado
-                        }
-                    })
-                    
-            except Exception as e:
-                return JsonResponse({
-                    'success': False,
-                    'message': str(e)
-                })
+            
+            movimiento.save()
+            messages.success(request, 'Movimiento de caja creado exitosamente')
+        else:
+            messages.warning(request, 'No hay una caja abierta para registrar el movimiento')
         
-        # Calcular saldo pendiente actual para el contexto
-        total_pagado = sum(pago.monto for pago in pagos_previos)
-        saldo_pendiente = reserva.precio_total - total_pagado
-        
+        # Continuar con la generación del recibo
+        template = get_template('inmobiliaria/html.recibo/recibo.html')
         context = {
             'reserva': reserva,
-            'conceptos_pago': conceptos_pago,
-            'pagos_previos': pagos_previos,
-            'formas_pago': Pago.FORMA_PAGO_CHOICES,
-            'total_pagado': total_pagado,
-            'saldo_pendiente': reserva.cuota_pendiente,
-            'deposito': reserva.deposito_garantia or 0
+            'fecha_actual': timezone.now(),
         }
+        html = template.render(context)
         
-        return render(request, 'inmobiliaria/reserva/finalizar_reserva.html', context)
+        # Crear el PDF
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'filename=recibo_{reserva.id}.pdf'
+        
+        pisa_status = pisa.CreatePDF(html, dest=response)
+        if pisa_status.err:
+            return HttpResponse('Error al generar el PDF', status=500)
+        
+        return response
         
     except Exception as e:
-        messages.error(request, f'Error al procesar la reserva: {str(e)}')
+        messages.error(request, f'Error al generar el recibo: {str(e)}')
         return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva_id)
 
 def generar_recibo_pdf(reserva, pago_senia):
