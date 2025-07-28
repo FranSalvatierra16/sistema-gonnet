@@ -794,8 +794,11 @@
                                     <button type="button" class="btn btn-primary" onclick="confirmarReserva()">
                                         <i class="fas fa-calendar-plus me-2"></i> Reservar
                                     </button>
+                                    <button type="button" class="btn btn-success" onclick="realizarOperacion()">
+                                        <i class="fas fa-check-circle me-2"></i> Operación Directa
+                                    </button>
                                     <button type="button" class="btn btn-info" onclick="verPrecios()">
-                                        <i class="fas fa-file-contract me-2"></i> Operación
+                                        <i class="fas fa-dollar-sign me-2"></i> Ver Precios
                                     </button>
                                 </div>
                             {% endif %}
@@ -2646,7 +2649,144 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-// Función para confirmar reserva
+// Función para iniciar el proceso de reserva/operación
+function iniciarProceso(esOperacionDirecta = false) {
+    console.log('Iniciando proceso:', esOperacionDirecta ? 'Operación' : 'Reserva');
+
+    // Verificar selección de propiedad
+    if (!propiedadSeleccionada) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Por favor, seleccione una propiedad primero'
+        });
+        return;
+    }
+
+    // Guardar datos de la operación
+    window.datosOperacion = {
+        ficha: propiedadSeleccionada.id,
+        direccion: propiedadSeleccionada.direccion,
+        propietario: propiedadSeleccionada.propietario,
+        disponibilidad: propiedadSeleccionada.disponibilidad,
+        precio: propiedadSeleccionada.precio,
+        fechaInicio: propiedadSeleccionada.fechaInicio,
+        fechaFin: propiedadSeleccionada.fechaFin,
+        totalDias: propiedadSeleccionada.totalDias,
+        esOperacionDirecta: esOperacionDirecta
+    };
+
+    console.log('Datos guardados:', window.datosOperacion);
+
+    // Verificar autenticación
+    if (document.cookie.includes('sessionid')) {
+        mostrarModalConfirmacion();
+    } else {
+        mostrarModalAutenticacion();
+    }
+}
+
+// Función para mostrar el modal de autenticación
+function mostrarModalAutenticacion() {
+    const modalAutenticacion = document.getElementById('modalAutenticacionVendedor');
+    if (!modalAutenticacion) {
+        console.error('Modal de autenticación no encontrado');
+        return;
+    }
+
+    // Actualizar texto del botón según el tipo de operación
+    const btnAutenticar = modalAutenticacion.querySelector('.btn-primary');
+    if (btnAutenticar) {
+        btnAutenticar.textContent = window.datosOperacion?.esOperacionDirecta ? 
+            'Autenticar y Realizar Operación' : 'Autenticar y Reservar';
+    }
+
+    // Mostrar modal
+    const modal = new bootstrap.Modal(modalAutenticacion);
+    modal.show();
+}
+
+// Función para mostrar el modal de confirmación
+function mostrarModalConfirmacion() {
+    const modalConfirmacion = document.getElementById('modalConfirmarReserva');
+    if (!modalConfirmacion) {
+        console.error('Modal de confirmación no encontrado');
+        return;
+    }
+
+    try {
+        const datos = window.datosOperacion;
+        if (!datos) throw new Error('No hay datos de la operación');
+
+        // Actualizar título y botón
+        const titulo = modalConfirmacion.querySelector('.modal-title');
+        const btnConfirmar = modalConfirmacion.querySelector('#confirmar-reserva-btn');
+        
+        if (titulo) titulo.textContent = datos.esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
+        if (btnConfirmar) btnConfirmar.textContent = datos.esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
+
+        // Actualizar campos
+        const campos = {
+            'propiedadDireccion': datos.direccion,
+            'fechaInicio': formatearFecha(datos.fechaInicio),
+            'fechaFin': formatearFecha(datos.fechaFin),
+            'totalDias': `${datos.totalDias} días`,
+            'precio_total_display': datos.precio,
+            'modalPropiedadId': datos.ficha,
+            'modalFechaInicio': formatearFecha(datos.fechaInicio),
+            'modalFechaFin': formatearFecha(datos.fechaFin),
+            'modalPrecioTotal': datos.precio
+        };
+
+        // Limpiar campos previos
+        document.getElementById('vendedor_id').value = '';
+        document.getElementById('vendedor_info').style.display = 'none';
+        document.getElementById('inquilino').value = '';
+        document.getElementById('modalVendedorId').value = '';
+        document.getElementById('modalInquilinoId').value = '';
+
+        // Actualizar campos
+        Object.entries(campos).forEach(([id, valor]) => {
+            const elemento = document.getElementById(id);
+            if (elemento) {
+                if (elemento.tagName === 'INPUT' || elemento.tagName === 'SELECT') {
+                    elemento.value = valor;
+                } else {
+                    elemento.textContent = valor;
+                }
+            }
+        });
+
+        // Mostrar modal
+        const modal = new bootstrap.Modal(modalConfirmacion);
+        modal.show();
+
+        // Enfocar campo vendedor
+        modalConfirmacion.addEventListener('shown.bs.modal', () => {
+            const vendedorInput = document.getElementById('vendedor_id');
+            if (vendedorInput) vendedorInput.focus();
+        });
+
+    } catch (error) {
+        console.error('Error al mostrar modal de confirmación:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al mostrar el formulario: ' + error.message
+        });
+    }
+}
+
+// Funciones de acceso público
+function confirmarReserva() {
+    iniciarProceso(false);
+}
+
+function realizarOperacion() {
+    iniciarProceso(true);
+}
+
+// Función para ver precios
 function confirmarReserva() {
     console.log('Iniciando confirmarReserva');
     
