@@ -497,16 +497,34 @@
         transform: scale(1.01);
     }
 
+    /* PROPIEDAD SELECCIONADA - COLOR DE FONDO MUY VISIBLE */
     .table tbody tr.selected {
-        background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%) !important;
-        border: 2px solid #2e7d32 !important;
-        box-shadow: 0 5px 15px rgba(46, 125, 50, 0.4) !important;
-        transform: scale(1.02) !important;
+        background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%) !important;
+        border: 3px solid #2e7d32 !important;
+        box-shadow: 0 8px 25px rgba(46, 125, 50, 0.6) !important;
+        transform: scale(1.03) !important;
+        transition: all 0.3s ease !important;
     }
 
     .table tbody tr.selected td {
-        color: #1b5e20 !important;
-        font-weight: 600 !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
+        font-size: 1.05rem !important;
+    }
+
+    /* Animación adicional para que se note más */
+    .table tbody tr.selected {
+        animation: pulseSelection 2s infinite alternate !important;
+    }
+
+    @keyframes pulseSelection {
+        0% {
+            box-shadow: 0 8px 25px rgba(46, 125, 50, 0.6);
+        }
+        100% {
+            box-shadow: 0 12px 35px rgba(46, 125, 50, 0.8);
+        }
     }
 
     .card {
@@ -536,80 +554,127 @@
         font-weight: 500;
     }
 
-    /* ESTILOS DEL MODAL - MUY IMPORTANTE PARA QUE NO SEA TRANSPARENTE */
+    /* ESTILOS DEL MODAL - BRILLANTE Y VISIBLE */
+    .modal-backdrop {
+        background-color: rgba(0, 0, 0, 0.6) !important;
+    }
+
     #modalConfirmarReserva .modal-content {
         background: #ffffff !important;
-        border: none !important;
+        border: 3px solid #2e7d32 !important;
         border-radius: 15px !important;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.3) !important;
+        box-shadow: 0 15px 50px rgba(0,0,0,0.4) !important;
         overflow: hidden !important;
+        opacity: 1 !important;
     }
 
     #modalConfirmarReserva .modal-header {
         background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%) !important;
         color: white !important;
-        border-bottom: none !important;
-        padding: 20px 25px !important;
-        border-radius: 15px 15px 0 0 !important;
+        border-bottom: 3px solid #1b5e20 !important;
+        padding: 25px !important;
+        border-radius: 12px 12px 0 0 !important;
     }
 
     #modalConfirmarReserva .modal-title {
-        font-weight: 600 !important;
-        font-size: 1.3rem !important;
+        font-weight: 700 !important;
+        font-size: 1.5rem !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2) !important;
     }
 
     #modalConfirmarReserva .modal-body {
         background: #ffffff !important;
-        padding: 25px !important;
+        padding: 30px !important;
+        color: #333 !important;
     }
 
     #modalConfirmarReserva .modal-footer {
-        background: #f8f9fa !important;
-        border-top: 1px solid #dee2e6 !important;
-        padding: 20px 25px !important;
-        border-radius: 0 0 15px 15px !important;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+        border-top: 2px solid #2e7d32 !important;
+        padding: 25px !important;
+        border-radius: 0 0 12px 12px !important;
     }
 
     #modalConfirmarReserva .info-section {
-        background: #f8f9fa;
-        border: 1px solid #e9ecef;
-        border-radius: 10px;
-        padding: 20px;
-        margin-bottom: 20px;
+        background: linear-gradient(135deg, #f1f8e9 0%, #e8f5e8 100%) !important;
+        border: 2px solid #c8e6c9 !important;
+        border-radius: 12px !important;
+        padding: 25px !important;
+        margin-bottom: 25px !important;
+        box-shadow: 0 3px 10px rgba(46, 125, 50, 0.1) !important;
     }
 
     #modalConfirmarReserva .info-section h6 {
-        color: #2e7d32;
-        font-weight: 600;
-        margin-bottom: 15px;
-        border-bottom: 2px solid #e9ecef;
-        padding-bottom: 8px;
+        color: #1b5e20 !important;
+        font-weight: 700 !important;
+        font-size: 1.2rem !important;
+        margin-bottom: 20px !important;
+        border-bottom: 3px solid #2e7d32 !important;
+        padding-bottom: 10px !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+    }
+
+    #modalConfirmarReserva .info-section p {
+        color: #2e7d32 !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+        margin-bottom: 10px !important;
+    }
+
+    #modalConfirmarReserva .info-section span {
+        color: #1b5e20 !important;
+        font-weight: 700 !important;
     }
 
     #modalConfirmarReserva .form-control {
-        border: 1px solid #ced4da;
-        border-radius: 8px;
-        padding: 10px 15px;
-        background: white;
+        border: 2px solid #2e7d32 !important;
+        border-radius: 8px !important;
+        padding: 12px 15px !important;
+        background: white !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
     }
 
     #modalConfirmarReserva .form-control:focus {
-        border-color: #2e7d32;
-        box-shadow: 0 0 0 0.2rem rgba(46, 125, 50, 0.25);
+        border-color: #1b5e20 !important;
+        box-shadow: 0 0 0 0.3rem rgba(46, 125, 50, 0.3) !important;
+        background: #f1f8e9 !important;
     }
 
     #modalConfirmarReserva .btn-success {
-        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%) !important;
+        border: 2px solid #1b5e20 !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        font-size: 1.1rem !important;
+        padding: 12px 25px !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        box-shadow: 0 4px 15px rgba(46, 125, 50, 0.3) !important;
+    }
+
+    #modalConfirmarReserva .btn-success:hover {
+        background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(46, 125, 50, 0.4) !important;
     }
 
     #modalConfirmarReserva .btn-primary {
-        background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
+        background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%) !important;
+        border: 2px solid #0d47a1 !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        color: white !important;
+        box-shadow: 0 4px 15px rgba(25, 118, 210, 0.3) !important;
+    }
+
+    #modalConfirmarReserva .btn-secondary {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%) !important;
+        border: 2px solid #343a40 !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        color: white !important;
     }
 
     /* Estilos adicionales */
@@ -1672,7 +1737,24 @@ function autenticarYReservar() {
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
-    // Guardar los datos de la propiedad seleccionada
+    // PRIMERO: Remover selección anterior de todas las filas
+    document.querySelectorAll('.table tbody tr').forEach(row => {
+        row.classList.remove('selected');
+        // Limpiar cualquier estilo inline que pueda interferir
+        row.style.background = '';
+        row.style.border = '';
+        row.style.boxShadow = '';
+        row.style.transform = '';
+    });
+    
+    // SEGUNDO: Agregar selección a la fila actual
+    const filaActual = event.target.closest('tr');
+    if (filaActual) {
+        filaActual.classList.add('selected');
+        console.log('✅ Fila seleccionada - aplicado clase "selected"');
+    }
+
+    // TERCERO: Guardar los datos de la propiedad seleccionada
     propiedadSeleccionada = {
         id: id,
         direccion: direccion,
@@ -1950,28 +2032,17 @@ function verPrecios() {
 </script>
 <script>
     function confirmarReserva() {
+    console.log('=== CONFIRMAR RESERVA ===');
+    console.log('Propiedad seleccionada:', propiedadSeleccionada);
+    
     // Verificar que tengamos una propiedad seleccionada
     if (!propiedadSeleccionada) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Atención',
-            text: 'Por favor, seleccione una propiedad primero'
-        });
+        alert('Por favor, selecciona una propiedad primero.');
         return;
     }
 
-    // Mostrar el modal de autenticación primero
-    mostrarModalAutenticacionParaReserva(
-        propiedadSeleccionada.id,
-        propiedadSeleccionada.direccion,
-        propiedadSeleccionada.propietario,
-        propiedadSeleccionada.disponibilidad,
-        propiedadSeleccionada.precio,
-        propiedadSeleccionada.fechaInicio,
-        propiedadSeleccionada.fechaFin,
-        propiedadSeleccionada.totalDias,
-        false // flag para operación directa en false
-    );
+    // Mostrar directamente el modal de reserva
+    window.mostrarModalReserva(false); // false = reserva normal
 }
 function formatearFecha(fecha) {
     if (!fecha) return '';
@@ -2034,12 +2105,89 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Función global para mostrar el modal
-window.mostrarModalReserva = function(/* tus params */) {
-    // ...actualiza los campos del modal...
-    const modalElement = document.getElementById('modalConfirmarReserva');
-    const modal = new bootstrap.Modal(modalElement);
-    modal.show();
+// Función global para mostrar el modal CON INFORMACIÓN COMPLETA
+window.mostrarModalReserva = function(esOperacionDirecta = false) {
+    console.log('=== MOSTRANDO MODAL RESERVA ===');
+    console.log('Propiedad seleccionada:', propiedadSeleccionada);
+    
+    if (!propiedadSeleccionada) {
+        alert('Por favor, selecciona una propiedad primero.');
+        return;
+    }
+    
+    try {
+        // Obtener fechas de los inputs del formulario
+        const fechaInicio = document.getElementById('fecha_inicio').value;
+        const fechaFin = document.getElementById('fecha_fin').value;
+        
+        // Calcular precio por día
+        const precioTotal = parseFloat(propiedadSeleccionada.precio) || 0;
+        const totalDias = parseInt(propiedadSeleccionada.totalDias) || 1;
+        const precioPorDia = totalDias > 0 ? precioTotal / totalDias : precioTotal;
+        
+        console.log('Datos calculados:', {
+            fechaInicio,
+            fechaFin,
+            precioTotal,
+            totalDias,
+            precioPorDia
+        });
+        
+        // Actualizar información de la propiedad
+        document.getElementById('modal_ficha').textContent = propiedadSeleccionada.id || 'N/A';
+        document.getElementById('modal_direccion').textContent = propiedadSeleccionada.direccion || 'N/A';
+        document.getElementById('modal_propietario').textContent = propiedadSeleccionada.propietario || 'N/A';
+        
+        // Formatear y mostrar fechas
+        document.getElementById('modal_fecha_inicio').textContent = window.formatearFecha(fechaInicio);
+        document.getElementById('modal_fecha_fin').textContent = window.formatearFecha(fechaFin);
+        document.getElementById('modal_total_dias').textContent = totalDias;
+        
+        // Mostrar precios
+        document.getElementById('modal_precio_por_dia').textContent = `$${precioPorDia.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        document.getElementById('modal_precio_total').textContent = `$${precioTotal.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        
+        // Actualizar campos ocultos
+        document.getElementById('modalPropiedadId').value = propiedadSeleccionada.id || '';
+        document.getElementById('modalFechaInicio').value = fechaInicio || '';
+        document.getElementById('modalFechaFin').value = fechaFin || '';
+        document.getElementById('modalPrecioTotal').value = precioTotal || '';
+        document.getElementById('esOperacionDirecta').value = esOperacionDirecta ? 'true' : 'false';
+        
+        // Limpiar campos de vendedor e inquilino
+        document.getElementById('vendedor_id').value = '';
+        document.getElementById('vendedor_nombre').textContent = '';
+        document.getElementById('modalVendedorId').value = '';
+        document.getElementById('inquilino').value = '';
+        document.getElementById('modalInquilinoId').value = '';
+        document.getElementById('vendedor_info').style.display = 'none';
+        
+        // Actualizar título según tipo de operación
+        const modalTitle = document.querySelector('#modalConfirmarReserva .modal-title');
+        const confirmButton = document.querySelector('#modalConfirmarReserva .btn-confirmar');
+        
+        if (esOperacionDirecta) {
+            modalTitle.textContent = 'Confirmar Operación Directa';
+            confirmButton.textContent = 'Confirmar Operación';
+        } else {
+            modalTitle.textContent = 'Confirmar Reserva';
+            confirmButton.textContent = 'Confirmar Reserva';
+        }
+        
+        // Mostrar el modal
+        const modalElement = document.getElementById('modalConfirmarReserva');
+        const modal = new bootstrap.Modal(modalElement, {
+            backdrop: true,
+            keyboard: true
+        });
+        modal.show();
+        
+        console.log('✅ Modal mostrado exitosamente con información completa');
+        
+    } catch (error) {
+        console.error('❌ Error al mostrar el modal:', error);
+        alert('Error al mostrar el modal: ' + error.message);
+    }
 };
 
 // Mejorar el manejo del precio
