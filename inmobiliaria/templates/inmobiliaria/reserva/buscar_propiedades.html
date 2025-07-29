@@ -554,9 +554,20 @@
         font-weight: 500;
     }
 
-    /* ESTILOS DEL MODAL - BRILLANTE Y VISIBLE */
+    /* ESTILOS DEL MODAL - COMPLETAMENTE INTERACTIVO */
     .modal-backdrop {
         background-color: rgba(0, 0, 0, 0.6) !important;
+        pointer-events: auto !important;
+    }
+
+    #modalConfirmarReserva {
+        pointer-events: auto !important;
+        z-index: 1055 !important;
+    }
+
+    #modalConfirmarReserva .modal-dialog {
+        pointer-events: auto !important;
+        z-index: 1060 !important;
     }
 
     #modalConfirmarReserva .modal-content {
@@ -564,8 +575,11 @@
         border: 3px solid #2e7d32 !important;
         border-radius: 15px !important;
         box-shadow: 0 15px 50px rgba(0,0,0,0.4) !important;
-        overflow: hidden !important;
+        overflow: visible !important;
         opacity: 1 !important;
+        pointer-events: auto !important;
+        position: relative !important;
+        z-index: 1065 !important;
     }
 
     #modalConfirmarReserva .modal-header {
@@ -634,12 +648,37 @@
         background: white !important;
         font-weight: 600 !important;
         font-size: 1rem !important;
+        pointer-events: auto !important;
+        user-select: auto !important;
+        -webkit-user-select: auto !important;
+        -moz-user-select: auto !important;
+        position: relative !important;
+        z-index: 1070 !important;
     }
 
     #modalConfirmarReserva .form-control:focus {
         border-color: #1b5e20 !important;
         box-shadow: 0 0 0 0.3rem rgba(46, 125, 50, 0.3) !important;
         background: #f1f8e9 !important;
+        pointer-events: auto !important;
+    }
+
+    #modalConfirmarReserva input,
+    #modalConfirmarReserva select,
+    #modalConfirmarReserva button,
+    #modalConfirmarReserva .btn {
+        pointer-events: auto !important;
+        user-select: auto !important;
+        position: relative !important;
+        z-index: 1070 !important;
+    }
+
+    #modalConfirmarReserva .modal-body,
+    #modalConfirmarReserva .modal-header,
+    #modalConfirmarReserva .modal-footer {
+        pointer-events: auto !important;
+        position: relative !important;
+        z-index: 1068 !important;
     }
 
     #modalConfirmarReserva .btn-success {
@@ -2367,18 +2406,57 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
                 show: false         // No mostrar automáticamente
             });
             
-            // Eventos para asegurar interactividad
+            // Eventos para FORZAR interactividad completa
             modalElement.addEventListener('shown.bs.modal', function() {
-                // Asegurar que todo sea clickeable después de mostrar
-                this.style.pointerEvents = 'auto';
+                console.log('🔓 Forzando interactividad total del modal...');
+                
+                // Forzar que el modal y todos sus elementos sean interactivos
+                this.style.cssText += `
+                    pointer-events: auto !important;
+                    z-index: 1055 !important;
+                    position: fixed !important;
+                `;
+                
+                const dialog = this.querySelector('.modal-dialog');
+                if (dialog) {
+                    dialog.style.cssText += `
+                        pointer-events: auto !important;
+                        z-index: 1060 !important;
+                        position: relative !important;
+                    `;
+                }
+                
                 const content = this.querySelector('.modal-content');
-                if (content) content.style.pointerEvents = 'auto';
+                if (content) {
+                    content.style.cssText += `
+                        pointer-events: auto !important;
+                        z-index: 1065 !important;
+                        position: relative !important;
+                        user-select: auto !important;
+                    `;
+                }
                 
-                // Enfocar el primer input
-                const firstInput = this.querySelector('input, select, textarea');
-                if (firstInput) firstInput.focus();
+                // Forzar que TODOS los inputs, selects y botones sean clickeables
+                const interactiveElements = this.querySelectorAll('input, select, textarea, button, .btn');
+                interactiveElements.forEach(element => {
+                    element.style.cssText += `
+                        pointer-events: auto !important;
+                        user-select: auto !important;
+                        z-index: 1070 !important;
+                        position: relative !important;
+                    `;
+                });
                 
-                console.log('🔓 Modal completamente interactivo y desbloqueado');
+                // Enfocar el primer input para confirmar que funciona
+                const firstInput = this.querySelector('input:not([type="hidden"]), select, textarea');
+                if (firstInput) {
+                    setTimeout(() => {
+                        firstInput.focus();
+                        console.log('🎯 Focus puesto en:', firstInput.id || firstInput.tagName);
+                    }, 100);
+                }
+                
+                console.log('✅ Modal completamente desbloqueado y listo para usar');
             });
             
             modal.show();
