@@ -1096,12 +1096,12 @@
                 <h4 style="color: #2e7d32; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">🏠 Inquilino</h4>
                 <div style="display: flex; gap: 12px;">
                     <select id="inquilino" onchange="actualizarInquilinoId()" 
-                            style="flex: 1; padding: 12px; border: 2px solid #4caf50; border-radius: 8px; font-size: 16px; background: white; color: #333; font-weight: 600; transition: all 0.3s;"
-                            onfocus="this.style.borderColor='#388e3c'; this.style.boxShadow='0 0 10px rgba(56,142,60,0.3)'"
-                            onblur="this.style.borderColor='#4caf50'; this.style.boxShadow='none'">
-                        <option value="" style="color: #666;">-- Selecciona un inquilino --</option>
+                            style="flex: 1; padding: 12px; border: 3px solid #4caf50; border-radius: 8px; font-size: 16px; background: white !important; color: #000 !important; font-weight: 700 !important; transition: all 0.3s; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);"
+                            onfocus="this.style.borderColor='#388e3c'; this.style.boxShadow='0 0 15px rgba(56,142,60,0.5)'"
+                            onblur="this.style.borderColor='#4caf50'; this.style.boxShadow='inset 0 2px 5px rgba(0,0,0,0.1)'">
+                        <option value="" style="color: #999 !important; background: white !important;">-- Selecciona un inquilino --</option>
                         {% for inquilino in inquilinos %}
-                            <option value="{{ inquilino.id }}" style="color: #333; font-weight: 600;">{{ inquilino.nombre_completo }}</option>
+                            <option value="{{ inquilino.id }}" style="color: #000 !important; font-weight: 700 !important; background: white !important; padding: 5px;">{{ inquilino.nombre_completo }}</option>
                         {% endfor %}
                     </select>
                     <button onclick="mostrarModalCrearInquilino()" 
@@ -2226,15 +2226,30 @@ function buscarVendedor() {
     fetch(`{% url 'inmobiliaria:obtener_vendedor' '0' %}`.replace('0', vendedorId))
         .then(response => response.json())
         .then(data => {
-            console.log('📝 Respuesta del servidor:', data);
+            console.log('📝 Respuesta COMPLETA del servidor:', JSON.stringify(data, null, 2));
             
             if (data.success) {
                 // Vendedor encontrado - mostrar información
-                document.getElementById('vendedor_nombre').textContent = data.nombre;
+                let nombreVendedor = 'Nombre no disponible';
+                
+                // Probar diferentes formatos de respuesta
+                if (data.nombre) {
+                    nombreVendedor = data.nombre;
+                } else if (data.vendedor && data.vendedor.nombre_completo) {
+                    nombreVendedor = data.vendedor.nombre_completo;
+                } else if (data.vendedor && data.vendedor.nombre) {
+                    nombreVendedor = data.vendedor.nombre;
+                } else if (data.vendedor && data.vendedor.first_name) {
+                    nombreVendedor = data.vendedor.first_name + ' ' + (data.vendedor.last_name || '');
+                }
+                
+                console.log('🎯 Nombre extraído:', nombreVendedor);
+                
+                document.getElementById('vendedor_nombre').textContent = nombreVendedor;
                 document.getElementById('modalVendedorId').value = vendedorId;
                 vendedorInfo.style.display = 'block';
                 
-                console.log('✅ Vendedor encontrado:', data.nombre);
+                console.log('✅ Vendedor encontrado:', nombreVendedor);
             } else {
                 // Vendedor no encontrado
                 document.getElementById('vendedor_nombre').textContent = '';
