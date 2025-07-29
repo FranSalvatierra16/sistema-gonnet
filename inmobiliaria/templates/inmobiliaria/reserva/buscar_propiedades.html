@@ -2095,7 +2095,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Función global para mostrar el modal CON INFORMACIÓN COMPLETA
+// Función global para mostrar el modal CON INFORMACIÓN COMPLETA Y VALIDACIONES
 window.mostrarModalReserva = function(esOperacionDirecta = false) {
     console.log('=== MOSTRANDO MODAL RESERVA ===');
     console.log('Propiedad seleccionada:', propiedadSeleccionada);
@@ -2106,9 +2106,21 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
     }
     
     try {
-        // Obtener fechas de los inputs del formulario
-        const fechaInicio = document.getElementById('fecha_inicio').value;
-        const fechaFin = document.getElementById('fecha_fin').value;
+        // Función helper para obtener elemento de forma segura
+        function getElementSafely(id) {
+            const element = document.getElementById(id);
+            if (!element) {
+                console.warn(`⚠️ Elemento no encontrado: ${id}`);
+            }
+            return element;
+        }
+        
+        // Obtener fechas de los inputs del formulario de forma segura
+        const fechaInicioInput = getElementSafely('fecha_inicio');
+        const fechaFinInput = getElementSafely('fecha_fin');
+        
+        const fechaInicio = fechaInicioInput ? fechaInicioInput.value : propiedadSeleccionada.fechaInicio || '';
+        const fechaFin = fechaFinInput ? fechaFinInput.value : propiedadSeleccionada.fechaFin || '';
         
         // Calcular precio por día
         const precioTotal = parseFloat(propiedadSeleccionada.precio) || 0;
@@ -2123,59 +2135,81 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
             precioPorDia
         });
         
-        // Actualizar información de la propiedad
-        document.getElementById('modal_ficha').textContent = propiedadSeleccionada.id || 'N/A';
-        document.getElementById('modal_direccion').textContent = propiedadSeleccionada.direccion || 'N/A';
-        document.getElementById('modal_propietario').textContent = propiedadSeleccionada.propietario || 'N/A';
+        // Actualizar información de la propiedad de forma segura
+        const modalFicha = getElementSafely('modal_ficha');
+        const modalDireccion = getElementSafely('modal_direccion');
+        const modalPropietario = getElementSafely('modal_propietario');
+        const modalFechaInicio = getElementSafely('modal_fecha_inicio');
+        const modalFechaFin = getElementSafely('modal_fecha_fin');
+        const modalTotalDias = getElementSafely('modal_total_dias');
+        const modalPrecioPorDia = getElementSafely('modal_precio_por_dia');
+        const modalPrecioTotal = getElementSafely('modal_precio_total');
         
-        // Formatear y mostrar fechas
-        document.getElementById('modal_fecha_inicio').textContent = window.formatearFecha(fechaInicio);
-        document.getElementById('modal_fecha_fin').textContent = window.formatearFecha(fechaFin);
-        document.getElementById('modal_total_dias').textContent = totalDias;
+        if (modalFicha) modalFicha.textContent = propiedadSeleccionada.id || 'N/A';
+        if (modalDireccion) modalDireccion.textContent = propiedadSeleccionada.direccion || 'N/A';
+        if (modalPropietario) modalPropietario.textContent = propiedadSeleccionada.propietario || 'N/A';
+        if (modalFechaInicio) modalFechaInicio.textContent = window.formatearFecha(fechaInicio);
+        if (modalFechaFin) modalFechaFin.textContent = window.formatearFecha(fechaFin);
+        if (modalTotalDias) modalTotalDias.textContent = totalDias;
+        if (modalPrecioPorDia) modalPrecioPorDia.textContent = `$${precioPorDia.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        if (modalPrecioTotal) modalPrecioTotal.textContent = `$${precioTotal.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         
-        // Mostrar precios
-        document.getElementById('modal_precio_por_dia').textContent = `$${precioPorDia.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-        document.getElementById('modal_precio_total').textContent = `$${precioTotal.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        // Actualizar campos ocultos de forma segura
+        const hiddenPropiedadId = getElementSafely('modalPropiedadId');
+        const hiddenFechaInicio = getElementSafely('modalFechaInicio');
+        const hiddenFechaFin = getElementSafely('modalFechaFin');
+        const hiddenPrecioTotal = getElementSafely('modalPrecioTotal');
+        const hiddenOperacionDirecta = getElementSafely('esOperacionDirecta');
         
-        // Actualizar campos ocultos
-        document.getElementById('modalPropiedadId').value = propiedadSeleccionada.id || '';
-        document.getElementById('modalFechaInicio').value = fechaInicio || '';
-        document.getElementById('modalFechaFin').value = fechaFin || '';
-        document.getElementById('modalPrecioTotal').value = precioTotal || '';
-        document.getElementById('esOperacionDirecta').value = esOperacionDirecta ? 'true' : 'false';
+        if (hiddenPropiedadId) hiddenPropiedadId.value = propiedadSeleccionada.id || '';
+        if (hiddenFechaInicio) hiddenFechaInicio.value = fechaInicio || '';
+        if (hiddenFechaFin) hiddenFechaFin.value = fechaFin || '';
+        if (hiddenPrecioTotal) hiddenPrecioTotal.value = precioTotal || '';
+        if (hiddenOperacionDirecta) hiddenOperacionDirecta.value = esOperacionDirecta ? 'true' : 'false';
         
-        // Limpiar campos de vendedor e inquilino
-        document.getElementById('vendedor_id').value = '';
-        document.getElementById('vendedor_nombre').textContent = '';
-        document.getElementById('modalVendedorId').value = '';
-        document.getElementById('inquilino').value = '';
-        document.getElementById('modalInquilinoId').value = '';
-        document.getElementById('vendedor_info').style.display = 'none';
+        // Limpiar campos de vendedor e inquilino de forma segura
+        const vendedorId = getElementSafely('vendedor_id');
+        const vendedorNombre = getElementSafely('vendedor_nombre');
+        const modalVendedorId = getElementSafely('modalVendedorId');
+        const inquilino = getElementSafely('inquilino');
+        const modalInquilinoId = getElementSafely('modalInquilinoId');
+        const vendedorInfo = getElementSafely('vendedor_info');
+        
+        if (vendedorId) vendedorId.value = '';
+        if (vendedorNombre) vendedorNombre.textContent = '';
+        if (modalVendedorId) modalVendedorId.value = '';
+        if (inquilino) inquilino.value = '';
+        if (modalInquilinoId) modalInquilinoId.value = '';
+        if (vendedorInfo) vendedorInfo.style.display = 'none';
         
         // Actualizar título según tipo de operación
         const modalTitle = document.querySelector('#modalConfirmarReserva .modal-title');
         const confirmButton = document.querySelector('#modalConfirmarReserva .btn-confirmar');
         
-        if (esOperacionDirecta) {
-            modalTitle.textContent = 'Confirmar Operación Directa';
-            confirmButton.textContent = 'Confirmar Operación';
-        } else {
-            modalTitle.textContent = 'Confirmar Reserva';
-            confirmButton.textContent = 'Confirmar Reserva';
+        if (modalTitle) {
+            modalTitle.textContent = esOperacionDirecta ? 'Confirmar Operación Directa' : 'Confirmar Reserva';
+        }
+        if (confirmButton) {
+            confirmButton.textContent = esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
         }
         
         // Mostrar el modal
         const modalElement = document.getElementById('modalConfirmarReserva');
-        const modal = new bootstrap.Modal(modalElement, {
-            backdrop: true,
-            keyboard: true
-        });
-        modal.show();
-        
-        console.log('✅ Modal mostrado exitosamente con información completa');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement, {
+                backdrop: true,
+                keyboard: true
+            });
+            modal.show();
+            console.log('✅ Modal mostrado exitosamente con información completa');
+        } else {
+            console.error('❌ No se encontró el elemento modal');
+            alert('Error: No se encontró el modal en la página');
+        }
         
     } catch (error) {
         console.error('❌ Error al mostrar el modal:', error);
+        console.error('Stack trace:', error.stack);
         alert('Error al mostrar el modal: ' + error.message);
     }
 };
