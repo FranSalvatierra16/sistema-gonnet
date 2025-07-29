@@ -1838,27 +1838,16 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
 
 // Función para mostrar el modal de operación directa
 window.mostrarModalOperacion = function() {
+    console.log('=== OPERACIÓN DIRECTA ===');
+    console.log('Propiedad seleccionada:', propiedadSeleccionada);
+    
     if (!propiedadSeleccionada) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Atención',
-            text: 'Por favor, seleccione una propiedad primero'
-        });
+        alert('Por favor, selecciona una propiedad primero.');
         return;
     }
 
-    // Mostrar el modal de autenticación primero
-    mostrarModalAutenticacionParaReserva(
-        propiedadSeleccionada.id,
-        propiedadSeleccionada.direccion,
-        propiedadSeleccionada.propietario,
-        propiedadSeleccionada.disponibilidad,
-        propiedadSeleccionada.precio,
-        propiedadSeleccionada.fechaInicio,
-        propiedadSeleccionada.fechaFin,
-        propiedadSeleccionada.totalDias,
-        true // flag para operación directa
-    );
+    // Mostrar directamente el modal de reserva para operación directa
+    window.mostrarModalReserva(true); // true = operación directa
 }
 
 // Actualizar la función mostrarModalReserva para manejar operaciones directas
@@ -2031,19 +2020,20 @@ function verPrecios() {
 }
 </script>
 <script>
-    function confirmarReserva() {
-    console.log('=== CONFIRMAR RESERVA ===');
-    console.log('Propiedad seleccionada:', propiedadSeleccionada);
-    
-    // Verificar que tengamos una propiedad seleccionada
-    if (!propiedadSeleccionada) {
-        alert('Por favor, selecciona una propiedad primero.');
-        return;
-    }
+    // Función global para confirmar reserva
+    window.confirmarReserva = function() {
+        console.log('=== CONFIRMAR RESERVA ===');
+        console.log('Propiedad seleccionada:', propiedadSeleccionada);
+        
+        // Verificar que tengamos una propiedad seleccionada
+        if (!propiedadSeleccionada) {
+            alert('Por favor, selecciona una propiedad primero.');
+            return;
+        }
 
-    // Mostrar directamente el modal de reserva
-    window.mostrarModalReserva(false); // false = reserva normal
-}
+        // Mostrar directamente el modal de reserva
+        window.mostrarModalReserva(false); // false = reserva normal
+    }
 function formatearFecha(fecha) {
     if (!fecha) return '';
     
