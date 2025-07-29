@@ -11,7 +11,7 @@
     }
 
     body {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        background: linear-gradient(135deg, #a5d6a7 0%, #66bb6a 100%);
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
         min-height: 100vh !important;
         margin: 0 !important;
@@ -20,12 +20,12 @@
 
     .container-fluid {
         background: rgba(255, 255, 255, 0.95) !important;
-        border-radius: 20px !important;
-        margin: 0 auto !important;
+        border-radius: 15px !important;
+        margin: 20px !important;
         max-width: 98% !important;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.1) !important;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
         backdrop-filter: blur(10px) !important;
-        padding: 25px !important;
+        padding: 30px !important;
     }
 
     /* Estilos para el formulario de filtros */
@@ -405,7 +405,213 @@
     #modalConfirmarReserva .modal-body {
         padding: 2rem !important;
     }
-    </style>
+
+    /* Estilos principales de la página */
+    body {
+        background: linear-gradient(135deg, #a5d6a7 0%, #66bb6a 100%);
+        min-height: 100vh;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .container-fluid {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 15px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        margin: 20px;
+        padding: 30px;
+    }
+
+    .search-section {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 30px;
+        color: white;
+        box-shadow: 0 5px 15px rgba(46, 125, 50, 0.3);
+    }
+
+    .search-section h2 {
+        color: white;
+        margin-bottom: 25px;
+        text-align: center;
+        font-weight: 600;
+    }
+
+    .form-group label {
+        color: white;
+        font-weight: 500;
+        margin-bottom: 8px;
+    }
+
+    .form-control {
+        border: 2px solid rgba(255,255,255,0.3);
+        border-radius: 8px;
+        padding: 12px;
+        background: rgba(255,255,255,0.9);
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        border-color: #a5d6a7;
+        box-shadow: 0 0 0 0.2rem rgba(165, 214, 167, 0.25);
+        background: white;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #388e3c 0%, #2e7d32 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 12px 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 3px 10px rgba(56, 142, 60, 0.3);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(56, 142, 60, 0.4);
+    }
+
+    .table {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 3px 15px rgba(0,0,0,0.1);
+    }
+
+    .table thead th {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+        color: white;
+        border: none;
+        padding: 15px;
+        font-weight: 600;
+    }
+
+    .table tbody tr {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .table tbody tr:hover {
+        background-color: #e8f5e8;
+        transform: scale(1.01);
+    }
+
+    .table tbody tr.selected {
+        background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
+        border: 2px solid #2e7d32;
+        box-shadow: 0 3px 10px rgba(46, 125, 50, 0.2);
+        transform: scale(1.02);
+    }
+
+    .card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 3px 15px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+        color: white;
+        border-radius: 12px 12px 0 0 !important;
+        padding: 15px 20px;
+        font-weight: 600;
+    }
+
+    .input-group-text {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+        color: white;
+        border: none;
+        font-weight: 500;
+    }
+
+    /* ESTILOS DEL MODAL - MUY IMPORTANTE PARA QUE NO SEA TRANSPARENTE */
+    #modalConfirmarReserva .modal-content {
+        background: #ffffff !important;
+        border: none !important;
+        border-radius: 15px !important;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3) !important;
+        overflow: hidden !important;
+    }
+
+    #modalConfirmarReserva .modal-header {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%) !important;
+        color: white !important;
+        border-bottom: none !important;
+        padding: 20px 25px !important;
+        border-radius: 15px 15px 0 0 !important;
+    }
+
+    #modalConfirmarReserva .modal-title {
+        font-weight: 600 !important;
+        font-size: 1.3rem !important;
+    }
+
+    #modalConfirmarReserva .modal-body {
+        background: #ffffff !important;
+        padding: 25px !important;
+    }
+
+    #modalConfirmarReserva .modal-footer {
+        background: #f8f9fa !important;
+        border-top: 1px solid #dee2e6 !important;
+        padding: 20px 25px !important;
+        border-radius: 0 0 15px 15px !important;
+    }
+
+    #modalConfirmarReserva .info-section {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    #modalConfirmarReserva .info-section h6 {
+        color: #2e7d32;
+        font-weight: 600;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #e9ecef;
+        padding-bottom: 8px;
+    }
+
+    #modalConfirmarReserva .form-control {
+        border: 1px solid #ced4da;
+        border-radius: 8px;
+        padding: 10px 15px;
+        background: white;
+    }
+
+    #modalConfirmarReserva .form-control:focus {
+        border-color: #2e7d32;
+        box-shadow: 0 0 0 0.2rem rgba(46, 125, 50, 0.25);
+    }
+
+    #modalConfirmarReserva .btn-success {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+
+    #modalConfirmarReserva .btn-primary {
+        background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+
+    /* Estilos adicionales */
+    .status-disponible { color: #2e7d32; font-weight: bold; }
+    .status-reservado { color: #d32f2f; font-weight: bold; }
+    .precio-highlight { color: #2e7d32; font-weight: bold; font-size: 1.1em; }
+</style>
 {% endblock extra_css %}
 
 {% block content %}
@@ -582,21 +788,7 @@
                     <tbody>
                         {% for propiedad in propiedades_disponibles %}
                         {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad(
-                            '{{total_dias}}',
-                            '{{ propiedad.direccion|escapejs }}',
-                            '{{ propiedad.propietario.nombre|escapejs }}',
-                            '{{ propiedad.disponibilidad }}',
-                            '{{ propiedad.precio_total_reserva|floatformat:2 }}',
-                            '{{ propiedad.id }}',
-                            '{{ fecha_inicio }}',
-                            '{{ fecha_fin }}',
-                            '{{ propiedad.estado_reserva }}',
-                            '{{ propiedad.reserva.id|default:"" }}',
-                            '{{ propiedad.ambientes }}',
-                            '{{ propiedad.descripcion|escapejs }}',
-                            '{{ propiedad.caracteristicas|escapejs }}'
-                        )">
+                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva|floatformat:2 }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia|floatformat:2 }}', '{{ total_dias }}')">
                             <td style="color: red;">{{ propiedad.id }}</td>
                             <td style="color: red;">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td style="color: red;">{{ propiedad.ubicacion }}</td>
@@ -607,7 +799,7 @@
                             <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
                         </tr>
                         {% else %}
-                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{total_dias}}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva|floatformat:2 }}', '{{ propiedad.id }}', '{{ fecha_inicio }}', '{{ fecha_fin }}', '{{ propiedad.estado_reserva }}', '', '{{ propiedad.ambientes }}', '{{ propiedad.descripcion|escapejs }}', '{{ propiedad.caracteristicas|escapejs }}')">
+                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva|floatformat:2 }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia|floatformat:2 }}', '{{ total_dias }}')">
                             <td>{{ propiedad.id }}</td>
                             <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td>{{ propiedad.ubicacion }}</td>
@@ -670,12 +862,25 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                                <button type="button" class="btn btn-sm btn-success" onclick="window.autenticarYFinalizar()">Operacion</button>
+                                <button type="button" class="btn btn-primary" disabled>
+                                    <i class="fas fa-calendar-check"></i> Reservado
+                                </button>
+                                <button type="button" class="btn btn-success" onclick="window.mostrarModalAutenticacion('${reserva_id}')">
+                                    <i class="fas fa-check-circle"></i> Finalizar Operación
+                                </button>
+                                <button type="button" class="btn btn-info" onclick="window.verPrecios()">
+                                    <i class="fas fa-dollar-sign"></i> Ver Precios
+                                </button>
                             {% else %}
-                                <div>
-                                    <button type="button" class="btn btn-primary" onclick="confirmarReserva()">Reservar</button>
-                                    <button type="button" class="btn btn-info ml-2" onclick="window.verPrecios()">
-                                        <i class="fas fa-file-contract"></i> Operación
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
+                                        <i class="fas fa-calendar-plus"></i> Reservar
+                                    </button>
+                                    <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
+                                        <i class="fas fa-check-circle"></i> Operación Directa
+                                    </button>
+                                    <button type="button" class="btn btn-info" onclick="window.verPrecios()">
+                                        <i class="fas fa-dollar-sign"></i> Ver Precios
                                     </button>
                                 </div>
                             {% endif %}
@@ -2030,9 +2235,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const vendedorInput = document.getElementById('vendedor_id');
     if (vendedorInput) {
         // Usar input en lugar de change para detectar cambios mientras se escribe
-        vendedorInput.addEventListener('input', function() {
-            buscarVendedor();
-        });
+        vendedorInput.addEventListener('input', buscarVendedor);
 
         // Prevenir que se pegue contenido no numérico
         vendedorInput.addEventListener('paste', function(e) {
