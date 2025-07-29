@@ -1024,74 +1024,105 @@
                 {% endif %}
             {% endif %}
         </div>
-<!-- MODAL SÚPER SIMPLE SIN BOOTSTRAP -->
-<div id="modalConfirmarReserva" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
-    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 10px; padding: 0; width: 90%; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+<!-- MODAL HERMOSO Y FUNCIONAL -->
+<div id="modalConfirmarReserva" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 15px; padding: 0; width: 90%; max-width: 700px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); animation: modalAppear 0.3s ease-out;">
         
-        <!-- Header -->
-        <div style="background: #2e7d32; color: white; padding: 15px; border-radius: 10px 10px 0 0; position: relative;">
-            <h3 style="margin: 0; font-size: 20px;">📋 Confirmar Reserva</h3>
-            <button onclick="cerrarModal()" style="position: absolute; top: 10px; right: 15px; background: none; border: none; color: white; font-size: 24px; cursor: pointer;">×</button>
+        <!-- Header con gradiente -->
+        <div style="background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); color: white; padding: 20px; border-radius: 15px 15px 0 0; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+            <h3 style="margin: 0; font-size: 24px; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">📋 Confirmar Reserva</h3>
+            <button onclick="cerrarModal()" style="position: absolute; top: 15px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 28px; cursor: pointer; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.3s;">×</button>
         </div>
         
-        <!-- Body -->
-        <div style="padding: 20px; max-height: 70vh; overflow-y: auto;">
+        <!-- Body con mejor espaciado -->
+        <div style="padding: 25px; max-height: 70vh; overflow-y: auto; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);">
             
             <!-- Información de la Propiedad -->
-            <div style="background: #f0f8f0; border: 2px solid #4caf50; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <h4 style="color: #2e7d32; margin: 0 0 10px 0;">🏠 Propiedad</h4>
-                <p><strong>Ficha:</strong> <span id="modal_ficha">-</span></p>
-                <p><strong>Dirección:</strong> <span id="modal_direccion">-</span></p>
-                <p><strong>Propietario:</strong> <span id="modal_propietario">-</span></p>
-                <p><strong>Fechas:</strong> <span id="modal_fecha_inicio">-</span> al <span id="modal_fecha_fin">-</span></p>
-                <p><strong>Total días:</strong> <span id="modal_total_dias">-</span></p>
+            <div style="background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%); border: 2px solid #4caf50; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(76,175,80,0.2);">
+                <h4 style="color: #2e7d32; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">🏠 Información de la Propiedad</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Ficha:</strong> <span id="modal_ficha" style="color: #555;">-</span></p>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Dirección:</strong> <span id="modal_direccion" style="color: #555;">-</span></p>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Propietario:</strong> <span id="modal_propietario" style="color: #555;">-</span></p>
+                    </div>
+                    <div>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Inicio:</strong> <span id="modal_fecha_inicio" style="color: #555;">-</span></p>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Fin:</strong> <span id="modal_fecha_fin" style="color: #555;">-</span></p>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Total días:</strong> <span id="modal_total_dias" style="color: #555;">-</span></p>
+                    </div>
+                </div>
             </div>
 
-            <!-- Precio -->
-            <div style="background: #fff8e1; border: 2px solid #ffcc02; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <h4 style="color: #f57f17; margin: 0 0 10px 0;">💰 Precio Total</h4>
-                <input type="number" id="precio_total_editable" step="0.01" min="0" 
-                       style="width: 100%; padding: 10px; font-size: 18px; font-weight: bold; border: 2px solid #ffcc02; border-radius: 5px;">
+            <!-- Precio Total -->
+            <div style="background: linear-gradient(135deg, #fff8e1 0%, #fffde7 100%); border: 2px solid #ffc107; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(255,193,7,0.2);">
+                <h4 style="color: #f57f17; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">💰 Precio Total</h4>
+                <div style="position: relative;">
+                    <span style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-size: 20px; font-weight: bold; color: #f57f17;">$</span>
+                    <input type="number" id="precio_total_editable" step="0.01" min="0" 
+                           style="width: 100%; padding: 15px 15px 15px 40px; font-size: 20px; font-weight: bold; border: 2px solid #ffc107; border-radius: 8px; background: white; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); transition: all 0.3s;"
+                           onfocus="this.style.borderColor='#ff9800'; this.style.boxShadow='0 0 10px rgba(255,152,0,0.3)'"
+                           onblur="this.style.borderColor='#ffc107'; this.style.boxShadow='inset 0 2px 5px rgba(0,0,0,0.1)'">
+                </div>
             </div>
 
             <!-- Vendedor -->
-            <div style="background: #e3f2fd; border: 2px solid #42a5f5; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <h4 style="color: #1565c0; margin: 0 0 10px 0;">👤 Vendedor</h4>
-                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                    <input type="number" id="vendedor_id" placeholder="ID del vendedor" min="1" 
-                           style="flex: 1; padding: 8px; border: 2px solid #42a5f5; border-radius: 5px;">
+            <div style="background: linear-gradient(135deg, #e3f2fd 0%, #f0f8ff 100%); border: 2px solid #2196f3; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(33,150,243,0.2);">
+                <h4 style="color: #1565c0; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">👤 Vendedor</h4>
+                <div style="display: flex; gap: 12px; margin-bottom: 15px;">
+                    <input type="number" id="vendedor_id" placeholder="Ingresa ID del vendedor" min="1" 
+                           style="flex: 1; padding: 12px; border: 2px solid #2196f3; border-radius: 8px; font-size: 16px; transition: all 0.3s;"
+                           onfocus="this.style.borderColor='#1976d2'; this.style.boxShadow='0 0 10px rgba(25,118,210,0.3)'"
+                           onblur="this.style.borderColor='#2196f3'; this.style.boxShadow='none'"
+                           oninput="buscarVendedorAutomatico()">
                     <button onclick="buscarVendedor()" 
-                            style="padding: 8px 15px; background: #42a5f5; color: white; border: none; border-radius: 5px; cursor: pointer;">🔍 Buscar</button>
+                            style="padding: 12px 20px; background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(33,150,243,0.3);"
+                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(33,150,243,0.4)'"
+                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(33,150,243,0.3)'">🔍 Buscar</button>
                 </div>
-                <div id="vendedor_info" style="display: none; background: #c8e6c9; padding: 10px; border-radius: 5px;">
-                    <strong>✅ Vendedor:</strong> <span id="vendedor_nombre"></span>
+                <div id="vendedor_info" style="display: none; background: linear-gradient(135deg, #c8e6c9 0%, #dcedc8 100%); padding: 15px; border-radius: 8px; border: 1px solid #4caf50;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">✅</span>
+                        <div>
+                            <strong style="color: #2e7d32; font-size: 16px;">Vendedor encontrado:</strong>
+                            <div id="vendedor_nombre" style="color: #1b5e20; font-size: 18px; font-weight: 600; margin-top: 5px;"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- Inquilino -->
-            <div style="background: #e8f5e8; border: 2px solid #4caf50; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <h4 style="color: #2e7d32; margin: 0 0 10px 0;">🏠 Inquilino</h4>
-                <div style="display: flex; gap: 10px;">
+            <div style="background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%); border: 2px solid #4caf50; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(76,175,80,0.2);">
+                <h4 style="color: #2e7d32; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">🏠 Inquilino</h4>
+                <div style="display: flex; gap: 12px;">
                     <select id="inquilino" onchange="actualizarInquilinoId()" 
-                            style="flex: 1; padding: 8px; border: 2px solid #4caf50; border-radius: 5px;">
+                            style="flex: 1; padding: 12px; border: 2px solid #4caf50; border-radius: 8px; font-size: 16px; background: white; transition: all 0.3s;"
+                            onfocus="this.style.borderColor='#388e3c'; this.style.boxShadow='0 0 10px rgba(56,142,60,0.3)'"
+                            onblur="this.style.borderColor='#4caf50'; this.style.boxShadow='none'">
                         <option value="">-- Selecciona un inquilino --</option>
                         {% for inquilino in inquilinos %}
                             <option value="{{ inquilino.id }}">{{ inquilino.nombre_completo }}</option>
                         {% endfor %}
                     </select>
                     <button onclick="mostrarModalCrearInquilino()" 
-                            style="padding: 8px 15px; background: #4caf50; color: white; border: none; border-radius: 5px; cursor: pointer;">➕ Crear</button>
+                            style="padding: 12px 20px; background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(76,175,80,0.3);"
+                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(76,175,80,0.4)'"
+                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(76,175,80,0.3)'">➕ Crear Nuevo</button>
                 </div>
             </div>
             
         </div>
         
-        <!-- Footer -->
-        <div style="padding: 15px; border-top: 1px solid #ddd; text-align: right; border-radius: 0 0 10px 10px; background: #f8f9fa;">
+        <!-- Footer con mejor diseño -->
+        <div style="padding: 20px; border-top: 1px solid #e0e0e0; text-align: right; border-radius: 0 0 15px 15px; background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%); box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
             <button onclick="cerrarModal()" 
-                    style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; margin-right: 10px; cursor: pointer;">❌ Cancelar</button>
+                    style="padding: 12px 25px; background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white; border: none; border-radius: 8px; margin-right: 15px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(108,117,125,0.3);"
+                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(108,117,125,0.4)'"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(108,117,125,0.3)'">❌ Cancelar</button>
             <button onclick="confirmarReservaFinal()" 
-                    style="padding: 10px 20px; background: #2e7d32; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">✅ CONFIRMAR</button>
+                    style="padding: 12px 30px; background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(46,125,50,0.3);"
+                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(46,125,50,0.4)'"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(46,125,50,0.3)'">✅ CONFIRMAR RESERVA</button>
         </div>
         
         <!-- Campos ocultos -->
@@ -1104,6 +1135,20 @@
         <input type="hidden" id="esOperacionDirecta">
     </div>
 </div>
+
+<!-- Animación CSS -->
+<style>
+@keyframes modalAppear {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -60%);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
+}
+</style>
         
         <!-- Columna derecha: Tabla de precios -->
         <div class="col-md-4">
@@ -2144,30 +2189,76 @@ window.formatearFecha = function(fecha) {
 // Debounce para buscar vendedor
 let busquedaVendedorTimeout = null;
 
-function buscarVendedor() {
+// Función para buscar vendedor automáticamente mientras escribes
+function buscarVendedorAutomatico() {
     const vendedorId = document.getElementById('vendedor_id').value.trim();
     const vendedorInfo = document.getElementById('vendedor_info');
+    
+    // Limpiar el timeout anterior
+    if (busquedaVendedorTimeout) clearTimeout(busquedaVendedorTimeout);
+    
+    // Si no hay ID, ocultar info
     if (!vendedorId) {
         vendedorInfo.style.display = 'none';
         document.getElementById('modalVendedorId').value = '';
         return;
     }
-    if (busquedaVendedorTimeout) clearTimeout(busquedaVendedorTimeout);
+    
+    // Buscar después de 500ms de no escribir
     busquedaVendedorTimeout = setTimeout(() => {
-        fetch(`/tu-url-obtener-vendedor/${vendedorId}/`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    document.getElementById('vendedor_nombre').textContent = data.vendedor.nombre_completo;
-                    document.getElementById('modalVendedorId').value = vendedorId;
-                    vendedorInfo.style.display = 'block';
-                } else {
-                    document.getElementById('vendedor_nombre').textContent = '';
-                    document.getElementById('modalVendedorId').value = '';
-                    vendedorInfo.style.display = 'none';
+        buscarVendedor();
+    }, 500);
+}
+
+// Función principal para buscar vendedor
+function buscarVendedor() {
+    const vendedorId = document.getElementById('vendedor_id').value.trim();
+    const vendedorInfo = document.getElementById('vendedor_info');
+    
+    if (!vendedorId) {
+        alert('❌ Por favor ingresa un ID de vendedor');
+        return;
+    }
+    
+    console.log('🔍 Buscando vendedor con ID:', vendedorId);
+    
+    // Usar la URL correcta de Django
+    fetch(`{% url 'inmobiliaria:obtener_vendedor' '0' %}`.replace('0', vendedorId))
+        .then(response => response.json())
+        .then(data => {
+            console.log('📝 Respuesta del servidor:', data);
+            
+            if (data.success) {
+                // Vendedor encontrado - mostrar información
+                document.getElementById('vendedor_nombre').textContent = data.nombre;
+                document.getElementById('modalVendedorId').value = vendedorId;
+                vendedorInfo.style.display = 'block';
+                
+                console.log('✅ Vendedor encontrado:', data.nombre);
+            } else {
+                // Vendedor no encontrado
+                document.getElementById('vendedor_nombre').textContent = '';
+                document.getElementById('modalVendedorId').value = '';
+                vendedorInfo.style.display = 'none';
+                
+                console.log('❌ Vendedor no encontrado');
+                // Solo mostrar alerta si se presionó el botón buscar manualmente
+                if (event && event.type === 'click') {
+                    alert('❌ Vendedor no encontrado con ID: ' + vendedorId);
                 }
-            });
-    }, 400);
+            }
+        })
+        .catch(error => {
+            console.error('💥 Error al buscar vendedor:', error);
+            document.getElementById('vendedor_nombre').textContent = '';
+            document.getElementById('modalVendedorId').value = '';
+            vendedorInfo.style.display = 'none';
+            
+            // Solo mostrar alerta si se presionó el botón buscar manualmente
+            if (event && event.type === 'click') {
+                alert('💥 Error al buscar vendedor. Intenta de nuevo.');
+            }
+        });
 }
 
 // Asigna el evento input solo una vez
