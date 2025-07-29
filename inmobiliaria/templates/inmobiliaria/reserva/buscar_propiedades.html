@@ -2653,6 +2653,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Variables globales
     window.propiedadSeleccionada = null;
 
+    // Función para formatear fechas
+    function formatearFecha(fecha) {
+        if (!fecha) return '';
+        const partes = fecha.split('-');
+        if (partes.length !== 3) return fecha;
+        return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    }
+
     // Función para mostrar modal
     function mostrarModal(modalId) {
         const modalElement = document.getElementById(modalId);
@@ -2662,6 +2670,48 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         const modal = new bootstrap.Modal(modalElement);
         modal.show();
+    }
+
+    // Función para actualizar campos del modal
+    function actualizarCamposModal() {
+        try {
+            const datos = window.propiedadSeleccionada;
+            if (!datos) throw new Error('No hay datos de propiedad');
+
+            // Actualizar campos visibles
+            const camposVisibles = {
+                'propiedadDireccion': datos.direccion,
+                'fechaInicio': formatearFecha(datos.fechaInicio),
+                'fechaFin': formatearFecha(datos.fechaFin),
+                'totalDias': `${datos.totalDias} días`,
+                'precio_total_display': datos.precio
+            };
+
+            // Actualizar campos ocultos
+            const camposOcultos = {
+                'modalPropiedadId': datos.id,
+                'modalFechaInicio': formatearFecha(datos.fechaInicio),
+                'modalFechaFin': formatearFecha(datos.fechaFin),
+                'modalPrecioTotal': datos.precio
+            };
+
+            // Actualizar todos los campos
+            Object.entries({...camposVisibles, ...camposOcultos}).forEach(([id, valor]) => {
+                const elemento = document.getElementById(id);
+                if (elemento) {
+                    if (elemento.tagName === 'INPUT') {
+                        elemento.value = valor;
+                    } else {
+                        elemento.textContent = valor;
+                    }
+                }
+            });
+
+            return true;
+        } catch (error) {
+            console.error('Error al actualizar campos:', error);
+            return false;
+        }
     }
 
     // Función para confirmar reserva
@@ -2678,17 +2728,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Actualizar campos del modal
-        document.getElementById('propiedadDireccion').textContent = window.propiedadSeleccionada.direccion;
-        document.getElementById('fechaInicio').textContent = formatearFecha(window.propiedadSeleccionada.fechaInicio);
-        document.getElementById('fechaFin').textContent = formatearFecha(window.propiedadSeleccionada.fechaFin);
-        document.getElementById('totalDias').textContent = window.propiedadSeleccionada.totalDias + ' días';
-        document.getElementById('precio_total_display').textContent = window.propiedadSeleccionada.precio;
-        
-        // Actualizar campos ocultos
-        document.getElementById('modalPropiedadId').value = window.propiedadSeleccionada.id;
-        document.getElementById('modalFechaInicio').value = formatearFecha(window.propiedadSeleccionada.fechaInicio);
-        document.getElementById('modalFechaFin').value = formatearFecha(window.propiedadSeleccionada.fechaFin);
-        document.getElementById('modalPrecioTotal').value = window.propiedadSeleccionada.precio;
+        if (!actualizarCamposModal()) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al actualizar los datos del formulario'
+            });
+            return;
+        }
 
         // Limpiar campos de vendedor e inquilino
         document.getElementById('vendedor_id').value = '';
