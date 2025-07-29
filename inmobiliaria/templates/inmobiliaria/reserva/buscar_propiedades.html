@@ -2799,24 +2799,45 @@ function guardarInquilino() {
         console.log('📝 Respuesta crear inquilino:', data);
         
         if (data.success) {
-            // Recargar la lista completa de inquilinos
-            recargarListaInquilinos();
+            // Agregar el nuevo inquilino al select SIN borrar los existentes
+            const inquilinoSelect = document.getElementById('inquilino');
+            
+            // Verificar si el inquilino ya existe en la lista
+            let inquilinoExiste = false;
+            for (let i = 0; i < inquilinoSelect.options.length; i++) {
+                if (inquilinoSelect.options[i].value == data.inquilino.id) {
+                    inquilinoExiste = true;
+                    break;
+                }
+            }
+            
+            // Solo agregar si no existe
+            if (!inquilinoExiste) {
+                const nuevaOpcion = new Option(
+                    `${data.inquilino.nombre} ${data.inquilino.apellido}`, 
+                    data.inquilino.id
+                );
+                // Aplicar estilos consistentes
+                nuevaOpcion.style.color = '#000';
+                nuevaOpcion.style.fontWeight = '700';
+                nuevaOpcion.style.background = 'white';
+                nuevaOpcion.style.padding = '5px';
+                
+                inquilinoSelect.add(nuevaOpcion);
+                console.log('✅ Nuevo inquilino agregado a la lista:', data.inquilino.nombre);
+            }
             
             // Seleccionar el nuevo inquilino
-            setTimeout(() => {
-                const inquilinoSelect = document.getElementById('inquilino');
-                inquilinoSelect.value = data.inquilino.id;
-                document.getElementById("modalInquilinoId").value = data.inquilino.id;
-                console.log('✅ Inquilino seleccionado:', data.inquilino.id);
-            }, 100);
-
+            inquilinoSelect.value = data.inquilino.id;
+            document.getElementById("modalInquilinoId").value = data.inquilino.id;
+            
             // Cerrar el modal sin Bootstrap
             cerrarModalInquilino();
             
             // Mostrar mensaje de éxito simple
             alert('✅ Inquilino creado correctamente: ' + data.inquilino.nombre + ' ' + data.inquilino.apellido);
             
-            console.log('✅ Inquilino creado exitosamente');
+            console.log('✅ Inquilino creado exitosamente y seleccionado');
         } else {
             console.error('❌ Error al crear inquilino:', data.error);
             alert('❌ Error al crear el inquilino: ' + (data.error || 'Error desconocido'));
@@ -2828,50 +2849,7 @@ function guardarInquilino() {
     });
 }
 
-// Función para recargar la lista de inquilinos
-function recargarListaInquilinos() {
-    console.log('🔄 Recargando lista de inquilinos...');
-    
-    fetch('{% url "inmobiliaria:buscar_propiedades" %}')
-        .then(response => response.text())
-        .then(html => {
-            // Crear un DOM temporal para extraer las opciones del select
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
-            
-            // Buscar el select de inquilinos en la respuesta
-            const nuevoSelect = tempDiv.querySelector('#inquilino');
-            if (nuevoSelect) {
-                const selectActual = document.getElementById('inquilino');
-                
-                // Limpiar el select actual
-                selectActual.innerHTML = '';
-                
-                // Copiar todas las opciones del nuevo select
-                Array.from(nuevoSelect.options).forEach(option => {
-                    const nuevaOpcion = new Option(option.text, option.value);
-                    // Mantener los estilos
-                    if (option.value === '') {
-                        nuevaOpcion.style.color = '#999';
-                        nuevaOpcion.style.background = 'white';
-                    } else {
-                        nuevaOpcion.style.color = '#000';
-                        nuevaOpcion.style.fontWeight = '700';
-                        nuevaOpcion.style.background = 'white';
-                        nuevaOpcion.style.padding = '5px';
-                    }
-                    selectActual.add(nuevaOpcion);
-                });
-                
-                console.log('✅ Lista de inquilinos actualizada');
-            } else {
-                console.error('❌ No se pudo encontrar el select de inquilinos en la respuesta');
-            }
-        })
-        .catch(error => {
-            console.error('💥 Error al recargar lista de inquilinos:', error);
-        });
-}
+
 
 // Agregar botón para abrir el modal de crear inquilino
 document.addEventListener('DOMContentLoaded', function() {
