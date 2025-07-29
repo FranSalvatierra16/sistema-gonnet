@@ -1096,12 +1096,12 @@
                 <h4 style="color: #2e7d32; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">🏠 Inquilino</h4>
                 <div style="display: flex; gap: 12px;">
                     <select id="inquilino" onchange="actualizarInquilinoId()" 
-                            style="flex: 1; padding: 12px; border: 3px solid #4caf50; border-radius: 8px; font-size: 16px; background: white !important; color: #000 !important; font-weight: 700 !important; transition: all 0.3s; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);"
-                            onfocus="this.style.borderColor='#388e3c'; this.style.boxShadow='0 0 15px rgba(56,142,60,0.5)'"
-                            onblur="this.style.borderColor='#4caf50'; this.style.boxShadow='inset 0 2px 5px rgba(0,0,0,0.1)'">
-                        <option value="" style="color: #999 !important; background: white !important;">-- Selecciona un inquilino --</option>
+                            style="flex: 1; padding: 15px; border: 3px solid #4caf50; border-radius: 8px; font-size: 18px; background: #ffffff !important; color: #000000 !important; font-weight: 800 !important; font-family: Arial, sans-serif !important; transition: all 0.3s; box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important; cursor: pointer !important;"
+                            onfocus="this.style.borderColor='#2e7d32'; this.style.boxShadow='0 0 20px rgba(46,125,50,0.6) !important'; this.style.background='#ffffff !important'"
+                            onblur="this.style.borderColor='#4caf50'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.2) !important'">
+                        <option value="" style="color: #666666 !important; background: #ffffff !important; font-weight: 600 !important; font-size: 16px !important;">-- Selecciona un inquilino --</option>
                         {% for inquilino in inquilinos %}
-                            <option value="{{ inquilino.id }}" style="color: #000 !important; font-weight: 700 !important; background: white !important; padding: 5px;">{{ inquilino.nombre_completo }}</option>
+                            <option value="{{ inquilino.id }}" style="color: #000000 !important; font-weight: 800 !important; background: #ffffff !important; padding: 8px !important; font-size: 16px !important;">{{ inquilino.nombre_completo }}</option>
                         {% endfor %}
                     </select>
                     <button onclick="mostrarModalCrearInquilino()" 
@@ -2817,11 +2817,8 @@ function guardarInquilino() {
                     `${data.inquilino.nombre} ${data.inquilino.apellido}`, 
                     data.inquilino.id
                 );
-                // Aplicar estilos consistentes
-                nuevaOpcion.style.color = '#000';
-                nuevaOpcion.style.fontWeight = '700';
-                nuevaOpcion.style.background = 'white';
-                nuevaOpcion.style.padding = '5px';
+                // Aplicar estilos consistentes y fuertes
+                nuevaOpcion.style.cssText = 'color: #000000 !important; font-weight: 800 !important; background: #ffffff !important; padding: 8px !important; font-size: 16px !important;';
                 
                 inquilinoSelect.add(nuevaOpcion);
                 console.log('✅ Nuevo inquilino agregado a la lista:', data.inquilino.nombre);
