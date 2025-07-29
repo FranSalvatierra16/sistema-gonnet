@@ -2653,13 +2653,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Variables globales
     window.propiedadSeleccionada = null;
 
-    // Función para formatear fechas
-    function formatearFecha(fecha) {
+    // Funciones auxiliares globales
+    window.formatearFecha = function(fecha) {
         if (!fecha) return '';
+        // Si la fecha ya está en formato dd/mm/yyyy, la devolvemos tal cual
+        if (fecha.includes('/')) return fecha;
+        // Si está en formato yyyy-mm-dd, la convertimos
         const partes = fecha.split('-');
-        if (partes.length !== 3) return fecha;
-        return `${partes[2]}/${partes[1]}/${partes[0]}`;
-    }
+        if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`;
+        return fecha;
+    };
 
     // Función para mostrar modal
     function mostrarModal(modalId) {
@@ -2681,8 +2684,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Actualizar campos visibles
             const camposVisibles = {
                 'propiedadDireccion': datos.direccion,
-                'fechaInicio': formatearFecha(datos.fechaInicio),
-                'fechaFin': formatearFecha(datos.fechaFin),
+                'fechaInicio': window.formatearFecha(datos.fechaInicio),
+                'fechaFin': window.formatearFecha(datos.fechaFin),
                 'totalDias': `${datos.totalDias} días`,
                 'precio_total_display': datos.precio
             };
@@ -2690,8 +2693,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Actualizar campos ocultos
             const camposOcultos = {
                 'modalPropiedadId': datos.id,
-                'modalFechaInicio': formatearFecha(datos.fechaInicio),
-                'modalFechaFin': formatearFecha(datos.fechaFin),
+                'modalFechaInicio': window.formatearFecha(datos.fechaInicio),
+                'modalFechaFin': window.formatearFecha(datos.fechaFin),
                 'modalPrecioTotal': datos.precio
             };
 
