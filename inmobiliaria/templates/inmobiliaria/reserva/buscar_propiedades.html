@@ -2652,16 +2652,56 @@ document.addEventListener('DOMContentLoaded', function() {
 // Variables globales
 let propiedadSeleccionada = null;
 
-// Función para obtener modal de forma segura
-function obtenerModal(id) {
-    const elemento = document.getElementById(id);
-    if (!elemento) {
-        throw new Error(`Modal ${id} no encontrado`);
+// Función simple para mostrar modal
+function mostrarModal(modalId) {
+    const modalElement = document.getElementById(modalId);
+    if (!modalElement) {
+        console.error('Modal no encontrado:', modalId);
+        return;
     }
-    return new bootstrap.Modal(elemento);
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
 }
-// Función para iniciar el proceso de reserva/operación
-function iniciarProceso(esOperacionDirecta = false) {
+
+// Función para confirmar reserva
+function confirmarReserva() {
+    console.log('Iniciando reserva');
+    
+    if (!propiedadSeleccionada) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Por favor, seleccione una propiedad primero'
+        });
+        return;
+    }
+
+    // Actualizar campos del modal
+    document.getElementById('propiedadDireccion').textContent = propiedadSeleccionada.direccion;
+    document.getElementById('fechaInicio').textContent = formatearFecha(propiedadSeleccionada.fechaInicio);
+    document.getElementById('fechaFin').textContent = formatearFecha(propiedadSeleccionada.fechaFin);
+    document.getElementById('totalDias').textContent = propiedadSeleccionada.totalDias + ' días';
+    document.getElementById('precio_total_display').textContent = propiedadSeleccionada.precio;
+    
+    // Actualizar campos ocultos
+    document.getElementById('modalPropiedadId').value = propiedadSeleccionada.id;
+    document.getElementById('modalFechaInicio').value = formatearFecha(propiedadSeleccionada.fechaInicio);
+    document.getElementById('modalFechaFin').value = formatearFecha(propiedadSeleccionada.fechaFin);
+    document.getElementById('modalPrecioTotal').value = propiedadSeleccionada.precio;
+
+    // Limpiar campos de vendedor e inquilino
+    document.getElementById('vendedor_id').value = '';
+    document.getElementById('vendedor_info').style.display = 'none';
+    document.getElementById('inquilino').value = '';
+    document.getElementById('modalVendedorId').value = '';
+    document.getElementById('modalInquilinoId').value = '';
+
+    // Mostrar el modal
+    mostrarModal('modalConfirmarReserva');
+}
+
+// Función para operación directa
+function realizarOperacion() {
     console.log('Iniciando proceso:', esOperacionDirecta ? 'Operación' : 'Reserva');
 
     // Verificar selección de propiedad
@@ -2819,19 +2859,9 @@ function mostrarModalConfirmacion() {
     }
 }
 
-// Funciones de acceso público
-window.confirmarReserva = function() {
-    console.log('Llamando a confirmarReserva');
-    iniciarProceso(false);
-};
-
-window.realizarOperacion = function() {
-    console.log('Llamando a realizarOperacion');
-    iniciarProceso(true);
-};
-
-window.verPrecios = function() {
-    console.log('Llamando a verPrecios');
+// Función para ver precios
+function verPrecios() {
+    console.log('Mostrando precios');
     if (!propiedadSeleccionada) {
         Swal.fire({
             icon: 'warning',
@@ -2841,7 +2871,7 @@ window.verPrecios = function() {
         return;
     }
     // Aquí va la lógica para mostrar los precios
-};
+}
 function confirmarReserva() {
     console.log('Iniciando confirmarReserva');
     
