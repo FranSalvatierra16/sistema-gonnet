@@ -2043,27 +2043,36 @@ function verPrecios() {
         // Mostrar directamente el modal de reserva
         window.mostrarModalReserva(false); // false = reserva normal
     }
-function formatearFecha(fecha) {
-    if (!fecha) return '';
+// Función para formatear fechas disponible globalmente
+window.formatearFecha = function(fecha) {
+    console.log('🗓️ Formateando fecha:', fecha);
+    
+    if (!fecha) {
+        console.log('⚠️ Fecha vacía');
+        return 'No especificada';
+    }
     
     // Si la fecha ya viene en formato DD/MM/YYYY, devolverla tal cual
     if (typeof fecha === 'string' && fecha.includes('/')) {
+        console.log('✅ Fecha ya formateada:', fecha);
         return fecha;
     }
 
     try {
         const d = new Date(fecha);
         if (isNaN(d.getTime())) {
-            console.error('Fecha inválida:', fecha);
-            return '';
+            console.error('❌ Fecha inválida:', fecha);
+            return 'Fecha inválida';
         }
         const dia = d.getDate().toString().padStart(2, '0');
         const mes = (d.getMonth() + 1).toString().padStart(2, '0');
         const anio = d.getFullYear();
-        return `${dia}/${mes}/${anio}`;
+        const fechaFormateada = `${dia}/${mes}/${anio}`;
+        console.log('✅ Fecha formateada exitosamente:', fechaFormateada);
+        return fechaFormateada;
     } catch (error) {
-        console.error('Error formateando fecha:', error);
-        return '';
+        console.error('❌ Error formateando fecha:', error);
+        return 'Error en fecha';
     }
 }
 
