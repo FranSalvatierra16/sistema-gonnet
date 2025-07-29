@@ -1024,86 +1024,92 @@
                 {% endif %}
             {% endif %}
         </div>
-        <div class="modal fade" id="modalConfirmarReserva" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="modalLabel">Confirmar Reserva</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <!-- Información de la Propiedad -->
-                        <div class="info-section">
-                            <h6>Información de la Propiedad</h6>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <p><strong>Ficha:</strong> <span id="modal_ficha"></span></p>
-                                    <p><strong>Dirección:</strong> <span id="modal_direccion"></span></p>
-                                    <p><strong>Propietario:</strong> <span id="modal_propietario"></span></p>
-                                </div>
-                                <div class="col-md-6">
-                                    <p><strong>Fecha inicio:</strong> <span id="modal_fecha_inicio"></span></p>
-                                    <p><strong>Fecha fin:</strong> <span id="modal_fecha_fin"></span></p>
-                                    <p><strong>Total días:</strong> <span id="modal_total_dias"></span></p>
-                                </div>
-                            </div>
-                                                <div class="row">
-                        <div class="col-md-12">
-                            <div class="form-group">
-                                <label for="precio_total_editable"><strong>Precio Total:</strong></label>
-                                <div class="input-group">
-                                    <span class="input-group-text">$</span>
-                                    <input type="number" class="form-control" id="precio_total_editable" step="0.01" min="0">
-                                </div>
-                            </div>
+<!-- MODAL SIMPLE QUE FUNCIONA -->
+<div class="modal fade" id="modalConfirmarReserva" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="background: white; border: 3px solid #2e7d32; border-radius: 10px;">
+            <div class="modal-header" style="background: #2e7d32; color: white; border-radius: 7px 7px 0 0;">
+                <h5 class="modal-title">📋 Confirmar Reserva</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="background: white; padding: 20px;">
+                
+                <!-- Información de la Propiedad -->
+                <div style="background: #f0f8f0; border: 2px solid #c8e6c9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h6 style="color: #2e7d32; margin-bottom: 15px;">🏠 Información de la Propiedad</h6>
+                    <div class="row">
+                        <div class="col-6">
+                            <p><strong>Ficha:</strong> <span id="modal_ficha">-</span></p>
+                            <p><strong>Dirección:</strong> <span id="modal_direccion">-</span></p>
+                            <p><strong>Propietario:</strong> <span id="modal_propietario">-</span></p>
                         </div>
-                    </div>
+                        <div class="col-6">
+                            <p><strong>Fecha inicio:</strong> <span id="modal_fecha_inicio">-</span></p>
+                            <p><strong>Fecha fin:</strong> <span id="modal_fecha_fin">-</span></p>
+                            <p><strong>Total días:</strong> <span id="modal_total_dias">-</span></p>
                         </div>
-
-                        <!-- Información del Vendedor -->
-                        <div class="info-section">
-                            <h6>Información del Vendedor</h6>
-                            <div class="input-group">
-                                <input type="number" class="form-control" id="vendedor_id" placeholder="ID del vendedor" min="1">
-                                <button class="btn btn-primary" type="button" onclick="buscarVendedor()">Buscar</button>
-                            </div>
-                            <div id="vendedor_info" class="mt-2" style="display: none;">
-                                <p><strong>Vendedor:</strong> <span id="vendedor_nombre"></span></p>
-                            </div>
-                        </div>
-
-                        <!-- Información del Inquilino -->
-                        <div class="info-section">
-                            <h6>Información del Inquilino</h6>
-                            <div class="input-group">
-                                <select class="form-control" id="inquilino" onchange="actualizarInquilinoId()">
-                                    <option value="">Seleccione un inquilino</option>
-                                    {% for inquilino in inquilinos %}
-                                        <option value="{{ inquilino.id }}">{{ inquilino.nombre_completo }}</option>
-                                    {% endfor %}
-                                </select>
-                                <button class="btn btn-success" type="button" onclick="mostrarModalCrearInquilino()">
-                                    Crear Nuevo
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Campos ocultos -->
-                        <input type="hidden" id="modalPropiedadId" required>
-                        <input type="hidden" id="modalFechaInicio" required>
-                        <input type="hidden" id="modalFechaFin" required>
-                        <input type="hidden" id="modalVendedorId" required>
-                        <input type="hidden" id="modalInquilinoId" required>
-                        <input type="hidden" id="modalPrecioTotal" required>
-                        <input type="hidden" id="esOperacionDirecta" required>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="button" class="btn btn-success btn-confirmar" onclick="confirmarReservaFinal()">Confirmar Reserva</button>
                     </div>
                 </div>
+
+                <!-- Precio Total EDITABLE -->
+                <div style="background: #fff8e1; border: 2px solid #ffcc02; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h6 style="color: #f57f17; margin-bottom: 15px;">💰 Precio Total</h6>
+                    <div class="input-group">
+                        <span class="input-group-text" style="background: #ffcc02; color: black; font-weight: bold;">$</span>
+                        <input type="number" class="form-control" id="precio_total_editable" step="0.01" min="0" 
+                               style="font-size: 18px; font-weight: bold; border: 2px solid #ffcc02;">
+                    </div>
+                    <small class="text-muted">Puedes editar el precio aquí</small>
+                </div>
+
+                <!-- Vendedor -->
+                <div style="background: #e3f2fd; border: 2px solid #42a5f5; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h6 style="color: #1565c0; margin-bottom: 15px;">👤 Vendedor</h6>
+                    <div class="input-group mb-2">
+                        <input type="number" class="form-control" id="vendedor_id" placeholder="Ingresa ID del vendedor" min="1" 
+                               style="border: 2px solid #42a5f5;">
+                        <button class="btn btn-primary" type="button" onclick="buscarVendedor()" 
+                                style="background: #42a5f5; border: none;">🔍 Buscar</button>
+                    </div>
+                    <div id="vendedor_info" style="display: none; background: #c8e6c9; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                        <strong style="color: #2e7d32;">✅ Vendedor encontrado:</strong> <span id="vendedor_nombre"></span>
+                    </div>
+                </div>
+
+                <!-- Inquilino -->
+                <div style="background: #e8f5e8; border: 2px solid #4caf50; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h6 style="color: #2e7d32; margin-bottom: 15px;">🏠 Inquilino</h6>
+                    <div class="input-group">
+                        <select class="form-control" id="inquilino" onchange="actualizarInquilinoId()" 
+                                style="border: 2px solid #4caf50;">
+                            <option value="">-- Selecciona un inquilino --</option>
+                            {% for inquilino in inquilinos %}
+                                <option value="{{ inquilino.id }}">{{ inquilino.nombre_completo }}</option>
+                            {% endfor %}
+                        </select>
+                        <button class="btn btn-success" type="button" onclick="mostrarModalCrearInquilino()" 
+                                style="background: #4caf50; border: none;">➕ Crear Nuevo</button>
+                    </div>
+                </div>
+
+                <!-- Campos ocultos -->
+                <input type="hidden" id="modalPropiedadId">
+                <input type="hidden" id="modalFechaInicio">
+                <input type="hidden" id="modalFechaFin">
+                <input type="hidden" id="modalVendedorId">
+                <input type="hidden" id="modalInquilinoId">
+                <input type="hidden" id="modalPrecioTotal">
+                <input type="hidden" id="esOperacionDirecta">
+            </div>
+            <div class="modal-footer" style="background: #f8f9fa; border-top: 2px solid #e0e0e0;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" 
+                        style="background: #6c757d; border: none;">❌ Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="confirmarReservaFinal()" 
+                        style="background: #2e7d32; border: none; font-weight: bold;">✅ CONFIRMAR RESERVA</button>
             </div>
         </div>
+    </div>
+</div>
         
         <!-- Columna derecha: Tabla de precios -->
         <div class="col-md-4">
@@ -2222,256 +2228,53 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Función global para mostrar el modal CON INFORMACIÓN COMPLETA Y VALIDACIONES
+// FUNCIÓN SIMPLE PARA MOSTRAR EL MODAL QUE FUNCIONA
 window.mostrarModalReserva = function(esOperacionDirecta = false) {
-    console.log('=== MOSTRANDO MODAL RESERVA ===');
-    console.log('Propiedad seleccionada:', propiedadSeleccionada);
+    console.log('🚀 Abriendo modal simple...');
     
     if (!propiedadSeleccionada) {
         alert('Por favor, selecciona una propiedad primero.');
         return;
     }
     
-    try {
-        // Función helper para obtener elemento de forma segura
-        function getElementSafely(id) {
-            const element = document.getElementById(id);
-            if (!element) {
-                console.warn(`⚠️ Elemento no encontrado: ${id}`);
-            }
-            return element;
-        }
-        
-        // Obtener fechas de los inputs del formulario de búsqueda
-        // Probamos varios IDs posibles para los campos de fecha
-        const posiblesIdsInicio = ['id_fecha_inicio', 'fecha_inicio'];
-        const posiblesIdsFin = ['id_fecha_fin', 'fecha_fin'];
-        
-        let fechaInicioInput = null;
-        let fechaFinInput = null;
-        
-        // Buscar el input de fecha inicio
-        for (let id of posiblesIdsInicio) {
-            fechaInicioInput = getElementSafely(id);
-            if (fechaInicioInput) {
-                console.log(`✅ Encontrado campo fecha inicio con ID: ${id}`);
-                break;
-            }
-        }
-        
-        // Buscar el input de fecha fin
-        for (let id of posiblesIdsFin) {
-            fechaFinInput = getElementSafely(id);
-            if (fechaFinInput) {
-                console.log(`✅ Encontrado campo fecha fin con ID: ${id}`);
-                break;
-            }
-        }
-        
-        let fechaInicio = '';
-        let fechaFin = '';
-        
-        if (fechaInicioInput && fechaInicioInput.value) {
-            fechaInicio = fechaInicioInput.value;
-            console.log('📅 Fecha inicio obtenida:', fechaInicio);
-        } else {
-            console.warn('⚠️ No se pudo obtener fecha de inicio del formulario');
-        }
-        
-        if (fechaFinInput && fechaFinInput.value) {
-            fechaFin = fechaFinInput.value;
-            console.log('📅 Fecha fin obtenida:', fechaFin);
-        } else {
-            console.warn('⚠️ No se pudo obtener fecha de fin del formulario');
-        }
-        
-        console.log('📋 Resumen fechas obtenidas:', { fechaInicio, fechaFin });
-        
-        // Usar datos de la propiedad y calcular precio por día si es necesario
-        const precioTotal = parseFloat(propiedadSeleccionada.precio) || 0;
-        const totalDias = parseInt(propiedadSeleccionada.totalDias) || 1;
-        let precioPorDia = parseFloat(propiedadSeleccionada.precioPorDia) || 0;
-        
-        // Si el precio por día es 0, calcularlo
-        if (precioPorDia === 0 && precioTotal > 0 && totalDias > 0) {
-            precioPorDia = precioTotal / totalDias;
-        }
-        
-        console.log('Precios calculados:', { precioTotal, totalDias, precioPorDia });
-        
-        console.log('Datos calculados:', {
-            fechaInicio,
-            fechaFin,
-            precioTotal,
-            totalDias,
-            precioPorDia
-        });
-        
-        // Actualizar información de la propiedad de forma segura
-        const modalFicha = getElementSafely('modal_ficha');
-        const modalDireccion = getElementSafely('modal_direccion');
-        const modalPropietario = getElementSafely('modal_propietario');
-        const modalFechaInicio = getElementSafely('modal_fecha_inicio');
-        const modalFechaFin = getElementSafely('modal_fecha_fin');
-        const modalTotalDias = getElementSafely('modal_total_dias');
-        const precioTotalEditable = getElementSafely('precio_total_editable');
-        
-        if (modalFicha) modalFicha.textContent = propiedadSeleccionada.id || 'N/A';
-        if (modalDireccion) modalDireccion.textContent = propiedadSeleccionada.direccion || 'N/A';
-        if (modalPropietario) modalPropietario.textContent = propiedadSeleccionada.propietario || 'N/A';
-        
-        // Mostrar fechas o mensaje de "No seleccionadas"
-        if (modalFechaInicio) {
-            modalFechaInicio.textContent = fechaInicio ? window.formatearFecha(fechaInicio) : 'Seleccione fechas en el formulario';
-        }
-        if (modalFechaFin) {
-            modalFechaFin.textContent = fechaFin ? window.formatearFecha(fechaFin) : 'Seleccione fechas en el formulario';
-        }
-        
-        if (modalTotalDias) modalTotalDias.textContent = totalDias;
-        
-        // Establecer precio total editable
-        if (precioTotalEditable) {
-            precioTotalEditable.value = precioTotal;
-            // Hacer que se actualice el campo oculto cuando cambie
-            precioTotalEditable.addEventListener('input', function() {
-                const hiddenPrecioTotal = getElementSafely('modalPrecioTotal');
-                if (hiddenPrecioTotal) {
-                    hiddenPrecioTotal.value = this.value;
-                }
-            });
-        }
-        
-        // Actualizar campos ocultos de forma segura
-        const hiddenPropiedadId = getElementSafely('modalPropiedadId');
-        const hiddenFechaInicio = getElementSafely('modalFechaInicio');
-        const hiddenFechaFin = getElementSafely('modalFechaFin');
-        const hiddenPrecioTotal = getElementSafely('modalPrecioTotal');
-        const hiddenOperacionDirecta = getElementSafely('esOperacionDirecta');
-        
-        if (hiddenPropiedadId) hiddenPropiedadId.value = propiedadSeleccionada.id || '';
-        if (hiddenFechaInicio) hiddenFechaInicio.value = fechaInicio || '';
-        if (hiddenFechaFin) hiddenFechaFin.value = fechaFin || '';
-        if (hiddenPrecioTotal) hiddenPrecioTotal.value = precioTotal || '';
-        if (hiddenOperacionDirecta) hiddenOperacionDirecta.value = esOperacionDirecta ? 'true' : 'false';
-        
-        // Limpiar campos de vendedor e inquilino de forma segura
-        const vendedorId = getElementSafely('vendedor_id');
-        const vendedorNombre = getElementSafely('vendedor_nombre');
-        const modalVendedorId = getElementSafely('modalVendedorId');
-        const inquilino = getElementSafely('inquilino');
-        const modalInquilinoId = getElementSafely('modalInquilinoId');
-        const vendedorInfo = getElementSafely('vendedor_info');
-        
-        if (vendedorId) vendedorId.value = '';
-        if (vendedorNombre) vendedorNombre.textContent = '';
-        if (modalVendedorId) modalVendedorId.value = '';
-        if (inquilino) inquilino.value = '';
-        if (modalInquilinoId) modalInquilinoId.value = '';
-        if (vendedorInfo) vendedorInfo.style.display = 'none';
-        
-        // Actualizar título según tipo de operación
-        const modalTitle = document.querySelector('#modalConfirmarReserva .modal-title');
-        const confirmButton = document.querySelector('#modalConfirmarReserva .btn-confirmar');
-        
-        if (modalTitle) {
-            modalTitle.textContent = esOperacionDirecta ? 'Confirmar Operación Directa' : 'Confirmar Reserva';
-        }
-        if (confirmButton) {
-            confirmButton.textContent = esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
-        }
-        
-        // Mostrar el modal COMPLETAMENTE DESBLOQUEADO
-        const modalElement = document.getElementById('modalConfirmarReserva');
-        if (modalElement) {
-            // Limpiar cualquier configuración previa que pueda bloquear
-            modalElement.removeAttribute('data-bs-backdrop');
-            modalElement.removeAttribute('data-bs-keyboard');
-            modalElement.style.pointerEvents = 'auto';
-            modalElement.style.zIndex = '1055';
-            
-            // Asegurar que el contenido es interactivo
-            const modalContent = modalElement.querySelector('.modal-content');
-            if (modalContent) {
-                modalContent.style.pointerEvents = 'auto';
-                modalContent.style.position = 'relative';
-                modalContent.style.zIndex = '1060';
-            }
-            
-            // Crear modal con configuración que permite interacción total
-            const modal = new bootstrap.Modal(modalElement, {
-                backdrop: true,      // Permite cerrar clickeando afuera
-                keyboard: true,      // Permite cerrar con ESC
-                focus: true,         // Foco automático
-                show: false         // No mostrar automáticamente
-            });
-            
-            // Eventos para FORZAR interactividad completa
-            modalElement.addEventListener('shown.bs.modal', function() {
-                console.log('🔓 Forzando interactividad total del modal...');
-                
-                // Forzar que el modal y todos sus elementos sean interactivos
-                this.style.cssText += `
-                    pointer-events: auto !important;
-                    z-index: 1055 !important;
-                    position: fixed !important;
-                `;
-                
-                const dialog = this.querySelector('.modal-dialog');
-                if (dialog) {
-                    dialog.style.cssText += `
-                        pointer-events: auto !important;
-                        z-index: 1060 !important;
-                        position: relative !important;
-                    `;
-                }
-                
-                const content = this.querySelector('.modal-content');
-                if (content) {
-                    content.style.cssText += `
-                        pointer-events: auto !important;
-                        z-index: 1065 !important;
-                        position: relative !important;
-                        user-select: auto !important;
-                    `;
-                }
-                
-                // Forzar que TODOS los inputs, selects y botones sean clickeables
-                const interactiveElements = this.querySelectorAll('input, select, textarea, button, .btn');
-                interactiveElements.forEach(element => {
-                    element.style.cssText += `
-                        pointer-events: auto !important;
-                        user-select: auto !important;
-                        z-index: 1070 !important;
-                        position: relative !important;
-                    `;
-                });
-                
-                // Enfocar el primer input para confirmar que funciona
-                const firstInput = this.querySelector('input:not([type="hidden"]), select, textarea');
-                if (firstInput) {
-                    setTimeout(() => {
-                        firstInput.focus();
-                        console.log('🎯 Focus puesto en:', firstInput.id || firstInput.tagName);
-                    }, 100);
-                }
-                
-                console.log('✅ Modal completamente desbloqueado y listo para usar');
-            });
-            
-            modal.show();
-            console.log('✅ Modal mostrado sin bloqueos');
-            
-        } else {
-            console.error('❌ No se encontró el elemento modal');
-            alert('Error: No se encontró el modal en la página');
-        }
-        
-    } catch (error) {
-        console.error('❌ Error al mostrar el modal:', error);
-        console.error('Stack trace:', error.stack);
-        alert('Error al mostrar el modal: ' + error.message);
-    }
+    // Actualizar información básica
+    document.getElementById('modal_ficha').textContent = propiedadSeleccionada.id || '-';
+    document.getElementById('modal_direccion').textContent = propiedadSeleccionada.direccion || '-';
+    document.getElementById('modal_propietario').textContent = propiedadSeleccionada.propietario || '-';
+    document.getElementById('modal_total_dias').textContent = propiedadSeleccionada.totalDias || '-';
+    
+    // Fechas del formulario
+    const fechaInicio = document.getElementById('id_fecha_inicio')?.value || document.getElementById('fecha_inicio')?.value || '';
+    const fechaFin = document.getElementById('id_fecha_fin')?.value || document.getElementById('fecha_fin')?.value || '';
+    
+    document.getElementById('modal_fecha_inicio').textContent = fechaInicio ? window.formatearFecha(fechaInicio) : 'No seleccionada';
+    document.getElementById('modal_fecha_fin').textContent = fechaFin ? window.formatearFecha(fechaFin) : 'No seleccionada';
+    
+    // Precio editable
+    document.getElementById('precio_total_editable').value = propiedadSeleccionada.precio || 0;
+    
+    // Limpiar campos
+    document.getElementById('vendedor_id').value = '';
+    document.getElementById('vendedor_nombre').textContent = '';
+    document.getElementById('inquilino').value = '';
+    document.getElementById('vendedor_info').style.display = 'none';
+    
+    // Actualizar título
+    const titulo = esOperacionDirecta ? '📋 Confirmar Operación Directa' : '📋 Confirmar Reserva';
+    document.querySelector('#modalConfirmarReserva .modal-title').textContent = titulo;
+    
+    // Campos ocultos
+    document.getElementById('modalPropiedadId').value = propiedadSeleccionada.id || '';
+    document.getElementById('modalFechaInicio').value = fechaInicio;
+    document.getElementById('modalFechaFin').value = fechaFin;
+    document.getElementById('modalPrecioTotal').value = propiedadSeleccionada.precio || 0;
+    document.getElementById('esOperacionDirecta').value = esOperacionDirecta ? 'true' : 'false';
+    
+    // MOSTRAR EL MODAL DE FORMA SIMPLE
+    const modal = new bootstrap.Modal(document.getElementById('modalConfirmarReserva'));
+    modal.show();
+    
+    console.log('✅ Modal abierto correctamente');
 };
 
 // Mejorar el manejo del precio
