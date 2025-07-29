@@ -389,22 +389,6 @@
         margin-bottom: 10px;
         font-weight: 600;
     }
-
-    #modalConfirmarReserva .modal-content {
-        background: #fff !important;
-        box-shadow: 0 0 20px rgba(0,0,0,0.15) !important;
-        border-radius: 10px !important;
-    }
-    #modalConfirmarReserva .modal-header {
-        background: #43a047 !important;
-        color: #fff !important;
-        border-top-left-radius: 10px !important;
-        border-top-right-radius: 10px !important;
-        padding: 1rem 1.5rem !important;
-    }
-    #modalConfirmarReserva .modal-body {
-        padding: 2rem !important;
-    }
     </style>
 {% endblock extra_css %}
 
@@ -711,12 +695,12 @@
             {% endif %}
         </div>
         <div class="modal fade" id="modalConfirmarReserva" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="modalLabel">Confirmar Reserva</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
+                    <div class="modal-dialog" role="document">
+            <div class="modal-content" style="background-color: white; box-shadow: 0 0 20px rgba(0,0,0,0.3);">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="modalLabel">Confirmar Reserva</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
                     <div class="modal-body">
                         <!-- Información de la propiedad -->
                         <div class="card mb-3">
@@ -1882,35 +1866,66 @@ let busquedaVendedorTimeout = null;
 function buscarVendedor() {
     const vendedorId = document.getElementById('vendedor_id').value.trim();
     const vendedorInfo = document.getElementById('vendedor_info');
+    const vendedorInput = document.getElementById('vendedor_id');
+    
+    // Limpiar el timeout anterior si existe
+    if (busquedaVendedorTimeout) {
+        clearTimeout(busquedaVendedorTimeout);
+    }
+
+    // Habilitar siempre el input
+    vendedorInput.disabled = false;
+    
     if (!vendedorId) {
         vendedorInfo.style.display = 'none';
         document.getElementById('modalVendedorId').value = '';
         return;
     }
 
-    // Debounce: espera 400ms después de dejar de escribir
-    if (busquedaVendedorTimeout) clearTimeout(busquedaVendedorTimeout);
+    // Mostrar spinner mientras se busca
+    vendedorInfo.style.display = 'block';
+    vendedorInfo.innerHTML = `
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Buscando vendedor...</span>
+            </div>
+        </div>
+    `;
+
+    // Esperar 500ms antes de hacer la búsqueda
     busquedaVendedorTimeout = setTimeout(() => {
         fetch(`{% url 'inmobiliaria:obtener_vendedor' '0' %}`.replace('0', vendedorId))
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    document.getElementById('vendedor_nombre').textContent = data.vendedor.nombre_completo;
                     document.getElementById('modalVendedorId').value = vendedorId;
-                    vendedorInfo.style.display = 'block';
+                    vendedorInfo.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="fas fa-user-check"></i> <strong>Vendedor encontrado:</strong><br>
+                            <span id="vendedor_nombre" class="ms-4">${data.vendedor.nombre_completo}</span>
+                        </div>
+                    `;
                 } else {
-                    document.getElementById('vendedor_nombre').textContent = '';
+                    vendedorInfo.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i> <strong>Error:</strong><br>
+                            Vendedor no encontrado
+                        </div>
+                    `;
                     document.getElementById('modalVendedorId').value = '';
-                    vendedorInfo.style.display = 'none';
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                vendedorInfo.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i> <strong>Error:</strong><br>
+                        Error al buscar el vendedor
+                    </div>
+                `;
             });
-    }, 400);
+    }, 500);
 }
-
-// En el DOMContentLoaded:
-const vendedorInput = document.getElementById('vendedor_id');
-if (vendedorInput) {
-    vendedorInput.addEventListener('input', buscarVendedor);
 }
 
 // Mejorar el manejo del precio
@@ -2020,12 +2035,23 @@ document.addEventListener('DOMContentLoaded', function() {
     // Manejar el evento de cambio del vendedor
     const vendedorInput = document.getElementById('vendedor_id');
     if (vendedorInput) {
-        vendedorInput.addEventListener('change', function() {
-            if (this.value.trim()) {
-                buscarVendedor();
-            } else {
-                document.getElementById('vendedor_nombre').textContent = '';
-                document.getElementById('modalVendedorId').value = '';
+        // Usar input en lugar de change para detectar cambios mientras se escribe
+        vendedorInput.addEventListener('input', function() {
+            buscarVendedor();
+        });
+
+        // Prevenir que se pegue contenido no numérico
+        vendedorInput.addEventListener('paste', function(e) {
+            let paste = (e.clipboardData || window.clipboardData).getData('text');
+            if (!/^\d*$/.test(paste)) {
+                e.preventDefault();
+            }
+        });
+
+        // Permitir solo números
+        vendedorInput.addEventListener('keypress', function(e) {
+            if (!/[\d]/.test(e.key)) {
+                e.preventDefault();
             }
         });
     } else {
