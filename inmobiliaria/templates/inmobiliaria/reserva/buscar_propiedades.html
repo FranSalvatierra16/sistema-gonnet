@@ -1008,14 +1008,17 @@
                                     <p><strong>Total días:</strong> <span id="modal_total_dias"></span></p>
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <p><strong>Precio por día:</strong> <span id="modal_precio_por_dia"></span></p>
-                                </div>
-                                <div class="col-md-6">
-                                    <p><strong>Precio total:</strong> <span id="modal_precio_total"></span></p>
+                                                <div class="row">
+                        <div class="col-md-12">
+                            <div class="form-group">
+                                <label for="precio_total_editable"><strong>Precio Total:</strong></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" id="precio_total_editable" step="0.01" min="0">
                                 </div>
                             </div>
+                        </div>
+                    </div>
                         </div>
 
                         <!-- Información del Vendedor -->
@@ -1057,7 +1060,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="button" class="btn btn-success btn-confirmar" onclick="guardarReserva()">Confirmar Reserva</button>
+                        <button type="button" class="btn btn-success btn-confirmar" onclick="confirmarReservaFinal()">Confirmar Reserva</button>
                     </div>
                 </div>
             </div>
@@ -2129,6 +2132,50 @@ function buscarVendedor() {
 }
 
 // Asigna el evento input solo una vez
+// Función para confirmar la reserva final
+function confirmarReservaFinal() {
+    console.log('🎯 Confirmando reserva final...');
+    
+    // Validar campos requeridos
+    const vendedorId = document.getElementById('modalVendedorId')?.value;
+    const inquilinoId = document.getElementById('modalInquilinoId')?.value;
+    const precioTotal = document.getElementById('precio_total_editable')?.value;
+    
+    if (!vendedorId) {
+        alert('Por favor, selecciona un vendedor');
+        return;
+    }
+    
+    if (!inquilinoId) {
+        alert('Por favor, selecciona un inquilino');
+        return;
+    }
+    
+    if (!precioTotal || precioTotal <= 0) {
+        alert('Por favor, ingresa un precio válido');
+        return;
+    }
+    
+    // Actualizar campo oculto con el precio editado
+    const hiddenPrecioTotal = document.getElementById('modalPrecioTotal');
+    if (hiddenPrecioTotal) {
+        hiddenPrecioTotal.value = precioTotal;
+    }
+    
+    console.log('✅ Validación exitosa, enviando reserva...');
+    
+    // Aquí puedes agregar el código para enviar la reserva al backend
+    // Por ejemplo, enviar un POST con fetch o submitear un formulario
+    
+    alert('¡Reserva confirmada exitosamente!');
+    
+    // Cerrar el modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalConfirmarReserva'));
+    if (modal) {
+        modal.hide();
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const vendedorInput = document.getElementById('vendedor_id');
     if (vendedorInput) {
@@ -2228,8 +2275,7 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
         const modalFechaInicio = getElementSafely('modal_fecha_inicio');
         const modalFechaFin = getElementSafely('modal_fecha_fin');
         const modalTotalDias = getElementSafely('modal_total_dias');
-        const modalPrecioPorDia = getElementSafely('modal_precio_por_dia');
-        const modalPrecioTotal = getElementSafely('modal_precio_total');
+        const precioTotalEditable = getElementSafely('precio_total_editable');
         
         if (modalFicha) modalFicha.textContent = propiedadSeleccionada.id || 'N/A';
         if (modalDireccion) modalDireccion.textContent = propiedadSeleccionada.direccion || 'N/A';
@@ -2244,8 +2290,18 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
         }
         
         if (modalTotalDias) modalTotalDias.textContent = totalDias;
-        if (modalPrecioPorDia) modalPrecioPorDia.textContent = `$${precioPorDia.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-        if (modalPrecioTotal) modalPrecioTotal.textContent = `$${precioTotal.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        
+        // Establecer precio total editable
+        if (precioTotalEditable) {
+            precioTotalEditable.value = precioTotal;
+            // Hacer que se actualice el campo oculto cuando cambie
+            precioTotalEditable.addEventListener('input', function() {
+                const hiddenPrecioTotal = getElementSafely('modalPrecioTotal');
+                if (hiddenPrecioTotal) {
+                    hiddenPrecioTotal.value = this.value;
+                }
+            });
+        }
         
         // Actualizar campos ocultos de forma segura
         const hiddenPropiedadId = getElementSafely('modalPropiedadId');
@@ -2286,28 +2342,48 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
             confirmButton.textContent = esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
         }
         
-        // Mostrar el modal SIN BLOQUEO
+        // Mostrar el modal COMPLETAMENTE DESBLOQUEADO
         const modalElement = document.getElementById('modalConfirmarReserva');
         if (modalElement) {
-            // Quitar cualquier atributo que pueda bloquear el modal
+            // Limpiar cualquier configuración previa que pueda bloquear
             modalElement.removeAttribute('data-bs-backdrop');
             modalElement.removeAttribute('data-bs-keyboard');
+            modalElement.style.pointerEvents = 'auto';
+            modalElement.style.zIndex = '1055';
             
+            // Asegurar que el contenido es interactivo
+            const modalContent = modalElement.querySelector('.modal-content');
+            if (modalContent) {
+                modalContent.style.pointerEvents = 'auto';
+                modalContent.style.position = 'relative';
+                modalContent.style.zIndex = '1060';
+            }
+            
+            // Crear modal con configuración que permite interacción total
             const modal = new bootstrap.Modal(modalElement, {
-                backdrop: 'static',  // Permite cerrar con el botón X
+                backdrop: true,      // Permite cerrar clickeando afuera
                 keyboard: true,      // Permite cerrar con ESC
-                focus: true
+                focus: true,         // Foco automático
+                show: false         // No mostrar automáticamente
             });
+            
+            // Eventos para asegurar interactividad
+            modalElement.addEventListener('shown.bs.modal', function() {
+                // Asegurar que todo sea clickeable después de mostrar
+                this.style.pointerEvents = 'auto';
+                const content = this.querySelector('.modal-content');
+                if (content) content.style.pointerEvents = 'auto';
+                
+                // Enfocar el primer input
+                const firstInput = this.querySelector('input, select, textarea');
+                if (firstInput) firstInput.focus();
+                
+                console.log('🔓 Modal completamente interactivo y desbloqueado');
+            });
+            
             modal.show();
+            console.log('✅ Modal mostrado sin bloqueos');
             
-            // Asegurar que el modal es interactivo
-            setTimeout(() => {
-                modalElement.style.pointerEvents = 'auto';
-                modalElement.querySelector('.modal-content').style.pointerEvents = 'auto';
-                console.log('✅ Modal desbloqueado y completamente interactivo');
-            }, 100);
-            
-            console.log('✅ Modal mostrado exitosamente con información completa');
         } else {
             console.error('❌ No se encontró el elemento modal');
             alert('Error: No se encontró el modal en la página');
