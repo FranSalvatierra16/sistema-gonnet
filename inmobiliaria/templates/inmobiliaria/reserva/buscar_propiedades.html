@@ -791,7 +791,17 @@
                                 <button type="button" class="btn btn-sm btn-success" onclick="window.autenticarYFinalizar()">Operacion</button>
                             {% else %}
                                 <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
+                                    <button type="button" class="btn btn-primary" onclick="mostrarModalReserva(
+                                        propiedadSeleccionada.id,
+                                        propiedadSeleccionada.direccion,
+                                        propiedadSeleccionada.propietario,
+                                        propiedadSeleccionada.disponibilidad,
+                                        propiedadSeleccionada.precio,
+                                        propiedadSeleccionada.fechaInicio,
+                                        propiedadSeleccionada.fechaFin,
+                                        propiedadSeleccionada.totalDias,
+                                        false
+                                    )">
                                         <i class="fas fa-calendar-plus me-2"></i> Reservar
                                     </button>
                                     <button type="button" class="btn btn-success" onclick="window.realizarOperacion()">
@@ -2773,6 +2783,7 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 
 // Función para seleccionar propiedad
+// Función para seleccionar propiedad
 function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
     console.log('Seleccionando propiedad:', { id, direccion });
     
@@ -2792,6 +2803,12 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         descripcion: descripcion || 'No disponible',
         caracteristicas: caracteristicas || 'No disponible'
     };
+
+    // Resaltar la fila seleccionada
+    document.querySelectorAll('#propiedadesTable tbody tr').forEach(tr => {
+        tr.classList.remove('selected');
+    });
+    event.currentTarget.classList.add('selected');
 
     console.log('Propiedad seleccionada:', window.propiedadSeleccionada);
     console.log('Iniciando reserva');
