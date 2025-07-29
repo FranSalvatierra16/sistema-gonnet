@@ -3002,6 +3002,68 @@ window.verPrecios = function() {
     // Aquí va la lógica para mostrar los precios
 };
 
+// Función para mostrar el modal de reserva
+window.mostrarModalReserva = function(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias, esOperacionDirecta = false) {
+    console.log('Iniciando mostrarModalReserva con:', {
+        ficha, direccion, propietario, disponibilidad, precio,
+        fechaInicio, fechaFin, totalDias, esOperacionDirecta
+    });
+
+    try {
+        // Actualizar campos visibles
+        const camposVisibles = {
+            'propiedadDireccion': direccion,
+            'fechaInicio': window.formatearFecha(fechaInicio),
+            'fechaFin': window.formatearFecha(fechaFin),
+            'totalDias': `${totalDias} días`,
+            'precio_total_display': precio
+        };
+
+        // Actualizar campos ocultos
+        const camposOcultos = {
+            'modalPropiedadId': ficha,
+            'modalFechaInicio': window.formatearFecha(fechaInicio),
+            'modalFechaFin': window.formatearFecha(fechaFin),
+            'modalPrecioTotal': precio
+        };
+
+        // Actualizar todos los campos
+        Object.entries({...camposVisibles, ...camposOcultos}).forEach(([id, valor]) => {
+            const elemento = document.getElementById(id);
+            if (elemento) {
+                if (elemento.tagName === 'INPUT') {
+                    elemento.value = valor;
+                } else {
+                    elemento.textContent = valor;
+                }
+            }
+        });
+
+        // Limpiar campos de vendedor e inquilino
+        document.getElementById('vendedor_id').value = '';
+        document.getElementById('vendedor_info').style.display = 'none';
+        document.getElementById('inquilino').value = '';
+        document.getElementById('modalVendedorId').value = '';
+        document.getElementById('modalInquilinoId').value = '';
+
+        // Mostrar el modal
+        const modalElement = document.getElementById('modalConfirmarReserva');
+        if (!modalElement) throw new Error('Modal no encontrado');
+        
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+
+        console.log('Modal mostrado exitosamente');
+    } catch (error) {
+        console.error('Error en mostrarModalReserva:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al mostrar el modal: ' + error.message
+        });
+    }
+};
+
 // Asignar función de operación directa
 window.realizarOperacion = function() {
     console.log('Iniciando operación directa');
