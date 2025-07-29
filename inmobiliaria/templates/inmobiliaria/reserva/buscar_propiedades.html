@@ -791,13 +791,13 @@
                                 <button type="button" class="btn btn-sm btn-success" onclick="window.autenticarYFinalizar()">Operacion</button>
                             {% else %}
                                 <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-primary" onclick="confirmarReserva()">
+                                    <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
                                         <i class="fas fa-calendar-plus me-2"></i> Reservar
                                     </button>
-                                    <button type="button" class="btn btn-success" onclick="realizarOperacion()">
+                                    <button type="button" class="btn btn-success" onclick="window.realizarOperacion()">
                                         <i class="fas fa-check-circle me-2"></i> Operación Directa
                                     </button>
-                                    <button type="button" class="btn btn-info" onclick="verPrecios()">
+                                    <button type="button" class="btn btn-info" onclick="window.verPrecios()">
                                         <i class="fas fa-dollar-sign me-2"></i> Ver Precios
                                     </button>
                                 </div>
@@ -2652,19 +2652,8 @@ document.addEventListener('DOMContentLoaded', function() {
 // Variables globales
 let propiedadSeleccionada = null;
 
-// Función simple para mostrar modal
-function mostrarModal(modalId) {
-    const modalElement = document.getElementById(modalId);
-    if (!modalElement) {
-        console.error('Modal no encontrado:', modalId);
-        return;
-    }
-    const modal = new bootstrap.Modal(modalElement);
-    modal.show();
-}
-
-// Función para confirmar reserva
-function confirmarReserva() {
+// Asignar funciones al objeto window
+window.confirmarReserva = function() {
     console.log('Iniciando reserva');
     
     if (!propiedadSeleccionada) {
@@ -2859,8 +2848,8 @@ function mostrarModalConfirmacion() {
     }
 }
 
-// Función para ver precios
-function verPrecios() {
+// Asignar función de ver precios
+window.verPrecios = function() {
     console.log('Mostrando precios');
     if (!propiedadSeleccionada) {
         Swal.fire({
@@ -2871,9 +2860,11 @@ function verPrecios() {
         return;
     }
     // Aquí va la lógica para mostrar los precios
-}
-function confirmarReserva() {
-    console.log('Iniciando confirmarReserva');
+};
+
+// Asignar función de operación directa
+window.realizarOperacion = function() {
+    console.log('Iniciando operación directa');
     
     // Verificar que el modal existe
     const modalConfirmarReserva = document.getElementById('modalConfirmarReserva');
