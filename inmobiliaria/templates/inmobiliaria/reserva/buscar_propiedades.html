@@ -2651,15 +2651,15 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 // Variables globales
 let propiedadSeleccionada = null;
-let modalConfirmacion = null;
-let modalAutenticacion = null;
 
-// Inicialización cuando el DOM está listo
-document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar referencias a modales
-    modalConfirmacion = new bootstrap.Modal(document.getElementById('modalConfirmarReserva'));
-    modalAutenticacion = new bootstrap.Modal(document.getElementById('modalAutenticacionVendedor'));
-});
+// Función para obtener modal de forma segura
+function obtenerModal(id) {
+    const elemento = document.getElementById(id);
+    if (!elemento) {
+        throw new Error(`Modal ${id} no encontrado`);
+    }
+    return new bootstrap.Modal(elemento);
+}
 // Función para iniciar el proceso de reserva/operación
 function iniciarProceso(esOperacionDirecta = false) {
     console.log('Iniciando proceso:', esOperacionDirecta ? 'Operación' : 'Reserva');
@@ -2715,22 +2715,33 @@ function iniciarProceso(esOperacionDirecta = false) {
 
 // Función para mostrar el modal de autenticación
 function mostrarModalAutenticacion() {
-    const modalAutenticacion = document.getElementById('modalAutenticacionVendedor');
-    if (!modalAutenticacion) {
-        console.error('Modal de autenticación no encontrado');
-        return;
-    }
+    try {
+        // Obtener y mostrar el modal
+        const modalElement = document.getElementById('modalAutenticacionVendedor');
+        if (!modalElement) {
+            throw new Error('Modal de autenticación no encontrado');
+        }
 
-    // Actualizar texto del botón según el tipo de operación
-    const btnAutenticar = modalAutenticacion.querySelector('.btn-primary');
-    if (btnAutenticar) {
-        btnAutenticar.textContent = window.datosOperacion?.esOperacionDirecta ? 
-            'Autenticar y Realizar Operación' : 'Autenticar y Reservar';
-    }
+        // Actualizar texto del botón según el tipo de operación
+        const btnAutenticar = modalElement.querySelector('.btn-primary');
+        if (btnAutenticar) {
+            btnAutenticar.textContent = window.datosOperacion?.esOperacionDirecta ? 
+                'Autenticar y Realizar Operación' : 'Autenticar y Reservar';
+        }
 
-    // Mostrar modal
-    const modal = new bootstrap.Modal(modalAutenticacion);
-    modal.show();
+        // Mostrar modal
+        const modalInstance = new bootstrap.Modal(modalElement);
+        modalInstance.show();
+
+        console.log('Modal de autenticación mostrado');
+    } catch (error) {
+        console.error('Error al mostrar modal de autenticación:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: error.message
+        });
+    }
 }
 
 // Función para mostrar el modal de confirmación
@@ -2743,13 +2754,11 @@ function mostrarModalConfirmacion() {
             throw new Error('No hay datos de la operación');
         }
         
-        // Obtener el modal
-        const modalElement = document.getElementById('modalConfirmarReserva');
-        if (!modalElement) {
-            throw new Error('No se encontró el elemento del modal');
-        }
+        // Obtener y mostrar el modal
+        const modal = obtenerModal('modalConfirmarReserva');
+        modal.show();
         
-        console.log('Modal y datos encontrados:', { datos });
+        console.log('Modal mostrado con datos:', { datos });
 
         // Actualizar título y botón
         const titulo = modalConfirmacion.querySelector('.modal-title');
