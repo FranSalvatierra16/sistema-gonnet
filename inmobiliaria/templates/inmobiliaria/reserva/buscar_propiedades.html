@@ -2124,17 +2124,33 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
             return element;
         }
         
-        // Obtener fechas de los inputs del formulario de forma segura
+        // Obtener fechas de los inputs del formulario
         const fechaInicioInput = getElementSafely('fecha_inicio');
         const fechaFinInput = getElementSafely('fecha_fin');
         
-        const fechaInicio = fechaInicioInput ? fechaInicioInput.value : propiedadSeleccionada.fechaInicio || '';
-        const fechaFin = fechaFinInput ? fechaFinInput.value : propiedadSeleccionada.fechaFin || '';
+        let fechaInicio = '';
+        let fechaFin = '';
         
-        // Usar datos ya calculados de la propiedad
+        if (fechaInicioInput && fechaInicioInput.value) {
+            fechaInicio = fechaInicioInput.value;
+        }
+        if (fechaFinInput && fechaFinInput.value) {
+            fechaFin = fechaFinInput.value;
+        }
+        
+        console.log('Fechas obtenidas:', { fechaInicio, fechaFin });
+        
+        // Usar datos de la propiedad y calcular precio por día si es necesario
         const precioTotal = parseFloat(propiedadSeleccionada.precio) || 0;
         const totalDias = parseInt(propiedadSeleccionada.totalDias) || 1;
-        const precioPorDia = parseFloat(propiedadSeleccionada.precioPorDia) || 0;
+        let precioPorDia = parseFloat(propiedadSeleccionada.precioPorDia) || 0;
+        
+        // Si el precio por día es 0, calcularlo
+        if (precioPorDia === 0 && precioTotal > 0 && totalDias > 0) {
+            precioPorDia = precioTotal / totalDias;
+        }
+        
+        console.log('Precios calculados:', { precioTotal, totalDias, precioPorDia });
         
         console.log('Datos calculados:', {
             fechaInicio,
@@ -2157,8 +2173,15 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
         if (modalFicha) modalFicha.textContent = propiedadSeleccionada.id || 'N/A';
         if (modalDireccion) modalDireccion.textContent = propiedadSeleccionada.direccion || 'N/A';
         if (modalPropietario) modalPropietario.textContent = propiedadSeleccionada.propietario || 'N/A';
-        if (modalFechaInicio) modalFechaInicio.textContent = window.formatearFecha(fechaInicio);
-        if (modalFechaFin) modalFechaFin.textContent = window.formatearFecha(fechaFin);
+        
+        // Mostrar fechas o mensaje de "No seleccionadas"
+        if (modalFechaInicio) {
+            modalFechaInicio.textContent = fechaInicio ? window.formatearFecha(fechaInicio) : 'Seleccione fechas en el formulario';
+        }
+        if (modalFechaFin) {
+            modalFechaFin.textContent = fechaFin ? window.formatearFecha(fechaFin) : 'Seleccione fechas en el formulario';
+        }
+        
         if (modalTotalDias) modalTotalDias.textContent = totalDias;
         if (modalPrecioPorDia) modalPrecioPorDia.textContent = `$${precioPorDia.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         if (modalPrecioTotal) modalPrecioTotal.textContent = `$${precioTotal.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
