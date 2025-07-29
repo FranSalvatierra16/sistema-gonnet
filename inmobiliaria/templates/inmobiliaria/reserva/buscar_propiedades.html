@@ -1071,7 +1071,7 @@
                 <h4 style="color: #1565c0; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">👤 Vendedor</h4>
                 <div style="display: flex; gap: 12px; margin-bottom: 15px;">
                     <input type="number" id="vendedor_id" placeholder="Ingresa ID del vendedor" min="1" 
-                           style="flex: 1; padding: 12px; border: 2px solid #2196f3; border-radius: 8px; font-size: 16px; transition: all 0.3s;"
+                           style="flex: 1; padding: 12px; border: 2px solid #2196f3; border-radius: 8px; font-size: 16px; font-weight: 600; color: #333; background: white; transition: all 0.3s;"
                            onfocus="this.style.borderColor='#1976d2'; this.style.boxShadow='0 0 10px rgba(25,118,210,0.3)'"
                            onblur="this.style.borderColor='#2196f3'; this.style.boxShadow='none'"
                            oninput="buscarVendedorAutomatico()">
@@ -1080,12 +1080,12 @@
                             onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(33,150,243,0.4)'"
                             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(33,150,243,0.3)'">🔍 Buscar</button>
                 </div>
-                <div id="vendedor_info" style="display: none; background: linear-gradient(135deg, #c8e6c9 0%, #dcedc8 100%); padding: 15px; border-radius: 8px; border: 1px solid #4caf50;">
+                <div id="vendedor_info" style="display: none; background: linear-gradient(135deg, #c8e6c9 0%, #dcedc8 100%); padding: 15px; border-radius: 8px; border: 2px solid #4caf50; box-shadow: 0 2px 8px rgba(76,175,80,0.3);">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 20px;">✅</span>
+                        <span style="font-size: 24px;">✅</span>
                         <div>
-                            <strong style="color: #2e7d32; font-size: 16px;">Vendedor encontrado:</strong>
-                            <div id="vendedor_nombre" style="color: #1b5e20; font-size: 18px; font-weight: 600; margin-top: 5px;"></div>
+                            <strong style="color: #1b5e20; font-size: 16px; font-weight: 700;">Vendedor encontrado:</strong>
+                            <div id="vendedor_nombre" style="color: #000; font-size: 20px; font-weight: 800; margin-top: 5px; text-shadow: 1px 1px 2px rgba(255,255,255,0.8);"></div>
                         </div>
                     </div>
                 </div>
@@ -1096,12 +1096,12 @@
                 <h4 style="color: #2e7d32; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">🏠 Inquilino</h4>
                 <div style="display: flex; gap: 12px;">
                     <select id="inquilino" onchange="actualizarInquilinoId()" 
-                            style="flex: 1; padding: 12px; border: 2px solid #4caf50; border-radius: 8px; font-size: 16px; background: white; transition: all 0.3s;"
+                            style="flex: 1; padding: 12px; border: 2px solid #4caf50; border-radius: 8px; font-size: 16px; background: white; color: #333; font-weight: 600; transition: all 0.3s;"
                             onfocus="this.style.borderColor='#388e3c'; this.style.boxShadow='0 0 10px rgba(56,142,60,0.3)'"
                             onblur="this.style.borderColor='#4caf50'; this.style.boxShadow='none'">
-                        <option value="">-- Selecciona un inquilino --</option>
+                        <option value="" style="color: #666;">-- Selecciona un inquilino --</option>
                         {% for inquilino in inquilinos %}
-                            <option value="{{ inquilino.id }}">{{ inquilino.nombre_completo }}</option>
+                            <option value="{{ inquilino.id }}" style="color: #333; font-weight: 600;">{{ inquilino.nombre_completo }}</option>
                         {% endfor %}
                     </select>
                     <button onclick="mostrarModalCrearInquilino()" 
@@ -2365,6 +2365,18 @@ window.cerrarModal = function() {
     document.getElementById('modalConfirmarReserva').style.display = 'none';
 };
 
+// Funciones para el modal de crear inquilino
+window.mostrarModalCrearInquilino = function() {
+    console.log('🏠 Abriendo modal crear inquilino...');
+    document.getElementById('crearInquilinoModal').style.display = 'block';
+};
+
+window.cerrarModalInquilino = function() {
+    document.getElementById('crearInquilinoModal').style.display = 'none';
+    // Limpiar el formulario
+    document.getElementById('crearInquilinoForm').reset();
+};
+
 // Mejorar el manejo del precio
 document.getElementById('editar_precio_btn').addEventListener('click', function() {
     const precioDisplay = document.getElementById('precio_total_display');
@@ -2596,128 +2608,147 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 </style>
 
-<!-- Modal para crear inquilino -->
-<div class="modal fade" id="crearInquilinoModal" tabindex="-1" aria-labelledby="crearInquilinoModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-          
-            <div class="modal-body">
-                <form id="crearInquilinoForm">
-                    {% csrf_token %}
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="nombre" class="form-label">Nombre</label>
-                                <input type="text" class="form-control" id="nombre" name="nombre" required>
-                            </div>
+<!-- MODAL HERMOSO PARA CREAR INQUILINO -->
+<div id="crearInquilinoModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 15px; padding: 0; width: 95%; max-width: 800px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); animation: modalAppear 0.3s ease-out; max-height: 90vh; overflow: hidden;">
+        
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%); color: white; padding: 20px; border-radius: 15px 15px 0 0; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+            <h3 style="margin: 0; font-size: 24px; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">🏠 Crear Nuevo Inquilino</h3>
+            <button onclick="cerrarModalInquilino()" style="position: absolute; top: 15px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 28px; cursor: pointer; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.3s;">×</button>
+        </div>
+        
+        <!-- Body -->
+        <div style="padding: 25px; max-height: 70vh; overflow-y: auto; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);">
+            <form id="crearInquilinoForm">
+                {% csrf_token %}
+                
+                <!-- Datos Personales -->
+                <div style="background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%); border: 2px solid #4caf50; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(76,175,80,0.2);">
+                    <h4 style="color: #2e7d32; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">👤 Datos Personales</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #2e7d32; font-weight: 600;">Nombre *</label>
+                            <input type="text" id="nombre" name="nombre" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #4caf50; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="apellido" class="form-label">Apellido</label>
-                                <input type="text" class="form-control" id="apellido" name="apellido" required>
-                            </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #2e7d32; font-weight: 600;">Apellido *</label>
+                            <input type="text" id="apellido" name="apellido" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #4caf50; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
                         </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="fecha_nacimiento" class="form-label">Fecha de Nacimiento</label>
-                                <input type="date" class="form-control" id="fecha_nacimiento" name="fecha_nacimiento" required>
-                            </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #2e7d32; font-weight: 600;">Fecha de Nacimiento *</label>
+                            <input type="date" id="fecha_nacimiento" name="fecha_nacimiento" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #4caf50; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="email" class="form-label">Email</label>
-                                <input type="email" class="form-control" id="email" name="email" required>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="celular" class="form-label">Celular</label>
-                                <input type="text" class="form-control" id="celular" name="celular" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="tipo_doc" class="form-label">Tipo de Documento</label>
-                                <select class="form-control" id="tipo_doc" name="tipo_doc" required>
-                                    <option value="DNI">DNI</option>
-                                    <option value="PASAPORTE">Pasaporte</option>
-                                    <option value="OTRO">Otro</option>
-                                </select>
-                            </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #2e7d32; font-weight: 600;">Email *</label>
+                            <input type="email" id="email" name="email" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #4caf50; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="dni" class="form-label">Número de Documento</label>
-                                <input type="text" class="form-control" id="dni" name="dni" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="tipo_ins" class="form-label">Tipo de Inscripción</label>
-                                <select class="form-control" id="tipo_ins" name="tipo_ins" required>
-                                    <option value="MONOTRIBUTO">Monotributo</option>
-                                    <option value="RESPONSABLE_INSCRIPTO">Responsable Inscripto</option>
-                                    <option value="CONSUMIDOR_FINAL">Consumidor Final</option>
-                                </select>
-                            </div>
+                </div>
+
+                <!-- Contacto -->
+                <div style="background: linear-gradient(135deg, #e3f2fd 0%, #f0f8ff 100%); border: 2px solid #2196f3; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(33,150,243,0.2);">
+                    <h4 style="color: #1565c0; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">📱 Contacto</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #1565c0; font-weight: 600;">Celular *</label>
+                            <input type="text" id="celular" name="celular" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #2196f3; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="cuit" class="form-label">CUIT</label>
-                                <input type="text" class="form-control" id="cuit" name="cuit">
-                            </div>
+                </div>
+
+                <!-- Documentación -->
+                <div style="background: linear-gradient(135deg, #fff3e0 0%, #fff8e1 100%); border: 2px solid #ff9800; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(255,152,0,0.2);">
+                    <h4 style="color: #ef6c00; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">📄 Documentación</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ef6c00; font-weight: 600;">Tipo de Documento *</label>
+                            <select id="tipo_doc" name="tipo_doc" required
+                                    style="width: 100%; padding: 10px; border: 2px solid #ff9800; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500; background: white;">
+                                <option value="DNI">DNI</option>
+                                <option value="PASAPORTE">Pasaporte</option>
+                                <option value="OTRO">Otro</option>
+                            </select>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="localidad" class="form-label">Localidad</label>
-                                <input type="text" class="form-control" id="localidad" name="localidad" required>
-                            </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ef6c00; font-weight: 600;">Número de Documento *</label>
+                            <input type="text" id="dni" name="dni" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #ff9800; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ef6c00; font-weight: 600;">Tipo de Inscripción *</label>
+                            <select id="tipo_ins" name="tipo_ins" required
+                                    style="width: 100%; padding: 10px; border: 2px solid #ff9800; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500; background: white;">
+                                <option value="MONOTRIBUTO">Monotributo</option>
+                                <option value="RESPONSABLE_INSCRIPTO">Responsable Inscripto</option>
+                                <option value="CONSUMIDOR_FINAL">Consumidor Final</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ef6c00; font-weight: 600;">CUIT</label>
+                            <input type="text" id="cuit" name="cuit"
+                                   style="width: 100%; padding: 10px; border: 2px solid #ff9800; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="provincia" class="form-label">Provincia</label>
-                                <input type="text" class="form-control" id="provincia" name="provincia" required>
-                            </div>
+                </div>
+
+                <!-- Dirección -->
+                <div style="background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 100%); border: 2px solid #e91e63; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(233,30,99,0.2);">
+                    <h4 style="color: #ad1457; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">🏡 Dirección</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ad1457; font-weight: 600;">Domicilio *</label>
+                            <input type="text" id="domicilio" name="domicilio" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #e91e63; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="domicilio" class="form-label">Domicilio</label>
-                                <input type="text" class="form-control" id="domicilio" name="domicilio" required>
-                            </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ad1457; font-weight: 600;">Localidad *</label>
+                            <input type="text" id="localidad" name="localidad" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #e91e63; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ad1457; font-weight: 600;">Provincia *</label>
+                            <input type="text" id="provincia" name="provincia" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #e91e63; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ad1457; font-weight: 600;">Código Postal *</label>
+                            <input type="text" id="codigo_postal" name="codigo_postal" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #e91e63; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="codigo_postal" class="form-label">Código Postal</label>
-                                <input type="text" class="form-control" id="codigo_postal" name="codigo_postal" required>
-                            </div>
+                </div>
+
+                <!-- Observaciones -->
+                <div style="background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); border: 2px solid #9c27b0; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(156,39,176,0.2);">
+                    <h4 style="color: #6a1b9a; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">📝 Información Adicional</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #6a1b9a; font-weight: 600;">Observaciones</label>
+                            <textarea id="observaciones" name="observaciones" rows="3"
+                                      style="width: 100%; padding: 10px; border: 2px solid #9c27b0; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500; resize: vertical;"></textarea>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #6a1b9a; font-weight: 600;">Garantía</label>
+                            <textarea id="garantia" name="garantia" rows="3"
+                                      style="width: 100%; padding: 10px; border: 2px solid #9c27b0; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500; resize: vertical;"></textarea>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="observaciones" class="form-label">Observaciones</label>
-                        <textarea class="form-control" id="observaciones" name="observaciones" rows="3"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label for="garantia" class="form-label">Garantía</label>
-                        <textarea class="form-control" id="garantia" name="garantia" rows="3"></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="guardarInquilino()">Guardar</button>
-            </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Footer -->
+        <div style="padding: 20px; border-top: 1px solid #e0e0e0; text-align: right; border-radius: 0 0 15px 15px; background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%); box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
+            <button onclick="cerrarModalInquilino()" 
+                    style="padding: 12px 25px; background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white; border: none; border-radius: 8px; margin-right: 15px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(108,117,125,0.3);">❌ Cancelar</button>
+            <button onclick="guardarInquilino()" 
+                    style="padding: 12px 30px; background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(76,175,80,0.3);">✅ GUARDAR INQUILINO</button>
         </div>
     </div>
 </div>
