@@ -1759,9 +1759,32 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
         console.log('✅ Fila seleccionada - aplicado clase "selected"');
     }
 
-    // TERCERO: Obtener fechas de los inputs del formulario
-    const fechaInicio = document.getElementById('fecha_inicio') ? document.getElementById('fecha_inicio').value : '';
-    const fechaFin = document.getElementById('fecha_fin') ? document.getElementById('fecha_fin').value : '';
+    // TERCERO: Obtener fechas de los inputs del formulario de búsqueda
+    const posiblesIdsInicio = ['id_fecha_inicio', 'fecha_inicio'];
+    const posiblesIdsFin = ['id_fecha_fin', 'fecha_fin'];
+    
+    let fechaInicio = '';
+    let fechaFin = '';
+    
+    // Buscar fecha inicio
+    for (let id of posiblesIdsInicio) {
+        const input = document.getElementById(id);
+        if (input && input.value) {
+            fechaInicio = input.value;
+            console.log(`📅 Fecha inicio encontrada en ${id}:`, fechaInicio);
+            break;
+        }
+    }
+    
+    // Buscar fecha fin
+    for (let id of posiblesIdsFin) {
+        const input = document.getElementById(id);
+        if (input && input.value) {
+            fechaFin = input.value;
+            console.log(`📅 Fecha fin encontrada en ${id}:`, fechaFin);
+            break;
+        }
+    }
 
     // CUARTO: Guardar los datos de la propiedad seleccionada CON ORDEN CORRECTO
     propiedadSeleccionada = {
@@ -2133,21 +2156,50 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
             return element;
         }
         
-        // Obtener fechas de los inputs del formulario
-        const fechaInicioInput = getElementSafely('fecha_inicio');
-        const fechaFinInput = getElementSafely('fecha_fin');
+        // Obtener fechas de los inputs del formulario de búsqueda
+        // Probamos varios IDs posibles para los campos de fecha
+        const posiblesIdsInicio = ['id_fecha_inicio', 'fecha_inicio'];
+        const posiblesIdsFin = ['id_fecha_fin', 'fecha_fin'];
+        
+        let fechaInicioInput = null;
+        let fechaFinInput = null;
+        
+        // Buscar el input de fecha inicio
+        for (let id of posiblesIdsInicio) {
+            fechaInicioInput = getElementSafely(id);
+            if (fechaInicioInput) {
+                console.log(`✅ Encontrado campo fecha inicio con ID: ${id}`);
+                break;
+            }
+        }
+        
+        // Buscar el input de fecha fin
+        for (let id of posiblesIdsFin) {
+            fechaFinInput = getElementSafely(id);
+            if (fechaFinInput) {
+                console.log(`✅ Encontrado campo fecha fin con ID: ${id}`);
+                break;
+            }
+        }
         
         let fechaInicio = '';
         let fechaFin = '';
         
         if (fechaInicioInput && fechaInicioInput.value) {
             fechaInicio = fechaInicioInput.value;
-        }
-        if (fechaFinInput && fechaFinInput.value) {
-            fechaFin = fechaFinInput.value;
+            console.log('📅 Fecha inicio obtenida:', fechaInicio);
+        } else {
+            console.warn('⚠️ No se pudo obtener fecha de inicio del formulario');
         }
         
-        console.log('Fechas obtenidas:', { fechaInicio, fechaFin });
+        if (fechaFinInput && fechaFinInput.value) {
+            fechaFin = fechaFinInput.value;
+            console.log('📅 Fecha fin obtenida:', fechaFin);
+        } else {
+            console.warn('⚠️ No se pudo obtener fecha de fin del formulario');
+        }
+        
+        console.log('📋 Resumen fechas obtenidas:', { fechaInicio, fechaFin });
         
         // Usar datos de la propiedad y calcular precio por día si es necesario
         const precioTotal = parseFloat(propiedadSeleccionada.precio) || 0;
