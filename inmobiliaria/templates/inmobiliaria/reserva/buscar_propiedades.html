@@ -2649,11 +2649,101 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-// Variables globales
-let propiedadSeleccionada = null;
+(function() {
+    // Variables globales
+    window.propiedadSeleccionada = null;
 
-// Asignar funciones al objeto window
-window.confirmarReserva = function() {
+    // Función para mostrar modal
+    function mostrarModal(modalId) {
+        const modalElement = document.getElementById(modalId);
+        if (!modalElement) {
+            console.error('Modal no encontrado:', modalId);
+            return;
+        }
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    }
+
+    // Función para confirmar reserva
+    window.confirmarReserva = function() {
+        console.log('Iniciando reserva');
+        
+        if (!window.propiedadSeleccionada) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Atención',
+                text: 'Por favor, seleccione una propiedad primero'
+            });
+            return;
+        }
+
+        // Actualizar campos del modal
+        document.getElementById('propiedadDireccion').textContent = window.propiedadSeleccionada.direccion;
+        document.getElementById('fechaInicio').textContent = formatearFecha(window.propiedadSeleccionada.fechaInicio);
+        document.getElementById('fechaFin').textContent = formatearFecha(window.propiedadSeleccionada.fechaFin);
+        document.getElementById('totalDias').textContent = window.propiedadSeleccionada.totalDias + ' días';
+        document.getElementById('precio_total_display').textContent = window.propiedadSeleccionada.precio;
+        
+        // Actualizar campos ocultos
+        document.getElementById('modalPropiedadId').value = window.propiedadSeleccionada.id;
+        document.getElementById('modalFechaInicio').value = formatearFecha(window.propiedadSeleccionada.fechaInicio);
+        document.getElementById('modalFechaFin').value = formatearFecha(window.propiedadSeleccionada.fechaFin);
+        document.getElementById('modalPrecioTotal').value = window.propiedadSeleccionada.precio;
+
+        // Limpiar campos de vendedor e inquilino
+        document.getElementById('vendedor_id').value = '';
+        document.getElementById('vendedor_info').style.display = 'none';
+        document.getElementById('inquilino').value = '';
+        document.getElementById('modalVendedorId').value = '';
+        document.getElementById('modalInquilinoId').value = '';
+
+        // Mostrar el modal
+        mostrarModal('modalConfirmarReserva');
+    };
+
+    // Función para operación directa
+    window.realizarOperacion = function() {
+        console.log('Iniciando operación directa');
+        window.confirmarReserva();
+    };
+
+    // Función para ver precios
+    window.verPrecios = function() {
+        console.log('Mostrando precios');
+        if (!window.propiedadSeleccionada) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Atención',
+                text: 'Por favor, seleccione una propiedad primero'
+            });
+            return;
+        }
+        // Aquí va la lógica para mostrar los precios
+    };
+})();
+
+// Función para seleccionar propiedad
+function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
+    console.log('Seleccionando propiedad:', { id, direccion });
+    
+    // Guardar los datos de la propiedad seleccionada
+    window.propiedadSeleccionada = {
+        id: id,
+        direccion: direccion,
+        propietario: propietario,
+        disponibilidad: disponibilidad,
+        precio: precio,
+        fechaInicio: fechaInicio,
+        fechaFin: fechaFin,
+        totalDias: total_dias,
+        estadoReserva: estadoReserva,
+        reservaId: reserva_id || '',
+        ambientes: ambientes || 'No especificado',
+        descripcion: descripcion || 'No disponible',
+        caracteristicas: caracteristicas || 'No disponible'
+    };
+
+    console.log('Propiedad seleccionada:', window.propiedadSeleccionada);
     console.log('Iniciando reserva');
     
     if (!propiedadSeleccionada) {
