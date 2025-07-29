@@ -2392,6 +2392,17 @@ window.cerrarModalInquilino = function() {
     document.getElementById('crearInquilinoForm').reset();
 };
 
+// Función para actualizar el ID del inquilino seleccionado
+function actualizarInquilinoId() {
+    const inquilinoSelect = document.getElementById('inquilino');
+    const modalInquilinoId = document.getElementById('modalInquilinoId');
+    
+    if (inquilinoSelect && modalInquilinoId) {
+        modalInquilinoId.value = inquilinoSelect.value;
+        console.log('🏠 Inquilino seleccionado ID:', inquilinoSelect.value);
+    }
+}
+
 // Mejorar el manejo del precio
 document.getElementById('editar_precio_btn').addEventListener('click', function() {
     const precioDisplay = document.getElementById('precio_total_display');
@@ -2774,6 +2785,8 @@ function guardarInquilino() {
     const form = document.getElementById('crearInquilinoForm');
     const formData = new FormData(form);
 
+    console.log('💾 Guardando inquilino...');
+
     fetch('{% url "inmobiliaria:crear_inquilino_ajax" %}', {
         method: 'POST',
         body: formData,
@@ -2783,42 +2796,81 @@ function guardarInquilino() {
     })
     .then(response => response.json())
     .then(data => {
+        console.log('📝 Respuesta crear inquilino:', data);
+        
         if (data.success) {
-            // Agregar el nuevo inquilino al select
-            const inquilinoSelect = document.getElementById('inquilino');
-            const option = new Option(`${data.inquilino.nombre} ${data.inquilino.apellido} (DNI: ${data.inquilino.dni})`, data.inquilino.id);
-            inquilinoSelect.add(option);
-            inquilinoSelect.value = data.inquilino.id;
+            // Recargar la lista completa de inquilinos
+            recargarListaInquilinos();
+            
+            // Seleccionar el nuevo inquilino
+            setTimeout(() => {
+                const inquilinoSelect = document.getElementById('inquilino');
+                inquilinoSelect.value = data.inquilino.id;
+                document.getElementById("modalInquilinoId").value = data.inquilino.id;
+                console.log('✅ Inquilino seleccionado:', data.inquilino.id);
+            }, 100);
 
-            // Actualizar el campo oculto
-            document.getElementById("modalInquilinoId").value = data.inquilino.id;
-
-            // Cerrar el modal y mostrar mensaje de éxito
-            $('#crearInquilinoModal').modal('hide');
-            Swal.fire({
-                icon: 'success',
-                title: 'Éxito',
-                text: 'Inquilino creado correctamente'
-            });
-
-            // Limpiar el formulario
-            form.reset();
+            // Cerrar el modal sin Bootstrap
+            cerrarModalInquilino();
+            
+            // Mostrar mensaje de éxito simple
+            alert('✅ Inquilino creado correctamente: ' + data.inquilino.nombre + ' ' + data.inquilino.apellido);
+            
+            console.log('✅ Inquilino creado exitosamente');
         } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: data.error || 'Error al crear el inquilino'
-            });
+            console.error('❌ Error al crear inquilino:', data.error);
+            alert('❌ Error al crear el inquilino: ' + (data.error || 'Error desconocido'));
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Error al procesar la solicitud'
-        });
+        console.error('💥 Error en la solicitud:', error);
+        alert('💥 Error al procesar la solicitud. Intenta de nuevo.');
     });
+}
+
+// Función para recargar la lista de inquilinos
+function recargarListaInquilinos() {
+    console.log('🔄 Recargando lista de inquilinos...');
+    
+    fetch('{% url "inmobiliaria:buscar_propiedades" %}')
+        .then(response => response.text())
+        .then(html => {
+            // Crear un DOM temporal para extraer las opciones del select
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            
+            // Buscar el select de inquilinos en la respuesta
+            const nuevoSelect = tempDiv.querySelector('#inquilino');
+            if (nuevoSelect) {
+                const selectActual = document.getElementById('inquilino');
+                
+                // Limpiar el select actual
+                selectActual.innerHTML = '';
+                
+                // Copiar todas las opciones del nuevo select
+                Array.from(nuevoSelect.options).forEach(option => {
+                    const nuevaOpcion = new Option(option.text, option.value);
+                    // Mantener los estilos
+                    if (option.value === '') {
+                        nuevaOpcion.style.color = '#999';
+                        nuevaOpcion.style.background = 'white';
+                    } else {
+                        nuevaOpcion.style.color = '#000';
+                        nuevaOpcion.style.fontWeight = '700';
+                        nuevaOpcion.style.background = 'white';
+                        nuevaOpcion.style.padding = '5px';
+                    }
+                    selectActual.add(nuevaOpcion);
+                });
+                
+                console.log('✅ Lista de inquilinos actualizada');
+            } else {
+                console.error('❌ No se pudo encontrar el select de inquilinos en la respuesta');
+            }
+        })
+        .catch(error => {
+            console.error('💥 Error al recargar lista de inquilinos:', error);
+        });
 }
 
 // Agregar botón para abrir el modal de crear inquilino
