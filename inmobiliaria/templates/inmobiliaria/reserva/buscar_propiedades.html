@@ -791,17 +791,7 @@
                                 <button type="button" class="btn btn-sm btn-success" onclick="window.autenticarYFinalizar()">Operacion</button>
                             {% else %}
                                 <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-primary" onclick="mostrarModalReserva(
-                                        propiedadSeleccionada.id,
-                                        propiedadSeleccionada.direccion,
-                                        propiedadSeleccionada.propietario,
-                                        propiedadSeleccionada.disponibilidad,
-                                        propiedadSeleccionada.precio,
-                                        propiedadSeleccionada.fechaInicio,
-                                        propiedadSeleccionada.fechaFin,
-                                        propiedadSeleccionada.totalDias,
-                                        false
-                                    )">
+                                    <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
                                         <i class="fas fa-calendar-plus me-2"></i> Reservar
                                     </button>
                                     <button type="button" class="btn btn-success" onclick="window.realizarOperacion()">
@@ -2660,11 +2650,51 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <script>
 (function() {
-    // Variables globales
-    window.propiedadSeleccionada = null;
+    // Variables y funciones globales
+window.propiedadSeleccionada = null;
 
-    // Funciones auxiliares globales
-    window.formatearFecha = function(fecha) {
+// Función para verificar propiedad seleccionada
+window.verificarPropiedadSeleccionada = function() {
+    if (!window.propiedadSeleccionada) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Por favor, seleccione una propiedad primero'
+        });
+        return false;
+    }
+    return true;
+};
+
+// Función para confirmar reserva
+window.confirmarReserva = function() {
+    console.log('Iniciando confirmarReserva');
+    if (!window.verificarPropiedadSeleccionada()) return;
+    
+    try {
+        window.mostrarModalReserva(
+            window.propiedadSeleccionada.id,
+            window.propiedadSeleccionada.direccion,
+            window.propiedadSeleccionada.propietario,
+            window.propiedadSeleccionada.disponibilidad,
+            window.propiedadSeleccionada.precio,
+            window.propiedadSeleccionada.fechaInicio,
+            window.propiedadSeleccionada.fechaFin,
+            window.propiedadSeleccionada.totalDias,
+            false
+        );
+    } catch (error) {
+        console.error('Error al mostrar modal:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al mostrar el formulario: ' + error.message
+        });
+    }
+};
+
+// Funciones auxiliares globales
+window.formatearFecha = function(fecha) {
         if (!fecha) return '';
         // Si la fecha ya está en formato dd/mm/yyyy, la devolvemos tal cual
         if (fecha.includes('/')) return fecha;
