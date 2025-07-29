@@ -1736,7 +1736,12 @@ function autenticarYReservar() {
 // Variables globales
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
-function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad, precio, id, fechaInicio, fechaFin, estadoReserva, reserva_id, ambientes, descripcion, caracteristicas) {
+function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias) {
+    console.log('=== SELECCIONANDO PROPIEDAD ===');
+    console.log('Parámetros recibidos:', {
+        id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias
+    });
+    
     // PRIMERO: Remover selección anterior de todas las filas
     document.querySelectorAll('.table tbody tr').forEach(row => {
         row.classList.remove('selected');
@@ -1754,22 +1759,26 @@ function seleccionarPropiedad(total_dias, direccion, propietario, disponibilidad
         console.log('✅ Fila seleccionada - aplicado clase "selected"');
     }
 
-    // TERCERO: Guardar los datos de la propiedad seleccionada
+    // TERCERO: Obtener fechas de los inputs del formulario
+    const fechaInicio = document.getElementById('fecha_inicio') ? document.getElementById('fecha_inicio').value : '';
+    const fechaFin = document.getElementById('fecha_fin') ? document.getElementById('fecha_fin').value : '';
+
+    // CUARTO: Guardar los datos de la propiedad seleccionada CON ORDEN CORRECTO
     propiedadSeleccionada = {
-        id: id,
-        direccion: direccion,
-        propietario: propietario,
-        disponibilidad: disponibilidad,
-        precio: precio,
-        fechaInicio: fechaInicio,
-        fechaFin: fechaFin,
-        totalDias: total_dias,
-        estadoReserva: estadoReserva,
-        reservaId: reserva_id || '',
-        ambientes: ambientes || 'No especificado',
-        descripcion: descripcion || 'No disponible',
-        caracteristicas: caracteristicas || 'No disponible'
+        id: id,                                    // Ficha de la propiedad
+        direccion: direccion,                      // Dirección completa
+        propietario: propietario,                  // Nombre del propietario
+        disponibilidad: disponibilidad,           // Estado de disponibilidad
+        precio: parseFloat(precio) || 0,          // Precio total
+        precioPorDia: parseFloat(precio_por_dia) || 0,  // Precio por día
+        totalDias: parseInt(total_dias) || 1,     // Total de días
+        fechaInicio: fechaInicio,                 // Fecha inicio del formulario
+        fechaFin: fechaFin,                       // Fecha fin del formulario
+        estadoReserva: estadoReserva,             // Estado de la reserva
+        reservaId: reserva_id || null             // ID de reserva si existe
     };
+    
+    console.log('✅ Propiedad seleccionada guardada:', propiedadSeleccionada);
 
     // Actualizar la tarjeta de propiedad con todos los datos
     document.getElementById("cardPropiedad").innerText = id;
@@ -2122,10 +2131,10 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
         const fechaInicio = fechaInicioInput ? fechaInicioInput.value : propiedadSeleccionada.fechaInicio || '';
         const fechaFin = fechaFinInput ? fechaFinInput.value : propiedadSeleccionada.fechaFin || '';
         
-        // Calcular precio por día
+        // Usar datos ya calculados de la propiedad
         const precioTotal = parseFloat(propiedadSeleccionada.precio) || 0;
         const totalDias = parseInt(propiedadSeleccionada.totalDias) || 1;
-        const precioPorDia = totalDias > 0 ? precioTotal / totalDias : precioTotal;
+        const precioPorDia = parseFloat(propiedadSeleccionada.precioPorDia) || 0;
         
         console.log('Datos calculados:', {
             fechaInicio,
@@ -2193,14 +2202,27 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
             confirmButton.textContent = esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
         }
         
-        // Mostrar el modal
+        // Mostrar el modal SIN BLOQUEO
         const modalElement = document.getElementById('modalConfirmarReserva');
         if (modalElement) {
+            // Quitar cualquier atributo que pueda bloquear el modal
+            modalElement.removeAttribute('data-bs-backdrop');
+            modalElement.removeAttribute('data-bs-keyboard');
+            
             const modal = new bootstrap.Modal(modalElement, {
-                backdrop: true,
-                keyboard: true
+                backdrop: 'static',  // Permite cerrar con el botón X
+                keyboard: true,      // Permite cerrar con ESC
+                focus: true
             });
             modal.show();
+            
+            // Asegurar que el modal es interactivo
+            setTimeout(() => {
+                modalElement.style.pointerEvents = 'auto';
+                modalElement.querySelector('.modal-content').style.pointerEvents = 'auto';
+                console.log('✅ Modal desbloqueado y completamente interactivo');
+            }, 100);
+            
             console.log('✅ Modal mostrado exitosamente con información completa');
         } else {
             console.error('❌ No se encontró el elemento modal');
