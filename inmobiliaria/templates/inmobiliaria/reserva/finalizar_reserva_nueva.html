@@ -1004,6 +1004,30 @@ function procesarMovimiento() {
     // Preparar datos del formulario
     const formData = new FormData(formulario);
     
+    // ✅ LIMPIAR VALORES MONETARIOS ANTES DE ENVIAR
+    const limpiarValorMonetario = (valor) => {
+        if (!valor) return '0';
+        // Remover puntos de miles y convertir a string limpio
+        return valor.toString().replace(/\./g, '');
+    };
+    
+    // Limpiar y reemplazar valores monetarios
+    const montoEfectivo = limpiarValorMonetario(document.querySelector('input[name="monto_efectivo"]').value);
+    const montoCheque = limpiarValorMonetario(document.querySelector('input[name="monto_cheque"]').value);
+    const montoTarjeta = limpiarValorMonetario(document.querySelector('input[name="monto_tarjeta"]').value);
+    const montoGalicia = limpiarValorMonetario(document.querySelector('input[name="monto_deposito_galicia"]').value);
+    const montoMP = limpiarValorMonetario(document.querySelector('input[name="monto_deposito_mp"]').value);
+    
+    // Reemplazar valores en el FormData
+    formData.set('monto_efectivo', montoEfectivo);
+    formData.set('monto_cheque', montoCheque);
+    formData.set('monto_tarjeta', montoTarjeta);
+    formData.set('monto_deposito_galicia', montoGalicia);
+    formData.set('monto_deposito_mp', montoMP);
+    
+    console.log('=== VALORES LIMPIADOS ANTES DE ENVIAR ===');
+    console.log(`Efectivo: ${montoEfectivo}, Galicia: ${montoGalicia}, MP: ${montoMP}`);
+    
     // Agregar conceptos al FormData
     conceptosAgregados.forEach((concepto, index) => {
         formData.append(`concepto_${index}_id`, concepto.conceptoId);

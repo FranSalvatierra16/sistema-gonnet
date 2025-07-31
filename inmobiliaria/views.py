@@ -1760,16 +1760,29 @@ def procesar_movimiento_reserva(request):
             # Obtener datos del formulario
             numero_recibo = request.POST.get('numero_recibo', '').strip()
             
-            # Formas de pago
-            monto_efectivo = Decimal(request.POST.get('monto_efectivo', '0'))
-            monto_cheque = Decimal(request.POST.get('monto_cheque', '0'))
-            monto_tarjeta = Decimal(request.POST.get('monto_tarjeta', '0'))
+            # ✅ Función para limpiar valores monetarios
+            def limpiar_valor_monetario(valor_str):
+                if not valor_str:
+                    return '0'
+                # Remover puntos de miles y espacios
+                return str(valor_str).replace('.', '').replace(' ', '').replace(',', '.')
+            
+            # Formas de pago (limpiar antes de convertir a Decimal)
+            monto_efectivo = Decimal(limpiar_valor_monetario(request.POST.get('monto_efectivo', '0')))
+            monto_cheque = Decimal(limpiar_valor_monetario(request.POST.get('monto_cheque', '0')))
+            monto_tarjeta = Decimal(limpiar_valor_monetario(request.POST.get('monto_tarjeta', '0')))
             
             # Transferencias separadas
-            monto_deposito_galicia = Decimal(request.POST.get('monto_deposito_galicia', '0'))
-            monto_deposito_mp = Decimal(request.POST.get('monto_deposito_mp', '0'))
+            monto_deposito_galicia = Decimal(limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0')))
+            monto_deposito_mp = Decimal(limpiar_valor_monetario(request.POST.get('monto_deposito_mp', '0')))
             monto_deposito = monto_deposito_galicia + monto_deposito_mp
             
+            print(f"=== VALORES RAW RECIBIDOS ===")
+            print(f"monto_efectivo RAW: '{request.POST.get('monto_efectivo', '0')}'")
+            print(f"monto_deposito_galicia RAW: '{request.POST.get('monto_deposito_galicia', '0')}'")
+            print(f"monto_deposito_mp RAW: '{request.POST.get('monto_deposito_mp', '0')}'")
+            
+            print(f"=== VALORES CONVERTIDOS A DECIMAL ===")
             print(f"Montos recibidos - Efectivo: {monto_efectivo}, Cheque: {monto_cheque}, Tarjeta: {monto_tarjeta}")
             print(f"Transferencias - Galicia: {monto_deposito_galicia}, MP: {monto_deposito_mp}, Total: {monto_deposito}")
             
