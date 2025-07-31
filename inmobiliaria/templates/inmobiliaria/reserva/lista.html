@@ -14,20 +14,23 @@
             <th>Fecha de Inicio</th>
             <th>Fecha de Fin</th>
             <th>Precio Total</th>
-   
-           
+            <th>Estado</th>
+            <th>Acciones</th>
         </tr>
     </thead>
     <tbody>
         {% for reserva in reservas %}
-            {% if reserva.estado == 'en_espera' %}
+            {% if reserva.estado == 'en_espera' or reserva.estado == 'confirmada_no_pagada' %}
             <tr class="text-dark">
                 <td>{{ reserva.propiedad }}</td>
                 <td>{{ reserva.fecha_inicio }}</td>
                 <td>{{ reserva.fecha_fin }}</td>
                 <td>{{ reserva.precio_total|format_price }}</td>
-              
-          
+                <td>
+                    <span class="badge {% if reserva.estado == 'en_espera' %}bg-warning{% else %}bg-info{% endif %}">
+                        {% if reserva.estado == 'en_espera' %}En Espera{% else %}Confirmada No Pagada{% endif %}
+                    </span>
+                </td>
                 <td>
                     <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn btn-sm btn-info">Ver</a>
                     <a href="{% url 'inmobiliaria:reserva_editar' reserva.id %}" class="btn btn-sm btn-warning">Editar</a>
