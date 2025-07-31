@@ -264,6 +264,14 @@ function mostrarModalConcepto() {
     // Limpiar el formulario
     document.getElementById('formConcepto').reset();
     
+    // Resetear el modal para modo "agregar"
+    conceptoEditando = null;
+    document.getElementById('modalConceptoLabel').textContent = '➕ Agregar Concepto';
+    
+    const btnAgregar = document.querySelector('#modalConcepto .btn-success');
+    btnAgregar.textContent = '✅ Agregar';
+    btnAgregar.setAttribute('onclick', 'agregarConcepto()');
+    
     // Mostrar el modal
     var modalConcepto = new bootstrap.Modal(document.getElementById('modalConcepto'));
     modalConcepto.show();
@@ -317,6 +325,54 @@ function agregarConcepto() {
     console.log('Concepto agregado:', nuevoConcepto);
 }
 
+// Función para actualizar concepto existente
+function actualizarConcepto() {
+    const conceptoSelect = document.getElementById('conceptoSelect');
+    const observaciones = document.getElementById('observaciones').value;
+    const importe = parseFloat(document.getElementById('importe').value);
+    
+    // Validaciones
+    if (!conceptoSelect.value) {
+        alert('Por favor selecciona un concepto');
+        return;
+    }
+    
+    if (!importe || importe <= 0) {
+        alert('Por favor ingresa un importe válido');
+        return;
+    }
+    
+    if (!conceptoEditando) {
+        alert('Error: No se encontró el concepto a editar');
+        return;
+    }
+    
+    // Obtener datos del concepto seleccionado
+    const conceptoId = conceptoSelect.value;
+    const conceptoNombre = conceptoSelect.options[conceptoSelect.selectedIndex].dataset.nombre;
+    
+    // Actualizar el concepto existente
+    conceptoEditando.conceptoId = conceptoId;
+    conceptoEditando.nombre = conceptoNombre;
+    conceptoEditando.observaciones = observaciones || 'Sin observaciones';
+    conceptoEditando.importe = importe;
+    
+    // Actualizar tabla
+    actualizarTablaConceptos();
+    
+    // Actualizar totales
+    calcularTotales();
+    
+    // Cerrar modal
+    var modalConcepto = bootstrap.Modal.getInstance(document.getElementById('modalConcepto'));
+    modalConcepto.hide();
+    
+    // Limpiar variable de edición
+    conceptoEditando = null;
+    
+    console.log('Concepto actualizado:', conceptoEditando);
+}
+
 // Función para actualizar la tabla de conceptos
 function actualizarTablaConceptos() {
     const tbody = document.getElementById('conceptosBody');
@@ -354,20 +410,32 @@ function eliminarConcepto(conceptoId) {
     }
 }
 
+// Variable para almacenar el concepto que se está editando
+let conceptoEditando = null;
+
 // Función para editar concepto
 function editarConcepto(conceptoId) {
     const concepto = conceptosAgregados.find(c => c.id === conceptoId);
     if (concepto) {
+        // Guardar el concepto que se está editando
+        conceptoEditando = concepto;
+        
         // Rellenar el modal con los datos del concepto
         document.getElementById('conceptoSelect').value = concepto.conceptoId;
         document.getElementById('observaciones').value = concepto.observaciones === 'Sin observaciones' ? '' : concepto.observaciones;
         document.getElementById('importe').value = concepto.importe;
         
-        // Eliminar el concepto actual
-        eliminarConcepto(conceptoId);
+        // Cambiar el título del modal
+        document.getElementById('modalConceptoLabel').textContent = '✏️ Editar Concepto';
+        
+        // Cambiar el texto del botón
+        const btnAgregar = document.querySelector('#modalConcepto .btn-success');
+        btnAgregar.textContent = '✅ Actualizar';
+        btnAgregar.setAttribute('onclick', 'actualizarConcepto()');
         
         // Mostrar el modal
-        mostrarModalConcepto();
+        var modalConcepto = new bootstrap.Modal(document.getElementById('modalConcepto'));
+        modalConcepto.show();
     }
 }
 
@@ -399,6 +467,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     seniaInput.addEventListener('input', calcularSaldoOcupar);
     importeLocacionInput.addEventListener('input', calcularSaldoOcupar);
+    
+    // Event listener para resetear el modal cuando se cierre
+    const modalConcepto = document.getElementById('modalConcepto');
+    modalConcepto.addEventListener('hidden.bs.modal', function () {
+        // Resetear el estado del modal
+        conceptoEditando = null;
+        document.getElementById('modalConceptoLabel').textContent = '➕ Agregar Concepto';
+        
+        const btnAgregar = document.querySelector('#modalConcepto .btn-success');
+        btnAgregar.textContent = '✅ Agregar';
+        btnAgregar.setAttribute('onclick', 'agregarConcepto()');
+        
+        // Limpiar formulario
+        document.getElementById('formConcepto').reset();
+    });
 });
 </script>
 
