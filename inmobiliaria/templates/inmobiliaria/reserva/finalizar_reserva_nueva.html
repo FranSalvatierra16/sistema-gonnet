@@ -16,8 +16,9 @@
                     <h4>🧾 RECIBO DE ALQUILER POR DÍA</h4>
                 </div>
                 <div class="card-body">
-                    <form method="post">
-                        {% csrf_token %}
+                                            <form method="post" id="formProcesarMovimiento">
+                            {% csrf_token %}
+                            <input type="hidden" name="reserva_id" value="{{ reserva.id }}">
                         
                         <!-- Fila 1: Datos principales (solo lectura) -->
                         <div class="row mb-3">
@@ -351,7 +352,7 @@
                                 <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-secondary me-2">
                                     ❌ Cancelar
                                 </a>
-                                <button type="submit" class="btn btn-success btn-lg" id="btnProcesarMovimiento" disabled>
+                                <button type="button" class="btn btn-success btn-lg" id="btnProcesarMovimiento" disabled onclick="procesarMovimiento()">
                                     ✅ Procesar Movimiento
                                 </button>
                             </div>
@@ -436,15 +437,16 @@
             <div class="modal-body">
                 <form id="formNuevoConcepto">
                     <div class="mb-3">
-                        <label for="nombreNuevoConcepto" class="form-label"><strong>Nombre del Concepto:</strong></label>
-                        <input type="text" class="form-control" id="nombreNuevoConcepto" required 
-                               placeholder="Ej: Limpieza, Mantenimiento, etc.">
+                        <label for="idNuevoConcepto" class="form-label"><strong>ID del Concepto:</strong></label>
+                        <input type="number" class="form-control" id="idNuevoConcepto" min="1" 
+                               placeholder="Ej: 1, 2, 3, etc.">
+                        <small class="text-muted">💡 Deja vacío para asignar ID automáticamente</small>
                     </div>
                     
                     <div class="mb-3">
-                        <label for="descripcionNuevoConcepto" class="form-label">Descripción:</label>
-                        <textarea class="form-control" id="descripcionNuevoConcepto" rows="3" 
-                                  placeholder="Descripción opcional del concepto..."></textarea>
+                        <label for="nombreNuevoConcepto" class="form-label"><strong>Nombre del Concepto:</strong></label>
+                        <input type="text" class="form-control" id="nombreNuevoConcepto" required 
+                               placeholder="Ej: Limpieza, Mantenimiento, etc.">
                     </div>
                     
                     <div class="alert alert-info">
@@ -750,8 +752,8 @@ function mostrarModalNuevoConcepto() {
 
 // Función para crear nuevo concepto
 function crearNuevoConcepto() {
+    const id = document.getElementById('idNuevoConcepto').value.trim();
     const nombre = document.getElementById('nombreNuevoConcepto').value.trim();
-    const descripcion = document.getElementById('descripcionNuevoConcepto').value.trim();
     
     if (!nombre) {
         alert('Por favor ingresa el nombre del concepto');
@@ -760,8 +762,10 @@ function crearNuevoConcepto() {
     
     // Enviar al servidor
     const formData = new FormData();
+    if (id) {
+        formData.append('id', id);
+    }
     formData.append('nombre', nombre);
-    formData.append('descripcion', descripcion);
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
     fetch('{% url "inmobiliaria:crear_concepto_ajax" %}', {
@@ -941,6 +945,71 @@ function calcularTotalPagos() {
     }
     
     console.log(`Pagos - Efectivo: ${montoEfectivo}, Cheque: ${montoCheque}, Tarjeta: ${montoTarjeta}, Depósitos: ${totalDepositos}, Total: ${totalPagos}`);
+}
+
+// Función para procesar el movimiento completo
+function procesarMovimiento() {
+    const boton = document.getElementById('btnProcesarMovimiento');
+    const formulario = document.getElementById('formProcesarMovimiento');
+    
+    // Verificar que hay conceptos agregados
+    if (conceptosAgregados.length === 0) {
+        alert('⚠️ Debes agregar al menos un concepto antes de procesar el movimiento');
+        return;
+    }
+    
+    // Verificar que los pagos coincidan
+    const totalRecibo = parseFloat(document.getElementById('totalRecibo').value) || 0;
+    const totalPagos = parseFloat(document.getElementById('totalPagos').textContent) || 0;
+    
+    if (Math.abs(totalRecibo - totalPagos) > 0.01) {
+        alert('⚠️ Los pagos deben coincidir exactamente con el total del recibo');
+        return;
+    }
+    
+    // Deshabilitar botón y mostrar loading
+    boton.disabled = true;
+    boton.innerHTML = '⏳ Procesando...';
+    
+    // Preparar datos del formulario
+    const formData = new FormData(formulario);
+    
+    // Agregar conceptos al FormData
+    conceptosAgregados.forEach((concepto, index) => {
+        formData.append(`concepto_${index}_id`, concepto.conceptoId);
+        formData.append(`concepto_${index}_nombre`, concepto.nombre);
+        formData.append(`concepto_${index}_observaciones`, concepto.observaciones);
+        formData.append(`concepto_${index}_importe`, concepto.importe);
+        formData.append(`concepto_${index}_fecha`, concepto.fecha);
+    });
+    
+    formData.append('conceptos_count', conceptosAgregados.length);
+    
+    // Enviar al servidor
+    fetch('{% url "inmobiliaria:procesar_movimiento_reserva" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Movimiento procesado exitosamente');
+            // Redirigir al recibo
+            window.location.href = data.redirect_url;
+        } else {
+            alert('❌ Error: ' + data.error);
+            // Rehabilitar botón
+            boton.disabled = false;
+            boton.innerHTML = '✅ Procesar Movimiento';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error al procesar el movimiento');
+        // Rehabilitar botón
+        boton.disabled = false;
+        boton.innerHTML = '✅ Procesar Movimiento';
+    });
 }
 
 // Función para habilitar/deshabilitar el botón de procesar

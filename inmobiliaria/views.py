@@ -1641,8 +1641,8 @@ def crear_concepto_ajax(request):
     """
     if request.method == 'POST':
         try:
+            id_personalizado = request.POST.get('id', '').strip()
             nombre = request.POST.get('nombre', '').strip()
-            descripcion = request.POST.get('descripcion', '').strip()
             
             if not nombre:
                 return JsonResponse({
@@ -1650,25 +1650,40 @@ def crear_concepto_ajax(request):
                     'error': 'El nombre del concepto es requerido'
                 })
             
-            # Verificar si el concepto ya existe
+            # Verificar si el concepto ya existe por nombre
             if Concepto.objects.filter(nombre__iexact=nombre).exists():
                 return JsonResponse({
                     'success': False,
                     'error': 'Ya existe un concepto con ese nombre'
                 })
             
-            # Crear el nuevo concepto
-            concepto = Concepto.objects.create(
-                nombre=nombre,
-                descripcion=descripcion
-            )
+            # Si se proporciona un ID personalizado
+            if id_personalizado:
+                try:
+                    id_num = int(id_personalizado)
+                    if Concepto.objects.filter(id=id_num).exists():
+                        return JsonResponse({
+                            'success': False,
+                            'error': f'Ya existe un concepto con el ID {id_num}'
+                        })
+                    
+                    # Crear concepto con ID específico
+                    concepto = Concepto(id=id_num, nombre=nombre)
+                    concepto.save()
+                except ValueError:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'El ID debe ser un número válido'
+                    })
+            else:
+                # Crear concepto con ID automático
+                concepto = Concepto.objects.create(nombre=nombre)
             
             return JsonResponse({
                 'success': True,
                 'concepto': {
                     'id': concepto.id,
-                    'nombre': concepto.nombre,
-                    'descripcion': concepto.descripcion
+                    'nombre': concepto.nombre
                 }
             })
             
@@ -1677,6 +1692,88 @@ def crear_concepto_ajax(request):
                 'success': False,
                 'error': str(e)
             })
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required
+@transaction.atomic
+def procesar_movimiento_reserva(request):
+    """
+    Vista para procesar el movimiento de caja completo y cambiar estado de reserva
+    """
+    if request.method == 'POST':
+        try:
+            reserva_id = request.POST.get('reserva_id')
+            if not reserva_id:
+                return JsonResponse({'success': False, 'error': 'ID de reserva requerido'})
+            
+            # Obtener la reserva
+            reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
+            
+            # Obtener la caja actual
+            caja_actual = Caja.objects.filter(
+                sucursal=request.user.sucursal,
+                estado='abierta'
+            ).first()
+            
+            if not caja_actual:
+                return JsonResponse({'success': False, 'error': 'No hay una caja abierta'})
+            
+            # Obtener datos del formulario
+            numero_recibo = request.POST.get('numero_recibo', '').strip()
+            
+            # Formas de pago
+            monto_efectivo = Decimal(request.POST.get('monto_efectivo', '0'))
+            monto_cheque = Decimal(request.POST.get('monto_cheque', '0'))
+            monto_tarjeta = Decimal(request.POST.get('monto_tarjeta', '0'))
+            monto_deposito = Decimal(request.POST.get('monto_deposito', '0'))
+            
+            # Datos adicionales
+            banco = request.POST.get('banco', '').strip()
+            nro_cheque = request.POST.get('nro_cheque', '').strip()
+            numero_tarjeta = request.POST.get('numero_tarjeta', '').strip()
+            destino_transferencia = request.POST.get('destino_transferencia', '').strip()
+            observaciones_generales = request.POST.get('observaciones_generales', '').strip()
+            
+            # Calcular próximo número de movimiento
+            ultimo_movimiento = MovimientoCaja.objects.filter(caja=caja_actual).order_by('-numero').first()
+            proximo_numero = (ultimo_movimiento.numero + 1) if ultimo_movimiento else 1
+            
+            # Crear el movimiento de caja
+            movimiento = MovimientoCaja.objects.create(
+                caja=caja_actual,
+                numero=proximo_numero,
+                tipo=TipoMovimientoCajaEnum.INGRESO,
+                concepto=f"Reserva {reserva.id} - {reserva.propiedad.direccion}",
+                propiedad=reserva.propiedad,
+                fecha_desde=reserva.fecha_inicio,
+                fecha_hasta=reserva.fecha_fin,
+                monto_efectivo=monto_efectivo,
+                monto_cheque=monto_cheque,
+                monto_tarjeta=monto_tarjeta,
+                monto_deposito=monto_deposito,
+                observaciones=observaciones_generales,
+                numero_recibo=numero_recibo,
+                vendedor=request.user
+            )
+            
+            # Cambiar estado de la reserva
+            reserva.estado = 'pagada'
+            reserva.save()
+            
+            # Cambiar estado de la propiedad (opcional - depende de tu lógica de negocio)
+            # reserva.propiedad.estado = 'reservada'
+            # reserva.propiedad.save()
+            
+            return JsonResponse({
+                'success': True,
+                'movimiento_id': movimiento.id,
+                'numero_movimiento': movimiento.numero,
+                'redirect_url': reverse('inmobiliaria:ver_recibo', args=[movimiento.id])
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
     
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
