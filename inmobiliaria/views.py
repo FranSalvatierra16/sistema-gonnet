@@ -1635,6 +1635,52 @@ def buscar_clientes(request):
     return JsonResponse({'results': results})
 
 @login_required
+def crear_concepto_ajax(request):
+    """
+    Vista AJAX para crear nuevos conceptos desde el modal
+    """
+    if request.method == 'POST':
+        try:
+            nombre = request.POST.get('nombre', '').strip()
+            descripcion = request.POST.get('descripcion', '').strip()
+            
+            if not nombre:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'El nombre del concepto es requerido'
+                })
+            
+            # Verificar si el concepto ya existe
+            if Concepto.objects.filter(nombre__iexact=nombre).exists():
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Ya existe un concepto con ese nombre'
+                })
+            
+            # Crear el nuevo concepto
+            concepto = Concepto.objects.create(
+                nombre=nombre,
+                descripcion=descripcion
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'concepto': {
+                    'id': concepto.id,
+                    'nombre': concepto.nombre,
+                    'descripcion': concepto.descripcion
+                }
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required
 def crear_inquilino_ajax(request):
     if request.method == 'POST':
         try:

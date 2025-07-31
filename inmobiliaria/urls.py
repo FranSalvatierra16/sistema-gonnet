@@ -52,6 +52,7 @@ urlpatterns = [
     path('propietario/nuevo/ajax/', views.propietario_nuevo_ajax, name='propietario_nuevo_ajax'),
     path('buscar-clientes/', views.buscar_clientes, name='buscar_clientes'),
     path('crear-inquilino-ajax/', views.crear_inquilino_ajax, name='crear_inquilino_ajax'),
+    path('crear-concepto-ajax/', views.crear_concepto_ajax, name='crear_concepto_ajax'),
     path('disponibilidad-masiva/', views.agregar_disponibilidad_masiva, name='agregar_disponibilidad_masiva'),
     path('propiedad/<int:propiedad_id>/historial-disponibilidad/', views.ver_historial_disponibilidad, name='historial_disponibilidad'),
 

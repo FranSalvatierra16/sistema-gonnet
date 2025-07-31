@@ -187,14 +187,153 @@
                             </div>
                         </div>
                         
+                        <hr>
+                        
+                        <!-- Sección de Formas de Pago -->
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <h5>💳 Formas de Pago</h5>
+                                <div class="alert alert-warning">
+                                    <strong>⚠️ Importante:</strong> El total de las formas de pago debe ser igual al total del recibo para poder procesar el movimiento.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Formas de Pago en formato similar a la imagen -->
+                        <div class="row mb-3" style="background-color: #fff3cd; padding: 15px; border-radius: 5px; border: 2px solid #ffc107;">
+                            <!-- Fila 1: Banco y Cheques -->
+                            <div class="col-md-6">
+                                <div class="row mb-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label"><strong>BANCO:</strong></label>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control form-control-sm" name="banco" 
+                                               placeholder="Nombre del banco">
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label"><strong>NRO CHEQUE:</strong></label>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control form-control-sm" name="nro_cheque" 
+                                               placeholder="Número de cheque">
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label"><strong>TARJETA:</strong></label>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control form-control-sm" name="tarjeta" 
+                                               placeholder="Tipo de tarjeta">
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label"><strong>CUPÓN:</strong></label>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control form-control-sm" name="cupon" 
+                                               placeholder="Número de cupón">
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label"><strong>NÚMERO DEPÓSITO:</strong></label>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control form-control-sm" name="numero_deposito" 
+                                               placeholder="Número de depósito">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Fila 2: Importes -->
+                            <div class="col-md-6">
+                                <div class="row mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label"><strong>IMPORTE CHEQUE:</strong></label>
+                                        <input type="number" class="form-control form-control-sm importe-pago" 
+                                               name="importe_cheque" value="0.00" step="0.01" 
+                                               oninput="calcularTotalPagos()">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label"><strong>IMPORTE EFECTIVO:</strong></label>
+                                        <input type="number" class="form-control form-control-sm importe-pago" 
+                                               name="importe_efectivo" value="0.00" step="0.01" 
+                                               oninput="calcularTotalPagos()">
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label"><strong>IMPORTE CUPÓN:</strong></label>
+                                        <input type="number" class="form-control form-control-sm importe-pago" 
+                                               name="importe_cupon" value="0.00" step="0.01" 
+                                               oninput="calcularTotalPagos()">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label"><strong>IMPORTE DEPÓSITO:</strong></label>
+                                        <input type="number" class="form-control form-control-sm importe-pago" 
+                                               name="importe_deposito" value="0.00" step="0.01" 
+                                               oninput="calcularTotalPagos()">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Total de Pagos y Validación -->
+                        <div class="row mb-3">
+                            <div class="col-md-8"></div>
+                            <div class="col-md-4">
+                                <div class="alert alert-primary">
+                                    <div class="row mb-2">
+                                        <div class="col-8"><strong>TOTAL DE PAGOS:</strong></div>
+                                        <div class="col-4 text-end">
+                                            <span id="totalPagos" class="fw-bold">0.00</span>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-8"><strong>TOTAL RECIBO:</strong></div>
+                                        <div class="col-4 text-end">
+                                            <span id="totalReciboDisplay" class="fw-bold">0.00</span>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                    <div class="row">
+                                        <div class="col-8"><strong>DIFERENCIA:</strong></div>
+                                        <div class="col-4 text-end">
+                                            <span id="diferenciaPagos" class="fw-bold"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label for="observacionesGenerales" class="form-label"><strong>Observaciones Generales:</strong></label>
+                                    <textarea class="form-control" name="observaciones_generales" id="observacionesGenerales" 
+                                              rows="3" placeholder="Observaciones adicionales sobre la operación..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <!-- Botones de acción -->
                         <div class="row">
                             <div class="col-md-12 text-end">
                                 <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-secondary me-2">
                                     ❌ Cancelar
                                 </a>
-                                <button type="submit" class="btn btn-success btn-lg">
-                                    ✅ Continuar con Formas de Pago
+                                <button type="submit" class="btn btn-success btn-lg" id="btnProcesarMovimiento" disabled>
+                                    ✅ Procesar Movimiento
                                 </button>
                             </div>
                         </div>
@@ -224,12 +363,28 @@
             <div class="modal-body">
                 <form id="formConcepto">
                     <div class="mb-3">
-                        <label for="conceptoSelect" class="form-label"><strong>Seleccionar Concepto:</strong></label>
-                        <select class="form-select" id="conceptoSelect" required>
+                        <label for="buscarConcepto" class="form-label"><strong>Buscar Concepto:</strong></label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="buscarConcepto" 
+                                   placeholder="Buscar por ID o nombre..." oninput="buscarConceptos()">
+                            <button type="button" class="btn btn-outline-secondary" onclick="limpiarBusquedaConceptos()" title="Limpiar búsqueda">
+                                🔄
+                            </button>
+                            <button type="button" class="btn btn-success" onclick="mostrarModalNuevoConcepto()">
+                                ➕ Nuevo
+                            </button>
+                        </div>
+                        <small class="text-muted">Escribe para buscar conceptos existentes</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="conceptoSelect" class="form-label"><strong>Conceptos Disponibles:</strong></label>
+                        <select class="form-select" id="conceptoSelect" size="6" required>
                             <option value="">-- Selecciona un concepto --</option>
                             {% for concepto in conceptos_caja %}
-                                <option value="{{ concepto.id }}" data-nombre="{{ concepto.nombre }}">
-                                    {{ concepto.nombre }}
+                                <option value="{{ concepto.id }}" data-nombre="{{ concepto.nombre }}" 
+                                        data-busqueda="{{ concepto.id }} {{ concepto.nombre|lower }}">
+                                    ID: {{ concepto.id }} - {{ concepto.nombre }}
                                 </option>
                             {% endfor %}
                         </select>
@@ -254,10 +409,49 @@
     </div>
 </div>
 
+<!-- Modal para Crear Nuevo Concepto -->
+<div class="modal fade" id="modalNuevoConcepto" tabindex="-1" aria-labelledby="modalNuevoConceptoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalNuevoConceptoLabel">➕ Crear Nuevo Concepto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formNuevoConcepto">
+                    <div class="mb-3">
+                        <label for="nombreNuevoConcepto" class="form-label"><strong>Nombre del Concepto:</strong></label>
+                        <input type="text" class="form-control" id="nombreNuevoConcepto" required 
+                               placeholder="Ej: Limpieza, Mantenimiento, etc.">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="descripcionNuevoConcepto" class="form-label">Descripción:</label>
+                        <textarea class="form-control" id="descripcionNuevoConcepto" rows="3" 
+                                  placeholder="Descripción opcional del concepto..."></textarea>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Nota:</strong> Este concepto se guardará en el sistema y estará disponible para futuras operaciones.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="crearNuevoConcepto()">✅ Crear Concepto</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Variable para almacenar los conceptos agregados
 let conceptosAgregados = [];
 let contadorConceptos = 0;
+
+// Array para almacenar todos los conceptos originales (para búsqueda)
+let conceptosOriginales = [];
 
 // Función para mostrar el modal de concepto
 function mostrarModalConcepto() {
@@ -373,6 +567,116 @@ function actualizarConcepto() {
     console.log('Concepto actualizado:', conceptoEditando);
 }
 
+// Función para buscar conceptos
+function buscarConceptos() {
+    const busqueda = document.getElementById('buscarConcepto').value.toLowerCase();
+    const select = document.getElementById('conceptoSelect');
+    const opciones = select.querySelectorAll('option');
+    
+    opciones.forEach(opcion => {
+        if (opcion.value === '') {
+            // Mantener la opción por defecto
+            opcion.style.display = '';
+            return;
+        }
+        
+        const textoBusqueda = opcion.getAttribute('data-busqueda') || '';
+        
+        if (textoBusqueda.includes(busqueda)) {
+            opcion.style.display = '';
+        } else {
+            opcion.style.display = 'none';
+        }
+    });
+    
+    // Si hay búsqueda, seleccionar el primer resultado visible
+    if (busqueda) {
+        const primerVisible = Array.from(opciones).find(op => 
+            op.value !== '' && op.style.display !== 'none'
+        );
+        if (primerVisible) {
+            select.value = primerVisible.value;
+        }
+    }
+}
+
+// Función para limpiar búsqueda de conceptos
+function limpiarBusquedaConceptos() {
+    document.getElementById('buscarConcepto').value = '';
+    const select = document.getElementById('conceptoSelect');
+    const opciones = select.querySelectorAll('option');
+    
+    // Mostrar todas las opciones
+    opciones.forEach(opcion => {
+        opcion.style.display = '';
+    });
+    
+    // Resetear selección
+    select.value = '';
+}
+
+// Función para mostrar modal de nuevo concepto
+function mostrarModalNuevoConcepto() {
+    // Limpiar formulario
+    document.getElementById('formNuevoConcepto').reset();
+    
+    // Mostrar modal
+    var modalNuevo = new bootstrap.Modal(document.getElementById('modalNuevoConcepto'));
+    modalNuevo.show();
+}
+
+// Función para crear nuevo concepto
+function crearNuevoConcepto() {
+    const nombre = document.getElementById('nombreNuevoConcepto').value.trim();
+    const descripcion = document.getElementById('descripcionNuevoConcepto').value.trim();
+    
+    if (!nombre) {
+        alert('Por favor ingresa el nombre del concepto');
+        return;
+    }
+    
+    // Enviar al servidor
+    const formData = new FormData();
+    formData.append('nombre', nombre);
+    formData.append('descripcion', descripcion);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch('{% url "inmobiliaria:crear_concepto_ajax" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Agregar el nuevo concepto al select
+            const select = document.getElementById('conceptoSelect');
+            const nuevaOpcion = document.createElement('option');
+            nuevaOpcion.value = data.concepto.id;
+            nuevaOpcion.setAttribute('data-nombre', data.concepto.nombre);
+            nuevaOpcion.setAttribute('data-busqueda', `${data.concepto.id} ${data.concepto.nombre.toLowerCase()}`);
+            nuevaOpcion.textContent = `ID: ${data.concepto.id} - ${data.concepto.nombre}`;
+            
+            select.appendChild(nuevaOpcion);
+            
+            // Seleccionar el nuevo concepto
+            select.value = data.concepto.id;
+            
+            // Cerrar modal
+            var modalNuevo = bootstrap.Modal.getInstance(document.getElementById('modalNuevoConcepto'));
+            modalNuevo.hide();
+            
+            alert('✅ Concepto creado exitosamente');
+            
+        } else {
+            alert('❌ Error al crear concepto: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error de conexión al crear el concepto');
+    });
+}
+
 // Función para actualizar la tabla de conceptos
 function actualizarTablaConceptos() {
     const tbody = document.getElementById('conceptosBody');
@@ -447,6 +751,64 @@ function calcularTotales() {
     
     document.getElementById('totalConceptos').textContent = totalConceptos.toFixed(2);
     document.getElementById('totalRecibo').value = totalRecibo.toFixed(2);
+    document.getElementById('totalReciboDisplay').textContent = totalRecibo.toFixed(2);
+    
+    // Recalcular diferencia de pagos
+    calcularTotalPagos();
+}
+
+// Función para calcular total de formas de pago
+function calcularTotalPagos() {
+    const importeEfectivo = parseFloat(document.querySelector('input[name="importe_efectivo"]').value) || 0;
+    const importeCheque = parseFloat(document.querySelector('input[name="importe_cheque"]').value) || 0;
+    const importeCupon = parseFloat(document.querySelector('input[name="importe_cupon"]').value) || 0;
+    const importeDeposito = parseFloat(document.querySelector('input[name="importe_deposito"]').value) || 0;
+    
+    const totalPagos = importeEfectivo + importeCheque + importeCupon + importeDeposito;
+    const totalRecibo = parseFloat(document.getElementById('totalRecibo').value) || 0;
+    const diferencia = totalPagos - totalRecibo;
+    
+    // Actualizar displays
+    document.getElementById('totalPagos').textContent = totalPagos.toFixed(2);
+    document.getElementById('diferenciaPagos').textContent = diferencia.toFixed(2);
+    
+    // Cambiar color según la diferencia
+    const diferenciaElement = document.getElementById('diferenciaPagos');
+    if (diferencia === 0) {
+        diferenciaElement.style.color = 'green';
+        diferenciaElement.textContent = '0.00 ✅';
+        habilitarBotonProcesar(true);
+    } else if (diferencia > 0) {
+        diferenciaElement.style.color = 'orange';
+        diferenciaElement.textContent = `+${diferencia.toFixed(2)} ⚠️`;
+        habilitarBotonProcesar(false);
+    } else {
+        diferenciaElement.style.color = 'red';
+        diferenciaElement.textContent = `${diferencia.toFixed(2)} ❌`;
+        habilitarBotonProcesar(false);
+    }
+}
+
+// Función para habilitar/deshabilitar el botón de procesar
+function habilitarBotonProcesar(habilitar) {
+    const boton = document.getElementById('btnProcesarMovimiento');
+    const totalRecibo = parseFloat(document.getElementById('totalRecibo').value) || 0;
+    
+    if (habilitar && totalRecibo > 0) {
+        boton.disabled = false;
+        boton.classList.remove('btn-secondary');
+        boton.classList.add('btn-success');
+        boton.innerHTML = '✅ Procesar Movimiento';
+    } else {
+        boton.disabled = true;
+        boton.classList.remove('btn-success');
+        boton.classList.add('btn-secondary');
+        if (totalRecibo === 0) {
+            boton.innerHTML = '⚠️ Agrega conceptos primero';
+        } else {
+            boton.innerHTML = '⚠️ Los pagos deben coincidir con el total';
+        }
+    }
 }
 
 // Event listener para honorarios
@@ -467,6 +829,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     seniaInput.addEventListener('input', calcularSaldoOcupar);
     importeLocacionInput.addEventListener('input', calcularSaldoOcupar);
+    
+    // Event listeners para las formas de pago
+    const importesPago = document.querySelectorAll('.importe-pago');
+    importesPago.forEach(input => {
+        input.addEventListener('input', calcularTotalPagos);
+    });
+    
+    // Inicializar cálculos
+    calcularTotalPagos();
     
     // Event listener para resetear el modal cuando se cierre
     const modalConcepto = document.getElementById('modalConcepto');
@@ -510,6 +881,35 @@ document.addEventListener('DOMContentLoaded', function() {
 .btn-success:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 12px rgba(40, 167, 69, 0.4);
+}
+
+/* Estilos para la sección de formas de pago */
+.importe-pago {
+    font-weight: bold;
+    text-align: right;
+}
+
+.importe-pago:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 5px rgba(255, 193, 7, 0.5);
+}
+
+/* Estilos para el botón deshabilitado */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Animación para la diferencia de pagos */
+#diferenciaPagos {
+    font-size: 1.1em;
+    transition: all 0.3s ease;
+}
+
+/* Resaltar campos cuando hay datos */
+input:not([readonly]):not(:placeholder-shown) {
+    background-color: #f8f9fa;
+    border-left: 3px solid #28a745;
 }
 </style>
 {% endblock %} 
