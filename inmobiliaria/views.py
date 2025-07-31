@@ -553,12 +553,12 @@ def operaciones(request):
             for mov in movimientos
         )
         
-        # Calcular saldo pendiente correctamente:
-        # Si hay seña, el saldo pendiente es: precio_total - seña - lo que ya se pagó
-        # Si no hay seña, el saldo pendiente es: precio_total - lo que ya se pagó
+        # ✅ CORRECCIÓN: Calcular saldo pendiente correctamente:
+        # El saldo pendiente es: precio_total - seña (la seña es lo que se pagó)
+        # Los movimientos de caja representan el pago de la seña, no pagos adicionales
         senia_actual = getattr(reserva, 'senia', 0) or 0
         reserva.total_pagado = total_pagado
-        reserva.saldo_pendiente = reserva.precio_total - senia_actual - total_pagado
+        reserva.saldo_pendiente = reserva.precio_total - senia_actual
         
         # Obtener el movimiento más reciente para el enlace del recibo
         reserva.movimiento_reciente = movimientos.first() if movimientos.exists() else None
@@ -1954,7 +1954,8 @@ def ver_recibo_movimiento(request, movimiento_id):
             )
             
             senia_actual = getattr(reserva, 'senia', 0) or 0
-            saldo_pendiente = reserva.precio_total - senia_actual - total_pagado_reserva
+            # ✅ CORRECCIÓN: El saldo pendiente es precio total - seña pagada (no descontar pagos adicionales)
+            saldo_pendiente = reserva.precio_total - senia_actual
         
         context = {
             'movimiento': movimiento,
