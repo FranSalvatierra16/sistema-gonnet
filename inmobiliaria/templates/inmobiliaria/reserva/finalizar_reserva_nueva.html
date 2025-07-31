@@ -184,6 +184,13 @@
                                                    id="totalRecibo" readonly style="background-color: #d1ecf1; font-size: 16px;">
                                         </div>
                                     </div>
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <small class="text-muted">
+                                                ℹ️ <em>El Total del Recibo es igual a la Seña ingresada arriba</em>
+                                            </small>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -886,7 +893,10 @@ function editarConcepto(conceptoId) {
 function calcularTotales() {
     const totalConceptos = conceptosAgregados.reduce((sum, concepto) => sum + concepto.importe, 0);
     const honorarios = parseFloat(document.getElementById('honorarios').value) || 0;
-    const totalRecibo = totalConceptos + honorarios;
+    
+    // El total del recibo debe ser igual a la seña (no conceptos + honorarios)
+    const senia = parseFloat(document.getElementById('senia').value) || 0;
+    const totalRecibo = senia; // ✅ CORRECCIÓN: Total del recibo = seña
     
     document.getElementById('totalConceptos').textContent = totalConceptos.toFixed(2);
     document.getElementById('totalRecibo').value = totalRecibo.toFixed(2);
@@ -1071,7 +1081,10 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('saldo_ocupar').value = saldoOcupar.toFixed(2);
     }
     
-    seniaInput.addEventListener('input', calcularSaldoOcupar);
+    seniaInput.addEventListener('input', function() {
+        calcularSaldoOcupar();
+        calcularTotales(); // ✅ Recalcular totales cuando cambie la seña
+    });
     importeLocacionInput.addEventListener('input', calcularSaldoOcupar);
     
     // Event listeners para las formas de pago
@@ -1081,6 +1094,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Inicializar cálculos
+    calcularTotales(); // ✅ Inicializar totales primero
     calcularTotalPagos();
     
     // Event listeners para los botones de seleccionar concepto
