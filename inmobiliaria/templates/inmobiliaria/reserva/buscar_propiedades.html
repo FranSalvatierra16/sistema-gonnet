@@ -2307,14 +2307,22 @@ function confirmarReservaFinal() {
     // Validar campos requeridos
     const vendedorId = document.getElementById('modalVendedorId')?.value;
     const inquilinoId = document.getElementById('modalInquilinoId')?.value;
-    const precioTotal = document.getElementById('precio_total_editable')?.value;
+    const precioTotal = document.getElementById('precio_total_editable')?.value || document.getElementById('modalPrecioTotal')?.value;
+    const propiedadId = document.getElementById('modalPropiedadId')?.value;
+    const fechaInicio = document.getElementById('modalFechaInicio')?.value;
+    const fechaFin = document.getElementById('modalFechaFin')?.value;
+    const esOperacionDirecta = document.getElementById('esOperacionDirecta')?.value === 'true';
     
-    if (!vendedorId) {
+    console.log('📋 Datos de reserva:', {
+        vendedorId, inquilinoId, precioTotal, propiedadId, fechaInicio, fechaFin, esOperacionDirecta
+    });
+    
+    if (!vendedorId || vendedorId === '') {
         alert('Por favor, selecciona un vendedor');
         return;
     }
     
-    if (!inquilinoId) {
+    if (!inquilinoId || inquilinoId === '') {
         alert('Por favor, selecciona un inquilino');
         return;
     }
@@ -2324,24 +2332,60 @@ function confirmarReservaFinal() {
         return;
     }
     
-    // Actualizar campo oculto con el precio editado
-    const hiddenPrecioTotal = document.getElementById('modalPrecioTotal');
-    if (hiddenPrecioTotal) {
-        hiddenPrecioTotal.value = precioTotal;
+    if (!propiedadId) {
+        alert('Error: No se encontró la propiedad seleccionada');
+        return;
     }
     
-    console.log('✅ Validación exitosa, enviando reserva...');
-    
-    // Aquí puedes agregar el código para enviar la reserva al backend
-    // Por ejemplo, enviar un POST con fetch o submitear un formulario
-    
-    alert('¡Reserva confirmada exitosamente!');
-    
-    // Cerrar el modal
-    const modal = bootstrap.Modal.getInstance(document.getElementById('modalConfirmarReserva'));
-    if (modal) {
-        modal.hide();
+    if (!fechaInicio || !fechaFin) {
+        alert('Error: Fechas no válidas');
+        return;
     }
+    
+    console.log('✅ Validación exitosa, enviando reserva al servidor...');
+    
+    // Crear FormData para enviar al backend
+    const formData = new FormData();
+    formData.append('propiedad_id', propiedadId);
+    formData.append('fecha_inicio', fechaInicio);
+    formData.append('fecha_fin', fechaFin);
+    formData.append('precio_total', precioTotal);
+    formData.append('vendedor_id', vendedorId);
+    formData.append('inquilino_id', inquilinoId);
+    formData.append('es_operacion_directa', esOperacionDirecta ? '1' : '0');
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    // Enviar al servidor
+    fetch('{% url "inmobiliaria:confirmar_reserva" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('📨 Respuesta del servidor:', data);
+        
+        if (data.success) {
+            console.log('✅ Reserva creada exitosamente, redirigiendo...');
+            
+            // Cerrar el modal primero
+            window.cerrarModal();
+            
+            // Redirigir a la página de éxito
+            if (data.redirect_url) {
+                window.location.href = data.redirect_url;
+            } else {
+                // Fallback si no hay redirect_url
+                window.location.href = `/reserva_exitosa/${data.reserva_id}/`;
+            }
+        } else {
+            console.error('❌ Error del servidor:', data.error);
+            alert('❌ Error al crear la reserva: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('💥 Error en la solicitud:', error);
+        alert('❌ Error de conexión: ' + error.message);
+    });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -2366,9 +2410,13 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
     document.getElementById('modal_propietario').textContent = propiedadSeleccionada.propietario || '-';
     document.getElementById('modal_total_dias').textContent = propiedadSeleccionada.totalDias || '-';
     
-    // Fechas
-    const fechaInicio = document.getElementById('id_fecha_inicio')?.value || '';
-    const fechaFin = document.getElementById('id_fecha_fin')?.value || '';
+    // Fechas - verificar múltiples posibles IDs
+    const fechaInicio = document.getElementById('id_fecha_inicio')?.value || 
+                       document.getElementById('fecha_inicio')?.value || '';
+    const fechaFin = document.getElementById('id_fecha_fin')?.value || 
+                    document.getElementById('fecha_fin')?.value || '';
+    
+    console.log('📅 Fechas obtenidas:', { fechaInicio, fechaFin });
     
     document.getElementById('modal_fecha_inicio').textContent = fechaInicio || 'No seleccionada';
     document.getElementById('modal_fecha_fin').textContent = fechaFin || 'No seleccionada';
