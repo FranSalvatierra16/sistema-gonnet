@@ -100,8 +100,9 @@
                             
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Seña:</strong></label>
-                                <input type="number" class="form-control form-control-sm" name="senia" 
+                                <input type="number" class="form-control form-control-sm" name="senia" id="senia"
                                        value="{{ reserva.senia }}" step="0.01" placeholder="0.00">
+                                <small class="text-muted">💡 Los conceptos deben sumar esta cantidad</small>
                             </div>
                             
                             <div class="col-md-2">
@@ -186,9 +187,7 @@
                                     </div>
                                     <div class="row">
                                         <div class="col-12">
-                                            <small class="text-muted">
-                                                ℹ️ <em>El Total del Recibo es igual a la Seña ingresada arriba</em>
-                                            </small>
+                                            <div id="validacionSeña" style="display: none; margin-top: 10px; padding: 8px; border-radius: 5px; background-color: #f8f9fa;"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -893,14 +892,27 @@ function editarConcepto(conceptoId) {
 function calcularTotales() {
     const totalConceptos = conceptosAgregados.reduce((sum, concepto) => sum + concepto.importe, 0);
     const honorarios = parseFloat(document.getElementById('honorarios').value) || 0;
-    
-    // El total del recibo debe ser igual a la seña (no conceptos + honorarios)
+    const totalRecibo = totalConceptos + honorarios; // ✅ Total = conceptos + honorarios
     const senia = parseFloat(document.getElementById('senia').value) || 0;
-    const totalRecibo = senia; // ✅ CORRECCIÓN: Total del recibo = seña
     
     document.getElementById('totalConceptos').textContent = totalConceptos.toFixed(2);
     document.getElementById('totalRecibo').value = totalRecibo.toFixed(2);
     document.getElementById('totalReciboDisplay').textContent = totalRecibo.toFixed(2);
+    
+    // ✅ VALIDACIÓN: Verificar si el total del recibo coincide con la seña
+    const validacionElement = document.getElementById('validacionSeña');
+    const diferenciaSenia = totalRecibo - senia;
+    
+    if (diferenciaSenia === 0) {
+        validacionElement.innerHTML = '<span style="color: green;">✅ El total del recibo coincide con la seña</span>';
+        validacionElement.style.display = 'block';
+    } else if (diferenciaSenia > 0) {
+        validacionElement.innerHTML = `<span style="color: red;">❌ El total del recibo supera la seña en $${diferenciaSenia.toFixed(2)}</span>`;
+        validacionElement.style.display = 'block';
+    } else {
+        validacionElement.innerHTML = `<span style="color: orange;">⚠️ El total del recibo es menor a la seña en $${Math.abs(diferenciaSenia).toFixed(2)}</span>`;
+        validacionElement.style.display = 'block';
+    }
     
     // Recalcular diferencia de pagos
     calcularTotalPagos();
@@ -968,8 +980,16 @@ function procesarMovimiento() {
         return;
     }
     
-    // Verificar que los pagos coincidan
+    // ✅ VALIDACIÓN: Verificar que el total del recibo coincida con la seña
     const totalRecibo = parseFloat(document.getElementById('totalRecibo').value) || 0;
+    const senia = parseFloat(document.getElementById('senia').value) || 0;
+    
+    if (Math.abs(totalRecibo - senia) > 0.01) {
+        alert(`⚠️ El total del recibo ($${totalRecibo.toFixed(2)}) debe coincidir exactamente con la seña ($${senia.toFixed(2)})`);
+        return;
+    }
+    
+    // Verificar que los pagos coincidan
     const totalPagos = parseFloat(document.getElementById('totalPagos').textContent) || 0;
     
     if (Math.abs(totalRecibo - totalPagos) > 0.01) {
@@ -1047,8 +1067,12 @@ function procesarMovimiento() {
 function habilitarBotonProcesar(habilitar) {
     const boton = document.getElementById('btnProcesarMovimiento');
     const totalRecibo = parseFloat(document.getElementById('totalRecibo').value) || 0;
+    const senia = parseFloat(document.getElementById('senia').value) || 0;
     
-    if (habilitar && totalRecibo > 0) {
+    // ✅ Validar también que el total del recibo coincida con la seña
+    const seniaCoincide = Math.abs(totalRecibo - senia) <= 0.01;
+    
+    if (habilitar && totalRecibo > 0 && seniaCoincide) {
         boton.disabled = false;
         boton.classList.remove('btn-secondary');
         boton.classList.add('btn-success');
@@ -1057,8 +1081,11 @@ function habilitarBotonProcesar(habilitar) {
         boton.disabled = true;
         boton.classList.remove('btn-success');
         boton.classList.add('btn-secondary');
+        
         if (totalRecibo === 0) {
             boton.innerHTML = '⚠️ Agrega conceptos primero';
+        } else if (!seniaCoincide) {
+            boton.innerHTML = '⚠️ El total del recibo debe coincidir con la seña';
         } else {
             boton.innerHTML = '⚠️ Los pagos deben coincidir con el total';
         }
