@@ -235,21 +235,24 @@
                                 
                                 <div class="row mb-2">
                                     <div class="col-md-4">
-                                        <label class="form-label"><strong>CUPÓN:</strong></label>
+                                        <label class="form-label"><strong>NÚMERO TARJETA:</strong></label>
                                     </div>
                                     <div class="col-md-8">
-                                        <input type="text" class="form-control form-control-sm" name="cupon" 
-                                               placeholder="Número de cupón">
+                                        <input type="text" class="form-control form-control-sm" name="numero_tarjeta" 
+                                               placeholder="Últimos 4 dígitos">
                                     </div>
                                 </div>
                                 
                                 <div class="row mb-2">
                                     <div class="col-md-4">
-                                        <label class="form-label"><strong>NÚMERO DEPÓSITO:</strong></label>
+                                        <label class="form-label"><strong>DESTINO TRANSFERENCIA:</strong></label>
                                     </div>
                                     <div class="col-md-8">
-                                        <input type="text" class="form-control form-control-sm" name="numero_deposito" 
-                                               placeholder="Número de depósito">
+                                        <select class="form-control form-control-sm" name="destino_transferencia">
+                                            <option value="">-- Seleccionar --</option>
+                                            <option value="galicia">Banco Galicia</option>
+                                            <option value="mercado_pago">Mercado Pago</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -258,33 +261,49 @@
                             <div class="col-md-6">
                                 <div class="row mb-2">
                                     <div class="col-md-6">
-                                        <label class="form-label"><strong>IMPORTE CHEQUE:</strong></label>
+                                        <label class="form-label"><strong>IMPORTE EFECTIVO:</strong></label>
                                         <input type="number" class="form-control form-control-sm importe-pago" 
-                                               name="importe_cheque" value="0.00" step="0.01" 
+                                               name="monto_efectivo" value="0.00" step="0.01" 
                                                oninput="calcularTotalPagos()">
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label"><strong>IMPORTE EFECTIVO:</strong></label>
+                                        <label class="form-label"><strong>IMPORTE CHEQUE:</strong></label>
                                         <input type="number" class="form-control form-control-sm importe-pago" 
-                                               name="importe_efectivo" value="0.00" step="0.01" 
+                                               name="monto_cheque" value="0.00" step="0.01" 
                                                oninput="calcularTotalPagos()">
                                     </div>
                                 </div>
                                 
                                 <div class="row mb-2">
                                     <div class="col-md-6">
-                                        <label class="form-label"><strong>IMPORTE CUPÓN:</strong></label>
+                                        <label class="form-label"><strong>IMPORTE TARJETA:</strong></label>
                                         <input type="number" class="form-control form-control-sm importe-pago" 
-                                               name="importe_cupon" value="0.00" step="0.01" 
+                                               name="monto_tarjeta" value="0.00" step="0.01" 
                                                oninput="calcularTotalPagos()">
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label"><strong>IMPORTE DEPÓSITO:</strong></label>
-                                        <input type="number" class="form-control form-control-sm importe-pago" 
-                                               name="importe_deposito" value="0.00" step="0.01" 
-                                               oninput="calcularTotalPagos()">
+                                        <label class="form-label"><strong>TRANSFERENCIAS:</strong></label>
+                                        <div class="transferencias-container">
+                                            <div class="transferencia-item">
+                                                <label class="form-label mb-1"><small><strong>🏦 Galicia:</strong></small></label>
+                                                <input type="number" class="form-control form-control-xs importe-pago" 
+                                                       name="monto_deposito_galicia" value="0.00" step="0.01" 
+                                                       oninput="calcularTotalPagos(); calcularTotalTransferencias();"
+                                                       placeholder="0.00">
+                                            </div>
+                                            <div class="transferencia-item">
+                                                <label class="form-label mb-1"><small><strong>💳 Mercado Pago:</strong></small></label>
+                                                <input type="number" class="form-control form-control-xs importe-pago" 
+                                                       name="monto_deposito_mp" value="0.00" step="0.01" 
+                                                       oninput="calcularTotalPagos(); calcularTotalTransferencias();"
+                                                       placeholder="0.00">
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
+                                
+                                <!-- Campo oculto para el total de depósitos -->
+                                <input type="hidden" name="monto_deposito" id="monto_deposito_total" value="0.00">
                             </div>
                         </div>
                         
@@ -362,32 +381,29 @@
             </div>
             <div class="modal-body">
                 <form id="formConcepto">
+                    <!-- Input para ID del concepto -->
                     <div class="mb-3">
-                        <label for="buscarConcepto" class="form-label"><strong>Buscar Concepto:</strong></label>
+                        <label for="conceptoId" class="form-label"><strong>ID del Concepto:</strong></label>
                         <div class="input-group">
-                            <input type="text" class="form-control" id="buscarConcepto" 
-                                   placeholder="Buscar por ID o nombre..." oninput="buscarConceptos()">
-                            <button type="button" class="btn btn-outline-secondary" onclick="limpiarBusquedaConceptos()" title="Limpiar búsqueda">
-                                🔄
+                            <input type="number" class="form-control" id="conceptoId" 
+                                   placeholder="Ingresa el ID del concepto" 
+                                   oninput="buscarConceptoPorId(this.value)" min="1">
+                            <button type="button" class="btn btn-outline-primary" onclick="mostrarModalBuscarConcepto()">
+                                🔍 Buscar
                             </button>
                             <button type="button" class="btn btn-success" onclick="mostrarModalNuevoConcepto()">
                                 ➕ Nuevo
                             </button>
                         </div>
-                        <small class="text-muted">Escribe para buscar conceptos existentes</small>
+                        <small class="text-muted">Al escribir un ID válido, el concepto se cargará automáticamente</small>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="conceptoSelect" class="form-label"><strong>Conceptos Disponibles:</strong></label>
-                        <select class="form-select" id="conceptoSelect" size="6" required>
-                            <option value="">-- Selecciona un concepto --</option>
-                            {% for concepto in conceptos_caja %}
-                                <option value="{{ concepto.id }}" data-nombre="{{ concepto.nombre }}" 
-                                        data-busqueda="{{ concepto.id }} {{ concepto.nombre|lower }}">
-                                    ID: {{ concepto.id }} - {{ concepto.nombre }}
-                                </option>
-                            {% endfor %}
-                        </select>
+                    <!-- Información del concepto seleccionado -->
+                    <div class="mb-3" id="infoConceptoSeleccionado" style="display: none;">
+                        <div class="alert alert-info">
+                            <strong>📋 Concepto seleccionado:</strong><br>
+                            <span id="nombreConceptoSeleccionado"></span>
+                        </div>
                     </div>
                     
                     <div class="mb-3">
@@ -445,6 +461,68 @@
     </div>
 </div>
 
+<!-- Modal para buscar conceptos -->
+<div class="modal fade" id="modalBuscarConcepto" tabindex="-1" aria-labelledby="modalBuscarConceptoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="modalBuscarConceptoLabel">🔍 Buscar Concepto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="buscarConceptoTexto" class="form-label"><strong>Buscar por ID o Nombre:</strong></label>
+                    <input type="text" class="form-control" id="buscarConceptoTexto" 
+                           placeholder="Escribe ID o nombre del concepto..." 
+                           oninput="filtrarConceptos(this.value)">
+                    <small class="text-muted">Puedes buscar por ID (número) o por parte del nombre</small>
+                </div>
+                
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-hover table-striped">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th width="10%">ID</th>
+                                <th width="40%">Nombre</th>
+                                <th width="35%">Descripción</th>
+                                <th width="15%">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaConceptosBusqueda">
+                            {% for concepto in conceptos_caja %}
+                            <tr data-concepto-id="{{ concepto.id }}" data-concepto-nombre="{{ concepto.nombre|lower }}">
+                                <td><strong>{{ concepto.id }}</strong></td>
+                                <td>{{ concepto.nombre }}</td>
+                                <td><small>{{ concepto.descripcion|default:"Sin descripción" }}</small></td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-primary btn-seleccionar-concepto" 
+                                            data-concepto-id="{{ concepto.id }}" 
+                                            data-concepto-nombre="{{ concepto.nombre }}">
+                                        ✅ Seleccionar
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mt-3">
+                    <small class="text-muted">
+                        💡 <strong>Tip:</strong> Haz clic en "Seleccionar" para elegir el concepto y cerrar este modal.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cerrar</button>
+                <button type="button" class="btn btn-success" onclick="mostrarModalNuevoConcepto(); cerrarModalBuscar();">
+                    ➕ Crear Nuevo Concepto
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Variable para almacenar los conceptos agregados
 let conceptosAgregados = [];
@@ -473,13 +551,12 @@ function mostrarModalConcepto() {
 
 // Función para agregar concepto a la tabla
 function agregarConcepto() {
-    const conceptoSelect = document.getElementById('conceptoSelect');
     const observaciones = document.getElementById('observaciones').value;
     const importe = parseFloat(document.getElementById('importe').value);
     
     // Validaciones
-    if (!conceptoSelect.value) {
-        alert('Por favor selecciona un concepto');
+    if (!conceptoSeleccionadoActual) {
+        alert('Por favor selecciona un concepto escribiendo su ID o usando el botón Buscar');
         return;
     }
     
@@ -488,16 +565,13 @@ function agregarConcepto() {
         return;
     }
     
-    // Obtener datos del concepto seleccionado
-    const conceptoId = conceptoSelect.value;
-    const conceptoNombre = conceptoSelect.options[conceptoSelect.selectedIndex].dataset.nombre;
     const fechaActual = '{{ fecha_actual }}';
     
     // Crear objeto concepto
     const nuevoConcepto = {
         id: ++contadorConceptos,
-        conceptoId: conceptoId,
-        nombre: conceptoNombre,
+        conceptoId: conceptoSeleccionadoActual.id,
+        nombre: conceptoSeleccionadoActual.nombre,
         observaciones: observaciones || 'Sin observaciones',
         importe: importe,
         fecha: fechaActual
@@ -567,52 +641,101 @@ function actualizarConcepto() {
     console.log('Concepto actualizado:', conceptoEditando);
 }
 
-// Función para buscar conceptos
-function buscarConceptos() {
-    const busqueda = document.getElementById('buscarConcepto').value.toLowerCase();
-    const select = document.getElementById('conceptoSelect');
-    const opciones = select.querySelectorAll('option');
+// Variables para conceptos
+let conceptoSeleccionadoActual = null;
+
+// Función para buscar concepto por ID automáticamente
+function buscarConceptoPorId(conceptoId) {
+    const infoDiv = document.getElementById('infoConceptoSeleccionado');
+    const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
     
-    opciones.forEach(opcion => {
-        if (opcion.value === '') {
-            // Mantener la opción por defecto
-            opcion.style.display = '';
-            return;
-        }
-        
-        const textoBusqueda = opcion.getAttribute('data-busqueda') || '';
-        
-        if (textoBusqueda.includes(busqueda)) {
-            opcion.style.display = '';
-        } else {
-            opcion.style.display = 'none';
+    if (!conceptoId || conceptoId.length === 0) {
+        infoDiv.style.display = 'none';
+        conceptoSeleccionadoActual = null;
+        return;
+    }
+    
+    // Buscar en la lista de conceptos
+    const conceptos = document.querySelectorAll('#tablaConceptosBusqueda tr[data-concepto-id]');
+    let conceptoEncontrado = null;
+    
+    conceptos.forEach(fila => {
+        if (fila.dataset.conceptoId === conceptoId) {
+            conceptoEncontrado = {
+                id: fila.dataset.conceptoId,
+                nombre: fila.dataset.conceptoNombre
+            };
         }
     });
     
-    // Si hay búsqueda, seleccionar el primer resultado visible
-    if (busqueda) {
-        const primerVisible = Array.from(opciones).find(op => 
-            op.value !== '' && op.style.display !== 'none'
-        );
-        if (primerVisible) {
-            select.value = primerVisible.value;
-        }
+    if (conceptoEncontrado) {
+        // Mostrar información del concepto
+        nombreSpan.textContent = `ID: ${conceptoEncontrado.id} - ${conceptoEncontrado.nombre}`;
+        infoDiv.style.display = 'block';
+        conceptoSeleccionadoActual = conceptoEncontrado;
+        console.log('Concepto encontrado automáticamente:', conceptoEncontrado);
+    } else {
+        infoDiv.style.display = 'none';
+        conceptoSeleccionadoActual = null;
     }
 }
 
-// Función para limpiar búsqueda de conceptos
-function limpiarBusquedaConceptos() {
-    document.getElementById('buscarConcepto').value = '';
-    const select = document.getElementById('conceptoSelect');
-    const opciones = select.querySelectorAll('option');
+// Función para mostrar modal de búsqueda
+function mostrarModalBuscarConcepto() {
+    const modalBuscar = new bootstrap.Modal(document.getElementById('modalBuscarConcepto'));
+    modalBuscar.show();
     
-    // Mostrar todas las opciones
-    opciones.forEach(opcion => {
-        opcion.style.display = '';
+    // Limpiar búsqueda anterior
+    document.getElementById('buscarConceptoTexto').value = '';
+    filtrarConceptos('');
+}
+
+// Función para cerrar modal de búsqueda
+function cerrarModalBuscar() {
+    const modalBuscar = bootstrap.Modal.getInstance(document.getElementById('modalBuscarConcepto'));
+    if (modalBuscar) {
+        modalBuscar.hide();
+    }
+}
+
+// Función para filtrar conceptos en la tabla de búsqueda
+function filtrarConceptos(busqueda) {
+    const filas = document.querySelectorAll('#tablaConceptosBusqueda tr[data-concepto-id]');
+    const termino = busqueda.toLowerCase();
+    
+    filas.forEach(fila => {
+        const id = fila.dataset.conceptoId;
+        const nombre = fila.dataset.conceptoNombre.toLowerCase();
+        
+        if (id.includes(termino) || nombre.includes(termino)) {
+            fila.style.display = '';
+        } else {
+            fila.style.display = 'none';
+        }
     });
+}
+
+// Función para seleccionar concepto desde la tabla
+function seleccionarConcepto(conceptoId, conceptoNombre) {
+    // Actualizar el input de ID
+    document.getElementById('conceptoId').value = conceptoId;
     
-    // Resetear selección
-    select.value = '';
+    // Actualizar la información mostrada
+    const infoDiv = document.getElementById('infoConceptoSeleccionado');
+    const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
+    
+    nombreSpan.textContent = `ID: ${conceptoId} - ${conceptoNombre}`;
+    infoDiv.style.display = 'block';
+    
+    conceptoSeleccionadoActual = {
+        id: conceptoId,
+        nombre: conceptoNombre
+    };
+    
+    // Cerrar modal de búsqueda
+    cerrarModalBuscar();
+    
+    console.log('Concepto seleccionado:', conceptoSeleccionadoActual);
 }
 
 // Función para mostrar modal de nuevo concepto
@@ -725,7 +848,19 @@ function editarConcepto(conceptoId) {
         conceptoEditando = concepto;
         
         // Rellenar el modal con los datos del concepto
-        document.getElementById('conceptoSelect').value = concepto.conceptoId;
+        document.getElementById('conceptoId').value = concepto.conceptoId;
+        
+        // Mostrar información del concepto
+        const infoDiv = document.getElementById('infoConceptoSeleccionado');
+        const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
+        nombreSpan.textContent = `ID: ${concepto.conceptoId} - ${concepto.nombre}`;
+        infoDiv.style.display = 'block';
+        
+        conceptoSeleccionadoActual = {
+            id: concepto.conceptoId,
+            nombre: concepto.nombre
+        };
+        
         document.getElementById('observaciones').value = concepto.observaciones === 'Sin observaciones' ? '' : concepto.observaciones;
         document.getElementById('importe').value = concepto.importe;
         
@@ -757,16 +892,33 @@ function calcularTotales() {
     calcularTotalPagos();
 }
 
+// Función para calcular total de transferencias
+function calcularTotalTransferencias() {
+    const galicia = parseFloat(document.querySelector('input[name="monto_deposito_galicia"]').value) || 0;
+    const mercadoPago = parseFloat(document.querySelector('input[name="monto_deposito_mp"]').value) || 0;
+    const totalTransferencias = galicia + mercadoPago;
+    
+    // Actualizar el campo oculto
+    document.getElementById('monto_deposito_total').value = totalTransferencias.toFixed(2);
+    
+    console.log(`Transferencias - Galicia: ${galicia}, MP: ${mercadoPago}, Total: ${totalTransferencias}`);
+}
+
 // Función para calcular total de formas de pago
 function calcularTotalPagos() {
-    const importeEfectivo = parseFloat(document.querySelector('input[name="importe_efectivo"]').value) || 0;
-    const importeCheque = parseFloat(document.querySelector('input[name="importe_cheque"]').value) || 0;
-    const importeCupon = parseFloat(document.querySelector('input[name="importe_cupon"]').value) || 0;
-    const importeDeposito = parseFloat(document.querySelector('input[name="importe_deposito"]').value) || 0;
+    const montoEfectivo = parseFloat(document.querySelector('input[name="monto_efectivo"]').value) || 0;
+    const montoCheque = parseFloat(document.querySelector('input[name="monto_cheque"]').value) || 0;
+    const montoTarjeta = parseFloat(document.querySelector('input[name="monto_tarjeta"]').value) || 0;
+    const montoDepositoGalicia = parseFloat(document.querySelector('input[name="monto_deposito_galicia"]').value) || 0;
+    const montoDepositoMP = parseFloat(document.querySelector('input[name="monto_deposito_mp"]').value) || 0;
     
-    const totalPagos = importeEfectivo + importeCheque + importeCupon + importeDeposito;
+    const totalDepositos = montoDepositoGalicia + montoDepositoMP;
+    const totalPagos = montoEfectivo + montoCheque + montoTarjeta + totalDepositos;
     const totalRecibo = parseFloat(document.getElementById('totalRecibo').value) || 0;
     const diferencia = totalPagos - totalRecibo;
+    
+    // Actualizar campo oculto de depósitos totales
+    document.getElementById('monto_deposito_total').value = totalDepositos.toFixed(2);
     
     // Actualizar displays
     document.getElementById('totalPagos').textContent = totalPagos.toFixed(2);
@@ -787,6 +939,8 @@ function calcularTotalPagos() {
         diferenciaElement.textContent = `${diferencia.toFixed(2)} ❌`;
         habilitarBotonProcesar(false);
     }
+    
+    console.log(`Pagos - Efectivo: ${montoEfectivo}, Cheque: ${montoCheque}, Tarjeta: ${montoTarjeta}, Depósitos: ${totalDepositos}, Total: ${totalPagos}`);
 }
 
 // Función para habilitar/deshabilitar el botón de procesar
@@ -839,12 +993,25 @@ document.addEventListener('DOMContentLoaded', function() {
     // Inicializar cálculos
     calcularTotalPagos();
     
+    // Event listeners para los botones de seleccionar concepto
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('btn-seleccionar-concepto')) {
+            const conceptoId = e.target.dataset.conceptoId;
+            const conceptoNombre = e.target.dataset.conceptoNombre;
+            seleccionarConcepto(conceptoId, conceptoNombre);
+        }
+    });
+    
     // Event listener para resetear el modal cuando se cierre
     const modalConcepto = document.getElementById('modalConcepto');
     modalConcepto.addEventListener('hidden.bs.modal', function () {
         // Resetear el estado del modal
         conceptoEditando = null;
         document.getElementById('modalConceptoLabel').textContent = '➕ Agregar Concepto';
+        
+        // Resetear información del concepto seleccionado
+        document.getElementById('infoConceptoSeleccionado').style.display = 'none';
+        conceptoSeleccionadoActual = null;
         
         const btnAgregar = document.querySelector('#modalConcepto .btn-success');
         btnAgregar.textContent = '✅ Agregar';
@@ -910,6 +1077,28 @@ document.addEventListener('DOMContentLoaded', function() {
 input:not([readonly]):not(:placeholder-shown) {
     background-color: #f8f9fa;
     border-left: 3px solid #28a745;
+}
+
+/* Estilos para las transferencias */
+.transferencias-container {
+    background-color: #e8f4fd;
+    border: 1px solid #bee5eb;
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.transferencia-item {
+    margin-bottom: 5px;
+}
+
+.transferencia-item:last-child {
+    margin-bottom: 0;
+}
+
+/* Estilos para campos pequeños */
+.form-control-xs {
+    font-size: 0.8rem;
+    padding: 2px 5px;
 }
 </style>
 {% endblock %} 
