@@ -897,25 +897,25 @@
                     <tbody>
                         {% for propiedad in propiedades_disponibles %}
                         {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva|floatformat:2 }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia|floatformat:2 }}', '{{ total_dias }}')">
+                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}')">
                             <td style="color: red;">{{ propiedad.id }}</td>
                             <td style="color: red;">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td style="color: red;">{{ propiedad.ubicacion }}</td>
                             <td style="color: red;">{{ propiedad.piso }}</td>
                             <td style="color: red;">{{ propiedad.departamento }}</td>
                             <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
-                            <td style="color: red;">{{ propiedad.precio_total_reserva|floatformat:2 }}</td>
+                            <td style="color: red;">{{ propiedad.precio_total_reserva|format_price }}</td>
                             <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
                         </tr>
                         {% else %}
-                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.apellido|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva|floatformat:2 }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia|floatformat:2 }}', '{{ total_dias }}')">
+                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.apellido|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}')">
                             <td>{{ propiedad.id }}</td>
                             <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td>{{ propiedad.ubicacion }}</td>
                             <td>{{ propiedad.piso }}</td>
                             <td>{{ propiedad.departamento }}</td>
                             <td>{{ propiedad.propietario.apellido }}</td>
-                            <td>{{ propiedad.precio_total_reserva|floatformat:2 }}</td>
+                            <td>{{ propiedad.precio_total_reserva|format_price }}</td>
                             <td>{{ propiedad.sucursal.nombre }}</td>
                         </tr>
                         {% endif %}
@@ -1272,7 +1272,7 @@
                         <p><strong>Ambientes:</strong> {{ propiedad.ambientes }}</p>
                         <p><strong>Valoración:</strong> {{ propiedad.valoracion }}</p>
                         <p><strong>Características:</strong> {{ propiedad.caracteristicas }}</p>
-                        <p><strong>Precio Final:</strong> {{ propiedad.precio_total_reserva|floatformat:2 }}</p>
+                        <p><strong>Precio Final:</strong> ${{ propiedad.precio_total_reserva|format_price }}</p>
                     </div>
                 </div>
             </div>
@@ -1545,8 +1545,8 @@ function autenticarYReservar() {
                         const row = document.createElement('tr');
                         row.innerHTML = `
                             <td>${precio.tipo_precio}</td>
-                            <td class="text-end">$${formatPrice(precio.precio_por_dia)}</td>
-                            <td class="text-end">$${formatPrice(precio.precio_total)}</td>
+                            <td class="text-end">$${window.formatearPrecio(precio.precio_por_dia)}</td>
+                            <td class="text-end">$${window.formatearPrecio(precio.precio_total)}</td>
                         `;
                         tbody.appendChild(row);
                     });
@@ -1917,10 +1917,7 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
     document.getElementById("cardPropiedad").innerText = id;
     document.getElementById("cardDireccion").innerText = direccion;
     document.getElementById("cardPropietario").innerText = propietario;
-    document.getElementById("cardPrecio").innerText = `$${precio.toLocaleString('es-AR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    })}`;
+    document.getElementById("cardPrecio").innerText = `$${window.formatearPrecio(precio)}`;
     document.getElementById("cardAmbiente").innerText = ambientes || 'No especificado';
     document.getElementById("cardEstado").innerText = estadoReserva === 'confirmada_no_pagada' ? 'Reservado' : 'Disponible';
     
@@ -2176,6 +2173,23 @@ function verPrecios() {
         // Mostrar directamente el modal de reserva
         window.mostrarModalReserva(false); // false = reserva normal
     }
+// Función para formatear precios disponible globalmente
+window.formatearPrecio = function(precio) {
+    if (!precio && precio !== 0) return '0';
+    
+    // Convertir a número si es string
+    let numero = typeof precio === 'string' ? parseFloat(precio.replace(/[^\d.-]/g, '')) : precio;
+    
+    // Si no es un número válido, retornar 0
+    if (isNaN(numero)) return '0';
+    
+    // Formatear con punto como separador de miles
+    return numero.toLocaleString('es-AR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).replace(/,/g, '.');
+};
+
 // Función para formatear fechas disponible globalmente
 window.formatearFecha = function(fecha) {
     console.log('🗓️ Formateando fecha:', fecha);
@@ -2344,11 +2358,36 @@ function confirmarReservaFinal() {
     
     console.log('✅ Validación exitosa, enviando reserva al servidor...');
     
+    // Función para convertir fecha de YYYY-MM-DD a DD/MM/YYYY
+    function convertirFecha(fechaISO) {
+        if (!fechaISO) return '';
+        
+        // Si ya está en formato DD/MM/YYYY, no convertir
+        if (fechaISO.includes('/')) {
+            return fechaISO;
+        }
+        
+        // Convertir de YYYY-MM-DD a DD/MM/YYYY
+        const [year, month, day] = fechaISO.split('-');
+        return `${day}/${month}/${year}`;
+    }
+    
+    // Convertir fechas al formato esperado por el backend
+    const fechaInicioConvertida = convertirFecha(fechaInicio);
+    const fechaFinConvertida = convertirFecha(fechaFin);
+    
+    console.log('📅 Fechas convertidas:', {
+        original_inicio: fechaInicio,
+        convertida_inicio: fechaInicioConvertida,
+        original_fin: fechaFin,
+        convertida_fin: fechaFinConvertida
+    });
+    
     // Crear FormData para enviar al backend
     const formData = new FormData();
     formData.append('propiedad_id', propiedadId);
-    formData.append('fecha_inicio', fechaInicio);
-    formData.append('fecha_fin', fechaFin);
+    formData.append('fecha_inicio', fechaInicioConvertida);
+    formData.append('fecha_fin', fechaFinConvertida);
     formData.append('precio_total', precioTotal);
     formData.append('vendedor_id', vendedorId);
     formData.append('inquilino_id', inquilinoId);
@@ -2421,8 +2460,21 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
     document.getElementById('modal_fecha_inicio').textContent = fechaInicio || 'No seleccionada';
     document.getElementById('modal_fecha_fin').textContent = fechaFin || 'No seleccionada';
     
-    // Precio
-    document.getElementById('precio_total_editable').value = propiedadSeleccionada.precio || 0;
+    // Precio - formatear para mostrar
+    const precioFormateado = window.formatearPrecio(propiedadSeleccionada.precio || 0);
+    document.getElementById('precio_total_editable').value = propiedadSeleccionada.precio || 0; // Valor numérico para edición
+    
+    // Actualizar el display del precio también
+    const precioDisplay = document.getElementById('precio_total_display');
+    if (precioDisplay) {
+        precioDisplay.textContent = '$' + precioFormateado;
+    }
+    
+    console.log('💰 Precio configurado:', {
+        precio_original: propiedadSeleccionada.precio,
+        precio_formateado: precioFormateado,
+        precio_editable: propiedadSeleccionada.precio || 0
+    });
     
     // Limpiar campos
     document.getElementById('vendedor_id').value = '';
@@ -2433,12 +2485,34 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
     const titulo = esOperacionDirecta ? '📋 Confirmar Operación Directa' : '📋 Confirmar Reserva';
     document.querySelector('#modalConfirmarReserva h3').textContent = titulo;
     
-    // Campos ocultos
+    // Función para convertir fecha de YYYY-MM-DD a DD/MM/YYYY
+    function convertirFechaDisplay(fechaISO) {
+        if (!fechaISO) return '';
+        
+        // Si ya está en formato DD/MM/YYYY, no convertir
+        if (fechaISO.includes('/')) {
+            return fechaISO;
+        }
+        
+        // Convertir de YYYY-MM-DD a DD/MM/YYYY para display
+        const [year, month, day] = fechaISO.split('-');
+        return `${day}/${month}/${year}`;
+    }
+    
+    // Campos ocultos - guardar fechas en formato DD/MM/YYYY
     document.getElementById('modalPropiedadId').value = propiedadSeleccionada.id || '';
-    document.getElementById('modalFechaInicio').value = fechaInicio;
-    document.getElementById('modalFechaFin').value = fechaFin;
+    document.getElementById('modalFechaInicio').value = convertirFechaDisplay(fechaInicio);
+    document.getElementById('modalFechaFin').value = convertirFechaDisplay(fechaFin);
     document.getElementById('modalPrecioTotal').value = propiedadSeleccionada.precio || 0;
     document.getElementById('esOperacionDirecta').value = esOperacionDirecta ? 'true' : 'false';
+    
+    console.log('🔧 Campos ocultos configurados:', {
+        modalPropiedadId: propiedadSeleccionada.id,
+        modalFechaInicio: convertirFechaDisplay(fechaInicio),
+        modalFechaFin: convertirFechaDisplay(fechaFin),
+        modalPrecioTotal: propiedadSeleccionada.precio,
+        esOperacionDirecta: esOperacionDirecta ? 'true' : 'false'
+    });
     
     // MOSTRAR EL MODAL (sin Bootstrap)
     document.getElementById('modalConfirmarReserva').style.display = 'block';
