@@ -532,7 +532,31 @@ def reservas(request):
     reservas = Reserva.objects.filter(sucursal=request.user.sucursal)
     return render(request, 'inmobiliaria/reserva/lista.html', {'reservas': reservas})
 def operaciones(request):
-    reservas = Reserva.objects.filter(sucursal=request.user.sucursal)
+    # Obtener reservas con información de pagos calculada
+    reservas = Reserva.objects.filter(sucursal=request.user.sucursal).prefetch_related('pagos')
+    
+    # Calcular totales pagados para cada reserva
+    for reserva in reservas:
+        # Buscar movimientos de caja relacionados con esta reserva
+        movimientos = MovimientoCaja.objects.filter(
+            propiedad=reserva.propiedad,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+            concepto__icontains=f"Reserva {reserva.id}"
+        )
+        
+        # Calcular total pagado desde movimientos de caja
+        total_pagado = sum(
+            mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito
+            for mov in movimientos
+        )
+        
+        # Asignar valores calculados
+        reserva.total_pagado = total_pagado
+        reserva.saldo_pendiente = reserva.precio_total - total_pagado
+        
+        # Obtener el movimiento más reciente para el enlace del recibo
+        reserva.movimiento_reciente = movimientos.first() if movimientos.exists() else None
+    
     return render(request, 'inmobiliaria/reserva/operaciones.html', {'reservas': reservas})
 def crear_reserva(request):
 
@@ -1763,6 +1787,23 @@ def procesar_movimiento_reserva(request):
             # Crear el movimiento de caja
             movimiento = MovimientoCaja.objects.create(**movimiento_data)
             
+            # Obtener datos de pago de la reserva original
+            senia_input = request.POST.get('senia', '0')
+            importe_locacion_input = request.POST.get('importe_locacion', '0')
+            
+            try:
+                senia = Decimal(senia_input) if senia_input else Decimal('0')
+                importe_locacion = Decimal(importe_locacion_input) if importe_locacion_input else Decimal('0')
+                
+                # Actualizar reserva con información de pagos
+                reserva.senia = senia
+                # Si tienes un campo precio_locacion en el modelo, úsalo
+                # reserva.precio_locacion = importe_locacion
+                
+            except (ValueError, TypeError):
+                # Si hay error en la conversión, usar valores por defecto
+                reserva.senia = Decimal('0')
+                
             # Cambiar estado de la reserva
             reserva.estado = 'pagada'
             reserva.save()
@@ -1774,13 +1815,49 @@ def procesar_movimiento_reserva(request):
             return JsonResponse({
                 'success': True,
                 'movimiento_id': movimiento.id,
-                'redirect_url': reverse('inmobiliaria:ver_recibo', args=[movimiento.id])
+                'redirect_url': reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
             })
             
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required
+def ver_recibo_movimiento(request, movimiento_id):
+    """
+    Vista para mostrar el recibo basado en un MovimientoCaja
+    """
+    try:
+        # Obtener el movimiento de caja
+        movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
+        
+        # Obtener la reserva relacionada si existe
+        reserva = movimiento.propiedad.reservas.filter(estado='pagada').first() if movimiento.propiedad else None
+        
+        # Calcular totales del movimiento
+        total_movimiento = (
+            movimiento.monto_efectivo + 
+            movimiento.monto_cheque + 
+            movimiento.monto_tarjeta + 
+            movimiento.monto_deposito
+        )
+        
+        context = {
+            'movimiento': movimiento,
+            'reserva': reserva,
+            'total_movimiento': total_movimiento,
+            'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
+            'caja': movimiento.caja,
+            'propiedad': movimiento.propiedad,
+            'empleado': movimiento.empleado,
+        }
+        
+        return render(request, 'inmobiliaria/caja/recibo_movimiento.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Error al generar el recibo: {str(e)}')
+        return redirect('inmobiliaria:lista_cajas')
 
 @login_required
 def crear_inquilino_ajax(request):

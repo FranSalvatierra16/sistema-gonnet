@@ -1,0 +1,276 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Recibo de Movimiento #{{ movimiento.id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .recibo-container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+    
+    .recibo-header {
+        text-align: center;
+        border-bottom: 3px solid #28a745;
+        padding-bottom: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .recibo-title {
+        color: #28a745;
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    
+    .recibo-info {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        padding: 5px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .info-label {
+        font-weight: bold;
+        color: #495057;
+    }
+    
+    .info-value {
+        color: #212529;
+    }
+    
+    .pagos-section {
+        background: #e8f5e8;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    
+    .pagos-title {
+        color: #28a745;
+        font-size: 1.3rem;
+        font-weight: bold;
+        margin-bottom: 15px;
+        text-align: center;
+    }
+    
+    .pago-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #c3e6c3;
+    }
+    
+    .pago-item:last-child {
+        border-bottom: none;
+        font-weight: bold;
+        font-size: 1.1rem;
+        background: #d4edda;
+        padding: 12px;
+        border-radius: 5px;
+        margin-top: 10px;
+    }
+    
+    .total-general {
+        background: #28a745;
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        font-size: 1.4rem;
+        font-weight: bold;
+        margin-top: 20px;
+    }
+    
+    .btn-print {
+        background: #17a2b8;
+        color: white;
+        border: none;
+        padding: 10px 30px;
+        border-radius: 5px;
+        font-size: 1rem;
+        margin: 10px;
+    }
+    
+    .btn-print:hover {
+        background: #138496;
+        color: white;
+    }
+    
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        .recibo-container {
+            box-shadow: none;
+            padding: 0;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="recibo-container">
+        <!-- Header del Recibo -->
+        <div class="recibo-header">
+            <h1 class="recibo-title">RECIBO DE CAJA</h1>
+            <p class="mb-1"><strong>Movimiento #{{ movimiento.id }}</strong></p>
+            <p class="mb-1">Fecha: {{ movimiento.fecha|date:"d/m/Y H:i" }}</p>
+            <p class="mb-0">Caja: #{{ movimiento.caja.numero }}</p>
+        </div>
+
+        <!-- Información General -->
+        <div class="recibo-info">
+            <h4 class="text-center mb-3" style="color: #495057;">📋 INFORMACIÓN GENERAL</h4>
+            
+            <div class="info-row">
+                <span class="info-label">Tipo de Movimiento:</span>
+                <span class="info-value">
+                    {% if movimiento.tipo == 'IN' %}
+                        <span class="badge bg-success">INGRESO</span>
+                    {% else %}
+                        <span class="badge bg-danger">EGRESO</span>
+                    {% endif %}
+                </span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Concepto:</span>
+                <span class="info-value">{{ movimiento.concepto }}</span>
+            </div>
+            
+            {% if movimiento.numero_liquidacion %}
+            <div class="info-row">
+                <span class="info-label">Número de Recibo:</span>
+                <span class="info-value">{{ movimiento.numero_liquidacion }}</span>
+            </div>
+            {% endif %}
+            
+            {% if movimiento.propiedad %}
+            <div class="info-row">
+                <span class="info-label">Propiedad:</span>
+                <span class="info-value">{{ movimiento.propiedad.direccion }} (ID: {{ movimiento.propiedad.id }})</span>
+            </div>
+            {% endif %}
+            
+            {% if movimiento.fecha_desde and movimiento.fecha_hasta %}
+            <div class="info-row">
+                <span class="info-label">Período:</span>
+                <span class="info-value">{{ movimiento.fecha_desde|date:"d/m/Y" }} - {{ movimiento.fecha_hasta|date:"d/m/Y" }}</span>
+            </div>
+            {% endif %}
+            
+            <div class="info-row">
+                <span class="info-label">Empleado:</span>
+                <span class="info-value">{{ movimiento.empleado.nombre }} {{ movimiento.empleado.apellido }}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Sucursal:</span>
+                <span class="info-value">{{ movimiento.sucursal.nombre }}</span>
+            </div>
+        </div>
+
+        <!-- Información de la Reserva (si existe) -->
+        {% if reserva %}
+        <div class="recibo-info">
+            <h4 class="text-center mb-3" style="color: #495057;">🏠 INFORMACIÓN DE RESERVA</h4>
+            
+            <div class="info-row">
+                <span class="info-label">Cliente:</span>
+                <span class="info-value">{{ reserva.inquilino.nombre }} {{ reserva.inquilino.apellido }}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Vendedor:</span>
+                <span class="info-value">{{ reserva.vendedor.nombre }} {{ reserva.vendedor.apellido }}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Estado:</span>
+                <span class="info-value">
+                    <span class="badge bg-success">{{ reserva.get_estado_display }}</span>
+                </span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Detalle de Pagos -->
+        <div class="pagos-section">
+            <h4 class="pagos-title">💰 DETALLE DE PAGOS</h4>
+            
+            {% if movimiento.monto_efectivo > 0 %}
+            <div class="pago-item">
+                <span><strong>💵 Efectivo:</strong></span>
+                <span>${{ movimiento.monto_efectivo|format_price }}</span>
+            </div>
+            {% endif %}
+            
+            {% if movimiento.monto_cheque > 0 %}
+            <div class="pago-item">
+                <span><strong>📄 Cheque:</strong></span>
+                <span>${{ movimiento.monto_cheque|format_price }}</span>
+            </div>
+            {% endif %}
+            
+            {% if movimiento.monto_tarjeta > 0 %}
+            <div class="pago-item">
+                <span><strong>💳 Tarjeta:</strong></span>
+                <span>${{ movimiento.monto_tarjeta|format_price }}</span>
+            </div>
+            {% endif %}
+            
+            {% if movimiento.monto_deposito > 0 %}
+            <div class="pago-item">
+                <span>
+                    <strong>🏦 Transferencia:</strong>
+                    {% if movimiento.destino_deposito == 'galicia' %}
+                        (Banco Galicia)
+                    {% elif movimiento.destino_deposito == 'mp' %}
+                        (Mercado Pago)
+                    {% endif %}
+                </span>
+                <span>${{ movimiento.monto_deposito|format_price }}</span>
+            </div>
+            {% endif %}
+            
+            <div class="pago-item">
+                <span><strong>TOTAL RECIBIDO:</strong></span>
+                <span><strong>${{ total_movimiento|format_price }}</strong></span>
+            </div>
+        </div>
+
+        <!-- Total General -->
+        <div class="total-general">
+            TOTAL DEL MOVIMIENTO: ${{ total_movimiento|format_price }}
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="text-center mt-4 no-print">
+            <button onclick="window.print()" class="btn btn-print">
+                🖨️ Imprimir Recibo
+            </button>
+            <a href="{% url 'inmobiliaria:lista_cajas' %}" class="btn btn-secondary">
+                ⬅️ Volver a Cajas
+            </a>
+            <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-success">
+                📋 Ver Reservas
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %} 

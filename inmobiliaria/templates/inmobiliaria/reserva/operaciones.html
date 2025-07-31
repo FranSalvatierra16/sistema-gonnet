@@ -13,41 +13,66 @@
             <th>Fecha de Inicio</th>
             <th>Fecha de Fin</th>
             <th>Precio Total</th>
-            <th>Seña</th>
-            <th>Debe:</th>
+            <th>Total Pagado</th>
+            <th>Saldo Pendiente</th>
             <th>Estado</th>
             <th>Acciones</th>
         </tr>
     </thead>
     <tbody>
         {% for reserva in reservas %}
-            {% if reserva.estado == 'pagada' and reserva.cuota_pendiente == 0 %}
+            {% if reserva.estado == 'pagada' and reserva.saldo_pendiente <= 0 %}
                 <tr style="background-color: #d4edda;">  {# Verde claro para totalmente pagadas #}
                     <td>{{ reserva.propiedad }}</td>
                     <td>{{ reserva.fecha_inicio }}</td>
                     <td>{{ reserva.fecha_fin }}</td>
-                    <td>{{ reserva.precio_total }}</td>
-                    <td>{{ reserva.senia }}</td>
-                    <td>{{ reserva.cuota_pendiente }}</td>
+                    <td>${{ reserva.precio_total|floatformat:0 }}</td>
+                    <td>${{ reserva.total_pagado|floatformat:0 }}</td>
+                    <td>${{ reserva.saldo_pendiente|floatformat:0 }}</td>
                     <td><span class="badge badge-success">{{ reserva.estado }}</span></td>
                     <td>
                         <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn btn-sm btn-info">Ver</a>
-                        <a href="{% url 'inmobiliaria:ver_recibo' reserva.id %}" class="btn btn-sm btn-secondary">Recibo</a>
+                        {% if reserva.movimiento_reciente %}
+                            <a href="{% url 'inmobiliaria:ver_recibo_movimiento' reserva.movimiento_reciente.id %}" class="btn btn-sm btn-secondary">Recibo</a>
+                        {% else %}
+                            <a href="{% url 'inmobiliaria:ver_recibo' reserva.id %}" class="btn btn-sm btn-secondary">Recibo</a>
+                        {% endif %}
                     </td>
                 </tr>
-            {% elif reserva.estado == 'pagada' and reserva.cuota_pendiente > 0 %}
+            {% elif reserva.estado == 'pagada' and reserva.saldo_pendiente > 0 %}
                 <tr style="background-color: #f8d7da;">  {# Rojo claro para pagadas con saldo pendiente #}
                     <td>{{ reserva.propiedad }}</td>
                     <td>{{ reserva.fecha_inicio }}</td>
                     <td>{{ reserva.fecha_fin }}</td>
-                    <td>{{ reserva.precio_total }}</td>
-                    <td>{{ reserva.senia }}</td>
-                    <td>{{ reserva.cuota_pendiente }}</td>
+                    <td>${{ reserva.precio_total|floatformat:0 }}</td>
+                    <td>${{ reserva.total_pagado|floatformat:0 }}</td>
+                    <td>${{ reserva.saldo_pendiente|floatformat:0 }}</td>
                     <td><span class="badge badge-warning">Saldo Pendiente</span></td>
                     <td>
                         <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn btn-sm btn-info">Ver</a>
-                        <a href="{% url 'inmobiliaria:finalizar_reserva' reserva.id %}" class="btn btn-sm btn-warning">Finalizar</a>
-                        <a href="{% url 'inmobiliaria:ver_recibo' reserva.id %}" class="btn btn-sm btn-secondary">Recibo</a>
+                        <a href="{% url 'inmobiliaria:finalizar_reserva_nueva' reserva.id %}" class="btn btn-sm btn-warning">Finalizar</a>
+                        {% if reserva.movimiento_reciente %}
+                            <a href="{% url 'inmobiliaria:ver_recibo_movimiento' reserva.movimiento_reciente.id %}" class="btn btn-sm btn-secondary">Recibo</a>
+                        {% else %}
+                            <a href="{% url 'inmobiliaria:ver_recibo' reserva.id %}" class="btn btn-sm btn-secondary">Recibo</a>
+                        {% endif %}
+                        <a href="{% url 'inmobiliaria:reserva_eliminar' reserva.id %}" class="btn btn-sm btn-danger">Eliminar</a>
+                    </td>
+                </tr>
+            {% else %}
+                <tr>  {# Sin color especial para otros estados #}
+                    <td>{{ reserva.propiedad }}</td>
+                    <td>{{ reserva.fecha_inicio }}</td>
+                    <td>{{ reserva.fecha_fin }}</td>
+                    <td>${{ reserva.precio_total|floatformat:0 }}</td>
+                    <td>${{ reserva.total_pagado|default:0|floatformat:0 }}</td>
+                    <td>${{ reserva.saldo_pendiente|default:reserva.precio_total|floatformat:0 }}</td>
+                    <td><span class="badge badge-secondary">{{ reserva.estado }}</span></td>
+                    <td>
+                        <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn btn-sm btn-info">Ver</a>
+                        {% if reserva.estado == 'confirmada_no_pagada' %}
+                            <a href="{% url 'inmobiliaria:finalizar_reserva_nueva' reserva.id %}" class="btn btn-sm btn-success">Finalizar</a>
+                        {% endif %}
                         <a href="{% url 'inmobiliaria:reserva_eliminar' reserva.id %}" class="btn btn-sm btn-danger">Eliminar</a>
                     </td>
                 </tr>
