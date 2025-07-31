@@ -1115,9 +1115,9 @@ def finalizar_reserva_nueva(request, reserva_id):
             messages.error(request, 'No hay una caja abierta. Debe abrir una caja primero.')
             return redirect('inmobiliaria:reservas')
         
-        # Calcular el próximo número de movimiento
-        ultimo_movimiento = MovimientoCaja.objects.filter(caja=caja_actual).order_by('-id').first()
-        proximo_numero_movimiento = (ultimo_movimiento.id + 1) if ultimo_movimiento else 1
+        # Calcular información del próximo movimiento
+        cantidad_movimientos = MovimientoCaja.objects.filter(caja=caja_actual).count()
+        proximo_numero_movimiento = cantidad_movimientos + 1
         
         # Obtener conceptos de caja disponibles
         conceptos_caja = Concepto.objects.all()
@@ -1735,27 +1735,33 @@ def procesar_movimiento_reserva(request):
             destino_transferencia = request.POST.get('destino_transferencia', '').strip()
             observaciones_generales = request.POST.get('observaciones_generales', '').strip()
             
-            # Calcular próximo número de movimiento
-            ultimo_movimiento = MovimientoCaja.objects.filter(caja=caja_actual).order_by('-numero').first()
-            proximo_numero = (ultimo_movimiento.numero + 1) if ultimo_movimiento else 1
+            # Preparar datos del movimiento
+            movimiento_data = {
+                'caja': caja_actual,
+                'sucursal': request.user.sucursal,
+                'tipo': TipoMovimientoCajaEnum.INGRESO,
+                'concepto': f"Reserva {reserva.id} - {reserva.propiedad.direccion}",
+                'propiedad': reserva.propiedad,
+                'fecha_desde': reserva.fecha_inicio,
+                'fecha_hasta': reserva.fecha_fin,
+                'monto_efectivo': monto_efectivo,
+                'monto_cheque': monto_cheque,
+                'monto_tarjeta': monto_tarjeta,
+                'monto_deposito': monto_deposito,
+                'numero_liquidacion': numero_recibo,
+                'empleado': request.user
+            }
+            
+            # Agregar destino de depósito si hay transferencias
+            if monto_deposito > 0 and destino_transferencia:
+                # Convertir destino_transferencia a formato del modelo
+                if destino_transferencia == 'mercado_pago':
+                    movimiento_data['destino_deposito'] = 'mp'
+                elif destino_transferencia == 'galicia':
+                    movimiento_data['destino_deposito'] = 'galicia'
             
             # Crear el movimiento de caja
-            movimiento = MovimientoCaja.objects.create(
-                caja=caja_actual,
-                numero=proximo_numero,
-                tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto=f"Reserva {reserva.id} - {reserva.propiedad.direccion}",
-                propiedad=reserva.propiedad,
-                fecha_desde=reserva.fecha_inicio,
-                fecha_hasta=reserva.fecha_fin,
-                monto_efectivo=monto_efectivo,
-                monto_cheque=monto_cheque,
-                monto_tarjeta=monto_tarjeta,
-                monto_deposito=monto_deposito,
-                observaciones=observaciones_generales,
-                numero_recibo=numero_recibo,
-                vendedor=request.user
-            )
+            movimiento = MovimientoCaja.objects.create(**movimiento_data)
             
             # Cambiar estado de la reserva
             reserva.estado = 'pagada'
@@ -1768,7 +1774,6 @@ def procesar_movimiento_reserva(request):
             return JsonResponse({
                 'success': True,
                 'movimiento_id': movimiento.id,
-                'numero_movimiento': movimiento.numero,
                 'redirect_url': reverse('inmobiliaria:ver_recibo', args=[movimiento.id])
             })
             
