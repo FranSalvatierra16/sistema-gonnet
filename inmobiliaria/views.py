@@ -1119,6 +1119,12 @@ def finalizar_reserva_nueva(request, reserva_id):
         ultimo_movimiento = MovimientoCaja.objects.filter(caja=caja_actual).order_by('-id').first()
         proximo_numero_movimiento = (ultimo_movimiento.id + 1) if ultimo_movimiento else 1
         
+        # Obtener conceptos de caja disponibles
+        conceptos_caja = Concepto.objects.all()
+        
+        # Calcular saldo a ocupar (precio total - seña pendiente)
+        saldo_a_ocupar = reserva.precio_total - reserva.senia
+        
         # Datos para el formulario (solo lectura)
         context = {
             'reserva': reserva,
@@ -1132,6 +1138,11 @@ def finalizar_reserva_nueva(request, reserva_id):
             'numero_recibo': '0000-00000000',  # Para completar
             'productor_id': request.user.id,
             'productor_nombre': f"{request.user.nombre} {request.user.apellido}",
+            'conceptos_caja': conceptos_caja,
+            'saldo_a_ocupar': saldo_a_ocupar,
+            'deposito_garantia': reserva.deposito_garantia,
+            'fecha_desde': reserva.fecha_inicio.strftime('%d/%m/%Y'),
+            'fecha_hasta': reserva.fecha_fin.strftime('%d/%m/%Y'),
         }
         
         return render(request, 'inmobiliaria/reserva/finalizar_reserva_nueva.html', context)

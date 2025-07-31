@@ -76,16 +76,113 @@
                         
                         <hr>
                         
-                        <!-- Información de la reserva -->
-                        <div class="row mb-4">
+                        <!-- Sección de Fechas y Pagos -->
+                        <div class="row mb-3">
                             <div class="col-md-12">
-                                <h5>📋 Información de la Reserva</h5>
-                                <div class="alert alert-info">
-                                    <p><strong>Período:</strong> {{ reserva.fecha_inicio|date:"d/m/Y" }} al {{ reserva.fecha_fin|date:"d/m/Y" }}</p>
-                                    <p><strong>Precio Total:</strong> ${{ reserva.precio_total|format_price }}</p>
-                                    <p><strong>Estado Actual:</strong> 
-                                        <span class="badge bg-warning">{{ reserva.get_estado_display }}</span>
-                                    </p>
+                                <h5>💰 Información de Pagos</h5>
+                            </div>
+                        </div>
+                        
+                        <!-- Fila de fechas y montos -->
+                        <div class="row mb-3" style="background-color: #ffe6e6; padding: 10px; border-radius: 5px;">
+                            <div class="col-md-2">
+                                <label class="form-label"><strong>Desde:</strong></label>
+                                <input type="text" class="form-control form-control-sm" 
+                                       value="{{ fecha_desde }}" readonly style="background-color: #f8f9fa;">
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <label class="form-label"><strong>Hasta:</strong></label>
+                                <input type="text" class="form-control form-control-sm" 
+                                       value="{{ fecha_hasta }}" readonly style="background-color: #f8f9fa;">
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <label class="form-label"><strong>Seña:</strong></label>
+                                <input type="number" class="form-control form-control-sm" name="senia" 
+                                       value="{{ reserva.senia }}" step="0.01" placeholder="0.00">
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <label class="form-label"><strong>Importe Locación:</strong></label>
+                                <input type="number" class="form-control form-control-sm" name="importe_locacion" 
+                                       value="{{ reserva.precio_total }}" step="0.01" required>
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <label class="form-label"><strong>Saldo a Ocupar:</strong></label>
+                                <input type="text" class="form-control form-control-sm" id="saldo_ocupar"
+                                       value="{{ saldo_a_ocupar|format_price }}" readonly style="background-color: #f8f9fa;">
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <label class="form-label"><strong>Depósito Garantía:</strong></label>
+                                <input type="number" class="form-control form-control-sm" name="deposito_garantia" 
+                                       value="{{ deposito_garantia }}" step="0.01" placeholder="0.00">
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <!-- Sección de Conceptos -->
+                        <div class="row mb-3">
+                            <div class="col-md-10">
+                                <h5>📝 Conceptos</h5>
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <button type="button" class="btn btn-primary btn-sm" onclick="mostrarModalConcepto()">
+                                    ➕ Agregar Concepto
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Tabla de Conceptos -->
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <table class="table table-sm table-bordered" id="tablaConceptos">
+                                    <thead style="background-color: #e9ecef;">
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Concepto</th>
+                                            <th>Observaciones</th>
+                                            <th>Importe</th>
+                                            <th>ID</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="conceptosBody">
+                                        <!-- Los conceptos se agregan dinámicamente aquí -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Totales -->
+                        <div class="row mb-3">
+                            <div class="col-md-8"></div>
+                            <div class="col-md-4">
+                                <div class="alert alert-success">
+                                    <div class="row mb-2">
+                                        <div class="col-8"><strong>TOTAL DE LOS CONCEPTOS:</strong></div>
+                                        <div class="col-4 text-end">
+                                            <span id="totalConceptos">0.00</span>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-8"><strong>HONORARIOS:</strong></div>
+                                        <div class="col-4">
+                                            <input type="number" class="form-control form-control-sm" 
+                                                   name="honorarios" value="0.00" step="0.01" id="honorarios">
+                                        </div>
+                                    </div>
+                                    <hr>
+                                    <div class="row">
+                                        <div class="col-8"><strong>TOTAL DEL RECIBO:</strong></div>
+                                        <div class="col-4">
+                                            <input type="number" class="form-control form-control-sm fw-bold" 
+                                                   id="totalRecibo" readonly style="background-color: #d1ecf1; font-size: 16px;">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -115,6 +212,195 @@
         </div>
     </div>
 </div>
+
+<!-- Modal para Agregar Concepto -->
+<div class="modal fade" id="modalConcepto" tabindex="-1" aria-labelledby="modalConceptoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalConceptoLabel">➕ Agregar Concepto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formConcepto">
+                    <div class="mb-3">
+                        <label for="conceptoSelect" class="form-label"><strong>Seleccionar Concepto:</strong></label>
+                        <select class="form-select" id="conceptoSelect" required>
+                            <option value="">-- Selecciona un concepto --</option>
+                            {% for concepto in conceptos_caja %}
+                                <option value="{{ concepto.id }}" data-nombre="{{ concepto.nombre }}">
+                                    {{ concepto.nombre }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="observaciones" class="form-label">Observaciones:</label>
+                        <textarea class="form-control" id="observaciones" rows="3" placeholder="Observaciones opcionales..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="importe" class="form-label"><strong>Importe:</strong></label>
+                        <input type="number" class="form-control" id="importe" step="0.01" required placeholder="0.00">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="agregarConcepto()">✅ Agregar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Variable para almacenar los conceptos agregados
+let conceptosAgregados = [];
+let contadorConceptos = 0;
+
+// Función para mostrar el modal de concepto
+function mostrarModalConcepto() {
+    // Limpiar el formulario
+    document.getElementById('formConcepto').reset();
+    
+    // Mostrar el modal
+    var modalConcepto = new bootstrap.Modal(document.getElementById('modalConcepto'));
+    modalConcepto.show();
+}
+
+// Función para agregar concepto a la tabla
+function agregarConcepto() {
+    const conceptoSelect = document.getElementById('conceptoSelect');
+    const observaciones = document.getElementById('observaciones').value;
+    const importe = parseFloat(document.getElementById('importe').value);
+    
+    // Validaciones
+    if (!conceptoSelect.value) {
+        alert('Por favor selecciona un concepto');
+        return;
+    }
+    
+    if (!importe || importe <= 0) {
+        alert('Por favor ingresa un importe válido');
+        return;
+    }
+    
+    // Obtener datos del concepto seleccionado
+    const conceptoId = conceptoSelect.value;
+    const conceptoNombre = conceptoSelect.options[conceptoSelect.selectedIndex].dataset.nombre;
+    const fechaActual = '{{ fecha_actual }}';
+    
+    // Crear objeto concepto
+    const nuevoConcepto = {
+        id: ++contadorConceptos,
+        conceptoId: conceptoId,
+        nombre: conceptoNombre,
+        observaciones: observaciones || 'Sin observaciones',
+        importe: importe,
+        fecha: fechaActual
+    };
+    
+    // Agregar a la lista
+    conceptosAgregados.push(nuevoConcepto);
+    
+    // Actualizar tabla
+    actualizarTablaConceptos();
+    
+    // Actualizar totales
+    calcularTotales();
+    
+    // Cerrar modal
+    var modalConcepto = bootstrap.Modal.getInstance(document.getElementById('modalConcepto'));
+    modalConcepto.hide();
+    
+    console.log('Concepto agregado:', nuevoConcepto);
+}
+
+// Función para actualizar la tabla de conceptos
+function actualizarTablaConceptos() {
+    const tbody = document.getElementById('conceptosBody');
+    tbody.innerHTML = '';
+    
+    conceptosAgregados.forEach((concepto) => {
+        const fila = document.createElement('tr');
+        fila.innerHTML = `
+            <td>${concepto.fecha}</td>
+            <td>${concepto.nombre}</td>
+            <td>${concepto.observaciones}</td>
+            <td class="text-end">$${concepto.importe.toFixed(2)}</td>
+            <td>${concepto.conceptoId}</td>
+            <td>
+                <button type="button" class="btn btn-warning btn-sm me-1" 
+                        onclick="editarConcepto(${concepto.id})" title="Cambiar">
+                    ✏️
+                </button>
+                <button type="button" class="btn btn-danger btn-sm" 
+                        onclick="eliminarConcepto(${concepto.id})" title="Eliminar">
+                    🗑️
+                </button>
+            </td>
+        `;
+        tbody.appendChild(fila);
+    });
+}
+
+// Función para eliminar concepto
+function eliminarConcepto(conceptoId) {
+    if (confirm('¿Estás seguro de que deseas eliminar este concepto?')) {
+        conceptosAgregados = conceptosAgregados.filter(c => c.id !== conceptoId);
+        actualizarTablaConceptos();
+        calcularTotales();
+    }
+}
+
+// Función para editar concepto
+function editarConcepto(conceptoId) {
+    const concepto = conceptosAgregados.find(c => c.id === conceptoId);
+    if (concepto) {
+        // Rellenar el modal con los datos del concepto
+        document.getElementById('conceptoSelect').value = concepto.conceptoId;
+        document.getElementById('observaciones').value = concepto.observaciones === 'Sin observaciones' ? '' : concepto.observaciones;
+        document.getElementById('importe').value = concepto.importe;
+        
+        // Eliminar el concepto actual
+        eliminarConcepto(conceptoId);
+        
+        // Mostrar el modal
+        mostrarModalConcepto();
+    }
+}
+
+// Función para calcular totales
+function calcularTotales() {
+    const totalConceptos = conceptosAgregados.reduce((sum, concepto) => sum + concepto.importe, 0);
+    const honorarios = parseFloat(document.getElementById('honorarios').value) || 0;
+    const totalRecibo = totalConceptos + honorarios;
+    
+    document.getElementById('totalConceptos').textContent = totalConceptos.toFixed(2);
+    document.getElementById('totalRecibo').value = totalRecibo.toFixed(2);
+}
+
+// Event listener para honorarios
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('honorarios').addEventListener('input', calcularTotales);
+    
+    // Calcular saldo a ocupar cuando cambian los valores
+    const seniaInput = document.querySelector('input[name="senia"]');
+    const importeLocacionInput = document.querySelector('input[name="importe_locacion"]');
+    
+    function calcularSaldoOcupar() {
+        const senia = parseFloat(seniaInput.value) || 0;
+        const importeLocacion = parseFloat(importeLocacionInput.value) || 0;
+        const saldoOcupar = importeLocacion - senia;
+        
+        document.getElementById('saldo_ocupar').value = saldoOcupar.toFixed(2);
+    }
+    
+    seniaInput.addEventListener('input', calcularSaldoOcupar);
+    importeLocacionInput.addEventListener('input', calcularSaldoOcupar);
+});
+</script>
 
 <style>
 .form-control[readonly] {
