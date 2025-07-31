@@ -1902,7 +1902,7 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
         direccion: direccion,                      // Dirección completa
         propietario: propietario,                  // Nombre del propietario
         disponibilidad: disponibilidad,           // Estado de disponibilidad
-        precio: parseFloat(precio) || 0,          // Precio total
+        precio: typeof precio === 'string' ? parseFloat(precio.replace(/\./g, '')) : precio,          // Precio total sin formatear
         precioPorDia: parseFloat(precio_por_dia) || 0,  // Precio por día
         totalDias: parseInt(total_dias) || 1,     // Total de días
         fechaInicio: fechaInicio,                 // Fecha inicio del formulario
@@ -2177,8 +2177,13 @@ function verPrecios() {
 window.formatearPrecio = function(precio) {
     if (!precio && precio !== 0) return '0';
     
-    // Convertir a número si es string
-    let numero = typeof precio === 'string' ? parseFloat(precio.replace(/[^\d.-]/g, '')) : precio;
+    let numero;
+    if (typeof precio === 'string') {
+        // Si es string, remover puntos (separadores de miles) y luego parsear
+        numero = parseFloat(precio.replace(/\./g, '').replace(/[^\d.-]/g, ''));
+    } else {
+        numero = precio;
+    }
     
     // Si no es un número válido, retornar 0
     if (isNaN(numero)) return '0';

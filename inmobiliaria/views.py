@@ -681,7 +681,7 @@ def confirmar_reserva(request):
                 # Limpiar el precio y convertirlo a float
                 precio_limpio = precio.replace('$', '').replace(',', '').replace('.', '').strip()
                 try:
-                    precio_float = float(precio_limpio) / 100  # Dividir por 100 para corregir el formato
+                    precio_float = float(precio_limpio)  # Ya no dividir por 100
                 except ValueError:
                     return JsonResponse({
                         'success': False,
@@ -696,7 +696,8 @@ def confirmar_reserva(request):
                     vendedor=vendedor,
                     cliente=inquilino,
                     precio_total=precio_float,
-                    estado='confirmada' if es_operacion_directa else 'confirmada_no_pagada'
+                    estado='confirmada' if es_operacion_directa else 'confirmada_no_pagada',
+                    sucursal=request.user.sucursal  # Asignar la sucursal del usuario
                 )
 
                 # Buscar la disponibilidad que cubre el período de la reserva
@@ -3747,8 +3748,8 @@ def buscar_propiedades(request):
             if reservas.filter(estado='pagada').exists():
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
 
-            # Verificar si existe una reserva en estado 'en espera' (confirmada no pagada)
-            reserva_confirmada_no_pagada = reservas.filter(estado='en_espera').first()
+            # Verificar si existe una reserva en estado 'confirmada_no_pagada'
+            reserva_confirmada_no_pagada = reservas.filter(estado='confirmada_no_pagada').first()
 
             # Evaluar la disponibilidad y las reservas de la propiedad
             if disponibilidades.exists() and not reservas.filter(estado='confirmada').exists():

@@ -346,7 +346,7 @@ class Reserva(models.Model):
     precio_total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     senia = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     cuota_pendiente = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    estado = models.CharField(max_length=20, choices=[('en_espera', 'En Espera'), ('confirmada', 'Confirmada'), ('pagada', 'Pagada')], default='en_espera')
+    estado = models.CharField(max_length=20, choices=[('en_espera', 'En Espera'), ('confirmada', 'Confirmada'), ('confirmada_no_pagada', 'Confirmada No Pagada'), ('pagada', 'Pagada')], default='en_espera')
     sucursal = models.ForeignKey(
         'Sucursal',  # Asegúrate de que Sucursal esté importado
         on_delete=models.CASCADE,
