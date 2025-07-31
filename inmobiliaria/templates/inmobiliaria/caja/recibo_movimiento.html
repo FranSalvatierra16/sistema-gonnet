@@ -213,38 +213,38 @@
         <div class="pagos-section">
             <h4 class="pagos-title">💰 DETALLE DE PAGOS</h4>
             
-            {% if movimiento.monto_efectivo > 0 %}
+            {% if total_efectivo > 0 %}
             <div class="pago-item">
                 <span><strong>💵 Efectivo:</strong></span>
-                <span>${{ movimiento.monto_efectivo|format_price }}</span>
+                <span>${{ total_efectivo|format_price }}</span>
             </div>
             {% endif %}
             
-            {% if movimiento.monto_cheque > 0 %}
+            {% if total_cheque > 0 %}
             <div class="pago-item">
                 <span><strong>📄 Cheque:</strong></span>
-                <span>${{ movimiento.monto_cheque|format_price }}</span>
+                <span>${{ total_cheque|format_price }}</span>
             </div>
             {% endif %}
             
-            {% if movimiento.monto_tarjeta > 0 %}
+            {% if total_tarjeta > 0 %}
             <div class="pago-item">
                 <span><strong>💳 Tarjeta:</strong></span>
-                <span>${{ movimiento.monto_tarjeta|format_price }}</span>
+                <span>${{ total_tarjeta|format_price }}</span>
             </div>
             {% endif %}
             
-            {% if movimiento.monto_deposito > 0 %}
+            {% if total_deposito_galicia > 0 %}
             <div class="pago-item">
-                <span>
-                    <strong>🏦 Transferencia:</strong>
-                    {% if movimiento.destino_deposito == 'galicia' %}
-                        (Banco Galicia)
-                    {% elif movimiento.destino_deposito == 'mp' %}
-                        (Mercado Pago)
-                    {% endif %}
-                </span>
-                <span>${{ movimiento.monto_deposito|format_price }}</span>
+                <span><strong>🏦 Transferencia Galicia:</strong></span>
+                <span>${{ total_deposito_galicia|format_price }}</span>
+            </div>
+            {% endif %}
+            
+            {% if total_deposito_mp > 0 %}
+            <div class="pago-item">
+                <span><strong>💳 Transferencia Mercado Pago:</strong></span>
+                <span>${{ total_deposito_mp|format_price }}</span>
             </div>
             {% endif %}
             

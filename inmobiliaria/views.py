@@ -532,8 +532,11 @@ def reservas(request):
     reservas = Reserva.objects.filter(sucursal=request.user.sucursal)
     return render(request, 'inmobiliaria/reserva/lista.html', {'reservas': reservas})
 def operaciones(request):
-    # Obtener reservas con información de pagos calculada
-    reservas = Reserva.objects.filter(sucursal=request.user.sucursal).prefetch_related('pagos')
+    # Obtener solo reservas pagadas (completas o con saldo pendiente)
+    reservas = Reserva.objects.filter(
+        sucursal=request.user.sucursal,
+        estado__in=['pagada', 'confirmada_no_pagada']
+    ).prefetch_related('pagos')
     
     # Calcular totales pagados para cada reserva
     for reserva in reservas:
@@ -550,9 +553,12 @@ def operaciones(request):
             for mov in movimientos
         )
         
-        # Asignar valores calculados
+        # Calcular saldo pendiente correctamente:
+        # Si hay seña, el saldo pendiente es: precio_total - seña - lo que ya se pagó
+        # Si no hay seña, el saldo pendiente es: precio_total - lo que ya se pagó
+        senia_actual = getattr(reserva, 'senia', 0) or 0
         reserva.total_pagado = total_pagado
-        reserva.saldo_pendiente = reserva.precio_total - total_pagado
+        reserva.saldo_pendiente = reserva.precio_total - senia_actual - total_pagado
         
         # Obtener el movimiento más reciente para el enlace del recibo
         reserva.movimiento_reciente = movimientos.first() if movimientos.exists() else None
@@ -1750,7 +1756,11 @@ def procesar_movimiento_reserva(request):
             monto_efectivo = Decimal(request.POST.get('monto_efectivo', '0'))
             monto_cheque = Decimal(request.POST.get('monto_cheque', '0'))
             monto_tarjeta = Decimal(request.POST.get('monto_tarjeta', '0'))
-            monto_deposito = Decimal(request.POST.get('monto_deposito', '0'))
+            
+            # Transferencias separadas
+            monto_deposito_galicia = Decimal(request.POST.get('monto_deposito_galicia', '0'))
+            monto_deposito_mp = Decimal(request.POST.get('monto_deposito_mp', '0'))
+            monto_deposito = monto_deposito_galicia + monto_deposito_mp
             
             # Datos adicionales
             banco = request.POST.get('banco', '').strip()
@@ -1776,16 +1786,66 @@ def procesar_movimiento_reserva(request):
                 'empleado': request.user
             }
             
-            # Agregar destino de depósito si hay transferencias
-            if monto_deposito > 0 and destino_transferencia:
-                # Convertir destino_transferencia a formato del modelo
-                if destino_transferencia == 'mercado_pago':
-                    movimiento_data['destino_deposito'] = 'mp'
-                elif destino_transferencia == 'galicia':
-                    movimiento_data['destino_deposito'] = 'galicia'
+            # Crear movimiento principal (sin transferencias)
+            movimiento_principal = MovimientoCaja.objects.create(
+                caja=caja_actual,
+                sucursal=request.user.sucursal,
+                tipo=TipoMovimientoCajaEnum.INGRESO,
+                concepto=f"Reserva {reserva.id} - {reserva.propiedad.direccion}",
+                propiedad=reserva.propiedad,
+                fecha_desde=reserva.fecha_inicio,
+                fecha_hasta=reserva.fecha_fin,
+                monto_efectivo=monto_efectivo,
+                monto_cheque=monto_cheque,
+                monto_tarjeta=monto_tarjeta,
+                monto_deposito=0,  # Se manejará por separado
+                numero_liquidacion=numero_recibo,
+                empleado=request.user
+            )
             
-            # Crear el movimiento de caja
-            movimiento = MovimientoCaja.objects.create(**movimiento_data)
+            # Crear movimientos separados para transferencias si existen
+            movimientos_creados = [movimiento_principal]
+            
+            if monto_deposito_galicia > 0:
+                movimiento_galicia = MovimientoCaja.objects.create(
+                    caja=caja_actual,
+                    sucursal=request.user.sucursal,
+                    tipo=TipoMovimientoCajaEnum.INGRESO,
+                    concepto=f"Reserva {reserva.id} - Transferencia Galicia",
+                    propiedad=reserva.propiedad,
+                    fecha_desde=reserva.fecha_inicio,
+                    fecha_hasta=reserva.fecha_fin,
+                    monto_efectivo=0,
+                    monto_cheque=0,
+                    monto_tarjeta=0,
+                    monto_deposito=monto_deposito_galicia,
+                    destino_deposito='galicia',
+                    numero_liquidacion=numero_recibo,
+                    empleado=request.user
+                )
+                movimientos_creados.append(movimiento_galicia)
+            
+            if monto_deposito_mp > 0:
+                movimiento_mp = MovimientoCaja.objects.create(
+                    caja=caja_actual,
+                    sucursal=request.user.sucursal,
+                    tipo=TipoMovimientoCajaEnum.INGRESO,
+                    concepto=f"Reserva {reserva.id} - Transferencia Mercado Pago",
+                    propiedad=reserva.propiedad,
+                    fecha_desde=reserva.fecha_inicio,
+                    fecha_hasta=reserva.fecha_fin,
+                    monto_efectivo=0,
+                    monto_cheque=0,
+                    monto_tarjeta=0,
+                    monto_deposito=monto_deposito_mp,
+                    destino_deposito='mp',
+                    numero_liquidacion=numero_recibo,
+                    empleado=request.user
+                )
+                movimientos_creados.append(movimiento_mp)
+            
+            # Usar el movimiento principal para la respuesta
+            movimiento = movimiento_principal
             
             # Obtener datos de pago de la reserva original
             senia_input = request.POST.get('senia', '0')
@@ -1829,24 +1889,40 @@ def ver_recibo_movimiento(request, movimiento_id):
     Vista para mostrar el recibo basado en un MovimientoCaja
     """
     try:
-        # Obtener el movimiento de caja
+        # Obtener el movimiento de caja principal
         movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
         
         # Obtener la reserva relacionada si existe
         reserva = movimiento.propiedad.reservas.filter(estado='pagada').first() if movimiento.propiedad else None
         
-        # Calcular totales del movimiento
-        total_movimiento = (
-            movimiento.monto_efectivo + 
-            movimiento.monto_cheque + 
-            movimiento.monto_tarjeta + 
-            movimiento.monto_deposito
-        )
+        # Buscar todos los movimientos relacionados con la misma reserva y número de recibo
+        movimientos_relacionados = MovimientoCaja.objects.filter(
+            numero_liquidacion=movimiento.numero_liquidacion,
+            propiedad=movimiento.propiedad,
+            tipo=TipoMovimientoCajaEnum.INGRESO
+        ).order_by('id')
+        
+        # Calcular totales de todos los movimientos relacionados
+        total_efectivo = sum(m.monto_efectivo for m in movimientos_relacionados)
+        total_cheque = sum(m.monto_cheque for m in movimientos_relacionados)
+        total_tarjeta = sum(m.monto_tarjeta for m in movimientos_relacionados)
+        total_deposito = sum(m.monto_deposito for m in movimientos_relacionados)
+        total_deposito_galicia = sum(m.monto_deposito for m in movimientos_relacionados.filter(destino_deposito='galicia'))
+        total_deposito_mp = sum(m.monto_deposito for m in movimientos_relacionados.filter(destino_deposito='mp'))
+        
+        total_movimiento = total_efectivo + total_cheque + total_tarjeta + total_deposito
         
         context = {
             'movimiento': movimiento,
             'reserva': reserva,
             'total_movimiento': total_movimiento,
+            'total_efectivo': total_efectivo,
+            'total_cheque': total_cheque,
+            'total_tarjeta': total_tarjeta,
+            'total_deposito': total_deposito,
+            'total_deposito_galicia': total_deposito_galicia,
+            'total_deposito_mp': total_deposito_mp,
+            'movimientos_relacionados': movimientos_relacionados,
             'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
             'caja': movimiento.caja,
             'propiedad': movimiento.propiedad,
@@ -2851,8 +2927,8 @@ def detalle_caja(request, numero):
         'cheque': sum(m.monto_cheque for m in ingresos),
         'tarjeta': sum(m.monto_tarjeta for m in ingresos),
         'deposito': sum(m.monto_deposito for m in ingresos),
-        'deposito_galicia': sum(m.monto_deposito for m in ingresos if m.destino_deposito == 'galicia'),
-        'deposito_mp': sum(m.monto_deposito for m in ingresos if m.destino_deposito == 'mp'),
+        'deposito_galicia': sum(m.monto_deposito for m in ingresos.filter(destino_deposito='galicia')),
+        'deposito_mp': sum(m.monto_deposito for m in ingresos.filter(destino_deposito='mp')),
         'total': sum(m.monto_total for m in ingresos)
     }
     
@@ -2862,8 +2938,8 @@ def detalle_caja(request, numero):
         'cheque': sum(m.monto_cheque for m in egresos),
         'tarjeta': sum(m.monto_tarjeta for m in egresos),
         'deposito': sum(m.monto_deposito for m in egresos),
-        'deposito_galicia': sum(m.monto_deposito for m in egresos if m.destino_deposito == 'galicia'),
-        'deposito_mp': sum(m.monto_deposito for m in egresos if m.destino_deposito == 'mp'),
+        'deposito_galicia': sum(m.monto_deposito for m in egresos.filter(destino_deposito='galicia')),
+        'deposito_mp': sum(m.monto_deposito for m in egresos.filter(destino_deposito='mp')),
         'total': sum(m.monto_total for m in egresos)
     }
     
