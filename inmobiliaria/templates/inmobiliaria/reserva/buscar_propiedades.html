@@ -1091,25 +1091,48 @@
                 </div>
             </div>
 
-            <!-- Inquilino -->
-            <div style="background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%); border: 2px solid #4caf50; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(76,175,80,0.2);">
-                <h4 style="color: #2e7d32; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">🏠 Inquilino</h4>
-                <div style="display: flex; gap: 12px;">
-                    <select id="inquilino" onchange="actualizarInquilinoId()" 
-                            style="flex: 1; padding: 15px; border: 3px solid #4caf50; border-radius: 8px; font-size: 18px; background: #ffffff !important; color: #000000 !important; font-weight: 800 !important; font-family: Arial, sans-serif !important; transition: all 0.3s; box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important; cursor: pointer !important;"
-                            onfocus="this.style.borderColor='#2e7d32'; this.style.boxShadow='0 0 20px rgba(46,125,50,0.6) !important'; this.style.background='#ffffff !important'"
-                            onblur="this.style.borderColor='#4caf50'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.2) !important'">
-                        <option value="" style="color: #666666 !important; background: #ffffff !important; font-weight: 600 !important; font-size: 16px !important;">-- Selecciona un inquilino --</option>
-                        {% for inquilino in inquilinos %}
-                            <option value="{{ inquilino.id }}" style="color: #000000 !important; font-weight: 800 !important; background: #ffffff !important; padding: 8px !important; font-size: 16px !important;">{{ inquilino.nombre_completo }}</option>
-                        {% endfor %}
-                    </select>
-                    <button onclick="mostrarModalCrearInquilino()" 
-                            style="padding: 12px 20px; background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(76,175,80,0.3);"
-                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(76,175,80,0.4)'"
-                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(76,175,80,0.3)'">➕ Crear Nuevo</button>
+                            <!-- Inquilino con Búsqueda Mejorada -->
+                <div style="background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%); border: 2px solid #4caf50; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(76,175,80,0.2);">
+                    <h4 style="color: #2e7d32; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">🏠 Inquilino</h4>
+                    
+                    <!-- Buscador de Inquilinos -->
+                    <div style="margin-bottom: 15px;">
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <input type="text" id="buscar_inquilino" placeholder="Buscar por nombre o ID del inquilino..." 
+                                   style="flex: 1; padding: 12px; border: 2px solid #4caf50; border-radius: 8px; font-size: 16px; color: #000; font-weight: 600;"
+                                   oninput="buscarInquilinosEnTiempoReal()">
+                            <button onclick="buscarTodosLosInquilinos()" 
+                                    style="padding: 12px 20px; background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(33,150,243,0.3);">🔍 Buscar Todos</button>
+                            <button onclick="limpiarBusquedaInquilino()" 
+                                    style="padding: 12px 20px; background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(255,152,0,0.3);">🔄 Limpiar</button>
+                        </div>
+                        <div id="estado_busqueda" style="font-size: 14px; color: #666; font-style: italic; min-height: 20px;"></div>
+                    </div>
+                    
+                    <!-- Lista de Inquilinos -->
+                    <div style="display: flex; gap: 12px;">
+                        <select id="inquilino" onchange="actualizarInquilinoId()" size="5"
+                                style="flex: 1; padding: 10px; border: 3px solid #4caf50; border-radius: 8px; font-size: 16px; background: #ffffff !important; color: #000000 !important; font-weight: 700 !important; font-family: Arial, sans-serif !important; transition: all 0.3s; box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important; cursor: pointer !important; max-height: 200px; overflow-y: auto;"
+                                onfocus="this.style.borderColor='#2e7d32'; this.style.boxShadow='0 0 20px rgba(46,125,50,0.6) !important'"
+                                onblur="this.style.borderColor='#4caf50'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.2) !important'">
+                            <option value="" style="color: #666666 !important; background: #f0f8f0 !important; font-weight: 600 !important; font-size: 14px !important; text-align: center;">-- Selecciona un inquilino --</option>
+                            {% for inquilino in inquilinos %}
+                                <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.nombre_completo|lower }}" data-id="{{ inquilino.id }}"
+                                        style="color: #000000 !important; font-weight: 700 !important; background: #ffffff !important; padding: 8px !important; font-size: 15px !important; border-bottom: 1px solid #e0e0e0;">
+                                    ID: {{ inquilino.id }} - {{ inquilino.nombre_completo }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <button onclick="mostrarModalCrearInquilino()" 
+                                    style="padding: 12px 20px; background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(76,175,80,0.3); min-width: 120px;"
+                                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(76,175,80,0.4)'"
+                                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(76,175,80,0.3)'">➕ Crear Nuevo</button>
+                            <button onclick="seleccionarPrimerInquilino()" 
+                                    style="padding: 12px 20px; background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(156,39,176,0.3); min-width: 120px;">📋 Ver Todos</button>
+                        </div>
+                    </div>
                 </div>
-            </div>
             
         </div>
         
@@ -2400,6 +2423,175 @@ function actualizarInquilinoId() {
     if (inquilinoSelect && modalInquilinoId) {
         modalInquilinoId.value = inquilinoSelect.value;
         console.log('🏠 Inquilino seleccionado ID:', inquilinoSelect.value);
+        
+        // Mostrar nombre del inquilino seleccionado
+        if (inquilinoSelect.value) {
+            const selectedOption = inquilinoSelect.options[inquilinoSelect.selectedIndex];
+            const estadoBusqueda = document.getElementById('estado_busqueda');
+            if (estadoBusqueda && selectedOption) {
+                estadoBusqueda.textContent = `✅ Seleccionado: ${selectedOption.text}`;
+                estadoBusqueda.style.color = '#2e7d32';
+            }
+        }
+    }
+}
+
+// Funciones para búsqueda de inquilinos
+let inquilinosOriginales = []; // Guardar lista original
+
+// Guardar inquilinos originales al cargar
+document.addEventListener('DOMContentLoaded', function() {
+    const inquilinoSelect = document.getElementById('inquilino');
+    if (inquilinoSelect) {
+        inquilinosOriginales = Array.from(inquilinoSelect.options).map(option => ({
+            value: option.value,
+            text: option.text,
+            nombre: option.getAttribute('data-nombre') || '',
+            id: option.getAttribute('data-id') || option.value
+        }));
+    }
+});
+
+// Búsqueda en tiempo real mientras escribes
+function buscarInquilinosEnTiempoReal() {
+    const buscarInput = document.getElementById('buscar_inquilino');
+    const inquilinoSelect = document.getElementById('inquilino');
+    const estadoBusqueda = document.getElementById('estado_busqueda');
+    
+    if (!buscarInput || !inquilinoSelect) return;
+    
+    const termino = buscarInput.value.toLowerCase().trim();
+    
+    if (termino === '') {
+        // Si no hay término, mostrar todos
+        mostrarTodosLosInquilinos();
+        estadoBusqueda.textContent = 'Mostrando todos los inquilinos';
+        estadoBusqueda.style.color = '#666';
+        return;
+    }
+    
+    // Filtrar inquilinos
+    const inquilinosFiltrados = inquilinosOriginales.filter(inquilino => {
+        return inquilino.nombre.includes(termino) || 
+               inquilino.id.toString().includes(termino) ||
+               inquilino.text.toLowerCase().includes(termino);
+    });
+    
+    // Actualizar select
+    inquilinoSelect.innerHTML = '';
+    
+    // Agregar opción por defecto
+    const defaultOption = new Option('-- Selecciona un inquilino --', '');
+    defaultOption.style.cssText = 'color: #666666 !important; background: #f0f8f0 !important; font-weight: 600 !important; font-size: 14px !important; text-align: center;';
+    inquilinoSelect.add(defaultOption);
+    
+    // Agregar inquilinos filtrados
+    inquilinosFiltrados.forEach(inquilino => {
+        if (inquilino.value !== '') { // No agregar la opción por defecto otra vez
+            const option = new Option(inquilino.text, inquilino.value);
+            option.style.cssText = 'color: #000000 !important; font-weight: 700 !important; background: #ffffff !important; padding: 8px !important; font-size: 15px !important; border-bottom: 1px solid #e0e0e0;';
+            option.setAttribute('data-nombre', inquilino.nombre);
+            option.setAttribute('data-id', inquilino.id);
+            inquilinoSelect.add(option);
+        }
+    });
+    
+    // Actualizar estado
+    estadoBusqueda.textContent = `🔍 Encontrados: ${inquilinosFiltrados.length - 1} inquilinos`;
+    estadoBusqueda.style.color = inquilinosFiltrados.length > 1 ? '#2e7d32' : '#f57c00';
+}
+
+// Buscar todos los inquilinos (recarga desde servidor)
+function buscarTodosLosInquilinos() {
+    console.log('🔍 Buscando todos los inquilinos desde el servidor...');
+    const estadoBusqueda = document.getElementById('estado_busqueda');
+    
+    estadoBusqueda.textContent = '⏳ Cargando todos los inquilinos...';
+    estadoBusqueda.style.color = '#2196f3';
+    
+    // Hacer fetch para obtener todos los inquilinos actualizados
+    fetch('{% url "inmobiliaria:buscar_propiedades" %}')
+        .then(response => response.text())
+        .then(html => {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            const nuevoSelect = tempDiv.querySelector('#inquilino');
+            
+            if (nuevoSelect) {
+                const inquilinoSelect = document.getElementById('inquilino');
+                
+                // Guardar la nueva lista como originales
+                inquilinosOriginales = Array.from(nuevoSelect.options).map(option => ({
+                    value: option.value,
+                    text: option.innerHTML,
+                    nombre: option.innerHTML.toLowerCase(),
+                    id: option.value
+                }));
+                
+                // Actualizar el select
+                mostrarTodosLosInquilinos();
+                
+                estadoBusqueda.textContent = `✅ Lista actualizada: ${inquilinosOriginales.length - 1} inquilinos disponibles`;
+                estadoBusqueda.style.color = '#2e7d32';
+                
+                console.log('✅ Lista de inquilinos actualizada desde servidor');
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar inquilinos:', error);
+            estadoBusqueda.textContent = '❌ Error al cargar inquilinos';
+            estadoBusqueda.style.color = '#f44336';
+        });
+}
+
+// Mostrar todos los inquilinos guardados
+function mostrarTodosLosInquilinos() {
+    const inquilinoSelect = document.getElementById('inquilino');
+    const estadoBusqueda = document.getElementById('estado_busqueda');
+    
+    if (!inquilinoSelect) return;
+    
+    // Limpiar select
+    inquilinoSelect.innerHTML = '';
+    
+    // Agregar todos los inquilinos originales
+    inquilinosOriginales.forEach(inquilino => {
+        const option = new Option(inquilino.text, inquilino.value);
+        if (inquilino.value === '') {
+            option.style.cssText = 'color: #666666 !important; background: #f0f8f0 !important; font-weight: 600 !important; font-size: 14px !important; text-align: center;';
+        } else {
+            option.style.cssText = 'color: #000000 !important; font-weight: 700 !important; background: #ffffff !important; padding: 8px !important; font-size: 15px !important; border-bottom: 1px solid #e0e0e0;';
+            option.setAttribute('data-nombre', inquilino.nombre);
+            option.setAttribute('data-id', inquilino.id);
+        }
+        inquilinoSelect.add(option);
+    });
+    
+    estadoBusqueda.textContent = `📋 Mostrando todos: ${inquilinosOriginales.length - 1} inquilinos`;
+    estadoBusqueda.style.color = '#666';
+}
+
+// Limpiar búsqueda
+function limpiarBusquedaInquilino() {
+    const buscarInput = document.getElementById('buscar_inquilino');
+    const estadoBusqueda = document.getElementById('estado_busqueda');
+    
+    if (buscarInput) {
+        buscarInput.value = '';
+    }
+    
+    mostrarTodosLosInquilinos();
+    
+    estadoBusqueda.textContent = '🔄 Búsqueda limpiada - Mostrando todos';
+    estadoBusqueda.style.color = '#666';
+}
+
+// Seleccionar primer inquilino (para pruebas)
+function seleccionarPrimerInquilino() {
+    const inquilinoSelect = document.getElementById('inquilino');
+    if (inquilinoSelect && inquilinoSelect.options.length > 1) {
+        inquilinoSelect.selectedIndex = 1; // Seleccionar el primer inquilino real (no el placeholder)
+        actualizarInquilinoId();
     }
 }
 
