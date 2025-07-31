@@ -254,9 +254,42 @@
             </div>
         </div>
 
+        <!-- Información de Saldo -->
+        {% if reserva %}
+        <div class="recibo-info">
+            <h4 class="text-center mb-3" style="color: #495057;">💰 RESUMEN DE PAGOS</h4>
+            
+            <div class="info-row">
+                <span class="info-label">Precio Total de la Locación:</span>
+                <span class="info-value">${{ reserva.precio_total|format_price }}</span>
+            </div>
+            
+            {% if reserva.senia > 0 %}
+            <div class="info-row">
+                <span class="info-label">Seña Pagada:</span>
+                <span class="info-value">${{ reserva.senia|format_price }}</span>
+            </div>
+            {% endif %}
+            
+            <div class="info-row">
+                <span class="info-label">Pago de Esta Operación:</span>
+                <span class="info-value">${{ total_movimiento|format_price }}</span>
+            </div>
+            
+            <div class="info-row" style="border-top: 2px solid #28a745; padding-top: 10px; margin-top: 10px;">
+                <span class="info-label"><strong>Saldo Pendiente:</strong></span>
+                <span class="info-value">
+                    <strong class="{% if saldo_pendiente <= 0 %}text-success{% else %}text-danger{% endif %}">
+                        ${{ saldo_pendiente|format_price }}
+                    </strong>
+                </span>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Total General -->
         <div class="total-general">
-            TOTAL DEL MOVIMIENTO: ${{ total_movimiento|format_price }}
+            TOTAL DE ESTA OPERACIÓN: ${{ total_movimiento|format_price }}
         </div>
 
         <!-- Botones de Acción -->

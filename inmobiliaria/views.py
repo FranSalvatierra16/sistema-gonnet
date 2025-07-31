@@ -1912,6 +1912,24 @@ def ver_recibo_movimiento(request, movimiento_id):
         
         total_movimiento = total_efectivo + total_cheque + total_tarjeta + total_deposito
         
+        # Calcular saldo pendiente si hay reserva
+        saldo_pendiente = 0
+        if reserva:
+            # Buscar todos los movimientos de esta reserva para calcular total pagado
+            todos_movimientos = MovimientoCaja.objects.filter(
+                propiedad=reserva.propiedad,
+                tipo=TipoMovimientoCajaEnum.INGRESO,
+                concepto__icontains=f"Reserva {reserva.id}"
+            )
+            
+            total_pagado_reserva = sum(
+                m.monto_efectivo + m.monto_cheque + m.monto_tarjeta + m.monto_deposito
+                for m in todos_movimientos
+            )
+            
+            senia_actual = getattr(reserva, 'senia', 0) or 0
+            saldo_pendiente = reserva.precio_total - senia_actual - total_pagado_reserva
+        
         context = {
             'movimiento': movimiento,
             'reserva': reserva,
@@ -1922,6 +1940,7 @@ def ver_recibo_movimiento(request, movimiento_id):
             'total_deposito': total_deposito,
             'total_deposito_galicia': total_deposito_galicia,
             'total_deposito_mp': total_deposito_mp,
+            'saldo_pendiente': saldo_pendiente,
             'movimientos_relacionados': movimientos_relacionados,
             'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
             'caja': movimiento.caja,
