@@ -1,0 +1,146 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+{% load custom_filters %}
+
+{% block title %}Finalizar Reserva - Recibo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <h2 class="mb-4">📝 Finalizar Reserva - Carga de Recibo</h2>
+            
+            <!-- Formulario estilo recibo -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4>🧾 RECIBO DE ALQUILER POR DÍA</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <!-- Fila 1: Datos principales (solo lectura) -->
+                        <div class="row mb-3">
+                            <div class="col-md-2">
+                                <label class="form-label"><strong>1. Cliente:</strong></label>
+                                <input type="text" class="form-control form-control-sm" 
+                                       value="{{ cliente_id }}" readonly style="background-color: #f8f9fa;">
+                                <small class="text-muted">{{ cliente_nombre }}</small>
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <label class="form-label"><strong>2. Interno:</strong></label>
+                                <input type="text" class="form-control form-control-sm" 
+                                       value="{{ interno_caja }}" readonly style="background-color: #f8f9fa;">
+                                <small class="text-muted">Caja actual</small>
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <label class="form-label"><strong>3. Propiedad:</strong></label>
+                                <input type="text" class="form-control form-control-sm" 
+                                       value="{{ propiedad_id }}" readonly style="background-color: #f8f9fa;">
+                                <small class="text-muted">{{ propiedad_direccion }}</small>
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <label class="form-label"><strong>4. Fecha:</strong></label>
+                                <input type="text" class="form-control form-control-sm" 
+                                       value="{{ fecha_actual }}" readonly style="background-color: #f8f9fa;">
+                                <small class="text-muted">Fecha actual</small>
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <label class="form-label"><strong>5. Nro Movimiento:</strong></label>
+                                <input type="text" class="form-control form-control-sm" 
+                                       value="{{ numero_movimiento }}" readonly style="background-color: #f8f9fa;">
+                                <small class="text-muted">Próximo número</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Fila 2: Número de recibo y productor -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <label class="form-label"><strong>6. Nro de Recibo:</strong></label>
+                                <input type="text" class="form-control" name="numero_recibo" 
+                                       value="{{ numero_recibo }}" placeholder="0000-00000000" required>
+                                <small class="text-muted">Completar manualmente</small>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label class="form-label"><strong>7. Productor:</strong></label>
+                                <input type="text" class="form-control form-control-sm" 
+                                       value="{{ productor_id }}" readonly style="background-color: #f8f9fa;">
+                                <small class="text-muted">{{ productor_nombre }}</small>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <!-- Información de la reserva -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h5>📋 Información de la Reserva</h5>
+                                <div class="alert alert-info">
+                                    <p><strong>Período:</strong> {{ reserva.fecha_inicio|date:"d/m/Y" }} al {{ reserva.fecha_fin|date:"d/m/Y" }}</p>
+                                    <p><strong>Precio Total:</strong> ${{ reserva.precio_total|format_price }}</p>
+                                    <p><strong>Estado Actual:</strong> 
+                                        <span class="badge bg-warning">{{ reserva.get_estado_display }}</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Botones de acción -->
+                        <div class="row">
+                            <div class="col-md-12 text-end">
+                                <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-secondary me-2">
+                                    ❌ Cancelar
+                                </a>
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    ✅ Continuar con Formas de Pago
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Campos ocultos -->
+                        <input type="hidden" name="reserva_id" value="{{ reserva.id }}">
+                        <input type="hidden" name="cliente_id" value="{{ cliente_id }}">
+                        <input type="hidden" name="interno_caja" value="{{ interno_caja }}">
+                        <input type="hidden" name="propiedad_id" value="{{ propiedad_id }}">
+                        <input type="hidden" name="numero_movimiento" value="{{ numero_movimiento }}">
+                        <input type="hidden" name="productor_id" value="{{ productor_id }}">
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.form-control[readonly] {
+    background-color: #f8f9fa !important;
+    border: 1px solid #ced4da;
+    color: #495057;
+}
+
+.card-header {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+}
+
+.alert-info {
+    background-color: #e7f3ff;
+    border-color: #bee5eb;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+}
+
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(40, 167, 69, 0.4);
+}
+</style>
+{% endblock %} 

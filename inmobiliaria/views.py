@@ -1097,6 +1097,50 @@ def reserva_exitosa(request, reserva_id):
     return render(request, 'inmobiliaria/reserva/reserva_exitosa.html', context)
 
 @login_required
+def finalizar_reserva_nueva(request, reserva_id):
+    """
+    Nueva vista para finalizar reserva basada en la carga de recibo
+    """
+    try:
+        # Obtener la reserva
+        reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
+        
+        # Obtener la caja actual de la sucursal
+        caja_actual = Caja.objects.filter(
+            sucursal=request.user.sucursal,
+            fecha_cierre__isnull=True
+        ).first()
+        
+        if not caja_actual:
+            messages.error(request, 'No hay una caja abierta. Debe abrir una caja primero.')
+            return redirect('inmobiliaria:reservas')
+        
+        # Calcular el próximo número de movimiento
+        ultimo_movimiento = MovimientoCaja.objects.filter(caja=caja_actual).order_by('-id').first()
+        proximo_numero_movimiento = (ultimo_movimiento.id + 1) if ultimo_movimiento else 1
+        
+        # Datos para el formulario (solo lectura)
+        context = {
+            'reserva': reserva,
+            'cliente_id': reserva.cliente.id,
+            'cliente_nombre': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
+            'interno_caja': caja_actual.numero,
+            'propiedad_id': reserva.propiedad.id,
+            'propiedad_direccion': reserva.propiedad.direccion,
+            'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
+            'numero_movimiento': proximo_numero_movimiento,
+            'numero_recibo': '0000-00000000',  # Para completar
+            'productor_id': request.user.id,
+            'productor_nombre': f"{request.user.nombre} {request.user.apellido}",
+        }
+        
+        return render(request, 'inmobiliaria/reserva/finalizar_reserva_nueva.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Error al cargar la reserva: {str(e)}')
+        return redirect('inmobiliaria:reservas')
+
+@login_required
 def terminar_reserva(request, reserva_id):
     try:
         reserva = get_object_or_404(Reserva, id=reserva_id)
