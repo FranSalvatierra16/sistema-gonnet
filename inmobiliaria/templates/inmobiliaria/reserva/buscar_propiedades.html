@@ -1117,9 +1117,9 @@
                                 onblur="this.style.borderColor='#4caf50'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.2) !important'">
                             <option value="" style="color: #666666 !important; background: #f0f8f0 !important; font-weight: 600 !important; font-size: 14px !important; text-align: center;">-- Selecciona un inquilino --</option>
                             {% for inquilino in inquilinos %}
-                                <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.nombre_completo|lower }}" data-id="{{ inquilino.id }}"
+                                <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.nombre|lower }} {{ inquilino.apellido|lower }}" data-id="{{ inquilino.id }}"
                                         style="color: #000000 !important; font-weight: 700 !important; background: #ffffff !important; padding: 8px !important; font-size: 15px !important; border-bottom: 1px solid #e0e0e0;">
-                                    ID: {{ inquilino.id }} - {{ inquilino.nombre_completo }}
+                                    ID: {{ inquilino.id }} - {{ inquilino.nombre }} {{ inquilino.apellido }}
                                 </option>
                             {% endfor %}
                         </select>
@@ -2524,8 +2524,8 @@ function buscarTodosLosInquilinos() {
                 inquilinosOriginales = Array.from(nuevoSelect.options).map(option => ({
                     value: option.value,
                     text: option.innerHTML,
-                    nombre: option.innerHTML.toLowerCase(),
-                    id: option.value
+                    nombre: option.getAttribute('data-nombre') || option.innerHTML.toLowerCase(),
+                    id: option.getAttribute('data-id') || option.value
                 }));
                 
                 // Actualizar el select
@@ -3005,15 +3005,16 @@ function guardarInquilino() {
             
             // Solo agregar si no existe
             if (!inquilinoExiste) {
-                const nuevaOpcion = new Option(
-                    `${data.inquilino.nombre} ${data.inquilino.apellido}`, 
-                    data.inquilino.id
-                );
+                const nombreCompleto = `ID: ${data.inquilino.id} - ${data.inquilino.nombre} ${data.inquilino.apellido}`;
+                const nuevaOpcion = new Option(nombreCompleto, data.inquilino.id);
+                
                 // Aplicar estilos consistentes y fuertes
-                nuevaOpcion.style.cssText = 'color: #000000 !important; font-weight: 800 !important; background: #ffffff !important; padding: 8px !important; font-size: 16px !important;';
+                nuevaOpcion.style.cssText = 'color: #000000 !important; font-weight: 700 !important; background: #ffffff !important; padding: 8px !important; font-size: 15px !important; border-bottom: 1px solid #e0e0e0;';
+                nuevaOpcion.setAttribute('data-nombre', `${data.inquilino.nombre.toLowerCase()} ${data.inquilino.apellido.toLowerCase()}`);
+                nuevaOpcion.setAttribute('data-id', data.inquilino.id);
                 
                 inquilinoSelect.add(nuevaOpcion);
-                console.log('✅ Nuevo inquilino agregado a la lista:', data.inquilino.nombre);
+                console.log('✅ Nuevo inquilino agregado a la lista:', `${data.inquilino.nombre} ${data.inquilino.apellido}`);
             }
             
             // Seleccionar el nuevo inquilino
