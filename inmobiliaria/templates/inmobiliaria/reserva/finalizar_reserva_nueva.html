@@ -990,8 +990,29 @@ function procesarMovimiento() {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        
+        // Verificar si la respuesta es exitosa
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // Verificar si es JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            return response.text().then(text => {
+                console.log('Response is not JSON, content:', text.substring(0, 500));
+                throw new Error('La respuesta del servidor no es JSON válido');
+            });
+        }
+        
+        return response.json();
+    })
     .then(data => {
+        console.log('Parsed JSON data:', data);
+        
         if (data.success) {
             alert('✅ Movimiento procesado exitosamente');
             // Redirigir al recibo
@@ -1004,8 +1025,8 @@ function procesarMovimiento() {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        alert('❌ Error al procesar el movimiento');
+        console.error('Error completo:', error);
+        alert('❌ Error al procesar el movimiento: ' + error.message);
         // Rehabilitar botón
         boton.disabled = false;
         boton.innerHTML = '✅ Procesar Movimiento';

@@ -1731,9 +1731,17 @@ def procesar_movimiento_reserva(request):
     """
     Vista para procesar el movimiento de caja completo y cambiar estado de reserva
     """
+    print(f"Usuario autenticado: {request.user.is_authenticated}")
+    print(f"Método de request: {request.method}")
+    print(f"Headers: {dict(request.headers)}")
+    
     if request.method == 'POST':
         try:
+            print("=== INICIANDO PROCESAMIENTO DE MOVIMIENTO ===")
             reserva_id = request.POST.get('reserva_id')
+            print(f"Reserva ID recibido: {reserva_id}")
+            print(f"Todos los datos POST: {dict(request.POST)}")
+            
             if not reserva_id:
                 return JsonResponse({'success': False, 'error': 'ID de reserva requerido'})
             
@@ -1761,6 +1769,9 @@ def procesar_movimiento_reserva(request):
             monto_deposito_galicia = Decimal(request.POST.get('monto_deposito_galicia', '0'))
             monto_deposito_mp = Decimal(request.POST.get('monto_deposito_mp', '0'))
             monto_deposito = monto_deposito_galicia + monto_deposito_mp
+            
+            print(f"Montos recibidos - Efectivo: {monto_efectivo}, Cheque: {monto_cheque}, Tarjeta: {monto_tarjeta}")
+            print(f"Transferencias - Galicia: {monto_deposito_galicia}, MP: {monto_deposito_mp}, Total: {monto_deposito}")
             
             # Datos adicionales
             banco = request.POST.get('banco', '').strip()
@@ -1872,6 +1883,8 @@ def procesar_movimiento_reserva(request):
             # reserva.propiedad.estado = 'reservada'
             # reserva.propiedad.save()
             
+            print(f"=== MOVIMIENTO CREADO EXITOSAMENTE - ID: {movimiento.id} ===")
+            
             return JsonResponse({
                 'success': True,
                 'movimiento_id': movimiento.id,
@@ -1879,9 +1892,22 @@ def procesar_movimiento_reserva(request):
             })
             
         except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
+            import traceback
+            error_traceback = traceback.format_exc()
+            print(f"Error en procesar_movimiento_reserva: {str(e)}")
+            print(f"Traceback: {error_traceback}")
+            return JsonResponse({
+                'success': False, 
+                'error': str(e),
+                'debug_info': error_traceback if settings.DEBUG else None
+            })
     
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required
+def test_json_response(request):
+    """Vista de prueba para verificar que JSON funciona"""
+    return JsonResponse({'success': True, 'message': 'Test OK', 'user': str(request.user)})
 
 @login_required
 def ver_recibo_movimiento(request, movimiento_id):

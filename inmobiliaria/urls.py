@@ -54,6 +54,7 @@ urlpatterns = [
     path('crear-inquilino-ajax/', views.crear_inquilino_ajax, name='crear_inquilino_ajax'),
     path('crear-concepto-ajax/', views.crear_concepto_ajax, name='crear_concepto_ajax'),
     path('procesar-movimiento-reserva/', views.procesar_movimiento_reserva, name='procesar_movimiento_reserva'),
+    path('test-json/', views.test_json_response, name='test_json_response'),
     path('recibo-movimiento/<int:movimiento_id>/', views.ver_recibo_movimiento, name='ver_recibo_movimiento'),
     path('disponibilidad-masiva/', views.agregar_disponibilidad_masiva, name='agregar_disponibilidad_masiva'),
     path('propiedad/<int:propiedad_id>/historial-disponibilidad/', views.ver_historial_disponibilidad, name='historial_disponibilidad'),
