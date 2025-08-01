@@ -276,6 +276,15 @@
                 <span class="info-value">${{ total_movimiento|format_price }}</span>
             </div>
             
+            <div class="info-row">
+                <span class="info-label" style="font-size: 12px; color: #666;">
+                    🔍 Debug - Movimiento ID: {{ movimiento.id }}, Número Recibo: {{ movimiento.numero_liquidacion }}
+                </span>
+                <span class="info-value" style="font-size: 12px; color: #666;">
+                    Movimientos incluidos: {{ movimientos_relacionados|length }}
+                </span>
+            </div>
+            
             <div class="info-row" style="border-top: 2px solid #28a745; padding-top: 10px; margin-top: 10px;">
                 <span class="info-label"><strong>Saldo Pendiente:</strong></span>
                 <span class="info-value">

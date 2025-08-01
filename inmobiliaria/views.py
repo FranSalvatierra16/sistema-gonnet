@@ -1785,6 +1785,7 @@ def procesar_movimiento_reserva(request):
             print(f"=== VALORES CONVERTIDOS A DECIMAL ===")
             print(f"Montos recibidos - Efectivo: {monto_efectivo}, Cheque: {monto_cheque}, Tarjeta: {monto_tarjeta}")
             print(f"Transferencias - Galicia: {monto_deposito_galicia}, MP: {monto_deposito_mp}, Total: {monto_deposito}")
+            print(f"TOTAL A CREAR EN MOVIMIENTOS: {monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito}")
             
             # Datos adicionales
             banco = request.POST.get('banco', '').strip()
@@ -1934,14 +1935,14 @@ def ver_recibo_movimiento(request, movimiento_id):
         # Obtener la reserva relacionada si existe
         reserva = movimiento.propiedad.reservas.filter(estado='pagada').first() if movimiento.propiedad else None
         
-        # Buscar todos los movimientos relacionados con la misma reserva y número de recibo
+        # ✅ CORRECCIÓN: Buscar movimientos DE ESTA OPERACIÓN ESPECÍFICA (mismo número de recibo)
         movimientos_relacionados = MovimientoCaja.objects.filter(
             numero_liquidacion=movimiento.numero_liquidacion,
             propiedad=movimiento.propiedad,
             tipo=TipoMovimientoCajaEnum.INGRESO
         ).order_by('id')
         
-        # Calcular totales de todos los movimientos relacionados
+        # ✅ Calcular totales SOLO de esta operación específica (mismo número de recibo)
         total_efectivo = sum(m.monto_efectivo for m in movimientos_relacionados)
         total_cheque = sum(m.monto_cheque for m in movimientos_relacionados)
         total_tarjeta = sum(m.monto_tarjeta for m in movimientos_relacionados)
@@ -1950,6 +1951,11 @@ def ver_recibo_movimiento(request, movimiento_id):
         total_deposito_mp = sum(m.monto_deposito for m in movimientos_relacionados.filter(destino_deposito='mp'))
         
         total_movimiento = total_efectivo + total_cheque + total_tarjeta + total_deposito
+        
+        print(f"🧾 RECIBO - Movimiento ID: {movimiento.id}, Número Recibo: {movimiento.numero_liquidacion}")
+        print(f"🧾 TOTALES - Efectivo: {total_efectivo}, Cheque: {total_cheque}, Tarjeta: {total_tarjeta}")
+        print(f"🧾 DEPÓSITOS - Galicia: {total_deposito_galicia}, MP: {total_deposito_mp}, Total: {total_deposito}")
+        print(f"🧾 TOTAL MOVIMIENTO: {total_movimiento}")
         
         # Calcular saldo pendiente si hay reserva
         saldo_pendiente = 0
