@@ -1871,9 +1871,9 @@ def procesar_movimiento_reserva(request):
             # Usar el movimiento principal para la respuesta
             movimiento = movimiento_principal
             
-            # Obtener datos de pago de la reserva original
-            senia_input = request.POST.get('senia', '0')
-            importe_locacion_input = request.POST.get('importe_locacion', '0')
+            # Obtener datos de pago de la reserva original (limpiados)
+            senia_input = limpiar_valor_monetario(request.POST.get('senia', '0'))
+            importe_locacion_input = limpiar_valor_monetario(request.POST.get('importe_locacion', '0'))
             
             try:
                 senia = Decimal(senia_input) if senia_input else Decimal('0')
