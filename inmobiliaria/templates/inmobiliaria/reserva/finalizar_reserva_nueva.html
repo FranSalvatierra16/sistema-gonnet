@@ -100,15 +100,15 @@
                             
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Seña:</strong></label>
-                                <input type="number" class="form-control form-control-sm" name="senia" id="senia"
-                                       value="{{ reserva.senia }}" step="0.01" placeholder="0.00">
+                                <input type="text" class="form-control form-control-sm" name="senia" id="senia"
+                                       value="{{ reserva.senia|format_price }}" placeholder="0">
                                 <small class="text-muted">💡 Los conceptos deben sumar esta cantidad</small>
                             </div>
                             
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Importe Locación:</strong></label>
-                                <input type="number" class="form-control form-control-sm" name="importe_locacion" 
-                                       value="{{ reserva.precio_total }}" step="0.01" required>
+                                <input type="text" class="form-control form-control-sm" name="importe_locacion" 
+                                       value="{{ reserva.precio_total|format_price }}" required>
                             </div>
                             
                             <div class="col-md-2">
@@ -907,10 +907,10 @@ function calcularTotales() {
         validacionElement.innerHTML = '<span style="color: green;">✅ El total del recibo coincide con la seña</span>';
         validacionElement.style.display = 'block';
     } else if (diferenciaSenia > 0) {
-        validacionElement.innerHTML = `<span style="color: red;">❌ El total del recibo supera la seña en $${diferenciaSenia.toFixed(2)}</span>`;
+        validacionElement.innerHTML = `<span style="color: red;">❌ El total del recibo supera la seña en $${diferenciaSenia.toLocaleString('es-ES')}</span>`;
         validacionElement.style.display = 'block';
     } else {
-        validacionElement.innerHTML = `<span style="color: orange;">⚠️ El total del recibo es menor a la seña en $${Math.abs(diferenciaSenia).toFixed(2)}</span>`;
+        validacionElement.innerHTML = `<span style="color: orange;">⚠️ El total del recibo es menor a la seña en $${Math.abs(diferenciaSenia).toLocaleString('es-ES')}</span>`;
         validacionElement.style.display = 'block';
     }
     
@@ -992,7 +992,7 @@ function procesarMovimiento() {
     const senia = parseFloat(document.getElementById('senia').value) || 0;
     
     if (Math.abs(totalRecibo - senia) > 0.01) {
-        alert(`⚠️ El total del recibo ($${totalRecibo.toFixed(2)}) debe coincidir exactamente con la seña ($${senia.toFixed(2)})`);
+        alert(`⚠️ El total del recibo ($${totalRecibo.toLocaleString('es-ES')}) debe coincidir exactamente con la seña ($${senia.toLocaleString('es-ES')})`);
         return;
     }
     
@@ -1140,11 +1140,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const importeLocacionInput = document.querySelector('input[name="importe_locacion"]');
     
     function calcularSaldoOcupar() {
-        const senia = parseFloat(seniaInput.value) || 0;
-        const importeLocacion = parseFloat(importeLocacionInput.value) || 0;
+        // ✅ Función auxiliar para parsear valores formateados
+        const parsearValorFormateado = (valor) => {
+            if (!valor) return 0;
+            return parseFloat(valor.toString().replace(/\./g, '')) || 0;
+        };
+        
+        const senia = parsearValorFormateado(seniaInput.value);
+        const importeLocacion = parsearValorFormateado(importeLocacionInput.value);
         const saldoOcupar = importeLocacion - senia;
         
-        document.getElementById('saldo_ocupar').value = saldoOcupar.toFixed(2);
+        // ✅ Mostrar con formato de miles
+        document.getElementById('saldo_ocupar').value = saldoOcupar.toLocaleString('es-ES');
     }
     
     seniaInput.addEventListener('input', function() {
@@ -1188,6 +1195,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Inicializar cálculos
+    calcularSaldoOcupar(); // ✅ Inicializar saldo a ocupar primero
     calcularTotales(); // ✅ Inicializar totales primero
     calcularTotalPagos();
     
