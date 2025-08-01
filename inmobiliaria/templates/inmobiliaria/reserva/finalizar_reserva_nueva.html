@@ -916,6 +916,10 @@ function calcularTotales() {
     
     // Recalcular diferencia de pagos
     calcularTotalPagos();
+    
+    // ✅ Re-evaluar estado del botón después de cambios en conceptos/seña
+    const diferenciaPagos = parseFloat(document.getElementById('diferenciaPagos').textContent.replace(/\./g, '')) || 0;
+    habilitarBotonProcesar(diferenciaPagos === 0);
 }
 
 // Función para calcular total de transferencias
@@ -1105,11 +1109,20 @@ function procesarMovimiento() {
 // Función para habilitar/deshabilitar el botón de procesar
 function habilitarBotonProcesar(habilitar) {
     const boton = document.getElementById('btnProcesarMovimiento');
+    
+    // ✅ Función auxiliar para parsear valores formateados
+    const parsearValorFormateado = (valor) => {
+        if (!valor) return 0;
+        return parseFloat(valor.toString().replace(/\./g, '')) || 0;
+    };
+    
     const totalRecibo = parseFloat(document.getElementById('totalRecibo').value) || 0;
-    const senia = parseFloat(document.getElementById('senia').value) || 0;
+    const senia = parsearValorFormateado(document.getElementById('senia').value);
     
     // ✅ Validar también que el total del recibo coincida con la seña
     const seniaCoincide = Math.abs(totalRecibo - senia) <= 0.01;
+    
+    console.log(`🔍 VALIDACIÓN BOTÓN - Total Recibo: ${totalRecibo}, Seña: ${senia}, Coincide: ${seniaCoincide}, Habilitar: ${habilitar}`);
     
     if (habilitar && totalRecibo > 0 && seniaCoincide) {
         boton.disabled = false;
