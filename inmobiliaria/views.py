@@ -1152,8 +1152,24 @@ def finalizar_reserva_nueva(request, reserva_id):
         # Obtener conceptos de caja disponibles
         conceptos_caja = Concepto.objects.all()
         
-        # Calcular saldo a ocupar (precio total - seña pendiente)
-        saldo_a_ocupar = reserva.precio_total - reserva.senia
+        # ✅ CALCULAR SALDO PENDIENTE CONSIDERANDO PAGOS ANTERIORES
+        # Buscar todos los movimientos de caja pagados para esta reserva
+        pagos_anteriores = MovimientoCaja.objects.filter(
+            propiedad=reserva.propiedad,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+            concepto__icontains=f"Reserva {reserva.id}"
+        )
+        
+        # Calcular total pagado hasta ahora
+        total_pagado_anterior = sum(
+            pago.monto_efectivo + pago.monto_cheque + pago.monto_tarjeta + pago.monto_deposito
+            for pago in pagos_anteriores
+        )
+        
+        # Saldo pendiente = Precio total - Total pagado hasta ahora
+        saldo_a_ocupar = reserva.precio_total - total_pagado_anterior
+        
+        print(f"💰 CÁLCULO SALDO - Precio Total: {reserva.precio_total}, Total Pagado: {total_pagado_anterior}, Saldo Pendiente: {saldo_a_ocupar}")
         
         # Datos para el formulario (solo lectura)
         context = {
@@ -1170,6 +1186,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'productor_nombre': f"{request.user.nombre} {request.user.apellido}",
             'conceptos_caja': conceptos_caja,
             'saldo_a_ocupar': saldo_a_ocupar,
+            'total_pagado_anterior': total_pagado_anterior,
             'deposito_garantia': reserva.deposito_garantia,
             'fecha_desde': reserva.fecha_inicio.strftime('%d/%m/%Y'),
             'fecha_hasta': reserva.fecha_fin.strftime('%d/%m/%Y'),

@@ -108,13 +108,26 @@
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Importe Locación:</strong></label>
                                 <input type="text" class="form-control form-control-sm" name="importe_locacion" 
-                                       value="{{ reserva.precio_total|format_price }}" required>
+                                       value="{{ saldo_a_ocupar|format_price }}" required>
+                                <small class="text-muted">💡 Saldo pendiente a pagar</small>
                             </div>
                             
                             <div class="col-md-2">
-                                <label class="form-label"><strong>Saldo a Ocupar:</strong></label>
+                                <label class="form-label"><strong>Queda por Pagar:</strong></label>
                                 <input type="text" class="form-control form-control-sm" id="saldo_ocupar"
-                                       value="{{ saldo_a_ocupar|format_price }}" readonly style="background-color: #f8f9fa;">
+                                       value="0" readonly style="background-color: #f8f9fa;">
+                                <small class="text-muted">💡 Después de esta operación</small>
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <div class="mt-2 p-2" style="background-color: #e7f3ff; border-radius: 5px; border-left: 4px solid #007bff;">
+                                    <small class="text-primary">
+                                        <strong>📊 RESUMEN:</strong><br>
+                                        💰 Precio Total: ${{ reserva.precio_total|format_price }}<br>
+                                        ✅ Ya Pagado: ${{ total_pagado_anterior|format_price }}<br>
+                                        ⏳ Pendiente: ${{ saldo_a_ocupar|format_price }}
+                                    </small>
+                                </div>
                             </div>
                             
                             <div class="col-md-2">
@@ -1171,6 +1184,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const senia = parsearValorFormateado(seniaInput.value);
         const importeLocacion = parsearValorFormateado(importeLocacionInput.value);
+        
+        // ✅ NUEVA LÓGICA: Importe Locación ahora ES el saldo pendiente
+        // Saldo a Ocupar = Lo que queda por pagar después de esta operación
         const saldoOcupar = importeLocacion - senia;
         
         // ✅ Mostrar con formato de miles
