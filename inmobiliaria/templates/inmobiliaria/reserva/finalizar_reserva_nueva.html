@@ -992,8 +992,16 @@ function procesarMovimiento() {
     }
     
     // ✅ VALIDACIÓN: Verificar que el total del recibo coincida con la seña
+    // Función auxiliar para parsear valores formateados
+    const parsearValorFormateado = (valor) => {
+        if (!valor) return 0;
+        return parseFloat(valor.toString().replace(/\./g, '')) || 0;
+    };
+    
     const totalRecibo = parseFloat(document.getElementById('totalRecibo').value) || 0;
-    const senia = parseFloat(document.getElementById('senia').value) || 0;
+    const senia = parsearValorFormateado(document.getElementById('senia').value);
+    
+    console.log(`🔍 VALIDACIÓN PROCESAMIENTO - Total Recibo: ${totalRecibo}, Seña: ${senia}`);
     
     if (Math.abs(totalRecibo - senia) > 0.01) {
         alert(`⚠️ El total del recibo ($${totalRecibo.toLocaleString('es-ES')}) debe coincidir exactamente con la seña ($${senia.toLocaleString('es-ES')})`);
@@ -1001,7 +1009,9 @@ function procesarMovimiento() {
     }
     
     // Verificar que los pagos coincidan
-    const totalPagos = parseFloat(document.getElementById('totalPagos').textContent) || 0;
+    const totalPagos = parsearValorFormateado(document.getElementById('totalPagos').textContent);
+    
+    console.log(`🔍 VALIDACIÓN PAGOS - Total Recibo: ${totalRecibo}, Total Pagos: ${totalPagos}`);
     
     if (Math.abs(totalRecibo - totalPagos) > 0.01) {
         alert('⚠️ Los pagos deben coincidir exactamente con el total del recibo');
