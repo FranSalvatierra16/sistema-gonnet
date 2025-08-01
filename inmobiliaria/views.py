@@ -554,11 +554,9 @@ def operaciones(request):
         )
         
         # ✅ CORRECCIÓN: Calcular saldo pendiente correctamente:
-        # El saldo pendiente es: precio_total - seña (la seña es lo que se pagó)
-        # Los movimientos de caja representan el pago de la seña, no pagos adicionales
-        senia_actual = getattr(reserva, 'senia', 0) or 0
+        # El saldo pendiente es: precio_total - TODOS LOS PAGOS realizados
         reserva.total_pagado = total_pagado
-        reserva.saldo_pendiente = reserva.precio_total - senia_actual
+        reserva.saldo_pendiente = reserva.precio_total - total_pagado
         
         # Obtener el movimiento más reciente para el enlace del recibo
         reserva.movimiento_reciente = movimientos.first() if movimientos.exists() else None
@@ -1988,9 +1986,10 @@ def ver_recibo_movimiento(request, movimiento_id):
                 for m in todos_movimientos
             )
             
-            senia_actual = getattr(reserva, 'senia', 0) or 0
-            # ✅ CORRECCIÓN: El saldo pendiente es precio total - seña pagada (no descontar pagos adicionales)
-            saldo_pendiente = reserva.precio_total - senia_actual
+            # ✅ CORRECCIÓN: El saldo pendiente es precio total - TODOS LOS PAGOS
+            saldo_pendiente = reserva.precio_total - total_pagado_reserva
+            
+            print(f"💰 SALDO CÁLCULO - Precio Total: {reserva.precio_total}, Total Pagado: {total_pagado_reserva}, Saldo Pendiente: {saldo_pendiente}")
         
         context = {
             'movimiento': movimiento,
@@ -2003,6 +2002,7 @@ def ver_recibo_movimiento(request, movimiento_id):
             'total_deposito_galicia': total_deposito_galicia,
             'total_deposito_mp': total_deposito_mp,
             'saldo_pendiente': saldo_pendiente,
+            'total_pagado_acumulado': total_pagado_reserva if reserva else total_movimiento,
             'movimientos_relacionados': movimientos_relacionados,
             'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
             'caja': movimiento.caja,
