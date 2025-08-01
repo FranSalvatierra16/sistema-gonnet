@@ -1840,7 +1840,7 @@ def procesar_movimiento_reserva(request):
                 monto_efectivo=monto_efectivo,
                 monto_cheque=monto_cheque,
                 monto_tarjeta=monto_tarjeta,
-                monto_deposito=0,  # Se manejará por separado
+                monto_deposito=monto_deposito,  # ✅ Incluir total de transferencias
                 numero_liquidacion=numero_recibo,
                 empleado=request.user
             )
@@ -1848,43 +1848,22 @@ def procesar_movimiento_reserva(request):
             # Crear movimientos separados para transferencias si existen
             movimientos_creados = [movimiento_principal]
             
-            if monto_deposito_galicia > 0:
-                movimiento_galicia = MovimientoCaja.objects.create(
-                    caja=caja_actual,
-                    sucursal=request.user.sucursal,
-                    tipo=TipoMovimientoCajaEnum.INGRESO,
-                    concepto=f"Reserva {reserva.id} - Transferencia Galicia",
-                    propiedad=reserva.propiedad,
-                    fecha_desde=reserva.fecha_inicio,
-                    fecha_hasta=reserva.fecha_fin,
-                    monto_efectivo=0,
-                    monto_cheque=0,
-                    monto_tarjeta=0,
-                    monto_deposito=monto_deposito_galicia,
-                    destino_deposito='galicia',
-                    numero_liquidacion=numero_recibo,
-                    empleado=request.user
-                )
-                movimientos_creados.append(movimiento_galicia)
+            # ✅ ASIGNAR DESTINO DE TRANSFERENCIA AL MOVIMIENTO PRINCIPAL
+            if monto_deposito_galicia > 0 and monto_deposito_mp == 0:
+                # Solo Galicia
+                movimiento_principal.destino_deposito = 'galicia'
+                movimiento_principal.save()
+            elif monto_deposito_mp > 0 and monto_deposito_galicia == 0:
+                # Solo Mercado Pago
+                movimiento_principal.destino_deposito = 'mp'
+                movimiento_principal.save()
+            elif monto_deposito_galicia > 0 and monto_deposito_mp > 0:
+                # Ambos: dejar como "mixto" o crear nota en concepto
+                concepto_actualizado = f"Reserva {reserva.id} - Galicia: ${monto_deposito_galicia}, MP: ${monto_deposito_mp}"
+                movimiento_principal.concepto = concepto_actualizado
+                movimiento_principal.save()
             
-            if monto_deposito_mp > 0:
-                movimiento_mp = MovimientoCaja.objects.create(
-                    caja=caja_actual,
-                    sucursal=request.user.sucursal,
-                    tipo=TipoMovimientoCajaEnum.INGRESO,
-                    concepto=f"Reserva {reserva.id} - Transferencia Mercado Pago",
-                    propiedad=reserva.propiedad,
-                    fecha_desde=reserva.fecha_inicio,
-                    fecha_hasta=reserva.fecha_fin,
-                    monto_efectivo=0,
-                    monto_cheque=0,
-                    monto_tarjeta=0,
-                    monto_deposito=monto_deposito_mp,
-                    destino_deposito='mp',
-                    numero_liquidacion=numero_recibo,
-                    empleado=request.user
-                )
-                movimientos_creados.append(movimiento_mp)
+            print(f"✅ MOVIMIENTO ÚNICO CREADO - ID: {movimiento_principal.id}, Total: ${monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito}")
             
             # Usar el movimiento principal para la respuesta
             movimiento = movimiento_principal
@@ -1959,20 +1938,40 @@ def ver_recibo_movimiento(request, movimiento_id):
             tipo=TipoMovimientoCajaEnum.INGRESO
         ).order_by('id')
         
-        # ✅ Calcular totales SOLO de esta operación específica (mismo número de recibo)
-        total_efectivo = sum(m.monto_efectivo for m in movimientos_relacionados)
-        total_cheque = sum(m.monto_cheque for m in movimientos_relacionados)
-        total_tarjeta = sum(m.monto_tarjeta for m in movimientos_relacionados)
-        total_deposito = sum(m.monto_deposito for m in movimientos_relacionados)
-        total_deposito_galicia = sum(m.monto_deposito for m in movimientos_relacionados.filter(destino_deposito='galicia'))
-        total_deposito_mp = sum(m.monto_deposito for m in movimientos_relacionados.filter(destino_deposito='mp'))
+        # ✅ USAR SOLO EL MOVIMIENTO PRINCIPAL (no sumar movimientos múltiples)
+        total_efectivo = movimiento.monto_efectivo
+        total_cheque = movimiento.monto_cheque
+        total_tarjeta = movimiento.monto_tarjeta
+        total_deposito = movimiento.monto_deposito
+        
+        # ✅ Para transferencias, extraer del concepto si hay ambas o usar destino_deposito
+        total_deposito_galicia = 0
+        total_deposito_mp = 0
+        
+        if movimiento.destino_deposito == 'galicia':
+            total_deposito_galicia = movimiento.monto_deposito
+        elif movimiento.destino_deposito == 'mp':
+            total_deposito_mp = movimiento.monto_deposito
+        elif 'Galicia:' in movimiento.concepto and 'MP:' in movimiento.concepto:
+            # Extraer montos del concepto si están ambos
+            import re
+            galicia_match = re.search(r'Galicia: \$(\d+)', movimiento.concepto)
+            mp_match = re.search(r'MP: \$(\d+)', movimiento.concepto)
+            
+            if galicia_match:
+                total_deposito_galicia = int(galicia_match.group(1))
+            if mp_match:
+                total_deposito_mp = int(mp_match.group(1))
+        else:
+            # Si no hay destino específico, asumir que es todo en uno
+            total_deposito_galicia = movimiento.monto_deposito
         
         total_movimiento = total_efectivo + total_cheque + total_tarjeta + total_deposito
         
-        print(f"🧾 RECIBO - Movimiento ID: {movimiento.id}, Número Recibo: {movimiento.numero_liquidacion}")
-        print(f"🧾 TOTALES - Efectivo: {total_efectivo}, Cheque: {total_cheque}, Tarjeta: {total_tarjeta}")
-        print(f"🧾 DEPÓSITOS - Galicia: {total_deposito_galicia}, MP: {total_deposito_mp}, Total: {total_deposito}")
-        print(f"🧾 TOTAL MOVIMIENTO: {total_movimiento}")
+        print(f"🧾 RECIBO ÚNICO - Movimiento ID: {movimiento.id}, Número: {movimiento.numero_liquidacion}")
+        print(f"🧾 DESGLOSE - Efectivo: {total_efectivo}, Cheque: {total_cheque}, Tarjeta: {total_tarjeta}")
+        print(f"🧾 TRANSFERENCIAS - Galicia: {total_deposito_galicia}, MP: {total_deposito_mp}, Total Depósitos: {total_deposito}")
+        print(f"🧾 TOTAL OPERACIÓN: {total_movimiento} (debe coincidir con lo pagado)")
         
         # Calcular saldo pendiente si hay reserva
         saldo_pendiente = 0

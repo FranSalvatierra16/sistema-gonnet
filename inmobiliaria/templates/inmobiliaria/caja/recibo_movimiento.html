@@ -278,10 +278,10 @@
             
             <div class="info-row">
                 <span class="info-label" style="font-size: 12px; color: #666;">
-                    🔍 Debug - Movimiento ID: {{ movimiento.id }}, Número Recibo: {{ movimiento.numero_liquidacion }}
+                    🔍 Movimiento Único ID: {{ movimiento.id }}, Recibo: {{ movimiento.numero_liquidacion }}
                 </span>
                 <span class="info-value" style="font-size: 12px; color: #666;">
-                    Movimientos incluidos: {{ movimientos_relacionados|length }}
+                    ✅ Un solo movimiento (sin duplicaciones)
                 </span>
             </div>
             
