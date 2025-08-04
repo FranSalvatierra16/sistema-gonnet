@@ -797,9 +797,10 @@
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <!-- Botón de cerrar flotante -->
-            <button type="button" class="btn-close position-absolute top-0 end-0 m-3" 
+            <button type="button" class="position-absolute top-0 end-0 m-3" 
                     data-bs-dismiss="modal" aria-label="Close" 
-                    style="z-index: 1060; background: rgba(255,255,255,0.8); border-radius: 50%; padding: 10px; width: 40px; height: 40px;">
+                    style="z-index: 1060; background: rgba(0,0,0,0.7); border: 2px solid white; border-radius: 50%; width: 50px; height: 50px; color: white; font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                ✕
             </button>
             <div class="modal-body p-0">
                 <div id="galleryCarousel" class="carousel slide" data-bs-ride="false">
@@ -1005,14 +1006,15 @@
     border-radius: 0;
 }
 
-#imageGalleryModal .btn-close {
-    filter: invert(1);
-    opacity: 0.8;
+#imageGalleryModal .position-absolute {
     transition: all 0.3s ease;
+    font-weight: bold;
 }
 
-#imageGalleryModal .btn-close:hover {
-    opacity: 1;
+#imageGalleryModal .position-absolute:hover {
+    background: rgba(255,255,255,0.9) !important;
+    color: #000 !important;
+    border-color: #000 !important;
     transform: scale(1.1);
 }
 
