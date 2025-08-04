@@ -10,14 +10,20 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Paso 1: Agregar campo id como IntegerField normal (no auto)
+        # Paso 1: Remover auto-increment del campo numero (mantener como primary key por ahora)
+        migrations.RunSQL(
+            "ALTER TABLE inmobiliaria_caja MODIFY COLUMN numero INT NOT NULL;",
+            reverse_sql="ALTER TABLE inmobiliaria_caja MODIFY COLUMN numero INT AUTO_INCREMENT;"
+        ),
+        
+        # Paso 2: Agregar campo id como IntegerField normal
         migrations.AddField(
             model_name='caja',
             name='id',
             field=models.IntegerField(null=True),
         ),
         
-        # Paso 2: Poblar el campo id con valores únicos
+        # Paso 3: Poblar el campo id con valores únicos
         migrations.RunSQL(
             """
             SET @row_number = 0;
@@ -26,20 +32,20 @@ class Migration(migrations.Migration):
             reverse_sql="UPDATE inmobiliaria_caja SET id = NULL;"
         ),
         
-        # Paso 3: Hacer id NOT NULL
+        # Paso 4: Hacer id NOT NULL
         migrations.AlterField(
             model_name='caja',
             name='id',
             field=models.IntegerField(),
         ),
         
-        # Paso 4: Remover primary key de numero
+        # Paso 5: Remover primary key de numero
         migrations.RunSQL(
             "ALTER TABLE inmobiliaria_caja DROP PRIMARY KEY;",
             reverse_sql="ALTER TABLE inmobiliaria_caja ADD PRIMARY KEY (numero);"
         ),
         
-        # Paso 5: Hacer id primary key y auto increment
+        # Paso 6: Hacer id primary key y auto increment
         migrations.RunSQL(
             """
             ALTER TABLE inmobiliaria_caja 
@@ -48,14 +54,14 @@ class Migration(migrations.Migration):
             reverse_sql="ALTER TABLE inmobiliaria_caja DROP PRIMARY KEY, MODIFY COLUMN id INT;"
         ),
         
-        # Paso 6: Cambiar numero a PositiveIntegerField
+        # Paso 7: Cambiar numero a PositiveIntegerField
         migrations.AlterField(
             model_name='caja',
             name='numero',
             field=models.PositiveIntegerField(),
         ),
         
-        # Paso 7: Agregar unique_together
+        # Paso 8: Agregar unique_together
         migrations.AlterUniqueTogether(
             name='caja',
             unique_together={('numero', 'sucursal')},
