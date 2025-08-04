@@ -247,7 +247,7 @@
                                     <div class="d-flex gap-2 mb-3">
                                         <input type="number" id="vendedor_id_contrato" placeholder="Ingresa ID del vendedor" min="1"
                                                class="form-control" oninput="buscarVendedorAutomaticoContrato()">
-                                        <button onclick="buscarVendedorContrato()" type="button" class="btn btn-primary">🔍 Buscar</button>
+                                        <button onclick="buscarVendedorContrato(event)" type="button" class="btn btn-primary">🔍 Buscar</button>
                                     </div>
                                     <input type="hidden" id="modalVendedorIdContrato" name="vendedor_id">
                                     <div id="vendedor_info_contrato" style="display: none;" class="alert alert-success">
@@ -512,7 +512,7 @@ function buscarVendedorAutomaticoContrato() {
 }
 
 // Función para buscar vendedor
-function buscarVendedorContrato() {
+function buscarVendedorContrato(event) {
     const vendedorId = document.getElementById('vendedor_id_contrato').value.trim();
     const vendedorInfo = document.getElementById('vendedor_info_contrato');
     
@@ -523,8 +523,8 @@ function buscarVendedorContrato() {
     
     console.log('🔍 Buscando vendedor con ID:', vendedorId);
     
-    // Usar la misma URL que el modal original
-    fetch(`/inmobiliaria/obtener_vendedor/${vendedorId}/`)
+    // Usar la URL correcta de Django
+    fetch(`{% url 'inmobiliaria:obtener_vendedor' '0' %}`.replace('0', vendedorId))
         .then(response => response.json())
         .then(data => {
             console.log('📝 Respuesta COMPLETA del servidor:', JSON.stringify(data, null, 2));
@@ -555,17 +555,28 @@ function buscarVendedorContrato() {
                 
                 console.log('✅ Vendedor mostrado correctamente');
             } else {
-                console.log('❌ Vendedor no encontrado:', data.message);
-                vendedorInfo.style.display = 'none';
+                // Vendedor no encontrado
+                document.getElementById('vendedor_nombre_contrato').textContent = '';
                 document.getElementById('modalVendedorIdContrato').value = '';
-                alert('❌ Vendedor no encontrado: ' + (data.message || 'ID no válido'));
+                vendedorInfo.style.display = 'none';
+                
+                console.log('❌ Vendedor no encontrado');
+                // Solo mostrar alerta si se presionó el botón buscar manualmente
+                if (event && event.type === 'click') {
+                    alert('❌ Vendedor no encontrado con ID: ' + vendedorId);
+                }
             }
         })
         .catch(error => {
-            console.error('❌ Error en la petición:', error);
-            vendedorInfo.style.display = 'none';
+            console.error('💥 Error al buscar vendedor:', error);
+            document.getElementById('vendedor_nombre_contrato').textContent = '';
             document.getElementById('modalVendedorIdContrato').value = '';
-            alert('❌ Error al buscar vendedor. Intenta nuevamente.');
+            vendedorInfo.style.display = 'none';
+            
+            // Solo mostrar alerta si se presionó el botón buscar manualmente
+            if (event && event.type === 'click') {
+                alert('💥 Error al buscar vendedor. Intenta de nuevo.');
+            }
         });
 }
 
