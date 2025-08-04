@@ -10,13 +10,43 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunSQL(
-            # Eliminar la foreign key problemática
-            sql="ALTER TABLE inmobiliaria_movimientocaja DROP FOREIGN KEY inmobiliaria_movimie_caja_id_8fbc19e2_fk_inmobilia;",
-            reverse_sql="",  # No podemos revertir esto fácilmente
+            # Eliminar la foreign key problemática si existe
+            sql="""
+            SET @constraint_exists = (
+                SELECT COUNT(*)
+                FROM information_schema.KEY_COLUMN_USAGE
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'inmobiliaria_movimientocaja'
+                AND CONSTRAINT_NAME = 'inmobiliaria_movimie_caja_id_8fbc19e2_fk_inmobilia'
+            );
+            SET @sql = IF(@constraint_exists > 0, 
+                'ALTER TABLE inmobiliaria_movimientocaja DROP FOREIGN KEY inmobiliaria_movimie_caja_id_8fbc19e2_fk_inmobilia', 
+                'SELECT "Foreign key does not exist"'
+            );
+            PREPARE stmt FROM @sql;
+            EXECUTE stmt;
+            DEALLOCATE PREPARE stmt;
+            """,
+            reverse_sql="",
         ),
         migrations.RunSQL(
-            # Eliminar la columna caja_id temporalmente
-            sql="ALTER TABLE inmobiliaria_movimientocaja DROP COLUMN caja_id;",
+            # Eliminar la columna caja_id si existe
+            sql="""
+            SET @column_exists = (
+                SELECT COUNT(*)
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'inmobiliaria_movimientocaja'
+                AND COLUMN_NAME = 'caja_id'
+            );
+            SET @sql = IF(@column_exists > 0, 
+                'ALTER TABLE inmobiliaria_movimientocaja DROP COLUMN caja_id', 
+                'SELECT "Column caja_id does not exist"'
+            );
+            PREPARE stmt FROM @sql;
+            EXECUTE stmt;
+            DEALLOCATE PREPARE stmt;
+            """,
             reverse_sql="",
         ),
         migrations.RunSQL(
@@ -44,13 +74,43 @@ class Migration(migrations.Migration):
             reverse_sql="",
         ),
         migrations.RunSQL(
-            # Agregar de vuelta la columna caja_id a movimientocaja
-            sql="ALTER TABLE inmobiliaria_movimientocaja ADD COLUMN caja_id bigint NULL;",
+            # Agregar de vuelta la columna caja_id a movimientocaja si no existe
+            sql="""
+            SET @column_exists = (
+                SELECT COUNT(*)
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'inmobiliaria_movimientocaja'
+                AND COLUMN_NAME = 'caja_id'
+            );
+            SET @sql = IF(@column_exists = 0, 
+                'ALTER TABLE inmobiliaria_movimientocaja ADD COLUMN caja_id bigint NULL', 
+                'SELECT "Column caja_id already exists"'
+            );
+            PREPARE stmt FROM @sql;
+            EXECUTE stmt;
+            DEALLOCATE PREPARE stmt;
+            """,
             reverse_sql="",
         ),
         migrations.RunSQL(
-            # Crear la nueva foreign key que funciona
-            sql="ALTER TABLE inmobiliaria_movimientocaja ADD CONSTRAINT inmobiliaria_movimie_caja_id_new_fk FOREIGN KEY (caja_id) REFERENCES inmobiliaria_caja (id);",
+            # Crear la nueva foreign key que funciona si no existe
+            sql="""
+            SET @constraint_exists = (
+                SELECT COUNT(*)
+                FROM information_schema.KEY_COLUMN_USAGE
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'inmobiliaria_movimientocaja'
+                AND CONSTRAINT_NAME = 'inmobiliaria_movimie_caja_id_new_fk'
+            );
+            SET @sql = IF(@constraint_exists = 0, 
+                'ALTER TABLE inmobiliaria_movimientocaja ADD CONSTRAINT inmobiliaria_movimie_caja_id_new_fk FOREIGN KEY (caja_id) REFERENCES inmobiliaria_caja (id)', 
+                'SELECT "Foreign key already exists"'
+            );
+            PREPARE stmt FROM @sql;
+            EXECUTE stmt;
+            DEALLOCATE PREPARE stmt;
+            """,
             reverse_sql="",
         ),
     ] 
