@@ -1,0 +1,187 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<div class="container-fluid mt-4 fade-in-up">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="text-gradient">
+            <i class="fas fa-file-contract"></i> <strong>Contrato #{{ contrato.id }}</strong>
+        </h1>
+        <div class="d-flex gap-2">
+            <a href="{% url 'inmobiliaria:lista_contratos' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver a Contratos
+            </a>
+        </div>
+    </div>
+
+    <!-- Información del Contrato -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card shadow-modern border-radius-modern">
+                <div class="card-header bg-gradient-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-info-circle"></i> <strong>Información del Contrato</strong>
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5><i class="fas fa-home text-success"></i> <strong>Propiedad</strong></h5>
+                            <p><strong>Dirección:</strong> {{ contrato.propiedad.direccion }}</p>
+                            <p><strong>Ficha:</strong> #{{ contrato.propiedad.id }}</p>
+                            <p><strong>Sucursal:</strong> {{ contrato.propiedad.sucursal.nombre }}</p>
+                            
+                            <h5><i class="fas fa-user text-info"></i> <strong>Inquilino</strong></h5>
+                            <p><strong>Nombre:</strong> {{ contrato.inquilino.nombre }} {{ contrato.inquilino.apellido }}</p>
+                            <p><strong>Teléfono:</strong> {{ contrato.inquilino.telefono }}</p>
+                            <p><strong>Email:</strong> {{ contrato.inquilino.email }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h5><i class="fas fa-calendar text-warning"></i> <strong>Fechas del Contrato</strong></h5>
+                            <p><strong>Inicio:</strong> {{ contrato.fecha_inicio|date:"d/m/Y" }}</p>
+                            <p><strong>Fin:</strong> {{ contrato.fecha_fin|date:"d/m/Y" }}</p>
+                            <p><strong>Duración:</strong> {{ contrato.duracion_meses }} meses</p>
+                            
+                            <h5><i class="fas fa-dollar-sign text-success"></i> <strong>Montos</strong></h5>
+                            <p><strong>Precio Mensual:</strong> ${{ contrato.precio_mensual|format_price }}</p>
+                            <p><strong>Depósito de Garantía:</strong> ${{ contrato.deposito_garantia|format_price }}</p>
+                            <p><strong>Total del Contrato:</strong> ${{ contrato.precio_mensual|mul:contrato.duracion_meses|format_price }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Estadísticas -->
+        <div class="col-md-4">
+            <div class="card shadow-modern border-radius-modern">
+                <div class="card-header bg-gradient-success text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-chart-pie"></i> <strong>Estadísticas</strong>
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="row">
+                            <div class="col-6">
+                                <h3 class="text-success">{{ cuotas_pagadas }}</h3>
+                                <small>Cuotas Pagadas</small>
+                            </div>
+                            <div class="col-6">
+                                <h3 class="text-danger">{{ cuotas_vencidas }}</h3>
+                                <small>Cuotas Vencidas</small>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <p><strong>Total Pagado:</strong></p>
+                    <h4 class="text-success">${{ total_pagado|format_price }}</h4>
+                    
+                    <p><strong>Pendiente de Pago:</strong></p>
+                    <h4 class="text-warning">${{ contrato.precio_mensual|mul:contrato.duracion_meses|sub:total_pagado|format_price }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Cuotas -->
+    <div class="card shadow-modern border-radius-modern">
+        <div class="card-header bg-gradient-dark text-white">
+            <h4 class="mb-0">
+                <i class="fas fa-calendar-alt"></i> <strong>Cuotas Mensuales ({{ cuotas|length }} total)</strong>
+            </h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Cuota</th>
+                            <th>Vencimiento</th>
+                            <th>Monto</th>
+                            <th>Estado</th>
+                            <th>Fecha de Pago</th>
+                            <th>Días Vencida</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cuota in cuotas %}
+                        <tr class="{% if cuota.estado == 'pagada' %}table-success{% elif cuota.estado == 'vencida' %}table-danger{% elif cuota.fecha_vencimiento < today %}table-warning{% endif %}">
+                            <td>
+                                <strong>{{ cuota.numero_cuota }}/{{ contrato.duracion_meses }}</strong>
+                            </td>
+                            <td>
+                                {{ cuota.fecha_vencimiento|date:"d/m/Y" }}
+                            </td>
+                            <td>
+                                <strong class="text-success">${{ cuota.monto_total|format_price }}</strong>
+                            </td>
+                            <td>
+                                {% if cuota.estado == 'pagada' %}
+                                    <span class="badge bg-success">Pagada</span>
+                                {% elif cuota.estado == 'pendiente' %}
+                                    {% if cuota.fecha_vencimiento < today %}
+                                        <span class="badge bg-danger">Vencida</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Pendiente</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-info">{{ cuota.get_estado_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cuota.fecha_pago %}
+                                    {{ cuota.fecha_pago|date:"d/m/Y" }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cuota.estado == 'pendiente' and cuota.fecha_vencimiento < today %}
+                                    <span class="text-danger">{{ cuota.dias_vencido }} días</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cuota.estado == 'pendiente' %}
+                                    <button class="btn btn-sm btn-success" 
+                                            onclick="pagarCuotaEspecifica({{ cuota.id }})" 
+                                            title="Pagar Cuota">
+                                        <i class="fas fa-dollar-sign"></i> Pagar
+                                    </button>
+                                {% elif cuota.estado == 'pagada' %}
+                                    <button class="btn btn-sm btn-info" 
+                                            onclick="verReciboCuota({{ cuota.movimiento_caja.id }})" 
+                                            title="Ver Recibo">
+                                        <i class="fas fa-receipt"></i> Recibo
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function pagarCuotaEspecifica(cuotaId) {
+    // Esta función la implementaremos después para pagar cuotas específicas
+    alert('Función de pago de cuota específica próximamente disponible');
+}
+
+function verReciboCuota(movimientoId) {
+    if (movimientoId) {
+        window.open(`/inmobiliaria/recibo-movimiento/${movimientoId}/`, '_blank');
+    } else {
+        alert('No hay recibo disponible para esta cuota');
+    }
+}
+</script>
+{% endblock %} 

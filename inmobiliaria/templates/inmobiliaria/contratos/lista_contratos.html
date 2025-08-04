@@ -1,0 +1,159 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<div class="container-fluid mt-4 fade-in-up">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="text-gradient">
+            <i class="fas fa-file-contract"></i> <strong>Contratos de Alquiler</strong>
+        </h1>
+        <div class="d-flex gap-2">
+            <a href="{% url 'inmobiliaria:alquileres_24_meses' %}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Nuevo Contrato
+            </a>
+            <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- Estadísticas Rápidas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white shadow-modern">
+                <div class="card-body text-center">
+                    <h3>{{ contratos|length }}</h3>
+                    <p class="mb-0">Total Contratos</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white shadow-modern">
+                <div class="card-body text-center">
+                    <h3>{{ contratos|length }}</h3>
+                    <p class="mb-0">Activos</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white shadow-modern">
+                <div class="card-body text-center">
+                    <h3>0</h3>
+                    <p class="mb-0">Vencimientos Hoy</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white shadow-modern">
+                <div class="card-body text-center">
+                    <h3>0</h3>
+                    <p class="mb-0">Cuotas Vencidas</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Contratos -->
+    <div class="card shadow-modern border-radius-modern">
+        <div class="card-header bg-gradient-primary text-white">
+            <h4 class="mb-0">
+                <i class="fas fa-list"></i> <strong>Lista de Contratos</strong>
+            </h4>
+        </div>
+        <div class="card-body">
+            {% if contratos %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Propiedad</th>
+                                <th>Inquilino</th>
+                                <th>Duración</th>
+                                <th>Precio Mensual</th>
+                                <th>Inicio</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for contrato in contratos %}
+                            <tr>
+                                <td>
+                                    <strong class="text-primary">#{{ contrato.id }}</strong>
+                                </td>
+                                <td>
+                                    <div>
+                                        <strong>{{ contrato.propiedad.direccion }}</strong>
+                                        <br>
+                                        <small class="text-muted">Ficha #{{ contrato.propiedad.id }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div>
+                                        <strong>{{ contrato.inquilino.nombre }} {{ contrato.inquilino.apellido }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ contrato.inquilino.telefono }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ contrato.duracion_meses }} meses</span>
+                                </td>
+                                <td>
+                                    <strong class="text-success">${{ contrato.precio_mensual|format_price }}</strong>
+                                </td>
+                                <td>
+                                    {{ contrato.fecha_inicio|date:"d/m/Y" }}
+                                </td>
+                                <td>
+                                    {% if contrato.estado == 'activo' %}
+                                        <span class="badge bg-success">Activo</span>
+                                    {% elif contrato.estado == 'finalizado' %}
+                                        <span class="badge bg-secondary">Finalizado</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Rescindido</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a href="{% url 'inmobiliaria:detalle_contrato' contrato.id %}" 
+                                           class="btn btn-sm btn-primary" title="Ver Detalle">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <button class="btn btn-sm btn-success" 
+                                                onclick="pagarCuota({{ contrato.id }})" 
+                                                title="Pagar Cuota">
+                                            <i class="fas fa-dollar-sign"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <div class="mb-4">
+                        <i class="fas fa-file-contract fa-4x text-muted"></i>
+                    </div>
+                    <h4 class="text-muted">No hay contratos registrados</h4>
+                    <p class="text-muted">Comienza creando tu primer contrato de alquiler</p>
+                    <a href="{% url 'inmobiliaria:alquileres_24_meses' %}" class="btn btn-success btn-lg">
+                        <i class="fas fa-plus"></i> Crear Primer Contrato
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function pagarCuota(contratoId) {
+    // Esta función la implementaremos después para pagar cuotas
+    alert('Función de pago de cuotas próximamente disponible');
+}
+</script>
+{% endblock %} 

@@ -188,4 +188,17 @@ urlpatterns = [
     path('caja/propiedades/buscar/', views.buscar_propiedades_caja, name='buscar_propiedades_caja'),
     path('caja/obtener-actual/', views.obtener_caja_actual, name='obtener_caja_actual'),
     
+    # ============================
+    # URLs PARA CONTRATOS 24 MESES
+    # ============================
+    
+    # APIs
+    path('api/inquilino/<int:inquilino_id>/', views.api_inquilino_detalle, name='api_inquilino_detalle'),
+    path('api/vendedor/<int:vendedor_id>/', views.api_vendedor_detalle, name='api_vendedor_detalle'),
+    
+    # Contratos
+    path('contratos/crear/', views.crear_contrato_alquiler, name='crear_contrato_alquiler'),
+    path('contratos/', views.lista_contratos, name='lista_contratos'),
+    path('contratos/<int:contrato_id>/', views.detalle_contrato, name='detalle_contrato'),
+    
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

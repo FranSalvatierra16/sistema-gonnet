@@ -4394,6 +4394,178 @@ def buscar_propiedades(request):
         'inquilinos': Inquilino.objects.all().order_by('apellido', 'nombre'),
         'vendedores': vendedores,
         'tipos_precio': TipoPrecio,
-        'inquilino_form': inquilino_form,
-        'total_dias': total_dias_reserva,
+        'conceptos': conceptos
     })
+
+# ============================
+# VISTAS API PARA CONTRATOS 24 MESES
+# ============================
+
+@login_required
+def api_inquilino_detalle(request, inquilino_id):
+    """API para obtener detalles de un inquilino"""
+    try:
+        inquilino = get_object_or_404(Inquilino, id=inquilino_id)
+        data = {
+            'id': inquilino.id,
+            'nombre': inquilino.nombre,
+            'apellido': inquilino.apellido,
+            'telefono': inquilino.telefono,
+            'email': inquilino.email,
+            'dni': inquilino.dni,
+        }
+        return JsonResponse(data)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=404)
+
+@login_required 
+def api_vendedor_detalle(request, vendedor_id):
+    """API para obtener detalles de un vendedor"""
+    try:
+        vendedor = get_object_or_404(Vendedor, id=vendedor_id)
+        data = {
+            'id': vendedor.id,
+            'nombre': vendedor.nombre,
+            'apellido': vendedor.apellido,
+            'telefono': vendedor.telefono,
+            'email': vendedor.email,
+        }
+        return JsonResponse(data)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=404)
+
+@login_required
+def crear_contrato_alquiler(request):
+    """Vista para crear un nuevo contrato de alquiler"""
+    if request.method == 'POST':
+        try:
+            from datetime import datetime, timedelta
+            from dateutil.relativedelta import relativedelta
+            from decimal import Decimal
+            from .models import ContratoAlquiler, CuotaMensual
+            
+            # Obtener datos del formulario
+            propiedad_id = request.POST.get('propiedad_id')
+            inquilino_id = request.POST.get('inquilino_id')
+            vendedor_id = request.POST.get('vendedor_id')
+            fecha_inicio = request.POST.get('fecha_inicio')
+            duracion_meses = int(request.POST.get('duracion_meses', 24))
+            precio_mensual_str = request.POST.get('precio_mensual', '0').replace('.', '')
+            deposito_garantia_str = request.POST.get('deposito_garantia', '0').replace('.', '')
+            
+            # Validaciones
+            if not all([propiedad_id, inquilino_id, vendedor_id, fecha_inicio]):
+                messages.error(request, 'Todos los campos son obligatorios')
+                return redirect('inmobiliaria:alquileres_24_meses')
+            
+            # Obtener objetos relacionados
+            propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
+            inquilino = get_object_or_404(Inquilino, id=inquilino_id)
+            vendedor = get_object_or_404(Vendedor, id=vendedor_id)
+            
+            # Convertir valores monetarios
+            precio_mensual = Decimal(precio_mensual_str)
+            deposito_garantia = Decimal(deposito_garantia_str)
+            
+            # Parsear fecha
+            fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+            fecha_fin_obj = fecha_inicio_obj + relativedelta(months=duracion_meses)
+            
+            print(f"🏠 CREANDO CONTRATO:")
+            print(f"   Propiedad: {propiedad.direccion}")
+            print(f"   Inquilino: {inquilino.nombre} {inquilino.apellido}")
+            print(f"   Vendedor: {vendedor.nombre} {vendedor.apellido}")
+            print(f"   Duración: {duracion_meses} meses")
+            print(f"   Precio mensual: ${precio_mensual}")
+            print(f"   Depósito: ${deposito_garantia}")
+            
+            # Crear el contrato
+            with transaction.atomic():
+                contrato = ContratoAlquiler.objects.create(
+                    propiedad=propiedad,
+                    inquilino=inquilino,
+                    vendedor=vendedor,
+                    fecha_inicio=fecha_inicio_obj,
+                    fecha_fin=fecha_fin_obj,
+                    duracion_meses=duracion_meses,
+                    precio_mensual=precio_mensual,
+                    deposito_garantia=deposito_garantia,
+                    estado='activo',
+                    sucursal=request.user.sucursal
+                )
+                
+                print(f"✅ CONTRATO CREADO: ID {contrato.id}")
+                
+                # Crear las cuotas mensuales automáticamente
+                fecha_cuota = fecha_inicio_obj
+                for numero_cuota in range(1, duracion_meses + 1):
+                    # Calcular fecha de vencimiento (día 10 de cada mes)
+                    fecha_vencimiento = fecha_cuota.replace(day=10)
+                    
+                    cuota = CuotaMensual.objects.create(
+                        contrato=contrato,
+                        numero_cuota=numero_cuota,
+                        fecha_vencimiento=fecha_vencimiento,
+                        monto_base=precio_mensual,
+                        monto_total=precio_mensual,
+                        estado='pendiente'
+                    )
+                    
+                    print(f"📅 CUOTA {numero_cuota}/{duracion_meses}: Vencimiento {fecha_vencimiento}, Monto ${precio_mensual}")
+                    
+                    # Avanzar al siguiente mes
+                    fecha_cuota = fecha_cuota + relativedelta(months=1)
+                
+                # Actualizar estado de la propiedad (opcional)
+                if hasattr(propiedad, 'info_meses'):
+                    propiedad.info_meses.estado = 'alquilada'
+                    propiedad.info_meses.save()
+                
+                messages.success(request, f'✅ Contrato creado exitosamente. Se generaron {duracion_meses} cuotas mensuales.')
+                return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+                
+        except Exception as e:
+            print(f"❌ ERROR AL CREAR CONTRATO: {str(e)}")
+            messages.error(request, f'Error al crear el contrato: {str(e)}')
+            return redirect('inmobiliaria:alquileres_24_meses')
+    
+    return redirect('inmobiliaria:alquileres_24_meses')
+
+@login_required
+def lista_contratos(request):
+    """Vista para listar todos los contratos de alquiler"""
+    from .models import ContratoAlquiler
+    
+    contratos = ContratoAlquiler.objects.filter(
+        sucursal=request.user.sucursal
+    ).select_related('propiedad', 'inquilino', 'vendedor').order_by('-fecha_creacion')
+    
+    context = {
+        'contratos': contratos
+    }
+    
+    return render(request, 'inmobiliaria/contratos/lista_contratos.html', context)
+
+@login_required
+def detalle_contrato(request, contrato_id):
+    """Vista para ver el detalle de un contrato específico"""
+    from .models import ContratoAlquiler
+    
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    cuotas = contrato.cuotas.all().order_by('numero_cuota')
+    
+    # Estadísticas
+    cuotas_pagadas = cuotas.filter(estado='pagada').count()
+    cuotas_vencidas = cuotas.filter(estado='pendiente', fecha_vencimiento__lt=timezone.now().date()).count()
+    total_pagado = sum(cuota.monto_total for cuota in cuotas.filter(estado='pagada'))
+    
+    context = {
+        'contrato': contrato,
+        'cuotas': cuotas,
+        'cuotas_pagadas': cuotas_pagadas,
+        'cuotas_vencidas': cuotas_vencidas,
+        'total_pagado': total_pagado,
+        'today': timezone.now().date(),
+    }
+    
+    return render(request, 'inmobiliaria/contratos/detalle_contrato.html', context)
