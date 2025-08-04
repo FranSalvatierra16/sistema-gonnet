@@ -89,7 +89,7 @@
                                             </a>
                                             <button type="button" 
                                                     class="btn btn-sm btn-success"
-                                                    onclick="mostrarModalContrato24Meses({{ propiedad.id }})"
+                                                    onclick="mostrarModalContrato24Meses({{ propiedad.id }}, '{{ propiedad.direccion|escapejs }}', '{{ propiedad.sucursal.nombre|escapejs }}', {{ propiedad.info_meses.precio_mensual|default:0 }}, {{ propiedad.info_meses.precio_expensas|default:0 }})"
                                                     {% if propiedad.info_meses.estado != 'disponible' %}disabled{% endif %}>
                                                 <i class="fas fa-calendar-check"></i> Crear Contrato
                                             </button>
@@ -314,73 +314,59 @@
 <!-- Script para manejar contratos 24 meses -->
 <script>
 // Función principal para mostrar el modal
-function mostrarModalContrato24Meses(propiedadId) {
-    console.log('🏠 Abriendo modal para contrato 24 meses, propiedad:', propiedadId);
+function mostrarModalContrato24Meses(propiedadId, direccion, sucursal, precioMensual, expensas) {
+    console.log('🏠 Abriendo modal para contrato 24 meses:', {
+        propiedadId, direccion, sucursal, precioMensual, expensas
+    });
     
     // Configurar el formulario
     const form = document.getElementById('formContrato24Meses');
     form.action = `/inmobiliaria/contratos/crear/`;
     document.getElementById('propiedad_id').value = propiedadId;
     
-    // Obtener información de la propiedad
-    console.log(`🔍 Solicitando datos de propiedad ${propiedadId} desde: /inmobiliaria/api/propiedad/${propiedadId}/`);
+    // ✅ LLENAR INFORMACIÓN DIRECTAMENTE (sin API)
+    document.getElementById('modal_ficha').textContent = `#${propiedadId}`;
+    document.getElementById('modal_direccion').textContent = direccion || 'No especificada';
+    document.getElementById('modal_sucursal').textContent = sucursal || 'No especificada';
+    
+    // Información específica de 24 meses
+    if (precioMensual && precioMensual > 0) {
+        console.log(`💰 Usando datos directos - Precio: ${precioMensual}, Expensas: ${expensas}`);
+        
+        document.getElementById('modal_precio_mensual').textContent = `$${precioMensual.toLocaleString('es-ES')}`;
+        document.getElementById('precio_mensual_input').value = precioMensual.toLocaleString('es-ES');
+        
+        document.getElementById('modal_expensas').textContent = expensas > 0 ? `$${expensas.toLocaleString('es-ES')}` : 'No incluye';
+        
+        // Calcular depósito sugerido (2 meses)
+        const depositoSugerido = precioMensual * 2;
+        document.getElementById('deposito_garantia').value = depositoSugerido.toLocaleString('es-ES');
+        
+        // Actualizar resumen
+        actualizarResumenContrato();
+    } else {
+        console.warn('⚠️ No hay precio mensual, usando valores por defecto');
+        document.getElementById('modal_precio_mensual').textContent = 'No configurado';
+        document.getElementById('modal_expensas').textContent = 'No configurado';
+        
+        // Establecer valores por defecto
+        document.getElementById('precio_mensual_input').value = '50.000';
+        document.getElementById('deposito_garantia').value = '100.000';
+        actualizarResumenContrato();
+    }
+    
+    // Opcional: Intentar obtener más detalles vía API como backup
+    console.log(`🔍 Intentando obtener detalles adicionales de la API como backup...`);
     
     fetch(`/inmobiliaria/api/propiedad/${propiedadId}/`)
-        .then(response => {
-            console.log(`📡 Respuesta de API propiedad:`, response.status);
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
-            console.log(`📊 Datos recibidos de la propiedad:`, data);
-            
-            // Llenar información de la propiedad (incluso si hay error)
-            document.getElementById('modal_ficha').textContent = `#${data.id}`;
-            document.getElementById('modal_direccion').textContent = data.direccion || 'No especificada';
-            document.getElementById('modal_sucursal').textContent = data.sucursal || 'No especificada';
-            
-            // Si hay error, mostrar mensaje pero permitir continuar
-            if (data.error) {
-                console.warn(`⚠️ Error en API pero continuamos: ${data.error}`);
-                document.getElementById('modal_precio_mensual').textContent = 'Error al cargar';
-                document.getElementById('modal_expensas').textContent = 'Error al cargar';
-                
-                // Establecer valores por defecto para poder crear el contrato
-                document.getElementById('precio_mensual_input').value = '50.000';
-                document.getElementById('deposito_garantia').value = '100.000';
-                actualizarResumenContrato();
-                return;
-            }
-            
-            // Información específica de 24 meses
-            if (data.info_meses) {
-                console.log(`💰 Info 24 meses encontrada:`, data.info_meses);
-                const precioMensual = data.info_meses.precio_mensual;
-                document.getElementById('modal_precio_mensual').textContent = `$${precioMensual.toLocaleString('es-ES')}`;
-                document.getElementById('precio_mensual_input').value = precioMensual.toLocaleString('es-ES');
-                
-                const expensas = data.info_meses.precio_expensas || 0;
-                document.getElementById('modal_expensas').textContent = expensas > 0 ? `$${expensas.toLocaleString('es-ES')}` : 'No incluye';
-                
-                // Calcular depósito sugerido (2 meses)
-                const depositoSugerido = precioMensual * 2;
-                document.getElementById('deposito_garantia').value = depositoSugerido.toLocaleString('es-ES');
-                
-                // Actualizar resumen
-                actualizarResumenContrato();
-            } else {
-                console.warn('⚠️ No se encontró información de 24 meses para esta propiedad');
-                document.getElementById('modal_precio_mensual').textContent = 'No configurado';
-                document.getElementById('modal_expensas').textContent = 'No configurado';
-                
-                // Establecer valores por defecto
-                document.getElementById('precio_mensual_input').value = '50.000';
-                document.getElementById('deposito_garantia').value = '100.000';
-                actualizarResumenContrato();
-            }
+            console.log(`📋 Detalles adicionales de la API:`, data);
+            // Solo usamos esto para información adicional, los datos principales ya están cargados
         })
         .catch(error => {
-            console.error('❌ Error al obtener datos de la propiedad:', error);
-            alert(`Error al cargar los datos de la propiedad: ${error.message}`);
+            console.log(`ℹ️ API no disponible, usando datos directos:`, error.message);
+            // No pasa nada, ya tenemos los datos principales
         });
     
     // Establecer fecha mínima (hoy)
