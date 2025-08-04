@@ -8,7 +8,7 @@
     border-bottom: 2px solid #dee2e6;
 }
 .modal-footer {
-    background-color: #f8f9fa;
+        background-color: #f8f9fa;
     border-top: 2px solid #dee2e6;
 }
 .btn i {
@@ -17,7 +17,7 @@
     vertical-align: middle;
 }
 .card-header {
-    background-color: #f8f9fa;
+        background-color: #f8f9fa;
     border-bottom: 2px solid #dee2e6;
 }
 .input-group .btn {
@@ -51,7 +51,7 @@
 }
 .input-group-text {
     background-color: #e9ecef;
-}
+    }
 </style>
 {% endblock %}
 
@@ -64,8 +64,8 @@
         </div>
         <div class="card-body">
             <form method="POST" id="formMovimiento">
-                {% csrf_token %}
-                
+                        {% csrf_token %}
+                        
                 <!-- Tipo de Movimiento y Comprobante -->
                 <div class="row mb-3">
                     <div class="col-md-2">
@@ -74,7 +74,7 @@
                             <option value="ingreso">Ingreso (I)</option>
                             <option value="egreso">Egreso (E)</option>
                         </select>
-                    </div>
+                                        </div>
                     <div class="col-md-2">
                         <label class="form-label">Tipo de Comprobante</label>
                         <select name="tipo_comprobante" class="form-control" required>
@@ -84,7 +84,7 @@
                             <option value="nota_debito">Nota de Débito</option>
                             <option value="otro">Otro</option>
                         </select>
-                    </div>
+                                        </div>
                     <div class="col-md-2">
                         <label class="form-label">N° Operación</label>
                         <div class="input-group">
@@ -92,20 +92,20 @@
                             <button type="button" class="btn btn-primary" id="btn_buscar_operacion">
                                 <i class="fas fa-search"></i>
                             </button>
-                        </div>
-                    </div>
+                                        </div>
+                                    </div>
                     <div class="col-md-3">
                         <label class="form-label">N° Comprobante</label>
                         <input type="text" name="numero_liquidacion" class="form-control" pattern="[0-9]{4}-[0-9]{8}" placeholder="0000-00000000">
                         <small class="form-text text-muted">Formato: 0000-00000000</small>
-                    </div>
+                                </div>
                     <div class="col-md-3">
                         <label class="form-label">Fecha</label>
                         <input type="text" class="form-control" value="{{ fecha_actual|date:'d/m/Y H:i' }}" readonly>
                         <input type="hidden" name="fecha" value="{{ fecha_actual|date:'Y-m-d H:i:s' }}">
-                    </div>
-                </div>
-
+                            </div>
+                        </div>
+                        
                 <!-- Rango de Fechas (opcional) -->
                 <div class="row mb-3">
                     <div class="col-md-3">
@@ -115,27 +115,27 @@
                     <div class="col-md-3">
                         <label class="form-label">Hasta fecha (opcional)</label>
                         <input type="date" name="fecha_hasta" class="form-control">
-                    </div>
-                </div>
-
+                                        </div>
+                                    </div>
+                                    
                 <!-- Productor -->
                 <div class="row mb-3">
                     <div class="col-md-2">
                         <label class="form-label">Productor</label>
-                        <div class="input-group">
+                                        <div class="input-group">
                             <input type="text" id="buscar_productor_id" class="form-control" placeholder="0">
                             <button type="button" class="btn btn-primary" id="btn_buscar_productor">
                                 <i class="fas fa-search"></i>
                             </button>
-                        </div>
-                    </div>
+                                            </div>
+                                        </div>
                     <div class="col-md-4">
                         <label class="form-label">Nombre del Productor</label>
                         <input type="text" id="productor_nombre" class="form-control" readonly>
                         <input type="hidden" name="productor_id" id="productor_id_hidden">
-                    </div>
-                </div>
-
+                                            </div>
+                                        </div>
+                                        
                 <!-- Concepto -->
                 <div class="row mb-3">
                     <div class="col-md-12">
@@ -148,21 +148,21 @@
                                 <div class="row mb-3">
                                     <div class="col-md-6">
                                         <label class="form-label">Buscar Concepto</label>
-                                        <div class="input-group">
+                                            <div class="input-group">
                                             <input type="text" id="buscar_concepto" class="form-control" placeholder="Buscar por ID o nombre...">
                                             <button type="button" class="btn btn-primary" id="btn_buscar_concepto">
                                                 <i class="fas fa-search"></i> Buscar
-                                            </button>
-                                        </div>
-                                    </div>
+                                                    </button>
+                                                </div>
+                                            </div>
                                     <div class="col-md-6">
                                         <label class="form-label">&nbsp;</label>
                                         <button type="button" class="btn btn-success btn-block" data-bs-toggle="modal" data-bs-target="#modalNuevoConcepto">
                                             <i class="fas fa-plus"></i> Crear Nuevo Concepto
                                         </button>
+                                        </div>
                                     </div>
-                                </div>
-
+                                    
                                 <!-- Resultados de búsqueda -->
                                 <div id="resultados_conceptos" class="d-none">
                                     <h6>Resultados de la búsqueda:</h6>
@@ -178,8 +178,8 @@
                                             <tbody id="conceptos_lista">
                                             </tbody>
                                         </table>
-                                    </div>
-                                </div>
+                                            </div>
+                                        </div>
 
                                 <!-- Concepto seleccionado -->
                                 <div id="concepto_seleccionado" class="d-none">
@@ -193,30 +193,30 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
                 <!-- Propiedad -->
                 <div class="row mb-3">
                     <div class="col-md-12">
                         <div class="card">
                             <div class="card-header">
                                 <h5 class="mb-0">Propiedad</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="row">
                                     <div class="col-md-3">
                                         <label class="form-label">ID Propiedad</label>
-                                        <div class="input-group">
+                                                            <div class="input-group">
                                             <input type="text" id="propiedad_id" name="propiedad_id" class="form-control" placeholder="ID">
                                             <div class="input-group-append">
                                                 <button type="button" class="btn btn-primary" id="buscar_propiedad_id">
                                                     <i class="fas fa-search"></i>
                                                 </button>
-                                            </div>
-                                        </div>
-                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                     <div class="col-md-7">
                                         <label class="form-label">Dirección</label>
                                         <input type="text" id="propiedad_direccion" class="form-control" readonly>
@@ -226,9 +226,9 @@
                                         <button type="button" class="btn btn-success btn-block" data-bs-toggle="modal" data-bs-target="#modalBuscarPropiedad">
                                             <i class="fas fa-search"></i> Buscar Propiedad
                                         </button>
-                                    </div>
-                                </div>
-
+                                                    </div>
+                                                </div>
+                                                
                                 <!-- Propiedad seleccionada -->
                                 <div id="propiedad_seleccionada" class="d-none mt-3">
                                     <div class="alert alert-success">
@@ -237,20 +237,20 @@
                                         <button type="button" class="btn-close" id="btn_limpiar_propiedad">
                                             <span>&times;</span>
                                         </button>
-                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-
+                        
                 <!-- Detalles -->
                 <div class="row mb-3">
                     <div class="col-md-12">
                         <label class="form-label">Detalles</label>
                         <textarea name="detalles" class="form-control" rows="3"></textarea>
-                    </div>
-                </div>
+                            </div>
+                        </div>
 
                 <!-- Importes -->
                 <div class="card mb-3">
@@ -273,32 +273,32 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Transferencia</label>
-                                <div class="input-group">
+                            <div class="input-group">
                                     <input type="number" name="monto_deposito" class="form-control monto" step="0.01" value="0.00">
                                     <select name="destino_deposito" class="form-select" style="max-width: 120px;">
                                         <option value="galicia">Galicia</option>
                                         <option value="mp">MP</option>
-                                    </select>
+                                </select>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Dólares (opcional)</label>
                                 <input type="number" name="dolares" class="form-control" step="0.01" value="0.00">
-                            </div>
                         </div>
+                            </div>
                         <div class="row mb-3">
                             <div class="col-md-12">
                                 <hr>
                                 <div class="form-check form-check-inline">
                                     <input class="form-check-input" type="radio" name="a_descontar" id="corresponde_oficina" value="oficina" checked>
                                     <label class="form-check-label" for="corresponde_oficina">Corresponde a oficina</label>
-                                </div>
+                            </div>
                                 <div class="form-check form-check-inline">
                                     <input class="form-check-input" type="radio" name="a_descontar" id="corresponde_propietario" value="propietario">
                                     <label class="form-check-label" for="corresponde_propietario">Corresponde a propietario</label>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
+                                    </div>
                         <div id="monto_propietario_container" class="row mt-3 d-none">
                             <div class="col-md-3">
                                 <label class="form-label">Monto que corresponde al propietario</label>
@@ -310,57 +310,57 @@
                                 <label class="form-label">TOTAL</label>
                                 <input type="text" id="total" class="form-control" readonly value="0.00">
                             </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
 
                 <!-- Campos ocultos para datos del sistema -->
                 <input type="hidden" name="sucursal" value="{{ request.user.sucursal.id }}">
                 <input type="hidden" name="empleado" value="{{ request.user.id }}">
 
                 <!-- Botones -->
-                <div class="row">
+                                <div class="row">
                     <div class="col">
                         <button type="submit" class="btn btn-primary">Guardar</button>
                         <a href="{% url 'inmobiliaria:caja' %}" class="btn btn-secondary">Cancelar</a>
-                    </div>
-                </div>
+                                            </div>
+                                        </div>
             </form>
-        </div>
-    </div>
-</div>
-
+                                    </div>
+                                </div>
+                            </div>
+                            
 <!-- Modal Nuevo Concepto -->
 <div class="modal fade" id="modalNuevoConcepto" tabindex="-1" aria-labelledby="modalNuevoConceptoLabel" aria-hidden="true">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
                 <h5 class="modal-title" id="modalNuevoConceptoLabel">Crear Nuevo Concepto</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
+                                        </div>
+                                        <div class="modal-body">
                 <form id="formNuevoConcepto">
-                    <div class="form-group">
+                                            <div class="form-group">
                         <label for="nuevo_concepto_id">ID del Concepto</label>
                         <input type="text" class="form-control" id="nuevo_concepto_id" required>
                         <small class="form-text text-muted">Ingrese un ID único para el concepto</small>
-                    </div>
+                                            </div>
                     <div class="form-group">
                         <label for="nuevo_concepto_nombre">Nombre del Concepto</label>
                         <input type="text" class="form-control" id="nuevo_concepto_nombre" required>
-                    </div>
+                                            </div>
                 </form>
-            </div>
-            <div class="modal-footer">
+                                        </div>
+                                        <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="btn_guardar_concepto">
                     <i class="fas fa-save"></i> Guardar Concepto
                 </button>
-            </div>
-        </div>
-    </div>
-</div>
-
+                                        </div>
+                                    </div>
+                                </div>
+                </div>
+                
 <!-- Modal Buscar Propiedad -->
 <div class="modal fade" id="modalBuscarPropiedad" tabindex="-1" aria-labelledby="modalBuscarPropiedadLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -372,33 +372,33 @@
             <div class="modal-body">
                 <!-- Búsqueda -->
                 <div class="form-group">
-                    <div class="input-group mb-3">
+                            <div class="input-group mb-3">
                         <input type="text" id="buscar_propiedad_texto" class="form-control" placeholder="Buscar por dirección o ID...">
                         <div class="input-group-append">
                             <button class="btn btn-primary" type="button" id="btn_buscar_propiedad">
                                 <i class="fas fa-search"></i> Buscar
                             </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-
+                    
                 <!-- Resultados -->
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                            <tr>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
                                 <th>ID</th>
                                 <th>Dirección</th>
                                 <th>Ubicación</th>
                                 <th>Acción</th>
-                            </tr>
-                        </thead>
+                                </tr>
+                            </thead>
                         <tbody id="propiedades_lista">
                             <!-- Los resultados se cargarán aquí -->
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
@@ -409,12 +409,12 @@
 <!-- Modal Buscar Productor -->
 <div class="modal fade" id="modalBuscarProductor" tabindex="-1" aria-labelledby="modalBuscarProductorLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
+    <div class="modal-content">
+      <div class="modal-header">
                 <h5 class="modal-title" id="modalBuscarProductorLabel">Buscar Productor</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
+      </div>
+      <div class="modal-body">
                 <!-- Búsqueda -->
                 <div class="form-group">
                     <div class="input-group mb-3">
@@ -422,8 +422,8 @@
                         <button class="btn btn-primary" type="button" id="btn_buscar_productor_modal">
                             <i class="fas fa-search"></i> Buscar
                         </button>
-                    </div>
-                </div>
+  </div>
+</div>
 
                 <!-- Resultados -->
                 <div class="table-responsive">
@@ -504,7 +504,7 @@ $(document).ready(function() {
             alert('Ingrese un ID o nombre para buscar');
             return;
         }
-
+        
         $.ajax({
             url: '{% url "inmobiliaria:buscar_conceptos" %}',
             data: { 
@@ -535,7 +535,7 @@ $(document).ready(function() {
             }
         });
     });
-
+    
     // Seleccionar concepto
     $(document).on('click', '.seleccionar-concepto', function() {
         var id = $(this).data('id');
@@ -563,11 +563,11 @@ $(document).ready(function() {
             alert('Complete todos los campos');
             return;
         }
-
+        
         // Mostrar indicador de carga
         var $btn = $(this);
         $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
-
+        
         $.ajax({
             url: '{% url "inmobiliaria:crear_concepto" %}',
             data: {
@@ -625,7 +625,7 @@ $(document).ready(function() {
     $('input[name="a_descontar"]').change(function() {
         if ($(this).val() === 'propietario') {
             $('#monto_propietario_container').removeClass('d-none');
-        } else {
+                    } else {
             $('#monto_propietario_container').addClass('d-none');
             $('input[name="monto_propietario"]').val('0.00');
         }
@@ -670,8 +670,8 @@ $(document).ready(function() {
                     $('#propiedad_direccion').val('');
                     $('#propiedad_seleccionada').addClass('d-none');
                 }
-            },
-            error: function() {
+                    },
+                    error: function() {
                 alert('Error al buscar la propiedad');
             }
         });
@@ -684,7 +684,7 @@ $(document).ready(function() {
             alert('Ingrese un término de búsqueda');
             return;
         }
-
+        
         $.ajax({
             url: '{% url "inmobiliaria:buscar_propiedades_caja" %}',
             data: {
@@ -716,7 +716,7 @@ $(document).ready(function() {
             }
         });
     });
-
+    
     // Seleccionar propiedad desde la lista
     $(document).on('click', '.seleccionar-propiedad', function() {
         var id = $(this).data('id');
@@ -753,7 +753,7 @@ $(document).ready(function() {
             alert('Ingrese un ID de productor');
             return;
         }
-
+        
         $.ajax({
             url: '{% url "inmobiliaria:buscar_vendedor" %}',
             data: {
@@ -787,10 +787,10 @@ $(document).ready(function() {
         var termino = $('#buscar_productor_texto').val();
         if (!termino) {
             alert('Ingrese un término de búsqueda');
-            return;
-        }
-
-        $.ajax({
+                return;
+            }
+            
+            $.ajax({
             url: '{% url "inmobiliaria:buscar_vendedores" %}',
             data: {
                 termino: termino,
@@ -811,11 +811,11 @@ $(document).ready(function() {
                             '<i class="fas fa-check"></i> Seleccionar</button></td></tr>';
                     });
                     $('#productores_lista').html(html);
-                } else {
+                    } else {
                     $('#productores_lista').html('<tr><td colspan="3" class="text-center">No se encontraron productores</td></tr>');
-                }
-            },
-            error: function() {
+                    }
+                },
+                error: function() {
                 alert('Error al buscar productores');
             }
         });
@@ -823,8 +823,8 @@ $(document).ready(function() {
 
     // Seleccionar productor desde la lista
     $(document).on('click', '.seleccionar-productor', function() {
-        var id = $(this).data('id');
-        var nombre = $(this).data('nombre');
+                            var id = $(this).data('id');
+                            var nombre = $(this).data('nombre');
         var apellido = $(this).data('apellido');
         $('#buscar_productor_id').val(id);
         $('#productor_nombre').val(nombre + ' ' + apellido);
@@ -877,7 +877,7 @@ $(document).ready(function() {
                     }
                     
                     $('textarea[name="detalles"]').val(response.movimiento.detalles);
-                } else {
+        } else {
                     alert('No se encontró la operación');
                 }
             },
@@ -895,8 +895,8 @@ $(document).ready(function() {
 
         if (!fechaDesde && !fechaHasta && !productorId) {
             alert('Ingrese al menos una fecha o seleccione un productor');
-            return;
-        }
+                    return;
+                }
 
         $.ajax({
             url: '{% url "inmobiliaria:buscar_movimientos" %}',
@@ -930,9 +930,9 @@ $(document).ready(function() {
 
     // Función para mostrar los resultados de la búsqueda
     function mostrarResultadosMovimientos(movimientos) {
-        var html = '';
+                var html = '';
         movimientos.forEach(function(mov) {
-            html += '<tr>' +
+                    html += '<tr>' +
                 '<td>' + mov.fecha + '</td>' +
                 '<td>' + (mov.tipo === 'ingreso' ? 'Ingreso (I)' : 'Egreso (E)') + '</td>' +
                 '<td>' + mov.operacion + '</td>' +

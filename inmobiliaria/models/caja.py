@@ -24,7 +24,7 @@ class Caja(models.Model):
         ('cerrada', 'Cerrada'),
     ]
     
-    numero = models.AutoField(primary_key=True)
+    numero = models.PositiveIntegerField()  # ✅ Ya no es primary_key
     sucursal = models.ForeignKey('Sucursal', on_delete=models.PROTECT)
     fecha_apertura = models.DateTimeField(auto_now_add=True)
     fecha_cierre = models.DateTimeField(null=True, blank=True)
@@ -35,6 +35,11 @@ class Caja(models.Model):
     usuario_cierre = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='cajas_cerradas', null=True, blank=True)
     observaciones_apertura = models.TextField(blank=True)
     observaciones_cierre = models.TextField(blank=True)
+    
+    class Meta:
+        unique_together = ('numero', 'sucursal')  # ✅ Número único por sucursal
+        verbose_name = 'Caja'
+        verbose_name_plural = 'Cajas'
 
     def get_saldo_actual(self):
         saldo = Decimal(str(self.saldo_inicial))

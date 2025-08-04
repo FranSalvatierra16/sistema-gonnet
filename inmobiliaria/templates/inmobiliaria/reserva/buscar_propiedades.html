@@ -4,8 +4,8 @@
 {% load static %}
 
 {% block extra_css %}
-<style>
-/* RESET COMPLETO Y DISEÑO MODERNO */
+    <style>
+    /* RESET COMPLETO Y DISEÑO MODERNO */
     * {
         box-sizing: border-box !important;
     }
@@ -720,7 +720,7 @@
     .status-disponible { color: #2e7d32; font-weight: bold; }
     .status-reservado { color: #d32f2f; font-weight: bold; }
     .precio-highlight { color: #2e7d32; font-weight: bold; font-size: 1.1em; }
-</style>
+    </style>
 {% endblock extra_css %}
 
 {% block content %}
@@ -1032,7 +1032,7 @@
         <div style="background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); color: white; padding: 20px; border-radius: 15px 15px 0 0; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
             <h3 style="margin: 0; font-size: 24px; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">📋 Confirmar Reserva</h3>
             <button onclick="cerrarModal()" style="position: absolute; top: 15px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 28px; cursor: pointer; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.3s;">×</button>
-        </div>
+                    </div>
         
         <!-- Body con mejor espaciado -->
         <div style="padding: 25px; max-height: 70vh; overflow-y: auto; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);">
@@ -1052,7 +1052,7 @@
                         <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Total días:</strong> <span id="modal_total_dias" style="color: #555;">-</span></p>
                     </div>
                 </div>
-            </div>
+                        </div>
 
             <!-- Precio Total -->
             <div style="background: linear-gradient(135deg, #fff8e1 0%, #fffde7 100%); border: 2px solid #ffc107; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(255,193,7,0.2);">
@@ -1116,13 +1116,13 @@
                                 onfocus="this.style.borderColor='#2e7d32'; this.style.boxShadow='0 0 20px rgba(46,125,50,0.6) !important'"
                                 onblur="this.style.borderColor='#4caf50'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.2) !important'">
                             <option value="" style="color: #666666 !important; background: #f0f8f0 !important; font-weight: 600 !important; font-size: 14px !important; text-align: center;">-- Selecciona un inquilino --</option>
-                            {% for inquilino in inquilinos %}
+                                {% for inquilino in inquilinos %}
                                 <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.nombre|lower }} {{ inquilino.apellido|lower }}" data-id="{{ inquilino.id }}"
                                         style="color: #000000 !important; font-weight: 700 !important; background: #ffffff !important; padding: 8px !important; font-size: 15px !important; border-bottom: 1px solid #e0e0e0;">
                                     ID: {{ inquilino.id }} - {{ inquilino.nombre }} {{ inquilino.apellido }}
                                 </option>
-                            {% endfor %}
-                        </select>
+                                {% endfor %}
+                            </select>
                         <div style="display: flex; flex-direction: column; gap: 10px;">
                             <button onclick="mostrarModalCrearInquilino()" 
                                     style="padding: 12px 20px; background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(76,175,80,0.3); min-width: 120px;"
@@ -1131,10 +1131,10 @@
                             <button onclick="seleccionarPrimerInquilino()" 
                                     style="padding: 12px 20px; background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(156,39,176,0.3); min-width: 120px;">📋 Ver Todos</button>
                         </div>
-                    </div>
-                </div>
-            
-        </div>
+                            </div>
+                        </div>
+
+                        </div>
         
         <!-- Footer con mejor diseño -->
         <div style="padding: 20px; border-top: 1px solid #e0e0e0; text-align: right; border-radius: 0 0 15px 15px; background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%); box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
@@ -1146,7 +1146,7 @@
                     style="padding: 12px 30px; background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(46,125,50,0.3);"
                     onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(46,125,50,0.4)'"
                     onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(46,125,50,0.3)'">✅ CONFIRMAR RESERVA</button>
-        </div>
+                    </div>
         
         <!-- Campos ocultos -->
         <input type="hidden" id="modalPropiedadId">
@@ -1156,8 +1156,8 @@
         <input type="hidden" id="modalInquilinoId">
         <input type="hidden" id="modalPrecioTotal">
         <input type="hidden" id="esOperacionDirecta">
-    </div>
-</div>
+            </div>
+        </div>
 
 <!-- Animación CSS -->
 <style>
@@ -1467,13 +1467,13 @@ function autenticarYReservar() {
                 // Esperamos a que se oculte completamente
                 setTimeout(() => {
                     // Mostramos el mensaje de éxito
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Autenticación exitosa',
-                        text: 'Procediendo con la reserva...',
-                        showConfirmButton: false,
-                        timer: 1500
-                    }).then(() => {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Autenticación exitosa',
+                    text: 'Procediendo con la reserva...',
+                    showConfirmButton: false,
+                    timer: 1500
+                }).then(() => {
                         // Limpiamos los campos del modal de autenticación
                         document.getElementById('usuarioVendedor').value = '';
                         document.getElementById('contrasenaVendedor').value = '';
@@ -1483,18 +1483,18 @@ function autenticarYReservar() {
                         modalReserva.show();
                         
                         // Actualizamos los campos del modal
-                        mostrarModalReserva(
-                            window.datosReserva.ficha,
-                            window.datosReserva.direccion,
-                            window.datosReserva.propietario,
-                            window.datosReserva.disponibilidad,
-                            window.datosReserva.precio,
-                            window.datosReserva.fechaInicio,
-                            window.datosReserva.fechaFin,
+                    mostrarModalReserva(
+                        window.datosReserva.ficha,
+                        window.datosReserva.direccion,
+                        window.datosReserva.propietario,
+                        window.datosReserva.disponibilidad,
+                        window.datosReserva.precio,
+                        window.datosReserva.fechaInicio,
+                        window.datosReserva.fechaFin,
                             window.datosReserva.totalDias,
                             window.datosReserva.esOperacionDirecta
-                        );
-                    });
+                    );
+                });
                 }, 300);
             } else {
                 Swal.fire({
@@ -1951,8 +1951,8 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
                     <i class="fas fa-check-circle"></i> Finalizar Operación
                 </button>
                 <button type="button" class="btn btn-info" onclick="window.verPrecios()">
-                    <i class="fas fa-dollar-sign"></i> Ver Precios
-                </button>
+                <i class="fas fa-dollar-sign"></i> Ver Precios
+            </button>
             </div>
         `;
     } else {
@@ -1965,8 +1965,8 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
                     <i class="fas fa-check-circle"></i> Operación Directa
                 </button>
                 <button type="button" class="btn btn-info" onclick="window.verPrecios()">
-                    <i class="fas fa-dollar-sign"></i> Ver Precios
-                </button>
+                <i class="fas fa-dollar-sign"></i> Ver Precios
+            </button>
             </div>
         `;
     }
@@ -2164,11 +2164,11 @@ function verPrecios() {
         console.log('=== CONFIRMAR RESERVA ===');
         console.log('Propiedad seleccionada:', propiedadSeleccionada);
         
-        // Verificar que tengamos una propiedad seleccionada
-        if (!propiedadSeleccionada) {
+    // Verificar que tengamos una propiedad seleccionada
+    if (!propiedadSeleccionada) {
             alert('Por favor, selecciona una propiedad primero.');
-            return;
-        }
+        return;
+    }
 
         // Mostrar directamente el modal de reserva
         window.mostrarModalReserva(false); // false = reserva normal
@@ -2611,9 +2611,9 @@ function buscarInquilinosEnTiempoReal() {
         mostrarTodosLosInquilinos();
         estadoBusqueda.textContent = 'Mostrando todos los inquilinos';
         estadoBusqueda.style.color = '#666';
-        return;
-    }
-    
+            return;
+        }
+
     // Filtrar inquilinos
     const inquilinosFiltrados = inquilinosOriginales.filter(inquilino => {
         return inquilino.nombre.includes(termino) || 
@@ -2758,14 +2758,14 @@ document.getElementById('guardar_precio_btn').addEventListener('click', function
     
     const nuevoPrecio = parseFloat(precioInput.value);
     if (isNaN(nuevoPrecio) || nuevoPrecio <= 0) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
             text: 'Por favor ingrese un precio válido'
-        });
-        return;
-    }
-    
+            });
+            return;
+        }
+
     precioDisplay.textContent = nuevoPrecio.toLocaleString('es-AR');
     precioTotalSuperior.textContent = nuevoPrecio.toLocaleString('es-AR');
     document.getElementById('modalPrecioTotal').value = nuevoPrecio;
