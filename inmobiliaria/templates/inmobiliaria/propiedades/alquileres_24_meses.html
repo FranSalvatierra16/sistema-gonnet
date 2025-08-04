@@ -311,6 +311,62 @@
 }
 </style>
 
+<!-- Modal para crear nuevo inquilino -->
+<div class="modal fade" id="modalNuevoInquilino" tabindex="-1" aria-labelledby="modalNuevoInquilinoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="modalNuevoInquilinoLabel">
+                    <i class="fas fa-user-plus"></i> Crear Nuevo Inquilino
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formNuevoInquilino">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Nombre *</label>
+                                <input type="text" class="form-control" id="inquilino_nombre_nuevo" name="nombre" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Apellido *</label>
+                                <input type="text" class="form-control" id="inquilino_apellido_nuevo" name="apellido" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Teléfono</label>
+                                <input type="text" class="form-control" id="inquilino_telefono_nuevo" name="telefono">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" id="inquilino_email_nuevo" name="email">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">DNI</label>
+                        <input type="text" class="form-control" id="inquilino_dni_nuevo" name="dni">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save"></i> Crear Inquilino
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Script para manejar contratos 24 meses -->
 <script>
 // Función principal para mostrar el modal
@@ -481,7 +537,78 @@ document.addEventListener('DOMContentLoaded', function() {
             e.target.value = parseInt(value).toLocaleString('es-ES');
         }
     });
+    
+    // Manejar el formulario de nuevo inquilino
+    document.getElementById('formNuevoInquilino').addEventListener('submit', function(e) {
+        e.preventDefault();
+        crearNuevoInquilino();
+    });
 });
+
+// ========================================
+// FUNCIONES PARA INQUILINOS
+// ========================================
+
+// Función para crear nuevo inquilino
+function crearNuevoInquilino() {
+    const formData = new FormData();
+    formData.append('nombre', document.getElementById('inquilino_nombre_nuevo').value);
+    formData.append('apellido', document.getElementById('inquilino_apellido_nuevo').value);
+    formData.append('telefono', document.getElementById('inquilino_telefono_nuevo').value);
+    formData.append('email', document.getElementById('inquilino_email_nuevo').value);
+    formData.append('dni', document.getElementById('inquilino_dni_nuevo').value);
+    
+    console.log('👤 Creando nuevo inquilino...');
+    
+    fetch('/inmobiliaria/crear-inquilino-ajax/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('📊 Respuesta crear inquilino:', data);
+        
+        if (data.success) {
+            // Cerrar modal de creación
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalNuevoInquilino'));
+            modal.hide();
+            
+            // Limpiar formulario
+            document.getElementById('formNuevoInquilino').reset();
+            
+            // Llenar los datos del inquilino en el formulario principal
+            document.getElementById('inquilino_id').value = data.inquilino.id;
+            document.getElementById('inquilino_nombre').textContent = `${data.inquilino.nombre} ${data.inquilino.apellido}`;
+            document.getElementById('inquilino_info').style.display = 'block';
+            
+            alert(`✅ Inquilino creado exitosamente: ${data.inquilino.nombre} ${data.inquilino.apellido}`);
+        } else {
+            alert(`❌ Error al crear inquilino: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error al crear inquilino:', error);
+        alert(`Error al crear inquilino: ${error.message}`);
+    });
+}
+
+// Función para cargar lista de inquilinos
+function cargarListaInquilinos() {
+    console.log('📋 Cargando lista de inquilinos...');
+    
+    fetch('/inmobiliaria/api/inquilinos/')
+        .then(response => response.json())
+        .then(data => {
+            console.log('📊 Lista de inquilinos:', data);
+            // Esta función la implementaremos si necesitas un dropdown
+        })
+        .catch(error => {
+            console.error('❌ Error al cargar inquilinos:', error);
+        });
+}
 </script>
 
 {% endblock %}
