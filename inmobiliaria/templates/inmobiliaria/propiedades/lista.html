@@ -5,32 +5,49 @@
 {% block title %}Listado de Propiedades{% endblock %}
 
 {% block content %}
-<div class="content-wrapper">
-    <h1 class="mb-4 text-center">Listado de Propiedades</h1>
+<div class="container-fluid fade-in-up">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="text-gradient mb-4 text-center">🏠 Listado de Propiedades</h1>
 
-    <!-- Formulario de búsqueda -->
-    <div class="search-container mb-4">
-        <form method="get" class="form-inline">
-            {{ form.query|as_crispy_field }}  
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-search"></i> Buscar
-            </button>
-        </form>
-    </div>
+            <!-- Formulario de búsqueda -->
+            <div class="card shadow-modern mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-search me-2"></i>Búsqueda de Propiedades</h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="d-flex align-items-center">
+                        {{ form.query|as_crispy_field }}  
+                        <button type="submit" class="btn btn-primary shadow-modern ms-3">
+                            <i class="fas fa-search me-2"></i>Buscar
+                        </button>
+                    </form>
+                </div>
+            </div>
 
-    <div class="d-flex justify-content-between mb-4">
-        <a href="{% url 'inmobiliaria:propiedad_nuevo' %}" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Nueva Propiedad
-        </a>
-        <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}" class="btn btn-success">
-            <i class="bi bi-calendar-plus"></i> Agregar Disponibilidad Masiva
-        </a>
-    </div>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <a href="{% url 'inmobiliaria:propiedad_nuevo' %}" class="btn btn-success shadow-modern me-3">
+                        <i class="fas fa-plus me-2"></i>Nueva Propiedad
+                    </a>
+                    <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}" class="btn btn-info shadow-modern">
+                        <i class="fas fa-calendar-plus me-2"></i>Disponibilidad Masiva
+                    </a>
+                </div>
+                <div class="alert alert-info border-radius-modern mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Propiedades disponibles para alquiler
+                </div>
+            </div>
 
-    <!-- Tabla de propiedades -->
-    <div class="table-container">
-        <div class="table-responsive">  
-            <table class="table">
+            <!-- Tabla de propiedades -->
+            <div class="card shadow-modern">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Propiedades Registradas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">  
+                        <table class="table table-hover">
                 <thead>
                     <tr>
                         <th class="text-center" style="width: 80px;">
@@ -99,7 +116,10 @@
                     </tr>
                     {% endfor %}
                 </tbody>
-            </table>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

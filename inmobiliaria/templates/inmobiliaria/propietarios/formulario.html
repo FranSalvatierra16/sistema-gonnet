@@ -5,11 +5,33 @@
 {% block title %}{% if propietario %}Editar{% else %}Nuevo{% endif %} propietario{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">{% if propietario %}Editar{% else %}Nuevo{% endif %} propietario</h1>
-<form method="post">
-    {% csrf_token %}
-    {% bootstrap_form form %}
-    <button type="submit" class="btn btn-primary">Guardar</button>
-    <a href="{% url 'inmobiliaria:propietarios' %}" class="btn btn-secondary">Cancelar</a>
-</form>
+<div class="container-fluid fade-in-up">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="card shadow-modern">
+                <div class="card-header text-center">
+                    <h1 class="mb-0">
+                        <i class="fas fa-user me-2"></i>
+                        {% if propietario %}✏️ Editar Propietario{% else %}👤 Nuevo Propietario{% endif %}
+                    </h1>
+                    <p class="mt-2 mb-0 text-light">Complete los datos del propietario</p>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {% bootstrap_form form %}
+                        <div class="text-center mt-4">
+                            <button type="submit" class="btn btn-success shadow-modern px-4 py-2 me-3">
+                                <i class="fas fa-save me-2"></i>Guardar
+                            </button>
+                            <a href="{% url 'inmobiliaria:propietarios' %}" class="btn btn-secondary shadow-modern px-4 py-2">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

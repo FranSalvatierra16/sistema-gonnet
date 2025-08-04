@@ -3,29 +3,20 @@
 
 {% block title %}{% if propiedad %}Editar{% else %}Nueva{% endif %} Propiedad{% endblock %}
 {% block content %}
+<div class="container-fluid fade-in-up">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10 col-xl-8">
+            <div class="card shadow-modern">
+                <div class="card-header text-center">
+                    <h1 class="mb-0">
+                        <i class="fas fa-building me-2"></i>
+                        {% if propiedad %}✏️ Editar Propiedad{% else %}🏠 Nueva Propiedad{% endif %}
+                    </h1>
+                    <p class="mt-2 mb-0 text-light">Complete todos los datos de la propiedad</p>
+                </div>
+                <div class="card-body">
+
 <style>
-    body {
-        /* Si tienes una imagen de fondo, puedes definirla aquí o en tu base.html */
-        /* background: url('/static/img/tu-fondo.jpg') no-repeat center center fixed; */
-        /* background-size: cover; */
-    }
-    .form-container {
-        background: rgba(255,255,255,0.92);
-        border-radius: 16px;
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
-        padding: 2.5rem 2rem;
-        max-width: 800px;
-        margin: 3rem auto;
-    }
-    .form-title {
-        font-weight: 700;
-        letter-spacing: 1px;
-        margin-bottom: 1.5rem;
-        text-align: center;
-        color: #2c3e50;
-    }
     .form-label {
         font-weight: 500;
         color: #34495e;
@@ -83,10 +74,8 @@
         border-radius: 4px;
         margin-bottom: 1rem;
     }
-</style>
+    </style>
 
-<div class="form-container">
-    <h2 class="form-title">{% if propiedad %}Editar{% else %}Nueva{% endif %} Propiedad</h2>
     <form method="post" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
         {% if form.non_field_errors %}
@@ -242,8 +231,16 @@
             </div>
         </div>
         <!-- ----------------------------------------------------- -->
-        <button type="submit" class="btn btn-primary mt-3">Guardar Propiedad</button>
+        <div class="text-center mt-4">
+            <button type="submit" class="btn btn-success shadow-modern px-5 py-3">
+                <i class="fas fa-save me-2"></i>Guardar Propiedad
+            </button>
+        </div>
     </form>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Modal para crear propietario -->

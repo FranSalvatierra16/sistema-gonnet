@@ -2,44 +2,54 @@
 {% load static %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="container-fluid fade-in-up">
     <div class="row justify-content-center">
         <div class="col-12 text-center mb-4">
-            <h1>Sistema Inmobiliario</h1>
+            <h1 class="text-gradient">🏠 Sistema Inmobiliario</h1>
+            <p class="lead text-muted">Gestión integral de propiedades y operaciones</p>
         </div>
     </div>
     
     <div class="row justify-content-center">
         <!-- Alquiler por día -->
         <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:buscar_propiedades' %}'">
-                <div class="card-icon">
-                    <i class="fas fa-calendar-day"></i>
+            <div class="card shadow-modern border-radius-modern" onclick="window.location.href='{% url 'inmobiliaria:buscar_propiedades' %}'" style="cursor: pointer;">
+                <div class="card-header text-center">
+                    <i class="fas fa-calendar-day fa-2x mb-2"></i>
+                    <h4 class="mb-0">Alquiler por Día</h4>
                 </div>
-                <h3>Alquiler por Día</h3>
-                <p>Gestión de alquileres temporarios</p>
+                <div class="card-body text-center">
+                    <p class="text-muted">Gestión de alquileres temporarios y reservas diarias</p>
+                    <span class="badge bg-primary">Activo</span>
+                </div>
             </div>
         </div>
 
         <!-- Ventas -->
         <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:dashboard_ventas' %}'">
-                <div class="card-icon">
-                    <i class="fas fa-home"></i>
+            <div class="card shadow-modern border-radius-modern" onclick="window.location.href='{% url 'inmobiliaria:dashboard_ventas' %}'" style="cursor: pointer;">
+                <div class="card-header text-center">
+                    <i class="fas fa-home fa-2x mb-2"></i>
+                    <h4 class="mb-0">Ventas</h4>
                 </div>
-                <h3>Ventas</h3>
-                <p>Gestión de ventas de propiedades</p>
+                <div class="card-body text-center">
+                    <p class="text-muted">Gestión de ventas de propiedades</p>
+                    <span class="badge bg-success">Disponible</span>
+                </div>
             </div>
         </div>
 
         <!-- 24 Meses -->
         <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:alquileres_24_meses' %}'">
-                <div class="card-icon">
-                    <i class="fas fa-calendar-alt"></i>
+            <div class="card shadow-modern border-radius-modern" onclick="window.location.href='{% url 'inmobiliaria:alquileres_24_meses' %}'" style="cursor: pointer;">
+                <div class="card-header text-center">
+                    <i class="fas fa-calendar-alt fa-2x mb-2"></i>
+                    <h4 class="mb-0">24 Meses</h4>
                 </div>
-                <h3>24 Meses</h3>
-                <p>Alquileres de larga duración</p>
+                <div class="card-body text-center">
+                    <p class="text-muted">Alquileres de larga duración</p>
+                    <span class="badge bg-info">Largo Plazo</span>
+                </div>
             </div>
         </div>
 

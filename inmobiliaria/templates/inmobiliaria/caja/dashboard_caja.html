@@ -2,33 +2,40 @@
 {% load static %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="container-fluid fade-in-up">
     <div class="row justify-content-center">
         <div class="col-12 text-center mb-4">
-            <h1>Gestión de Caja</h1>
+            <h1 class="text-gradient">💰 Gestión de Caja</h1>
+            <p class="lead text-muted">Control financiero y movimientos</p>
         </div>
     </div>
     
     <div class="row justify-content-center">
         <!-- Movimientos -->
         <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:nuevo_movimiento' %}'">
-                <div class="card-icon">
-                    <i class="fas fa-exchange-alt"></i>
+            <div class="card shadow-modern border-radius-modern" onclick="window.location.href='{% url 'inmobiliaria:nuevo_movimiento' %}'" style="cursor: pointer;">
+                <div class="card-header text-center">
+                    <i class="fas fa-exchange-alt fa-2x mb-2"></i>
+                    <h4 class="mb-0">Nuevo Movimiento</h4>
                 </div>
-                <h3>Nuevo Movimiento</h3>
-                <p>Registrar ingresos y egresos</p>
+                <div class="card-body text-center">
+                    <p class="text-muted">Registrar ingresos y egresos</p>
+                    <span class="badge bg-success">Disponible</span>
+                </div>
             </div>
         </div>
 
         <!-- Lista de Cajas -->
         <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:lista_cajas' %}'">
-                <div class="card-icon">
-                    <i class="fas fa-list"></i>
+            <div class="card shadow-modern border-radius-modern" onclick="window.location.href='{% url 'inmobiliaria:lista_cajas' %}'" style="cursor: pointer;">
+                <div class="card-header text-center">
+                    <i class="fas fa-list fa-2x mb-2"></i>
+                    <h4 class="mb-0">Lista de Cajas</h4>
                 </div>
-                <h3>Lista de Cajas</h3>
-                <p>Ver todas las cajas</p>
+                <div class="card-body text-center">
+                    <p class="text-muted">Ver todas las cajas</p>
+                    <span class="badge bg-info">Historial</span>
+                </div>
             </div>
         </div>
 

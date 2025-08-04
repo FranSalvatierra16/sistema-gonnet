@@ -4,15 +4,41 @@
 {% block title %}Propietarios{% endblock %}
 
 {% block content %}
-<h1>Lista de Propietarios</h1>
-<a href="{% url 'inmobiliaria:propietario_nuevo' %}" class="btn btn-primary mb-3">Nuevo Propietario</a>
-<!-- Formulario de búsqueda -->
-<form id="search-form">
-    {{ form.as_p }}
-</form>
+<div class="container-fluid fade-in-up">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="text-gradient mb-4">👥 Lista de Propietarios</h1>
+            
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <a href="{% url 'inmobiliaria:propietario_nuevo' %}" class="btn btn-success shadow-modern">
+                    <i class="fas fa-plus me-2"></i>Nuevo Propietario
+                </a>
+                <div class="alert alert-info border-radius-modern mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Gestión de propietarios registrados
+                </div>
+            </div>
+            
+            <!-- Formulario de búsqueda -->
+            <div class="card shadow-modern mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-search me-2"></i>Búsqueda</h5>
+                </div>
+                <div class="card-body">
+                    <form id="search-form">
+                        {{ form.as_p }}
+                    </form>
+                </div>
+            </div>
 
-<!-- Tabla de propietarios -->
-<table class="table table-striped">
+            <!-- Tabla de propietarios -->
+            <div class="card shadow-modern">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-users me-2"></i>Propietarios Registrados</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
     <thead>
         <tr style="background-color: #007bff; color: white;">
             <th>Nombre</th>
@@ -40,7 +66,13 @@
         </tr>
         {% endfor %}
     </tbody>
-</table>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
