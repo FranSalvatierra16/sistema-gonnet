@@ -213,10 +213,12 @@
                                             {% for imagen in propiedad.imagenes.all %}
                                             <div class="carousel-item {% if forloop.first %}active{% endif %}">
                                                 <img src="{{ imagen.imagen.url }}" 
-                                                     class="d-block w-100 cursor-pointer" 
+                                                     class="d-block w-100 image-thumbnail" 
                                                      alt="Imagen {{ forloop.counter }}"
-                                                     style="height: 400px; object-fit: contain; cursor: pointer;"
-                                                     onclick="openImageModal('{{ imagen.imagen.url }}')"
+                                                     style="height: 400px; object-fit: cover; cursor: pointer; border-radius: 8px;"
+                                                     onclick="openGallery({{ forloop.counter0 }})"
+                                                     data-image-index="{{ forloop.counter0 }}"
+                                                     data-image-url="{{ imagen.imagen.url }}"
                                                      onerror="this.onerror=null; this.src='{% static 'images/logo.png' %}';">
                                             </div>
                                             {% endfor %}
@@ -790,6 +792,70 @@
     </div>
 </div>
 
+<!-- Modal de Galería de Imágenes -->
+<div class="modal fade" id="imageGalleryModal" tabindex="-1" aria-labelledby="imageGalleryLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageGalleryLabel">
+                    <i class="fas fa-images me-2"></i>Galería de Imágenes - {{ propiedad.direccion }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="galleryCarousel" class="carousel slide" data-bs-ride="false">
+                    <div class="carousel-inner">
+                        {% for imagen in propiedad.imagenes.all %}
+                        <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                            <img src="{{ imagen.imagen.url }}" 
+                                 class="d-block w-100" 
+                                 alt="Imagen {{ forloop.counter }}"
+                                 style="height: 70vh; object-fit: contain; background: #000;"
+                                 onerror="this.onerror=null; this.src='{% static 'images/logo.png' %}';">
+                            <div class="carousel-caption d-none d-md-block">
+                                <h5>Imagen {{ forloop.counter }} de {{ propiedad.imagenes.count }}</h5>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if propiedad.imagenes.count > 1 %}
+                    <button class="carousel-control-prev" type="button" data-bs-target="#galleryCarousel" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Anterior</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#galleryCarousel" data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Siguiente</span>
+                    </button>
+                    {% endif %}
+                    
+                    <!-- Indicadores de imágenes -->
+                    {% if propiedad.imagenes.count > 1 %}
+                    <div class="carousel-indicators">
+                        {% for imagen in propiedad.imagenes.all %}
+                        <button type="button" data-bs-target="#galleryCarousel" data-bs-slide-to="{{ forloop.counter0 }}" 
+                                {% if forloop.first %}class="active" aria-current="true"{% endif %}
+                                aria-label="Imagen {{ forloop.counter }}">
+                        </button>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="text-muted me-auto">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Usa las flechas o haz clic en los puntos para navegar
+                </span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
 .carousel-item img {
     height: 400px;
@@ -932,6 +998,60 @@
     line-height: 1.6;
     font-size: 1rem;
 }
+
+/* GALERÍA DE IMÁGENES */
+.image-thumbnail {
+    transition: all 0.3s ease;
+}
+
+.image-thumbnail:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+}
+
+#imageGalleryModal .modal-content {
+    background: #000;
+    border: none;
+}
+
+#imageGalleryModal .modal-header {
+    background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%);
+    border-bottom: none;
+}
+
+#imageGalleryModal .modal-footer {
+    background: rgba(0,0,0,0.8);
+    border-top: none;
+}
+
+#galleryCarousel .carousel-control-prev,
+#galleryCarousel .carousel-control-next {
+    width: 5%;
+    background: rgba(0,0,0,0.5);
+    border-radius: 0 8px 8px 0;
+}
+
+#galleryCarousel .carousel-control-next {
+    border-radius: 8px 0 0 8px;
+}
+
+#galleryCarousel .carousel-indicators button {
+    width: 60px;
+    height: 4px;
+    margin: 0 3px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 2px;
+}
+
+#galleryCarousel .carousel-indicators button.active {
+    background: #4caf50;
+}
+
+.carousel-caption {
+    background: rgba(0,0,0,0.7);
+    border-radius: 8px;
+    padding: 10px 20px;
+}
 </style>
 
 <script>
@@ -940,11 +1060,29 @@ function verHistorial() {
     modalHistorial.show();
 }
 
-function openImageModal(imageUrl) {
-    const modalImage = document.getElementById('modalImage');
-    modalImage.src = imageUrl;
-    const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
-    imageModal.show();
+function openGallery(imageIndex = 0) {
+    // Abrir el modal de galería
+    const galleryModal = new bootstrap.Modal(document.getElementById('imageGalleryModal'));
+    
+    // Ir a la imagen específica en el carousel del modal
+    const galleryCarousel = new bootstrap.Carousel(document.getElementById('galleryCarousel'));
+    galleryCarousel.to(imageIndex);
+    
+    // Mostrar el modal
+    galleryModal.show();
+    
+    // Agregar efectos de teclado para navegación
+    document.addEventListener('keydown', function(e) {
+        if (document.getElementById('imageGalleryModal').classList.contains('show')) {
+            if (e.key === 'ArrowLeft') {
+                galleryCarousel.prev();
+            } else if (e.key === 'ArrowRight') {
+                galleryCarousel.next();
+            } else if (e.key === 'Escape') {
+                galleryModal.hide();
+            }
+        }
+    });
 }
 
 // Estilos para las badges y estados
