@@ -1973,8 +1973,26 @@ def ver_recibo_movimiento(request, movimiento_id):
         # Obtener el movimiento de caja principal
         movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
         
-        # Obtener la reserva relacionada si existe
-        reserva = movimiento.propiedad.reservas.filter(estado='pagada').first() if movimiento.propiedad else None
+        # Obtener la reserva relacionada desde el concepto del movimiento
+        reserva = None
+        if movimiento.concepto and "Reserva" in movimiento.concepto:
+            try:
+                # Extraer el ID de la reserva del concepto (formato: "Reserva 123 - Dirección")
+                import re
+                match = re.search(r'Reserva (\d+)', movimiento.concepto)
+                if match:
+                    reserva_id = int(match.group(1))
+                    reserva = Reserva.objects.filter(id=reserva_id).first()
+                    print(f"🔍 RESERVA ENCONTRADA desde concepto: ID {reserva_id}, Estado: {reserva.estado if reserva else 'No encontrada'}")
+                else:
+                    print(f"⚠️ No se pudo extraer ID de reserva del concepto: '{movimiento.concepto}'")
+            except Exception as e:
+                print(f"❌ Error al buscar reserva desde concepto: {e}")
+        
+        # Fallback: buscar por propiedad si no se encontró por concepto
+        if not reserva and movimiento.propiedad:
+            reserva = movimiento.propiedad.reservas.filter(estado__in=['pagada', 'confirmada_no_pagada']).first()
+            print(f"🔍 RESERVA FALLBACK desde propiedad: {reserva.id if reserva else 'No encontrada'}")
         
         # ✅ CORRECCIÓN: Buscar movimientos DE ESTA OPERACIÓN ESPECÍFICA (mismo número de recibo)
         movimientos_relacionados = MovimientoCaja.objects.filter(
