@@ -245,10 +245,11 @@
                                 </div>
                                 <div class="card-body">
                                     <div class="d-flex gap-2 mb-3">
-                                        <input type="number" id="vendedor_id_contrato" name="vendedor_id" placeholder="Ingresa ID del vendedor" min="1" required
+                                        <input type="number" id="vendedor_id_contrato" placeholder="Ingresa ID del vendedor" min="1"
                                                class="form-control" oninput="buscarVendedorAutomaticoContrato()">
                                         <button onclick="buscarVendedorContrato()" type="button" class="btn btn-primary">🔍 Buscar</button>
                                     </div>
+                                    <input type="hidden" id="modalVendedorIdContrato" name="vendedor_id">
                                     <div id="vendedor_info_contrato" style="display: none;" class="alert alert-success">
                                         <div class="d-flex align-items-center gap-2">
                                             <span style="font-size: 24px;">✅</span>
@@ -500,6 +501,7 @@ function buscarVendedorAutomaticoContrato() {
     // Si no hay ID, ocultar info
     if (!vendedorId) {
         vendedorInfo.style.display = 'none';
+        document.getElementById('modalVendedorIdContrato').value = '';
         return;
     }
     
@@ -548,16 +550,21 @@ function buscarVendedorContrato() {
                 document.getElementById('vendedor_nombre_contrato').textContent = nombreVendedor;
                 vendedorInfo.style.display = 'block';
                 
+                // Guardar el ID del vendedor en el campo oculto
+                document.getElementById('modalVendedorIdContrato').value = vendedorId;
+                
                 console.log('✅ Vendedor mostrado correctamente');
             } else {
                 console.log('❌ Vendedor no encontrado:', data.message);
                 vendedorInfo.style.display = 'none';
+                document.getElementById('modalVendedorIdContrato').value = '';
                 alert('❌ Vendedor no encontrado: ' + (data.message || 'ID no válido'));
             }
         })
         .catch(error => {
             console.error('❌ Error en la petición:', error);
             vendedorInfo.style.display = 'none';
+            document.getElementById('modalVendedorIdContrato').value = '';
             alert('❌ Error al buscar vendedor. Intenta nuevamente.');
         });
 }
