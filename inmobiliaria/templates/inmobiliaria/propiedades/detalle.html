@@ -796,12 +796,11 @@
 <div class="modal fade" id="imageGalleryModal" tabindex="-1" aria-labelledby="imageGalleryLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="imageGalleryLabel">
-                    <i class="fas fa-images me-2"></i>Galería de Imágenes - {{ propiedad.direccion }}
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
+            <!-- Botón de cerrar flotante -->
+            <button type="button" class="btn-close position-absolute top-0 end-0 m-3" 
+                    data-bs-dismiss="modal" aria-label="Close" 
+                    style="z-index: 1060; background: rgba(255,255,255,0.8); border-radius: 50%; padding: 10px; width: 40px; height: 40px;">
+            </button>
             <div class="modal-body p-0">
                 <div id="galleryCarousel" class="carousel slide" data-bs-ride="false">
                     <div class="carousel-inner">
@@ -810,7 +809,7 @@
                             <img src="{{ imagen.imagen.url }}" 
                                  class="d-block w-100" 
                                  alt="Imagen {{ forloop.counter }}"
-                                 style="height: 70vh; object-fit: contain; background: #000;"
+                                 style="height: 100vh; object-fit: contain; background: #000;"
                                  onerror="this.onerror=null; this.src='{% static 'images/logo.png' %}';">
                             <div class="carousel-caption d-none d-md-block">
                                 <h5>Imagen {{ forloop.counter }} de {{ propiedad.imagenes.count }}</h5>
@@ -842,15 +841,6 @@
                     </div>
                     {% endif %}
                 </div>
-            </div>
-            <div class="modal-footer">
-                <span class="text-muted me-auto">
-                    <i class="fas fa-info-circle me-1"></i>
-                    Usa las flechas o haz clic en los puntos para navegar
-                </span>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times me-2"></i>Cerrar
-                </button>
             </div>
         </div>
     </div>
@@ -1012,16 +1002,18 @@
 #imageGalleryModal .modal-content {
     background: #000;
     border: none;
+    border-radius: 0;
 }
 
-#imageGalleryModal .modal-header {
-    background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%);
-    border-bottom: none;
+#imageGalleryModal .btn-close {
+    filter: invert(1);
+    opacity: 0.8;
+    transition: all 0.3s ease;
 }
 
-#imageGalleryModal .modal-footer {
-    background: rgba(0,0,0,0.8);
-    border-top: none;
+#imageGalleryModal .btn-close:hover {
+    opacity: 1;
+    transform: scale(1.1);
 }
 
 #galleryCarousel .carousel-control-prev,
