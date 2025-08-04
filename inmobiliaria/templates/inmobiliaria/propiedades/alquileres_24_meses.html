@@ -385,6 +385,9 @@
 
 <!-- Script para manejar contratos 24 meses -->
 <script>
+// Variable global para el timeout de búsqueda
+let busquedaVendedorTimeout;
+
 // Función principal para mostrar el modal
 function mostrarModalContrato24Meses(propiedadId, direccion, sucursal, precioMensual, expensas) {
     console.log('🏠 Abriendo modal para contrato 24 meses:', {
@@ -488,44 +491,74 @@ function buscarInquilino() {
 
 // Función para buscar vendedor automáticamente
 function buscarVendedorAutomaticoContrato() {
-    const vendedorId = document.getElementById('vendedor_id_contrato').value;
-    if (vendedorId.length >= 1) { // Buscar cuando tenga al menos 1 dígito
-        setTimeout(() => {
-            if (document.getElementById('vendedor_id_contrato').value === vendedorId) {
-                buscarVendedorContrato();
-            }
-        }, 500); // Delay de 500ms para evitar múltiples búsquedas
+    const vendedorId = document.getElementById('vendedor_id_contrato').value.trim();
+    const vendedorInfo = document.getElementById('vendedor_info_contrato');
+    
+    // Limpiar el timeout anterior
+    if (busquedaVendedorTimeout) clearTimeout(busquedaVendedorTimeout);
+    
+    // Si no hay ID, ocultar info
+    if (!vendedorId) {
+        vendedorInfo.style.display = 'none';
+        return;
     }
+    
+    // Buscar después de 500ms de no escribir
+    busquedaVendedorTimeout = setTimeout(() => {
+        buscarVendedorContrato();
+    }, 500);
 }
 
 // Función para buscar vendedor
 function buscarVendedorContrato() {
-    const vendedorId = document.getElementById('vendedor_id_contrato').value;
+    const vendedorId = document.getElementById('vendedor_id_contrato').value.trim();
+    const vendedorInfo = document.getElementById('vendedor_info_contrato');
+    
     if (!vendedorId) {
-        alert('Por favor ingrese un ID de vendedor');
+        alert('❌ Por favor ingresa un ID de vendedor');
         return;
     }
     
-    console.log(`🏢 Buscando vendedor ID: ${vendedorId}`);
+    console.log('🔍 Buscando vendedor con ID:', vendedorId);
     
-    fetch(`/inmobiliaria/api/vendedor/${vendedorId}/`)
-        .then(response => {
-            console.log(`📡 Respuesta API vendedor:`, response.status);
-            return response.json();
-        })
+    // Usar la misma URL que el modal original
+    fetch(`/inmobiliaria/obtener_vendedor/${vendedorId}/`)
+        .then(response => response.json())
         .then(data => {
-            console.log(`📊 Datos del vendedor:`, data);
-            if (data.error) {
-                document.getElementById('vendedor_info_contrato').style.display = 'none';
-                alert('Vendedor no encontrado');
+            console.log('📝 Respuesta COMPLETA del servidor:', JSON.stringify(data, null, 2));
+            
+            if (data.success) {
+                // Vendedor encontrado - mostrar información
+                let nombreVendedor = 'Nombre no disponible';
+                
+                // Probar diferentes formatos de respuesta
+                if (data.nombre) {
+                    nombreVendedor = data.nombre;
+                } else if (data.vendedor && data.vendedor.nombre_completo) {
+                    nombreVendedor = data.vendedor.nombre_completo;
+                } else if (data.vendedor && data.vendedor.nombre) {
+                    nombreVendedor = data.vendedor.nombre;
+                } else if (data.vendedor && data.vendedor.first_name) {
+                    nombreVendedor = data.vendedor.first_name + ' ' + (data.vendedor.last_name || '');
+                }
+                
+                console.log('🎯 Nombre extraído:', nombreVendedor);
+                
+                // Mostrar información del vendedor
+                document.getElementById('vendedor_nombre_contrato').textContent = nombreVendedor;
+                vendedorInfo.style.display = 'block';
+                
+                console.log('✅ Vendedor mostrado correctamente');
             } else {
-                document.getElementById('vendedor_nombre_contrato').textContent = `${data.nombre} ${data.apellido}`;
-                document.getElementById('vendedor_info_contrato').style.display = 'block';
+                console.log('❌ Vendedor no encontrado:', data.message);
+                vendedorInfo.style.display = 'none';
+                alert('❌ Vendedor no encontrado: ' + (data.message || 'ID no válido'));
             }
         })
         .catch(error => {
-            console.error('❌ Error al buscar vendedor:', error);
-            alert(`Error al buscar el vendedor: ${error.message}`);
+            console.error('❌ Error en la petición:', error);
+            vendedorInfo.style.display = 'none';
+            alert('❌ Error al buscar vendedor. Intenta nuevamente.');
         });
 }
 
