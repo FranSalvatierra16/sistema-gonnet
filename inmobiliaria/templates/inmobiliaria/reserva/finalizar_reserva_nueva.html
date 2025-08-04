@@ -949,27 +949,30 @@ function calcularTotales() {
     document.getElementById('totalRecibo').value = totalRecibo;
     document.getElementById('totalReciboDisplay').textContent = totalRecibo.toLocaleString('es-ES');
     
-    // ✅ VALIDACIÓN: Verificar si el total del recibo coincide con la seña
+    // ✅ NUEVA VALIDACIÓN: El total del recibo debe coincidir con el total de pagos (no con la seña)
+    // La seña es solo informativa, la validación real es pagos vs recibo
     const validacionElement = document.getElementById('validacionSeña');
-    const diferenciaSenia = totalRecibo - senia;
     
-    if (diferenciaSenia === 0) {
-        validacionElement.innerHTML = '<span style="color: green;">✅ El total del recibo coincide con la seña</span>';
+    // Calcular total de pagos actual
+    const totalPagos = calcularTotalPagos();
+    const diferenciaPagos = totalPagos - totalRecibo;
+    
+    if (diferenciaPagos === 0 && totalRecibo > 0) {
+        validacionElement.innerHTML = '<span style="color: green;">✅ Los pagos coinciden con el total del recibo</span>';
         validacionElement.style.display = 'block';
-    } else if (diferenciaSenia > 0) {
-        validacionElement.innerHTML = `<span style="color: red;">❌ El total del recibo supera la seña en $${diferenciaSenia.toLocaleString('es-ES')}</span>`;
+    } else if (totalRecibo === 0) {
+        validacionElement.innerHTML = '<span style="color: gray;">ℹ️ Agregue conceptos para continuar</span>';
+        validacionElement.style.display = 'block';
+    } else if (diferenciaPagos > 0) {
+        validacionElement.innerHTML = `<span style="color: orange;">⚠️ Los pagos superan el recibo en $${diferenciaPagos.toLocaleString('es-ES')}</span>`;
         validacionElement.style.display = 'block';
     } else {
-        validacionElement.innerHTML = `<span style="color: orange;">⚠️ El total del recibo es menor a la seña en $${Math.abs(diferenciaSenia).toLocaleString('es-ES')}</span>`;
+        validacionElement.innerHTML = `<span style="color: red;">❌ Faltan $${Math.abs(diferenciaPagos).toLocaleString('es-ES')} en pagos</span>`;
         validacionElement.style.display = 'block';
     }
     
-    // Recalcular diferencia de pagos
-    calcularTotalPagos();
-    
-    // ✅ Re-evaluar estado del botón después de cambios en conceptos/seña
-    const diferenciaPagos = parseFloat(document.getElementById('diferenciaPagos').textContent.replace(/\./g, '')) || 0;
-    habilitarBotonProcesar(diferenciaPagos === 0);
+    // ✅ Evaluar estado del botón: debe haber conceptos Y pagos deben coincidir
+    habilitarBotonProcesar(diferenciaPagos === 0 && totalRecibo > 0);
 }
 
 // Función para calcular total de transferencias
@@ -1201,21 +1204,11 @@ function procesarMovimiento() {
 function habilitarBotonProcesar(habilitar) {
     const boton = document.getElementById('btnProcesarMovimiento');
     
-    // ✅ Función auxiliar para parsear valores formateados
-    const parsearValorFormateado = (valor) => {
-        if (!valor) return 0;
-        return parseFloat(valor.toString().replace(/\./g, '')) || 0;
-    };
+    const totalRecibo = parseFloat(document.getElementById('totalRecibo')?.value || 0);
     
-    const totalRecibo = parseFloat(document.getElementById('totalRecibo').value) || 0;
-    const senia = parsearValorFormateado(document.getElementById('senia').value);
+    console.log(`🔍 VALIDACIÓN BOTÓN - Total Recibo: ${totalRecibo}, Habilitar: ${habilitar}`);
     
-    // ✅ Validar también que el total del recibo coincida con la seña
-    const seniaCoincide = Math.abs(totalRecibo - senia) <= 0.01;
-    
-    console.log(`🔍 VALIDACIÓN BOTÓN - Total Recibo: ${totalRecibo}, Seña: ${senia}, Coincide: ${seniaCoincide}, Habilitar: ${habilitar}`);
-    
-    if (habilitar && totalRecibo > 0 && seniaCoincide) {
+    if (habilitar && totalRecibo > 0) {
         boton.disabled = false;
         boton.classList.remove('btn-secondary');
         boton.classList.add('btn-success');
@@ -1227,10 +1220,8 @@ function habilitarBotonProcesar(habilitar) {
         
         if (totalRecibo === 0) {
             boton.innerHTML = '⚠️ Agrega conceptos primero';
-        } else if (!seniaCoincide) {
-            boton.innerHTML = '⚠️ El total del recibo debe coincidir con la seña';
         } else {
-            boton.innerHTML = '⚠️ Los pagos deben coincidir con el total';
+            boton.innerHTML = '⚠️ Los pagos deben coincidir con el total del recibo';
         }
     }
 }
