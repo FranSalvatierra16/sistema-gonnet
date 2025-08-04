@@ -280,36 +280,39 @@
                             <!-- Fila 2: Importes -->
                             <div class="col-md-6">
                                 <div class="row mb-2">
-                                    <div class="col-md-6">
-                                        <label class="form-label"><strong>IMPORTE EFECTIVO:</strong></label>
-                                        <input type="text" class="form-control form-control-sm importe-pago" 
-                                               name="monto_efectivo" value="0" placeholder="0">
+                                    <div class="col-md-3">
+                                        <label for="monto_efectivo" class="form-label">💵 <strong>IMPORTE EFECTIVO:</strong></label>
+                                        <input type="text" class="form-control importe-pago" id="monto_efectivo" name="monto_efectivo" 
+                                               placeholder="0" onchange="actualizarPagos()" oninput="actualizarPagos()">
                                     </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label"><strong>IMPORTE CHEQUE:</strong></label>
-                                        <input type="text" class="form-control form-control-sm importe-pago" 
-                                               name="monto_cheque" value="0" placeholder="0">
+                                    
+                                    <div class="col-md-3">
+                                        <label for="monto_cheque" class="form-label">💳 <strong>IMPORTE CHEQUE:</strong></label>
+                                        <input type="text" class="form-control importe-pago" id="monto_cheque" name="monto_cheque" 
+                                               placeholder="0" onchange="actualizarPagos()" oninput="actualizarPagos()">
                                     </div>
-                                </div>
+                                    
+                                    <div class="col-md-3">
+                                        <label for="monto_tarjeta" class="form-label">💳 <strong>IMPORTE TARJETA:</strong></label>
+                                        <input type="text" class="form-control importe-pago" id="monto_tarjeta" name="monto_tarjeta" 
+                                               placeholder="0" onchange="actualizarPagos()" oninput="actualizarPagos()">
+                                    </div>
                                 
                                 <div class="row mb-2">
-                                    <div class="col-md-6">
-                                        <label class="form-label"><strong>IMPORTE TARJETA:</strong></label>
-                                        <input type="text" class="form-control form-control-sm importe-pago" 
-                                               name="monto_tarjeta" value="0" placeholder="0">
-                                    </div>
                                     <div class="col-md-6">
                                         <label class="form-label"><strong>TRANSFERENCIAS:</strong></label>
                                         <div class="transferencias-container">
                                             <div class="transferencia-item">
-                                                <label class="form-label mb-1"><small><strong>🏦 Galicia:</strong></small></label>
+                                                <label class="form-label">🏛️ Galicia:</label>
                                                 <input type="text" class="form-control form-control-xs importe-pago" 
-                                                       name="monto_deposito_galicia" value="0" placeholder="0">
+                                                       id="monto_deposito_galicia" name="monto_deposito_galicia" 
+                                                       placeholder="0" onchange="actualizarPagos()" oninput="actualizarPagos()">
                                             </div>
                                             <div class="transferencia-item">
-                                                <label class="form-label mb-1"><small><strong>💳 Mercado Pago:</strong></small></label>
+                                                <label class="form-label">💰 Mercado Pago:</label>
                                                 <input type="text" class="form-control form-control-xs importe-pago" 
-                                                       name="monto_deposito_mp" value="0" placeholder="0">
+                                                       id="monto_deposito_mp" name="monto_deposito_mp" 
+                                                       placeholder="0" onchange="actualizarPagos()" oninput="actualizarPagos()">
                                             </div>
                                         </div>
                                     </div>
@@ -1074,6 +1077,19 @@ function calcularSaldoOcupar() {
         console.log(`💰 CÁLCULO SALDO: Pendiente actual: ${saldoPendienteActual}, Pago actual: ${totalPagoActual}, Queda por pagar: ${saldoOcupar}`);
     } catch (error) {
         console.error('Error en calcularSaldoOcupar:', error);
+    }
+}
+
+// Función simple para actualizar todos los cálculos de pagos
+function actualizarPagos() {
+    console.log('🔄 ACTUALIZANDO PAGOS...');
+    try {
+        calcularTotalPagos();
+        calcularSaldoOcupar();
+        calcularTotales();
+        console.log('✅ PAGOS ACTUALIZADOS');
+    } catch (error) {
+        console.error('❌ ERROR AL ACTUALIZAR PAGOS:', error);
     }
 }
 
