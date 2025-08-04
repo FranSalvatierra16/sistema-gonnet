@@ -1941,13 +1941,29 @@ def api_propiedad_detalle(request, propiedad_id):
                 'precio_por_dia': float(precio.precio_por_dia)
             })
         
+        # Obtener información de alquiler 24 meses si existe
+        info_meses = None
+        try:
+            from .models import AlquilerMeses
+            info_meses = AlquilerMeses.objects.get(propiedad=propiedad)
+            info_meses_data = {
+                'precio_mensual': float(info_meses.precio_mensual),
+                'precio_expensas': float(info_meses.precio_expensas) if info_meses.precio_expensas else 0,
+                'estado': info_meses.estado
+            }
+        except:
+            info_meses_data = None
+        
         data = {
             'id': propiedad.id,
+            'direccion': propiedad.direccion,
+            'sucursal': propiedad.sucursal.nombre,
             'ambientes': propiedad.ambientes,
             'descripcion': propiedad.descripcion or '',
             'caracteristicas': propiedad.caracteristicas or '',
             'estado': propiedad.estado,
-            'precios': precios_data
+            'precios': precios_data,
+            'info_meses': info_meses_data
         }
         
         print(f"📤 Datos enviados: {data}")

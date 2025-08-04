@@ -323,34 +323,46 @@ function mostrarModalContrato24Meses(propiedadId) {
     document.getElementById('propiedad_id').value = propiedadId;
     
     // Obtener información de la propiedad
+    console.log(`🔍 Solicitando datos de propiedad ${propiedadId} desde: /inmobiliaria/api/propiedad/${propiedadId}/`);
+    
     fetch(`/inmobiliaria/api/propiedad/${propiedadId}/`)
-        .then(response => response.json())
+        .then(response => {
+            console.log(`📡 Respuesta de API propiedad:`, response.status);
+            return response.json();
+        })
         .then(data => {
+            console.log(`📊 Datos recibidos de la propiedad:`, data);
+            
             // Llenar información de la propiedad
             document.getElementById('modal_ficha').textContent = `#${data.id}`;
-            document.getElementById('modal_direccion').textContent = data.direccion;
-            document.getElementById('modal_sucursal').textContent = data.sucursal;
+            document.getElementById('modal_direccion').textContent = data.direccion || 'No especificada';
+            document.getElementById('modal_sucursal').textContent = data.sucursal || 'No especificada';
             
             // Información específica de 24 meses
             if (data.info_meses) {
+                console.log(`💰 Info 24 meses encontrada:`, data.info_meses);
                 const precioMensual = data.info_meses.precio_mensual;
                 document.getElementById('modal_precio_mensual').textContent = `$${precioMensual.toLocaleString('es-ES')}`;
-                document.getElementById('precio_mensual_input').value = precioMensual;
+                document.getElementById('precio_mensual_input').value = precioMensual.toLocaleString('es-ES');
                 
                 const expensas = data.info_meses.precio_expensas || 0;
                 document.getElementById('modal_expensas').textContent = expensas > 0 ? `$${expensas.toLocaleString('es-ES')}` : 'No incluye';
                 
                 // Calcular depósito sugerido (2 meses)
                 const depositoSugerido = precioMensual * 2;
-                document.getElementById('deposito_garantia').value = depositoSugerido;
+                document.getElementById('deposito_garantia').value = depositoSugerido.toLocaleString('es-ES');
                 
                 // Actualizar resumen
                 actualizarResumenContrato();
+            } else {
+                console.warn('⚠️ No se encontró información de 24 meses para esta propiedad');
+                document.getElementById('modal_precio_mensual').textContent = 'No configurado';
+                document.getElementById('modal_expensas').textContent = 'No configurado';
             }
         })
         .catch(error => {
-            console.error('Error al obtener datos de la propiedad:', error);
-            alert('Error al cargar los datos de la propiedad');
+            console.error('❌ Error al obtener datos de la propiedad:', error);
+            alert(`Error al cargar los datos de la propiedad: ${error.message}`);
         });
     
     // Establecer fecha mínima (hoy)
@@ -371,9 +383,15 @@ function buscarInquilino() {
         return;
     }
     
+    console.log(`👤 Buscando inquilino ID: ${inquilinoId}`);
+    
     fetch(`/inmobiliaria/api/inquilino/${inquilinoId}/`)
-        .then(response => response.json())
+        .then(response => {
+            console.log(`📡 Respuesta API inquilino:`, response.status);
+            return response.json();
+        })
         .then(data => {
+            console.log(`📊 Datos del inquilino:`, data);
             if (data.error) {
                 document.getElementById('inquilino_info').style.display = 'none';
                 alert('Inquilino no encontrado');
@@ -383,8 +401,8 @@ function buscarInquilino() {
             }
         })
         .catch(error => {
-            console.error('Error al buscar inquilino:', error);
-            alert('Error al buscar el inquilino');
+            console.error('❌ Error al buscar inquilino:', error);
+            alert(`Error al buscar el inquilino: ${error.message}`);
         });
 }
 
@@ -396,9 +414,15 @@ function buscarVendedorContrato() {
         return;
     }
     
+    console.log(`🏢 Buscando vendedor ID: ${vendedorId}`);
+    
     fetch(`/inmobiliaria/api/vendedor/${vendedorId}/`)
-        .then(response => response.json())
+        .then(response => {
+            console.log(`📡 Respuesta API vendedor:`, response.status);
+            return response.json();
+        })
         .then(data => {
+            console.log(`📊 Datos del vendedor:`, data);
             if (data.error) {
                 document.getElementById('vendedor_info_contrato').style.display = 'none';
                 alert('Vendedor no encontrado');
@@ -408,8 +432,8 @@ function buscarVendedorContrato() {
             }
         })
         .catch(error => {
-            console.error('Error al buscar vendedor:', error);
-            alert('Error al buscar el vendedor');
+            console.error('❌ Error al buscar vendedor:', error);
+            alert(`Error al buscar el vendedor: ${error.message}`);
         });
 }
 
