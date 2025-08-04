@@ -1219,22 +1219,32 @@ document.addEventListener('DOMContentLoaded', function() {
             return parseFloat(valor.toString().replace(/\./g, '')) || 0;
         };
         
-        const senia = parsearValorFormateado(seniaInput.value);
-        const importeLocacion = parsearValorFormateado(importeLocacionInput.value);
+        // Obtener el saldo pendiente actual (lo que se muestra en el resumen)
+        const saldoPendienteActual = {{ saldo_a_ocupar }};
         
-        // ✅ NUEVA LÓGICA: Importe Locación ahora ES el saldo pendiente
-        // Saldo a Ocupar = Lo que queda por pagar después de esta operación
-        const saldoOcupar = importeLocacion - senia;
+        // Obtener el total que se está pagando en esta operación
+        const totalPagoActual = calcularTotalPagos();
+        
+        // Saldo a Ocupar = Saldo pendiente actual - Lo que se paga ahora
+        const saldoOcupar = saldoPendienteActual - totalPagoActual;
         
         // ✅ Mostrar con formato de miles
         document.getElementById('saldo_ocupar').value = saldoOcupar.toLocaleString('es-ES');
+        
+        console.log(`💰 CÁLCULO SALDO: Pendiente actual: ${saldoPendienteActual}, Pago actual: ${totalPagoActual}, Queda por pagar: ${saldoOcupar}`);
     }
     
-    seniaInput.addEventListener('input', function() {
-        calcularSaldoOcupar();
-        calcularTotales(); // ✅ Recalcular totales cuando cambie la seña
+    // Actualizar eventos para recalcular el saldo cuando cambien los pagos
+    ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito_galicia', 'monto_deposito_mp'].forEach(function(id) {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('input', function() {
+                calcularTotalPagos();
+                calcularSaldoOcupar();
+                habilitarBotonProcesar();
+            });
+        }
     });
-    importeLocacionInput.addEventListener('input', calcularSaldoOcupar);
     
     // ✅ Función para formatear números mientras se escriben
     function formatearNumeroEnTiempoReal(input) {
@@ -1302,6 +1312,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Limpiar formulario
         document.getElementById('formConcepto').reset();
     });
+    
+    // ✅ Inicializar cálculos al cargar la página
+    calcularTotales();
+    calcularSaldoOcupar();
+    habilitarBotonProcesar();
 });
 </script>
 
