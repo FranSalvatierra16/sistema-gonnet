@@ -998,14 +998,50 @@ function calcularTotalPagos() {
     const galicia = parsearValorFormateado(document.getElementById('monto_deposito_galicia')?.value || 0);
     const mp = parsearValorFormateado(document.getElementById('monto_deposito_mp')?.value || 0);
     
-    return efectivo + cheque + tarjeta + galicia + mp;
+    const totalDepositos = galicia + mp;
+    const totalPagos = efectivo + cheque + tarjeta + totalDepositos;
+    
+    // Actualizar campo oculto de depósitos totales
+    const depositoTotalElement = document.getElementById('monto_deposito_total');
+    if (depositoTotalElement) {
+        depositoTotalElement.value = totalDepositos.toFixed(2);
+    }
+    
+    // Actualizar displays con formato
+    const totalPagosElement = document.getElementById('totalPagos');
+    if (totalPagosElement) {
+        totalPagosElement.textContent = totalPagos.toLocaleString('es-ES');
+    }
+    
+    // Obtener total del recibo para comparar
+    const totalRecibo = parseFloat(document.getElementById('totalRecibo')?.value || 0);
+    const diferencia = totalPagos - totalRecibo;
+    
+    // Actualizar diferencia
+    const diferenciaElement = document.getElementById('diferenciaPagos');
+    if (diferenciaElement) {
+        if (diferencia === 0) {
+            diferenciaElement.style.color = 'green';
+            diferenciaElement.textContent = '0 ✅';
+        } else if (diferencia > 0) {
+            diferenciaElement.style.color = 'orange';
+            diferenciaElement.textContent = `+${diferencia.toLocaleString('es-ES')} ⚠️`;
+        } else {
+            diferenciaElement.style.color = 'red';
+            diferenciaElement.textContent = `${diferencia.toLocaleString('es-ES')} ❌`;
+        }
+    }
+    
+    console.log(`Pagos - Efectivo: ${efectivo}, Cheque: ${cheque}, Tarjeta: ${tarjeta}, Depósitos: ${totalDepositos}, Total: ${totalPagos}`);
+    
+    return totalPagos;
 }
 
 // Función para calcular saldo a ocupar
 function calcularSaldoOcupar() {
     try {
         // Obtener el saldo pendiente actual (lo que se muestra en el resumen)
-        const saldoPendienteActual = {{ saldo_a_ocupar }};
+        const saldoPendienteActual = parseFloat('{{ saldo_a_ocupar }}') || 0;
         
         // Obtener el total que se está pagando en esta operación
         const totalPagoActual = calcularTotalPagos();
