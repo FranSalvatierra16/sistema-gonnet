@@ -2935,26 +2935,7 @@ def gestionar_caja(request):
         messages.error(request, f'Error al acceder a la caja: {str(e)}')
         return redirect('inmobiliaria:dashboard')
 
-@login_required
-def cerrar_caja(request, numero_caja):
-    try:
-        caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal)
-        
-        if request.method == 'POST':
-            if caja.estado == 'abierta':
-                caja.estado = 'cerrada'
-                caja.fecha_cierre = timezone.now()
-                caja.save()
-                messages.success(request, f'Caja #{caja.numero} cerrada exitosamente.')
-            else:
-                messages.error(request, 'La caja ya está cerrada.')
-            return redirect('inmobiliaria:lista_cajas')
-        
-        return render(request, 'inmobiliaria/caja/cerrar_caja.html', {'caja': caja})
-        
-    except Exception as e:
-        messages.error(request, f'Error al cerrar la caja: {str(e)}')
-        return redirect('inmobiliaria:lista_cajas')
+
 
 @login_required
 def nuevo_movimiento(request, numero_caja=None):
@@ -3214,15 +3195,37 @@ def cerrar_caja(request, numero_caja):
         observaciones = request.POST.get('observaciones', '')
         saldo_final = caja.get_saldo_actual()
         
-        caja.fecha_cierre = timezone.now()
-        caja.estado = 'cerrada'
-        caja.saldo_final = saldo_final
-        caja.usuario_cierre = request.user
-        caja.observaciones_cierre = observaciones
-        caja.save()
-        
-        messages.success(request, f'Caja #{caja.numero} cerrada exitosamente')
-        return redirect('inmobiliaria:lista_cajas')
+        try:
+            # Cerrar la caja actual
+            caja.fecha_cierre = timezone.now()
+            caja.estado = 'cerrada'
+            caja.saldo_final = saldo_final
+            caja.usuario_cierre = request.user
+            caja.observaciones_cierre = observaciones
+            caja.save()
+            
+            # 🚀 APERTURA AUTOMÁTICA DE NUEVA CAJA
+            # Obtener el siguiente número de caja para esta sucursal
+            siguiente_numero = caja.numero + 1
+            
+            # Crear nueva caja automáticamente
+            nueva_caja = Caja.objects.create(
+                sucursal=request.user.sucursal,
+                numero=siguiente_numero,
+                estado='abierta',
+                fecha_apertura=timezone.now(),
+                usuario_apertura=request.user,
+                saldo_inicial=saldo_final,  # El saldo final de la caja anterior se convierte en inicial de la nueva
+                observaciones_apertura=f'Apertura automática tras cierre de Caja #{caja.numero}'
+            )
+            
+            messages.success(request, f'✅ Caja #{caja.numero} cerrada exitosamente')
+            messages.success(request, f'🚀 Nueva Caja #{nueva_caja.numero} abierta automáticamente con saldo inicial: ${saldo_final:,.0f}')
+            return redirect('inmobiliaria:lista_cajas')
+            
+        except Exception as e:
+            messages.error(request, f'Error al cerrar/abrir caja: {str(e)}')
+            return redirect('inmobiliaria:lista_cajas')
     
     return render(request, 'inmobiliaria/caja/cerrar_caja.html', {'caja': caja})
 
