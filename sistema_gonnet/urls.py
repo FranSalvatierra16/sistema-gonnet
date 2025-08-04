@@ -25,7 +25,7 @@ from inmobiliaria.views import index
 urlpatterns = [
     path('', index, name='index'),  # Ruta raíz
     path('admin/', admin.site.urls),
-    path('', include('inmobiliaria.urls')),
+    path('', include(('inmobiliaria.urls', 'inmobiliaria'), namespace='inmobiliaria')),
 ]
 
 # Servir archivos de medios en desarrollo y producción

@@ -397,7 +397,7 @@ function mostrarModalContrato24Meses(propiedadId, direccion, sucursal, precioMen
     
     // Configurar el formulario
     const form = document.getElementById('formContrato24Meses');
-    form.action = `/inmobiliaria/contratos/crear/`;
+            form.action = `{% url 'inmobiliaria:crear_contrato_alquiler' %}`;
     document.getElementById('propiedad_id').value = propiedadId;
     
     // ✅ LLENAR INFORMACIÓN DIRECTAMENTE (sin API)
