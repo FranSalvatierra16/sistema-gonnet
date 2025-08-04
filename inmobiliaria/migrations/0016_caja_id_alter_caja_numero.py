@@ -10,9 +10,21 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Paso 1: Eliminar la foreign key constraint que bloquea la modificación
+        # Paso 1: Eliminar la foreign key constraint solo si existe
         migrations.RunSQL(
-            "ALTER TABLE inmobiliaria_movimientocaja DROP FOREIGN KEY inmobiliaria_movimie_caja_id_8fbc19e2_fk_inmobilia;",
+            """
+            SET @fk_exists = 0;
+            SELECT COUNT(*) INTO @fk_exists 
+            FROM information_schema.table_constraints 
+            WHERE table_schema = DATABASE() 
+            AND table_name = 'inmobiliaria_movimientocaja' 
+            AND constraint_name = 'inmobiliaria_movimie_caja_id_8fbc19e2_fk_inmobilia';
+            
+            SET @sql = IF(@fk_exists > 0, 'ALTER TABLE inmobiliaria_movimientocaja DROP FOREIGN KEY inmobiliaria_movimie_caja_id_8fbc19e2_fk_inmobilia;', 'SELECT "Foreign key does not exist";');
+            PREPARE stmt FROM @sql;
+            EXECUTE stmt;
+            DEALLOCATE PREPARE stmt;
+            """,
             reverse_sql="ALTER TABLE inmobiliaria_movimientocaja ADD CONSTRAINT inmobiliaria_movimie_caja_id_8fbc19e2_fk_inmobilia FOREIGN KEY (caja_id) REFERENCES inmobiliaria_caja (numero);"
         ),
         
