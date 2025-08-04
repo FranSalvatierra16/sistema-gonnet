@@ -780,27 +780,64 @@ function crearNuevoConcepto() {
     formData.append('nombre', nombre);
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
+    console.log('🚀 Enviando nuevo concepto:', {id: id, nombre: nombre});
+    
     fetch('{% url "inmobiliaria:crear_concepto_ajax" %}', {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('📥 Respuesta recibida, status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log('✅ Datos parseados:', data);
         if (data.success) {
-            // Agregar el nuevo concepto al select
-            const select = document.getElementById('conceptoSelect');
-            const nuevaOpcion = document.createElement('option');
-            nuevaOpcion.value = data.concepto.id;
-            nuevaOpcion.setAttribute('data-nombre', data.concepto.nombre);
-            nuevaOpcion.setAttribute('data-busqueda', `${data.concepto.id} ${data.concepto.nombre.toLowerCase()}`);
-            nuevaOpcion.textContent = `ID: ${data.concepto.id} - ${data.concepto.nombre}`;
+            // ✅ LÓGICA IGUAL A NUEVO_MOVIMIENTO:
+            // 1. Poner el ID en el campo conceptoId
+            document.getElementById('conceptoId').value = data.concepto.id;
             
-            select.appendChild(nuevaOpcion);
+            // 2. Mostrar el nombre del concepto
+            const infoDiv = document.getElementById('infoConceptoSeleccionado');
+            const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
+            nombreSpan.textContent = `ID: ${data.concepto.id} - ${data.concepto.nombre}`;
+            infoDiv.style.display = 'block';
             
-            // Seleccionar el nuevo concepto
-            select.value = data.concepto.id;
+            // 3. Guardar en variable global
+            conceptoSeleccionadoActual = {
+                id: data.concepto.id,
+                nombre: data.concepto.nombre
+            };
             
-            // Cerrar modal
+            // 4. Agregar también a la lista de búsqueda para futuras búsquedas
+            conceptosOriginales.push({
+                id: data.concepto.id,
+                nombre: data.concepto.nombre
+            });
+            
+            // 5. Agregar a la tabla de búsqueda de conceptos
+            const tablaConceptos = document.getElementById('tablaConceptosBusqueda');
+            const nuevaFila = document.createElement('tr');
+            nuevaFila.setAttribute('data-concepto-id', data.concepto.id);
+            nuevaFila.setAttribute('data-concepto-nombre', data.concepto.nombre.toLowerCase());
+            nuevaFila.innerHTML = `
+                <td><strong>${data.concepto.id}</strong></td>
+                <td>${data.concepto.nombre}</td>
+                <td><small>Concepto creado recientemente</small></td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-primary btn-seleccionar-concepto" 
+                            data-concepto-id="${data.concepto.id}" 
+                            data-concepto-nombre="${data.concepto.nombre}">
+                        ✅ Seleccionar
+                    </button>
+                </td>
+            `;
+            tablaConceptos.appendChild(nuevaFila);
+            
+            // 6. Cerrar modal
             var modalNuevo = bootstrap.Modal.getInstance(document.getElementById('modalNuevoConcepto'));
             modalNuevo.hide();
             
@@ -811,8 +848,8 @@ function crearNuevoConcepto() {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        alert('❌ Error de conexión al crear el concepto');
+        console.error('❌ Error completo:', error);
+        alert('❌ Error al crear concepto: ' + error.message);
     });
 }
 
