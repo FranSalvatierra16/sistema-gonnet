@@ -10,20 +10,26 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Paso 1: Remover auto-increment del campo numero (mantener como primary key por ahora)
+        # Paso 1: Eliminar la foreign key constraint que bloquea la modificación
+        migrations.RunSQL(
+            "ALTER TABLE inmobiliaria_movimientocaja DROP FOREIGN KEY inmobiliaria_movimie_caja_id_8fbc19e2_fk_inmobilia;",
+            reverse_sql="ALTER TABLE inmobiliaria_movimientocaja ADD CONSTRAINT inmobiliaria_movimie_caja_id_8fbc19e2_fk_inmobilia FOREIGN KEY (caja_id) REFERENCES inmobiliaria_caja (numero);"
+        ),
+        
+        # Paso 2: Remover auto-increment del campo numero (mantener como primary key por ahora)
         migrations.RunSQL(
             "ALTER TABLE inmobiliaria_caja MODIFY COLUMN numero INT NOT NULL;",
             reverse_sql="ALTER TABLE inmobiliaria_caja MODIFY COLUMN numero INT AUTO_INCREMENT;"
         ),
         
-        # Paso 2: Agregar campo id como IntegerField normal
+        # Paso 3: Agregar campo id como IntegerField normal
         migrations.AddField(
             model_name='caja',
             name='id',
             field=models.IntegerField(null=True),
         ),
         
-        # Paso 3: Poblar el campo id con valores únicos
+        # Paso 4: Poblar el campo id con valores únicos
         migrations.RunSQL(
             """
             SET @row_number = 0;
@@ -32,20 +38,30 @@ class Migration(migrations.Migration):
             reverse_sql="UPDATE inmobiliaria_caja SET id = NULL;"
         ),
         
-        # Paso 4: Hacer id NOT NULL
+        # Paso 5: Hacer id NOT NULL
         migrations.AlterField(
             model_name='caja',
             name='id',
             field=models.IntegerField(),
         ),
         
-        # Paso 5: Remover primary key de numero
+        # Paso 6: Actualizar las referencias en MovimientoCaja para que apunten al nuevo id
+        migrations.RunSQL(
+            """
+            UPDATE inmobiliaria_movimientocaja mc 
+            JOIN inmobiliaria_caja c ON mc.caja_id = c.numero 
+            SET mc.caja_id = c.id;
+            """,
+            reverse_sql=""
+        ),
+        
+        # Paso 7: Remover primary key de numero
         migrations.RunSQL(
             "ALTER TABLE inmobiliaria_caja DROP PRIMARY KEY;",
             reverse_sql="ALTER TABLE inmobiliaria_caja ADD PRIMARY KEY (numero);"
         ),
         
-        # Paso 6: Hacer id primary key y auto increment
+        # Paso 8: Hacer id primary key y auto increment
         migrations.RunSQL(
             """
             ALTER TABLE inmobiliaria_caja 
@@ -54,14 +70,20 @@ class Migration(migrations.Migration):
             reverse_sql="ALTER TABLE inmobiliaria_caja DROP PRIMARY KEY, MODIFY COLUMN id INT;"
         ),
         
-        # Paso 7: Cambiar numero a PositiveIntegerField
+        # Paso 9: Recrear la foreign key constraint apuntando al nuevo id
+        migrations.RunSQL(
+            "ALTER TABLE inmobiliaria_movimientocaja ADD CONSTRAINT inmobiliaria_movimie_caja_id_8fbc19e2_fk_inmobilia FOREIGN KEY (caja_id) REFERENCES inmobiliaria_caja (id);",
+            reverse_sql="ALTER TABLE inmobiliaria_movimientocaja DROP FOREIGN KEY inmobiliaria_movimie_caja_id_8fbc19e2_fk_inmobilia;"
+        ),
+        
+        # Paso 10: Cambiar numero a PositiveIntegerField
         migrations.AlterField(
             model_name='caja',
             name='numero',
             field=models.PositiveIntegerField(),
         ),
         
-        # Paso 8: Agregar unique_together
+        # Paso 11: Agregar unique_together
         migrations.AlterUniqueTogether(
             name='caja',
             unique_together={('numero', 'sucursal')},
