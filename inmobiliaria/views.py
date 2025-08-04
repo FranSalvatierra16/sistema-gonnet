@@ -1923,6 +1923,12 @@ def api_propiedad_detalle(request, propiedad_id):
     try:
         propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
         
+        print(f"🏠 API Propiedad {propiedad_id}:")
+        print(f"   Ambientes: {propiedad.ambientes}")
+        print(f"   Descripcion: {propiedad.descripcion}")
+        print(f"   Caracteristicas: {propiedad.caracteristicas}")
+        print(f"   Estado: {propiedad.estado}")
+        
         # Obtener precios de la propiedad
         precios = PrecioPropiedad.objects.filter(propiedad=propiedad).order_by('fecha_desde')
         precios_data = []
@@ -1944,9 +1950,11 @@ def api_propiedad_detalle(request, propiedad_id):
             'precios': precios_data
         }
         
+        print(f"📤 Datos enviados: {data}")
         return JsonResponse(data)
         
     except Exception as e:
+        print(f"❌ Error en API propiedad: {str(e)}")
         return JsonResponse({
             'error': str(e),
             'ambientes': 0,
