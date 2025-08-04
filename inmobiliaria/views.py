@@ -544,7 +544,7 @@ def operaciones(request):
         movimientos = MovimientoCaja.objects.filter(
             propiedad=reserva.propiedad,
             tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains=f"Reserva {reserva.id}"
+            concepto__icontains=f"Reserva #{reserva.id}"
         )
         
         # Calcular total pagado desde movimientos de caja
@@ -1155,7 +1155,7 @@ def finalizar_reserva_nueva(request, reserva_id):
         pagos_anteriores = MovimientoCaja.objects.filter(
             propiedad=reserva.propiedad,
             tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains=f"Reserva {reserva.id}"
+            concepto__icontains=f"Reserva #{reserva.id}"
         )
         
         # Calcular total pagado hasta ahora
@@ -1978,7 +1978,7 @@ def ver_recibo_movimiento(request, movimiento_id):
             todos_movimientos = MovimientoCaja.objects.filter(
                 propiedad=reserva.propiedad,
                 tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto__icontains=f"Reserva {reserva.id}"
+                concepto__icontains=f"Reserva #{reserva.id}"
             )
             
             total_pagado_reserva = sum(

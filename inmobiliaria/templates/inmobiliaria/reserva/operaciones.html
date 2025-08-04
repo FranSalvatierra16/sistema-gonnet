@@ -1,5 +1,6 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
+{% load custom_filters %}
 
 {% block title %}Reservas Pendientes{% endblock %}
 
@@ -26,9 +27,9 @@
                     <td>{{ reserva.propiedad }}</td>
                     <td>{{ reserva.fecha_inicio }}</td>
                     <td>{{ reserva.fecha_fin }}</td>
-                    <td>${{ reserva.precio_total|floatformat:0 }}</td>
-                    <td>${{ reserva.total_pagado|floatformat:0 }}</td>
-                    <td>${{ reserva.saldo_pendiente|floatformat:0 }}</td>
+                    <td>${{ reserva.precio_total|format_price }}</td>
+                    <td>${{ reserva.total_pagado|format_price }}</td>
+                    <td>${{ reserva.saldo_pendiente|format_price }}</td>
                     <td><span class="badge badge-success">{{ reserva.estado }}</span></td>
                     <td>
                         <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn btn-sm btn-info">Ver</a>
@@ -44,9 +45,9 @@
                     <td>{{ reserva.propiedad }}</td>
                     <td>{{ reserva.fecha_inicio }}</td>
                     <td>{{ reserva.fecha_fin }}</td>
-                    <td>${{ reserva.precio_total|floatformat:0 }}</td>
-                    <td>${{ reserva.total_pagado|floatformat:0 }}</td>
-                    <td>${{ reserva.saldo_pendiente|floatformat:0 }}</td>
+                    <td>${{ reserva.precio_total|format_price }}</td>
+                    <td>${{ reserva.total_pagado|format_price }}</td>
+                    <td>${{ reserva.saldo_pendiente|format_price }}</td>
                     <td><span class="badge badge-warning">Saldo Pendiente</span></td>
                     <td>
                         <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn btn-sm btn-info">Ver</a>
