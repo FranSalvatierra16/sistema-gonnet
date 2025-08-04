@@ -544,7 +544,7 @@ def operaciones(request):
         movimientos = MovimientoCaja.objects.filter(
             propiedad=reserva.propiedad,
             tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains=f"Reserva #{reserva.id}"
+            concepto__icontains=f"Reserva {reserva.id}"
         )
         
         # Calcular total pagado desde movimientos de caja
@@ -1155,7 +1155,7 @@ def finalizar_reserva_nueva(request, reserva_id):
         pagos_anteriores = MovimientoCaja.objects.filter(
             propiedad=reserva.propiedad,
             tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains=f"Reserva #{reserva.id}"
+            concepto__icontains=f"Reserva {reserva.id}"
         )
         
         # Calcular total pagado hasta ahora
@@ -2020,13 +2020,19 @@ def ver_recibo_movimiento(request, movimiento_id):
         
         # Calcular saldo pendiente si hay reserva
         saldo_pendiente = 0
+        total_pagado_reserva = 0
         if reserva:
             # Buscar todos los movimientos de esta reserva para calcular total pagado
             todos_movimientos = MovimientoCaja.objects.filter(
                 propiedad=reserva.propiedad,
                 tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto__icontains=f"Reserva #{reserva.id}"
+                concepto__icontains=f"Reserva {reserva.id}"
             )
+            
+            print(f"🔍 BÚSQUEDA MOVIMIENTOS - Buscando concepto: 'Reserva {reserva.id}'")
+            print(f"🔍 MOVIMIENTOS ENCONTRADOS: {todos_movimientos.count()}")
+            for mov in todos_movimientos:
+                print(f"🔍 Movimiento ID: {mov.id}, Concepto: '{mov.concepto}', Total: {mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito}")
             
             total_pagado_reserva = sum(
                 m.monto_efectivo + m.monto_cheque + m.monto_tarjeta + m.monto_deposito
@@ -2037,6 +2043,8 @@ def ver_recibo_movimiento(request, movimiento_id):
             saldo_pendiente = reserva.precio_total - total_pagado_reserva
             
             print(f"💰 SALDO CÁLCULO - Precio Total: {reserva.precio_total}, Total Pagado: {total_pagado_reserva}, Saldo Pendiente: {saldo_pendiente}")
+        else:
+            total_pagado_reserva = total_movimiento
         
         context = {
             'movimiento': movimiento,
