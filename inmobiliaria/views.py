@@ -1921,7 +1921,13 @@ def test_json_response(request):
 def api_propiedad_detalle(request, propiedad_id):
     """API para obtener detalles de una propiedad"""
     try:
-        propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
+        # Intentar obtener la propiedad de la sucursal del usuario
+        try:
+            propiedad = Propiedad.objects.get(id=propiedad_id, sucursal=request.user.sucursal)
+        except Propiedad.DoesNotExist:
+            # Si no está en la sucursal del usuario, buscar en cualquier sucursal
+            propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+            print(f"⚠️ Propiedad {propiedad_id} encontrada en sucursal {propiedad.sucursal.nombre}, no en {request.user.sucursal.nombre}")
         
         print(f"🏠 API Propiedad {propiedad_id}:")
         print(f"   Ambientes: {propiedad.ambientes}")
@@ -1969,15 +1975,33 @@ def api_propiedad_detalle(request, propiedad_id):
         print(f"📤 Datos enviados: {data}")
         return JsonResponse(data)
         
+    except Propiedad.DoesNotExist:
+        print(f"❌ Propiedad {propiedad_id} no encontrada")
+        return JsonResponse({
+            'error': f'Propiedad {propiedad_id} no encontrada',
+            'id': propiedad_id,
+            'direccion': 'Propiedad no encontrada',
+            'sucursal': 'N/A',
+            'ambientes': 0,
+            'descripcion': 'Propiedad no encontrada',
+            'caracteristicas': 'Propiedad no encontrada',
+            'estado': 'No encontrada',
+            'precios': [],
+            'info_meses': None
+        }, status=404)
     except Exception as e:
         print(f"❌ Error en API propiedad: {str(e)}")
         return JsonResponse({
             'error': str(e),
+            'id': propiedad_id,
+            'direccion': 'Error al cargar',
+            'sucursal': 'Error al cargar',
             'ambientes': 0,
             'descripcion': 'Error al cargar descripción',
             'caracteristicas': 'Error al cargar características',
-            'estado': 'Desconocido',
-            'precios': []
+            'estado': 'Error',
+            'precios': [],
+            'info_meses': None
         }, status=500)
 
 @login_required

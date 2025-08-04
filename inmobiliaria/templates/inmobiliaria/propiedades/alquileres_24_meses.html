@@ -333,10 +333,23 @@ function mostrarModalContrato24Meses(propiedadId) {
         .then(data => {
             console.log(`📊 Datos recibidos de la propiedad:`, data);
             
-            // Llenar información de la propiedad
+            // Llenar información de la propiedad (incluso si hay error)
             document.getElementById('modal_ficha').textContent = `#${data.id}`;
             document.getElementById('modal_direccion').textContent = data.direccion || 'No especificada';
             document.getElementById('modal_sucursal').textContent = data.sucursal || 'No especificada';
+            
+            // Si hay error, mostrar mensaje pero permitir continuar
+            if (data.error) {
+                console.warn(`⚠️ Error en API pero continuamos: ${data.error}`);
+                document.getElementById('modal_precio_mensual').textContent = 'Error al cargar';
+                document.getElementById('modal_expensas').textContent = 'Error al cargar';
+                
+                // Establecer valores por defecto para poder crear el contrato
+                document.getElementById('precio_mensual_input').value = '50.000';
+                document.getElementById('deposito_garantia').value = '100.000';
+                actualizarResumenContrato();
+                return;
+            }
             
             // Información específica de 24 meses
             if (data.info_meses) {
@@ -358,6 +371,11 @@ function mostrarModalContrato24Meses(propiedadId) {
                 console.warn('⚠️ No se encontró información de 24 meses para esta propiedad');
                 document.getElementById('modal_precio_mensual').textContent = 'No configurado';
                 document.getElementById('modal_expensas').textContent = 'No configurado';
+                
+                // Establecer valores por defecto
+                document.getElementById('precio_mensual_input').value = '50.000';
+                document.getElementById('deposito_garantia').value = '100.000';
+                actualizarResumenContrato();
             }
         })
         .catch(error => {
