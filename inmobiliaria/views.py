@@ -2813,6 +2813,7 @@ def alquileres_24_meses(request):
         'busqueda': busqueda,
         'estado_filtro': estado,
         'estados': AlquilerMeses.ESTADO_CHOICES,
+        'inquilinos': Inquilino.objects.all().order_by('apellido', 'nombre'),
     }
     
     return render(request, 'inmobiliaria/propiedades/alquileres_24_meses.html', context)

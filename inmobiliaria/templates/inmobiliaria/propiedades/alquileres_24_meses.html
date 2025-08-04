@@ -206,19 +206,32 @@
                                     <h5 class="mb-0">👤 Inquilino</h5>
                                 </div>
                                 <div class="card-body">
-                                    <div class="input-group mb-3">
-                                        <input type="number" class="form-control" id="inquilino_id" name="inquilino_id" 
-                                               placeholder="ID del inquilino" min="1" required>
-                                        <button type="button" class="btn btn-primary" onclick="buscarInquilino()">
-                                            🔍 Buscar
-                                        </button>
-                                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoInquilino">
-                                            ➕ Nuevo
-                                        </button>
+                                    <!-- Buscador de Inquilinos -->
+                                    <div class="mb-3">
+                                        <div class="d-flex gap-2 mb-2">
+                                            <input type="text" id="buscar_inquilino_contrato" placeholder="Buscar por nombre o ID del inquilino..." 
+                                                   class="form-control" oninput="buscarInquilinosEnTiempoRealContrato()">
+                                            <button onclick="buscarTodosLosInquilinosContrato()" class="btn btn-primary">🔍 Buscar Todos</button>
+                                            <button onclick="limpiarBusquedaInquilinoContrato()" class="btn btn-warning">🔄 Limpiar</button>
+                                        </div>
+                                        <div id="estado_busqueda_contrato" style="font-size: 14px; color: #666; font-style: italic; min-height: 20px;"></div>
                                     </div>
-                                    <div id="inquilino_info" style="display: none;" class="alert alert-success">
-                                        <strong>Inquilino encontrado:</strong>
-                                        <div id="inquilino_nombre" class="fw-bold"></div>
+                                    
+                                    <!-- Lista de Inquilinos -->
+                                    <div class="d-flex gap-2">
+                                        <select id="inquilino_contrato" onchange="actualizarInquilinoIdContrato()" size="5" name="inquilino_id" required
+                                                class="form-control" style="max-height: 150px; overflow-y: auto;">
+                                            <option value="">-- Selecciona un inquilino --</option>
+                                            {% for inquilino in inquilinos %}
+                                            <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.nombre|lower }} {{ inquilino.apellido|lower }}" data-id="{{ inquilino.id }}">
+                                                ID: {{ inquilino.id }} - {{ inquilino.nombre }} {{ inquilino.apellido }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="d-flex flex-column gap-2">
+                                            <button onclick="mostrarModalCrearInquilinoContrato()" type="button" class="btn btn-success">➕ Crear Nuevo</button>
+                                            <button onclick="seleccionarPrimerInquilinoContrato()" type="button" class="btn btn-info">📋 Ver Todos</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -231,16 +244,19 @@
                                     <h5 class="mb-0">🏢 Vendedor</h5>
                                 </div>
                                 <div class="card-body">
-                                    <div class="input-group mb-3">
-                                        <input type="number" class="form-control" id="vendedor_id_contrato" name="vendedor_id" 
-                                               placeholder="ID del vendedor" min="1" required>
-                                        <button type="button" class="btn btn-primary" onclick="buscarVendedorContrato()">
-                                            🔍 Buscar
-                                        </button>
+                                    <div class="d-flex gap-2 mb-3">
+                                        <input type="number" id="vendedor_id_contrato" name="vendedor_id" placeholder="Ingresa ID del vendedor" min="1" required
+                                               class="form-control" oninput="buscarVendedorAutomaticoContrato()">
+                                        <button onclick="buscarVendedorContrato()" type="button" class="btn btn-primary">🔍 Buscar</button>
                                     </div>
                                     <div id="vendedor_info_contrato" style="display: none;" class="alert alert-success">
-                                        <strong>Vendedor encontrado:</strong>
-                                        <div id="vendedor_nombre_contrato" class="fw-bold"></div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span style="font-size: 24px;">✅</span>
+                                            <div>
+                                                <strong>Vendedor encontrado:</strong>
+                                                <div id="vendedor_nombre_contrato" class="fw-bold" style="color: #000; font-size: 18px;"></div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -466,6 +482,22 @@ function buscarInquilino() {
         });
 }
 
+// ========================================
+// FUNCIONES PARA VENDEDORES (copiado de buscar_propiedades)
+// ========================================
+
+// Función para buscar vendedor automáticamente
+function buscarVendedorAutomaticoContrato() {
+    const vendedorId = document.getElementById('vendedor_id_contrato').value;
+    if (vendedorId.length >= 1) { // Buscar cuando tenga al menos 1 dígito
+        setTimeout(() => {
+            if (document.getElementById('vendedor_id_contrato').value === vendedorId) {
+                buscarVendedorContrato();
+            }
+        }, 500); // Delay de 500ms para evitar múltiples búsquedas
+    }
+}
+
 // Función para buscar vendedor
 function buscarVendedorContrato() {
     const vendedorId = document.getElementById('vendedor_id_contrato').value;
@@ -546,8 +578,71 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ========================================
-// FUNCIONES PARA INQUILINOS
+// FUNCIONES PARA INQUILINOS (copiado de buscar_propiedades)
 // ========================================
+
+// Función para buscar inquilinos en tiempo real
+function buscarInquilinosEnTiempoRealContrato() {
+    const busqueda = document.getElementById('buscar_inquilino_contrato').value.toLowerCase();
+    const select = document.getElementById('inquilino_contrato');
+    const estadoBusqueda = document.getElementById('estado_busqueda_contrato');
+    
+    let encontrados = 0;
+    Array.from(select.options).forEach(option => {
+        if (option.value === '') return; // Skip the default option
+        
+        const nombre = option.dataset.nombre || '';
+        const id = option.dataset.id || '';
+        
+        if (nombre.includes(busqueda) || id.includes(busqueda)) {
+            option.style.display = '';
+            encontrados++;
+        } else {
+            option.style.display = 'none';
+        }
+    });
+    
+    estadoBusqueda.textContent = `${encontrados} inquilinos encontrados`;
+}
+
+function buscarTodosLosInquilinosContrato() {
+    const select = document.getElementById('inquilino_contrato');
+    Array.from(select.options).forEach(option => {
+        option.style.display = '';
+    });
+    document.getElementById('estado_busqueda_contrato').textContent = 'Mostrando todos los inquilinos';
+    document.getElementById('buscar_inquilino_contrato').value = '';
+}
+
+function limpiarBusquedaInquilinoContrato() {
+    document.getElementById('buscar_inquilino_contrato').value = '';
+    buscarTodosLosInquilinosContrato();
+}
+
+function actualizarInquilinoIdContrato() {
+    const select = document.getElementById('inquilino_contrato');
+    const inquilinoId = select.value;
+    
+    if (inquilinoId) {
+        const selectedOption = select.options[select.selectedIndex];
+        const nombre = selectedOption.textContent;
+        console.log(`👤 Inquilino seleccionado: ID ${inquilinoId} - ${nombre}`);
+        document.getElementById('estado_busqueda_contrato').textContent = `Seleccionado: ${nombre}`;
+    }
+}
+
+function seleccionarPrimerInquilinoContrato() {
+    const select = document.getElementById('inquilino_contrato');
+    if (select.options.length > 1) {
+        select.selectedIndex = 1; // Seleccionar el primer inquilino (índice 1, ya que 0 es la opción vacía)
+        actualizarInquilinoIdContrato();
+    }
+}
+
+function mostrarModalCrearInquilinoContrato() {
+    const modal = new bootstrap.Modal(document.getElementById('modalNuevoInquilino'));
+    modal.show();
+}
 
 // Función para crear nuevo inquilino
 function crearNuevoInquilino() {
