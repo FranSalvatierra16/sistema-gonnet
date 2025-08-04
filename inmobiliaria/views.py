@@ -1918,6 +1918,45 @@ def test_json_response(request):
     return JsonResponse({'success': True, 'message': 'Test OK', 'user': str(request.user)})
 
 @login_required
+def api_propiedad_detalle(request, propiedad_id):
+    """API para obtener detalles de una propiedad"""
+    try:
+        propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
+        
+        # Obtener precios de la propiedad
+        precios = PrecioPropiedad.objects.filter(propiedad=propiedad).order_by('fecha_desde')
+        precios_data = []
+        
+        for precio in precios:
+            periodo = f"{precio.fecha_desde.strftime('%d/%m/%Y')} - {precio.fecha_hasta.strftime('%d/%m/%Y')}"
+            precios_data.append({
+                'periodo': periodo,
+                'precio_total': float(precio.precio_total),
+                'precio_por_dia': float(precio.precio_por_dia)
+            })
+        
+        data = {
+            'id': propiedad.id,
+            'ambientes': propiedad.ambientes,
+            'descripcion': propiedad.descripcion or '',
+            'caracteristicas': propiedad.caracteristicas or '',
+            'estado': propiedad.estado,
+            'precios': precios_data
+        }
+        
+        return JsonResponse(data)
+        
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e),
+            'ambientes': 0,
+            'descripcion': 'Error al cargar descripción',
+            'caracteristicas': 'Error al cargar características',
+            'estado': 'Desconocido',
+            'precios': []
+        }, status=500)
+
+@login_required
 def ver_recibo_movimiento(request, movimiento_id):
     """
     Vista para mostrar el recibo basado en un MovimientoCaja

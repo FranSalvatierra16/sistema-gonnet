@@ -1924,26 +1924,12 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
     document.getElementById("cardDireccion").innerText = direccion;
     document.getElementById("cardPropietario").innerText = propietario;
     document.getElementById("cardPrecio").innerText = `$${window.formatearPrecio(precio)}`;
-    document.getElementById("cardAmbiente").innerText = ambientes || 'No especificado';
+    
+    // Actualizar estado inmediatamente
     document.getElementById("cardEstado").innerText = estadoReserva === 'confirmada_no_pagada' ? 'Reservado' : 'Disponible';
     
-    // Actualizar descripción y características
-    const descripcionElement = document.getElementById("descripcionDetallada");
-    if (descripcionElement) {
-        descripcionElement.innerText = descripcion || 'No hay descripción disponible';
-    }
-
-    const caracteristicasElement = document.getElementById("caracteristicas");
-    if (caracteristicasElement) {
-        if (caracteristicas) {
-            const caracteristicasArray = caracteristicas.split(',');
-            caracteristicasElement.innerHTML = caracteristicasArray
-                .map(c => `<span class="badge bg-primary m-1">${c.trim()}</span>`)
-                .join('');
-        } else {
-            caracteristicasElement.innerHTML = '<span class="badge bg-secondary">Sin características registradas</span>';
-        }
-    }
+    // Obtener datos adicionales de la propiedad via AJAX
+    obtenerDatosPropiedad(id, estadoReserva);
 
     // Actualizar botones según el estado
     const cardButtons = document.getElementById("cardButtons");
@@ -3278,6 +3264,73 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-// Tu código JavaScript aquí
+// Función para obtener datos adicionales de la propiedad
+function obtenerDatosPropiedad(propiedadId, estadoReserva) {
+    fetch(`/inmobiliaria/api/propiedad/${propiedadId}/`)
+        .then(response => response.json())
+        .then(data => {
+            // Actualizar ambientes
+            document.getElementById("cardAmbiente").innerText = data.ambientes || 'No especificado';
+            
+            // Actualizar descripción
+            const descripcionElement = document.getElementById("descripcionDetallada");
+            if (descripcionElement) {
+                descripcionElement.innerText = data.descripcion || 'No hay descripción disponible';
+            }
+            
+            // Actualizar características
+            const caracteristicasElement = document.getElementById("caracteristicas");
+            if (caracteristicasElement) {
+                if (data.caracteristicas) {
+                    const caracteristicasArray = data.caracteristicas.split(',');
+                    caracteristicasElement.innerHTML = caracteristicasArray
+                        .map(c => `<span class="badge bg-primary m-1">${c.trim()}</span>`)
+                        .join('');
+                } else {
+                    caracteristicasElement.innerHTML = '<span class="badge bg-secondary">Sin características registradas</span>';
+                }
+            }
+            
+            // Actualizar tabla de precios
+            actualizarTablaPrecios(data.precios || []);
+        })
+        .catch(error => {
+            console.error('Error obteniendo datos de la propiedad:', error);
+            // Valores por defecto en caso de error
+            document.getElementById("cardAmbiente").innerText = 'No especificado';
+            const descripcionElement = document.getElementById("descripcionDetallada");
+            if (descripcionElement) {
+                descripcionElement.innerText = 'No hay descripción disponible';
+            }
+            const caracteristicasElement = document.getElementById("caracteristicas");
+            if (caracteristicasElement) {
+                caracteristicasElement.innerHTML = '<span class="badge bg-secondary">Sin características registradas</span>';
+            }
+        });
+}
+
+// Función para actualizar la tabla de precios
+function actualizarTablaPrecios(precios) {
+    const tbody = document.querySelector('.table-precios tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (precios.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No hay precios definidos</td></tr>';
+        return;
+    }
+    
+    precios.forEach(precio => {
+        const row = `
+            <tr>
+                <td>${precio.periodo}</td>
+                <td class="text-end">$${precio.precio_total.toLocaleString()}</td>
+                <td class="text-end">$${precio.precio_por_dia.toLocaleString()}</td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+}
 </script>
 {% endblock extra_js %}
