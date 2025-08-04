@@ -1001,8 +1001,13 @@ function calcularTotalPagos() {
     const galicia = parsearValorFormateado(document.getElementById('monto_deposito_galicia')?.value || 0);
     const mp = parsearValorFormateado(document.getElementById('monto_deposito_mp')?.value || 0);
     
+    console.log(`🔢 VALORES RAW - Efectivo: "${document.getElementById('monto_efectivo')?.value}", Cheque: "${document.getElementById('monto_cheque')?.value}", Tarjeta: "${document.getElementById('monto_tarjeta')?.value}"`);
+    console.log(`🔢 VALORES PARSEADOS - Efectivo: ${efectivo}, Cheque: ${cheque}, Tarjeta: ${tarjeta}, Galicia: ${galicia}, MP: ${mp}`);
+    
     const totalDepositos = galicia + mp;
     const totalPagos = efectivo + cheque + tarjeta + totalDepositos;
+    
+    console.log(`💰 TOTAL PAGOS CALCULADO: ${totalPagos}`);
     
     // Actualizar campo oculto de depósitos totales
     const depositoTotalElement = document.getElementById('monto_deposito_total');
@@ -1014,11 +1019,16 @@ function calcularTotalPagos() {
     const totalPagosElement = document.getElementById('totalPagos');
     if (totalPagosElement) {
         totalPagosElement.textContent = totalPagos.toLocaleString('es-ES');
+        console.log(`📺 ACTUALIZANDO DISPLAY TOTAL PAGOS: ${totalPagos.toLocaleString('es-ES')}`);
+    } else {
+        console.warn('⚠️ No se encontró el elemento totalPagos');
     }
     
     // Obtener total del recibo para comparar
     const totalRecibo = parseFloat(document.getElementById('totalRecibo')?.value || 0);
     const diferencia = totalPagos - totalRecibo;
+    
+    console.log(`📊 COMPARACIÓN - Total Pagos: ${totalPagos}, Total Recibo: ${totalRecibo}, Diferencia: ${diferencia}`);
     
     // Actualizar diferencia
     const diferenciaElement = document.getElementById('diferenciaPagos');
@@ -1033,6 +1043,9 @@ function calcularTotalPagos() {
             diferenciaElement.style.color = 'red';
             diferenciaElement.textContent = `${diferencia.toLocaleString('es-ES')} ❌`;
         }
+        console.log(`📺 ACTUALIZANDO DIFERENCIA: ${diferenciaElement.textContent}`);
+    } else {
+        console.warn('⚠️ No se encontró el elemento diferenciaPagos');
     }
     
     console.log(`Pagos - Efectivo: ${efectivo}, Cheque: ${cheque}, Tarjeta: ${tarjeta}, Depósitos: ${totalDepositos}, Total: ${totalPagos}`);
@@ -1263,7 +1276,38 @@ document.addEventListener('DOMContentLoaded', function() {
         input.addEventListener('input', function() {
             formatearNumeroEnTiempoReal(this);
             calcularTotalPagos();
+            calcularSaldoOcupar();
+            calcularTotales();
         });
+    });
+    
+    // ✅ Event listeners específicos para campos de pago (en caso de que no tengan la clase)
+    const camposPago = [
+        'monto_efectivo',
+        'monto_cheque', 
+        'monto_tarjeta',
+        'monto_deposito_galicia',
+        'monto_deposito_mp'
+    ];
+    
+    camposPago.forEach(function(id) {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('input', function() {
+                console.log(`💰 Campo ${id} cambió a: ${this.value}`);
+                formatearNumeroEnTiempoReal(this);
+                calcularTotalPagos();
+                calcularSaldoOcupar();
+                calcularTotales();
+            });
+            input.addEventListener('blur', function() {
+                calcularTotalPagos();
+                calcularSaldoOcupar();
+                calcularTotales();
+            });
+        } else {
+            console.warn(`⚠️ No se encontró el campo: ${id}`);
+        }
     });
     
     // ✅ Aplicar formato también a seña, importe locación y honorarios
