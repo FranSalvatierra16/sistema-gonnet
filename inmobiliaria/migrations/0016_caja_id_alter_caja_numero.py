@@ -22,11 +22,22 @@ class Migration(migrations.Migration):
             reverse_sql="ALTER TABLE inmobiliaria_caja MODIFY COLUMN numero INT AUTO_INCREMENT;"
         ),
         
-        # Paso 3: Agregar campo id como IntegerField normal
-        migrations.AddField(
-            model_name='caja',
-            name='id',
-            field=models.IntegerField(null=True),
+        # Paso 3: Agregar campo id solo si no existe
+        migrations.RunSQL(
+            """
+            SET @col_exists = 0;
+            SELECT COUNT(*) INTO @col_exists 
+            FROM information_schema.columns 
+            WHERE table_schema = DATABASE() 
+            AND table_name = 'inmobiliaria_caja' 
+            AND column_name = 'id';
+            
+            SET @sql = IF(@col_exists = 0, 'ALTER TABLE inmobiliaria_caja ADD COLUMN id INT NULL;', 'SELECT "Column id already exists";');
+            PREPARE stmt FROM @sql;
+            EXECUTE stmt;
+            DEALLOCATE PREPARE stmt;
+            """,
+            reverse_sql="ALTER TABLE inmobiliaria_caja DROP COLUMN IF EXISTS id;"
         ),
         
         # Paso 4: Poblar el campo id con valores únicos
@@ -39,10 +50,9 @@ class Migration(migrations.Migration):
         ),
         
         # Paso 5: Hacer id NOT NULL
-        migrations.AlterField(
-            model_name='caja',
-            name='id',
-            field=models.IntegerField(),
+        migrations.RunSQL(
+            "ALTER TABLE inmobiliaria_caja MODIFY COLUMN id INT NOT NULL;",
+            reverse_sql="ALTER TABLE inmobiliaria_caja MODIFY COLUMN id INT NULL;"
         ),
         
         # Paso 6: Actualizar las referencias en MovimientoCaja para que apunten al nuevo id
