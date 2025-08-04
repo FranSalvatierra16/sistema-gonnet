@@ -541,6 +541,8 @@
 // Variable para almacenar los conceptos agregados
 let conceptosAgregados = [];
 let contadorConceptos = 0;
+let conceptoEditando = null;
+let conceptoSeleccionadoActual = null;
 
 // Array para almacenar todos los conceptos originales (para búsqueda)
 let conceptosOriginales = [];
@@ -656,7 +658,6 @@ function actualizarConcepto() {
 }
 
 // Variables para conceptos
-let conceptoSeleccionadoActual = null;
 
 // Función para buscar concepto por ID automáticamente
 function buscarConceptoPorId(conceptoId) {
@@ -891,7 +892,6 @@ function eliminarConcepto(conceptoId) {
 }
 
 // Variable para almacenar el concepto que se está editando
-let conceptoEditando = null;
 
 // Función para editar concepto
 function editarConcepto(conceptoId) {
@@ -984,50 +984,45 @@ function calcularTotalTransferencias() {
     console.log(`Transferencias - Galicia: ${galicia}, MP: ${mercadoPago}, Total: ${totalTransferencias}`);
 }
 
-// Función para calcular total de formas de pago
+// Función auxiliar para parsear valores formateados
+function parsearValorFormateado(valor) {
+    if (!valor) return 0;
+    return parseFloat(valor.toString().replace(/\./g, '')) || 0;
+}
+
+// Función para calcular total de pagos
 function calcularTotalPagos() {
-    // ✅ Función auxiliar para parsear valores formateados
-    const parsearValorFormateado = (valor) => {
-        if (!valor) return 0;
-        // Remover puntos de miles y convertir a número
-        return parseFloat(valor.toString().replace(/\./g, '')) || 0;
-    };
+    const efectivo = parsearValorFormateado(document.getElementById('monto_efectivo')?.value || 0);
+    const cheque = parsearValorFormateado(document.getElementById('monto_cheque')?.value || 0);
+    const tarjeta = parsearValorFormateado(document.getElementById('monto_tarjeta')?.value || 0);
+    const galicia = parsearValorFormateado(document.getElementById('monto_deposito_galicia')?.value || 0);
+    const mp = parsearValorFormateado(document.getElementById('monto_deposito_mp')?.value || 0);
     
-    const montoEfectivo = parsearValorFormateado(document.querySelector('input[name="monto_efectivo"]').value);
-    const montoCheque = parsearValorFormateado(document.querySelector('input[name="monto_cheque"]').value);
-    const montoTarjeta = parsearValorFormateado(document.querySelector('input[name="monto_tarjeta"]').value);
-    const montoDepositoGalicia = parsearValorFormateado(document.querySelector('input[name="monto_deposito_galicia"]').value);
-    const montoDepositoMP = parsearValorFormateado(document.querySelector('input[name="monto_deposito_mp"]').value);
-    
-    const totalDepositos = montoDepositoGalicia + montoDepositoMP;
-    const totalPagos = montoEfectivo + montoCheque + montoTarjeta + totalDepositos;
-    const totalRecibo = parseFloat(document.getElementById('totalRecibo').value) || 0;
-    const diferencia = totalPagos - totalRecibo;
-    
-    // Actualizar campo oculto de depósitos totales
-    document.getElementById('monto_deposito_total').value = totalDepositos.toFixed(2);
-    
-    // ✅ Actualizar displays con formato
-    document.getElementById('totalPagos').textContent = totalPagos.toLocaleString('es-ES');
-    document.getElementById('diferenciaPagos').textContent = diferencia.toLocaleString('es-ES');
-    
-    // Cambiar color según la diferencia
-    const diferenciaElement = document.getElementById('diferenciaPagos');
-    if (diferencia === 0) {
-        diferenciaElement.style.color = 'green';
-        diferenciaElement.textContent = '0 ✅';
-        habilitarBotonProcesar(true);
-    } else if (diferencia > 0) {
-        diferenciaElement.style.color = 'orange';
-        diferenciaElement.textContent = `+${diferencia.toLocaleString('es-ES')} ⚠️`;
-        habilitarBotonProcesar(false);
-    } else {
-        diferenciaElement.style.color = 'red';
-        diferenciaElement.textContent = `${diferencia.toLocaleString('es-ES')} ❌`;
-        habilitarBotonProcesar(false);
+    return efectivo + cheque + tarjeta + galicia + mp;
+}
+
+// Función para calcular saldo a ocupar
+function calcularSaldoOcupar() {
+    try {
+        // Obtener el saldo pendiente actual (lo que se muestra en el resumen)
+        const saldoPendienteActual = {{ saldo_a_ocupar }};
+        
+        // Obtener el total que se está pagando en esta operación
+        const totalPagoActual = calcularTotalPagos();
+        
+        // Saldo a Ocupar = Saldo pendiente actual - Lo que se paga ahora
+        const saldoOcupar = saldoPendienteActual - totalPagoActual;
+        
+        // Mostrar con formato de miles
+        const saldoOcuparElement = document.getElementById('saldo_ocupar');
+        if (saldoOcuparElement) {
+            saldoOcuparElement.value = saldoOcupar.toLocaleString('es-ES');
+        }
+        
+        console.log(`💰 CÁLCULO SALDO: Pendiente actual: ${saldoPendienteActual}, Pago actual: ${totalPagoActual}, Queda por pagar: ${saldoOcupar}`);
+    } catch (error) {
+        console.error('Error en calcularSaldoOcupar:', error);
     }
-    
-    console.log(`Pagos - Efectivo: ${montoEfectivo}, Cheque: ${montoCheque}, Tarjeta: ${montoTarjeta}, Depósitos: ${totalDepositos}, Total: ${totalPagos}`);
 }
 
 // Función para procesar el movimiento completo
@@ -1211,28 +1206,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Calcular saldo a ocupar cuando cambian los valores
     const seniaInput = document.querySelector('input[name="senia"]');
     const importeLocacionInput = document.querySelector('input[name="importe_locacion"]');
-    
-    function calcularSaldoOcupar() {
-        // ✅ Función auxiliar para parsear valores formateados
-        const parsearValorFormateado = (valor) => {
-            if (!valor) return 0;
-            return parseFloat(valor.toString().replace(/\./g, '')) || 0;
-        };
-        
-        // Obtener el saldo pendiente actual (lo que se muestra en el resumen)
-        const saldoPendienteActual = {{ saldo_a_ocupar }};
-        
-        // Obtener el total que se está pagando en esta operación
-        const totalPagoActual = calcularTotalPagos();
-        
-        // Saldo a Ocupar = Saldo pendiente actual - Lo que se paga ahora
-        const saldoOcupar = saldoPendienteActual - totalPagoActual;
-        
-        // ✅ Mostrar con formato de miles
-        document.getElementById('saldo_ocupar').value = saldoOcupar.toLocaleString('es-ES');
-        
-        console.log(`💰 CÁLCULO SALDO: Pendiente actual: ${saldoPendienteActual}, Pago actual: ${totalPagoActual}, Queda por pagar: ${saldoOcupar}`);
-    }
     
     // Actualizar eventos para recalcular el saldo cuando cambien los pagos
     ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito_galicia', 'monto_deposito_mp'].forEach(function(id) {
