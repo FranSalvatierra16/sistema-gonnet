@@ -4,12 +4,15 @@
 {% load static %}
 
 {% block content %}
-<div class="container">
+<div class="container-fluid fade-in-up">
     <div class="row justify-content-center">
-        <div class="col-md-10">
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="text-center">{{ propiedad.direccion }}</h2>
+        <div class="col-12">
+            <div class="card shadow-modern">
+                <div class="card-header text-center">
+                    <h1 class="mb-0">
+                        <i class="fas fa-building me-2"></i>{{ propiedad.direccion }}
+                    </h1>
+                    <p class="mt-2 mb-0 text-light">Ficha #{{ propiedad.id }} - {{ propiedad.tipo_propiedad }}</p>
                 </div>
                 
                 <!-- Menú de pestañas -->
@@ -45,42 +48,101 @@
                                 <!-- Columna izquierda: Información Principal y Características -->
                                 <div class="col-md-6">
                                     <!-- Información Principal -->
-                                    <div class="info-section mb-4">
-                                        <h4 class="section-title">
-                                            <i class="fas fa-info-circle text-primary"></i> Información Principal
-                                        </h4>
-                                        <div class="detail-grid">
-                                            <div class="detail-item">
-                                                <span class="detail-label"><i class="fas fa-hashtag"></i> Ficha</span>
-                                                <span class="detail-value badge badge-primary text-white">{{ propiedad.id }}</span>
-                                            </div>
-                                            <div class="detail-item">
-                                                <span class="detail-label"><i class="fas fa-map-marker-alt"></i> Dirección</span>
-                                                <span class="detail-value">{{ propiedad.direccion }}</span>
-                                            </div>
-                                            <div class="detail-item">
-                                                <span class="detail-label"><i class="fas fa-home"></i> Tipo</span>
-                                                <span class="detail-value">{{ propiedad.get_tipo_inmueble_display }}</span>
-                                            </div>
-                                            <div class="detail-item">
-                                                <span class="detail-label"><i class="fas fa-door-open"></i> Ambientes</span>
-                                                <span class="detail-value badge badge-info text-white">{{ propiedad.ambientes|default:"No especificado" }}</span>
-                                            </div>
-                                            <div class="detail-item">
-                                                <span class="detail-label"><i class="fas fa-building"></i> Piso</span>
-                                                <span class="detail-value badge badge-secondary text-white">{{ propiedad.piso|default:"No especificado" }}</span>
-                                            </div>
-                                            <div class="detail-item">
-                                                <span class="detail-label"><i class="fas fa-door-closed"></i> Departamento</span>
-                                                <span class="detail-value badge badge-dark text-white">{{ propiedad.departamento|default:"No especificado" }}</span>
-                                            </div>
-                                            <div class="detail-item">
-                                                <span class="detail-label"><i class="fas fa-eye"></i> Vista</span>
-                                                <span class="detail-value">{{ propiedad.get_vista_display|default:"No especificado" }}</span>
-                                            </div>
-                                            <div class="detail-item">
-                                                <span class="detail-label"><i class="fas fa-star"></i> Estado</span>
-                                                <span class="detail-value badge badge-success">{{ propiedad.get_valoracion_display|default:"No especificado" }}</span>
+                                    <div class="card shadow-modern mb-4">
+                                        <div class="card-header">
+                                            <h5 class="mb-0">
+                                                <i class="fas fa-info-circle me-2"></i>Información Principal
+                                            </h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row g-3">
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="info-card">
+                                                        <div class="info-icon">
+                                                            <i class="fas fa-hashtag"></i>
+                                                        </div>
+                                                        <div class="info-content">
+                                                            <label class="info-label">Ficha</label>
+                                                            <div class="info-value">
+                                                                <span class="badge bg-primary">#{{ propiedad.id }}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="info-card">
+                                                        <div class="info-icon">
+                                                            <i class="fas fa-home"></i>
+                                                        </div>
+                                                        <div class="info-content">
+                                                            <label class="info-label">Tipo</label>
+                                                            <div class="info-value">{{ propiedad.get_tipo_inmueble_display }}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="info-card">
+                                                        <div class="info-icon">
+                                                            <i class="fas fa-door-open"></i>
+                                                        </div>
+                                                        <div class="info-content">
+                                                            <label class="info-label">Ambientes</label>
+                                                            <div class="info-value">
+                                                                <span class="badge bg-info">{{ propiedad.ambientes|default:"No especificado" }}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="info-card">
+                                                        <div class="info-icon">
+                                                            <i class="fas fa-building"></i>
+                                                        </div>
+                                                        <div class="info-content">
+                                                            <label class="info-label">Piso</label>
+                                                            <div class="info-value">
+                                                                <span class="badge bg-secondary">{{ propiedad.piso|default:"No especificado" }}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="info-card">
+                                                        <div class="info-icon">
+                                                            <i class="fas fa-door-closed"></i>
+                                                        </div>
+                                                        <div class="info-content">
+                                                            <label class="info-label">Departamento</label>
+                                                            <div class="info-value">
+                                                                <span class="badge bg-dark">{{ propiedad.departamento|default:"No especificado" }}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="info-card">
+                                                        <div class="info-icon">
+                                                            <i class="fas fa-eye"></i>
+                                                        </div>
+                                                        <div class="info-content">
+                                                            <label class="info-label">Vista</label>
+                                                            <div class="info-value">{{ propiedad.get_vista_display|default:"No especificado" }}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="info-card">
+                                                        <div class="info-icon">
+                                                            <i class="fas fa-star"></i>
+                                                        </div>
+                                                        <div class="info-content">
+                                                            <label class="info-label">Estado</label>
+                                                            <div class="info-value">
+                                                                <span class="badge bg-success">{{ propiedad.get_valoracion_display|default:"No especificado" }}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -177,16 +239,16 @@
                                     </div>
                                     {% endif %}
                                 
-                                    <!-- Descripción con tamaño ajustado -->
-                                    <div class="info-section description-section">
-                                        <h4 class="section-title">
-                                            <i class="fas fa-file-alt text-info"></i> Descripción
-                                        </h4>
+                                    <!-- Descripción mejorada -->
+                                    <div class="description-section mt-4">
+                                        <h5>
+                                            <i class="fas fa-file-alt me-2"></i>Descripción
+                                        </h5>
                                         <div class="description-content">
                                             {% if propiedad.descripcion %}
-                                                <p class="description-text">{{ propiedad.descripcion|linebreaks }}</p>
+                                                <p class="description-text mb-0">{{ propiedad.descripcion|linebreaks }}</p>
                                             {% else %}
-                                                <p class="text-muted">No hay descripción disponible para esta propiedad.</p>
+                                                <p class="text-muted mb-0">No hay descripción disponible para esta propiedad.</p>
                                             {% endif %}
                                         </div>
                                     </div>
@@ -789,6 +851,86 @@
     border-bottom: 2px solid #dee2e6;
     padding-bottom: 0.5rem;
     margin-bottom: 1rem;
+}
+
+/* NUEVAS TARJETAS DE INFORMACIÓN */
+.info-card {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-radius: 12px;
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+.info-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    border-color: #2e7d32;
+}
+
+.info-icon {
+    width: 45px;
+    height: 45px;
+    background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.info-icon i {
+    color: white;
+    font-size: 1.2rem;
+}
+
+.info-content {
+    flex: 1;
+}
+
+.info-label {
+    font-size: 0.8rem;
+    color: #6c757d;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.info-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2c3e50;
+    line-height: 1.2;
+}
+
+.info-value .badge {
+    font-size: 0.9rem;
+    padding: 6px 12px;
+}
+
+/* DESCRIPCIÓN MEJORADA */
+.description-section {
+    background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%);
+    border-radius: 12px;
+    padding: 20px;
+    border-left: 5px solid #2196f3;
+}
+
+.description-section h5 {
+    color: #1976d2;
+    margin-bottom: 15px;
+}
+
+.description-text {
+    color: #37474f;
+    line-height: 1.6;
+    font-size: 1rem;
 }
 </style>
 
