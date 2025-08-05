@@ -4504,9 +4504,9 @@ def crear_contrato_alquiler(request):
             
             # Obtener objetos relacionados
             try:
-                propiedad = Propiedad.objects.get(id=propiedad_id, sucursal=request.user.sucursal)
+                propiedad = Propiedad.objects.get(id=propiedad_id)  # Ya no filtramos por sucursal
             except Propiedad.DoesNotExist:
-                messages.error(request, 'La propiedad no existe o no pertenece a tu sucursal')
+                messages.error(request, 'La propiedad no existe')
                 return redirect('inmobiliaria:alquileres_24_meses')
             
             try:
@@ -4551,7 +4551,7 @@ def crear_contrato_alquiler(request):
                     precio_mensual=precio_mensual,
                     deposito_garantia=deposito_garantia,
                     estado='activo',
-                    sucursal=request.user.sucursal
+                    sucursal=request.user.sucursal  # La sucursal del contrato será la del usuario que lo crea
                 )
                 
                 print(f"✅ CONTRATO CREADO: ID {contrato.id}")
