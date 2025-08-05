@@ -1,5 +1,6 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load custom_filters %}
+{% load bootstrap4 %}
 
 {% block title %}
     {% if tipo_operacion == 'principal' %}
@@ -148,6 +149,9 @@
         </div>
     </div>
 </div>
+<!-- Asegurarnos de que Bootstrap esté cargado -->
+{% bootstrap_javascript jquery='full' %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -218,7 +222,7 @@
                 <div class="card mb-4">
                     <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">📝 Conceptos</h5>
-                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalConcepto">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="mostrarModalConcepto()">
                             ➕ Agregar Concepto
                         </button>
                     </div>
@@ -370,16 +374,37 @@ function formatearNumeroEnTiempoReal(input) {
 
 // Función para mostrar el modal de concepto
 function mostrarModalConcepto() {
-    document.getElementById('formConcepto').reset();
+    const modalElement = document.getElementById('modalConcepto');
+    if (!modalElement) {
+        console.error('Modal element not found');
+        return;
+    }
+
+    // Resetear el formulario
+    const formElement = document.getElementById('formConcepto');
+    if (formElement) {
+        formElement.reset();
+    }
+
+    // Resetear estado
     conceptoEditando = null;
-    document.getElementById('modalConceptoLabel').textContent = '➕ Agregar Concepto';
     
-    const btnAgregar = document.querySelector('#modalConcepto .btn-success');
-    btnAgregar.textContent = '✅ Agregar';
-    btnAgregar.setAttribute('onclick', 'agregarConcepto()');
+    // Actualizar título
+    const titleElement = document.getElementById('modalConceptoLabel');
+    if (titleElement) {
+        titleElement.textContent = '➕ Agregar Concepto';
+    }
     
-    var modalConcepto = new bootstrap.Modal(document.getElementById('modalConcepto'));
-    modalConcepto.show();
+    // Actualizar botón
+    const btnAgregar = modalElement.querySelector('.btn-success');
+    if (btnAgregar) {
+        btnAgregar.textContent = '✅ Agregar';
+        btnAgregar.setAttribute('onclick', 'agregarConcepto()');
+    }
+    
+    // Mostrar modal usando Bootstrap 5
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
 }
 
 // Función para agregar concepto
@@ -780,10 +805,24 @@ function crearNuevoConcepto() {
 
 // Event listeners cuando el documento está listo
 document.addEventListener('DOMContentLoaded', function() {
+    // Asegurarnos de que Bootstrap esté disponible
+    if (typeof bootstrap === 'undefined') {
+        console.error('Bootstrap no está cargado');
+        return;
+    }
+
     // Inicializar todos los modales
-    const modales = document.querySelectorAll('.modal');
-    modales.forEach(modal => {
-        new bootstrap.Modal(modal);
+    document.querySelectorAll('.modal').forEach(modalElement => {
+        try {
+            const modal = new bootstrap.Modal(modalElement, {
+                keyboard: true,
+                backdrop: true,
+                focus: true
+            });
+            console.log('Modal inicializado:', modalElement.id);
+        } catch (error) {
+            console.error('Error al inicializar modal:', modalElement.id, error);
+        }
     });
 
     // Event listeners para los campos de pago
