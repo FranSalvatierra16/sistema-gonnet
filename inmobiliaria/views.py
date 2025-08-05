@@ -4489,13 +4489,15 @@ def crear_contrato_alquiler(request):
             propiedad_id = request.POST.get('propiedad_id')
             inquilino_id = request.POST.get('inquilino_id')
             vendedor_id = request.POST.get('vendedor_id')
+            fecha_operacion = request.POST.get('fecha_operacion')
             fecha_inicio = request.POST.get('fecha_inicio')
+            fecha_fin = request.POST.get('fecha_fin')
             duracion_meses = int(request.POST.get('duracion_meses', 24))
             precio_mensual_str = request.POST.get('precio_mensual', '0').replace('.', '')
             deposito_garantia_str = request.POST.get('deposito_garantia', '0').replace('.', '')
             
             # Validaciones
-            if not all([propiedad_id, inquilino_id, vendedor_id, fecha_inicio]):
+            if not all([propiedad_id, inquilino_id, vendedor_id, fecha_operacion, fecha_inicio, fecha_fin]):
                 messages.error(request, 'Todos los campos son obligatorios')
                 return redirect('inmobiliaria:alquileres_24_meses')
             
@@ -4508,9 +4510,10 @@ def crear_contrato_alquiler(request):
             precio_mensual = Decimal(precio_mensual_str)
             deposito_garantia = Decimal(deposito_garantia_str)
             
-            # Parsear fecha
+            # Parsear fechas
+            fecha_operacion_obj = datetime.strptime(fecha_operacion, '%Y-%m-%d').date()
             fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
-            fecha_fin_obj = fecha_inicio_obj + relativedelta(months=duracion_meses)
+            fecha_fin_obj = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
             
             print(f"🏠 CREANDO CONTRATO:")
             print(f"   Propiedad: {propiedad.direccion}")
@@ -4526,6 +4529,7 @@ def crear_contrato_alquiler(request):
                     propiedad=propiedad,
                     inquilino=inquilino,
                     vendedor=vendedor,
+                    fecha_operacion=fecha_operacion_obj,
                     fecha_inicio=fecha_inicio_obj,
                     fecha_fin=fecha_fin_obj,
                     duracion_meses=duracion_meses,

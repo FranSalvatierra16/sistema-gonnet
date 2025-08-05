@@ -16,6 +16,7 @@ class ContratoAlquiler(models.Model):
     vendedor = models.ForeignKey('Vendedor', on_delete=models.CASCADE, related_name='contratos')
     
     # Fechas del contrato
+    fecha_operacion = models.DateField(default=timezone.now, help_text='Fecha en que se realiza la operación')
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
     duracion_meses = models.PositiveIntegerField()  # 24 meses

@@ -162,12 +162,26 @@
                                 </div>
                                 <div class="card-body">
                                     <div class="row">
-                                        <div class="col-6">
+                                        <div class="col-4">
                                             <div class="mb-3">
-                                                <label class="form-label"><strong>Fecha de Inicio:</strong></label>
+                                                <label class="form-label"><strong>📅 Fecha Operación:</strong></label>
+                                                <input type="date" class="form-control" id="fecha_operacion" name="fecha_operacion" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="mb-3">
+                                                <label class="form-label"><strong>🗓️ Fecha Inicio:</strong></label>
                                                 <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" required>
                                             </div>
                                         </div>
+                                        <div class="col-4">
+                                            <div class="mb-3">
+                                                <label class="form-label"><strong>🏁 Fecha Fin:</strong></label>
+                                                <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
                                         <div class="col-6">
                                             <div class="mb-3">
                                                 <label class="form-label"><strong>Duración:</strong></label>
@@ -177,6 +191,9 @@
                                                     <option value="36">36 Meses</option>
                                                 </select>
                                             </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <!-- Espacio para otros campos si es necesario -->
                                         </div>
                                     </div>
                                     <div class="row">
@@ -399,6 +416,10 @@ function mostrarModalContrato24Meses(propiedadId, direccion, sucursal, precioMen
     const form = document.getElementById('formContrato24Meses');
             form.action = `{% url 'inmobiliaria:crear_contrato_alquiler' %}`;
     document.getElementById('propiedad_id').value = propiedadId;
+    
+    // Auto-completar fecha de operación con la fecha actual
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha_operacion').value = today;
     
     // ✅ LLENAR INFORMACIÓN DIRECTAMENTE (sin API)
     document.getElementById('modal_ficha').textContent = `#${propiedadId}`;
