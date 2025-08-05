@@ -4721,6 +4721,10 @@ def procesar_operacion_contrato(request, contrato_id):
                 # Calcular próximo vencimiento
                 fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
+            # Marcar que ya se realizó la operación principal
+            contrato.operacion_principal = True
+            contrato.save()
+            
             return JsonResponse({
                 'success': True,
                 'redirect_url': reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
@@ -4822,6 +4826,7 @@ def pagar_cuota(request, cuota_id):
             total_pagado = (monto_efectivo + monto_cheque + monto_tarjeta + 
                           monto_deposito_galicia + monto_deposito_mp)
             
+            # Para cuotas mensuales, el total debe ser igual al monto de la cuota
             if total_pagado != cuota.monto_total:
                 return JsonResponse({
                     'error': f'El monto pagado (${total_pagado}) no coincide con el total de la cuota (${cuota.monto_total})'
