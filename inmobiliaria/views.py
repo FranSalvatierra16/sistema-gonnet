@@ -4619,7 +4619,7 @@ def crear_operacion_contrato(request, contrato_id):
         'tipo_operacion': tipo_operacion,
         'caja': caja,
         'conceptos': Concepto.objects.filter(sucursal=request.user.sucursal).order_by('nombre'),
-        'today': timezone.now().date(),
+        'today': timezone.now(),  # Cambiado de .date() a timezone.now() para tener datetime completo
     }
     
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)

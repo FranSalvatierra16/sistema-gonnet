@@ -31,7 +31,7 @@
                         <div class="col-md-4 text-end">
                             <p class="mb-1"><strong>Caja:</strong> #{{ caja.numero }}</p>
                             <p class="mb-1"><strong>Sucursal:</strong> {{ contrato.sucursal.nombre }}</p>
-                            <p class="mb-0"><strong>Fecha:</strong> {{ today|date:"d/m/Y H:i" }}</p>
+                            <p class="mb-0"><strong>Fecha:</strong> {{ today|date:"d/m/Y" }} {{ today|time:"H:i" }}</p>
                         </div>
                     </div>
                 </div>
