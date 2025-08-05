@@ -4597,37 +4597,29 @@ def detalle_contrato(request, contrato_id):
 
 @login_required
 def crear_operacion_contrato(request, contrato_id):
-    """Vista para crear operaciones de caja para contratos (similar a finalizar reserva)"""
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    tipo_operacion = request.GET.get('tipo', 'principal')
     
-    # Obtener o crear caja abierta
-    caja_abierta = Caja.objects.filter(
-        sucursal=request.user.sucursal, 
-        estado='abierta'
-    ).first()
-    
-    if not caja_abierta:
-        # Crear nueva caja automáticamente
-        ultimo_numero = Caja.objects.filter(sucursal=request.user.sucursal).aggregate(
-            max_numero=models.Max('numero')
-        )['max_numero'] or 0
-        
-        caja_abierta = Caja.objects.create(
-            numero=ultimo_numero + 1,
+    # Verificar si hay una caja abierta
+    try:
+        caja = Caja.objects.get(sucursal=request.user.sucursal, estado='abierta')
+    except Caja.DoesNotExist:
+        # Si no hay caja abierta, crear una nueva
+        caja = Caja.objects.create(
             sucursal=request.user.sucursal,
             usuario_apertura=request.user,
             saldo_inicial=0,
-            observaciones_apertura='Caja abierta automáticamente para operación de contrato'
+            estado='abierta',
+            fecha_apertura=timezone.now()
         )
-    
-    # Determinar tipo de operación desde parámetros
-    tipo_operacion = request.GET.get('tipo', 'principal')
-    
+        messages.success(request, 'Se ha abierto una nueva caja automáticamente.')
+
     context = {
         'contrato': contrato,
-        'caja_actual': caja_abierta,
         'tipo_operacion': tipo_operacion,
-        'conceptos': Concepto.objects.filter(sucursal=request.user.sucursal).order_by('descripcion'),
+        'caja': caja,
+        'conceptos': Concepto.objects.filter(sucursal=request.user.sucursal).order_by('nombre'),
+        'today': timezone.now().date(),
     }
     
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
