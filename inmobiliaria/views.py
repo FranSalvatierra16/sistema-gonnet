@@ -21,7 +21,7 @@ from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm,
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
-from django.db.models import Q, Prefetch, Case, When, IntegerField, Sum, Max
+from django.db.models import Q, Prefetch, Case, When, IntegerField, Sum, Max, F
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
 from django.contrib.auth.signals import user_logged_in
@@ -4618,8 +4618,11 @@ def crear_operacion_contrato(request, contrato_id):
         'contrato': contrato,
         'tipo_operacion': tipo_operacion,
         'caja': caja,
-        'conceptos': Concepto.objects.filter(sucursal=request.user.sucursal).order_by('nombre').select_related('sucursal'),
-        'today': timezone.now(),  # Cambiado de .date() a timezone.now() para tener datetime completo
+        'conceptos': Concepto.objects.filter(
+            Q(sucursal=request.user.sucursal) | 
+            Q(sucursal__isnull=True)
+        ).order_by('nombre'),
+        'today': timezone.now(),
     }
     
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
@@ -4683,7 +4686,7 @@ def procesar_operacion_contrato(request, contrato_id):
                 empleado=request.user,
                 sucursal=request.user.sucursal,
                 propiedad=contrato.propiedad,
-                observaciones=observaciones
+                observacion=observaciones  # Cambiado de observaciones a observacion
             )
             
             # Si hay depósitos bancarios, guardarlos
