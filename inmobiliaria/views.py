@@ -4503,9 +4503,23 @@ def crear_contrato_alquiler(request):
                 return redirect('inmobiliaria:alquileres_24_meses')
             
             # Obtener objetos relacionados
-            propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
-            inquilino = get_object_or_404(Inquilino, id=inquilino_id)
-            vendedor = get_object_or_404(Vendedor, id=vendedor_id)
+            try:
+                propiedad = Propiedad.objects.get(id=propiedad_id, sucursal=request.user.sucursal)
+            except Propiedad.DoesNotExist:
+                messages.error(request, 'La propiedad no existe o no pertenece a tu sucursal')
+                return redirect('inmobiliaria:alquileres_24_meses')
+            
+            try:
+                inquilino = Inquilino.objects.get(id=inquilino_id)
+            except Inquilino.DoesNotExist:
+                messages.error(request, 'El inquilino no existe')
+                return redirect('inmobiliaria:alquileres_24_meses')
+            
+            try:
+                vendedor = Vendedor.objects.get(id=vendedor_id)
+            except Vendedor.DoesNotExist:
+                messages.error(request, 'El vendedor no existe')
+                return redirect('inmobiliaria:alquileres_24_meses')
             
             # Convertir valores monetarios
             precio_mensual = Decimal(precio_mensual_str)
