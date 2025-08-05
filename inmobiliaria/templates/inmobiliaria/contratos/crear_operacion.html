@@ -187,12 +187,24 @@
                         <div class="col-md-6">
                             <p><strong>Inquilino:</strong> {{ contrato.inquilino.nombre }} {{ contrato.inquilino.apellido }}</p>
                             <p><strong>Propiedad:</strong> {{ contrato.propiedad.direccion }}</p>
-                            <p><strong>Precio Mensual:</strong> ${{ contrato.precio_mensual|format_price }}</p>
+                            <div class="form-group mb-2">
+                                <label><strong>Precio Mensual:</strong></label>
+                                <input type="text" class="form-control" id="precio_mensual" name="precio_mensual" 
+                                       value="{{ contrato.precio_mensual|format_price }}" 
+                                       onchange="formatearNumeroEnTiempoReal(this)" 
+                                       oninput="formatearNumeroEnTiempoReal(this)">
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <p><strong>Vendedor:</strong> {{ contrato.vendedor.nombre }} {{ contrato.vendedor.apellido }}</p>
                             <p><strong>Período:</strong> {{ contrato.fecha_inicio|date:"d/m/Y" }} - {{ contrato.fecha_fin|date:"d/m/Y" }}</p>
-                            <p><strong>Depósito Garantía:</strong> ${{ contrato.deposito_garantia|format_price }}</p>
+                            <div class="form-group">
+                                <label><strong>Depósito Garantía:</strong></label>
+                                <input type="text" class="form-control" id="deposito_garantia" name="deposito_garantia" 
+                                       value="{{ contrato.deposito_garantia|format_price }}" 
+                                       onchange="formatearNumeroEnTiempoReal(this)" 
+                                       oninput="formatearNumeroEnTiempoReal(this)">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -206,7 +218,7 @@
                 <div class="card mb-4">
                     <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">📝 Conceptos</h5>
-                        <button type="button" class="btn btn-primary btn-sm" onclick="mostrarModalConcepto()">
+                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalConcepto">
                             ➕ Agregar Concepto
                         </button>
                     </div>
@@ -768,6 +780,12 @@ function crearNuevoConcepto() {
 
 // Event listeners cuando el documento está listo
 document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar todos los modales
+    const modales = document.querySelectorAll('.modal');
+    modales.forEach(modal => {
+        new bootstrap.Modal(modal);
+    });
+
     // Event listeners para los campos de pago
     ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito_galicia', 'monto_deposito_mp'].forEach(id => {
         const input = document.getElementById(id);
@@ -775,6 +793,16 @@ document.addEventListener('DOMContentLoaded', function() {
             input.addEventListener('input', function() {
                 formatearNumeroEnTiempoReal(this);
                 calcularTotales();
+            });
+        }
+    });
+    
+    // Event listeners para precio mensual y depósito
+    ['precio_mensual', 'deposito_garantia'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('input', function() {
+                formatearNumeroEnTiempoReal(this);
             });
         }
     });
