@@ -4671,12 +4671,18 @@ def procesar_operacion_contrato(request, contrato_id):
             total_movimiento = (monto_efectivo + monto_cheque + monto_tarjeta + 
                               monto_deposito_galicia + monto_deposito_mp)
             
-            # El total debe ser igual al depósito de garantía más el primer mes
-            total_esperado = contrato.deposito_garantia + contrato.precio_mensual
+            # El total debe ser igual al depósito de garantía más el primer mes solo en operación principal
+            tipo_operacion = request.POST.get('tipo_operacion', '')
+            if tipo_operacion == 'principal':
+                total_esperado = contrato.deposito_garantia + contrato.precio_mensual
+                mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
+            else:
+                total_esperado = contrato.precio_mensual
+                mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al valor de la cuota (${contrato.precio_mensual})'
             
             if total_movimiento != total_esperado:
                 return JsonResponse({
-                    'error': f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
+                    'error': mensaje_error
                 }, status=400)
             
             # Crear movimiento de caja

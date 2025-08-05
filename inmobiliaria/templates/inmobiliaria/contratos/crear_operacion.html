@@ -58,6 +58,7 @@
                         <div class="col-md-6">
                             <p><strong>Vendedor:</strong> {{ contrato.vendedor.nombre }} {{ contrato.vendedor.apellido }}</p>
                             <p><strong>Período:</strong> {{ contrato.fecha_inicio|date:"d/m/Y" }} - {{ contrato.fecha_fin|date:"d/m/Y" }}</p>
+                            {% if tipo_operacion == 'principal' %}
                             <div class="form-group">
                                 <label><strong>Depósito Garantía:</strong></label>
                                 <input type="text" class="form-control" id="deposito_garantia" name="deposito_garantia" 
@@ -65,6 +66,7 @@
                                        onchange="formatearNumeroEnTiempoReal(this)" 
                                        oninput="formatearNumeroEnTiempoReal(this)">
                             </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -836,7 +838,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Event listeners para precio mensual y depósito
-    ['precio_mensual', 'deposito_garantia'].forEach(id => {
+    const inputs = ['precio_mensual'];
+    if ('{{ tipo_operacion }}' === 'principal') {
+        inputs.push('deposito_garantia');
+    }
+    inputs.forEach(id => {
         const input = document.getElementById(id);
         if (input) {
             input.addEventListener('input', function() {
