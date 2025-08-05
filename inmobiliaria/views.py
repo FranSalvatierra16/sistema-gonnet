@@ -2793,7 +2793,8 @@ def ventas(request):
 def alquileres_24_meses(request):
     # Filtrar propiedades que tienen alquiler por 24 meses activado
     propiedades_meses = Propiedad.objects.filter(
-        info_meses__disponible=True  # Solo propiedades con alquiler 24 meses activado
+        info_meses__disponible=True,  # Solo propiedades con alquiler 24 meses activado
+        info_meses__estado='disponible'  # Por defecto mostrar solo las disponibles
     ).select_related(
         'info_meses', 
         'sucursal'
@@ -2807,14 +2808,21 @@ def alquileres_24_meses(request):
             Q(id__icontains=busqueda)
         )
 
+    # Si se selecciona un estado específico, sobreescribir el filtro por defecto
     estado = request.GET.get('estado', '')
     if estado:
-        propiedades_meses = propiedades_meses.filter(info_meses__estado=estado)
+        propiedades_meses = Propiedad.objects.filter(
+            info_meses__disponible=True,
+            info_meses__estado=estado
+        ).select_related(
+            'info_meses', 
+            'sucursal'
+        ).prefetch_related('imagenes')
 
     context = {
         'propiedades': propiedades_meses,
         'busqueda': busqueda,
-        'estado_filtro': estado,
+        'estado_filtro': estado or 'disponible',  # Si no hay estado seleccionado, marcar 'disponible'
         'estados': AlquilerMeses.ESTADO_CHOICES,
         'inquilinos': Inquilino.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
     }
