@@ -4618,7 +4618,7 @@ def crear_operacion_contrato(request, contrato_id):
         'contrato': contrato,
         'tipo_operacion': tipo_operacion,
         'caja': caja,
-        'conceptos': Concepto.objects.filter(sucursal=request.user.sucursal).order_by('nombre'),
+        'conceptos': Concepto.objects.filter(sucursal=request.user.sucursal).order_by('nombre').select_related('sucursal'),
         'today': timezone.now(),  # Cambiado de .date() a timezone.now() para tener datetime completo
     }
     
@@ -4644,16 +4644,27 @@ def procesar_operacion_contrato(request, contrato_id):
             if not caja_abierta:
                 return JsonResponse({'error': 'No hay caja abierta'}, status=400)
             
+            # Función auxiliar para limpiar valores monetarios
+            def limpiar_valor_monetario(valor_str):
+                if not valor_str or valor_str.strip() == '':
+                    return Decimal('0')
+                # Eliminar puntos de miles y reemplazar coma por punto
+                valor_limpio = valor_str.replace('.', '').replace(',', '.')
+                try:
+                    return Decimal(valor_limpio)
+                except:
+                    return Decimal('0')
+            
             # Extraer datos del formulario
             concepto = request.POST.get('concepto', f'Contrato #{contrato.id} - {contrato.propiedad.direccion}')
             observaciones = request.POST.get('observaciones', '')
             
             # Métodos de pago
-            monto_efectivo = Decimal(request.POST.get('monto_efectivo', '0').replace('.', '').replace(',', '.'))
-            monto_cheque = Decimal(request.POST.get('monto_cheque', '0').replace('.', '').replace(',', '.'))
-            monto_tarjeta = Decimal(request.POST.get('monto_tarjeta', '0').replace('.', '').replace(',', '.'))
-            monto_deposito_galicia = Decimal(request.POST.get('monto_deposito_galicia', '0').replace('.', '').replace(',', '.'))
-            monto_deposito_mp = Decimal(request.POST.get('monto_deposito_mp', '0').replace('.', '').replace(',', '.'))
+            monto_efectivo = limpiar_valor_monetario(request.POST.get('monto_efectivo', '0'))
+            monto_cheque = limpiar_valor_monetario(request.POST.get('monto_cheque', '0'))
+            monto_tarjeta = limpiar_valor_monetario(request.POST.get('monto_tarjeta', '0'))
+            monto_deposito_galicia = limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0'))
+            monto_deposito_mp = limpiar_valor_monetario(request.POST.get('monto_deposito_mp', '0'))
             
             total_movimiento = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito_galicia + monto_deposito_mp
             
@@ -4685,14 +4696,23 @@ def procesar_operacion_contrato(request, contrato_id):
             
             movimiento.save()
             
-            messages.success(request, f'✅ Operación de contrato procesada exitosamente. Movimiento #{movimiento.id}')
+            # Procesar conceptos
+            conceptos_count = int(request.POST.get('conceptos_count', 0))
+            for i in range(conceptos_count):
+                concepto_id = request.POST.get(f'concepto_{i}_id')
+                concepto_nombre = request.POST.get(f'concepto_{i}_nombre')
+                concepto_observaciones = request.POST.get(f'concepto_{i}_observaciones')
+                concepto_importe = limpiar_valor_monetario(request.POST.get(f'concepto_{i}_importe', '0'))
+                
+                if concepto_id and concepto_importe > 0:
+                    # Aquí puedes guardar los conceptos si es necesario
+                    pass
             
             return JsonResponse({
                 'success': True,
-                'movimiento_id': movimiento.id,
                 'redirect_url': reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
             })
             
     except Exception as e:
-        print(f"Error procesando operación de contrato: {str(e)}")
-        return JsonResponse({'error': f'Error al procesar la operación: {str(e)}'}, status=500)
+        print("Error al procesar operación:", str(e))
+        return JsonResponse({'error': str(e)}, status=400)
