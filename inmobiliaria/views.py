@@ -4483,7 +4483,7 @@ def crear_contrato_alquiler(request):
             from datetime import datetime, timedelta
             from dateutil.relativedelta import relativedelta
             from decimal import Decimal
-            from .models import ContratoAlquiler, CuotaMensual
+            from .models import ContratoAlquiler
             
             # Obtener datos del formulario
             propiedad_id = request.POST.get('propiedad_id')
@@ -4541,33 +4541,13 @@ def crear_contrato_alquiler(request):
                 
                 print(f"✅ CONTRATO CREADO: ID {contrato.id}")
                 
-                # Crear las cuotas mensuales automáticamente
-                fecha_cuota = fecha_inicio_obj
-                for numero_cuota in range(1, duracion_meses + 1):
-                    # Calcular fecha de vencimiento (día 10 de cada mes)
-                    fecha_vencimiento = fecha_cuota.replace(day=10)
-                    
-                    cuota = CuotaMensual.objects.create(
-                        contrato=contrato,
-                        numero_cuota=numero_cuota,
-                        fecha_vencimiento=fecha_vencimiento,
-                        monto_base=precio_mensual,
-                        monto_total=precio_mensual,
-                        estado='pendiente'
-                    )
-                    
-                    print(f"📅 CUOTA {numero_cuota}/{duracion_meses}: Vencimiento {fecha_vencimiento}, Monto ${precio_mensual}")
-                    
-                    # Avanzar al siguiente mes
-                    fecha_cuota = fecha_cuota + relativedelta(months=1)
-                
                 # Actualizar estado de la propiedad (opcional)
                 if hasattr(propiedad, 'info_meses'):
                     propiedad.info_meses.estado = 'alquilada'
                     propiedad.info_meses.save()
                 
-                messages.success(request, f'✅ Contrato creado exitosamente. Se generaron {duracion_meses} cuotas mensuales.')
-                return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+                messages.success(request, f'✅ Contrato de {duracion_meses} meses creado exitosamente! Ahora puedes crear operaciones de caja para los pagos.')
+                return redirect('inmobiliaria:lista_contratos')
                 
         except Exception as e:
             print(f"❌ ERROR AL CREAR CONTRATO: {str(e)}")
