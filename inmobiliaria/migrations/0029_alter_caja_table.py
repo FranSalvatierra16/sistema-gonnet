@@ -10,15 +10,9 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunSQL(
-            # Eliminar la tabla actual
-            "DROP TABLE IF EXISTS inmobiliaria_caja;",
-            # No hay reverse SQL ya que la tabla se recreará
-            reverse_sql=migrations.RunSQL.noop
-        ),
-        migrations.RunSQL(
-            # Crear la tabla con la estructura correcta
+            # Crear la tabla con la estructura básica
             """
-            CREATE TABLE inmobiliaria_caja (
+            CREATE TABLE IF NOT EXISTS inmobiliaria_caja (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 numero INT UNSIGNED NOT NULL,
                 sucursal_id BIGINT NOT NULL,
@@ -30,13 +24,26 @@ class Migration(migrations.Migration):
                 usuario_apertura_id BIGINT NOT NULL,
                 usuario_cierre_id BIGINT NULL,
                 observaciones_apertura LONGTEXT NOT NULL,
-                observaciones_cierre LONGTEXT NOT NULL,
-                CONSTRAINT fk_caja_sucursal FOREIGN KEY (sucursal_id) REFERENCES inmobiliaria_sucursal (id),
-                CONSTRAINT fk_caja_usuario_apertura FOREIGN KEY (usuario_apertura_id) REFERENCES inmobiliaria_vendedor (id),
-                CONSTRAINT fk_caja_usuario_cierre FOREIGN KEY (usuario_cierre_id) REFERENCES inmobiliaria_vendedor (id),
-                CONSTRAINT unique_numero_sucursal UNIQUE (numero, sucursal_id)
+                observaciones_cierre LONGTEXT NOT NULL
             );
             """,
             reverse_sql="DROP TABLE IF EXISTS inmobiliaria_caja;"
+        ),
+        # Agregar las restricciones después de crear la tabla
+        migrations.RunSQL(
+            """
+            ALTER TABLE inmobiliaria_caja
+            ADD CONSTRAINT unique_numero_sucursal UNIQUE (numero, sucursal_id),
+            ADD CONSTRAINT fk_caja_sucursal 
+                FOREIGN KEY (sucursal_id) 
+                REFERENCES inmobiliaria_sucursal (id),
+            ADD CONSTRAINT fk_caja_usuario_apertura 
+                FOREIGN KEY (usuario_apertura_id) 
+                REFERENCES inmobiliaria_vendedor (id),
+            ADD CONSTRAINT fk_caja_usuario_cierre 
+                FOREIGN KEY (usuario_cierre_id) 
+                REFERENCES inmobiliaria_vendedor (id);
+            """,
+            reverse_sql="ALTER TABLE inmobiliaria_caja DROP FOREIGN KEY fk_caja_sucursal, DROP FOREIGN KEY fk_caja_usuario_apertura, DROP FOREIGN KEY fk_caja_usuario_cierre;"
         ),
     ] 
