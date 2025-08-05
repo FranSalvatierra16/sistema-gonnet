@@ -277,9 +277,9 @@
 let busquedaVendedorTimeout;
 
 // Función principal para mostrar el modal
-function mostrarModalContrato(propiedadId, direccion) {
-    console.log('🏠 Abriendo modal para contrato:', {
-        propiedadId, direccion
+function mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, expensas) {
+    console.log('🏠 Abriendo modal para contrato 24 meses:', {
+        propiedadId, direccion, sucursal, precioMensual, expensas
     });
     
     // Configurar el formulario
@@ -291,37 +291,37 @@ function mostrarModalContrato(propiedadId, direccion) {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('fecha_operacion').value = today;
     
-    // Obtener detalles de la propiedad vía API
-    fetch(`/inmobiliaria/api/propiedad/${propiedadId}/`)
-        .then(response => response.json())
-        .then(data => {
-            console.log('📋 Detalles de la propiedad:', data);
-            
-            // Llenar información de la propiedad
-            document.getElementById('modal_ficha').textContent = `#${data.id}`;
-            document.getElementById('modal_direccion').textContent = data.direccion;
-            document.getElementById('modal_sucursal').textContent = data.sucursal.nombre;
-            
-            // Información específica de 24 meses
-            if (data.info_meses && data.info_meses.precio_mensual > 0) {
-                document.getElementById('modal_precio_mensual').textContent = `$${data.info_meses.precio_mensual.toLocaleString('es-ES')}`;
-                document.getElementById('precio_mensual_input').value = data.info_meses.precio_mensual.toLocaleString('es-ES');
-                
-                document.getElementById('modal_expensas').textContent = data.info_meses.precio_expensas > 0 ? 
-                    `$${data.info_meses.precio_expensas.toLocaleString('es-ES')}` : 'No incluye';
-                
-                // Calcular depósito sugerido (2 meses)
-                const depositoSugerido = data.info_meses.precio_mensual * 2;
-                document.getElementById('deposito_garantia').value = depositoSugerido.toLocaleString('es-ES');
-                
-                // Actualizar resumen
-                actualizarResumenContrato();
-            }
-        })
-        .catch(error => {
-            console.error('❌ Error al obtener detalles:', error);
-            alert('Error al cargar los detalles de la propiedad');
-        });
+    // ✅ LLENAR INFORMACIÓN DIRECTAMENTE (sin API)
+    document.getElementById('modal_ficha').textContent = `#${propiedadId}`;
+    document.getElementById('modal_direccion').textContent = direccion || 'No especificada';
+    document.getElementById('modal_sucursal').textContent = sucursal || 'No especificada';
+    
+    // Información específica de 24 meses
+    if (precioMensual && precioMensual > 0) {
+        console.log(`💰 Usando datos directos - Precio: ${precioMensual}, Expensas: ${expensas}`);
+        
+        document.getElementById('modal_precio_mensual').textContent = `$${precioMensual.toLocaleString('es-ES')}`;
+        document.getElementById('precio_mensual_input').value = precioMensual.toLocaleString('es-ES');
+        
+        document.getElementById('modal_expensas').textContent = expensas > 0 ? 
+            `$${expensas.toLocaleString('es-ES')}` : 'No incluye';
+        
+        // Calcular depósito sugerido (2 meses)
+        const depositoSugerido = precioMensual * 2;
+        document.getElementById('deposito_garantia').value = depositoSugerido.toLocaleString('es-ES');
+        
+        // Actualizar resumen
+        actualizarResumenContrato();
+    } else {
+        console.warn('⚠️ No hay precio mensual, usando valores por defecto');
+        document.getElementById('modal_precio_mensual').textContent = 'No configurado';
+        document.getElementById('modal_expensas').textContent = 'No configurado';
+        
+        // Establecer valores por defecto
+        document.getElementById('precio_mensual_input').value = '50.000';
+        document.getElementById('deposito_garantia').value = '100.000';
+        actualizarResumenContrato();
+    }
     
     // Establecer fecha mínima (hoy)
     const hoy = new Date().toISOString().split('T')[0];
