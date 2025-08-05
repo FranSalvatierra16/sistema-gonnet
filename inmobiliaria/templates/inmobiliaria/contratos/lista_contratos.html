@@ -158,72 +158,13 @@
 
 <script>
 function crearOperacionPrincipal(contratoId, direccion, deposito, precioMensual) {
-    // Crear formulario para ir a caja con datos pre-cargados
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '{% url "inmobiliaria:nuevo_movimiento_sin_caja" %}';
-    
-    // Agregar token CSRF
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    const csrfInput = document.createElement('input');
-    csrfInput.type = 'hidden';
-    csrfInput.name = 'csrfmiddlewaretoken';
-    csrfInput.value = csrfToken;
-    form.appendChild(csrfInput);
-    
-    // Datos del movimiento
-    const campos = {
-        'tipo': 'INGRESO',
-        'concepto': `Contrato #${contratoId} - ${direccion} - Operación Principal`,
-        'monto_efectivo': deposito.toString().replace(/\./g, ''),
-        'observaciones': `Depósito de garantía y gastos iniciales del contrato de alquiler`
-    };
-    
-    for (let [name, value] of Object.entries(campos)) {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = name;
-        input.value = value;
-        form.appendChild(input);
-    }
-    
-    document.body.appendChild(form);
-    form.submit();
+    // Ir a la página de crear operación principal
+    window.location.href = `/contratos/${contratoId}/operacion/?tipo=principal`;
 }
 
 function pagarCuotaMensual(contratoId, direccion, precioMensual) {
-    // Crear formulario para ir a caja con datos pre-cargados para cuota mensual
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '{% url "inmobiliaria:nuevo_movimiento_sin_caja" %}';
-    
-    // Agregar token CSRF
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    const csrfInput = document.createElement('input');
-    csrfInput.type = 'hidden';
-    csrfInput.name = 'csrfmiddlewaretoken';
-    csrfInput.value = csrfToken;
-    form.appendChild(csrfInput);
-    
-    // Datos del movimiento
-    const mesActual = new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-    const campos = {
-        'tipo': 'INGRESO',
-        'concepto': `Contrato #${contratoId} - ${direccion} - Cuota ${mesActual}`,
-        'monto_efectivo': precioMensual.toString().replace(/\./g, ''),
-        'observaciones': `Pago cuota mensual del contrato de alquiler`
-    };
-    
-    for (let [name, value] of Object.entries(campos)) {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = name;
-        input.value = value;
-        form.appendChild(input);
-    }
-    
-    document.body.appendChild(form);
-    form.submit();
+    // Ir a la página de crear operación mensual
+    window.location.href = `/contratos/${contratoId}/operacion/?tipo=mensual`;
 }
 </script>
 {% endblock %} 

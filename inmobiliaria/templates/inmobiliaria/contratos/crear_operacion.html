@@ -1,0 +1,248 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}
+    {% if tipo_operacion == 'principal' %}
+        Operación Principal - Contrato #{{ contrato.id }}
+    {% else %}
+        Pago Cuota Mensual - Contrato #{{ contrato.id }}
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <!-- Header -->
+            <div class="card mb-4" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white;">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="mb-2">
+                                {% if tipo_operacion == 'principal' %}
+                                    🏠 Operación Principal - Depósito y Gastos
+                                {% else %}
+                                    💰 Pago Cuota Mensual
+                                {% endif %}
+                            </h2>
+                            <h5 class="mb-0">Contrato #{{ contrato.id }} - {{ contrato.propiedad.direccion }}</h5>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <p class="mb-1"><strong>Caja:</strong> #{{ caja_actual.numero }}</p>
+                            <p class="mb-1"><strong>Sucursal:</strong> {{ contrato.sucursal.nombre }}</p>
+                            <p class="mb-0"><strong>Fecha:</strong> {{ "now"|date:"d/m/Y H:i" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información del Contrato -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">📋 Información del Contrato</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Inquilino:</strong> {{ contrato.inquilino.nombre }} {{ contrato.inquilino.apellido }}</p>
+                            <p><strong>Propiedad:</strong> {{ contrato.propiedad.direccion }}</p>
+                            <p><strong>Precio Mensual:</strong> ${{ contrato.precio_mensual|format_price }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Vendedor:</strong> {{ contrato.vendedor.nombre }} {{ contrato.vendedor.apellido }}</p>
+                            <p><strong>Período:</strong> {{ contrato.fecha_inicio|date:"d/m/Y" }} - {{ contrato.fecha_fin|date:"d/m/Y" }}</p>
+                            <p><strong>Depósito Garantía:</strong> ${{ contrato.deposito_garantia|format_price }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulario de Operación -->
+            <form id="formOperacionContrato" method="post">
+                {% csrf_token %}
+                
+                <!-- Concepto y Observaciones -->
+                <div class="card mb-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">📝 Detalles de la Operación</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <label for="concepto" class="form-label"><strong>Concepto:</strong></label>
+                                <input type="text" class="form-control" id="concepto" name="concepto" 
+                                       value="{% if tipo_operacion == 'principal' %}Contrato #{{ contrato.id }} - {{ contrato.propiedad.direccion }} - Operación Principal{% else %}Contrato #{{ contrato.id }} - {{ contrato.propiedad.direccion }} - Cuota {{ "now"|date:"F Y" }}{% endif %}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="monto_sugerido" class="form-label"><strong>Monto Sugerido:</strong></label>
+                                <input type="text" class="form-control" id="monto_sugerido" 
+                                       value="{% if tipo_operacion == 'principal' %}${{ contrato.deposito_garantia|format_price }}{% else %}${{ contrato.precio_mensual|format_price }}{% endif %}" readonly>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <label for="observaciones" class="form-label"><strong>Observaciones:</strong></label>
+                                <textarea class="form-control" id="observaciones" name="observaciones" rows="3" 
+                                          placeholder="{% if tipo_operacion == 'principal' %}Depósito de garantía y gastos iniciales del contrato de alquiler{% else %}Pago de cuota mensual del contrato de alquiler{% endif %}"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Métodos de Pago -->
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">💳 Métodos de Pago</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="monto_efectivo" class="form-label"><strong>💵 Efectivo:</strong></label>
+                                    <input type="text" class="form-control" id="monto_efectivo" name="monto_efectivo" 
+                                           placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="monto_cheque" class="form-label"><strong>🏦 Cheque:</strong></label>
+                                    <input type="text" class="form-control" id="monto_cheque" name="monto_cheque" 
+                                           placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="monto_tarjeta" class="form-label"><strong>💳 Tarjeta:</strong></label>
+                                    <input type="text" class="form-control" id="monto_tarjeta" name="monto_tarjeta" 
+                                           placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="monto_deposito_galicia" class="form-label"><strong>🏛️ Depósito Galicia:</strong></label>
+                                    <input type="text" class="form-control" id="monto_deposito_galicia" name="monto_deposito_galicia" 
+                                           placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="monto_deposito_mp" class="form-label"><strong>💱 Mercado Pago:</strong></label>
+                                    <input type="text" class="form-control" id="monto_deposito_mp" name="monto_deposito_mp" 
+                                           placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-info">
+                                    <h5><strong>💰 Total Operación: $<span id="totalOperacion">0</span></strong></h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones -->
+                <div class="card">
+                    <div class="card-body text-center">
+                        <button type="button" class="btn btn-success btn-lg me-3" id="btnProcesarOperacion" onclick="procesarOperacion()">
+                            <i class="fas fa-check"></i> 
+                            {% if tipo_operacion == 'principal' %}
+                                Procesar Operación Principal
+                            {% else %}
+                                Procesar Pago Cuota
+                            {% endif %}
+                        </button>
+                        <a href="{% url 'inmobiliaria:lista_contratos' %}" class="btn btn-secondary btn-lg">
+                            <i class="fas fa-arrow-left"></i> Volver a Contratos
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Funciones JavaScript copiadas de finalizar_reserva_nueva.html
+function parsearValorFormateado(valor) {
+    if (!valor || valor === '') return 0;
+    return parseInt(valor.toString().replace(/\./g, '')) || 0;
+}
+
+function formatearNumeroEnTiempoReal(input) {
+    let valor = input.value.replace(/\D/g, '');
+    if (valor === '') {
+        input.value = '';
+        return;
+    }
+    let numero = parseInt(valor);
+    input.value = numero.toLocaleString('es-AR');
+}
+
+function actualizarTotales() {
+    const efectivo = parsearValorFormateado(document.getElementById('monto_efectivo').value);
+    const cheque = parsearValorFormateado(document.getElementById('monto_cheque').value);
+    const tarjeta = parsearValorFormateado(document.getElementById('monto_tarjeta').value);
+    const depositoGalicia = parsearValorFormateado(document.getElementById('monto_deposito_galicia').value);
+    const depositoMp = parsearValorFormateado(document.getElementById('monto_deposito_mp').value);
+    
+    const totalOperacion = efectivo + cheque + tarjeta + depositoGalicia + depositoMp;
+    
+    document.getElementById('totalOperacion').textContent = totalOperacion.toLocaleString('es-AR');
+    
+    // Habilitar/deshabilitar botón
+    const btnProcesar = document.getElementById('btnProcesarOperacion');
+    if (totalOperacion > 0) {
+        btnProcesar.disabled = false;
+        btnProcesar.classList.remove('btn-secondary');
+        btnProcesar.classList.add('btn-success');
+    } else {
+        btnProcesar.disabled = true;
+        btnProcesar.classList.remove('btn-success');
+        btnProcesar.classList.add('btn-secondary');
+    }
+}
+
+function procesarOperacion() {
+    const totalOperacion = parsearValorFormateado(document.getElementById('totalOperacion').textContent);
+    
+    if (totalOperacion <= 0) {
+        alert('❌ Debe ingresar al menos un monto de pago');
+        return;
+    }
+    
+    // Confirmación
+    const confirmacion = confirm(`¿Confirmar operación por $${totalOperacion.toLocaleString('es-AR')}?`);
+    if (!confirmacion) return;
+    
+    // Enviar formulario
+    const form = document.getElementById('formOperacionContrato');
+    form.action = '{% url "inmobiliaria:procesar_operacion_contrato" contrato.id %}';
+    
+    const formData = new FormData(form);
+    
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Operación procesada exitosamente');
+            window.location.href = data.redirect_url;
+        } else {
+            alert('❌ Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error al procesar la operación');
+    });
+}
+
+// Inicializar
+document.addEventListener('DOMContentLoaded', function() {
+    actualizarTotales();
+});
+</script>
+{% endblock %} 

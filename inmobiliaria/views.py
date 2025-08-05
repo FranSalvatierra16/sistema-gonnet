@@ -4594,3 +4594,113 @@ def detalle_contrato(request, contrato_id):
     }
     
     return render(request, 'inmobiliaria/contratos/detalle_contrato.html', context)
+
+@login_required
+def crear_operacion_contrato(request, contrato_id):
+    """Vista para crear operaciones de caja para contratos (similar a finalizar reserva)"""
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    
+    # Obtener o crear caja abierta
+    caja_abierta = Caja.objects.filter(
+        sucursal=request.user.sucursal, 
+        estado='abierta'
+    ).first()
+    
+    if not caja_abierta:
+        # Crear nueva caja automáticamente
+        ultimo_numero = Caja.objects.filter(sucursal=request.user.sucursal).aggregate(
+            max_numero=models.Max('numero')
+        )['max_numero'] or 0
+        
+        caja_abierta = Caja.objects.create(
+            numero=ultimo_numero + 1,
+            sucursal=request.user.sucursal,
+            usuario_apertura=request.user,
+            saldo_inicial=0,
+            observaciones_apertura='Caja abierta automáticamente para operación de contrato'
+        )
+    
+    # Determinar tipo de operación desde parámetros
+    tipo_operacion = request.GET.get('tipo', 'principal')
+    
+    context = {
+        'contrato': contrato,
+        'caja_actual': caja_abierta,
+        'tipo_operacion': tipo_operacion,
+        'conceptos': Concepto.objects.filter(sucursal=request.user.sucursal).order_by('descripcion'),
+    }
+    
+    return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
+
+
+@login_required
+def procesar_operacion_contrato(request, contrato_id):
+    """Procesar la operación de contrato (similar a procesar_movimiento_reserva)"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    
+    try:
+        with transaction.atomic():
+            contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+            
+            # Obtener caja abierta
+            caja_abierta = Caja.objects.filter(
+                sucursal=request.user.sucursal, 
+                estado='abierta'
+            ).first()
+            
+            if not caja_abierta:
+                return JsonResponse({'error': 'No hay caja abierta'}, status=400)
+            
+            # Extraer datos del formulario
+            concepto = request.POST.get('concepto', f'Contrato #{contrato.id} - {contrato.propiedad.direccion}')
+            observaciones = request.POST.get('observaciones', '')
+            
+            # Métodos de pago
+            monto_efectivo = Decimal(request.POST.get('monto_efectivo', '0').replace('.', '').replace(',', '.'))
+            monto_cheque = Decimal(request.POST.get('monto_cheque', '0').replace('.', '').replace(',', '.'))
+            monto_tarjeta = Decimal(request.POST.get('monto_tarjeta', '0').replace('.', '').replace(',', '.'))
+            monto_deposito_galicia = Decimal(request.POST.get('monto_deposito_galicia', '0').replace('.', '').replace(',', '.'))
+            monto_deposito_mp = Decimal(request.POST.get('monto_deposito_mp', '0').replace('.', '').replace(',', '.'))
+            
+            total_movimiento = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito_galicia + monto_deposito_mp
+            
+            if total_movimiento <= 0:
+                return JsonResponse({'error': 'El monto total debe ser mayor a 0'}, status=400)
+            
+            # Crear movimiento de caja
+            movimiento = MovimientoCaja.objects.create(
+                caja=caja_abierta,
+                tipo='INGRESO',
+                concepto=concepto,
+                monto_efectivo=monto_efectivo,
+                monto_cheque=monto_cheque,
+                monto_tarjeta=monto_tarjeta,
+                fecha=timezone.now(),
+                empleado=request.user,
+                sucursal=request.user.sucursal,
+                propiedad=contrato.propiedad,
+                observaciones=observaciones
+            )
+            
+            # Si hay depósitos bancarios, guardarlos
+            if monto_deposito_galicia > 0:
+                movimiento.destino_deposito = 'Banco Galicia'
+                movimiento.monto_deposito = monto_deposito_galicia
+            elif monto_deposito_mp > 0:
+                movimiento.destino_deposito = 'Mercado Pago'
+                movimiento.monto_deposito = monto_deposito_mp
+            
+            movimiento.save()
+            
+            messages.success(request, f'✅ Operación de contrato procesada exitosamente. Movimiento #{movimiento.id}')
+            
+            return JsonResponse({
+                'success': True,
+                'movimiento_id': movimiento.id,
+                'redirect_url': reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
+            })
+            
+    except Exception as e:
+        print(f"Error procesando operación de contrato: {str(e)}")
+        return JsonResponse({'error': f'Error al procesar la operación: {str(e)}'}, status=500)
