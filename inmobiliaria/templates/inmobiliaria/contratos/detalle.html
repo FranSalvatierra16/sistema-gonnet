@@ -1,0 +1,46 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Detalle del Contrato</h4>
+            <div>
+                <a href="{% url 'inmobiliaria:ver_cuotas_contrato' contrato.id %}" class="btn btn-light">
+                    Ver Cuotas
+                </a>
+                {% if not contrato.operacion_principal %}
+                <a href="{% url 'inmobiliaria:crear_operacion_contrato' contrato.id %}?tipo=principal" class="btn btn-warning">
+                    Operación Principal
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Información del Contrato</h5>
+                    <p><strong>Propiedad:</strong> {{ contrato.propiedad.direccion }}</p>
+                    <p><strong>Inquilino:</strong> {{ contrato.inquilino.nombre_completo }}</p>
+                    <p><strong>Vendedor:</strong> {{ contrato.vendedor.nombre_completo }}</p>
+                    <p><strong>Fecha de Inicio:</strong> {{ contrato.fecha_inicio|date:"d/m/Y" }}</p>
+                    <p><strong>Fecha de Fin:</strong> {{ contrato.fecha_fin|date:"d/m/Y" }}</p>
+                    <p><strong>Duración:</strong> {{ contrato.duracion_meses }} meses</p>
+                </div>
+                <div class="col-md-6">
+                    <h5>Información Económica</h5>
+                    <p><strong>Precio Mensual:</strong> ${{ contrato.precio_mensual|format_price }}</p>
+                    <p><strong>Depósito de Garantía:</strong> ${{ contrato.deposito_garantia|format_price }}</p>
+                    <p><strong>Estado:</strong> 
+                        <span class="badge {% if contrato.estado == 'activo' %}bg-success{% elif contrato.estado == 'finalizado' %}bg-secondary{% else %}bg-danger{% endif %}">
+                            {{ contrato.get_estado_display }}
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

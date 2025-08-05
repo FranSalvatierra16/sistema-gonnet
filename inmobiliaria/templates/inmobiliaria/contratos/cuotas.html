@@ -1,0 +1,190 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Cuotas del Contrato - {{ contrato.propiedad.direccion }}</h4>
+            <span class="badge bg-light text-dark">Inquilino: {{ contrato.inquilino.nombre_completo }}</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Cuota</th>
+                            <th>Vencimiento</th>
+                            <th>Monto</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cuota in cuotas %}
+                        <tr class="{% if cuota.estado == 'vencida' %}table-danger{% elif cuota.estado == 'pagada' %}table-success{% endif %}">
+                            <td>{{ cuota.numero_cuota }}/{{ contrato.duracion_meses }}</td>
+                            <td>{{ cuota.fecha_vencimiento|date:"d/m/Y" }}</td>
+                            <td>${{ cuota.monto_total|format_price }}</td>
+                            <td>
+                                <span class="badge {% if cuota.estado == 'pendiente' %}bg-warning{% elif cuota.estado == 'pagada' %}bg-success{% elif cuota.estado == 'vencida' %}bg-danger{% elif cuota.estado == 'pagada_con_mora' %}bg-info{% endif %}">
+                                    {{ cuota.get_estado_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if cuota.estado == 'pendiente' or cuota.estado == 'vencida' %}
+                                    {% if not cuota.hay_cuotas_anteriores_pendientes %}
+                                        <button class="btn btn-primary btn-sm" onclick="mostrarModalPago({{ cuota.id }})">
+                                            Pagar Cuota
+                                        </button>
+                                    {% else %}
+                                        <button class="btn btn-secondary btn-sm" disabled title="Debe pagar las cuotas anteriores primero">
+                                            Pagar Cuota
+                                        </button>
+                                    {% endif %}
+                                {% else %}
+                                    <button class="btn btn-info btn-sm" onclick="verRecibo({{ cuota.movimiento.id }})">
+                                        Ver Recibo
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Pago -->
+<div class="modal fade" id="modalPago" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Pagar Cuota</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formPago" method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" id="cuota_id" name="cuota_id">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Monto Base</label>
+                            <input type="text" class="form-control" id="monto_base" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Recargo por Mora</label>
+                            <input type="text" class="form-control" id="recargo_mora" readonly>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">Total a Pagar</label>
+                            <input type="text" class="form-control form-control-lg bg-light" id="total_pagar" readonly>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Efectivo</label>
+                            <input type="text" class="form-control" name="monto_efectivo" id="monto_efectivo" value="0">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Tarjeta</label>
+                            <input type="text" class="form-control" name="monto_tarjeta" id="monto_tarjeta" value="0">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Depósito Galicia</label>
+                            <input type="text" class="form-control" name="monto_deposito_galicia" id="monto_deposito_galicia" value="0">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Mercado Pago</label>
+                            <input type="text" class="form-control" name="monto_deposito_mp" id="monto_deposito_mp" value="0">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="procesarPago()">Procesar Pago</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let modalPago;
+let cuotaActual = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    modalPago = new bootstrap.Modal(document.getElementById('modalPago'));
+});
+
+function mostrarModalPago(cuotaId) {
+    fetch(`/api/cuota/${cuotaId}/`)
+        .then(response => response.json())
+        .then(data => {
+            cuotaActual = data;
+            document.getElementById('cuota_id').value = cuotaId;
+            document.getElementById('monto_base').value = formatearPrecio(data.monto_base);
+            document.getElementById('recargo_mora').value = formatearPrecio(data.recargo_mora);
+            document.getElementById('total_pagar').value = formatearPrecio(data.monto_total);
+            modalPago.show();
+        });
+}
+
+function procesarPago() {
+    const formData = new FormData(document.getElementById('formPago'));
+    
+    fetch(`/contratos/cuota/${cuotaActual.id}/pagar/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            modalPago.hide();
+            window.location.href = data.redirect_url;
+        } else {
+            alert('Error: ' + data.error);
+        }
+    });
+}
+
+function verRecibo(movimientoId) {
+    window.location.href = `/caja/ver-recibo/${movimientoId}/`;
+}
+
+function formatearPrecio(valor) {
+    return new Intl.NumberFormat('es-AR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(valor);
+}
+
+// Formatear inputs de montos en tiempo real
+document.querySelectorAll('input[id^="monto_"]').forEach(input => {
+    input.addEventListener('input', function() {
+        let valor = this.value.replace(/\D/g, '');
+        if (valor) {
+            valor = parseInt(valor, 10);
+            this.value = formatearPrecio(valor);
+        }
+    });
+});
+</script>
+{% endblock %} 

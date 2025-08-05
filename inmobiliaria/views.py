@@ -15,7 +15,7 @@ from .models import (
     Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, 
     Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, 
     AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal,
-    TipoMovimientoCajaEnum, ContratoAlquiler
+    TipoMovimientoCajaEnum, ContratoAlquiler, CuotaMensual
 )
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 
 import traceback  # Agregada esta importación
 from django.utils import timezone
+from dateutil.relativedelta import relativedelta
 
 # index view
 def index(request):
@@ -4651,7 +4652,6 @@ def procesar_operacion_contrato(request, contrato_id):
             def limpiar_valor_monetario(valor_str):
                 if not valor_str or valor_str.strip() == '':
                     return Decimal('0')
-                # Eliminar puntos de miles y reemplazar coma por punto
                 valor_limpio = valor_str.replace('.', '').replace(',', '.')
                 try:
                     return Decimal(valor_limpio)
@@ -4668,10 +4668,16 @@ def procesar_operacion_contrato(request, contrato_id):
             monto_deposito_galicia = limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0'))
             monto_deposito_mp = limpiar_valor_monetario(request.POST.get('monto_deposito_mp', '0'))
             
-            total_movimiento = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito_galicia + monto_deposito_mp
+            total_movimiento = (monto_efectivo + monto_cheque + monto_tarjeta + 
+                              monto_deposito_galicia + monto_deposito_mp)
             
-            if total_movimiento <= 0:
-                return JsonResponse({'error': 'El monto total debe ser mayor a 0'}, status=400)
+            # El total debe ser igual al depósito de garantía más el primer mes
+            total_esperado = contrato.deposito_garantia + contrato.precio_mensual
+            
+            if total_movimiento != total_esperado:
+                return JsonResponse({
+                    'error': f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
+                }, status=400)
             
             # Crear movimiento de caja
             movimiento = MovimientoCaja.objects.create(
@@ -4697,16 +4703,23 @@ def procesar_operacion_contrato(request, contrato_id):
             
             movimiento.save()
             
-            # Procesar conceptos
-            conceptos_count = int(request.POST.get('conceptos_count', 0))
-            for i in range(conceptos_count):
-                concepto_id = request.POST.get(f'concepto_{i}_id')
-                concepto_nombre = request.POST.get(f'concepto_{i}_nombre')
-                concepto_importe = limpiar_valor_monetario(request.POST.get(f'concepto_{i}_importe', '0'))
-                
-                if concepto_id and concepto_importe > 0:
-                    # Aquí puedes guardar los conceptos si es necesario
-                    pass
+            # Crear las cuotas mensuales
+            fecha_vencimiento = contrato.fecha_inicio
+            for i in range(contrato.duracion_meses):
+                CuotaMensual.objects.create(
+                    contrato=contrato,
+                    numero_cuota=i + 1,
+                    fecha_vencimiento=fecha_vencimiento,
+                    monto_base=contrato.precio_mensual,
+                    monto_total=contrato.precio_mensual,
+                    # La primera cuota ya está pagada con este movimiento
+                    estado='pagada' if i == 0 else 'pendiente',
+                    # Asociar el movimiento solo a la primera cuota
+                    movimiento=movimiento if i == 0 else None,
+                    fecha_pago=timezone.now().date() if i == 0 else None
+                )
+                # Calcular próximo vencimiento
+                fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
             return JsonResponse({
                 'success': True,
@@ -4715,4 +4728,140 @@ def procesar_operacion_contrato(request, contrato_id):
             
     except Exception as e:
         print("Error al procesar operación:", str(e))
+        return JsonResponse({'error': str(e)}, status=400)
+
+@login_required
+def ver_cuotas_contrato(request, contrato_id):
+    """Vista para ver todas las cuotas de un contrato"""
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    cuotas = contrato.cuotas.all().order_by('numero_cuota')
+    
+    # Marcar cuotas vencidas
+    hoy = timezone.now().date()
+    for cuota in cuotas:
+        if cuota.estado == 'pendiente' and cuota.fecha_vencimiento < hoy:
+            cuota.estado = 'vencida'
+            cuota.save()
+        
+        # Verificar si hay cuotas anteriores pendientes
+        cuota.hay_cuotas_anteriores_pendientes = cuotas.filter(
+            numero_cuota__lt=cuota.numero_cuota,
+            estado__in=['pendiente', 'vencida']
+        ).exists()
+    
+    return render(request, 'inmobiliaria/contratos/cuotas.html', {
+        'contrato': contrato,
+        'cuotas': cuotas
+    })
+
+@login_required
+def api_cuota_detalle(request, cuota_id):
+    """API para obtener detalles de una cuota"""
+    cuota = get_object_or_404(CuotaMensual, id=cuota_id, contrato__sucursal=request.user.sucursal)
+    
+    # Calcular recargo por mora si aplica
+    if cuota.estado in ['pendiente', 'vencida'] and cuota.fecha_vencimiento < timezone.now().date():
+        cuota.recargo_mora = cuota.calcular_mora()
+        cuota.actualizar_monto_total()
+        cuota.save()
+    
+    return JsonResponse({
+        'id': cuota.id,
+        'numero_cuota': cuota.numero_cuota,
+        'monto_base': float(cuota.monto_base),
+        'recargo_mora': float(cuota.recargo_mora),
+        'monto_total': float(cuota.monto_total)
+    })
+
+@login_required
+def pagar_cuota(request, cuota_id):
+    """Vista para procesar el pago de una cuota"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    
+    try:
+        with transaction.atomic():
+            cuota = get_object_or_404(CuotaMensual, 
+                                    id=cuota_id, 
+                                    contrato__sucursal=request.user.sucursal,
+                                    estado__in=['pendiente', 'vencida'])
+            
+            # Verificar que no haya cuotas anteriores pendientes
+            if cuota.contrato.cuotas.filter(
+                numero_cuota__lt=cuota.numero_cuota,
+                estado__in=['pendiente', 'vencida']
+            ).exists():
+                return JsonResponse({'error': 'Hay cuotas anteriores pendientes'}, status=400)
+            
+            # Obtener caja abierta
+            caja_abierta = Caja.objects.filter(
+                sucursal=request.user.sucursal, 
+                estado='abierta'
+            ).first()
+            
+            if not caja_abierta:
+                return JsonResponse({'error': 'No hay caja abierta'}, status=400)
+            
+            # Función auxiliar para limpiar valores monetarios
+            def limpiar_valor_monetario(valor_str):
+                if not valor_str or valor_str.strip() == '':
+                    return Decimal('0')
+                valor_limpio = valor_str.replace('.', '').replace(',', '.')
+                try:
+                    return Decimal(valor_limpio)
+                except:
+                    return Decimal('0')
+            
+            # Extraer montos del formulario
+            monto_efectivo = limpiar_valor_monetario(request.POST.get('monto_efectivo', '0'))
+            monto_cheque = limpiar_valor_monetario(request.POST.get('monto_cheque', '0'))
+            monto_tarjeta = limpiar_valor_monetario(request.POST.get('monto_tarjeta', '0'))
+            monto_deposito_galicia = limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0'))
+            monto_deposito_mp = limpiar_valor_monetario(request.POST.get('monto_deposito_mp', '0'))
+            
+            total_pagado = (monto_efectivo + monto_cheque + monto_tarjeta + 
+                          monto_deposito_galicia + monto_deposito_mp)
+            
+            if total_pagado != cuota.monto_total:
+                return JsonResponse({
+                    'error': f'El monto pagado (${total_pagado}) no coincide con el total de la cuota (${cuota.monto_total})'
+                }, status=400)
+            
+            # Crear movimiento de caja
+            movimiento = MovimientoCaja.objects.create(
+                caja=caja_abierta,
+                tipo='INGRESO',
+                concepto=f'Cuota {cuota.numero_cuota}/{cuota.contrato.duracion_meses} - {cuota.contrato.propiedad.direccion}',
+                monto_efectivo=monto_efectivo,
+                monto_cheque=monto_cheque,
+                monto_tarjeta=monto_tarjeta,
+                fecha=timezone.now(),
+                empleado=request.user,
+                sucursal=request.user.sucursal,
+                propiedad=cuota.contrato.propiedad
+            )
+            
+            # Si hay depósitos bancarios, guardarlos
+            if monto_deposito_galicia > 0:
+                movimiento.destino_deposito = 'galicia'
+                movimiento.monto_deposito = monto_deposito_galicia
+            elif monto_deposito_mp > 0:
+                movimiento.destino_deposito = 'mp'
+                movimiento.monto_deposito = monto_deposito_mp
+            
+            movimiento.save()
+            
+            # Actualizar cuota
+            cuota.fecha_pago = timezone.now().date()
+            cuota.estado = 'pagada_con_mora' if cuota.recargo_mora > 0 else 'pagada'
+            cuota.movimiento = movimiento
+            cuota.save()
+            
+            return JsonResponse({
+                'success': True,
+                'redirect_url': reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
+            })
+            
+    except Exception as e:
+        print("Error al procesar pago de cuota:", str(e))
         return JsonResponse({'error': str(e)}, status=400)
