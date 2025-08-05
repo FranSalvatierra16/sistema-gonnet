@@ -4830,6 +4830,28 @@ def procesar_operacion_contrato(request, contrato_id):
         contrato = get_object_or_404(ContratoAlquiler, id=contrato_id)
         tipo_operacion = request.POST.get('tipo_operacion', '')
         
+        # Obtener el nuevo precio mensual si se proporcionó
+        nuevo_precio_mensual = request.POST.get('nuevo_precio_mensual')
+        if nuevo_precio_mensual:
+            try:
+                nuevo_precio_mensual = Decimal(nuevo_precio_mensual.replace('.', '').replace(',', '.'))
+                # Actualizar el precio del contrato
+                contrato.precio_mensual = nuevo_precio_mensual
+                contrato.save()
+                
+                # Actualizar el monto de las cuotas pendientes
+                CuotaMensual.objects.filter(
+                    contrato=contrato,
+                    estado='pendiente'
+                ).update(
+                    monto_base=nuevo_precio_mensual,
+                    monto_total=nuevo_precio_mensual
+                )
+            except (ValueError, InvalidOperation):
+                return JsonResponse({
+                    'error': 'El precio mensual proporcionado no es válido'
+                }, status=400)
+        
         # Validar que la operación principal no se haya realizado ya
         if tipo_operacion == 'principal' and contrato.operacion_principal:
             return JsonResponse({
@@ -4885,6 +4907,12 @@ def procesar_operacion_contrato(request, contrato_id):
                 return JsonResponse({
                     'error': 'No hay cuotas pendientes para pagar'
                 }, status=400)
+            
+            # Actualizar el monto de la cuota si cambió el precio
+            if nuevo_precio_mensual:
+                cuota.monto_base = nuevo_precio_mensual
+                cuota.monto_total = nuevo_precio_mensual
+                cuota.save()
             
             total_esperado = cuota.monto_total
             mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al valor de la cuota (${cuota.monto_total})'

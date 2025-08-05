@@ -51,8 +51,8 @@
                                 <label><strong>Precio Mensual:</strong></label>
                                 <input type="text" class="form-control" id="precio_mensual" name="precio_mensual" 
                                        value="{{ contrato.precio_mensual|format_price }}" 
-                                       onchange="formatearNumeroEnTiempoReal(this)" 
-                                       oninput="formatearNumeroEnTiempoReal(this)">
+                                       onchange="formatearNumeroEnTiempoReal(this); actualizarTotalEsperado()" 
+                                       oninput="formatearNumeroEnTiempoReal(this); actualizarTotalEsperado()">
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -606,6 +606,10 @@ function procesarOperacion() {
     // Preparar datos
     const formData = new FormData(document.getElementById('formOperacionContrato'));
     
+    // Agregar el nuevo precio mensual
+    const nuevoPrecioMensual = parsearValorFormateado(document.getElementById('precio_mensual').value);
+    formData.append('nuevo_precio_mensual', nuevoPrecioMensual);
+    
     // Agregar conceptos
     conceptosAgregados.forEach((concepto, index) => {
         formData.append(`concepto_${index}_id`, concepto.conceptoId);
@@ -636,6 +640,27 @@ function procesarOperacion() {
         console.error('Error:', error);
         alert('❌ Error al procesar la operación');
     });
+}
+
+// Función para actualizar el total esperado
+function actualizarTotalEsperado() {
+    const precioMensual = parsearValorFormateado(document.getElementById('precio_mensual').value);
+    let totalEsperado = 0;
+
+    if ('{{ tipo_operacion }}' === 'principal') {
+        const depositoGarantia = parsearValorFormateado(document.getElementById('deposito_garantia').value);
+        totalEsperado = precioMensual + depositoGarantia;
+    } else {
+        totalEsperado = precioMensual;
+    }
+
+    document.getElementById('totalRecibo').value = totalEsperado;
+    document.getElementById('totalOperacion').textContent = totalEsperado.toLocaleString('es-AR');
+    
+    // Habilitar/deshabilitar botón según la diferencia
+    const totalPagos = calcularTotalPagos();
+    const diferencia = totalPagos - totalEsperado;
+    habilitarBotonProcesar(diferencia === 0 && totalEsperado > 0);
 }
 
 // Función para buscar concepto por ID
