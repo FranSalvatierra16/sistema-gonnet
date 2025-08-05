@@ -4611,8 +4611,8 @@ def lista_contratos(request):
         if estado_cuota == 'pendiente':
             contratos = contratos.filter(
                 cuotas__estado='pendiente',
-                cuotas__fecha_vencimiento__year=timezone.now().year,
-                cuotas__fecha_vencimiento__month=timezone.now().month
+                cuotas__fecha_vencimiento__year=mes_filtro.year,
+                cuotas__fecha_vencimiento__month=mes_filtro.month
             ).distinct()
         else:
             contratos = contratos.filter(cuotas__estado=estado_cuota).distinct()
@@ -4632,14 +4632,13 @@ def lista_contratos(request):
     
     # Obtener estadísticas
     total_contratos = contratos.count()
-    contratos_al_dia = contratos.annotate(
-        cuotas_pendientes=Count(
-            Case(
-                When(cuotas__estado__in=['pendiente', 'vencida'], then=1),
-                output_field=IntegerField(),
-            )
-        )
-    ).filter(cuotas_pendientes=0).count()
+    
+    # Contratos al día (sin cuotas pendientes en el mes actual/filtrado)
+    contratos_al_dia = contratos.exclude(
+        cuotas__estado='pendiente',
+        cuotas__fecha_vencimiento__year=mes_filtro.year,
+        cuotas__fecha_vencimiento__month=mes_filtro.month
+    ).count()
     
     # Cuotas pendientes del mes actual/filtrado
     cuotas_pendientes = CuotaMensual.objects.filter(
@@ -4741,7 +4740,70 @@ def crear_operacion_contrato(request, contrato_id):
     
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
 
+def obtener_caja_abierta(request):
+    """Obtiene la caja abierta para la sucursal del usuario"""
+    try:
+        return Caja.objects.get(sucursal=request.user.sucursal, estado='abierta')
+    except Caja.DoesNotExist:
+        return None
 
+def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
+    """Procesa los conceptos y crea el movimiento de caja"""
+    try:
+        # Función auxiliar para limpiar valores monetarios
+        def limpiar_valor_monetario(valor_str):
+            if not valor_str or valor_str.strip() == '':
+                return Decimal('0')
+            valor_limpio = valor_str.replace('.', '').replace(',', '.')
+            try:
+                return Decimal(valor_limpio)
+            except:
+                return Decimal('0')
+        
+        # Extraer datos del formulario
+        concepto = request.POST.get('concepto', f'Contrato #{contrato.id} - {contrato.propiedad.direccion}')
+        
+        # Métodos de pago
+        monto_efectivo = limpiar_valor_monetario(request.POST.get('monto_efectivo', '0'))
+        monto_cheque = limpiar_valor_monetario(request.POST.get('monto_cheque', '0'))
+        monto_tarjeta = limpiar_valor_monetario(request.POST.get('monto_tarjeta', '0'))
+        monto_deposito_galicia = limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0'))
+        monto_deposito_mp = limpiar_valor_monetario(request.POST.get('monto_deposito_mp', '0'))
+        
+        total_movimiento = (monto_efectivo + monto_cheque + monto_tarjeta + 
+                          monto_deposito_galicia + monto_deposito_mp)
+        
+        # Crear movimiento de caja
+        movimiento = MovimientoCaja.objects.create(
+            caja=caja,
+            tipo='INGRESO',
+            concepto=concepto,
+            monto_efectivo=monto_efectivo,
+            monto_cheque=monto_cheque,
+            monto_tarjeta=monto_tarjeta,
+            fecha=timezone.now(),
+            empleado=request.user,
+            sucursal=request.user.sucursal,
+            propiedad=contrato.propiedad
+        )
+        
+        # Si hay depósitos bancarios, guardarlos
+        if monto_deposito_galicia > 0:
+            movimiento.destino_deposito = 'galicia'
+            movimiento.monto_deposito = monto_deposito_galicia
+        elif monto_deposito_mp > 0:
+            movimiento.destino_deposito = 'mp'
+            movimiento.monto_deposito = monto_deposito_mp
+        
+        movimiento.save()
+        
+        return movimiento, total_movimiento
+        
+    except Exception as e:
+        print("Error al procesar conceptos:", str(e))
+        return None, 0
+
+@login_required
 @transaction.atomic
 def procesar_operacion_contrato(request, contrato_id):
     """Procesa una operación de contrato (principal o mensual)"""
@@ -4766,8 +4828,8 @@ def procesar_operacion_contrato(request, contrato_id):
             }, status=400)
         
         # Crear el movimiento
-        total_movimiento = procesar_conceptos_y_crear_movimiento(request, caja, contrato)
-        if not total_movimiento:
+        movimiento, total_movimiento = procesar_conceptos_y_crear_movimiento(request, caja, contrato)
+        if not movimiento:
             return JsonResponse({
                 'error': 'Error al procesar el movimiento'
             }, status=400)
@@ -4784,18 +4846,29 @@ def procesar_operacion_contrato(request, contrato_id):
             if fecha_actual.day > contrato.fecha_inicio.day:
                 fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
-            for i in range(contrato.duracion_meses):
+            # Crear solo la primera cuota como pagada
+            CuotaMensual.objects.create(
+                contrato=contrato,
+                numero_cuota=1,
+                fecha_vencimiento=fecha_vencimiento,
+                monto_base=contrato.precio_mensual,
+                monto_total=contrato.precio_mensual,
+                estado='pagada',
+                movimiento=movimiento,
+                fecha_pago=timezone.now().date()
+            )
+            
+            # Crear el resto de las cuotas como pendientes
+            for i in range(1, contrato.duracion_meses):
+                fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
                 CuotaMensual.objects.create(
                     contrato=contrato,
                     numero_cuota=i + 1,
                     fecha_vencimiento=fecha_vencimiento,
                     monto_base=contrato.precio_mensual,
                     monto_total=contrato.precio_mensual,
-                    estado='pagada' if i == 0 else 'pendiente',
-                    movimiento=movimiento if i == 0 else None,
-                    fecha_pago=timezone.now().date() if i == 0 else None
+                    estado='pendiente'
                 )
-                fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
             contrato.operacion_principal = True
             contrato.save()
