@@ -3,779 +3,180 @@
 {% load custom_filters %}
 
 {% block content %}
-<div class="container-fluid">
-    <!-- Encabezado -->
+<div class="container-fluid mt-4 fade-in-up">
+    <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="mb-0">
-            <i class="fas fa-calendar-alt text-primary"></i> Alquileres 24 Meses
-        </h2>
+        <h1 class="text-gradient">
+            <i class="fas fa-building"></i> <strong>Alquileres 24 Meses</strong>
+        </h1>
+        <div class="d-flex gap-2">
+            <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
     </div>
 
     <!-- Filtros -->
-    <div class="card mb-4">
+    <div class="card shadow-modern border-radius-modern mb-4">
         <div class="card-body">
-            <form method="get" class="row g-3">
-                <div class="col-md-6">
-                    <div class="input-group">
-                        <span class="input-group-text">
-                            <i class="fas fa-search"></i>
-                        </span>
-                        <input type="text" class="form-control" name="busqueda" 
-                               placeholder="Buscar por dirección o ficha..." 
-                               value="{{ busqueda }}">
-                    </div>
-                </div>
+            <form method="get" class="row g-3 align-items-end">
                 <div class="col-md-4">
-                    <select class="form-select" name="estado">
-                        <option value="">Todos los estados</option>
-                        {% for value, label in estados %}
-                            <option value="{{ value }}" {% if estado_filtro == value %}selected{% endif %}>
-                                {{ label }}
-                            </option>
+                    <label class="form-label"><i class="fas fa-filter"></i> Estado</label>
+                    <select name="estado" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todos</option>
+                        {% for estado_code, estado_name in estados %}
+                        <option value="{{ estado_code }}" {% if estado_filtro == estado_code %}selected{% endif %}>
+                            {{ estado_name }}
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
+                <div class="col-md-6">
+                    <label class="form-label"><i class="fas fa-search"></i> Buscar</label>
+                    <input type="text" name="busqueda" class="form-control" placeholder="Buscar por dirección..." 
+                           value="{{ busqueda }}">
+                </div>
                 <div class="col-md-2">
                     <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-filter"></i> Filtrar
+                        <i class="fas fa-search"></i> Buscar
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Lista de propiedades -->
-    <div class="row">
+    <!-- Grid de Propiedades -->
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
+        {% for propiedad in propiedades %}
         <div class="col">
-            <div class="card">
+            <div class="card h-100 shadow-modern border-radius-modern property-card">
+                <!-- Carrusel de Imágenes -->
+                <div id="carousel{{ propiedad.id }}" class="carousel slide" data-bs-ride="carousel">
+                    <div class="carousel-inner">
+                        {% if propiedad.imagenes.all %}
+                            {% for imagen in propiedad.imagenes.all %}
+                            <div class="carousel-item {% if forloop.first %}active{% endif %}" style="height: 250px;">
+                                <img src="{{ imagen.imagen.url }}" class="d-block w-100 h-100 object-fit-cover" alt="Imagen {{ forloop.counter }}">
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="carousel-item active" style="height: 250px;">
+                                <img src="{% static 'images/placeholder.jpg' %}" class="d-block w-100 h-100 object-fit-cover" alt="Sin imagen">
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% if propiedad.imagenes.all.count > 1 %}
+                    <button class="carousel-control-prev" type="button" data-bs-target="#carousel{{ propiedad.id }}" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Anterior</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#carousel{{ propiedad.id }}" data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Siguiente</span>
+                    </button>
+                    {% endif %}
+                </div>
+
+                <!-- Estado de la Propiedad -->
+                <div class="position-absolute top-0 end-0 m-3">
+                    {% if propiedad.info_meses.estado == 'disponible' %}
+                        <span class="badge bg-success">Disponible</span>
+                    {% elif propiedad.info_meses.estado == 'reservado' %}
+                        <span class="badge bg-warning text-dark">Reservado</span>
+                    {% else %}
+                        <span class="badge bg-danger">Ocupado</span>
+                    {% endif %}
+                </div>
+
+                <!-- Información de la Propiedad -->
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Ficha</th>
-                                    <th>Dirección</th>
-                                    <th>Sucursal</th>
-                                    <th>Precio Mensual</th>
-                                    <th>Estado</th>
-                                    <th>Expensas</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for propiedad in propiedades %}
-                                <tr>
-                                    <td>#{{ propiedad.id }}</td>
-                                    <td>{{ propiedad.direccion }}</td>
-                                    <td>{{ propiedad.sucursal.nombre }}</td>
-                                    <td>${{ propiedad.info_meses.precio_mensual|format_price }}</td>
-                                    <td>
-                                        <span class="badge {% if propiedad.info_meses.estado == 'disponible' %}bg-success{% else %}bg-warning{% endif %}">
-                                            {{ propiedad.info_meses.get_estado_display }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {% if propiedad.info_meses.precio_expensas %}
-                                            ${{ propiedad.info_meses.precio_expensas|format_price }}
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="btn-group">
-                                            <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" 
-                                               class="btn btn-sm btn-primary">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
-                                            <button type="button" 
-                                                    class="btn btn-sm btn-success"
-                                                    onclick="mostrarModalContrato24Meses({{ propiedad.id }}, '{{ propiedad.direccion|escapejs }}', '{{ propiedad.sucursal.nombre|escapejs }}', {{ propiedad.info_meses.precio_mensual|default:0 }}, {{ propiedad.info_meses.precio_expensas|default:0 }})"
-                                                    {% if propiedad.info_meses.estado != 'disponible' %}disabled{% endif %}>
-                                                <i class="fas fa-calendar-check"></i> Crear Contrato
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="7" class="text-center py-4">
-                                        <div class="alert alert-info mb-0">
-                                            <i class="fas fa-info-circle fa-2x mb-3 d-block"></i>
-                                            <h4>No se encontraron propiedades</h4>
-                                            <p>No hay propiedades en alquiler por 24 meses que coincidan con los criterios de búsqueda.</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    <h5 class="card-title mb-3">
+                        <strong>{{ propiedad.direccion }}</strong>
+                        <small class="text-muted d-block">Ficha #{{ propiedad.id }}</small>
+                    </h5>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted">Precio Mensual</span>
+                            <span class="h5 mb-0 text-success">${{ propiedad.info_meses.precio_mensual|format_price }}</span>
+                        </div>
+                        {% if propiedad.info_meses.precio_expensas %}
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Expensas</span>
+                            <span class="text-primary">${{ propiedad.info_meses.precio_expensas|format_price }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="property-features mb-3">
+                        <span class="badge bg-info me-2">
+                            <i class="fas fa-home"></i> {{ propiedad.get_tipo_inmueble_display }}
+                        </span>
+                        <span class="badge bg-info me-2">
+                            <i class="fas fa-door-open"></i> {{ propiedad.ambientes }} amb.
+                        </span>
+                        {% if propiedad.cochera %}
+                        <span class="badge bg-info me-2">
+                            <i class="fas fa-car"></i> Cochera
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Botones de Acción -->
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-primary" 
+                                onclick="mostrarModalContrato('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}')">
+                            <i class="fas fa-file-contract"></i> Crear Contrato
+                        </button>
+                        <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-info-circle"></i> Ver Detalles
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Modal de Contrato 24 Meses -->
-<div class="modal fade" id="modalContrato24Meses" tabindex="-1" aria-labelledby="modalContrato24MesesLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h4 class="modal-title" id="modalContrato24MesesLabel">
-                    🏠 <strong>Crear Contrato de Alquiler - 24 Meses</strong>
-                </h4>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info text-center">
+                <i class="fas fa-info-circle fa-2x mb-3"></i>
+                <h4>No se encontraron propiedades</h4>
+                <p>No hay propiedades disponibles con los filtros seleccionados.</p>
             </div>
-            <form id="formContrato24Meses" method="post">
-                {% csrf_token %}
-                <input type="hidden" id="propiedad_id" name="propiedad_id">
-                
-                <div class="modal-body">
-                    <div class="row">
-                        <!-- Información de la Propiedad -->
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header bg-success text-white">
-                                    <h5 class="mb-0">🏠 Información de la Propiedad</h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <p><strong>Ficha:</strong> <span id="modal_ficha">-</span></p>
-                                            <p><strong>Dirección:</strong> <span id="modal_direccion">-</span></p>
-                                            <p><strong>Sucursal:</strong> <span id="modal_sucursal">-</span></p>
-                                        </div>
-                                        <div class="col-6">
-                                            <p><strong>Precio Mensual:</strong> <span id="modal_precio_mensual">-</span></p>
-                                            <p><strong>Expensas:</strong> <span id="modal_expensas">-</span></p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Datos del Contrato -->
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header bg-warning text-dark">
-                                    <h5 class="mb-0">📅 Datos del Contrato</h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-4">
-                                            <div class="mb-3">
-                                                <label class="form-label"><strong>📅 Fecha Operación:</strong></label>
-                                                <input type="date" class="form-control" id="fecha_operacion" name="fecha_operacion" required>
-                                            </div>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="mb-3">
-                                                <label class="form-label"><strong>🗓️ Fecha Inicio:</strong></label>
-                                                <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" required>
-                                            </div>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="mb-3">
-                                                <label class="form-label"><strong>🏁 Fecha Fin:</strong></label>
-                                                <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" required>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <div class="mb-3">
-                                                <label class="form-label"><strong>Duración:</strong></label>
-                                                <select class="form-control" id="duracion_meses" name="duracion_meses">
-                                                    <option value="24" selected>24 Meses</option>
-                                                    <option value="12">12 Meses</option>
-                                                    <option value="36">36 Meses</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="col-6">
-                                            <!-- Espacio para otros campos si es necesario -->
-                                        </div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <div class="mb-3">
-                                                <label class="form-label"><strong>Precio Mensual:</strong></label>
-                                                <input type="text" class="form-control" id="precio_mensual_input" name="precio_mensual" required>
-                                            </div>
-                                        </div>
-                                        <div class="col-6">
-                                            <div class="mb-3">
-                                                <label class="form-label"><strong>Depósito de Garantía:</strong></label>
-                                                <input type="text" class="form-control" id="deposito_garantia" name="deposito_garantia" required>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row mt-3">
-                        <!-- Inquilino -->
-                        <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-header bg-info text-white">
-                                    <h5 class="mb-0">👤 Inquilino</h5>
-                                </div>
-                                <div class="card-body">
-                                    <!-- Buscador de Inquilinos -->
-                                    <div class="mb-3">
-                                        <div class="d-flex gap-2 mb-2">
-                                            <input type="text" id="buscar_inquilino_contrato" placeholder="Buscar por nombre o ID del inquilino..." 
-                                                   class="form-control" oninput="buscarInquilinosEnTiempoRealContrato()">
-                                            <button onclick="buscarTodosLosInquilinosContrato()" class="btn btn-primary">🔍 Buscar Todos</button>
-                                            <button onclick="limpiarBusquedaInquilinoContrato()" class="btn btn-warning">🔄 Limpiar</button>
-                                        </div>
-                                        <div id="estado_busqueda_contrato" style="font-size: 14px; color: #666; font-style: italic; min-height: 20px;"></div>
-                                    </div>
-                                    
-                                    <!-- Lista de Inquilinos -->
-                                    <div class="d-flex gap-2">
-                                        <select id="inquilino_contrato" onchange="actualizarInquilinoIdContrato()" size="5" name="inquilino_id" required
-                                                class="form-control" style="max-height: 150px; overflow-y: auto;">
-                                            <option value="">-- Selecciona un inquilino --</option>
-                                            {% for inquilino in inquilinos %}
-                                            <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.nombre|lower }} {{ inquilino.apellido|lower }}" data-id="{{ inquilino.id }}">
-                                                ID: {{ inquilino.id }} - {{ inquilino.nombre }} {{ inquilino.apellido }}
-                                            </option>
-                                            {% endfor %}
-                                        </select>
-                                        <div class="d-flex flex-column gap-2">
-                                            <button onclick="mostrarModalCrearInquilinoContrato()" type="button" class="btn btn-success">➕ Crear Nuevo</button>
-                                            <button onclick="seleccionarPrimerInquilinoContrato()" type="button" class="btn btn-info">📋 Ver Todos</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Vendedor -->
-                        <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-header bg-secondary text-white">
-                                    <h5 class="mb-0">🏢 Vendedor</h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="d-flex gap-2 mb-3">
-                                        <input type="number" id="vendedor_id_contrato" placeholder="Ingresa ID del vendedor" min="1"
-                                               class="form-control" oninput="buscarVendedorAutomaticoContrato()">
-                                        <button onclick="buscarVendedorContrato(event)" type="button" class="btn btn-primary">🔍 Buscar</button>
-                                    </div>
-                                    <input type="hidden" id="modalVendedorIdContrato" name="vendedor_id">
-                                    <div id="vendedor_info_contrato" style="display: none;" class="alert alert-success">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span style="font-size: 24px;">✅</span>
-                                            <div>
-                                                <strong>Vendedor encontrado:</strong>
-                                                <div id="vendedor_nombre_contrato" class="fw-bold" style="color: #000; font-size: 18px;"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Resumen del Contrato -->
-                    <div class="row mt-3">
-                        <div class="col-12">
-                            <div class="card">
-                                <div class="card-header bg-dark text-white">
-                                    <h5 class="mb-0">📋 Resumen del Contrato</h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-3">
-                                            <div class="text-center">
-                                                <h6 class="text-muted">Total de Cuotas</h6>
-                                                <h4 id="total_cuotas" class="text-primary">24</h4>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <div class="text-center">
-                                                <h6 class="text-muted">Precio por Cuota</h6>
-                                                <h4 id="precio_por_cuota" class="text-success">$0</h4>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <div class="text-center">
-                                                <h6 class="text-muted">Total del Contrato</h6>
-                                                <h4 id="total_contrato" class="text-warning">$0</h4>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <div class="text-center">
-                                                <h6 class="text-muted">Depósito de Garantía</h6>
-                                                <h4 id="total_deposito" class="text-info">$0</h4>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        ❌ Cancelar
-                    </button>
-                    <button type="submit" class="btn btn-success btn-lg">
-                        ✅ Crear Contrato de 24 Meses
-                    </button>
-                </div>
-            </form>
         </div>
+        {% endfor %}
     </div>
 </div>
 
-<!-- Estilos adicionales -->
 <style>
-.table td, .table th {
-    vertical-align: middle;
+.property-card {
+    transition: transform 0.2s;
 }
-.btn-group {
-    display: flex;
-    gap: 5px;
+
+.property-card:hover {
+    transform: translateY(-5px);
+}
+
+.property-features .badge {
+    font-size: 0.85rem;
+}
+
+.carousel-item img {
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+}
+
+.shadow-modern {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.border-radius-modern {
+    border-radius: 0.5rem;
+}
+
+.object-fit-cover {
+    object-fit: cover;
 }
 </style>
 
-<!-- Modal para crear nuevo inquilino -->
-<div class="modal fade" id="modalNuevoInquilino" tabindex="-1" aria-labelledby="modalNuevoInquilinoLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-info text-white">
-                <h5 class="modal-title" id="modalNuevoInquilinoLabel">
-                    <i class="fas fa-user-plus"></i> Crear Nuevo Inquilino
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form id="formNuevoInquilino">
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Nombre *</label>
-                                <input type="text" class="form-control" id="inquilino_nombre_nuevo" name="nombre" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Apellido *</label>
-                                <input type="text" class="form-control" id="inquilino_apellido_nuevo" name="apellido" required>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Teléfono</label>
-                                <input type="text" class="form-control" id="inquilino_telefono_nuevo" name="telefono">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Email</label>
-                                <input type="email" class="form-control" id="inquilino_email_nuevo" name="email">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">DNI</label>
-                        <input type="text" class="form-control" id="inquilino_dni_nuevo" name="dni">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-save"></i> Crear Inquilino
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Script para manejar contratos 24 meses -->
-<script>
-// Variable global para el timeout de búsqueda
-let busquedaVendedorTimeout;
-
-// Función principal para mostrar el modal
-function mostrarModalContrato24Meses(propiedadId, direccion, sucursal, precioMensual, expensas) {
-    console.log('🏠 Abriendo modal para contrato 24 meses:', {
-        propiedadId, direccion, sucursal, precioMensual, expensas
-    });
-    
-    // Configurar el formulario
-    const form = document.getElementById('formContrato24Meses');
-            form.action = `{% url 'inmobiliaria:crear_contrato_alquiler' %}`;
-    document.getElementById('propiedad_id').value = propiedadId;
-    
-    // Auto-completar fecha de operación con la fecha actual
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('fecha_operacion').value = today;
-    
-    // ✅ LLENAR INFORMACIÓN DIRECTAMENTE (sin API)
-    document.getElementById('modal_ficha').textContent = `#${propiedadId}`;
-    document.getElementById('modal_direccion').textContent = direccion || 'No especificada';
-    document.getElementById('modal_sucursal').textContent = sucursal || 'No especificada';
-    
-    // Información específica de 24 meses
-    if (precioMensual && precioMensual > 0) {
-        console.log(`💰 Usando datos directos - Precio: ${precioMensual}, Expensas: ${expensas}`);
-        
-        document.getElementById('modal_precio_mensual').textContent = `$${precioMensual.toLocaleString('es-ES')}`;
-        document.getElementById('precio_mensual_input').value = precioMensual.toLocaleString('es-ES');
-        
-        document.getElementById('modal_expensas').textContent = expensas > 0 ? `$${expensas.toLocaleString('es-ES')}` : 'No incluye';
-        
-        // Calcular depósito sugerido (2 meses)
-        const depositoSugerido = precioMensual * 2;
-        document.getElementById('deposito_garantia').value = depositoSugerido.toLocaleString('es-ES');
-        
-        // Actualizar resumen
-        actualizarResumenContrato();
-    } else {
-        console.warn('⚠️ No hay precio mensual, usando valores por defecto');
-        document.getElementById('modal_precio_mensual').textContent = 'No configurado';
-        document.getElementById('modal_expensas').textContent = 'No configurado';
-        
-        // Establecer valores por defecto
-        document.getElementById('precio_mensual_input').value = '50.000';
-        document.getElementById('deposito_garantia').value = '100.000';
-        actualizarResumenContrato();
-    }
-    
-    // Opcional: Intentar obtener más detalles vía API como backup
-    console.log(`🔍 Intentando obtener detalles adicionales de la API como backup...`);
-    
-    fetch(`/inmobiliaria/api/propiedad/${propiedadId}/`)
-        .then(response => response.json())
-        .then(data => {
-            console.log(`📋 Detalles adicionales de la API:`, data);
-            // Solo usamos esto para información adicional, los datos principales ya están cargados
-        })
-        .catch(error => {
-            console.log(`ℹ️ API no disponible, usando datos directos:`, error.message);
-            // No pasa nada, ya tenemos los datos principales
-        });
-    
-    // Establecer fecha mínima (hoy)
-    const hoy = new Date().toISOString().split('T')[0];
-    document.getElementById('fecha_inicio').value = hoy;
-    document.getElementById('fecha_inicio').min = hoy;
-    
-    // Mostrar el modal
-    const modalBootstrap = new bootstrap.Modal(document.getElementById('modalContrato24Meses'));
-    modalBootstrap.show();
-}
-
-// Función para buscar inquilino
-function buscarInquilino() {
-    const inquilinoId = document.getElementById('inquilino_id').value;
-    if (!inquilinoId) {
-        alert('Por favor ingrese un ID de inquilino');
-        return;
-    }
-    
-    console.log(`👤 Buscando inquilino ID: ${inquilinoId}`);
-    
-    fetch(`/inmobiliaria/api/inquilino/${inquilinoId}/`)
-        .then(response => {
-            console.log(`📡 Respuesta API inquilino:`, response.status);
-            return response.json();
-        })
-        .then(data => {
-            console.log(`📊 Datos del inquilino:`, data);
-            if (data.error) {
-                document.getElementById('inquilino_info').style.display = 'none';
-                alert('Inquilino no encontrado');
-            } else {
-                document.getElementById('inquilino_nombre').textContent = `${data.nombre} ${data.apellido}`;
-                document.getElementById('inquilino_info').style.display = 'block';
-            }
-        })
-        .catch(error => {
-            console.error('❌ Error al buscar inquilino:', error);
-            alert(`Error al buscar el inquilino: ${error.message}`);
-        });
-}
-
-// ========================================
-// FUNCIONES PARA VENDEDORES (copiado de buscar_propiedades)
-// ========================================
-
-// Función para buscar vendedor automáticamente
-function buscarVendedorAutomaticoContrato() {
-    const vendedorId = document.getElementById('vendedor_id_contrato').value.trim();
-    const vendedorInfo = document.getElementById('vendedor_info_contrato');
-    
-    // Limpiar el timeout anterior
-    if (busquedaVendedorTimeout) clearTimeout(busquedaVendedorTimeout);
-    
-    // Si no hay ID, ocultar info
-    if (!vendedorId) {
-        vendedorInfo.style.display = 'none';
-        document.getElementById('modalVendedorIdContrato').value = '';
-        return;
-    }
-    
-    // Buscar después de 500ms de no escribir
-    busquedaVendedorTimeout = setTimeout(() => {
-        buscarVendedorContrato();
-    }, 500);
-}
-
-// Función para buscar vendedor
-function buscarVendedorContrato(event) {
-    const vendedorId = document.getElementById('vendedor_id_contrato').value.trim();
-    const vendedorInfo = document.getElementById('vendedor_info_contrato');
-    
-    if (!vendedorId) {
-        alert('❌ Por favor ingresa un ID de vendedor');
-        return;
-    }
-    
-    console.log('🔍 Buscando vendedor con ID:', vendedorId);
-    
-    // Usar la URL correcta de Django
-    fetch(`{% url 'inmobiliaria:obtener_vendedor' '0' %}`.replace('0', vendedorId))
-        .then(response => response.json())
-        .then(data => {
-            console.log('📝 Respuesta COMPLETA del servidor:', JSON.stringify(data, null, 2));
-            
-            if (data.success) {
-                // Vendedor encontrado - mostrar información
-                let nombreVendedor = 'Nombre no disponible';
-                
-                // Probar diferentes formatos de respuesta
-                if (data.nombre) {
-                    nombreVendedor = data.nombre;
-                } else if (data.vendedor && data.vendedor.nombre_completo) {
-                    nombreVendedor = data.vendedor.nombre_completo;
-                } else if (data.vendedor && data.vendedor.nombre) {
-                    nombreVendedor = data.vendedor.nombre;
-                } else if (data.vendedor && data.vendedor.first_name) {
-                    nombreVendedor = data.vendedor.first_name + ' ' + (data.vendedor.last_name || '');
-                }
-                
-                console.log('🎯 Nombre extraído:', nombreVendedor);
-                
-                // Mostrar información del vendedor
-                document.getElementById('vendedor_nombre_contrato').textContent = nombreVendedor;
-                vendedorInfo.style.display = 'block';
-                
-                // Guardar el ID del vendedor en el campo oculto
-                document.getElementById('modalVendedorIdContrato').value = vendedorId;
-                
-                console.log('✅ Vendedor mostrado correctamente');
-            } else {
-                // Vendedor no encontrado
-                document.getElementById('vendedor_nombre_contrato').textContent = '';
-                document.getElementById('modalVendedorIdContrato').value = '';
-                vendedorInfo.style.display = 'none';
-                
-                console.log('❌ Vendedor no encontrado');
-                // Solo mostrar alerta si se presionó el botón buscar manualmente
-                if (event && event.type === 'click') {
-                    alert('❌ Vendedor no encontrado con ID: ' + vendedorId);
-                }
-            }
-        })
-        .catch(error => {
-            console.error('💥 Error al buscar vendedor:', error);
-            document.getElementById('vendedor_nombre_contrato').textContent = '';
-            document.getElementById('modalVendedorIdContrato').value = '';
-            vendedorInfo.style.display = 'none';
-            
-            // Solo mostrar alerta si se presionó el botón buscar manualmente
-            if (event && event.type === 'click') {
-                alert('💥 Error al buscar vendedor. Intenta de nuevo.');
-            }
-        });
-}
-
-// Función para actualizar el resumen del contrato
-function actualizarResumenContrato() {
-    const duracionMeses = parseInt(document.getElementById('duracion_meses').value) || 24;
-    const precioMensualTexto = document.getElementById('precio_mensual_input').value;
-    const depositoTexto = document.getElementById('deposito_garantia').value;
-    
-    // Parsear valores (eliminar puntos y convertir)
-    const precioMensual = parseFloat(precioMensualTexto.replace(/\./g, '')) || 0;
-    const deposito = parseFloat(depositoTexto.replace(/\./g, '')) || 0;
-    
-    const totalContrato = precioMensual * duracionMeses;
-    
-    // Actualizar resumen
-    document.getElementById('total_cuotas').textContent = duracionMeses;
-    document.getElementById('precio_por_cuota').textContent = `$${precioMensual.toLocaleString('es-ES')}`;
-    document.getElementById('total_contrato').textContent = `$${totalContrato.toLocaleString('es-ES')}`;
-    document.getElementById('total_deposito').textContent = `$${deposito.toLocaleString('es-ES')}`;
-}
-
-// Event listeners
-document.addEventListener('DOMContentLoaded', function() {
-    // Actualizar resumen cuando cambien los valores
-    document.getElementById('duracion_meses').addEventListener('change', actualizarResumenContrato);
-    document.getElementById('precio_mensual_input').addEventListener('input', actualizarResumenContrato);
-    document.getElementById('deposito_garantia').addEventListener('input', actualizarResumenContrato);
-    
-    // Formatear números mientras se escriben
-    document.getElementById('precio_mensual_input').addEventListener('input', function(e) {
-        let value = e.target.value.replace(/\./g, '');
-        if (value) {
-            e.target.value = parseInt(value).toLocaleString('es-ES');
-        }
-    });
-    
-    document.getElementById('deposito_garantia').addEventListener('input', function(e) {
-        let value = e.target.value.replace(/\./g, '');
-        if (value) {
-            e.target.value = parseInt(value).toLocaleString('es-ES');
-        }
-    });
-    
-    // Manejar el formulario de nuevo inquilino
-    document.getElementById('formNuevoInquilino').addEventListener('submit', function(e) {
-        e.preventDefault();
-        crearNuevoInquilino();
-    });
-});
-
-// ========================================
-// FUNCIONES PARA INQUILINOS (copiado de buscar_propiedades)
-// ========================================
-
-// Función para buscar inquilinos en tiempo real
-function buscarInquilinosEnTiempoRealContrato() {
-    const busqueda = document.getElementById('buscar_inquilino_contrato').value.toLowerCase();
-    const select = document.getElementById('inquilino_contrato');
-    const estadoBusqueda = document.getElementById('estado_busqueda_contrato');
-    
-    let encontrados = 0;
-    Array.from(select.options).forEach(option => {
-        if (option.value === '') return; // Skip the default option
-        
-        const nombre = option.dataset.nombre || '';
-        const id = option.dataset.id || '';
-        
-        if (nombre.includes(busqueda) || id.includes(busqueda)) {
-            option.style.display = '';
-            encontrados++;
-        } else {
-            option.style.display = 'none';
-        }
-    });
-    
-    estadoBusqueda.textContent = `${encontrados} inquilinos encontrados`;
-}
-
-function buscarTodosLosInquilinosContrato() {
-    const select = document.getElementById('inquilino_contrato');
-    Array.from(select.options).forEach(option => {
-        option.style.display = '';
-    });
-    document.getElementById('estado_busqueda_contrato').textContent = 'Mostrando todos los inquilinos';
-    document.getElementById('buscar_inquilino_contrato').value = '';
-}
-
-function limpiarBusquedaInquilinoContrato() {
-    document.getElementById('buscar_inquilino_contrato').value = '';
-    buscarTodosLosInquilinosContrato();
-}
-
-function actualizarInquilinoIdContrato() {
-    const select = document.getElementById('inquilino_contrato');
-    const inquilinoId = select.value;
-    
-    if (inquilinoId) {
-        const selectedOption = select.options[select.selectedIndex];
-        const nombre = selectedOption.textContent;
-        console.log(`👤 Inquilino seleccionado: ID ${inquilinoId} - ${nombre}`);
-        document.getElementById('estado_busqueda_contrato').textContent = `Seleccionado: ${nombre}`;
-    }
-}
-
-function seleccionarPrimerInquilinoContrato() {
-    const select = document.getElementById('inquilino_contrato');
-    if (select.options.length > 1) {
-        select.selectedIndex = 1; // Seleccionar el primer inquilino (índice 1, ya que 0 es la opción vacía)
-        actualizarInquilinoIdContrato();
-    }
-}
-
-function mostrarModalCrearInquilinoContrato() {
-    const modal = new bootstrap.Modal(document.getElementById('modalNuevoInquilino'));
-    modal.show();
-}
-
-// Función para crear nuevo inquilino
-function crearNuevoInquilino() {
-    const formData = new FormData();
-    formData.append('nombre', document.getElementById('inquilino_nombre_nuevo').value);
-    formData.append('apellido', document.getElementById('inquilino_apellido_nuevo').value);
-    formData.append('telefono', document.getElementById('inquilino_telefono_nuevo').value);
-    formData.append('email', document.getElementById('inquilino_email_nuevo').value);
-    formData.append('dni', document.getElementById('inquilino_dni_nuevo').value);
-    
-    console.log('👤 Creando nuevo inquilino...');
-    
-    fetch('/inmobiliaria/crear-inquilino-ajax/', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('📊 Respuesta crear inquilino:', data);
-        
-        if (data.success) {
-            // Cerrar modal de creación
-            const modal = bootstrap.Modal.getInstance(document.getElementById('modalNuevoInquilino'));
-            modal.hide();
-            
-            // Limpiar formulario
-            document.getElementById('formNuevoInquilino').reset();
-            
-            // Llenar los datos del inquilino en el formulario principal
-            document.getElementById('inquilino_id').value = data.inquilino.id;
-            document.getElementById('inquilino_nombre').textContent = `${data.inquilino.nombre} ${data.inquilino.apellido}`;
-            document.getElementById('inquilino_info').style.display = 'block';
-            
-            alert(`✅ Inquilino creado exitosamente: ${data.inquilino.nombre} ${data.inquilino.apellido}`);
-        } else {
-            alert(`❌ Error al crear inquilino: ${data.error}`);
-        }
-    })
-    .catch(error => {
-        console.error('❌ Error al crear inquilino:', error);
-        alert(`Error al crear inquilino: ${error.message}`);
-    });
-}
-
-// Función para cargar lista de inquilinos
-function cargarListaInquilinos() {
-    console.log('📋 Cargando lista de inquilinos...');
-    
-    fetch('/inmobiliaria/api/inquilinos/')
-        .then(response => response.json())
-        .then(data => {
-            console.log('📊 Lista de inquilinos:', data);
-            // Esta función la implementaremos si necesitas un dropdown
-        })
-        .catch(error => {
-            console.error('❌ Error al cargar inquilinos:', error);
-        });
-}
-</script>
-
+{% include 'inmobiliaria/propiedades/modal_crear_contrato.html' %}
 {% endblock %}
