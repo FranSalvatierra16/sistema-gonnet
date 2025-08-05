@@ -15,7 +15,7 @@ from .models import (
     Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, 
     Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, 
     AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal,
-    TipoMovimientoCajaEnum
+    TipoMovimientoCajaEnum, ContratoAlquiler
 )
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
