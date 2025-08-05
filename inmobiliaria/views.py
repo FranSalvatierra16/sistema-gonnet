@@ -4660,7 +4660,6 @@ def procesar_operacion_contrato(request, contrato_id):
             
             # Extraer datos del formulario
             concepto = request.POST.get('concepto', f'Contrato #{contrato.id} - {contrato.propiedad.direccion}')
-            observaciones = request.POST.get('observaciones', '')
             
             # Métodos de pago
             monto_efectivo = limpiar_valor_monetario(request.POST.get('monto_efectivo', '0'))
@@ -4685,16 +4684,15 @@ def procesar_operacion_contrato(request, contrato_id):
                 fecha=timezone.now(),
                 empleado=request.user,
                 sucursal=request.user.sucursal,
-                propiedad=contrato.propiedad,
-                observacion=observaciones  # Cambiado de observaciones a observacion
+                propiedad=contrato.propiedad
             )
             
             # Si hay depósitos bancarios, guardarlos
             if monto_deposito_galicia > 0:
-                movimiento.destino_deposito = 'Banco Galicia'
+                movimiento.destino_deposito = 'galicia'
                 movimiento.monto_deposito = monto_deposito_galicia
             elif monto_deposito_mp > 0:
-                movimiento.destino_deposito = 'Mercado Pago'
+                movimiento.destino_deposito = 'mp'
                 movimiento.monto_deposito = monto_deposito_mp
             
             movimiento.save()
@@ -4704,7 +4702,6 @@ def procesar_operacion_contrato(request, contrato_id):
             for i in range(conceptos_count):
                 concepto_id = request.POST.get(f'concepto_{i}_id')
                 concepto_nombre = request.POST.get(f'concepto_{i}_nombre')
-                concepto_observaciones = request.POST.get(f'concepto_{i}_observaciones')
                 concepto_importe = limpiar_valor_monetario(request.POST.get(f'concepto_{i}_importe', '0'))
                 
                 if concepto_id and concepto_importe > 0:
