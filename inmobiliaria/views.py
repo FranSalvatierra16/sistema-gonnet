@@ -4580,6 +4580,17 @@ def lista_contratos(request):
         sucursal=request.user.sucursal
     ).select_related('propiedad', 'inquilino', 'vendedor').order_by('-fecha_creacion')
     
+    # Obtener la próxima cuota para cada contrato
+    for contrato in contratos:
+        contrato.proxima_cuota = contrato.cuotas.filter(
+            estado__in=['pendiente', 'vencida']
+        ).order_by('fecha_vencimiento').first()
+        
+        # Marcar cuotas vencidas
+        if contrato.proxima_cuota and contrato.proxima_cuota.fecha_vencimiento < timezone.now().date():
+            contrato.proxima_cuota.estado = 'vencida'
+            contrato.proxima_cuota.save()
+    
     context = {
         'contratos': contratos
     }
@@ -4723,27 +4734,28 @@ def procesar_operacion_contrato(request, contrato_id):
             
             movimiento.save()
             
-            # Crear las cuotas mensuales
-            fecha_vencimiento = contrato.fecha_inicio
-            for i in range(contrato.duracion_meses):
-                CuotaMensual.objects.create(
-                    contrato=contrato,
-                    numero_cuota=i + 1,
-                    fecha_vencimiento=fecha_vencimiento,
-                    monto_base=contrato.precio_mensual,
-                    monto_total=contrato.precio_mensual,  # Solo el precio mensual, sin depósito
-                    # La primera cuota ya está pagada con este movimiento
-                    estado='pagada' if i == 0 else 'pendiente',
-                    # Asociar el movimiento solo a la primera cuota
-                    movimiento=movimiento if i == 0 else None,
-                    fecha_pago=timezone.now().date() if i == 0 else None
-                )
-                # Calcular próximo vencimiento
-                fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
-            
-            # Marcar que ya se realizó la operación principal
-            contrato.operacion_principal = True
-            contrato.save()
+            # Si es operación principal, marcar el contrato
+            if tipo_operacion == 'principal':
+                contrato.operacion_principal = True
+                contrato.save()
+                
+                # Crear las cuotas mensuales
+                fecha_vencimiento = contrato.fecha_inicio
+                for i in range(contrato.duracion_meses):
+                    CuotaMensual.objects.create(
+                        contrato=contrato,
+                        numero_cuota=i + 1,
+                        fecha_vencimiento=fecha_vencimiento,
+                        monto_base=contrato.precio_mensual,
+                        monto_total=contrato.precio_mensual,  # Solo el precio mensual, sin depósito
+                        # La primera cuota ya está pagada con este movimiento
+                        estado='pagada' if i == 0 else 'pendiente',
+                        # Asociar el movimiento solo a la primera cuota
+                        movimiento=movimiento if i == 0 else None,
+                        fecha_pago=timezone.now().date() if i == 0 else None
+                    )
+                    # Calcular próximo vencimiento
+                    fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
             return JsonResponse({
                 'success': True,

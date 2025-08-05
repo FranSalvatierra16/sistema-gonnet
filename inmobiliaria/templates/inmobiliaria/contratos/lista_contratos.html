@@ -75,6 +75,7 @@
                                 <th>Duración</th>
                                 <th>Precio Mensual</th>
                                 <th>Inicio</th>
+                                <th>Próxima Cuota</th>
                                 <th>Estado</th>
                                 <th>Acciones</th>
                             </tr>
@@ -109,6 +110,19 @@
                                     {{ contrato.fecha_inicio|date:"d/m/Y" }}
                                 </td>
                                 <td>
+                                    {% if contrato.proxima_cuota %}
+                                        <div>
+                                            <strong>Cuota {{ contrato.proxima_cuota.numero_cuota }}/{{ contrato.duracion_meses }}</strong>
+                                            <br>
+                                            <small class="text-{% if contrato.proxima_cuota.estado == 'vencida' %}danger{% else %}muted{% endif %}">
+                                                Vence: {{ contrato.proxima_cuota.fecha_vencimiento|date:"d/m/Y" }}
+                                            </small>
+                                        </div>
+                                    {% else %}
+                                        <span class="badge bg-success">Todas las cuotas pagadas</span>
+                                    {% endif %}
+                                </td>
+                                <td>
                                     {% if contrato.estado == 'activo' %}
                                         <span class="badge bg-success">Activo</span>
                                     {% elif contrato.estado == 'finalizado' %}
@@ -123,16 +137,20 @@
                                            class="btn btn-sm btn-primary" title="Ver Detalle">
                                             <i class="fas fa-eye"></i>
                                         </a>
+                                        {% if not contrato.operacion_principal %}
                                         <button class="btn btn-sm btn-warning" 
                                                 onclick="crearOperacionPrincipal({{ contrato.id }}, '{{ contrato.propiedad.direccion|escapejs }}', {{ contrato.deposito_garantia }}, {{ contrato.precio_mensual }})" 
                                                 title="Operación Principal (Depósito)">
                                             <i class="fas fa-home"></i>
                                         </button>
+                                        {% endif %}
+                                        {% if contrato.proxima_cuota %}
                                         <button class="btn btn-sm btn-success" 
                                                 onclick="pagarCuotaMensual({{ contrato.id }}, '{{ contrato.propiedad.direccion|escapejs }}', {{ contrato.precio_mensual }})" 
                                                 title="Pagar Cuota Mensual">
                                             <i class="fas fa-dollar-sign"></i>
                                         </button>
+                                        {% endif %}
                                     </div>
                                 </td>
                             </tr>
