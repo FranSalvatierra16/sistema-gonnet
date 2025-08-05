@@ -4711,7 +4711,7 @@ def procesar_operacion_contrato(request, contrato_id):
                     numero_cuota=i + 1,
                     fecha_vencimiento=fecha_vencimiento,
                     monto_base=contrato.precio_mensual,
-                    monto_total=contrato.precio_mensual,
+                    monto_total=contrato.precio_mensual,  # Solo el precio mensual, sin depósito
                     # La primera cuota ya está pagada con este movimiento
                     estado='pagada' if i == 0 else 'pendiente',
                     # Asociar el movimiento solo a la primera cuota
@@ -4772,9 +4772,9 @@ def api_cuota_detalle(request, cuota_id):
     return JsonResponse({
         'id': cuota.id,
         'numero_cuota': cuota.numero_cuota,
-        'monto_base': float(cuota.monto_base),
+        'monto_base': float(cuota.monto_base),  # Solo el precio mensual
         'recargo_mora': float(cuota.recargo_mora),
-        'monto_total': float(cuota.monto_total)
+        'monto_total': float(cuota.monto_total)  # monto_base + recargo_mora - descuento
     })
 
 @login_required
