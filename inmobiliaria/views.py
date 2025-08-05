@@ -4089,7 +4089,7 @@ def buscar_movimientos(request):
             } if mov.propiedad else None,
             'concepto': {
                 'id': mov.concepto.id,
-                'nombre': mov.concepto.nombre
+                'nombre': movimiento.concepto.nombre
             } if mov.concepto else None
         } for mov in movimientos]
         
@@ -4600,10 +4600,17 @@ def lista_contratos(request):
     else:
         mes_filtro = timezone.now()
     
+    # Crear fechas de inicio y fin del mes
+    inicio_mes = datetime(mes_filtro.year, mes_filtro.month, 1, tzinfo=timezone.get_current_timezone())
+    if mes_filtro.month == 12:
+        fin_mes = datetime(mes_filtro.year + 1, 1, 1, tzinfo=timezone.get_current_timezone())
+    else:
+        fin_mes = datetime(mes_filtro.year, mes_filtro.month + 1, 1, tzinfo=timezone.get_current_timezone())
+    
     # Filtros de cuotas
     filtro_mes = Q(
-        cuotas__fecha_vencimiento__year=mes_filtro.year,
-        cuotas__fecha_vencimiento__month=mes_filtro.month
+        cuotas__fecha_vencimiento__gte=inicio_mes,
+        cuotas__fecha_vencimiento__lt=fin_mes
     )
     
     if estado_cuota:
@@ -4611,8 +4618,8 @@ def lista_contratos(request):
         if estado_cuota == 'pendiente':
             contratos = contratos.filter(
                 cuotas__estado='pendiente',
-                cuotas__fecha_vencimiento__year=mes_filtro.year,
-                cuotas__fecha_vencimiento__month=mes_filtro.month
+                cuotas__fecha_vencimiento__gte=inicio_mes,
+                cuotas__fecha_vencimiento__lt=fin_mes
             ).distinct()
         else:
             contratos = contratos.filter(cuotas__estado=estado_cuota).distinct()
@@ -4633,26 +4640,27 @@ def lista_contratos(request):
     # Obtener estadísticas
     total_contratos = contratos.count()
     
-    # Contratos al día (sin cuotas pendientes en el mes actual/filtrado)
-    contratos_al_dia = contratos.exclude(
-        cuotas__estado='pendiente',
-        cuotas__fecha_vencimiento__year=mes_filtro.year,
-        cuotas__fecha_vencimiento__month=mes_filtro.month
-    ).count()
+    # Contratos al día (cuotas pagadas en el mes actual/filtrado)
+    contratos_al_dia = contratos.filter(
+        cuotas__estado='pagada',
+        cuotas__fecha_vencimiento__gte=inicio_mes,
+        cuotas__fecha_vencimiento__lt=fin_mes
+    ).distinct().count()
     
     # Cuotas pendientes del mes actual/filtrado
     cuotas_pendientes = CuotaMensual.objects.filter(
         contrato__sucursal=request.user.sucursal,
         estado='pendiente',
-        fecha_vencimiento__year=mes_filtro.year,
-        fecha_vencimiento__month=mes_filtro.month
+        fecha_vencimiento__gte=inicio_mes,
+        fecha_vencimiento__lt=fin_mes
     ).count()
     
-    # Cuotas vencidas (solo de meses anteriores)
+    # Cuotas vencidas (del mes actual/filtrado que están vencidas)
     cuotas_vencidas = CuotaMensual.objects.filter(
         contrato__sucursal=request.user.sucursal,
         estado='vencida',
-        fecha_vencimiento__lt=datetime(mes_filtro.year, mes_filtro.month, 1, tzinfo=timezone.get_current_timezone())
+        fecha_vencimiento__gte=inicio_mes,
+        fecha_vencimiento__lt=fin_mes
     ).count()
     
     # Obtener la próxima cuota para cada contrato
@@ -4846,29 +4854,19 @@ def procesar_operacion_contrato(request, contrato_id):
             if fecha_actual.day > contrato.fecha_inicio.day:
                 fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
-            # Crear solo la primera cuota como pagada
-            CuotaMensual.objects.create(
-                contrato=contrato,
-                numero_cuota=1,
-                fecha_vencimiento=fecha_vencimiento,
-                monto_base=contrato.precio_mensual,
-                monto_total=contrato.precio_mensual,
-                estado='pagada',
-                movimiento=movimiento,
-                fecha_pago=timezone.now().date()
-            )
-            
-            # Crear el resto de las cuotas como pendientes
-            for i in range(1, contrato.duracion_meses):
-                fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
+            # Crear las cuotas mensuales
+            for i in range(contrato.duracion_meses):
                 CuotaMensual.objects.create(
                     contrato=contrato,
                     numero_cuota=i + 1,
                     fecha_vencimiento=fecha_vencimiento,
                     monto_base=contrato.precio_mensual,
                     monto_total=contrato.precio_mensual,
-                    estado='pendiente'
+                    estado='pendiente',  # Todas las cuotas empiezan como pendientes
+                    movimiento=None,
+                    fecha_pago=None
                 )
+                fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
             contrato.operacion_principal = True
             contrato.save()
