@@ -32,8 +32,8 @@ class Migration(migrations.Migration):
                 observaciones_apertura LONGTEXT NOT NULL,
                 observaciones_cierre LONGTEXT NOT NULL,
                 CONSTRAINT fk_caja_sucursal FOREIGN KEY (sucursal_id) REFERENCES inmobiliaria_sucursal (id),
-                CONSTRAINT fk_caja_usuario_apertura FOREIGN KEY (usuario_apertura_id) REFERENCES auth_user (id),
-                CONSTRAINT fk_caja_usuario_cierre FOREIGN KEY (usuario_cierre_id) REFERENCES auth_user (id),
+                CONSTRAINT fk_caja_usuario_apertura FOREIGN KEY (usuario_apertura_id) REFERENCES inmobiliaria_vendedor (id),
+                CONSTRAINT fk_caja_usuario_cierre FOREIGN KEY (usuario_cierre_id) REFERENCES inmobiliaria_vendedor (id),
                 CONSTRAINT unique_numero_sucursal UNIQUE (numero, sucursal_id)
             );
             """,
