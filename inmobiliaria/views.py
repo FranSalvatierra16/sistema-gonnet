@@ -4588,18 +4588,27 @@ def lista_contratos(request):
     mes_vencimiento = request.GET.get('mes_vencimiento')
     busqueda = request.GET.get('q')
     
+    # Determinar el mes de filtro (actual o seleccionado)
+    mes_filtro = None
+    if mes_vencimiento:
+        try:
+            mes_filtro = datetime.strptime(mes_vencimiento, '%Y-%m')
+        except ValueError:
+            mes_filtro = timezone.now()
+    else:
+        mes_filtro = timezone.now()
+    
+    # Filtros de cuotas
+    filtro_mes = Q(
+        cuotas__fecha_vencimiento__year=mes_filtro.year,
+        cuotas__fecha_vencimiento__month=mes_filtro.month
+    )
+    
     if estado_cuota:
         contratos = contratos.filter(cuotas__estado=estado_cuota).distinct()
     
     if mes_vencimiento:
-        try:
-            fecha = datetime.strptime(mes_vencimiento, '%Y-%m')
-            contratos = contratos.filter(
-                cuotas__fecha_vencimiento__year=fecha.year,
-                cuotas__fecha_vencimiento__month=fecha.month
-            ).distinct()
-        except ValueError:
-            pass
+        contratos = contratos.filter(filtro_mes).distinct()
     
     if busqueda:
         contratos = contratos.filter(
@@ -4622,14 +4631,19 @@ def lista_contratos(request):
         )
     ).filter(cuotas_pendientes=0).count()
     
+    # Cuotas pendientes del mes actual/filtrado
     cuotas_pendientes = CuotaMensual.objects.filter(
         contrato__sucursal=request.user.sucursal,
-        estado='pendiente'
+        estado='pendiente',
+        fecha_vencimiento__year=mes_filtro.year,
+        fecha_vencimiento__month=mes_filtro.month
     ).count()
     
+    # Cuotas vencidas (solo de meses anteriores)
     cuotas_vencidas = CuotaMensual.objects.filter(
         contrato__sucursal=request.user.sucursal,
-        estado='vencida'
+        estado='vencida',
+        fecha_vencimiento__lt=datetime(mes_filtro.year, mes_filtro.month, 1, tzinfo=timezone.get_current_timezone())
     ).count()
     
     # Obtener la próxima cuota para cada contrato
@@ -4647,7 +4661,7 @@ def lista_contratos(request):
         # Verificar si hay cuotas anteriores pendientes
         contrato.tiene_cuotas_anteriores_pendientes = contrato.cuotas.filter(
             Q(estado__in=['pendiente', 'vencida']) &
-            Q(fecha_vencimiento__lt=timezone.now().date())
+            Q(fecha_vencimiento__lt=contrato.proxima_cuota.fecha_vencimiento if contrato.proxima_cuota else timezone.now().date())
         ).exists()
     
     context = {
@@ -4656,6 +4670,7 @@ def lista_contratos(request):
         'contratos_al_dia': contratos_al_dia,
         'cuotas_pendientes': cuotas_pendientes,
         'cuotas_vencidas': cuotas_vencidas,
+        'mes_actual': mes_filtro.strftime('%B %Y'),
     }
     
     return render(request, 'inmobiliaria/contratos/lista_contratos.html', context)
@@ -4717,117 +4732,82 @@ def crear_operacion_contrato(request, contrato_id):
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
 
 
-@login_required
+@transaction.atomic
 def procesar_operacion_contrato(request, contrato_id):
-    """Procesar la operación de contrato (similar a procesar_movimiento_reserva)"""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Método no permitido'}, status=405)
-    
+    """Procesa una operación de contrato (principal o mensual)"""
     try:
-        with transaction.atomic():
-            contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+        contrato = get_object_or_404(ContratoAlquiler, id=contrato_id)
+        tipo_operacion = request.POST.get('tipo_operacion', '')
+        
+        # Validar que la operación principal no se haya realizado ya
+        if tipo_operacion == 'principal' and contrato.operacion_principal:
+            messages.error(request, 'La operación principal ya fue realizada')
+            return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+        
+        # Procesar el movimiento de caja
+        caja = obtener_caja_abierta(request)
+        if not caja:
+            messages.error(request, 'No hay una caja abierta')
+            return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+        
+        # Crear el movimiento
+        total_movimiento = procesar_conceptos_y_crear_movimiento(request, caja, contrato)
+        if not total_movimiento:
+            return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+        
+        if tipo_operacion == 'principal':
+            total_esperado = contrato.deposito_garantia + contrato.precio_mensual
+            mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
             
-            # Obtener caja abierta
-            caja_abierta = Caja.objects.filter(
-                sucursal=request.user.sucursal, 
-                estado='abierta'
-            ).first()
+            # Crear las cuotas mensuales empezando desde el mes actual
+            fecha_actual = timezone.now().date()
+            fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, contrato.fecha_inicio.day)
             
-            if not caja_abierta:
-                return JsonResponse({'error': 'No hay caja abierta'}, status=400)
+            # Si el día del mes ya pasó, empezar desde el próximo mes
+            if fecha_actual.day > contrato.fecha_inicio.day:
+                fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
-            # Función auxiliar para limpiar valores monetarios
-            def limpiar_valor_monetario(valor_str):
-                if not valor_str or valor_str.strip() == '':
-                    return Decimal('0')
-                valor_limpio = valor_str.replace('.', '').replace(',', '.')
-                try:
-                    return Decimal(valor_limpio)
-                except:
-                    return Decimal('0')
+            for i in range(contrato.duracion_meses):
+                CuotaMensual.objects.create(
+                    contrato=contrato,
+                    numero_cuota=i + 1,
+                    fecha_vencimiento=fecha_vencimiento,
+                    monto_base=contrato.precio_mensual,
+                    monto_total=contrato.precio_mensual,
+                    estado='pagada' if i == 0 else 'pendiente',
+                    movimiento=movimiento if i == 0 else None,
+                    fecha_pago=timezone.now().date() if i == 0 else None
+                )
+                fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
-            # Extraer datos del formulario
-            concepto = request.POST.get('concepto', f'Contrato #{contrato.id} - {contrato.propiedad.direccion}')
+            contrato.operacion_principal = True
+            contrato.save()
+        else:
+            # Procesar pago de cuota mensual
+            cuota = contrato.cuotas.filter(estado='pendiente').order_by('fecha_vencimiento').first()
+            if not cuota:
+                messages.error(request, 'No hay cuotas pendientes para pagar')
+                return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
             
-            # Métodos de pago
-            monto_efectivo = limpiar_valor_monetario(request.POST.get('monto_efectivo', '0'))
-            monto_cheque = limpiar_valor_monetario(request.POST.get('monto_cheque', '0'))
-            monto_tarjeta = limpiar_valor_monetario(request.POST.get('monto_tarjeta', '0'))
-            monto_deposito_galicia = limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0'))
-            monto_deposito_mp = limpiar_valor_monetario(request.POST.get('monto_deposito_mp', '0'))
+            total_esperado = cuota.monto_total
+            mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al valor de la cuota (${cuota.monto_total})'
             
-            total_movimiento = (monto_efectivo + monto_cheque + monto_tarjeta + 
-                              monto_deposito_galicia + monto_deposito_mp)
-            
-            # El total debe ser igual al depósito de garantía más el primer mes solo en operación principal
-            tipo_operacion = request.POST.get('tipo_operacion', '')
-            if tipo_operacion == 'principal':
-                total_esperado = contrato.deposito_garantia + contrato.precio_mensual
-                mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
-            else:
-                total_esperado = contrato.precio_mensual
-                mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al valor de la cuota (${contrato.precio_mensual})'
-            
-            if total_movimiento != total_esperado:
-                return JsonResponse({
-                    'error': mensaje_error
-                }, status=400)
-            
-            # Crear movimiento de caja
-            movimiento = MovimientoCaja.objects.create(
-                caja=caja_abierta,
-                tipo='INGRESO',
-                concepto=concepto,
-                monto_efectivo=monto_efectivo,
-                monto_cheque=monto_cheque,
-                monto_tarjeta=monto_tarjeta,
-                fecha=timezone.now(),
-                empleado=request.user,
-                sucursal=request.user.sucursal,
-                propiedad=contrato.propiedad
-            )
-            
-            # Si hay depósitos bancarios, guardarlos
-            if monto_deposito_galicia > 0:
-                movimiento.destino_deposito = 'galicia'
-                movimiento.monto_deposito = monto_deposito_galicia
-            elif monto_deposito_mp > 0:
-                movimiento.destino_deposito = 'mp'
-                movimiento.monto_deposito = monto_deposito_mp
-            
-            movimiento.save()
-            
-            # Si es operación principal, marcar el contrato
-            if tipo_operacion == 'principal':
-                contrato.operacion_principal = True
-                contrato.save()
-                
-                # Crear las cuotas mensuales
-                fecha_vencimiento = contrato.fecha_inicio
-                for i in range(contrato.duracion_meses):
-                    CuotaMensual.objects.create(
-                        contrato=contrato,
-                        numero_cuota=i + 1,
-                        fecha_vencimiento=fecha_vencimiento,
-                        monto_base=contrato.precio_mensual,
-                        monto_total=contrato.precio_mensual,  # Solo el precio mensual, sin depósito
-                        # La primera cuota ya está pagada con este movimiento
-                        estado='pagada' if i == 0 else 'pendiente',
-                        # Asociar el movimiento solo a la primera cuota
-                        movimiento=movimiento if i == 0 else None,
-                        fecha_pago=timezone.now().date() if i == 0 else None
-                    )
-                    # Calcular próximo vencimiento
-                    fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
-            
-            return JsonResponse({
-                'success': True,
-                'redirect_url': reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
-            })
-            
+            # Actualizar la cuota
+            cuota.estado = 'pagada'
+            cuota.fecha_pago = timezone.now().date()
+            cuota.movimiento = movimiento
+            cuota.save()
+        
+        if total_movimiento != total_esperado:
+            messages.error(request, mensaje_error)
+            return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+        
+        messages.success(request, 'Operación procesada exitosamente')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+        
     except Exception as e:
-        print("Error al procesar operación:", str(e))
-        return JsonResponse({'error': str(e)}, status=400)
+        messages.error(request, f'Error al procesar la operación: {str(e)}')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
 @login_required
 def ver_cuotas_contrato(request, contrato_id):
