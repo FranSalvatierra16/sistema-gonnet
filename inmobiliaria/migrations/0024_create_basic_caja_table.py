@@ -22,7 +22,10 @@ class Migration(migrations.Migration):
                 saldo_inicial decimal(10,2) NOT NULL,
                 saldo_final decimal(10,2) NULL,
                 estado varchar(20) NOT NULL DEFAULT 'abierta',
-                empleado_id bigint NOT NULL,
+                usuario_apertura_id bigint NOT NULL,
+                usuario_cierre_id bigint NULL,
+                observaciones_apertura longtext NOT NULL DEFAULT '',
+                observaciones_cierre longtext NOT NULL DEFAULT '',
                 PRIMARY KEY (id),
                 UNIQUE KEY inmobiliaria_caja_numero_sucursal_id_uniq (numero, sucursal_id)
             );
