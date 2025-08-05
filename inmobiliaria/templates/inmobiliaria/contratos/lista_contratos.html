@@ -20,12 +20,50 @@
         </div>
     </div>
 
+    <!-- Filtros -->
+    <div class="card shadow-modern border-radius-modern mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label"><i class="fas fa-filter"></i> Estado de Cuotas</label>
+                    <select name="estado_cuota" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todos</option>
+                        <option value="pendiente" {% if request.GET.estado_cuota == 'pendiente' %}selected{% endif %}>
+                            Pendientes de Pago
+                        </option>
+                        <option value="vencida" {% if request.GET.estado_cuota == 'vencida' %}selected{% endif %}>
+                            Vencidas
+                        </option>
+                        <option value="pagada" {% if request.GET.estado_cuota == 'pagada' %}selected{% endif %}>
+                            Al Día
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label"><i class="fas fa-calendar"></i> Mes de Vencimiento</label>
+                    <input type="month" name="mes_vencimiento" class="form-control" 
+                           value="{{ request.GET.mes_vencimiento }}" onchange="this.form.submit()">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label"><i class="fas fa-search"></i> Buscar</label>
+                    <input type="text" name="q" class="form-control" placeholder="Inquilino o Dirección..." 
+                           value="{{ request.GET.q }}">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Estadísticas Rápidas -->
     <div class="row mb-4">
         <div class="col-md-3">
             <div class="card bg-primary text-white shadow-modern">
                 <div class="card-body text-center">
-                    <h3>{{ contratos|length }}</h3>
+                    <h3>{{ total_contratos }}</h3>
                     <p class="mb-0">Total Contratos</p>
                 </div>
             </div>
@@ -33,23 +71,23 @@
         <div class="col-md-3">
             <div class="card bg-success text-white shadow-modern">
                 <div class="card-body text-center">
-                    <h3>{{ contratos|length }}</h3>
-                    <p class="mb-0">Activos</p>
+                    <h3>{{ contratos_al_dia }}</h3>
+                    <p class="mb-0">Al Día</p>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card bg-warning text-white shadow-modern">
                 <div class="card-body text-center">
-                    <h3>0</h3>
-                    <p class="mb-0">Vencimientos Hoy</p>
+                    <h3>{{ cuotas_pendientes }}</h3>
+                    <p class="mb-0">Pendientes de Pago</p>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card bg-danger text-white shadow-modern">
                 <div class="card-body text-center">
-                    <h3>0</h3>
+                    <h3>{{ cuotas_vencidas }}</h3>
                     <p class="mb-0">Cuotas Vencidas</p>
                 </div>
             </div>
@@ -144,10 +182,10 @@
                                             <i class="fas fa-home"></i>
                                         </button>
                                         {% endif %}
-                                        {% if contrato.proxima_cuota %}
-                                        <button class="btn btn-sm btn-success" 
+                                        {% if contrato.proxima_cuota and not contrato.tiene_cuotas_anteriores_pendientes %}
+                                        <button class="btn btn-sm btn-success {% if contrato.tiene_cuotas_anteriores_pendientes %}disabled{% endif %}" 
                                                 onclick="pagarCuotaMensual({{ contrato.id }}, '{{ contrato.propiedad.direccion|escapejs }}', {{ contrato.precio_mensual }})" 
-                                                title="Pagar Cuota Mensual">
+                                                title="{% if contrato.tiene_cuotas_anteriores_pendientes %}Hay cuotas anteriores pendientes{% else %}Pagar Cuota Mensual{% endif %}">
                                             <i class="fas fa-dollar-sign"></i>
                                         </button>
                                         {% endif %}
@@ -176,12 +214,10 @@
 
 <script>
 function crearOperacionPrincipal(contratoId, direccion, deposito, precioMensual) {
-    // Ir a la página de crear operación principal
     window.location.href = `/contratos/${contratoId}/operacion/?tipo=principal`;
 }
 
 function pagarCuotaMensual(contratoId, direccion, precioMensual) {
-    // Ir a la página de crear operación mensual
     window.location.href = `/contratos/${contratoId}/operacion/?tipo=mensual`;
 }
 </script>

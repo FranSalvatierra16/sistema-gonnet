@@ -21,7 +21,7 @@ from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm,
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
-from django.db.models import Q, Prefetch, Case, When, IntegerField, Sum, Max, F
+from django.db.models import Q, Prefetch, Case, When, IntegerField, Sum, Max, F, Count
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
 from django.contrib.auth.signals import user_logged_in
@@ -4574,14 +4574,67 @@ def crear_contrato_alquiler(request):
 @login_required
 def lista_contratos(request):
     """Vista para listar todos los contratos de alquiler"""
-    from .models import ContratoAlquiler
+    from .models import ContratoAlquiler, CuotaMensual
+    from django.db.models import Q, Count, Case, When, IntegerField
+    from datetime import datetime
     
+    # Query base
     contratos = ContratoAlquiler.objects.filter(
         sucursal=request.user.sucursal
-    ).select_related('propiedad', 'inquilino', 'vendedor').order_by('-fecha_creacion')
+    ).select_related('propiedad', 'inquilino', 'vendedor')
+    
+    # Aplicar filtros
+    estado_cuota = request.GET.get('estado_cuota')
+    mes_vencimiento = request.GET.get('mes_vencimiento')
+    busqueda = request.GET.get('q')
+    
+    if estado_cuota:
+        contratos = contratos.filter(cuotas__estado=estado_cuota).distinct()
+    
+    if mes_vencimiento:
+        try:
+            fecha = datetime.strptime(mes_vencimiento, '%Y-%m')
+            contratos = contratos.filter(
+                cuotas__fecha_vencimiento__year=fecha.year,
+                cuotas__fecha_vencimiento__month=fecha.month
+            ).distinct()
+        except ValueError:
+            pass
+    
+    if busqueda:
+        contratos = contratos.filter(
+            Q(inquilino__nombre__icontains=busqueda) |
+            Q(inquilino__apellido__icontains=busqueda) |
+            Q(propiedad__direccion__icontains=busqueda)
+        )
+    
+    # Ordenar por fecha de creación
+    contratos = contratos.order_by('-fecha_creacion')
+    
+    # Obtener estadísticas
+    total_contratos = contratos.count()
+    contratos_al_dia = contratos.annotate(
+        cuotas_pendientes=Count(
+            Case(
+                When(cuotas__estado__in=['pendiente', 'vencida'], then=1),
+                output_field=IntegerField(),
+            )
+        )
+    ).filter(cuotas_pendientes=0).count()
+    
+    cuotas_pendientes = CuotaMensual.objects.filter(
+        contrato__sucursal=request.user.sucursal,
+        estado='pendiente'
+    ).count()
+    
+    cuotas_vencidas = CuotaMensual.objects.filter(
+        contrato__sucursal=request.user.sucursal,
+        estado='vencida'
+    ).count()
     
     # Obtener la próxima cuota para cada contrato
     for contrato in contratos:
+        # Obtener la próxima cuota pendiente o vencida
         contrato.proxima_cuota = contrato.cuotas.filter(
             estado__in=['pendiente', 'vencida']
         ).order_by('fecha_vencimiento').first()
@@ -4590,9 +4643,19 @@ def lista_contratos(request):
         if contrato.proxima_cuota and contrato.proxima_cuota.fecha_vencimiento < timezone.now().date():
             contrato.proxima_cuota.estado = 'vencida'
             contrato.proxima_cuota.save()
+        
+        # Verificar si hay cuotas anteriores pendientes
+        contrato.tiene_cuotas_anteriores_pendientes = contrato.cuotas.filter(
+            Q(estado__in=['pendiente', 'vencida']) &
+            Q(fecha_vencimiento__lt=timezone.now().date())
+        ).exists()
     
     context = {
-        'contratos': contratos
+        'contratos': contratos,
+        'total_contratos': total_contratos,
+        'contratos_al_dia': contratos_al_dia,
+        'cuotas_pendientes': cuotas_pendientes,
+        'cuotas_vencidas': cuotas_vencidas,
     }
     
     return render(request, 'inmobiliaria/contratos/lista_contratos.html', context)
