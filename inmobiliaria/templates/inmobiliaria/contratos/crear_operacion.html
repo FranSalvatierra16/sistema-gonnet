@@ -8,150 +8,6 @@
     {% else %}
         Pago Cuota Mensual - Contrato #{{ contrato.id }}
     {% endif %}
-<!-- Modal para Agregar Concepto -->
-<div class="modal fade" id="modalConcepto" tabindex="-1" aria-labelledby="modalConceptoLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="modalConceptoLabel">➕ Agregar Concepto</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="formConcepto">
-                    <!-- Input para ID del concepto -->
-                    <div class="mb-3">
-                        <label for="conceptoId" class="form-label"><strong>ID del Concepto:</strong></label>
-                        <div class="input-group">
-                            <input type="number" class="form-control" id="conceptoId" 
-                                   placeholder="Ingresa el ID del concepto" 
-                                   oninput="buscarConceptoPorId(this.value)" min="1">
-                            <button type="button" class="btn btn-outline-primary" onclick="mostrarModalBuscarConcepto()">
-                                🔍 Buscar
-                            </button>
-                            <button type="button" class="btn btn-success" onclick="mostrarModalNuevoConcepto()">
-                                ➕ Nuevo
-                            </button>
-                        </div>
-                        <small class="text-muted">Al escribir un ID válido, el concepto se cargará automáticamente</small>
-                    </div>
-                    
-                    <!-- Información del concepto seleccionado -->
-                    <div class="mb-3" id="infoConceptoSeleccionado" style="display: none;">
-                        <div class="alert alert-info">
-                            <strong>📋 Concepto seleccionado:</strong><br>
-                            <span id="nombreConceptoSeleccionado"></span>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="observaciones" class="form-label">Observaciones:</label>
-                        <textarea class="form-control" id="observaciones" rows="3" placeholder="Observaciones opcionales..."></textarea>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="importe" class="form-label"><strong>Importe:</strong></label>
-                        <input type="number" class="form-control" id="importe" step="0.01" required placeholder="0.00">
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="agregarConcepto()">✅ Agregar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal para Crear Nuevo Concepto -->
-<div class="modal fade" id="modalNuevoConcepto" tabindex="-1" aria-labelledby="modalNuevoConceptoLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="modalNuevoConceptoLabel">➕ Crear Nuevo Concepto</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="formNuevoConcepto">
-                    <div class="mb-3">
-                        <label for="idNuevoConcepto" class="form-label"><strong>ID del Concepto:</strong></label>
-                        <input type="number" class="form-control" id="idNuevoConcepto" min="1" 
-                               placeholder="Ej: 1, 2, 3, etc.">
-                        <small class="text-muted">💡 Deja vacío para asignar ID automáticamente</small>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="nombreNuevoConcepto" class="form-label"><strong>Nombre del Concepto:</strong></label>
-                        <input type="text" class="form-control" id="nombreNuevoConcepto" required 
-                               placeholder="Ej: Limpieza, Mantenimiento, etc.">
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="crearNuevoConcepto()">✅ Crear Concepto</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal para buscar conceptos -->
-<div class="modal fade" id="modalBuscarConcepto" tabindex="-1" aria-labelledby="modalBuscarConceptoLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-info text-white">
-                <h5 class="modal-title" id="modalBuscarConceptoLabel">🔍 Buscar Concepto</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label for="buscarConceptoTexto" class="form-label"><strong>Buscar por ID o Nombre:</strong></label>
-                    <input type="text" class="form-control" id="buscarConceptoTexto" 
-                           placeholder="Escribe ID o nombre del concepto..." 
-                           oninput="filtrarConceptos(this.value)">
-                    <small class="text-muted">Puedes buscar por ID (número) o por parte del nombre</small>
-                </div>
-                
-                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                    <table class="table table-hover table-striped">
-                        <thead class="table-dark sticky-top">
-                            <tr>
-                                <th width="10%">ID</th>
-                                <th width="40%">Nombre</th>
-                                <th width="35%">Descripción</th>
-                                <th width="15%">Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tablaConceptosBusqueda">
-                            {% for concepto in conceptos %}
-                            <tr data-concepto-id="{{ concepto.id }}" data-concepto-nombre="{{ concepto.nombre|lower }}">
-                                <td><strong>{{ concepto.id }}</strong></td>
-                                <td>{{ concepto.nombre }}</td>
-                                <td><small>{{ concepto.descripcion|default:"Sin descripción" }}</small></td>
-                                <td>
-                                    <button type="button" class="btn btn-sm btn-primary btn-seleccionar-concepto" 
-                                            data-concepto-id="{{ concepto.id }}" 
-                                            data-concepto-nombre="{{ concepto.nombre }}">
-                                        ✅ Seleccionar
-                                    </button>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cerrar</button>
-                <button type="button" class="btn btn-success" onclick="mostrarModalNuevoConcepto(); cerrarModalBuscar();">
-                    ➕ Crear Nuevo Concepto
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-<!-- Asegurarnos de que Bootstrap esté cargado -->
-{% bootstrap_javascript jquery='full' %}
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -173,9 +29,9 @@
                             <h5 class="mb-0">Contrato #{{ contrato.id }} - {{ contrato.propiedad.direccion }}</h5>
                         </div>
                         <div class="col-md-4 text-end">
-                            <p class="mb-1"><strong>Caja:</strong> #{{ caja_actual.numero }}</p>
+                            <p class="mb-1"><strong>Caja:</strong> #{{ caja.numero }}</p>
                             <p class="mb-1"><strong>Sucursal:</strong> {{ contrato.sucursal.nombre }}</p>
-                            <p class="mb-0"><strong>Fecha:</strong> {{ "now"|date:"d/m/Y H:i" }}</p>
+                            <p class="mb-0"><strong>Fecha:</strong> {{ today|date:"d/m/Y H:i" }}</p>
                         </div>
                     </div>
                 </div>
@@ -344,6 +200,148 @@
                     </div>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Agregar Concepto -->
+<div class="modal fade" id="modalConcepto" tabindex="-1" aria-labelledby="modalConceptoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalConceptoLabel">➕ Agregar Concepto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formConcepto">
+                    <!-- Input para ID del concepto -->
+                    <div class="mb-3">
+                        <label for="conceptoId" class="form-label"><strong>ID del Concepto:</strong></label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="conceptoId" 
+                                   placeholder="Ingresa el ID del concepto" 
+                                   oninput="buscarConceptoPorId(this.value)" min="1">
+                            <button type="button" class="btn btn-outline-primary" onclick="mostrarModalBuscarConcepto()">
+                                🔍 Buscar
+                            </button>
+                            <button type="button" class="btn btn-success" onclick="mostrarModalNuevoConcepto()">
+                                ➕ Nuevo
+                            </button>
+                        </div>
+                        <small class="text-muted">Al escribir un ID válido, el concepto se cargará automáticamente</small>
+                    </div>
+                    
+                    <!-- Información del concepto seleccionado -->
+                    <div class="mb-3" id="infoConceptoSeleccionado" style="display: none;">
+                        <div class="alert alert-info">
+                            <strong>📋 Concepto seleccionado:</strong><br>
+                            <span id="nombreConceptoSeleccionado"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="observaciones" class="form-label">Observaciones:</label>
+                        <textarea class="form-control" id="observaciones" rows="3" placeholder="Observaciones opcionales..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="importe" class="form-label"><strong>Importe:</strong></label>
+                        <input type="number" class="form-control" id="importe" step="0.01" required placeholder="0.00">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="agregarConcepto()">✅ Agregar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Crear Nuevo Concepto -->
+<div class="modal fade" id="modalNuevoConcepto" tabindex="-1" aria-labelledby="modalNuevoConceptoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalNuevoConceptoLabel">➕ Crear Nuevo Concepto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formNuevoConcepto">
+                    <div class="mb-3">
+                        <label for="idNuevoConcepto" class="form-label"><strong>ID del Concepto:</strong></label>
+                        <input type="number" class="form-control" id="idNuevoConcepto" min="1" 
+                               placeholder="Ej: 1, 2, 3, etc.">
+                        <small class="text-muted">💡 Deja vacío para asignar ID automáticamente</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="nombreNuevoConcepto" class="form-label"><strong>Nombre del Concepto:</strong></label>
+                        <input type="text" class="form-control" id="nombreNuevoConcepto" required 
+                               placeholder="Ej: Limpieza, Mantenimiento, etc.">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="crearNuevoConcepto()">✅ Crear Concepto</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para buscar conceptos -->
+<div class="modal fade" id="modalBuscarConcepto" tabindex="-1" aria-labelledby="modalBuscarConceptoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="modalBuscarConceptoLabel">🔍 Buscar Concepto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="buscarConceptoTexto" class="form-label"><strong>Buscar por ID o Nombre:</strong></label>
+                    <input type="text" class="form-control" id="buscarConceptoTexto" 
+                           placeholder="Escribe ID o nombre del concepto..." 
+                           oninput="filtrarConceptos(this.value)">
+                    <small class="text-muted">Puedes buscar por ID (número) o por parte del nombre</small>
+                </div>
+                
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-hover table-striped">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th width="10%">ID</th>
+                                <th width="40%">Nombre</th>
+                                <th width="35%">Descripción</th>
+                                <th width="15%">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaConceptosBusqueda">
+                            {% for concepto in conceptos %}
+                            <tr data-concepto-id="{{ concepto.id }}" data-concepto-nombre="{{ concepto.nombre|lower }}">
+                                <td><strong>{{ concepto.id }}</strong></td>
+                                <td>{{ concepto.nombre }}</td>
+                                <td><small>{{ concepto.descripcion|default:"Sin descripción" }}</small></td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-primary btn-seleccionar-concepto" 
+                                            data-concepto-id="{{ concepto.id }}" 
+                                            data-concepto-nombre="{{ concepto.nombre }}">
+                                        ✅ Seleccionar
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cerrar</button>
+                <button type="button" class="btn btn-success" onclick="mostrarModalNuevoConcepto(); cerrarModalBuscar();">
+                    ➕ Crear Nuevo Concepto
+                </button>
+            </div>
         </div>
     </div>
 </div>
