@@ -2791,11 +2791,9 @@ def ventas(request):
 
 @login_required
 def alquileres_24_meses(request):
-    # Filtrar propiedades que tienen info de alquiler por meses y están disponibles
+    # Filtrar propiedades que tienen alquiler por 24 meses activado
     propiedades_meses = Propiedad.objects.filter(
-        info_meses__isnull=False,  # Tiene configuración de 24 meses
-        info_meses__disponible=True,  # Está activado para 24 meses
-        info_meses__precio_mensual__gt=0  # Tiene precio mensual configurado
+        info_meses__disponible=True  # Solo propiedades con alquiler 24 meses activado
     ).select_related(
         'info_meses', 
         'sucursal'
