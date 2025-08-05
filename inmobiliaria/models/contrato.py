@@ -85,7 +85,7 @@ class CuotaMensual(models.Model):
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
     
     # Relación con movimiento de caja
-    movimiento_caja = models.ForeignKey(MovimientoCaja, on_delete=models.SET_NULL, null=True, blank=True)
+    movimiento = models.ForeignKey(MovimientoCaja, on_delete=models.SET_NULL, null=True, blank=True)
     
     class Meta:
         verbose_name = 'Cuota Mensual'
