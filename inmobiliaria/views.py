@@ -1059,6 +1059,11 @@ def buscar_propiedades_reserva(request):
             print(f"Error calculando precio para propiedad {propiedad.id}: {str(e)}")
             propiedad.precio_total_reserva = 0
 
+    # Obtener conceptos para el template
+    conceptos = Concepto.objects.filter(
+        Q(sucursal=sucursal_vendedor) | Q(sucursal__isnull=True)
+    ).order_by('nombre')
+
     return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
         'form': form,
         'propiedades_disponibles': propiedades_disponibles,
@@ -1068,8 +1073,7 @@ def buscar_propiedades_reserva(request):
         'inquilinos': Inquilino.objects.all().order_by('apellido', 'nombre'),
         'vendedores': vendedores,
         'tipos_precio': TipoPrecio,
-        'inquilino_form': inquilino_form,
-        'total_dias': total_dias_reserva,
+        'conceptos': conceptos
     })
 
 @login_required
@@ -4436,6 +4440,11 @@ def buscar_propiedades(request):
         except Exception as e:
             print(f"Error calculando precio para propiedad {propiedad.id}: {str(e)}")
             propiedad.precio_total_reserva = 0
+
+    # Obtener conceptos para el template
+    conceptos = Concepto.objects.filter(
+        Q(sucursal=sucursal_vendedor) | Q(sucursal__isnull=True)
+    ).order_by('nombre')
 
     return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
         'form': form,
