@@ -20,4 +20,18 @@ class Migration(migrations.Migration):
             name='motivo_cancelacion',
             field=models.TextField(blank=True),
         ),
+        migrations.AlterField(
+            model_name='contratoalquiler',
+            name='estado',
+            field=models.CharField(
+                choices=[
+                    ('reservado', 'Reservado'),
+                    ('activo', 'Activo'),
+                    ('finalizado', 'Finalizado'),
+                    ('rescindido', 'Rescindido')
+                ],
+                default='reservado',
+                max_length=20
+            ),
+        ),
     ]
