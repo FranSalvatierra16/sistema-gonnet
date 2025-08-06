@@ -509,6 +509,9 @@
                                                             <i class="fas fa-calendar-plus"></i> Hacer reserva
                                                         </button>
                                                     {% endif %}
+                                                    <button type="button" class="btn btn-warning" onclick="desactivarPropiedad24Meses({{ propiedad.id }})">
+                                                        <i class="fas fa-power-off"></i> Desactivar 24 Meses
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
@@ -516,14 +519,25 @@
                                 </div>
                             {% else %}
                                 <div class="text-center">
-                                    <div class="alert alert-info p-4">
-                                        <i class="fas fa-calendar-alt fa-3x mb-3 d-block"></i>
-                                        <h4>¿Quieres activar el alquiler por 24 meses de esta propiedad?</h4>
-                                        <p>Al activar esta opción, podrás establecer el precio mensual.</p>
-                                        <button type="button" class="btn btn-primary btn-lg mt-3" data-bs-toggle="modal" data-bs-target="#modalMeses">
-                                            <i class="fas fa-check-circle"></i> Sí, activar alquiler por 24 meses
-                                        </button>
-                                    </div>
+                                    {% if propiedad.info_meses and not propiedad.info_meses.disponible %}
+                                        <div class="alert alert-warning p-4">
+                                            <i class="fas fa-exclamation-triangle fa-3x mb-3 d-block"></i>
+                                            <h4>Propiedad desactivada para alquileres de 24 meses</h4>
+                                            <p>Esta propiedad fue desactivada (posiblemente por cancelación de contrato).</p>
+                                            <button type="button" class="btn btn-success btn-lg mt-3" onclick="reactivarPropiedad24Meses({{ propiedad.id }})">
+                                                <i class="fas fa-power-off"></i> Reactivar para 24 Meses
+                                            </button>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-info p-4">
+                                            <i class="fas fa-calendar-alt fa-3x mb-3 d-block"></i>
+                                            <h4>¿Quieres activar el alquiler por 24 meses de esta propiedad?</h4>
+                                            <p>Al activar esta opción, podrás establecer el precio mensual.</p>
+                                            <button type="button" class="btn btn-primary btn-lg mt-3" data-bs-toggle="modal" data-bs-target="#modalMeses">
+                                                <i class="fas fa-check-circle"></i> Sí, activar alquiler por 24 meses
+                                            </button>
+                                        </div>
+                                    {% endif %}
                                 </div>
                             {% endif %}
                         </div>
@@ -1077,6 +1091,56 @@ function openGallery(imageIndex = 0) {
             }
         }
     });
+}
+
+function reactivarPropiedad24Meses(propiedadId) {
+    if (confirm('¿Estás seguro que deseas reactivar esta propiedad para alquileres de 24 meses?')) {
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        fetch(`/propiedades/${propiedadId}/reactivar-24-meses/`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ ¡Propiedad reactivada exitosamente!');
+                location.reload();
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al procesar la solicitud');
+        });
+    }
+}
+
+function desactivarPropiedad24Meses(propiedadId) {
+    if (confirm('¿Estás seguro que deseas desactivar esta propiedad para alquileres de 24 meses?')) {
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        fetch(`/propiedades/${propiedadId}/desactivar-24-meses/`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ ¡Propiedad desactivada exitosamente!');
+                location.reload();
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al procesar la solicitud');
+        });
+    }
 }
 
 // Estilos para las badges y estados

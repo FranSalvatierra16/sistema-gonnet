@@ -4992,8 +4992,9 @@ def cancelar_contrato(request, contrato_id):
         contrato.motivo_cancelacion = motivo
         contrato.save()
         
-        # Marcar la propiedad como disponible
+        # Desactivar la propiedad para 24 meses (disponible = False)
         if hasattr(contrato.propiedad, 'info_meses'):
+            contrato.propiedad.info_meses.disponible = False
             contrato.propiedad.info_meses.estado = 'disponible'
             contrato.propiedad.info_meses.save()
         
@@ -5001,4 +5002,53 @@ def cancelar_contrato(request, contrato_id):
         return JsonResponse({'success': True})
     except Exception as e:
         print(f"Error al cancelar contrato: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=400)
+
+@login_required
+@require_POST
+def reactivar_propiedad_24_meses(request, propiedad_id):
+    """Reactivar una propiedad para alquileres de 24 meses"""
+    try:
+        propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+        
+        if hasattr(propiedad, 'info_meses'):
+            propiedad.info_meses.disponible = True
+            propiedad.info_meses.estado = 'disponible'
+            propiedad.info_meses.save()
+            
+            messages.success(request, f'La propiedad {propiedad.direccion} ha sido reactivada para alquileres de 24 meses')
+            return JsonResponse({'success': True})
+        else:
+            return JsonResponse({'error': 'La propiedad no está configurada para 24 meses'}, status=400)
+            
+    except Exception as e:
+        print(f"Error al reactivar propiedad: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=400)
+
+@login_required
+@require_POST
+def desactivar_propiedad_24_meses(request, propiedad_id):
+    """Desactivar una propiedad para alquileres de 24 meses"""
+    try:
+        propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+        
+        if hasattr(propiedad, 'info_meses'):
+            # Verificar si hay contratos activos
+            contratos_activos = propiedad.contratos.filter(estado__in=['reservado', 'activo']).exists()
+            
+            if contratos_activos:
+                return JsonResponse({
+                    'error': 'No se puede desactivar la propiedad porque tiene contratos activos o reservados'
+                }, status=400)
+            
+            propiedad.info_meses.disponible = False
+            propiedad.info_meses.save()
+            
+            messages.success(request, f'La propiedad {propiedad.direccion} ha sido desactivada para alquileres de 24 meses')
+            return JsonResponse({'success': True})
+        else:
+            return JsonResponse({'error': 'La propiedad no está configurada para 24 meses'}, status=400)
+            
+    except Exception as e:
+        print(f"Error al desactivar propiedad: {str(e)}")
         return JsonResponse({'error': str(e)}, status=400)

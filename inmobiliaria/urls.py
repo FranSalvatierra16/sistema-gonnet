@@ -206,5 +206,7 @@ urlpatterns = [
     path('api/cuota/<int:cuota_id>/', views.api_cuota_detalle, name='api_cuota_detalle'),
     path('contratos/cuota/<int:cuota_id>/pagar/', views.pagar_cuota, name='pagar_cuota'),
     path('contratos/<int:contrato_id>/cancelar/', views.cancelar_contrato, name='cancelar_contrato'),
+    path('propiedades/<int:propiedad_id>/reactivar-24-meses/', views.reactivar_propiedad_24_meses, name='reactivar_propiedad_24_meses'),
+    path('propiedades/<int:propiedad_id>/desactivar-24-meses/', views.desactivar_propiedad_24_meses, name='desactivar_propiedad_24_meses'),
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
