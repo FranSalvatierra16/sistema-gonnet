@@ -4536,7 +4536,7 @@ def crear_contrato_alquiler(request):
             messages.success(request, 'Contrato creado exitosamente')
             return JsonResponse({
                 'success': True,
-                'redirect_url': reverse('inmobiliaria:ver_contrato', args=[contrato.id])
+                'redirect_url': reverse('inmobiliaria:detalle_contrato', args=[contrato.id])
             })
 
         except Exception as e:
@@ -4986,9 +4986,19 @@ def cancelar_contrato(request, contrato_id):
         if not motivo:
             return JsonResponse({'error': 'El motivo de cancelación es requerido'}, status=400)
         
-        contrato.cancelar(motivo)
+        # Cancelar el contrato directamente
+        contrato.estado = 'rescindido'
+        contrato.fecha_cancelacion = timezone.now().date()
+        contrato.motivo_cancelacion = motivo
+        contrato.save()
+        
+        # Marcar la propiedad como disponible
+        if hasattr(contrato.propiedad, 'info_meses'):
+            contrato.propiedad.info_meses.estado = 'disponible'
+            contrato.propiedad.info_meses.save()
         
         messages.success(request, f'El contrato #{contrato.id} ha sido cancelado exitosamente')
         return JsonResponse({'success': True})
     except Exception as e:
+        print(f"Error al cancelar contrato: {str(e)}")
         return JsonResponse({'error': str(e)}, status=400)
