@@ -205,5 +205,6 @@ urlpatterns = [
     path('contratos/<int:contrato_id>/cuotas/', views.ver_cuotas_contrato, name='ver_cuotas_contrato'),
     path('api/cuota/<int:cuota_id>/', views.api_cuota_detalle, name='api_cuota_detalle'),
     path('contratos/cuota/<int:cuota_id>/pagar/', views.pagar_cuota, name='pagar_cuota'),
+    path('contratos/<int:contrato_id>/cancelar/', views.cancelar_contrato, name='cancelar_contrato'),
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

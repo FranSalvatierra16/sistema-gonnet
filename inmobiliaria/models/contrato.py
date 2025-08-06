@@ -28,11 +28,14 @@ class ContratoAlquiler(models.Model):
     
     # Estado del contrato
     ESTADO_CHOICES = [
+        ('reservado', 'Reservado'),
         ('activo', 'Activo'),
         ('finalizado', 'Finalizado'),
         ('rescindido', 'Rescindido')
     ]
-    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='activo')
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='reservado')
+    fecha_cancelacion = models.DateField(null=True, blank=True)
+    motivo_cancelacion = models.TextField(blank=True)
     
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
@@ -60,6 +63,17 @@ class ContratoAlquiler(models.Model):
     def proxima_cuota(self):
         """Devuelve la próxima cuota a pagar"""
         return self.cuotas.filter(estado='pendiente').order_by('fecha_vencimiento').first()
+
+    def cancelar(self, motivo):
+        """Cancela el contrato y marca la propiedad como disponible"""
+        self.estado = 'rescindido'
+        self.fecha_cancelacion = timezone.now().date()
+        self.motivo_cancelacion = motivo
+        self.save()
+        
+        # Marcar la propiedad como disponible
+        self.propiedad.info_meses.estado = 'disponible'
+        self.propiedad.info_meses.save()
 
 # Cuotas mensuales individuales
 class CuotaMensual(models.Model):

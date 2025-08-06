@@ -189,6 +189,13 @@
                                             <i class="fas fa-dollar-sign"></i>
                                         </button>
                                         {% endif %}
+                                        {% if contrato.estado == 'activo' %}
+                                        <button class="btn btn-sm btn-danger" 
+                                                onclick="mostrarModalCancelar({{ contrato.id }}, '{{ contrato.propiedad.direccion|escapejs }}')"
+                                                title="Cancelar Contrato">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                        {% endif %}
                                     </div>
                                 </td>
                             </tr>
@@ -212,6 +219,47 @@
     </div>
 </div>
 
+<!-- Modal de Cancelación -->
+<div class="modal fade" id="modalCancelarContrato" tabindex="-1" aria-labelledby="modalCancelarContratoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalCancelarContratoLabel">
+                    <i class="fas fa-exclamation-triangle"></i> Cancelar Contrato
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formCancelarContrato" method="post">
+                {% csrf_token %}
+                <input type="hidden" id="contrato_id_cancelar" name="contrato_id">
+                
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <strong>¡Atención!</strong> Esta acción no se puede deshacer.
+                    </div>
+                    
+                    <p class="mb-3">¿Estás seguro que deseas cancelar el contrato de la propiedad <strong id="direccion_cancelar"></strong>?</p>
+                    
+                    <div class="form-group">
+                        <label for="motivo_cancelacion" class="form-label">Motivo de la cancelación: <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="motivo_cancelacion" name="motivo" rows="3" required></textarea>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-check"></i> Confirmar Cancelación
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 function crearOperacionPrincipal(contratoId, direccion, deposito, precioMensual) {
     window.location.href = `/contratos/${contratoId}/operacion/?tipo=principal`;
@@ -220,5 +268,48 @@ function crearOperacionPrincipal(contratoId, direccion, deposito, precioMensual)
 function pagarCuotaMensual(contratoId, direccion, precioMensual) {
     window.location.href = `/contratos/${contratoId}/operacion/?tipo=mensual`;
 }
+
+function mostrarModalCancelar(contratoId, direccion) {
+    document.getElementById('contrato_id_cancelar').value = contratoId;
+    document.getElementById('direccion_cancelar').textContent = direccion;
+    
+    const modal = new bootstrap.Modal(document.getElementById('modalCancelarContrato'));
+    modal.show();
+}
+
+document.getElementById('formCancelarContrato').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const contratoId = document.getElementById('contrato_id_cancelar').value;
+    const motivo = document.getElementById('motivo_cancelacion').value;
+    
+    if (!motivo.trim()) {
+        alert('Por favor, ingresa el motivo de la cancelación');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('motivo', motivo);
+    
+    fetch(`/inmobiliaria/contratos/${contratoId}/cancelar/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Error al cancelar el contrato');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al procesar la solicitud');
+    });
+});
 </script>
 {% endblock %} 

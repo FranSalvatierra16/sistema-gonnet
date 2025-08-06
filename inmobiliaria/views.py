@@ -4487,15 +4487,10 @@ def api_vendedor_detalle(request, vendedor_id):
         return JsonResponse({'error': str(e)}, status=404)
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def crear_contrato_alquiler(request):
-    """Vista para crear un nuevo contrato de alquiler"""
     if request.method == 'POST':
         try:
-            from datetime import datetime, timedelta
-            from dateutil.relativedelta import relativedelta
-            from decimal import Decimal
-            from .models import ContratoAlquiler
-            
             # Obtener datos del formulario
             propiedad_id = request.POST.get('propiedad_id')
             inquilino_id = request.POST.get('inquilino_id')
@@ -4504,82 +4499,50 @@ def crear_contrato_alquiler(request):
             fecha_inicio = request.POST.get('fecha_inicio')
             fecha_fin = request.POST.get('fecha_fin')
             duracion_meses = int(request.POST.get('duracion_meses', 24))
-            precio_mensual_str = request.POST.get('precio_mensual', '0').replace('.', '')
-            deposito_garantia_str = request.POST.get('deposito_garantia', '0').replace('.', '')
-            
-            # Validaciones
+            precio_mensual = Decimal(request.POST.get('precio_mensual').replace('.', '').replace(',', '.'))
+            deposito_garantia = Decimal(request.POST.get('deposito_garantia').replace('.', '').replace(',', '.'))
+
+            # Validar datos
             if not all([propiedad_id, inquilino_id, vendedor_id, fecha_operacion, fecha_inicio, fecha_fin]):
-                messages.error(request, 'Todos los campos son obligatorios')
-                return redirect('inmobiliaria:alquileres_24_meses')
-            
-            # Obtener objetos relacionados
+                return JsonResponse({'error': 'Todos los campos son requeridos'}, status=400)
+
+            # Obtener objetos
             try:
-                propiedad = Propiedad.objects.get(id=propiedad_id)  # Ya no filtramos por sucursal
-            except Propiedad.DoesNotExist:
-                messages.error(request, 'La propiedad no existe')
-                return redirect('inmobiliaria:alquileres_24_meses')
-            
-            try:
+                propiedad = Propiedad.objects.get(id=propiedad_id)
                 inquilino = Inquilino.objects.get(id=inquilino_id)
-            except Inquilino.DoesNotExist:
-                messages.error(request, 'El inquilino no existe')
-                return redirect('inmobiliaria:alquileres_24_meses')
-            
-            try:
                 vendedor = Vendedor.objects.get(id=vendedor_id)
-            except Vendedor.DoesNotExist:
-                messages.error(request, 'El vendedor no existe')
-                return redirect('inmobiliaria:alquileres_24_meses')
-            
-            # Convertir valores monetarios
-            precio_mensual = Decimal(precio_mensual_str)
-            deposito_garantia = Decimal(deposito_garantia_str)
-            
-            # Parsear fechas
-            fecha_operacion_obj = datetime.strptime(fecha_operacion, '%Y-%m-%d').date()
-            fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
-            fecha_fin_obj = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
-            
-            print(f"🏠 CREANDO CONTRATO:")
-            print(f"   Propiedad: {propiedad.direccion}")
-            print(f"   Inquilino: {inquilino.nombre} {inquilino.apellido}")
-            print(f"   Vendedor: {vendedor.nombre} {vendedor.apellido}")
-            print(f"   Duración: {duracion_meses} meses")
-            print(f"   Precio mensual: ${precio_mensual}")
-            print(f"   Depósito: ${deposito_garantia}")
-            
+            except (Propiedad.DoesNotExist, Inquilino.DoesNotExist, Vendedor.DoesNotExist) as e:
+                return JsonResponse({'error': f'Error al obtener datos: {str(e)}'}, status=400)
+
             # Crear el contrato
-            with transaction.atomic():
-                contrato = ContratoAlquiler.objects.create(
-                    propiedad=propiedad,
-                    inquilino=inquilino,
-                    vendedor=vendedor,
-                    fecha_operacion=fecha_operacion_obj,
-                    fecha_inicio=fecha_inicio_obj,
-                    fecha_fin=fecha_fin_obj,
-                    duracion_meses=duracion_meses,
-                    precio_mensual=precio_mensual,
-                    deposito_garantia=deposito_garantia,
-                    estado='activo',
-                    sucursal=request.user.sucursal  # La sucursal del contrato será la del usuario que lo crea
-                )
-                
-                print(f"✅ CONTRATO CREADO: ID {contrato.id}")
-                
-                # Actualizar estado de la propiedad (opcional)
-                if hasattr(propiedad, 'info_meses'):
-                    propiedad.info_meses.estado = 'alquilada'
-                    propiedad.info_meses.save()
-                
-                messages.success(request, f'✅ Contrato de {duracion_meses} meses creado exitosamente! Ahora puedes crear operaciones de caja para los pagos.')
-                return redirect('inmobiliaria:lista_contratos')
-                
+            contrato = ContratoAlquiler.objects.create(
+                propiedad=propiedad,
+                inquilino=inquilino,
+                vendedor=vendedor,
+                sucursal=request.user.sucursal,
+                fecha_operacion=fecha_operacion,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=fecha_fin,
+                duracion_meses=duracion_meses,
+                precio_mensual=precio_mensual,
+                deposito_garantia=deposito_garantia,
+                estado='reservado'  # Iniciar en estado reservado
+            )
+
+            # Marcar la propiedad como reservada
+            propiedad.info_meses.estado = 'reservado'
+            propiedad.info_meses.save()
+
+            messages.success(request, 'Contrato creado exitosamente')
+            return JsonResponse({
+                'success': True,
+                'redirect_url': reverse('inmobiliaria:ver_contrato', args=[contrato.id])
+            })
+
         except Exception as e:
-            print(f"❌ ERROR AL CREAR CONTRATO: {str(e)}")
-            messages.error(request, f'Error al crear el contrato: {str(e)}')
-            return redirect('inmobiliaria:alquileres_24_meses')
-    
-    return redirect('inmobiliaria:alquileres_24_meses')
+            return JsonResponse({'error': f'Error al crear el contrato: {str(e)}'}, status=400)
+
+    return render(request, 'inmobiliaria/contratos/crear.html')
 
 @login_required
 def lista_contratos(request):
@@ -4898,8 +4861,9 @@ def procesar_operacion_contrato(request, contrato_id):
                 )
                 fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
-            contrato.operacion_principal = True
-            contrato.save()
+                                        contrato.operacion_principal = True
+                            contrato.estado = 'activo'  # Cambiar estado a activo después de la operación principal
+                            contrato.save()
         else:
             # Procesar pago de cuota mensual
             cuota = contrato.cuotas.filter(estado='pendiente').order_by('fecha_vencimiento').first()
@@ -4918,10 +4882,21 @@ def procesar_operacion_contrato(request, contrato_id):
             mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al valor de la cuota (${cuota.monto_total})'
             
             # Actualizar la cuota
-            cuota.estado = 'pagada'
-            cuota.fecha_pago = timezone.now().date()
-            cuota.movimiento = movimiento
-            cuota.save()
+                                        # Marcar la cuota actual como pagada
+                            cuota.estado = 'pagada'
+                            cuota.fecha_pago = timezone.now().date()
+                            cuota.movimiento = movimiento
+                            cuota.save()
+
+                            # Actualizar fecha de vencimiento de la siguiente cuota
+                            siguiente_cuota = contrato.cuotas.filter(
+                                numero_cuota=cuota.numero_cuota + 1
+                            ).first()
+                            
+                            if siguiente_cuota:
+                                # Calcular nueva fecha de vencimiento (un mes después de la actual)
+                                siguiente_cuota.fecha_vencimiento = cuota.fecha_vencimiento + relativedelta(months=1)
+                                siguiente_cuota.save()
         
         if total_movimiento != total_esperado:
             return JsonResponse({
@@ -4983,88 +4958,58 @@ def api_cuota_detalle(request, cuota_id):
 
 @login_required
 def pagar_cuota(request, cuota_id):
-    """Vista para procesar el pago de una cuota"""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Método no permitido'}, status=405)
-    
     try:
+        cuota = get_object_or_404(CuotaMensual, id=cuota_id)
+        contrato = cuota.contrato
+        
+        # Verificar que no haya cuotas anteriores pendientes
+        cuotas_anteriores = contrato.cuotas.filter(
+            numero_cuota__lt=cuota.numero_cuota,
+            estado='pendiente'
+        ).exists()
+        
+        if cuotas_anteriores:
+            return JsonResponse({
+                'error': 'Hay cuotas anteriores pendientes de pago'
+            }, status=400)
+        
+        # Obtener caja abierta
+        try:
+            caja = Caja.objects.get(sucursal=request.user.sucursal, estado='abierta')
+        except Caja.DoesNotExist:
+            return JsonResponse({
+                'error': 'No hay una caja abierta'
+            }, status=400)
+        
+        # Procesar el pago
         with transaction.atomic():
-            cuota = get_object_or_404(CuotaMensual, 
-                                    id=cuota_id, 
-                                    contrato__sucursal=request.user.sucursal,
-                                    estado__in=['pendiente', 'vencida'])
-            
-            # Verificar que no haya cuotas anteriores pendientes
-            if cuota.contrato.cuotas.filter(
-                numero_cuota__lt=cuota.numero_cuota,
-                estado__in=['pendiente', 'vencida']
-            ).exists():
-                return JsonResponse({'error': 'Hay cuotas anteriores pendientes'}, status=400)
-            
-            # Obtener caja abierta
-            caja_abierta = Caja.objects.filter(
-                sucursal=request.user.sucursal, 
-                estado='abierta'
-            ).first()
-            
-            if not caja_abierta:
-                return JsonResponse({'error': 'No hay caja abierta'}, status=400)
-            
-            # Función auxiliar para limpiar valores monetarios
-            def limpiar_valor_monetario(valor_str):
-                if not valor_str or valor_str.strip() == '':
-                    return Decimal('0')
-                valor_limpio = valor_str.replace('.', '').replace(',', '.')
-                try:
-                    return Decimal(valor_limpio)
-                except:
-                    return Decimal('0')
-            
-            # Extraer montos del formulario
-            monto_efectivo = limpiar_valor_monetario(request.POST.get('monto_efectivo', '0'))
-            monto_cheque = limpiar_valor_monetario(request.POST.get('monto_cheque', '0'))
-            monto_tarjeta = limpiar_valor_monetario(request.POST.get('monto_tarjeta', '0'))
-            monto_deposito_galicia = limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0'))
-            monto_deposito_mp = limpiar_valor_monetario(request.POST.get('monto_deposito_mp', '0'))
-            
-            total_pagado = (monto_efectivo + monto_cheque + monto_tarjeta + 
-                          monto_deposito_galicia + monto_deposito_mp)
-            
-            # Para cuotas mensuales, el total debe ser igual al monto de la cuota
-            if total_pagado != cuota.monto_total:
-                return JsonResponse({
-                    'error': f'El monto pagado (${total_pagado}) no coincide con el total de la cuota (${cuota.monto_total})'
-                }, status=400)
-            
             # Crear movimiento de caja
             movimiento = MovimientoCaja.objects.create(
-                caja=caja_abierta,
+                caja=caja,
                 tipo='INGRESO',
-                concepto=f'Cuota {cuota.numero_cuota}/{cuota.contrato.duracion_meses} - {cuota.contrato.propiedad.direccion}',
-                monto_efectivo=monto_efectivo,
-                monto_cheque=monto_cheque,
-                monto_tarjeta=monto_tarjeta,
+                concepto=f'Cuota {cuota.numero_cuota}/{contrato.duracion_meses} - {contrato.propiedad.direccion}',
+                monto_efectivo=cuota.monto_total,
                 fecha=timezone.now(),
                 empleado=request.user,
                 sucursal=request.user.sucursal,
-                propiedad=cuota.contrato.propiedad
+                propiedad=contrato.propiedad
             )
             
-            # Si hay depósitos bancarios, guardarlos
-            if monto_deposito_galicia > 0:
-                movimiento.destino_deposito = 'galicia'
-                movimiento.monto_deposito = monto_deposito_galicia
-            elif monto_deposito_mp > 0:
-                movimiento.destino_deposito = 'mp'
-                movimiento.monto_deposito = monto_deposito_mp
-            
-            movimiento.save()
-            
-            # Actualizar cuota
+            # Marcar la cuota actual como pagada
+            cuota.estado = 'pagada'
             cuota.fecha_pago = timezone.now().date()
-            cuota.estado = 'pagada_con_mora' if cuota.recargo_mora > 0 else 'pagada'
             cuota.movimiento = movimiento
             cuota.save()
+            
+            # Actualizar fecha de vencimiento de la siguiente cuota
+            siguiente_cuota = contrato.cuotas.filter(
+                numero_cuota=cuota.numero_cuota + 1
+            ).first()
+            
+            if siguiente_cuota:
+                # Calcular nueva fecha de vencimiento (un mes después de la actual)
+                siguiente_cuota.fecha_vencimiento = cuota.fecha_vencimiento + relativedelta(months=1)
+                siguiente_cuota.save()
             
             return JsonResponse({
                 'success': True,
@@ -5073,4 +5018,21 @@ def pagar_cuota(request, cuota_id):
             
     except Exception as e:
         print("Error al procesar pago de cuota:", str(e))
+        return JsonResponse({'error': str(e)}, status=400)
+
+@login_required
+@require_POST
+def cancelar_contrato(request, contrato_id):
+    try:
+        contrato = get_object_or_404(ContratoAlquiler, id=contrato_id)
+        motivo = request.POST.get('motivo', '')
+        
+        if not motivo:
+            return JsonResponse({'error': 'El motivo de cancelación es requerido'}, status=400)
+        
+        contrato.cancelar(motivo)
+        
+        messages.success(request, f'El contrato #{contrato.id} ha sido cancelado exitosamente')
+        return JsonResponse({'success': True})
+    except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
