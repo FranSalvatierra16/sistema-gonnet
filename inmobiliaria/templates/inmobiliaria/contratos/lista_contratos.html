@@ -291,7 +291,7 @@ document.getElementById('formCancelarContrato').addEventListener('submit', funct
     const formData = new FormData();
     formData.append('motivo', motivo);
     
-    fetch(`/inmobiliaria/contratos/${contratoId}/cancelar/`, {
+    fetch(`/contratos/${contratoId}/cancelar/`, {
         method: 'POST',
         body: formData,
         headers: {

@@ -581,6 +581,36 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Manejar el formulario principal de contrato
+    document.getElementById('formContrato').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        fetch(`{% url 'inmobiliaria:crear_contrato_alquiler' %}`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mostrar mensaje de éxito
+                alert('✅ ¡Contrato creado exitosamente!');
+                // Redirigir al dashboard/menú principal
+                window.location.href = '{% url "inmobiliaria:dashboard" %}';
+            } else {
+                alert(`❌ Error al crear contrato: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error al crear contrato:', error);
+            alert(`Error al crear contrato: ${error.message}`);
+        });
+    });
+
     // Manejar el formulario de nuevo inquilino
     document.getElementById('formNuevoInquilino').addEventListener('submit', function(e) {
         e.preventDefault();
