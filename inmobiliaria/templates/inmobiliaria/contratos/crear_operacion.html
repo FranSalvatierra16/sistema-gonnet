@@ -627,6 +627,16 @@ function procesarOperacion() {
         return;
     }
     
+    {% if tipo_operacion == 'principal' %}
+    // Validar día de vencimiento para operación principal
+    const diaVencimiento = document.getElementById('dia_vencimiento').value;
+    if (!diaVencimiento) {
+        alert('⚠️ Debes seleccionar el día de vencimiento mensual');
+        document.getElementById('dia_vencimiento').focus();
+        return;
+    }
+    {% endif %}
+    
     const totalRecibo = parseFloat(document.getElementById('totalRecibo').value || 0);
     const totalPagos = calcularTotalPagos();
     
@@ -646,6 +656,14 @@ function procesarOperacion() {
     // Agregar el nuevo precio mensual
     const nuevoPrecioMensual = parsearValorFormateado(document.getElementById('precio_mensual').value);
     formData.append('nuevo_precio_mensual', nuevoPrecioMensual);
+    
+    // Para operación principal, asegurar que se envíe el día de vencimiento
+    {% if tipo_operacion == 'principal' %}
+    const diaVencimiento = document.getElementById('dia_vencimiento').value;
+    if (diaVencimiento) {
+        formData.append('dia_vencimiento', diaVencimiento);
+    }
+    {% endif %}
     
     // Agregar conceptos
     conceptosAgregados.forEach((concepto, index) => {
