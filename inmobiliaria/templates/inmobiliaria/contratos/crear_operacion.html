@@ -387,6 +387,10 @@
 </div>
 
 <script>
+// Variables de configuración desde Django
+const tipoOperacion = '{{ tipo_operacion }}';
+const contratoId = {{ contrato.id }};
+
 // Variables globales
 let conceptosAgregados = [];
 let contadorConceptos = 0;
@@ -629,15 +633,15 @@ function procesarOperacion() {
         return;
     }
     
-    {% if tipo_operacion == 'principal' %}
     // Validar día de vencimiento para operación principal
-    const diaVencimiento = document.getElementById('dia_vencimiento').value;
-    if (!diaVencimiento) {
-        alert('⚠️ Debes seleccionar el día de vencimiento mensual');
-        document.getElementById('dia_vencimiento').focus();
-        return;
+    if (tipoOperacion === 'principal') {
+        const diaVencimiento = document.getElementById('dia_vencimiento').value;
+        if (!diaVencimiento) {
+            alert('⚠️ Debes seleccionar el día de vencimiento mensual');
+            document.getElementById('dia_vencimiento').focus();
+            return;
+        }
     }
-    {% endif %}
     
     const totalRecibo = parseFloat(document.getElementById('totalRecibo').value || 0);
     const totalPagos = calcularTotalPagos();
@@ -660,12 +664,12 @@ function procesarOperacion() {
     formData.append('nuevo_precio_mensual', nuevoPrecioMensual);
     
     // Para operación principal, asegurar que se envíe el día de vencimiento
-    {% if tipo_operacion == 'principal' %}
-    const diaVencimiento = document.getElementById('dia_vencimiento').value;
-    if (diaVencimiento) {
-        formData.append('dia_vencimiento', diaVencimiento);
+    if (tipoOperacion === 'principal') {
+        const diaVencimiento = document.getElementById('dia_vencimiento').value;
+        if (diaVencimiento) {
+            formData.append('dia_vencimiento', diaVencimiento);
+        }
     }
-    {% endif %}
     
     // Agregar conceptos
     conceptosAgregados.forEach((concepto, index) => {
@@ -677,7 +681,7 @@ function procesarOperacion() {
     });
     
     formData.append('conceptos_count', conceptosAgregados.length);
-    formData.append('tipo_operacion', '{{ tipo_operacion }}');
+    formData.append('tipo_operacion', tipoOperacion);
     
     // Enviar al servidor
     fetch('{% url "inmobiliaria:procesar_operacion_contrato" contrato.id %}', {
