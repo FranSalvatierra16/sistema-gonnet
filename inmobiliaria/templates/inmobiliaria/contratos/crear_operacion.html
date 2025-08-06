@@ -412,9 +412,11 @@ function formatearNumeroEnTiempoReal(input) {
 
 // Función para mostrar el modal de concepto
 function mostrarModalConcepto() {
+    console.log('mostrarModalConcepto llamada');
     const modalElement = document.getElementById('modalConcepto');
     if (!modalElement) {
         console.error('Modal element not found');
+        alert('Error: No se encontró el modal de concepto');
         return;
     }
 
