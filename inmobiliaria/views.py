@@ -4783,96 +4783,69 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         return None, 0
 
 @login_required
-@transaction.atomic
+@require_POST
 def procesar_operacion_contrato(request, contrato_id):
-    """Procesa una operación de contrato (principal o mensual)"""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Método no permitido'}, status=405)
-        
     try:
         contrato = get_object_or_404(ContratoAlquiler, id=contrato_id)
         tipo_operacion = request.POST.get('tipo_operacion', '')
-        
-        # Obtener el nuevo precio mensual si se proporcionó
         nuevo_precio_mensual = request.POST.get('nuevo_precio_mensual')
+        
         if nuevo_precio_mensual:
             try:
                 nuevo_precio_mensual = Decimal(nuevo_precio_mensual.replace('.', '').replace(',', '.'))
-                # Actualizar el precio del contrato
                 contrato.precio_mensual = nuevo_precio_mensual
                 contrato.save()
-                
-                # Actualizar el monto de las cuotas pendientes
                 CuotaMensual.objects.filter(
-                    contrato=contrato,
-                    estado='pendiente'
-                ).update(
-                    monto_base=nuevo_precio_mensual,
-                    monto_total=nuevo_precio_mensual
-                )
+                    contrato=contrato, estado='pendiente'
+                ).update(monto_base=nuevo_precio_mensual, monto_total=nuevo_precio_mensual)
             except (ValueError, InvalidOperation):
-                return JsonResponse({
-                    'error': 'El precio mensual proporcionado no es válido'
-                }, status=400)
+                return JsonResponse({'error': 'El precio mensual proporcionado no es válido'}, status=400)
         
-        # Validar que la operación principal no se haya realizado ya
         if tipo_operacion == 'principal' and contrato.operacion_principal:
-            return JsonResponse({
-                'error': 'La operación principal ya fue realizada'
-            }, status=400)
+            return JsonResponse({'error': 'La operación principal ya fue realizada'}, status=400)
         
-        # Procesar el movimiento de caja
         caja = obtener_caja_abierta(request)
         if not caja:
-            return JsonResponse({
-                'error': 'No hay una caja abierta'
-            }, status=400)
+            return JsonResponse({'error': 'No hay una caja abierta'}, status=400)
         
-        # Crear el movimiento
         movimiento, total_movimiento = procesar_conceptos_y_crear_movimiento(request, caja, contrato)
         if not movimiento:
-            return JsonResponse({
-                'error': 'Error al procesar el movimiento'
-            }, status=400)
+            return JsonResponse({'error': 'Error al procesar el movimiento'}, status=400)
         
         if tipo_operacion == 'principal':
             total_esperado = contrato.deposito_garantia + contrato.precio_mensual
             mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
             
-            # Crear las cuotas mensuales empezando desde el mes actual
             fecha_actual = timezone.now().date()
             fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, contrato.fecha_inicio.day)
-            
-            # Si el día del mes ya pasó, empezar desde el próximo mes
             if fecha_actual.day > contrato.fecha_inicio.day:
                 fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
-            # Crear las cuotas mensuales
             for i in range(contrato.duracion_meses):
                 CuotaMensual.objects.create(
-                    contrato=contrato,
-                    numero_cuota=i + 1,
+                    contrato=contrato, 
+                    numero_cuota=i + 1, 
                     fecha_vencimiento=fecha_vencimiento,
-                    monto_base=contrato.precio_mensual,
+                    monto_base=contrato.precio_mensual, 
                     monto_total=contrato.precio_mensual,
-                    estado='pendiente',  # Todas las cuotas empiezan como pendientes
-                    movimiento=None,
+                    estado='pendiente', 
+                    movimiento=None, 
                     fecha_pago=None
                 )
                 fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
-                                        contrato.operacion_principal = True
-                            contrato.estado = 'activo'  # Cambiar estado a activo después de la operación principal
-                            contrato.save()
+            contrato.operacion_principal = True
+            contrato.estado = 'activo'  # Cambiar estado a activo después de la operación principal
+            contrato.save()
+            
+            # Actualizar estado de la propiedad
+            contrato.propiedad.info_meses.estado = 'alquilada'
+            contrato.propiedad.info_meses.save()
         else:
-            # Procesar pago de cuota mensual
             cuota = contrato.cuotas.filter(estado='pendiente').order_by('fecha_vencimiento').first()
             if not cuota:
-                return JsonResponse({
-                    'error': 'No hay cuotas pendientes para pagar'
-                }, status=400)
+                return JsonResponse({'error': 'No hay cuotas pendientes para pagar'}, status=400)
             
-            # Actualizar el monto de la cuota si cambió el precio
             if nuevo_precio_mensual:
                 cuota.monto_base = nuevo_precio_mensual
                 cuota.monto_total = nuevo_precio_mensual
@@ -4881,37 +4854,20 @@ def procesar_operacion_contrato(request, contrato_id):
             total_esperado = cuota.monto_total
             mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al valor de la cuota (${cuota.monto_total})'
             
-            # Actualizar la cuota
-                                        # Marcar la cuota actual como pagada
-                            cuota.estado = 'pagada'
-                            cuota.fecha_pago = timezone.now().date()
-                            cuota.movimiento = movimiento
-                            cuota.save()
-
-                            # Actualizar fecha de vencimiento de la siguiente cuota
-                            siguiente_cuota = contrato.cuotas.filter(
-                                numero_cuota=cuota.numero_cuota + 1
-                            ).first()
-                            
-                            if siguiente_cuota:
-                                # Calcular nueva fecha de vencimiento (un mes después de la actual)
-                                siguiente_cuota.fecha_vencimiento = cuota.fecha_vencimiento + relativedelta(months=1)
-                                siguiente_cuota.save()
+            cuota.estado = 'pagada'
+            cuota.fecha_pago = timezone.now().date()
+            cuota.movimiento = movimiento
+            cuota.save()
         
         if total_movimiento != total_esperado:
-            return JsonResponse({
-                'error': mensaje_error
-            }, status=400)
+            return JsonResponse({'error': mensaje_error}, status=400)
         
         return JsonResponse({
             'success': True,
             'redirect_url': reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
         })
-        
     except Exception as e:
-        return JsonResponse({
-            'error': f'Error al procesar la operación: {str(e)}'
-        }, status=400)
+        return JsonResponse({'error': f'Error al procesar la operación: {str(e)}'}, status=400)
 
 @login_required
 def ver_cuotas_contrato(request, contrato_id):
