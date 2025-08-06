@@ -1247,7 +1247,11 @@
                         <div class="carousel-inner">
                             {% for imagen in propiedad.imagenes.all %}
                                 <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                    <img src="{{ imagen.imagen.url }}" class="d-block w-100" alt="Imagen de la propiedad" style="height: 300px; object-fit: cover;">
+                                    <img src="{{ imagen.imagen.url }}" 
+                                         class="d-block w-100" 
+                                         alt="Imagen de la propiedad" 
+                                         style="height: 300px; object-fit: cover; cursor: pointer;"
+                                         onclick="abrirGaleriaImagenesReserva({{ propiedad.id }}, {{ forloop.counter0 }})">
                                 </div>
                             {% endfor %}
                         </div>
@@ -1943,8 +1947,8 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
                     <i class="fas fa-check-circle"></i> Finalizar Operación
                 </button>
                 <button type="button" class="btn btn-info" onclick="window.verPrecios()">
-                <i class="fas fa-dollar-sign"></i> Ver Precios
-            </button>
+                    <i class="fas fa-dollar-sign"></i> Ver Precios
+                </button>
             </div>
         `;
     } else {
@@ -1957,8 +1961,8 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
                     <i class="fas fa-check-circle"></i> Operación Directa
                 </button>
                 <button type="button" class="btn btn-info" onclick="window.verPrecios()">
-                <i class="fas fa-dollar-sign"></i> Ver Precios
-            </button>
+                    <i class="fas fa-dollar-sign"></i> Ver Precios
+                </button>
             </div>
         `;
     }
@@ -3334,3 +3338,73 @@ function actualizarTablaPrecios(precios) {
 }
 </script>
 {% endblock extra_js %}
+
+<!-- Modal de Galería de Imágenes para Reservas -->
+<div class="modal fade" id="modalGaleriaImagenesReserva" tabindex="-1" aria-labelledby="modalGaleriaImagenesReservaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white" id="modalGaleriaImagenesReservaLabel">Galería de Imágenes</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="galeriaCarouselReserva" class="carousel slide" data-bs-ride="false">
+                    <div class="carousel-inner" id="galeriaCarouselReservaInner">
+                        <!-- Las imágenes se cargan dinámicamente -->
+                    </div>
+                    <button class="carousel-control-prev" type="button" data-bs-target="#galeriaCarouselReserva" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Anterior</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#galeriaCarouselReserva" data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Siguiente</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let propiedadesImagenesReserva = {};
+
+// Recopilar todas las imágenes de las propiedades disponibles
+{% for propiedad in propiedades_disponibles %}
+    propiedadesImagenesReserva[{{ propiedad.id }}] = [
+        {% for imagen in propiedad.imagenes.all %}
+            {
+                url: "{{ imagen.imagen.url }}",
+                alt: "Imagen {{ forloop.counter }} - {{ propiedad.direccion }}"
+            }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+{% endfor %}
+
+function abrirGaleriaImagenesReserva(propiedadId, imagenIndex) {
+    const imagenes = propiedadesImagenesReserva[propiedadId];
+    if (!imagenes || imagenes.length === 0) return;
+    
+    const carouselInner = document.getElementById('galeriaCarouselReservaInner');
+    carouselInner.innerHTML = '';
+    
+    // Crear los slides de la galería
+    imagenes.forEach((imagen, index) => {
+        const slide = document.createElement('div');
+        slide.className = `carousel-item ${index === imagenIndex ? 'active' : ''}`;
+        slide.innerHTML = `
+            <div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
+                <img src="${imagen.url}" 
+                     class="img-fluid" 
+                     alt="${imagen.alt}"
+                     style="max-height: 100%; max-width: 100%; object-fit: contain;">
+            </div>
+        `;
+        carouselInner.appendChild(slide);
+    });
+    
+    // Mostrar el modal
+    const modal = new bootstrap.Modal(document.getElementById('modalGaleriaImagenesReserva'));
+    modal.show();
+}
+</script>

@@ -56,12 +56,18 @@
                         {% if propiedad.imagenes.all %}
                             {% for imagen in propiedad.imagenes.all %}
                             <div class="carousel-item {% if forloop.first %}active{% endif %}" style="height: 250px;">
-                                <img src="{{ imagen.imagen.url }}" class="d-block w-100 h-100 object-fit-cover" alt="Imagen {{ forloop.counter }}">
+                                <img src="{{ imagen.imagen.url }}" 
+                                     class="d-block w-100 h-100 object-fit-cover" 
+                                     alt="Imagen {{ forloop.counter }}"
+                                     onclick="abrirGaleriaImagenes({{ propiedad.id }}, {{ forloop.counter0 }})"
+                                     style="cursor: pointer;">
                             </div>
                             {% endfor %}
                         {% else %}
                             <div class="carousel-item active" style="height: 250px;">
-                                <img src="{% static 'images/placeholder.jpg' %}" class="d-block w-100 h-100 object-fit-cover" alt="Sin imagen">
+                                <img src="{% static 'images/placeholder.jpg' %}" 
+                                     class="d-block w-100 h-100 object-fit-cover" 
+                                     alt="Sin imagen">
                             </div>
                         {% endif %}
                     </div>
@@ -179,4 +185,77 @@
 </style>
 
 {% include 'inmobiliaria/propiedades/modal_crear_contrato.html' %}
+
+<!-- Modal de Galería de Imágenes -->
+<div class="modal fade" id="modalGaleriaImagenes" tabindex="-1" aria-labelledby="modalGaleriaImagenesLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white" id="modalGaleriaImagenesLabel">Galería de Imágenes</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="galeriaCarousel" class="carousel slide" data-bs-ride="false">
+                    <div class="carousel-inner" id="galeriaCarouselInner">
+                        <!-- Las imágenes se cargan dinámicamente -->
+                    </div>
+                    <button class="carousel-control-prev" type="button" data-bs-target="#galeriaCarousel" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Anterior</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#galeriaCarousel" data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Siguiente</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let propiedadesImagenes = {};
+
+// Recopilar todas las imágenes de las propiedades al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    {% for propiedad in propiedades %}
+        propiedadesImagenes[{{ propiedad.id }}] = [
+            {% for imagen in propiedad.imagenes.all %}
+                {
+                    url: "{{ imagen.imagen.url }}",
+                    alt: "Imagen {{ forloop.counter }} - {{ propiedad.direccion }}"
+                }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+    {% endfor %}
+});
+
+function abrirGaleriaImagenes(propiedadId, imagenIndex) {
+    const imagenes = propiedadesImagenes[propiedadId];
+    if (!imagenes || imagenes.length === 0) return;
+    
+    const carouselInner = document.getElementById('galeriaCarouselInner');
+    carouselInner.innerHTML = '';
+    
+    // Crear los slides de la galería
+    imagenes.forEach((imagen, index) => {
+        const slide = document.createElement('div');
+        slide.className = `carousel-item ${index === imagenIndex ? 'active' : ''}`;
+        slide.innerHTML = `
+            <div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
+                <img src="${imagen.url}" 
+                     class="img-fluid" 
+                     alt="${imagen.alt}"
+                     style="max-height: 100%; max-width: 100%; object-fit: contain;">
+            </div>
+        `;
+        carouselInner.appendChild(slide);
+    });
+    
+    // Mostrar el modal
+    const modal = new bootstrap.Modal(document.getElementById('modalGaleriaImagenes'));
+    modal.show();
+}
+</script>
+
 {% endblock %}
