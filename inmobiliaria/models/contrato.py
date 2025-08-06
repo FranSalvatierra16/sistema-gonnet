@@ -20,6 +20,7 @@ class ContratoAlquiler(models.Model):
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
     duracion_meses = models.PositiveIntegerField()  # 24 meses
+    dia_vencimiento = models.PositiveIntegerField(default=1, help_text='Día del mes para vencimiento de cuotas (1-28)')
     
     # Montos
     precio_mensual = models.DecimalField(max_digits=10, decimal_places=2)

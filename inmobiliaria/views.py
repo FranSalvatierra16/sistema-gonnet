@@ -4822,13 +4822,34 @@ def procesar_operacion_contrato(request, contrato_id):
             return JsonResponse({'error': 'Error al procesar el movimiento'}, status=400)
         
         if tipo_operacion == 'principal':
+            # Capturar el día de vencimiento seleccionado
+            dia_vencimiento = request.POST.get('dia_vencimiento')
+            if dia_vencimiento:
+                try:
+                    dia_vencimiento = int(dia_vencimiento)
+                    contrato.dia_vencimiento = dia_vencimiento
+                    contrato.save()
+                except (ValueError, TypeError):
+                    return JsonResponse({'error': 'Día de vencimiento inválido'}, status=400)
+            else:
+                return JsonResponse({'error': 'Debe seleccionar un día de vencimiento'}, status=400)
+            
             total_esperado = contrato.deposito_garantia + contrato.precio_mensual
             mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
             
+            # Usar el día de vencimiento seleccionado para crear las fechas
             fecha_actual = timezone.now().date()
-            fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, contrato.fecha_inicio.day)
-            if fecha_actual.day > contrato.fecha_inicio.day:
-                fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
+            # Calcular la primera fecha de vencimiento usando el día seleccionado
+            try:
+                fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, contrato.dia_vencimiento)
+                # Si ya pasó el día este mes, programar para el próximo mes
+                if fecha_actual.day >= contrato.dia_vencimiento:
+                    fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
+            except ValueError:
+                # Si el día no existe en el mes actual (ej: 31 en febrero), usar el último día del mes
+                fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, 28)
+                if fecha_actual.day >= 28:
+                    fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
             for i in range(contrato.duracion_meses):
                 CuotaMensual.objects.create(
@@ -4841,7 +4862,18 @@ def procesar_operacion_contrato(request, contrato_id):
                     movimiento=None, 
                     fecha_pago=None
                 )
-                fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
+                # Avanzar al siguiente mes manteniendo el día de vencimiento
+                try:
+                    fecha_vencimiento = fecha_vencimiento.replace(month=fecha_vencimiento.month + 1)
+                except ValueError:
+                    # Si el día no existe en el próximo mes, ajustar el año
+                    if fecha_vencimiento.month == 12:
+                        fecha_vencimiento = fecha_vencimiento.replace(year=fecha_vencimiento.year + 1, month=1)
+                    else:
+                        fecha_vencimiento = fecha_vencimiento.replace(month=fecha_vencimiento.month + 1)
+                except:
+                    # Usar relativedelta como fallback
+                    fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
             contrato.operacion_principal = True
             contrato.estado = 'activo'  # Cambiar estado a activo después de la operación principal
@@ -4972,8 +5004,22 @@ def pagar_cuota(request, cuota_id):
             ).first()
             
             if siguiente_cuota:
-                # Calcular nueva fecha de vencimiento (un mes después de la actual)
-                siguiente_cuota.fecha_vencimiento = cuota.fecha_vencimiento + relativedelta(months=1)
+                # Calcular nueva fecha de vencimiento usando el día personalizado del contrato
+                fecha_actual = cuota.fecha_vencimiento
+                try:
+                    # Intentar usar el día de vencimiento personalizado
+                    if fecha_actual.month == 12:
+                        nueva_fecha = date(fecha_actual.year + 1, 1, contrato.dia_vencimiento)
+                    else:
+                        nueva_fecha = date(fecha_actual.year, fecha_actual.month + 1, contrato.dia_vencimiento)
+                    siguiente_cuota.fecha_vencimiento = nueva_fecha
+                except ValueError:
+                    # Si el día no existe en el próximo mes (ej: 31 en febrero), usar el último día válido
+                    if fecha_actual.month == 12:
+                        nueva_fecha = date(fecha_actual.year + 1, 1, min(contrato.dia_vencimiento, 28))
+                    else:
+                        nueva_fecha = date(fecha_actual.year, fecha_actual.month + 1, min(contrato.dia_vencimiento, 28))
+                    siguiente_cuota.fecha_vencimiento = nueva_fecha
                 siguiente_cuota.save()
             
             return JsonResponse({

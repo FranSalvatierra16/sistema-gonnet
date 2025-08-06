@@ -66,6 +66,43 @@
                                        onchange="formatearNumeroEnTiempoReal(this)" 
                                        oninput="formatearNumeroEnTiempoReal(this)">
                             </div>
+                            <div class="form-group mt-3">
+                                <label><strong>Día de Vencimiento Mensual:</strong></label>
+                                <select class="form-control" id="dia_vencimiento" name="dia_vencimiento" required>
+                                    <option value="">Seleccione el día de vencimiento</option>
+                                    <option value="1" {% if contrato.dia_vencimiento == 1 %}selected{% endif %}>Día 1 de cada mes</option>
+                                    <option value="2" {% if contrato.dia_vencimiento == 2 %}selected{% endif %}>Día 2 de cada mes</option>
+                                    <option value="3" {% if contrato.dia_vencimiento == 3 %}selected{% endif %}>Día 3 de cada mes</option>
+                                    <option value="4" {% if contrato.dia_vencimiento == 4 %}selected{% endif %}>Día 4 de cada mes</option>
+                                    <option value="5" {% if contrato.dia_vencimiento == 5 %}selected{% endif %}>Día 5 de cada mes</option>
+                                    <option value="6" {% if contrato.dia_vencimiento == 6 %}selected{% endif %}>Día 6 de cada mes</option>
+                                    <option value="7" {% if contrato.dia_vencimiento == 7 %}selected{% endif %}>Día 7 de cada mes</option>
+                                    <option value="8" {% if contrato.dia_vencimiento == 8 %}selected{% endif %}>Día 8 de cada mes</option>
+                                    <option value="9" {% if contrato.dia_vencimiento == 9 %}selected{% endif %}>Día 9 de cada mes</option>
+                                    <option value="10" {% if contrato.dia_vencimiento == 10 %}selected{% endif %}>Día 10 de cada mes</option>
+                                    <option value="11" {% if contrato.dia_vencimiento == 11 %}selected{% endif %}>Día 11 de cada mes</option>
+                                    <option value="12" {% if contrato.dia_vencimiento == 12 %}selected{% endif %}>Día 12 de cada mes</option>
+                                    <option value="13" {% if contrato.dia_vencimiento == 13 %}selected{% endif %}>Día 13 de cada mes</option>
+                                    <option value="14" {% if contrato.dia_vencimiento == 14 %}selected{% endif %}>Día 14 de cada mes</option>
+                                    <option value="15" {% if contrato.dia_vencimiento == 15 %}selected{% endif %}>Día 15 de cada mes</option>
+                                    <option value="16" {% if contrato.dia_vencimiento == 16 %}selected{% endif %}>Día 16 de cada mes</option>
+                                    <option value="17" {% if contrato.dia_vencimiento == 17 %}selected{% endif %}>Día 17 de cada mes</option>
+                                    <option value="18" {% if contrato.dia_vencimiento == 18 %}selected{% endif %}>Día 18 de cada mes</option>
+                                    <option value="19" {% if contrato.dia_vencimiento == 19 %}selected{% endif %}>Día 19 de cada mes</option>
+                                    <option value="20" {% if contrato.dia_vencimiento == 20 %}selected{% endif %}>Día 20 de cada mes</option>
+                                    <option value="21" {% if contrato.dia_vencimiento == 21 %}selected{% endif %}>Día 21 de cada mes</option>
+                                    <option value="22" {% if contrato.dia_vencimiento == 22 %}selected{% endif %}>Día 22 de cada mes</option>
+                                    <option value="23" {% if contrato.dia_vencimiento == 23 %}selected{% endif %}>Día 23 de cada mes</option>
+                                    <option value="24" {% if contrato.dia_vencimiento == 24 %}selected{% endif %}>Día 24 de cada mes</option>
+                                    <option value="25" {% if contrato.dia_vencimiento == 25 %}selected{% endif %}>Día 25 de cada mes</option>
+                                    <option value="26" {% if contrato.dia_vencimiento == 26 %}selected{% endif %}>Día 26 de cada mes</option>
+                                    <option value="27" {% if contrato.dia_vencimiento == 27 %}selected{% endif %}>Día 27 de cada mes</option>
+                                    <option value="28" {% if contrato.dia_vencimiento == 28 %}selected{% endif %}>Día 28 de cada mes</option>
+                                </select>
+                                <small class="form-text text-muted">
+                                    Las cuotas vencerán este día de cada mes (recomendado: 1-28 para evitar problemas con meses cortos)
+                                </small>
+                            </div>
                             {% endif %}
                         </div>
                     </div>
