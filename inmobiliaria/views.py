@@ -5107,3 +5107,78 @@ def desactivar_propiedad_24_meses(request, propiedad_id):
     except Exception as e:
         print(f"Error al desactivar propiedad: {str(e)}")
         return JsonResponse({'error': str(e)}, status=400)
+
+@login_required
+@require_POST
+def guardar_precios_propiedad(request):
+    """Guarda los precios modificados de una propiedad"""
+    print("=== GUARDAR PRECIOS PROPIEDAD ===")
+    
+    try:
+        propiedad_id = request.POST.get('propiedad_id')
+        precios_json = request.POST.get('precios')
+        
+        print(f"Propiedad ID: {propiedad_id}")
+        print(f"Precios JSON: {precios_json}")
+        
+        if not propiedad_id or not precios_json:
+            return JsonResponse({
+                'success': False,
+                'error': 'Faltan datos requeridos'
+            })
+        
+        propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+        
+        # Solo admin puede modificar precios
+        if not request.user.is_superuser:
+            return JsonResponse({
+                'success': False,
+                'error': 'No tienes permisos para modificar precios'
+            })
+        
+        import json
+        precios_data = json.loads(precios_json)
+        
+        # Actualizar cada precio
+        for precio_info in precios_data:
+            tipo_precio = precio_info.get('tipo_precio')
+            
+            # Buscar o crear el precio
+            precio, created = Precio.objects.get_or_create(
+                propiedad=propiedad,
+                tipo_precio=tipo_precio,
+                defaults={
+                    'precio_total': 0,
+                    'precio_por_dia': 0,
+                    'precio_toma': 0,
+                    'precio_dia_toma': 0,
+                    'ajuste_porcentaje': 0
+                }
+            )
+            
+            # Actualizar valores
+            precio.precio_toma = precio_info.get('precio_toma', 0)
+            precio.precio_dia_toma = precio_info.get('precio_dia_toma', 0)
+            precio.precio_por_dia = precio_info.get('precio_por_dia', 0)
+            precio.precio_total = precio_info.get('precio_total', 0)
+            precio.ajuste_porcentaje = precio_info.get('ajuste_porcentaje', 0)
+            
+            precio.save()
+            
+            print(f"✅ Actualizado precio {tipo_precio} para propiedad {propiedad_id}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Precios actualizados correctamente'
+        })
+        
+    except Exception as e:
+        print(f"Error en guardar_precios_propiedad: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@login_required

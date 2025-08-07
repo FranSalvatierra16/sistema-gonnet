@@ -3417,6 +3417,292 @@ function actualizarTablaPrecios(precios) {
     console.log('✅ Tabla de precios actualizada');
 }
 </script>
+
+<!-- Modal de Gestión de Precios -->
+<div id="modalGestionPrecios" class="modal fade" tabindex="-1" aria-labelledby="modalGestionPreciosLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalGestionPreciosLabel">
+                    <i class="fas fa-dollar-sign me-2"></i>
+                    Gestionar Precios para <span id="propiedadNombreModal">Propiedad</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="tablaPreciosCompleta">
+                    <!-- La tabla se cargará dinámicamente aquí -->
+                </div>
+            </div>
+            <div class="modal-footer" id="modalFooterPrecios">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cerrar
+                </button>
+                <button type="button" class="btn btn-success" id="guardarPreciosBtn" style="display: none;">
+                    <i class="fas fa-save me-2"></i>Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Función para abrir el modal de gestión de precios
+function abrirModalGestionPrecios() {
+    if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
+        alert('Por favor, selecciona una propiedad primero.');
+        return;
+    }
+    
+    console.log('🏠 Abriendo modal de gestión de precios para propiedad:', propiedadSeleccionada.id);
+    
+    // Actualizar título del modal
+    document.getElementById('propiedadNombreModal').textContent = propiedadSeleccionada.direccion || `ID: ${propiedadSeleccionada.id}`;
+    
+    // Mostrar el modal
+    const modal = new bootstrap.Modal(document.getElementById('modalGestionPrecios'));
+    modal.show();
+    
+    // Cargar los precios completos
+    cargarPreciosCompletos(propiedadSeleccionada.id);
+}
+
+// Función para cargar precios completos en el modal
+function cargarPreciosCompletos(propiedadId) {
+    console.log('💰 Cargando precios completos para propiedad:', propiedadId);
+    
+    const contenedor = document.getElementById('tablaPreciosCompleta');
+    contenedor.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><br>Cargando precios...</div>';
+    
+    // Llamar a la API de precios
+    fetch(`{% url 'inmobiliaria:obtener_precios_propiedad' 0 %}`.replace('0', propiedadId))
+        .then(response => response.json())
+        .then(data => {
+            console.log('📊 Precios completos recibidos:', data);
+            
+            if (data.success && data.precios) {
+                generarTablaGestionPrecios(data.precios, propiedadId);
+            } else {
+                contenedor.innerHTML = '<div class="alert alert-warning">Error al cargar los precios</div>';
+            }
+        })
+        .catch(error => {
+            console.error('💥 Error cargando precios completos:', error);
+            contenedor.innerHTML = '<div class="alert alert-danger">Error de conexión</div>';
+        });
+}
+
+// Función para generar la tabla de gestión de precios
+function generarTablaGestionPrecios(precios, propiedadId) {
+    const esAdmin = {% if user.is_superuser %}true{% else %}false{% endif %};
+    console.log('👤 Usuario es admin:', esAdmin);
+    
+    let tablaHTML = `
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="table-success">
+                    <tr>
+                        <th>Tipo de Precio</th>
+                        <th>Precio por Toma</th>
+                        <th>Precio por Día: Toma</th>
+                        <th>Precio por Día</th>
+                        <th>Precio por Quincena</th>
+                        <th>Ajuste (%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    precios.forEach((precio, index) => {
+        const precioTotal = parseFloat(precio.precio_total) || 0;
+        const precioPorDia = parseFloat(precio.precio_por_dia) || 0;
+        
+        tablaHTML += `
+            <tr data-precio-id="${precio.tipo_precio}">
+                <td class="fw-bold">${precio.tipo_precio_display}</td>
+                <td>
+                    ${esAdmin ? 
+                        `<input type="number" class="form-control precio-input" data-field="precio_toma" value="0.00" step="0.01">` :
+                        `<span class="precio-display">$0.00</span>`
+                    }
+                </td>
+                <td>
+                    ${esAdmin ? 
+                        `<input type="number" class="form-control precio-input" data-field="precio_dia_toma" value="0.00" step="0.01">` :
+                        `<span class="precio-display">$0.00</span>`
+                    }
+                </td>
+                <td>
+                    ${esAdmin ? 
+                        `<input type="number" class="form-control precio-input" data-field="precio_por_dia" value="${precioPorDia}" step="0.01">` :
+                        `<span class="precio-display">$${precioPorDia.toLocaleString('es-AR')}</span>`
+                    }
+                </td>
+                <td>
+                    ${esAdmin ? 
+                        `<input type="number" class="form-control precio-input" data-field="precio_total" value="${precioTotal}" step="0.01" readonly>` :
+                        `<span class="precio-display">$${precioTotal.toLocaleString('es-AR')}</span>`
+                    }
+                </td>
+                <td>
+                    ${esAdmin ? 
+                        `<input type="number" class="form-control precio-input" data-field="ajuste_porcentaje" value="0.00" step="0.01" min="-100" max="100">` :
+                        `<span class="precio-display">0.00%</span>`
+                    }
+                </td>
+            </tr>
+        `;
+    });
+    
+    tablaHTML += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    document.getElementById('tablaPreciosCompleta').innerHTML = tablaHTML;
+    
+    // Mostrar botón de guardar solo para admins
+    const guardarBtn = document.getElementById('guardarPreciosBtn');
+    if (esAdmin) {
+        guardarBtn.style.display = 'inline-block';
+        // Agregar eventos para calcular precios automáticamente
+        agregarEventosCalculoPrecios();
+    } else {
+        guardarBtn.style.display = 'none';
+    }
+}
+
+// Función para agregar eventos de cálculo de precios
+function agregarEventosCalculoPrecios() {
+    const inputs = document.querySelectorAll('.precio-input');
+    
+    inputs.forEach(input => {
+        input.addEventListener('input', function() {
+            const fila = this.closest('tr');
+            calcularPrecioQuincena(fila);
+        });
+    });
+}
+
+// Función para calcular precio de quincena automáticamente
+function calcularPrecioQuincena(fila) {
+    const precioPorDia = parseFloat(fila.querySelector('[data-field="precio_por_dia"]').value) || 0;
+    const ajuste = parseFloat(fila.querySelector('[data-field="ajuste_porcentaje"]').value) || 0;
+    
+    // Calcular precio base (15 días para la mayoría, 16 para enero, marzo, diciembre)
+    const tipoPrecio = fila.dataset.precioId;
+    let dias = 15;
+    
+    if (tipoPrecio.includes('ENERO') || tipoPrecio.includes('MARZO') || tipoPrecio.includes('DICIEMBRE')) {
+        dias = 16;
+    } else if (tipoPrecio === 'FINDE_LARGO') {
+        dias = 4;
+    } else if (tipoPrecio === 'TEMPORADA_BAJA') {
+        // Para temporada baja no calculamos precio total
+        fila.querySelector('[data-field="precio_total"]').value = '0.00';
+        return;
+    }
+    
+    let precioTotal = precioPorDia * dias;
+    
+    // Aplicar ajuste porcentual
+    if (ajuste !== 0) {
+        precioTotal *= (1 + ajuste / 100);
+    }
+    
+    fila.querySelector('[data-field="precio_total"]').value = precioTotal.toFixed(2);
+}
+
+// Agregar evento click a la tabla de precios
+document.addEventListener('DOMContentLoaded', function() {
+    // Hacer que la tabla de precios sea clickeable
+    document.addEventListener('click', function(e) {
+        const tablaPrecios = e.target.closest('.table-precios');
+        if (tablaPrecios) {
+            e.preventDefault();
+            abrirModalGestionPrecios();
+        }
+    });
+    
+    // Evento para guardar precios (solo para admins)
+    document.getElementById('guardarPreciosBtn').addEventListener('click', function() {
+        guardarCambiosPrecios();
+    });
+});
+
+// Función para guardar cambios de precios
+function guardarCambiosPrecios() {
+    if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
+        alert('Error: No hay propiedad seleccionada');
+        return;
+    }
+    
+    console.log('💾 Guardando cambios de precios...');
+    
+    const filas = document.querySelectorAll('#tablaPreciosCompleta tr[data-precio-id]');
+    const precios = [];
+    
+    filas.forEach(fila => {
+        const tipoPrecio = fila.dataset.precioId;
+        const precioData = {
+            tipo_precio: tipoPrecio,
+            precio_toma: parseFloat(fila.querySelector('[data-field="precio_toma"]').value) || 0,
+            precio_dia_toma: parseFloat(fila.querySelector('[data-field="precio_dia_toma"]').value) || 0,
+            precio_por_dia: parseFloat(fila.querySelector('[data-field="precio_por_dia"]').value) || 0,
+            precio_total: parseFloat(fila.querySelector('[data-field="precio_total"]').value) || 0,
+            ajuste_porcentaje: parseFloat(fila.querySelector('[data-field="ajuste_porcentaje"]').value) || 0
+        };
+        precios.push(precioData);
+    });
+    
+    console.log('📊 Precios a guardar:', precios);
+    
+    // Mostrar loading
+    const guardarBtn = document.getElementById('guardarPreciosBtn');
+    const textoOriginal = guardarBtn.innerHTML;
+    guardarBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Guardando...';
+    guardarBtn.disabled = true;
+    
+    // Enviar al servidor
+    const formData = new FormData();
+    formData.append('propiedad_id', propiedadSeleccionada.id);
+    formData.append('precios', JSON.stringify(precios));
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch('{% url "inmobiliaria:guardar_precios_propiedad" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('📝 Respuesta del servidor:', data);
+        
+        if (data.success) {
+            alert('✅ Precios guardados correctamente');
+            
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalGestionPrecios'));
+            modal.hide();
+            
+            // Recargar precios en la tabla pequeña
+            cargarPreciosPropiedad(propiedadSeleccionada.id);
+            
+        } else {
+            alert('❌ Error al guardar precios: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('💥 Error guardando precios:', error);
+        alert('❌ Error de conexión al guardar precios');
+    })
+    .finally(() => {
+        // Restaurar botón
+        guardarBtn.innerHTML = textoOriginal;
+        guardarBtn.disabled = false;
+    });
+}
+</script>
 {% endblock content %}
 
 {% block extra_js %}

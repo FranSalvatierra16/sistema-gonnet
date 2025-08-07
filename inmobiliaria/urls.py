@@ -166,6 +166,7 @@ urlpatterns = [
     path('sucursal/<int:sucursal_id>/editar/', views.editar_sucursal, name='editar_sucursal'),
     path('obtener-fotos-propiedad/<int:propiedad_id>/', views.obtener_fotos_propiedad, name='obtener_fotos_propiedad'),
     path('obtener-precios-propiedad/<int:propiedad_id>/', views.obtener_precios_propiedad, name='obtener_precios_propiedad'),
+    path('guardar-precios-propiedad/', views.guardar_precios_propiedad, name='guardar_precios_propiedad'),
     
     # Rutas de imágenes
     path('imagen/<int:imagen_id>/eliminar/', views.imagen_eliminar, name='imagen_eliminar'),
