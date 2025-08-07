@@ -3540,7 +3540,7 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="number" class="form-control precio-input" data-field="precio_total" value="${precioTotal}" step="0.01" readonly>` :
+                        `<input type="number" class="form-control precio-input" data-field="precio_total" value="${precioTotal}" step="0.01">` :
                         `<span class="precio-display">$${precioTotal.toLocaleString('es-AR')}</span>`
                     }
                 </td>
@@ -3778,8 +3778,8 @@ function actualizarTablaPrecios(precios) {
         const row = `
             <tr>
                 <td>${precio.tipo_precio_display || precio.tipo_precio}</td>
-                <td class="text-end">$${precio.precio_total.toLocaleString()}</td>
                 <td class="text-end">$${precio.precio_por_dia.toLocaleString()}</td>
+                <td class="text-end">$${precio.precio_total.toLocaleString()}</td>
             </tr>
         `;
         tbody.innerHTML += row;
