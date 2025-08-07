@@ -1,5 +1,6 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load static %}
+{% load custom_filters %}
 
 {% block content %}
 <div class="content-wrapper">
@@ -124,7 +125,7 @@
                 <h5 class="property-title">{{ propiedad.direccion }}</h5>
                 <div class="property-price">
                     {% if propiedad.info_venta.precio_venta %}
-                        U$S {{ propiedad.info_venta.precio_venta|floatformat:2 }}
+                        U$S {{ propiedad.info_venta.precio_venta|format_price }}
                     {% else %}
                         Consultar precio
                     {% endif %}

@@ -395,7 +395,7 @@
                                                     <strong>Precio de venta:</strong>
                                                     <span class="h5">
                                                         {% if propiedad.info_venta.precio_venta and propiedad.info_venta.precio_venta > 0 %}
-                                                            U$S {{ propiedad.info_venta.precio_venta|floatformat:2 }}
+                        U$S {{ propiedad.info_venta.precio_venta|format_price }}
                                                         {% else %}
                                                             <span class="text-muted">Consultar precio</span>
                                                         {% endif %}
