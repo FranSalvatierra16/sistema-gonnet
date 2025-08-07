@@ -903,7 +903,7 @@
                             data-estado="{{ propiedad.estado|default:'Disponible' }}"
                             data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
                             data-caracteristicas="{{ propiedad.caracteristicas|default:'Sin características'|escapejs }}"
-                            onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}', '{{ propiedad.ambientes|default:"No especificado" }}', '{{ propiedad.estado|default:"Disponible" }}', '{{ propiedad.descripcion|default:"Sin descripción"|escapejs }}', '{{ propiedad.caracteristicas|default:"Sin características"|escapejs }}')">
+                            onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}', '{{ propiedad.ambientes|default:"0" }}', 'Disponible', '{{ propiedad.descripcion|default:"Sin descripción"|escapejs }}', 'Características disponibles')">
                             <td style="color: red;">{{ propiedad.id }}</td>
                             <td style="color: red;">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td style="color: red;">{{ propiedad.ubicacion }}</td>
@@ -914,7 +914,7 @@
                             <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
                         </tr>
                         {% else %}
-                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}', '{{ propiedad.ambientes|default:"No especificado" }}', '{{ propiedad.estado|default:"Disponible" }}', '{{ propiedad.descripcion|default:"Sin descripción"|escapejs }}', '{{ propiedad.caracteristicas|default:"Sin características"|escapejs }}')">
+                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}', '{{ propiedad.ambientes|default:"0" }}', 'Disponible', '{{ propiedad.descripcion|default:"Sin descripción"|escapejs }}', 'Características disponibles')">
                             <td>{{ propiedad.id }}</td>
                             <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td>{{ propiedad.ubicacion }}</td>
@@ -1878,16 +1878,30 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
     
     // Corregir el precio removiendo el cero extra
     let precioCorregido = precio;
+    console.log('🔍 Precio original recibido:', precio, 'Tipo:', typeof precio);
+    
     if (typeof precio === 'string') {
         // Remover todos los puntos y convertir a número
-        precioCorregido = parseFloat(precio.replace(/\./g, ''));
-        // Si el precio tiene más de 6 dígitos, probablemente tiene un cero extra
-        if (precioCorregido > 1000000) {
-            precioCorregido = Math.floor(precioCorregido / 10);
+        let precioNumerico = parseFloat(precio.replace(/\./g, ''));
+        console.log('🔢 Precio sin puntos:', precioNumerico);
+        
+        // Si el precio tiene más de 6 dígitos, tiene un cero extra
+        if (precioNumerico >= 1000000) {
+            precioCorregido = Math.floor(precioNumerico / 10);
+            console.log('✂️ Precio corregido (dividido por 10):', precioCorregido);
+        } else {
+            precioCorregido = precioNumerico;
+        }
+    } else if (typeof precio === 'number') {
+        if (precio >= 1000000) {
+            precioCorregido = Math.floor(precio / 10);
+        } else {
+            precioCorregido = precio;
         }
     }
     
-    console.log('💰 Precio original vs corregido:', precio, '→', precioCorregido);
+    console.log('💰 Precio final corregido:', precioCorregido);
+    console.log('📊 Datos de la propiedad:', { ambientes, estado, descripcion, caracteristicas });
     
     // PRIMERO: Remover selección anterior de todas las filas
     document.querySelectorAll('.table tbody tr').forEach(row => {
