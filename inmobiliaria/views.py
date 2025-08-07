@@ -21,7 +21,7 @@ from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm,
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
-from django.db.models import Q, Prefetch, Case, When, IntegerField, Sum, Max, F, Count
+from django.db.models import Q, Prefetch, Case, When, IntegerField, Sum, Max, F, Count, Cast
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
 from django.contrib.auth.signals import user_logged_in
@@ -276,8 +276,8 @@ def propietario_eliminar(request, propietario_id):
 @login_required
 def propiedades(request):
     form = PropiedadSearchForm(request.GET or None)
-    # Obtener propiedades de la sucursal y ordenar por id desde el inicio
-    propiedades = Propiedad.objects.filter(sucursal=request.user.sucursal).order_by('id')
+    # Obtener propiedades de la sucursal y ordenar por id numéricamente
+    propiedades = Propiedad.objects.filter(sucursal=request.user.sucursal).order_by(Cast('id', IntegerField()))
 
     if form.is_valid():
         query = form.cleaned_data.get('query')
@@ -287,7 +287,7 @@ def propiedades(request):
                 Q(id__icontains=query) |
                 Q(propietario__nombre__icontains=query) |
                 Q(propietario__apellido__icontains=query)
-            ).order_by('id')  # Mantener el orden incluso después de la búsqueda
+            ).order_by(Cast('id', IntegerField()))  # Mantener el orden numérico incluso después de la búsqueda
 
     return render(request, 'inmobiliaria/propiedades/lista.html', {
         'form': form,
