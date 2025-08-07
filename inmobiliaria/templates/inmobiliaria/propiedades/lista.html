@@ -54,6 +54,7 @@
                             <i class="bi bi-hash"></i> Ficha
                         </th>
                         <th><i class="bi bi-geo-alt"></i> Dirección</th>
+                        <th><i class="bi bi-tag"></i> Título</th>
                         <th><i class="bi bi-star"></i> Valoración</th>
                         <th><i class="bi bi-person"></i> Propietario</th>
                         <th><i class="bi bi-building"></i> Piso</th>
@@ -69,6 +70,13 @@
                             <span class="badge bg-primary">#{{ propiedad.id }}</span>
                         </td>
                         <td>{{ propiedad.direccion }}</td>
+                        <td>
+                            {% if propiedad.titulo %}
+                                <span class="text-muted">{{ propiedad.titulo }}</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if propiedad.valoracion %}
                                 <span class="badge bg-info">{{ propiedad.valoracion }}</span>
