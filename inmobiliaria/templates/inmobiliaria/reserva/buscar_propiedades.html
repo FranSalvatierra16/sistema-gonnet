@@ -3599,6 +3599,7 @@ function calcularPrecioQuincena(fila) {
     } else if (tipoPrecio === 'FINDE_LARGO') {
         dias = 4;
     } else if (tipoPrecio === 'TEMPORADA_BAJA') {
+        dias = 15;
         // Para temporada baja no calculamos precio total
         fila.querySelector('[data-field="precio_total"]').value = '0.00';
         return;

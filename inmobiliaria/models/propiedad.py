@@ -95,6 +95,13 @@ class Propiedad(models.Model):
     ID_MAX_LENGTH = 255 # Define un tamaño máximo para el campo id
     id = models.CharField(max_length=ID_MAX_LENGTH, primary_key=True, unique=True, null=False, blank=False)
     direccion = models.CharField(max_length=DIRECCION_MAX_LENGTH)
+    titulo = models.CharField(
+        max_length=255, 
+        null=True, 
+        blank=True,
+        verbose_name="Título descriptivo",
+        help_text="Nombre o título para identificar fácilmente la propiedad"
+    )
     ubicacion = models.CharField(max_length=UBICACION_MAX_LENGTH)
     descripcion = models.TextField(blank=True)
     tipo_inmueble = models.CharField(max_length=20, choices=TIPOS_INMUEBLES, default='departamento')
@@ -591,7 +598,7 @@ class Precio(models.Model):
             elif self.tipo_precio == 'FINDE_LARGO':
                 base_price = self.precio_por_dia * 4
             elif self.tipo_precio == 'TEMPORADA_BAJA':
-                base_price = self.precio_por_dia * dias
+                base_price = self.precio_por_dia * 15
             else:
                 base_price = self.precio_por_dia * dias
 
@@ -612,7 +619,7 @@ class Precio(models.Model):
             elif self.tipo_precio == 'FINDE_LARGO':
                 base_price = self.precio_por_dia * 4
             elif self.tipo_precio == 'TEMPORADA_BAJA':
-                base_price = None  # No calcular precio total para días individuales
+                base_price = self.precio_por_dia * 15  # Cambiar de None a 15 días
             else:
                 base_price = self.precio_por_dia
 
