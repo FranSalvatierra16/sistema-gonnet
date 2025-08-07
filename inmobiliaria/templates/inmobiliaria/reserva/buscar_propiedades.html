@@ -903,7 +903,7 @@
                             data-estado="{{ propiedad.estado|default:'Disponible' }}"
                             data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
                             data-caracteristicas="{{ propiedad.caracteristicas|default:'Sin características'|escapejs }}"
-                            onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}')">
+                            onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.apellido|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}')">
                             <td style="color: red;">{{ propiedad.id }}</td>
                             <td style="color: red;">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td style="color: red;">{{ propiedad.ubicacion }}</td>
@@ -1051,6 +1051,8 @@
                         <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Ficha:</strong> <span id="modal_ficha" style="color: #555;">-</span></p>
                         <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Dirección:</strong> <span id="modal_direccion" style="color: #555;">-</span></p>
                         <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Propietario:</strong> <span id="modal_propietario" style="color: #555;">-</span></p>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Ambientes:</strong> <span id="modal_ambientes" style="color: #555;">-</span></p>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Estado:</strong> <span id="modal_estado" style="color: #555;">-</span></p>
                     </div>
                     <div>
                         <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Inicio:</strong> <span id="modal_fecha_inicio" style="color: #555;">-</span></p>
@@ -1058,7 +1060,16 @@
                         <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Total días:</strong> <span id="modal_total_dias" style="color: #555;">-</span></p>
                     </div>
                 </div>
-                        </div>
+                
+                <!-- Descripción y Características -->
+                <div style="margin-top: 15px;">
+                    <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Descripción:</strong></p>
+                    <div id="modal_descripcion" style="color: #555; background: #f9f9f9; padding: 10px; border-radius: 6px; min-height: 40px; border-left: 4px solid #2e7d32;">Sin descripción</div>
+                    
+                    <p style="margin: 8px 0 8px 0; color: #333;"><strong style="color: #2e7d32;">Características:</strong></p>
+                    <div id="modal_caracteristicas" style="color: #555; background: #f9f9f9; padding: 10px; border-radius: 6px; min-height: 40px; border-left: 4px solid #2e7d32;">Sin características</div>
+                </div>
+            </div>
 
             <!-- Precio Total -->
             <div style="background: linear-gradient(135deg, #fff8e1 0%, #fffde7 100%); border: 2px solid #ffc107; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(255,193,7,0.2);">
@@ -1853,6 +1864,41 @@ function autenticarYReservar() {
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias) {
+    console.log('🔄 Función seleccionarPropiedad llamada con parámetros:', {
+        id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias
+    });
+    
+    // Buscar la fila clickeada para obtener los datos adicionales
+    const filaClickeada = event.target.closest('tr');
+    let ambientes = 'No especificado';
+    let estado = 'Disponible';
+    let descripcion = 'Sin descripción';
+    let caracteristicas = 'Sin características';
+    
+    if (filaClickeada) {
+        ambientes = filaClickeada.getAttribute('data-ambientes') || 'No especificado';
+        estado = filaClickeada.getAttribute('data-estado') || 'Disponible';
+        descripcion = filaClickeada.getAttribute('data-descripcion') || 'Sin descripción';
+        caracteristicas = filaClickeada.getAttribute('data-caracteristicas') || 'Sin características';
+        
+        console.log('📊 Datos adicionales capturados:', {
+            ambientes, estado, descripcion, caracteristicas
+        });
+    }
+    
+    // Corregir el precio removiendo el cero extra
+    let precioCorregido = precio;
+    if (typeof precio === 'string') {
+        // Remover todos los puntos y convertir a número
+        precioCorregido = parseFloat(precio.replace(/\./g, ''));
+        // Si el precio tiene más de 6 dígitos, probablemente tiene un cero extra
+        if (precioCorregido > 1000000) {
+            precioCorregido = Math.floor(precioCorregido / 10);
+        }
+    }
+    
+    console.log('💰 Precio original vs corregido:', precio, '→', precioCorregido);
+    
     console.log('=== SELECCIONANDO PROPIEDAD ===');
     console.log('Parámetros recibidos:', {
         id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias
@@ -1908,13 +1954,17 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
         direccion: direccion,                      // Dirección completa
         propietario: propietario,                  // Nombre del propietario
         disponibilidad: disponibilidad,           // Estado de disponibilidad
-        precio: typeof precio === 'string' ? parseFloat(precio.replace(/\./g, '')) : precio,          // Precio total sin formatear
+        precio: precioCorregido,                   // Precio total corregido
         precioPorDia: parseFloat(precio_por_dia) || 0,  // Precio por día
         totalDias: parseInt(total_dias) || 1,     // Total de días
         fechaInicio: fechaInicio,                 // Fecha inicio del formulario
         fechaFin: fechaFin,                       // Fecha fin del formulario
         estadoReserva: estadoReserva,             // Estado de la reserva
-        reservaId: reserva_id || null             // ID de reserva si existe
+        reservaId: reserva_id || null,            // ID de reserva si existe
+        ambientes: ambientes,                     // Número de ambientes
+        estado: estado,                           // Estado de la propiedad
+        descripcion: descripcion,                 // Descripción de la propiedad
+        caracteristicas: caracteristicas          // Características de la propiedad
     };
     
     console.log('✅ Propiedad seleccionada guardada:', propiedadSeleccionada);
@@ -1943,8 +1993,8 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
                     <i class="fas fa-check-circle"></i> Finalizar Operación
                 </button>
                 <button type="button" class="btn btn-info" onclick="window.verPrecios()">
-                <i class="fas fa-dollar-sign"></i> Ver Precios
-            </button>
+                    <i class="fas fa-dollar-sign"></i> Ver Precios
+                </button>
             </div>
         `;
     } else {
@@ -1957,8 +2007,8 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
                     <i class="fas fa-check-circle"></i> Operación Directa
                 </button>
                 <button type="button" class="btn btn-info" onclick="window.verPrecios()">
-                <i class="fas fa-dollar-sign"></i> Ver Precios
-            </button>
+                    <i class="fas fa-dollar-sign"></i> Ver Precios
+                </button>
             </div>
         `;
     }
@@ -2445,6 +2495,12 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
     document.getElementById('modal_direccion').textContent = propiedadSeleccionada.direccion || '-';
     document.getElementById('modal_propietario').textContent = propiedadSeleccionada.propietario || '-';
     document.getElementById('modal_total_dias').textContent = propiedadSeleccionada.totalDias || '-';
+    
+    // Llenar nuevos campos
+    document.getElementById('modal_ambientes').textContent = propiedadSeleccionada.ambientes || 'No especificado';
+    document.getElementById('modal_estado').textContent = propiedadSeleccionada.estado || 'Disponible';
+    document.getElementById('modal_descripcion').textContent = propiedadSeleccionada.descripcion || 'Sin descripción';
+    document.getElementById('modal_caracteristicas').textContent = propiedadSeleccionada.caracteristicas || 'Sin características';
     
     // Fechas - verificar múltiples posibles IDs
     const fechaInicio = document.getElementById('id_fecha_inicio')?.value || 
