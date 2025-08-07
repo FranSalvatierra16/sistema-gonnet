@@ -5129,8 +5129,8 @@ def guardar_precios_propiedad(request):
         
         propiedad = get_object_or_404(Propiedad, id=propiedad_id)
         
-        # Solo admin puede modificar precios
-        if not request.user.is_superuser:
+        # Solo usuarios nivel 3 o superior pueden modificar precios
+        if request.user.nivel < 3:
             return JsonResponse({
                 'success': False,
                 'error': 'No tienes permisos para modificar precios'

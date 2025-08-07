@@ -1201,8 +1201,8 @@
                         <thead>
                             <tr style="background-color: #007bff; color: white;">
                                 <th>PERÍODO</th>
-                                <th class="text-end">PRECIO POR DÍA</th>
-                                <th class="text-end">PRECIO POR QUINCENA</th>
+                                <th class="text-end">Precio por Día</th>
+                                <th class="text-end">Precio por Quincena</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -3494,7 +3494,7 @@ function cargarPreciosCompletos(propiedadId) {
 
 // Función para generar la tabla de gestión de precios
 function generarTablaGestionPrecios(precios, propiedadId) {
-    const esAdmin = {% if user.is_superuser %}true{% else %}false{% endif %};
+    const esAdmin = {% if user.nivel >= 3 %}true{% else %}false{% endif %};
     console.log('👤 Usuario es admin:', esAdmin);
     
     let tablaHTML = `
