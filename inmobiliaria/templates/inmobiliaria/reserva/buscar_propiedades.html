@@ -2018,8 +2018,8 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
     
     console.log('✅ Datos actualizados directamente desde parámetros');
 
-    // Obtener datos adicionales de la propiedad via AJAX - NO NECESARIO YA QUE TENEMOS LOS DATOS
-    // obtenerDatosPropiedad(id, estadoReserva);
+    // Cargar los precios de la propiedad específicamente
+    cargarPreciosPropiedad(id);
 
     // Actualizar botones según el estado
     const cardButtons = document.getElementById("cardButtons");
@@ -3346,6 +3346,61 @@ document.addEventListener('DOMContentLoaded', function() {
         inquilinoSelect.parentNode.appendChild(btnCrearInquilino);
     }
     });
+</script>
+
+<!-- Función para cargar los precios de una propiedad específica -->
+function cargarPreciosPropiedad(propiedadId) {
+    console.log('💰 Cargando precios para propiedad:', propiedadId);
+    
+    // Llamar a la API de precios
+    fetch(`{% url 'inmobiliaria:obtener_precios_propiedad' 0 %}`.replace('0', propiedadId))
+        .then(response => response.json())
+        .then(data => {
+            console.log('📊 Precios recibidos:', data);
+            
+            if (data.success && data.precios) {
+                // Actualizar tabla de precios con los datos recibidos
+                actualizarTablaPrecios(data.precios);
+            } else {
+                console.error('❌ Error al obtener precios:', data.error);
+                // Mostrar tabla vacía en caso de error
+                actualizarTablaPrecios([]);
+            }
+        })
+        .catch(error => {
+            console.error('💥 Error en cargarPreciosPropiedad:', error);
+            // Mostrar tabla vacía en caso de error
+            actualizarTablaPrecios([]);
+        });
+}
+
+// Función para actualizar la tabla de precios
+function actualizarTablaPrecios(precios) {
+    const tbody = document.querySelector('.table-precios tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (precios.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No hay precios definidos</td></tr>';
+        return;
+    }
+    
+    precios.forEach(precio => {
+        // Formatear precios como números
+        const precioTotal = parseFloat(precio.precio_total) || 0;
+        const precioPorDia = parseFloat(precio.precio_por_dia) || 0;
+        
+        const row = `
+            <tr>
+                <td>${precio.tipo_precio_display || precio.tipo_precio}</td>
+                <td class="text-end">$${precioTotal.toLocaleString('es-AR')}</td>
+                <td class="text-end">$${precioPorDia.toLocaleString('es-AR')}</td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+}
 </script>
 {% endblock content %}
 
