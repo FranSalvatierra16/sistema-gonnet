@@ -3490,7 +3490,7 @@ function actualizarTablaPrecios(precios) {
     precios.forEach(precio => {
         const row = `
             <tr>
-                <td>${precio.periodo}</td>
+                <td>${precio.tipo_precio_display || precio.tipo_precio}</td>
                 <td class="text-end">$${precio.precio_total.toLocaleString()}</td>
                 <td class="text-end">$${precio.precio_por_dia.toLocaleString()}</td>
             </tr>
