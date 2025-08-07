@@ -1897,8 +1897,8 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
         if (precio === null || precio === undefined || precio === '') {
             precioCorregido = 0;
         } else if (typeof precio === 'string') {
-            // Remover todos los puntos, comas y espacios
-            let precioLimpio = precio.replace(/[\.\,\s]/g, '');
+            // Manejar formato "770000,0" - remover coma y decimales
+            let precioLimpio = precio.replace(',0', '').replace(/[\.\s]/g, '');
             precioCorregido = parseInt(precioLimpio) || 0;
             console.log('🧹 Precio limpio (string):', precioLimpio, '→', precioCorregido);
         } else if (typeof precio === 'number') {
@@ -1906,16 +1906,13 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
             console.log('🔢 Precio directo (number):', precioCorregido);
         } else {
             // Intentar convertir a string y luego procesar
-            let precioStr = String(precio).replace(/[\.\,\s]/g, '');
+            let precioStr = String(precio).replace(',0', '').replace(/[\.\s]/g, '');
             precioCorregido = parseInt(precioStr) || 0;
             console.log('🔄 Precio convertido:', precioStr, '→', precioCorregido);
         }
         
-        // Si el número es muy grande, dividir por 10 hasta que sea razonable
-        while (precioCorregido > 10000000) {
-            precioCorregido = Math.floor(precioCorregido / 10);
-            console.log('✂️ Precio dividido por 10:', precioCorregido);
-        }
+        // Ya no necesitamos dividir por 10 si manejamos la coma correctamente
+        console.log('✅ Precio procesado correctamente:', precioCorregido);
         
     } catch (error) {
         console.error('❌ Error procesando precio:', error);
@@ -1994,13 +1991,27 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
     document.getElementById("cardPropiedad").innerText = id;
     document.getElementById("cardDireccion").innerText = direccion;
     document.getElementById("cardPropietario").innerText = propietario;
-    document.getElementById("cardPrecio").innerText = `$${window.formatearPrecio(precio)}`;
+    document.getElementById("cardPrecio").innerText = `$${window.formatearPrecio(precioCorregido)}`;
     
     // Actualizar estado inmediatamente
     document.getElementById("cardEstado").innerText = estadoReserva === 'confirmada_no_pagada' ? 'Reservado' : 'Disponible';
     
-    // Obtener datos adicionales de la propiedad via AJAX
-    obtenerDatosPropiedad(id, estadoReserva);
+    // Actualizar ambientes, descripción y características directamente
+    const cardAmbiente = document.getElementById("cardAmbiente");
+    if (cardAmbiente) cardAmbiente.innerText = ambientes || 'No especificado';
+    
+    const descripcionElement = document.getElementById("descripcionDetallada");
+    if (descripcionElement) descripcionElement.innerText = descripcion || 'No hay descripción disponible';
+    
+    const caracteristicasElement = document.getElementById("caracteristicas");
+    if (caracteristicasElement) {
+        caracteristicasElement.innerHTML = `<span class="badge bg-primary m-1">${caracteristicas}</span>`;
+    }
+    
+    console.log('✅ Datos actualizados directamente desde parámetros');
+
+    // Obtener datos adicionales de la propiedad via AJAX - NO NECESARIO YA QUE TENEMOS LOS DATOS
+    // obtenerDatosPropiedad(id, estadoReserva);
 
     // Actualizar botones según el estado
     const cardButtons = document.getElementById("cardButtons");
