@@ -903,7 +903,7 @@
                             data-estado="{{ propiedad.estado|default:'Disponible' }}"
                             data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
                             data-caracteristicas="{{ propiedad.caracteristicas|default:'Sin características'|escapejs }}"
-                            onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.apellido|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}')">
+                            onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}', '{{ propiedad.ambientes|default:"No especificado" }}', '{{ propiedad.estado|default:"Disponible" }}', '{{ propiedad.descripcion|default:"Sin descripción"|escapejs }}', '{{ propiedad.caracteristicas|default:"Sin características"|escapejs }}')">
                             <td style="color: red;">{{ propiedad.id }}</td>
                             <td style="color: red;">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td style="color: red;">{{ propiedad.ubicacion }}</td>
@@ -914,7 +914,7 @@
                             <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
                         </tr>
                         {% else %}
-                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.apellido|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}')">
+                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}', '{{ propiedad.ambientes|default:"No especificado" }}', '{{ propiedad.estado|default:"Disponible" }}', '{{ propiedad.descripcion|default:"Sin descripción"|escapejs }}', '{{ propiedad.caracteristicas|default:"Sin características"|escapejs }}')">
                             <td>{{ propiedad.id }}</td>
                             <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td>{{ propiedad.ubicacion }}</td>
@@ -1863,28 +1863,18 @@ function autenticarYReservar() {
 // Variables globales
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
-function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias) {
+function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias, ambientes, estado, descripcion, caracteristicas) {
     console.log('🔄 Función seleccionarPropiedad llamada con parámetros:', {
-        id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias
+        id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias, ambientes, estado, descripcion, caracteristicas
     });
     
     // Buscar la fila clickeada para obtener los datos adicionales
     const filaClickeada = event.target.closest('tr');
-    let ambientes = 'No especificado';
-    let estado = 'Disponible';
-    let descripcion = 'Sin descripción';
-    let caracteristicas = 'Sin características';
     
-    if (filaClickeada) {
-        ambientes = filaClickeada.getAttribute('data-ambientes') || 'No especificado';
-        estado = filaClickeada.getAttribute('data-estado') || 'Disponible';
-        descripcion = filaClickeada.getAttribute('data-descripcion') || 'Sin descripción';
-        caracteristicas = filaClickeada.getAttribute('data-caracteristicas') || 'Sin características';
-        
-        console.log('📊 Datos adicionales capturados:', {
-            ambientes, estado, descripcion, caracteristicas
-        });
-    }
+    console.log('=== SELECCIONANDO PROPIEDAD ===');
+    console.log('Parámetros recibidos:', {
+        id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias, ambientes, estado, descripcion, caracteristicas
+    });
     
     // Corregir el precio removiendo el cero extra
     let precioCorregido = precio;
@@ -1898,11 +1888,6 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
     }
     
     console.log('💰 Precio original vs corregido:', precio, '→', precioCorregido);
-    
-    console.log('=== SELECCIONANDO PROPIEDAD ===');
-    console.log('Parámetros recibidos:', {
-        id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias
-    });
     
     // PRIMERO: Remover selección anterior de todas las filas
     document.querySelectorAll('.table tbody tr').forEach(row => {
@@ -1954,7 +1939,7 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
         direccion: direccion,                      // Dirección completa
         propietario: propietario,                  // Nombre del propietario
         disponibilidad: disponibilidad,           // Estado de disponibilidad
-        precio: precioCorregido,                   // Precio total corregido
+        precio: precioCorregido,                  // Precio total corregido
         precioPorDia: parseFloat(precio_por_dia) || 0,  // Precio por día
         totalDias: parseInt(total_dias) || 1,     // Total de días
         fechaInicio: fechaInicio,                 // Fecha inicio del formulario
