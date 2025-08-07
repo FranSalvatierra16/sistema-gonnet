@@ -640,6 +640,3326 @@
         color: #1b5e20 !important;
         font-weight: 700 !important;
     }
+    #modalConfirmarReserva .form-control {
+        border: 2px solid #2e7d32 !important;
+        border-radius: 8px !important;
+        padding: 12px 15px !important;
+        background: white !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+        pointer-events: auto !important;
+        user-select: auto !important;
+        -webkit-user-select: auto !important;
+        -moz-user-select: auto !important;
+        position: relative !important;
+        z-index: 1070 !important;
+    }
+
+    #modalConfirmarReserva .form-control:focus {
+        border-color: #1b5e20 !important;
+        box-shadow: 0 0 0 0.3rem rgba(46, 125, 50, 0.3) !important;
+        background: #f1f8e9 !important;
+        pointer-events: auto !important;
+    }
+
+    #modalConfirmarReserva input,
+    #modalConfirmarReserva select,
+    #modalConfirmarReserva button,
+    #modalConfirmarReserva .btn {
+        pointer-events: auto !important;
+        user-select: auto !important;
+        position: relative !important;
+        z-index: 1070 !important;
+    }
+
+    #modalConfirmarReserva .modal-body,
+    #modalConfirmarReserva .modal-header,
+    #modalConfirmarReserva .modal-footer {
+        pointer-events: auto !important;
+        position: relative !important;
+        z-index: 1068 !important;
+    }
+
+    #modalConfirmarReserva .btn-success {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%) !important;
+        border: 2px solid #1b5e20 !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        font-size: 1.1rem !important;
+        padding: 12px 25px !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        box-shadow: 0 4px 15px rgba(46, 125, 50, 0.3) !important;
+    }
+
+    #modalConfirmarReserva .btn-success:hover {
+        background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(46, 125, 50, 0.4) !important;
+    }
+
+    #modalConfirmarReserva .btn-primary {
+        background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%) !important;
+        border: 2px solid #0d47a1 !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        color: white !important;
+        box-shadow: 0 4px 15px rgba(25, 118, 210, 0.3) !important;
+    }
+
+    #modalConfirmarReserva .btn-secondary {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%) !important;
+        border: 2px solid #343a40 !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        color: white !important;
+    }
+
+    /* Estilos adicionales */
+    .status-disponible { color: #2e7d32; font-weight: bold; }
+    .status-reservado { color: #d32f2f; font-weight: bold; }
+    .precio-highlight { color: #2e7d32; font-weight: bold; font-size: 1.1em; }
+    </style>
+{% endblock extra_css %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="text-center mb-4">Buscar Propiedades</h1>
+    
+    <!-- Cuadro principal de búsqueda -->
+    <div class="main-search-box">
+        <form method="post" id="buscar-propiedades-form-dia" class="m-0">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-12">
+                    <div class="d-flex flex-wrap align-items-end gap-3">
+                        <!-- Fecha Inicio -->
+                        <div class="form-group">
+                            <label>Fecha de Inicio</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-calendar"></i>
+                                </span>
+                                {{ form.fecha_inicio }}
+                            </div>
+                        </div>
+
+                        <!-- Fecha Fin -->
+                        <div class="form-group">
+                            <label>Fecha de Fin</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-calendar"></i>
+                                </span>
+                                {{ form.fecha_fin }}
+                            </div>
+                        </div>
+
+                        <!-- Ambientes -->
+                        <div class="form-group">
+                            <label>Ambientes</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-door-open"></i>
+                                </span>
+                                {{ form.ambientes }}
+                            </div>
+                        </div>
+
+                        <!-- Botón de búsqueda -->
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-2"></i>Buscar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Switches -->
+                    <div class="switches-container">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="switchFiltros" role="switch">
+                            <label class="form-check-label" for="switchFiltros">Mostrar más filtros</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            {{ form.ver_todas }}
+                            <label class="form-check-label" for="id_ver_todas">Ver todas las propiedades</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Contenedor de filtros adicionales -->
+    <div id="filtrosAdicionales" class="mt-3" style="display: none;">
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <!-- Filtros básicos -->
+                    <div class="col-md-4 mb-3">
+                        <div class="form-group">
+                            <label>Tipo de Inmueble</label>
+                            {{ form.tipo_inmueble }}
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="form-group">
+                            <label>Vista</label>
+                            {{ form.vista }}
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="form-group">
+                            <label>Valoración</label>
+                            {{ form.valoracion }}
+                        </div>
+                    </div>
+
+                    <!-- Características booleanas -->
+                    <div class="col-12">
+                        <h5 class="mb-3">Características adicionales</h5>
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.amoblado }}
+                                    <label class="form-check-label" for="{{ form.amoblado.id_for_label }}">Amoblado</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.cochera }}
+                                    <label class="form-check-label" for="{{ form.cochera.id_for_label }}">Cochera</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.tv_smart }}
+                                    <label class="form-check-label" for="{{ form.tv_smart.id_for_label }}">TV Smart</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.wifi }}
+                                    <label class="form-check-label" for="{{ form.wifi.id_for_label }}">WiFi</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.piscina }}
+                                    <label class="form-check-label" for="{{ form.piscina.id_for_label }}">Piscina</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.parrilla }}
+                                    <label class="form-check-label" for="{{ form.parrilla.id_for_label }}">Parrilla</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.terraza }}
+                                    <label class="form-check-label" for="{{ form.terraza.id_for_label }}">Terraza</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form.balcon }}
+                                    <label class="form-check-label" for="{{ form.balcon.id_for_label }}">Balcón</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Columna izquierda: Lista de propiedades -->
+        <div class="col-md-8">
+            {% if propiedades_disponibles %}
+            <h3 class="text-center mt-4">Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h3>
+            <div class="table-wrapper">
+                <table id="propiedadesTable" class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Disponibilidad</th>
+                            <th>Ubicación</th>
+                            <th>Piso</th>
+                            <th>Dpto</th>
+                            <th>Propietario</th>
+                            <th>Precio</th>
+                            <th>Sucursal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for propiedad in propiedades_disponibles %}
+                        {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
+                        <tr style="background-color: white;" 
+                            data-index="{{ forloop.counter0 }}"
+                            data-ambientes="{{ propiedad.ambientes|default:0 }}"
+                            data-estado="{{ propiedad.estado|default:'Disponible' }}"
+                            data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
+                            data-caracteristicas="{{ propiedad.caracteristicas|default:'Sin características'|escapejs }}"
+                            onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}', '{{ propiedad.ambientes|default:"0" }}', 'Disponible', '{{ propiedad.descripcion|default:"Sin descripción"|escapejs }}', '{{ propiedad|get_caracteristicas|escapejs }}')">
+                            <td style="color: red;">{{ propiedad.id }}</td>
+                            <td style="color: red;">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
+                            <td style="color: red;">{{ propiedad.ubicacion }}</td>
+                            <td style="color: red;">{{ propiedad.piso }}</td>
+                            <td style="color: red;">{{ propiedad.departamento }}</td>
+                            <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
+                            <td style="color: red;">{{ propiedad.precio_total_reserva|format_price }}</td>
+                            <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
+                        </tr>
+                        {% else %}
+                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}', '{{ propiedad.ambientes|default:"0" }}', 'Disponible', '{{ propiedad.descripcion|default:"Sin descripción"|escapejs }}', '{{ propiedad|get_caracteristicas|escapejs }}')">
+                            <td>{{ propiedad.id }}</td>
+                            <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
+                            <td>{{ propiedad.ubicacion }}</td>
+                            <td>{{ propiedad.piso }}</td>
+                            <td>{{ propiedad.departamento }}</td>
+                            <td>{{ propiedad.propietario.apellido }}</td>
+                            <td>{{ propiedad.precio_total_reserva|format_price }}</td>
+                            <td>{{ propiedad.sucursal.nombre }}</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Ficha detallada mejorada -->
+            <div class="card mt-4" id="propertyCard" style="font-family: 'Courier New', monospace;">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between">
+                        <h5 class="mb-0">FICHA: <span id="cardPropiedad"></span></h5>
+                        <h5 class="mb-0">DIRECCIÓN: <span id="cardDireccion"></span></h5>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <div class="descripcion p-3" style="background-color: #f8f9fa; border-radius: 8px;">
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <p><strong>PROPIETARIO:</strong> <span id="cardPropietario"></span></p>
+                                <p><strong>PRECIO TOTAL:</strong> <span id="cardPrecio"></span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>AMBIENTES:</strong> <span id="cardAmbiente"></span> </p>
+                                <p><strong>ESTADO:</strong> <span id="cardEstado"></span></p>
+                            </div>
+                        </div>
+
+                        <!-- Características/Amenities -->
+                        <div class="mt-4">
+                            <h3 class="mb-3">DESCRIPCIÓN:</h3>
+                            <div id="descripcionDetallada" class="text-uppercase" style="word-wrap: break-word; white-space: pre-wrap; max-height: 200px; overflow-y: auto; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; background-color: white;">
+                                <!-- Se llenará con JavaScript -->
+                            </div>
+                            <h5 class="mt-4 mb-3">CARACTERÍSTICAS:</h5>
+                            <div id="caracteristicas" class="text-uppercase d-flex flex-wrap gap-2">
+                                <!-- Se llenará con JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Agregar este botón cerca de los otros botones de acción -->
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-info" onclick="abrirGaleriaFotos(propiedadSeleccionada.id)">
+                            <i class="fas fa-images"></i> Ver Fotos
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card-footer" id="cardButtons" style="background-color: #f8f9fa;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
+                                <button type="button" class="btn btn-primary" disabled>
+                                    <i class="fas fa-calendar-check"></i> Reservado
+                                </button>
+                                <button type="button" class="btn btn-success" onclick="window.mostrarModalAutenticacion('${reserva_id}')">
+                                    <i class="fas fa-check-circle"></i> Finalizar Operación
+                                </button>
+                                <button type="button" class="btn btn-info" onclick="window.verPrecios()">
+                                    <i class="fas fa-dollar-sign"></i> Ver Precios
+                                </button>
+                            {% else %}
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
+                                        <i class="fas fa-calendar-plus"></i> Reservar
+                                    </button>
+                                    <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
+                                        <i class="fas fa-check-circle"></i> Operación Directa
+                                    </button>
+                                    <button type="button" class="btn btn-info" onclick="window.verPrecios()">
+                                        <i class="fas fa-dollar-sign"></i> Ver Precios
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <span class="badge bg-info text-white p-2">
+                                <i class="fas fa-info-circle"></i> 
+                                Estado: <span id="estadoPropiedad">Disponible</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+                <div class="alert alert-warning text-center mt-4">
+                    No hay propiedades disponibles para las fechas seleccionadas.
+                </div>
+                {% if alerta_sin_precio %}
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Atención',
+                            text: 'Hay propiedades sin precio asignado',
+                            confirmButtonText: 'Entendido',
+                            confirmButtonColor: '#3085d6',
+                            timer: 5000,
+                            timerProgressBar: true
+                        });
+                    });
+                </script>
+                {% endif %}
+            {% endif %}
+        </div>
+<!-- MODAL HERMOSO Y FUNCIONAL -->
+<div id="modalConfirmarReserva" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 15px; padding: 0; width: 90%; max-width: 700px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); animation: modalAppear 0.3s ease-out;">
+        
+        <!-- Header con gradiente -->
+        <div style="background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); color: white; padding: 20px; border-radius: 15px 15px 0 0; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+            <h3 style="margin: 0; font-size: 24px; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">📋 Confirmar Reserva</h3>
+            <button onclick="cerrarModal()" style="position: absolute; top: 15px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 28px; cursor: pointer; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.3s;">×</button>
+                    </div>
+        
+        <!-- Body con mejor espaciado -->
+        <div style="padding: 25px; max-height: 70vh; overflow-y: auto; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);">
+            
+            <!-- Información de la Propiedad -->
+            <div style="background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%); border: 2px solid #4caf50; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(76,175,80,0.2);">
+                <h4 style="color: #2e7d32; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">🏠 Información de la Propiedad</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Ficha:</strong> <span id="modal_ficha" style="color: #555;">-</span></p>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Dirección:</strong> <span id="modal_direccion" style="color: #555;">-</span></p>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Propietario:</strong> <span id="modal_propietario" style="color: #555;">-</span></p>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Ambientes:</strong> <span id="modal_ambientes" style="color: #555;">-</span></p>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Estado:</strong> <span id="modal_estado" style="color: #555;">-</span></p>
+                    </div>
+                    <div>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Inicio:</strong> <span id="modal_fecha_inicio" style="color: #555;">-</span></p>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Fin:</strong> <span id="modal_fecha_fin" style="color: #555;">-</span></p>
+                        <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Total días:</strong> <span id="modal_total_dias" style="color: #555;">-</span></p>
+                    </div>
+                </div>
+                
+                <!-- Descripción y Características -->
+                <div style="margin-top: 15px;">
+                    <p style="margin: 8px 0; color: #333;"><strong style="color: #2e7d32;">Descripción:</strong></p>
+                    <div id="modal_descripcion" style="color: #555; background: #f9f9f9; padding: 10px; border-radius: 6px; min-height: 40px; border-left: 4px solid #2e7d32;">Sin descripción</div>
+                    
+                    <p style="margin: 8px 0 8px 0; color: #333;"><strong style="color: #2e7d32;">Características:</strong></p>
+                    <div id="modal_caracteristicas" style="color: #555; background: #f9f9f9; padding: 10px; border-radius: 6px; min-height: 40px; border-left: 4px solid #2e7d32;">Sin características</div>
+                </div>
+            </div>
+
+            <!-- Precio Total -->
+            <div style="background: linear-gradient(135deg, #fff8e1 0%, #fffde7 100%); border: 2px solid #ffc107; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(255,193,7,0.2);">
+                <h4 style="color: #f57f17; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">💰 Precio Total</h4>
+                <div style="position: relative;">
+                    <span style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-size: 20px; font-weight: bold; color: #f57f17;">$</span>
+                    <input type="number" id="precio_total_editable" step="0.01" min="0" 
+                           style="width: 100%; padding: 15px 15px 15px 40px; font-size: 20px; font-weight: bold; border: 2px solid #ffc107; border-radius: 8px; background: white; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); transition: all 0.3s;"
+                           onfocus="this.style.borderColor='#ff9800'; this.style.boxShadow='0 0 10px rgba(255,152,0,0.3)'"
+                           onblur="this.style.borderColor='#ffc107'; this.style.boxShadow='inset 0 2px 5px rgba(0,0,0,0.1)'">
+                </div>
+            </div>
+
+            <!-- Vendedor -->
+            <div style="background: linear-gradient(135deg, #e3f2fd 0%, #f0f8ff 100%); border: 2px solid #2196f3; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(33,150,243,0.2);">
+                <h4 style="color: #1565c0; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">👤 Vendedor</h4>
+                <div style="display: flex; gap: 12px; margin-bottom: 15px;">
+                    <input type="number" id="vendedor_id" placeholder="Ingresa ID del vendedor" min="1" 
+                           style="flex: 1; padding: 12px; border: 2px solid #2196f3; border-radius: 8px; font-size: 16px; font-weight: 600; color: #333; background: white; transition: all 0.3s;"
+                           onfocus="this.style.borderColor='#1976d2'; this.style.boxShadow='0 0 10px rgba(25,118,210,0.3)'"
+                           onblur="this.style.borderColor='#2196f3'; this.style.boxShadow='none'"
+                           oninput="buscarVendedorAutomatico()">
+                    <button onclick="buscarVendedor()" 
+                            style="padding: 12px 20px; background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(33,150,243,0.3);"
+                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(33,150,243,0.4)'"
+                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(33,150,243,0.3)'">🔍 Buscar</button>
+                </div>
+                <div id="vendedor_info" style="display: none; background: linear-gradient(135deg, #c8e6c9 0%, #dcedc8 100%); padding: 15px; border-radius: 8px; border: 2px solid #4caf50; box-shadow: 0 2px 8px rgba(76,175,80,0.3);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 24px;">✅</span>
+                        <div>
+                            <strong style="color: #1b5e20; font-size: 16px; font-weight: 700;">Vendedor encontrado:</strong>
+                            <div id="vendedor_nombre" style="color: #000; font-size: 20px; font-weight: 800; margin-top: 5px; text-shadow: 1px 1px 2px rgba(255,255,255,0.8);"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+                            <!-- Inquilino con Búsqueda Mejorada -->
+                <div style="background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%); border: 2px solid #4caf50; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(76,175,80,0.2);">
+                    <h4 style="color: #2e7d32; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">🏠 Inquilino</h4>
+                    
+                    <!-- Buscador de Inquilinos -->
+                    <div style="margin-bottom: 15px;">
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <input type="text" id="buscar_inquilino" placeholder="Buscar por nombre o ID del inquilino..." 
+                                   style="flex: 1; padding: 12px; border: 2px solid #4caf50; border-radius: 8px; font-size: 16px; color: #000; font-weight: 600;"
+                                   oninput="buscarInquilinosEnTiempoReal()">
+                            <button onclick="buscarTodosLosInquilinos()" 
+                                    style="padding: 12px 20px; background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(33,150,243,0.3);">🔍 Buscar Todos</button>
+                            <button onclick="limpiarBusquedaInquilino()" 
+                                    style="padding: 12px 20px; background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(255,152,0,0.3);">🔄 Limpiar</button>
+                        </div>
+                        <div id="estado_busqueda" style="font-size: 14px; color: #666; font-style: italic; min-height: 20px;"></div>
+                    </div>
+                    
+                    <!-- Lista de Inquilinos -->
+                    <div style="display: flex; gap: 12px;">
+                        <select id="inquilino" onchange="actualizarInquilinoId()" size="5"
+                                style="flex: 1; padding: 10px; border: 3px solid #4caf50; border-radius: 8px; font-size: 16px; background: #ffffff !important; color: #000000 !important; font-weight: 700 !important; font-family: Arial, sans-serif !important; transition: all 0.3s; box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important; cursor: pointer !important; max-height: 200px; overflow-y: auto;"
+                                onfocus="this.style.borderColor='#2e7d32'; this.style.boxShadow='0 0 20px rgba(46,125,50,0.6) !important'"
+                                onblur="this.style.borderColor='#4caf50'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.2) !important'">
+                            <option value="" style="color: #666666 !important; background: #f0f8f0 !important; font-weight: 600 !important; font-size: 14px !important; text-align: center;">-- Selecciona un inquilino --</option>
+                                {% for inquilino in inquilinos %}
+                                <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.nombre|lower }} {{ inquilino.apellido|lower }}" data-id="{{ inquilino.id }}"
+                                        style="color: #000000 !important; font-weight: 700 !important; background: #ffffff !important; padding: 8px !important; font-size: 15px !important; border-bottom: 1px solid #e0e0e0;">
+                                    ID: {{ inquilino.id }} - {{ inquilino.nombre }} {{ inquilino.apellido }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <button onclick="mostrarModalCrearInquilino()" 
+                                    style="padding: 12px 20px; background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(76,175,80,0.3); min-width: 120px;"
+                                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(76,175,80,0.4)'"
+                                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(76,175,80,0.3)'">➕ Crear Nuevo</button>
+                            <button onclick="seleccionarPrimerInquilino()" 
+                                    style="padding: 12px 20px; background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(156,39,176,0.3); min-width: 120px;">📋 Ver Todos</button>
+                        </div>
+                            </div>
+                        </div>
+
+                        </div>
+        
+        <!-- Footer con mejor diseño -->
+        <div style="padding: 20px; border-top: 1px solid #e0e0e0; text-align: right; border-radius: 0 0 15px 15px; background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%); box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
+            <button onclick="cerrarModal()" 
+                    style="padding: 12px 25px; background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white; border: none; border-radius: 8px; margin-right: 15px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(108,117,125,0.3);"
+                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(108,117,125,0.4)'"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(108,117,125,0.3)'">❌ Cancelar</button>
+            <button onclick="confirmarReservaFinal()" 
+                    style="padding: 12px 30px; background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(46,125,50,0.3);"
+                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(46,125,50,0.4)'"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(46,125,50,0.3)'">✅ CONFIRMAR RESERVA</button>
+                    </div>
+        
+        <!-- Campos ocultos -->
+        <input type="hidden" id="modalPropiedadId">
+        <input type="hidden" id="modalFechaInicio">
+        <input type="hidden" id="modalFechaFin">
+        <input type="hidden" id="modalVendedorId">
+        <input type="hidden" id="modalInquilinoId">
+        <input type="hidden" id="modalPrecioTotal">
+        <input type="hidden" id="esOperacionDirecta">
+            </div>
+        </div>
+
+<!-- Animación CSS -->
+<style>
+@keyframes modalAppear {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -60%);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
+}
+</style>
+        
+        <!-- Columna derecha: Tabla de precios -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">PRECIOS</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered table-precios">
+                        <thead>
+                            <tr style="background-color: #007bff; color: white;">
+                                <th>PERÍODO</th>
+                                <th class="text-end">Precio por Día</th>
+                                <th class="text-end">Precio por Quincena</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Se llenará dinámicamente con JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="modalAutenticacionVendedor" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalLabel">Autenticación del Vendedor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAutenticacionVendedor">
+                    <div class="form-group">
+                        <label for="usuarioVendedor">Usuario:</label>
+                        <input type="text" class="form-control" id="usuarioVendedor" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="contrasenaVendedor">Contraseña:</label>
+                        <input type="password" class="form-control" id="contrasenaVendedor" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="autenticarYFinalizar()">Autenticar y Finalizar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Modales para ver detalles de la propiedad -->
+{% for propiedad in propiedades_disponibles %}
+<div class="modal fade" id="modalDetalles{{ propiedad.id }}" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalles de la Propiedad</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Carrusel de imágenes -->
+                {% if propiedad.imagenes.all %}
+                    <div id="carousel{{ propiedad.id }}" class="carousel slide mb-4" data-ride="carousel">
+                        <div class="carousel-inner">
+                            {% for imagen in propiedad.imagenes.all %}
+                                <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                    <img src="{{ imagen.imagen.url }}" class="d-block w-100" alt="Imagen de la propiedad" style="height: 300px; object-fit: cover;">
+                                </div>
+                            {% endfor %}
+                        </div>
+                        {% if propiedad.imagenes.all|length > 1 %}
+                            <a class="carousel-control-prev" href="#carousel{{ propiedad.id }}" role="button" data-slide="prev">
+                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                <span class="sr-only">Anterior</span>
+                            </a>
+                            <a class="carousel-control-next" href="#carousel{{ propiedad.id }}" role="button" data-slide="next">
+                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                <span class="sr-only">Siguiente</span>
+                            </a>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">No hay imágenes disponibles para esta propiedad.</div>
+                {% endif %}
+
+                <!-- Detalles de la propiedad -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Dirección:</strong> {{ propiedad.direccion }}</p>
+                        <p><strong>Piso:</strong> {{ propiedad.piso }}</p>
+                        <p><strong>Departamento:</strong> {{ propiedad.dpto }}</p>
+                        <p><strong>Tipo de Inmueble:</strong> {{ propiedad.tipo_inmueble }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Ambientes:</strong> {{ propiedad.ambientes }}</p>
+                        <p><strong>Valoración:</strong> {{ propiedad.valoracion }}</p>
+                        <p><strong>Características:</strong> {{ propiedad.caracteristicas }}</p>
+                        <p><strong>Precio Final:</strong> ${{ propiedad.precio_total_reserva|format_price }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Modal para galería de fotos -->
+<div class="modal fade" id="modalGaleriaFotos" tabindex="-1" aria-labelledby="modalGaleriaFotosLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalGaleriaFotosLabel">
+                    <i class="fas fa-images"></i> Galería de Fotos - <span id="tituloModal"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <!-- Carrusel principal -->
+                <div id="carouselFotos" class="carousel slide" data-bs-ride="carousel">
+                    <div class="carousel-inner" id="carouselInner">
+                        <!-- Las fotos se cargarán dinámicamente aquí -->
+                    </div>
+                    
+                    <!-- Controles del carrusel -->
+                    <button class="carousel-control-prev" type="button" data-bs-target="#carouselFotos" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Anterior</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#carouselFotos" data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Siguiente</span>
+                    </button>
+                </div>
+
+                <!-- Contador de fotos -->
+                <div class="text-center my-3">
+                    <span id="contadorFotos" class="badge bg-dark"></span>
+                </div>
+
+                <!-- Contenedor de miniaturas -->
+                <div class="container-fluid px-4">
+                    <div class="row" id="thumbnailsContainer">
+                        <!-- Las miniaturas se cargarán dinámicamente aquí -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para mostrar precios -->
+<div class="modal fade" id="modalPrecios" tabindex="-1" aria-labelledby="modalPreciosLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalPreciosLabel">
+                    <i class="fas fa-dollar-sign"></i> Precios - <span id="tituloPreciosModal"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="preciosModalBody">
+                <!-- Los precios se cargarán dinámicamente aquí -->
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Añade esto al principio de tus scripts
+    const URLS = {
+        obtenerPrecios: "{% url 'inmobiliaria:obtener_precios_propiedad' 0 %}".slice(0, -1),
+        obtenerFotos: "{% url 'inmobiliaria:obtener_fotos_propiedad' 0 %}".slice(0, -1)
+    };
+
+    function formatPrice(value) {
+        if (typeof value === 'string') {
+            value = parseFloat(value.replace(/[^\d.-]/g, ''));
+        }
+        return value.toLocaleString('es-AR', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        });
+    }
+    function autenticarYFinalizar() {
+    var usuario = document.getElementById('usuarioVendedor').value;
+    var contrasena = document.getElementById('contrasenaVendedor').value;
+    var reservaId = window.reservaIdActual;
+    console.log("hola soy el reservaId",reservaId);
+     // Usar el ID guardado
+
+    // Enviar los datos a través de AJAX
+    $.ajax({
+        url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
+        type: 'POST',
+        data: {
+            'username': usuario,
+            'password': contrasena,
+            'reserva_id': reservaId,
+            'csrfmiddlewaretoken': '{{ csrf_token }}',
+        },
+        success: function(response) {
+            if (response.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Autenticación exitosa',
+                    text: 'Finalizando operación...',
+                    showConfirmButton: false,
+                    timer: 1500
+                }).then(() => {
+                    // Aquí puedes poner el código que se ejecuta después de que se cierre la alerta
+                    window.location.href = '{% url "inmobiliaria:finalizar_reserva" 0 %}'.replace('0', response.reserva_id);
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de autenticación',
+                    text: 'Credenciales incorrectas, por favor intente de nuevo.'
+                });
+            }
+        },
+        error: function(xhr, status, error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error del servidor',
+                text: 'Ocurrió un error en el servidor. Por favor, intente de nuevo.'
+            });
+        }
+    });
+}
+function mostrarModalAutenticacionParaReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias, esOperacionDirecta = false) {
+    // Guardamos los datos de la reserva en variables globales
+    window.datosReserva = {
+        ficha, 
+        direccion, 
+        propietario, 
+        disponibilidad, 
+        precio, 
+        fechaInicio, 
+        fechaFin,
+        totalDias,
+        esOperacionDirecta
+    };
+    console.log("Datos de la reserva:", window.datosReserva);
+    
+    // Mostramos el modal de autenticación
+    $('#modalAutenticacionVendedor').modal('show');
+    
+    // Cambiamos el texto del botón de autenticación según el tipo de operación
+    const btnText = esOperacionDirecta ? 'Autenticar y Realizar Operación' : 'Autenticar y Reservar';
+    document.querySelector('#modalAutenticacionVendedor .btn-primary').textContent = btnText;
+    
+    // Cambiamos la función que se ejecuta al hacer clic en el botón
+    document.querySelector('#modalAutenticacionVendedor .btn-primary').onclick = autenticarYReservar;
+}
+function autenticarYReservar() {
+    var usuario = document.getElementById('usuarioVendedor').value;
+    var contrasena = document.getElementById('contrasenaVendedor').value;
+    var reservaId = window.reservaIdActual;
+    var esOperacionDirecta = window.datosReserva.esOperacionDirecta;
+
+    // Enviar los datos a través de AJAX
+    $.ajax({
+        url: '{% url "inmobiliaria:autenticacion_vendedor" %}',
+        type: 'POST',
+        data: {
+            'username': usuario,
+            'password': contrasena,
+            'csrfmiddlewaretoken': '{{ csrf_token }}',
+        },
+        success: function(response) {
+            if (response.success) {
+                // Primero ocultamos el modal de autenticación
+                const modalAutenticacion = bootstrap.Modal.getInstance(document.getElementById('modalAutenticacionVendedor'));
+                modalAutenticacion.hide();
+                
+                // Esperamos a que se oculte completamente
+                setTimeout(() => {
+                    // Mostramos el mensaje de éxito
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Autenticación exitosa',
+                    text: 'Procediendo con la reserva...',
+                    showConfirmButton: false,
+                    timer: 1500
+                }).then(() => {
+                        // Limpiamos los campos del modal de autenticación
+                        document.getElementById('usuarioVendedor').value = '';
+                        document.getElementById('contrasenaVendedor').value = '';
+                        
+                        // Mostramos el modal de reserva
+                        const modalReserva = new bootstrap.Modal(document.getElementById('modalConfirmarReserva'));
+                        modalReserva.show();
+                        
+                        // Actualizamos los campos del modal
+                    mostrarModalReserva(
+                        window.datosReserva.ficha,
+                        window.datosReserva.direccion,
+                        window.datosReserva.propietario,
+                        window.datosReserva.disponibilidad,
+                        window.datosReserva.precio,
+                        window.datosReserva.fechaInicio,
+                        window.datosReserva.fechaFin,
+                            window.datosReserva.totalDias,
+                            window.datosReserva.esOperacionDirecta
+                    );
+                });
+                }, 300);
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de autenticación',
+                    text: 'Credenciales incorrectas, por favor intente de nuevo.'
+                });
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error en la autenticación:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error del servidor',
+                text: 'Ocurrió un error en el servidor. Por favor, intente de nuevo.'
+            });
+        }
+    });
+}
+    function actualizarTablaPrecios(propiedadId, fechaInicio, fechaFin) {
+        console.log("Actualizando tabla de precios para propiedad:", propiedadId);
+        
+        // Construir URL correctamente usando la URL base definida
+        const url = `${URLS.obtenerPrecios}${propiedadId}/`;
+        console.log("URL de petición:", url);
+        
+        // Hacer petición fetch para obtener los precios
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Datos recibidos:", data);
+                
+                const tbody = document.querySelector('.table-precios tbody');
+                if (!tbody) {
+                    console.error('No se encontró el elemento tbody de la tabla de precios');
+                    return;
+                }
+                
+                tbody.innerHTML = '';
+                
+                if (data.success && data.precios && data.precios.length > 0) {
+                    data.precios.forEach(precio => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${precio.tipo_precio}</td>
+                            <td class="text-end">$${window.formatearPrecio(precio.precio_por_dia)}</td>
+                            <td class="text-end">$${window.formatearPrecio(precio.precio_total)}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">
+                                No hay precios disponibles
+                            </td>
+                        </tr>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error al obtener precios:', error);
+                const tbody = document.querySelector('.table-precios tbody');
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="3" class="text-center text-danger">
+                                Error al cargar los precios: ${error.message}
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+    }
+
+    function mostrarPrecios(id) {
+        console.log('Mostrando precios para propiedad:', id);
+        
+        if (!window.propiedadSeleccionada) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Atención',
+                text: 'Por favor selecciona una propiedad primero.'
+            });
+            return;
+        }
+
+        const modal = $('#modalPrecios');
+        modal.modal('show');
+        
+        $('#preciosModalBody').html(`
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="sr-only">Cargando...</span>
+                </div>
+            </div>
+        `);
+        
+        $.ajax({
+            url: "{% url 'inmobiliaria:obtener_precios_propiedad' %}",
+            data: { 'propiedad_id': id },
+            method: 'GET',
+            success: function(response) {
+                console.log('Respuesta:', response);
+                
+                if (response.precios && response.precios.length > 0) {
+                    let tableContent = `
+                        <table class="table table-striped">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>Quincena</th>
+                                    <th>Precio por Día</th>
+                                    <th>Precio Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    response.precios.forEach(function(precio) {
+                        tableContent += `
+                            <tr>
+                                <td>${precio.tipo_precio}</td>
+                                <td>$${formatPrice(precio.precio_por_dia)}</td>
+                                <td>$${formatPrice(precio.precio_total)}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    tableContent += `
+                            </tbody>
+                        </table>
+                    `;
+                    
+                    $('#preciosModalBody').html(tableContent);
+                } else {
+                    $('#preciosModalBody').html(`
+                        <div class="alert alert-warning">
+                            No hay precios registrados para esta propiedad.
+                        </div>
+                    `);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error:', error);
+                $('#preciosModalBody').html(`
+                    <div class="alert alert-danger">
+                        Error al cargar los precios: ${error}
+                    </div>
+                `);
+            }
+        });
+    }
+
+    function abrirGaleriaFotos(propiedadId) {
+        console.log("=== ABRIENDO GALERÍA DE FOTOS ===");
+        
+        if (!propiedadId) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Atención',
+                text: 'Primero debes seleccionar una propiedad'
+            });
+            return;
+        }
+        
+        // Verificar que todos los elementos necesarios existen
+        const carouselInner = document.getElementById('carouselInner');
+        const thumbnailsContainer = document.getElementById('thumbnailsContainer');
+        const contadorFotos = document.getElementById('contadorFotos');
+        const tituloModal = document.getElementById('tituloModal');
+        
+        if (!carouselInner || !thumbnailsContainer || !contadorFotos || !tituloModal) {
+            console.error("Elementos del DOM faltantes");
+            return;
+        }
+        
+        // Actualizar título del modal
+        tituloModal.textContent = propiedadSeleccionada.direccion;
+        
+        // Limpiar contenedores
+        carouselInner.innerHTML = '';
+        thumbnailsContainer.innerHTML = '';
+        contadorFotos.textContent = '';
+        
+        // Construir la URL
+        const url = `${URLS.obtenerFotos}${propiedadId}/`;
+        
+        // Mostrar indicador de carga
+        carouselInner.innerHTML = `
+            <div class="carousel-item active">
+                <div class="d-flex justify-content-center align-items-center" style="height: 60vh;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Mostrar el modal antes de cargar las fotos
+        const modalGaleriaFotos = new bootstrap.Modal(document.getElementById('modalGaleriaFotos'));
+        modalGaleriaFotos.show();
+        
+        // Realizar la petición
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success && data.fotos && data.fotos.length > 0) {
+                    carouselInner.innerHTML = '';
+                    
+                    data.fotos.forEach((foto, index) => {
+                        // Slide principal
+                        const slide = document.createElement('div');
+                        slide.className = `carousel-item ${index === 0 ? 'active' : ''}`;
+                        slide.innerHTML = `
+                            <div class="d-flex justify-content-center align-items-center" style="height: 70vh;">
+                                <img src="${foto.url}" 
+                                     class="img-fluid" 
+                                     style="max-height: 100%; max-width: 100%; object-fit: contain;" 
+                                     alt="Foto ${index + 1}">
+                            </div>
+                        `;
+                        carouselInner.appendChild(slide);
+                        
+                        // Thumbnail
+                        const thumbnailCol = document.createElement('div');
+                        thumbnailCol.className = 'col-2 mb-2';
+                        thumbnailCol.innerHTML = `
+                            <img src="${foto.url}" 
+                                 class="img-thumbnail thumbnail-nav ${index === 0 ? 'active-thumbnail' : ''}" 
+                                 onclick="irAFoto(${index})"
+                                 data-index="${index}"
+                                 alt="Thumbnail ${index + 1}">
+                        `;
+                        thumbnailsContainer.appendChild(thumbnailCol);
+                    });
+                    
+                    // Actualizar contador
+                    contadorFotos.textContent = `1 / ${data.fotos.length}`;
+                } else {
+                    carouselInner.innerHTML = `
+                        <div class="alert alert-info m-3">
+                            No hay fotos disponibles para esta propiedad
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error("Error al cargar las fotos:", error);
+                carouselInner.innerHTML = `
+                    <div class="alert alert-danger m-3">
+                        Error al cargar las fotos: ${error.message}
+                    </div>
+                `;
+            });
+    }
+    function irAFoto(index) {
+        $('#carouselFotos').carousel(index);
+    }
+
+    // Event listener para actualizar thumbnails y contador
+    $('#carouselFotos').on('slide.bs.carousel', function (e) {
+        const newIndex = e.to;
+        const totalFotos = document.querySelectorAll('.carousel-item').length;
+        
+        // Actualizar contador
+        const contadorFotos = document.getElementById('contadorFotos');
+        if (contadorFotos) {
+            contadorFotos.textContent = `${newIndex + 1} / ${totalFotos}`;
+        }
+        
+        // Actualizar thumbnail activo
+        document.querySelectorAll('.thumbnail-nav').forEach((thumb, idx) => {
+            thumb.classList.toggle('active-thumbnail', idx === newIndex);
+        });
+    });
+
+    // Estilos adicionales para la galería
+    const galeriaStyles = document.createElement('style');
+    galeriaStyles.textContent = `
+        .modal-xl {
+            max-width: 90% !important;
+        }
+        
+        .carousel-item img {
+            transition: transform 0.3s ease;
+        }
+        
+        .active-thumbnail {
+            border: 3px solid #007bff !important;
+            opacity: 1 !important;
+        }
+        
+        .thumbnail-nav {
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+        
+        .thumbnail-nav:hover {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+        
+        #thumbnailsContainer {
+            padding: 15px;
+            background: rgba(0,0,0,0.03);
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+        
+        .carousel-control-prev,
+        .carousel-control-next {
+            background-color: rgba(0,0,0,0.3);
+            width: 5%;
+            border-radius: 50px;
+            height: 50px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+    `;
+    document.head.appendChild(galeriaStyles);
+
+
+    // Función auxiliar para formatear precios
+    function formatPrice(value) {
+        if (typeof value === 'string') {
+            value = parseFloat(value.replace(/[^\d.-]/g, ''));
+        }
+        return value.toLocaleString('es-AR', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        });
+    }
+
+    // Event listener para actualizar thumbnails y contador
+
+</script>
+
+<script type="text/javascript">
+// Variables globales
+let selectedRowIndex = -1;
+let propiedadSeleccionada = null;
+function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias, ambientes, estado, descripcion, caracteristicas) {
+    console.log('🔄 =================== SELECCIONAR PROPIEDAD ===================');
+    console.log('📋 Todos los parámetros recibidos:');
+    console.log('   - ID:', id);
+    console.log('   - Dirección:', direccion);
+    console.log('   - Propietario:', propietario);
+    console.log('   - Disponibilidad:', disponibilidad);
+    console.log('   - Precio:', precio);
+    console.log('   - Reserva ID:', reserva_id);
+    console.log('   - Estado Reserva:', estadoReserva);
+    console.log('   - Precio por día:', precio_por_dia);
+    console.log('   - Total días:', total_dias);
+    console.log('   - Ambientes:', ambientes, '(tipo:', typeof ambientes, ')');
+    console.log('   - Estado:', estado);
+    console.log('   - Descripción:', descripcion);
+    console.log('   - Características:', caracteristicas);
+    console.log('================================================================');
+    
+    // Buscar la fila clickeada para obtener los datos adicionales
+    const filaClickeada = event.target.closest('tr');
+    
+    console.log('=== SELECCIONANDO PROPIEDAD ===');
+    console.log('Parámetros recibidos:', {
+        id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias, ambientes, estado, descripcion, caracteristicas
+    });
+    
+    // Corregir el precio removiendo el cero extra de forma más robusta
+    let precioCorregido = 0;
+    console.log('🔍 Precio original recibido:', precio, 'Tipo:', typeof precio);
+    
+    try {
+        if (precio === null || precio === undefined || precio === '') {
+            precioCorregido = 0;
+        } else if (typeof precio === 'string') {
+            // Manejar formato "770000,0" - remover coma y decimales
+            let precioLimpio = precio.replace(',0', '').replace(/[\.\s]/g, '');
+            precioCorregido = parseInt(precioLimpio) || 0;
+            console.log('🧹 Precio limpio (string):', precioLimpio, '→', precioCorregido);
+        } else if (typeof precio === 'number') {
+            precioCorregido = precio;
+            console.log('🔢 Precio directo (number):', precioCorregido);
+        } else {
+            // Intentar convertir a string y luego procesar
+            let precioStr = String(precio).replace(',0', '').replace(/[\.\s]/g, '');
+            precioCorregido = parseInt(precioStr) || 0;
+            console.log('🔄 Precio convertido:', precioStr, '→', precioCorregido);
+        }
+        
+        // Ya no necesitamos dividir por 10 si manejamos la coma correctamente
+        console.log('✅ Precio procesado correctamente:', precioCorregido);
+        
+    } catch (error) {
+        console.error('❌ Error procesando precio:', error);
+        precioCorregido = 0;
+    }
+    
+    console.log('💰 Precio final corregido:', precioCorregido);
+    console.log('📊 Datos de la propiedad:', { ambientes, estado, descripcion, caracteristicas });
+    
+    // PRIMERO: Remover selección anterior de todas las filas
+    document.querySelectorAll('.table tbody tr').forEach(row => {
+        row.classList.remove('selected');
+        // Limpiar cualquier estilo inline que pueda interferir
+        row.style.background = '';
+        row.style.border = '';
+        row.style.boxShadow = '';
+        row.style.transform = '';
+    });
+    
+    // SEGUNDO: Agregar selección a la fila actual
+    const filaActual = event.target.closest('tr');
+    if (filaActual) {
+        filaActual.classList.add('selected');
+        console.log('✅ Fila seleccionada - aplicado clase "selected"');
+    }
+
+    // TERCERO: Obtener fechas de los inputs del formulario de búsqueda
+    const posiblesIdsInicio = ['id_fecha_inicio', 'fecha_inicio'];
+    const posiblesIdsFin = ['id_fecha_fin', 'fecha_fin'];
+    
+    let fechaInicio = '';
+    let fechaFin = '';
+    
+    // Buscar fecha inicio
+    for (let id of posiblesIdsInicio) {
+        const input = document.getElementById(id);
+        if (input && input.value) {
+            fechaInicio = input.value;
+            console.log(`📅 Fecha inicio encontrada en ${id}:`, fechaInicio);
+            break;
+        }
+    }
+    
+    // Buscar fecha fin
+    for (let id of posiblesIdsFin) {
+        const input = document.getElementById(id);
+        if (input && input.value) {
+            fechaFin = input.value;
+            console.log(`📅 Fecha fin encontrada en ${id}:`, fechaFin);
+            break;
+        }
+    }
+
+    // CUARTO: Guardar los datos de la propiedad seleccionada CON ORDEN CORRECTO
+    propiedadSeleccionada = {
+        id: id,                                    // Ficha de la propiedad
+        direccion: direccion,                      // Dirección completa
+        propietario: propietario,                  // Nombre del propietario
+        disponibilidad: disponibilidad,           // Estado de disponibilidad
+        precio: precioCorregido,                  // Precio total corregido
+        precioPorDia: parseFloat(precio_por_dia) || 0,  // Precio por día
+        totalDias: parseInt(total_dias) || 1,     // Total de días
+        fechaInicio: fechaInicio,                 // Fecha inicio del formulario
+        fechaFin: fechaFin,                       // Fecha fin del formulario
+        estadoReserva: estadoReserva,             // Estado de la reserva
+        reservaId: reserva_id || null,            // ID de reserva si existe
+        ambientes: ambientes,                     // Número de ambientes
+        estado: estado,                           // Estado de la propiedad
+        descripcion: descripcion,                 // Descripción de la propiedad
+        caracteristicas: caracteristicas          // Características de la propiedad
+    };
+    
+    console.log('✅ Propiedad seleccionada guardada:', propiedadSeleccionada);
+
+    // Actualizar la tarjeta de propiedad con todos los datos
+    document.getElementById("cardPropiedad").innerText = id;
+    document.getElementById("cardDireccion").innerText = direccion;
+    document.getElementById("cardPropietario").innerText = propietario;
+    document.getElementById("cardPrecio").innerText = `$${window.formatearPrecio(precioCorregido)}`;
+    
+    // Actualizar estado inmediatamente
+    document.getElementById("cardEstado").innerText = estadoReserva === 'confirmada_no_pagada' ? 'Reservado' : 'Disponible';
+    
+    // Actualizar ambientes, descripción y características directamente
+    const cardAmbiente = document.getElementById("cardAmbiente");
+    if (cardAmbiente) cardAmbiente.innerText = ambientes || 'No especificado';
+    
+    const descripcionElement = document.getElementById("descripcionDetallada");
+    if (descripcionElement) descripcionElement.innerText = descripcion || 'No hay descripción disponible';
+    
+    const caracteristicasElement = document.getElementById("caracteristicas");
+    if (caracteristicasElement) {
+        if (caracteristicas && caracteristicas !== 'Sin características especiales') {
+            // Separar las características por comas y crear badges individuales
+            const caracteristicasArray = caracteristicas.split(', ');
+            caracteristicasElement.innerHTML = caracteristicasArray
+                .map(caracteristica => `<span class="badge bg-primary m-1">${caracteristica.trim()}</span>`)
+                .join('');
+        } else {
+            caracteristicasElement.innerHTML = '<span class="badge bg-secondary">Sin características especiales</span>';
+        }
+    }
+    
+    console.log('✅ Datos actualizados directamente desde parámetros');
+
+    // Cargar los precios de la propiedad específicamente
+    cargarPreciosPropiedad(id);
+
+    // Actualizar botones según el estado
+    const cardButtons = document.getElementById("cardButtons");
+    if (estadoReserva === 'confirmada_no_pagada') {
+        cardButtons.innerHTML = `
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-primary" disabled>
+                    <i class="fas fa-calendar-check"></i> Reservado
+                </button>
+                <button type="button" class="btn btn-success" onclick="window.mostrarModalAutenticacion('${reserva_id}')">
+                    <i class="fas fa-check-circle"></i> Finalizar Operación
+                </button>
+                <button type="button" class="btn btn-info" onclick="window.verPrecios()">
+                    <i class="fas fa-dollar-sign"></i> Ver Precios
+                </button>
+            </div>
+        `;
+    } else {
+        cardButtons.innerHTML = `
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
+                    <i class="fas fa-calendar-plus"></i> Reservar
+                </button>
+                <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
+                    <i class="fas fa-check-circle"></i> Operación Directa
+                </button>
+                <button type="button" class="btn btn-info" onclick="window.verPrecios()">
+                    <i class="fas fa-dollar-sign"></i> Ver Precios
+                </button>
+            </div>
+        `;
+    }
+
+}
+
+// Función para mostrar el modal de operación directa
+window.mostrarModalOperacion = function() {
+    console.log('=== OPERACIÓN DIRECTA ===');
+    console.log('Propiedad seleccionada:', propiedadSeleccionada);
+    
+    if (!propiedadSeleccionada) {
+        alert('Por favor, selecciona una propiedad primero.');
+        return;
+    }
+
+    // Mostrar directamente el modal de reserva para operación directa
+    window.mostrarModalReserva(true); // true = operación directa
+}
+
+// Actualizar la función mostrarModalReserva para manejar operaciones directas
+function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias, esOperacionDirecta = false) {
+    console.log('Iniciando mostrarModalReserva con:', { ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias, esOperacionDirecta });
+
+    try {
+        // Formatear fechas
+        const fechaInicioFormateada = formatearFecha(fechaInicio);
+        const fechaFinFormateada = formatearFecha(fechaFin);
+
+        // Limpiar campos previos
+        document.getElementById('vendedor_id').value = '';
+        document.getElementById('vendedor_info').style.display = 'none';
+        document.getElementById('inquilino').value = '';
+        document.getElementById('modalVendedorId').value = '';
+        document.getElementById('modalInquilinoId').value = '';
+
+        // Actualizar título y botón según el tipo de operación
+        const modalTitle = document.getElementById("modalLabel");
+        const confirmarBtn = document.getElementById("confirmar-reserva-btn");
+        if (modalTitle) modalTitle.textContent = esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
+        if (confirmarBtn) confirmarBtn.textContent = esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
+
+        // Actualizar información de la propiedad
+        const elementos = {
+            "propiedadDireccion": direccion,
+            "fechaInicio": fechaInicioFormateada,
+            "fechaFin": fechaFinFormateada,
+            "totalDias": `${totalDias} días`,
+            "precio_total_display": precio,
+            "modalPropiedadId": ficha,
+            "modalFechaInicio": fechaInicioFormateada,
+            "modalFechaFin": fechaFinFormateada,
+            "modalPrecioTotal": precio,
+            "precio_total": precio
+        };
+
+        // Actualizar cada elemento verificando su existencia
+        Object.entries(elementos).forEach(([id, valor]) => {
+            const elemento = document.getElementById(id);
+            if (elemento) {
+                if (elemento.tagName === 'INPUT') {
+                    elemento.value = valor;
+                } else {
+                    elemento.textContent = valor;
+                }
+            } else {
+                console.warn(`Elemento con id '${id}' no encontrado`);
+            }
+        });
+
+        // Configurar operación directa
+        let operacionDirectaInput = document.getElementById("esOperacionDirecta");
+        if (!operacionDirectaInput) {
+            operacionDirectaInput = document.createElement("input");
+            operacionDirectaInput.type = "hidden";
+            operacionDirectaInput.id = "esOperacionDirecta";
+            operacionDirectaInput.name = "es_operacion_directa";
+            const form = document.getElementById("confirmar-reserva-form");
+            if (form) form.appendChild(operacionDirectaInput);
+        }
+        operacionDirectaInput.value = esOperacionDirecta ? "1" : "0";
+
+        // Mostrar el modal usando Bootstrap 5
+        const modalElement = document.getElementById('modalConfirmarReserva');
+        if (modalElement) {
+            const modalInstance = new bootstrap.Modal(modalElement, {
+                backdrop: 'static',
+                keyboard: false
+            });
+            modalInstance.show();
+            
+            // Enfocar el campo de vendedor
+            modalElement.addEventListener('shown.bs.modal', function () {
+                const vendedorInput = document.getElementById('vendedor_id');
+                if (vendedorInput) vendedorInput.focus();
+            });
+        } else {
+            console.error('Modal element not found');
+        }
+    } catch (error) {
+        console.error('Error en mostrarModalReserva:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Hubo un error al mostrar el modal. Por favor, intente nuevamente.'
+        });
+    }
+}
+
+function verPrecios() {
+    console.log("=== ABRIENDO MODAL DE PRECIOS ===");
+    
+    if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Primero debes seleccionar una propiedad'
+        });
+        return;
+    }
+
+    // Actualizar título del modal
+    document.getElementById('tituloPreciosModal').textContent = propiedadSeleccionada.direccion;
+
+    // Mostrar el modal
+    const modalPrecios = new bootstrap.Modal(document.getElementById('modalPrecios'));
+    modalPrecios.show();
+
+    // Construir URL
+    const url = `${URLS.obtenerPrecios}${propiedadSeleccionada.id}/`;
+    
+    // Realizar la petición
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            const preciosModalBody = document.getElementById('preciosModalBody');
+            
+            if (data.success && data.precios && data.precios.length > 0) {
+                let tableContent = `
+                    <table class="table table-striped">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>Período</th>
+                                <th class="text-end">Precio por Día</th>
+                                <th class="text-end">Precio por Quincena</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                data.precios.forEach(precio => {
+                    tableContent += `
+                        <tr>
+                            <td>${precio.tipo_precio}</td>
+                            <td class="text-end">$${formatPrice(precio.precio_por_dia)}</td>
+                            <td class="text-end">$${formatPrice(precio.precio_total)}</td>
+                        </tr>
+                    `;
+                });
+                
+                tableContent += `
+                        </tbody>
+                    </table>
+                `;
+                
+                preciosModalBody.innerHTML = tableContent;
+            } else {
+                preciosModalBody.innerHTML = `
+                    <div class="alert alert-warning">
+                        No hay precios registrados para esta propiedad.
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error("Error al cargar los precios:", error);
+            document.getElementById('preciosModalBody').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> Error al cargar los precios: ${error.message}
+                </div>
+            `;
+        });
+}
+</script>
+<script>
+    // Función global para confirmar reserva
+    window.confirmarReserva = function() {
+        console.log('=== CONFIRMAR RESERVA ===');
+        console.log('Propiedad seleccionada:', propiedadSeleccionada);
+        
+    // Verificar que tengamos una propiedad seleccionada
+    if (!propiedadSeleccionada) {
+            alert('Por favor, selecciona una propiedad primero.');
+        return;
+    }
+
+        // Mostrar directamente el modal de reserva
+        window.mostrarModalReserva(false); // false = reserva normal
+    }
+// Función para formatear precios disponible globalmente
+window.formatearPrecio = function(precio) {
+    if (!precio && precio !== 0) return '0';
+    
+    let numero;
+    if (typeof precio === 'string') {
+        // Si es string, remover puntos (separadores de miles) y luego parsear
+        numero = parseFloat(precio.replace(/\./g, '').replace(/[^\d.-]/g, ''));
+    } else {
+        numero = precio;
+    }
+    
+    // Si no es un número válido, retornar 0
+    if (isNaN(numero)) return '0';
+    
+    // Formatear con punto como separador de miles
+    return numero.toLocaleString('es-AR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).replace(/,/g, '.');
+};
+
+// Función para formatear fechas disponible globalmente
+window.formatearFecha = function(fecha) {
+    console.log('🗓️ Formateando fecha:', fecha);
+    
+    if (!fecha) {
+        console.log('⚠️ Fecha vacía');
+        return 'No especificada';
+    }
+    
+    // Si la fecha ya viene en formato DD/MM/YYYY, devolverla tal cual
+    if (typeof fecha === 'string' && fecha.includes('/')) {
+        console.log('✅ Fecha ya formateada:', fecha);
+        return fecha;
+    }
+
+    try {
+        const d = new Date(fecha);
+        if (isNaN(d.getTime())) {
+            console.error('❌ Fecha inválida:', fecha);
+            return 'Fecha inválida';
+        }
+        const dia = d.getDate().toString().padStart(2, '0');
+        const mes = (d.getMonth() + 1).toString().padStart(2, '0');
+        const anio = d.getFullYear();
+        const fechaFormateada = `${dia}/${mes}/${anio}`;
+        console.log('✅ Fecha formateada exitosamente:', fechaFormateada);
+        return fechaFormateada;
+    } catch (error) {
+        console.error('❌ Error formateando fecha:', error);
+        return 'Error en fecha';
+    }
+}
+
+// Debounce para buscar vendedor
+let busquedaVendedorTimeout = null;
+
+// Función para buscar vendedor automáticamente mientras escribes
+function buscarVendedorAutomatico() {
+    const vendedorId = document.getElementById('vendedor_id').value.trim();
+    const vendedorInfo = document.getElementById('vendedor_info');
+    
+    // Limpiar el timeout anterior
+    if (busquedaVendedorTimeout) clearTimeout(busquedaVendedorTimeout);
+    
+    // Si no hay ID, ocultar info
+    if (!vendedorId) {
+        vendedorInfo.style.display = 'none';
+        document.getElementById('modalVendedorId').value = '';
+        return;
+    }
+    
+    // Buscar después de 500ms de no escribir
+    busquedaVendedorTimeout = setTimeout(() => {
+        buscarVendedor();
+    }, 500);
+}
+
+// Función principal para buscar vendedor
+function buscarVendedor() {
+    const vendedorId = document.getElementById('vendedor_id').value.trim();
+    const vendedorInfo = document.getElementById('vendedor_info');
+    
+    if (!vendedorId) {
+        alert('❌ Por favor ingresa un ID de vendedor');
+        return;
+    }
+    
+    console.log('🔍 Buscando vendedor con ID:', vendedorId);
+    
+    // Usar la URL correcta de Django
+    fetch(`{% url 'inmobiliaria:obtener_vendedor' '0' %}`.replace('0', vendedorId))
+        .then(response => response.json())
+        .then(data => {
+            console.log('📝 Respuesta COMPLETA del servidor:', JSON.stringify(data, null, 2));
+            
+            if (data.success) {
+                // Vendedor encontrado - mostrar información
+                let nombreVendedor = 'Nombre no disponible';
+                
+                // Probar diferentes formatos de respuesta
+                if (data.nombre) {
+                    nombreVendedor = data.nombre;
+                } else if (data.vendedor && data.vendedor.nombre_completo) {
+                    nombreVendedor = data.vendedor.nombre_completo;
+                } else if (data.vendedor && data.vendedor.nombre) {
+                    nombreVendedor = data.vendedor.nombre;
+                } else if (data.vendedor && data.vendedor.first_name) {
+                    nombreVendedor = data.vendedor.first_name + ' ' + (data.vendedor.last_name || '');
+                }
+                
+                console.log('🎯 Nombre extraído:', nombreVendedor);
+                
+                document.getElementById('vendedor_nombre').textContent = nombreVendedor;
+                document.getElementById('modalVendedorId').value = vendedorId;
+                vendedorInfo.style.display = 'block';
+                
+                console.log('✅ Vendedor encontrado:', nombreVendedor);
+            } else {
+                // Vendedor no encontrado
+                document.getElementById('vendedor_nombre').textContent = '';
+                document.getElementById('modalVendedorId').value = '';
+                vendedorInfo.style.display = 'none';
+                
+                console.log('❌ Vendedor no encontrado');
+                // Solo mostrar alerta si se presionó el botón buscar manualmente
+                if (event && event.type === 'click') {
+                    alert('❌ Vendedor no encontrado con ID: ' + vendedorId);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('💥 Error al buscar vendedor:', error);
+            document.getElementById('vendedor_nombre').textContent = '';
+            document.getElementById('modalVendedorId').value = '';
+            vendedorInfo.style.display = 'none';
+            
+            // Solo mostrar alerta si se presionó el botón buscar manualmente
+            if (event && event.type === 'click') {
+                alert('💥 Error al buscar vendedor. Intenta de nuevo.');
+            }
+        });
+}
+
+// Asigna el evento input solo una vez
+// Función para confirmar la reserva final
+function confirmarReservaFinal() {
+    console.log('🎯 Confirmando reserva final...');
+    
+    // Validar campos requeridos
+    const vendedorId = document.getElementById('modalVendedorId')?.value;
+    const inquilinoId = document.getElementById('modalInquilinoId')?.value;
+    const precioTotal = document.getElementById('precio_total_editable')?.value || document.getElementById('modalPrecioTotal')?.value;
+    const propiedadId = document.getElementById('modalPropiedadId')?.value;
+    const fechaInicio = document.getElementById('modalFechaInicio')?.value;
+    const fechaFin = document.getElementById('modalFechaFin')?.value;
+    const esOperacionDirecta = document.getElementById('esOperacionDirecta')?.value === 'true';
+    
+    console.log('📋 Datos de reserva:', {
+        vendedorId, inquilinoId, precioTotal, propiedadId, fechaInicio, fechaFin, esOperacionDirecta
+    });
+    
+    if (!vendedorId || vendedorId === '') {
+        alert('Por favor, selecciona un vendedor');
+        return;
+    }
+    
+    if (!inquilinoId || inquilinoId === '') {
+        alert('Por favor, selecciona un inquilino');
+        return;
+    }
+    
+    if (!precioTotal || precioTotal <= 0) {
+        alert('Por favor, ingresa un precio válido');
+        return;
+    }
+    
+    if (!propiedadId) {
+        alert('Error: No se encontró la propiedad seleccionada');
+        return;
+    }
+    
+    if (!fechaInicio || !fechaFin) {
+        alert('Error: Fechas no válidas');
+        return;
+    }
+    
+    console.log('✅ Validación exitosa, enviando reserva al servidor...');
+    
+    // Función para convertir fecha de YYYY-MM-DD a DD/MM/YYYY
+    function convertirFecha(fechaISO) {
+        if (!fechaISO) return '';
+        
+        // Si ya está en formato DD/MM/YYYY, no convertir
+        if (fechaISO.includes('/')) {
+            return fechaISO;
+        }
+        
+        // Convertir de YYYY-MM-DD a DD/MM/YYYY
+        const [year, month, day] = fechaISO.split('-');
+        return `${day}/${month}/${year}`;
+    }
+    
+    // Convertir fechas al formato esperado por el backend
+    const fechaInicioConvertida = convertirFecha(fechaInicio);
+    const fechaFinConvertida = convertirFecha(fechaFin);
+    
+    console.log('📅 Fechas convertidas:', {
+        original_inicio: fechaInicio,
+        convertida_inicio: fechaInicioConvertida,
+        original_fin: fechaFin,
+        convertida_fin: fechaFinConvertida
+    });
+    
+    // Crear FormData para enviar al backend
+    const formData = new FormData();
+    formData.append('propiedad_id', propiedadId);
+    formData.append('fecha_inicio', fechaInicioConvertida);
+    formData.append('fecha_fin', fechaFinConvertida);
+    formData.append('precio_total', precioTotal);
+    formData.append('vendedor_id', vendedorId);
+    formData.append('inquilino_id', inquilinoId);
+    formData.append('es_operacion_directa', esOperacionDirecta ? '1' : '0');
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    // Enviar al servidor
+    fetch('{% url "inmobiliaria:confirmar_reserva" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('📨 Respuesta del servidor:', data);
+        
+        if (data.success) {
+            console.log('✅ Reserva creada exitosamente, redirigiendo...');
+            
+            // Cerrar el modal primero
+            window.cerrarModal();
+            
+            // Redirigir a la página de éxito
+            if (data.redirect_url) {
+                window.location.href = data.redirect_url;
+            } else {
+                // Fallback si no hay redirect_url
+                window.location.href = `/reserva_exitosa/${data.reserva_id}/`;
+            }
+        } else {
+            console.error('❌ Error del servidor:', data.error);
+            alert('❌ Error al crear la reserva: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('💥 Error en la solicitud:', error);
+        alert('❌ Error de conexión: ' + error.message);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const vendedorInput = document.getElementById('vendedor_id');
+    if (vendedorInput) {
+        vendedorInput.addEventListener('input', buscarVendedor);
+    }
+});
+
+// FUNCIÓN SÚPER SIMPLE PARA EL MODAL SIN BOOTSTRAP
+window.mostrarModalReserva = function(esOperacionDirecta = false) {
+    console.log('🚀 Abriendo modal súper simple...');
+    
+    if (!propiedadSeleccionada) {
+        alert('Por favor, selecciona una propiedad primero.');
+        return;
+    }
+    
+    // Llenar información
+    document.getElementById('modal_ficha').textContent = propiedadSeleccionada.id || '-';
+    document.getElementById('modal_direccion').textContent = propiedadSeleccionada.direccion || '-';
+    document.getElementById('modal_propietario').textContent = propiedadSeleccionada.propietario || '-';
+    document.getElementById('modal_total_dias').textContent = propiedadSeleccionada.totalDias || '-';
+    
+    // Llenar nuevos campos
+    document.getElementById('modal_ambientes').textContent = propiedadSeleccionada.ambientes || 'No especificado';
+    document.getElementById('modal_estado').textContent = propiedadSeleccionada.estado || 'Disponible';
+    document.getElementById('modal_descripcion').textContent = propiedadSeleccionada.descripcion || 'Sin descripción';
+    document.getElementById('modal_caracteristicas').textContent = propiedadSeleccionada.caracteristicas || 'Sin características';
+    
+    // Fechas - verificar múltiples posibles IDs
+    const fechaInicio = document.getElementById('id_fecha_inicio')?.value || 
+                       document.getElementById('fecha_inicio')?.value || '';
+    const fechaFin = document.getElementById('id_fecha_fin')?.value || 
+                    document.getElementById('fecha_fin')?.value || '';
+    
+    console.log('📅 Fechas obtenidas:', { fechaInicio, fechaFin });
+    
+    document.getElementById('modal_fecha_inicio').textContent = fechaInicio || 'No seleccionada';
+    document.getElementById('modal_fecha_fin').textContent = fechaFin || 'No seleccionada';
+    
+    // Precio - formatear para mostrar
+    const precioFormateado = window.formatearPrecio(propiedadSeleccionada.precio || 0);
+    document.getElementById('precio_total_editable').value = propiedadSeleccionada.precio || 0; // Valor numérico para edición
+    
+    // Actualizar el display del precio también
+    const precioDisplay = document.getElementById('precio_total_display');
+    if (precioDisplay) {
+        precioDisplay.textContent = '$' + precioFormateado;
+    }
+    
+    console.log('💰 Precio configurado:', {
+        precio_original: propiedadSeleccionada.precio,
+        precio_formateado: precioFormateado,
+        precio_editable: propiedadSeleccionada.precio || 0
+    });
+    
+    // Limpiar campos
+    document.getElementById('vendedor_id').value = '';
+    document.getElementById('inquilino').value = '';
+    document.getElementById('vendedor_info').style.display = 'none';
+    
+    // Título
+    const titulo = esOperacionDirecta ? '📋 Confirmar Operación Directa' : '📋 Confirmar Reserva';
+    document.querySelector('#modalConfirmarReserva h3').textContent = titulo;
+    
+    // Función para convertir fecha de YYYY-MM-DD a DD/MM/YYYY
+    function convertirFechaDisplay(fechaISO) {
+        if (!fechaISO) return '';
+        
+        // Si ya está en formato DD/MM/YYYY, no convertir
+        if (fechaISO.includes('/')) {
+            return fechaISO;
+        }
+        
+        // Convertir de YYYY-MM-DD a DD/MM/YYYY para display
+        const [year, month, day] = fechaISO.split('-');
+        return `${day}/${month}/${year}`;
+    }
+    
+    // Campos ocultos - guardar fechas en formato DD/MM/YYYY
+    document.getElementById('modalPropiedadId').value = propiedadSeleccionada.id || '';
+    document.getElementById('modalFechaInicio').value = convertirFechaDisplay(fechaInicio);
+    document.getElementById('modalFechaFin').value = convertirFechaDisplay(fechaFin);
+    document.getElementById('modalPrecioTotal').value = propiedadSeleccionada.precio || 0;
+    document.getElementById('esOperacionDirecta').value = esOperacionDirecta ? 'true' : 'false';
+    
+    console.log('🔧 Campos ocultos configurados:', {
+        modalPropiedadId: propiedadSeleccionada.id,
+        modalFechaInicio: convertirFechaDisplay(fechaInicio),
+        modalFechaFin: convertirFechaDisplay(fechaFin),
+        modalPrecioTotal: propiedadSeleccionada.precio,
+        esOperacionDirecta: esOperacionDirecta ? 'true' : 'false'
+    });
+    
+    // MOSTRAR EL MODAL (sin Bootstrap)
+    document.getElementById('modalConfirmarReserva').style.display = 'block';
+    
+    console.log('✅ Modal abierto - TODO FUNCIONA');
+};
+
+// Función para cerrar el modal
+window.cerrarModal = function() {
+    document.getElementById('modalConfirmarReserva').style.display = 'none';
+};
+
+// Funciones para el modal de crear inquilino
+window.mostrarModalCrearInquilino = function() {
+    console.log('🏠 Abriendo modal crear inquilino...');
+    document.getElementById('crearInquilinoModal').style.display = 'block';
+};
+
+window.cerrarModalInquilino = function() {
+    console.log('🚪 Ejecutando cerrarModalInquilino...');
+    
+    const modal = document.getElementById('crearInquilinoModal');
+    const form = document.getElementById('crearInquilinoForm');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        console.log('✅ Modal de inquilino ocultado');
+    } else {
+        console.error('❌ No se encontró el modal crearInquilinoModal');
+    }
+    
+    if (form) {
+        form.reset();
+        console.log('✅ Formulario de inquilino reseteado');
+    } else {
+        console.error('❌ No se encontró el formulario crearInquilinoForm');
+    }
+    
+    console.log('🏁 cerrarModalInquilino completado');
+};
+
+// Función para actualizar el ID del inquilino seleccionado
+function actualizarInquilinoId() {
+    const inquilinoSelect = document.getElementById('inquilino');
+    const modalInquilinoId = document.getElementById('modalInquilinoId');
+    
+    if (inquilinoSelect && modalInquilinoId) {
+        modalInquilinoId.value = inquilinoSelect.value;
+        console.log('🏠 Inquilino seleccionado ID:', inquilinoSelect.value);
+        
+        // Mostrar nombre del inquilino seleccionado
+        if (inquilinoSelect.value) {
+            const selectedOption = inquilinoSelect.options[inquilinoSelect.selectedIndex];
+            const estadoBusqueda = document.getElementById('estado_busqueda');
+            if (estadoBusqueda && selectedOption) {
+                estadoBusqueda.textContent = `✅ Seleccionado: ${selectedOption.text}`;
+                estadoBusqueda.style.color = '#2e7d32';
+            }
+        }
+    }
+}
+
+// Funciones para búsqueda de inquilinos
+let inquilinosOriginales = []; // Guardar lista original
+
+// Guardar inquilinos originales al cargar
+document.addEventListener('DOMContentLoaded', function() {
+    const inquilinoSelect = document.getElementById('inquilino');
+    if (inquilinoSelect) {
+        inquilinosOriginales = Array.from(inquilinoSelect.options).map(option => ({
+            value: option.value,
+            text: option.text,
+            nombre: option.getAttribute('data-nombre') || '',
+            id: option.getAttribute('data-id') || option.value
+        }));
+    }
+});
+
+// Búsqueda en tiempo real mientras escribes
+function buscarInquilinosEnTiempoReal() {
+    const buscarInput = document.getElementById('buscar_inquilino');
+    const inquilinoSelect = document.getElementById('inquilino');
+    const estadoBusqueda = document.getElementById('estado_busqueda');
+    
+    if (!buscarInput || !inquilinoSelect) return;
+    
+    const termino = buscarInput.value.toLowerCase().trim();
+    
+    if (termino === '') {
+        // Si no hay término, mostrar todos
+        mostrarTodosLosInquilinos();
+        estadoBusqueda.textContent = 'Mostrando todos los inquilinos';
+        estadoBusqueda.style.color = '#666';
+            return;
+        }
+
+    // Filtrar inquilinos
+    const inquilinosFiltrados = inquilinosOriginales.filter(inquilino => {
+        return inquilino.nombre.includes(termino) || 
+               inquilino.id.toString().includes(termino) ||
+               inquilino.text.toLowerCase().includes(termino);
+    });
+    
+    // Actualizar select
+    inquilinoSelect.innerHTML = '';
+    
+    // Agregar opción por defecto
+    const defaultOption = new Option('-- Selecciona un inquilino --', '');
+    defaultOption.style.cssText = 'color: #666666 !important; background: #f0f8f0 !important; font-weight: 600 !important; font-size: 14px !important; text-align: center;';
+    inquilinoSelect.add(defaultOption);
+    
+    // Agregar inquilinos filtrados
+    inquilinosFiltrados.forEach(inquilino => {
+        if (inquilino.value !== '') { // No agregar la opción por defecto otra vez
+            const option = new Option(inquilino.text, inquilino.value);
+            option.style.cssText = 'color: #000000 !important; font-weight: 700 !important; background: #ffffff !important; padding: 8px !important; font-size: 15px !important; border-bottom: 1px solid #e0e0e0;';
+            option.setAttribute('data-nombre', inquilino.nombre);
+            option.setAttribute('data-id', inquilino.id);
+            inquilinoSelect.add(option);
+        }
+    });
+    
+    // Actualizar estado
+    estadoBusqueda.textContent = `🔍 Encontrados: ${inquilinosFiltrados.length - 1} inquilinos`;
+    estadoBusqueda.style.color = inquilinosFiltrados.length > 1 ? '#2e7d32' : '#f57c00';
+}
+
+// Buscar todos los inquilinos (recarga desde servidor)
+function buscarTodosLosInquilinos() {
+    console.log('🔍 Buscando todos los inquilinos desde el servidor...');
+    const estadoBusqueda = document.getElementById('estado_busqueda');
+    
+    estadoBusqueda.textContent = '⏳ Cargando todos los inquilinos...';
+    estadoBusqueda.style.color = '#2196f3';
+    
+    // Hacer fetch para obtener todos los inquilinos actualizados
+    fetch('{% url "inmobiliaria:buscar_propiedades" %}')
+        .then(response => response.text())
+        .then(html => {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            const nuevoSelect = tempDiv.querySelector('#inquilino');
+            
+            if (nuevoSelect) {
+                const inquilinoSelect = document.getElementById('inquilino');
+                
+                // Guardar la nueva lista como originales
+                inquilinosOriginales = Array.from(nuevoSelect.options).map(option => ({
+                    value: option.value,
+                    text: option.innerHTML,
+                    nombre: option.getAttribute('data-nombre') || option.innerHTML.toLowerCase(),
+                    id: option.getAttribute('data-id') || option.value
+                }));
+                
+                // Actualizar el select
+                mostrarTodosLosInquilinos();
+                
+                estadoBusqueda.textContent = `✅ Lista actualizada: ${inquilinosOriginales.length - 1} inquilinos disponibles`;
+                estadoBusqueda.style.color = '#2e7d32';
+                
+                console.log('✅ Lista de inquilinos actualizada desde servidor');
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar inquilinos:', error);
+            estadoBusqueda.textContent = '❌ Error al cargar inquilinos';
+            estadoBusqueda.style.color = '#f44336';
+        });
+}
+
+// Mostrar todos los inquilinos guardados
+function mostrarTodosLosInquilinos() {
+    const inquilinoSelect = document.getElementById('inquilino');
+    const estadoBusqueda = document.getElementById('estado_busqueda');
+    
+    if (!inquilinoSelect) return;
+    
+    // Limpiar select
+    inquilinoSelect.innerHTML = '';
+    
+    // Agregar todos los inquilinos originales
+    inquilinosOriginales.forEach(inquilino => {
+        const option = new Option(inquilino.text, inquilino.value);
+        if (inquilino.value === '') {
+            option.style.cssText = 'color: #666666 !important; background: #f0f8f0 !important; font-weight: 600 !important; font-size: 14px !important; text-align: center;';
+        } else {
+            option.style.cssText = 'color: #000000 !important; font-weight: 700 !important; background: #ffffff !important; padding: 8px !important; font-size: 15px !important; border-bottom: 1px solid #e0e0e0;';
+            option.setAttribute('data-nombre', inquilino.nombre);
+            option.setAttribute('data-id', inquilino.id);
+        }
+        inquilinoSelect.add(option);
+    });
+    
+    estadoBusqueda.textContent = `📋 Mostrando todos: ${inquilinosOriginales.length - 1} inquilinos`;
+    estadoBusqueda.style.color = '#666';
+}
+
+// Limpiar búsqueda
+function limpiarBusquedaInquilino() {
+    const buscarInput = document.getElementById('buscar_inquilino');
+    const estadoBusqueda = document.getElementById('estado_busqueda');
+    
+    if (buscarInput) {
+        buscarInput.value = '';
+    }
+    
+    mostrarTodosLosInquilinos();
+    
+    estadoBusqueda.textContent = '🔄 Búsqueda limpiada - Mostrando todos';
+    estadoBusqueda.style.color = '#666';
+}
+
+// Seleccionar primer inquilino (para pruebas)
+function seleccionarPrimerInquilino() {
+    const inquilinoSelect = document.getElementById('inquilino');
+    if (inquilinoSelect && inquilinoSelect.options.length > 1) {
+        inquilinoSelect.selectedIndex = 1; // Seleccionar el primer inquilino real (no el placeholder)
+        actualizarInquilinoId();
+    }
+}
+
+// Mejorar el manejo del precio
+document.getElementById('editar_precio_btn').addEventListener('click', function() {
+    const precioDisplay = document.getElementById('precio_total_display');
+    const precioEdit = document.getElementById('precio_total_edit');
+    const precioInput = document.getElementById('precio_total');
+    
+    precioInput.value = precioDisplay.textContent.replace(/[^\d.-]/g, '');
+    precioDisplay.parentElement.style.display = 'none';
+    precioEdit.style.display = 'flex';
+});
+
+document.getElementById('guardar_precio_btn').addEventListener('click', function() {
+    const precioDisplay = document.getElementById('precio_total_display');
+    const precioEdit = document.getElementById('precio_total_edit');
+    const precioInput = document.getElementById('precio_total');
+    const precioTotalSuperior = document.getElementById('precioTotalSuperior');
+    
+    const nuevoPrecio = parseFloat(precioInput.value);
+    if (isNaN(nuevoPrecio) || nuevoPrecio <= 0) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+            text: 'Por favor ingrese un precio válido'
+            });
+            return;
+        }
+
+    precioDisplay.textContent = nuevoPrecio.toLocaleString('es-AR');
+    precioTotalSuperior.textContent = nuevoPrecio.toLocaleString('es-AR');
+    document.getElementById('modalPrecioTotal').value = nuevoPrecio;
+    
+    precioDisplay.parentElement.style.display = 'flex';
+    precioEdit.style.display = 'none';
+});
+
+document.getElementById('cancelar_precio_btn').addEventListener('click', function() {
+    const precioDisplay = document.getElementById('precio_total_display');
+    const precioEdit = document.getElementById('precio_total_edit');
+    
+    precioDisplay.parentElement.style.display = 'flex';
+    precioEdit.style.display = 'none';
+});
+
+    $('#cancelarReservaBtnA').on('click', function() {
+    $('#modalAutenticacionVendedor').modal('hide');
+    // Enfocar la lista de propiedades
+    $('#propiedadesTable').focus();
+    // Opcionalmente, puedes resaltar la fila que estaba seleccionada
+    if (selectedRowIndex !== -1) {
+        const rows = document.querySelectorAll('#propiedadesTable tbody tr');
+        rows[selectedRowIndex].focus();
+    }
+});
+document.addEventListener('DOMContentLoaded', function() {
+    const precioTotalSuperior = document.getElementById('precioTotalSuperior');
+    const precioTotalDisplay = document.getElementById('precio_total_display');
+    const precioTotalInput = document.getElementById('precio_total');
+    const editarPrecioBtn = document.getElementById('editar_precio_btn');
+    const guardarPrecioBtn = document.getElementById('guardar_precio_btn');
+    const cancelarPrecioBtn = document.getElementById('cancelar_precio_btn');
+    const modalPrecioTotalInput = document.getElementById('modalPrecioTotal');
+    const confirmarReservaForm = document.getElementById('confirmar-reserva-form');
+
+    function actualizarPreciosMostrados(precio) {
+        precioTotalSuperior.textContent = precio;
+        precioTotalDisplay.textContent = precio;
+        precioTotalInput.value = precio;
+        modalPrecioTotalInput.value = precio;  // Actualiza el campo oculto
+    }
+
+    editarPrecioBtn.addEventListener('click', function() {
+        precioTotalDisplay.style.display = 'none';
+        precioTotalInput.style.display = 'inline-block';
+        editarPrecioBtn.style.display = 'none';
+        guardarPrecioBtn.style.display = 'inline-block';
+        cancelarPrecioBtn.style.display = 'inline-block';
+    });
+
+    guardarPrecioBtn.addEventListener('click', function() {
+        const nuevoPrecio = precioTotalInput.value;
+        actualizarPreciosMostrados(nuevoPrecio);
+        precioTotalDisplay.style.display = 'inline';
+        precioTotalInput.style.display = 'none';
+        guardarPrecioBtn.style.display = 'none';
+        cancelarPrecioBtn.style.display = 'none';
+    });
+
+    cancelarPrecioBtn.onclick = function() {
+        actualizarPreciosMostrados(precioTotalDisplay.textContent);
+        precioTotalDisplay.style.display = 'inline';
+        precioTotalInput.style.display = 'none';
+        guardarPrecioBtn.style.display = 'none';
+        cancelarPrecioBtn.style.display = 'none';
+        editarPrecioBtn.style.display = 'inline';
+    };
+
+    // Añadir este evento al formulario de confirmación de reserva
+    confirmarReservaForm.addEventListener('submit', function(event) {
+        // Asegurarse de que el precio total se actualice antes de enviar el formulario
+        const precioFinal = precioTotalInput.style.display === 'none' ? precioTotalDisplay.textContent : precioTotalInput.value;
+        modalPrecioTotalInput.value = precioFinal;
+    });
+});
+document.addEventListener('DOMContentLoaded', function() {
+    // Manejar el evento de cambio del vendedor
+    const vendedorInput = document.getElementById('vendedor_id');
+    if (vendedorInput) {
+        // Usar input en lugar de change para detectar cambios mientras se escribe
+        vendedorInput.addEventListener('input', buscarVendedor);
+
+        // Prevenir que se pegue contenido no numérico
+        vendedorInput.addEventListener('paste', function(e) {
+            let paste = (e.clipboardData || window.clipboardData).getData('text');
+            if (!/^\d*$/.test(paste)) {
+                e.preventDefault();
+            }
+        });
+
+        // Permitir solo números
+        vendedorInput.addEventListener('keypress', function(e) {
+            if (!/[\d]/.test(e.key)) {
+                e.preventDefault();
+            }
+        });
+    } else {
+        console.error('El campo de vendedor no se encontró');
+    }
+
+});
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Cargado - Inicializando switches...'); // Debug
+
+    const switchFiltros = document.getElementById('switchFiltros');
+    const filtrosAdicionales = document.getElementById('filtrosAdicionales');
+
+    if (!switchFiltros || !filtrosAdicionales) {
+        console.error('No se encontraron elementos necesarios:',
+            !switchFiltros ? 'Falta switchFiltros' : '',
+            !filtrosAdicionales ? 'Falta filtrosAdicionales' : '');
+        return;
+    }
+
+    // Asegurarse de que el contenedor de filtros esté oculto inicialmente
+    filtrosAdicionales.style.display = 'none';
+    filtrosAdicionales.style.opacity = '0';
+    filtrosAdicionales.style.transition = 'opacity 0.3s ease-in-out';
+
+    switchFiltros.addEventListener('change', function(e) {
+        console.log('Switch cambió:', this.checked); // Debug
+
+        if (this.checked) {
+            // Mostrar filtros
+            filtrosAdicionales.style.display = 'block';
+            // Forzar un reflow
+            filtrosAdicionales.offsetHeight;
+            filtrosAdicionales.style.opacity = '1';
+        } else {
+            // Ocultar filtros
+            filtrosAdicionales.style.opacity = '0';
+            setTimeout(() => {
+                filtrosAdicionales.style.display = 'none';
+            }, 300); // Esperar a que termine la transición
+        }
+    });
+
+    // Agregar estilos adicionales para mejorar la apariencia
+    const checkboxes = document.querySelectorAll('.form-check-input');
+    checkboxes.forEach(checkbox => {
+        checkbox.classList.add('me-2');
+    });
+});
+</script>
+
+<style>
+/* Estilos adicionales para los filtros */
+#filtrosAdicionales {
+    transition: opacity 0.3s ease-in-out;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.form-check-input {
+    cursor: pointer;
+}
+
+.form-check-label {
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Mejorar la apariencia del switch */
+.form-switch .form-check-input {
+    width: 3em !important;
+    height: 1.5em !important;
+    margin-top: 0.25em;
+}
+
+.form-switch .form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.switches-container {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+}
+</style>
+
+<!-- MODAL HERMOSO PARA CREAR INQUILINO -->
+<div id="crearInquilinoModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 15px; padding: 0; width: 95%; max-width: 800px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); animation: modalAppear 0.3s ease-out; max-height: 90vh; overflow: hidden;">
+        
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%); color: white; padding: 20px; border-radius: 15px 15px 0 0; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+            <h3 style="margin: 0; font-size: 24px; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">🏠 Crear Nuevo Inquilino</h3>
+            <button onclick="cerrarModalInquilino()" style="position: absolute; top: 15px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 28px; cursor: pointer; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.3s;">×</button>
+        </div>
+        
+        <!-- Body -->
+        <div style="padding: 25px; max-height: 70vh; overflow-y: auto; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);">
+            <form id="crearInquilinoForm">
+                {% csrf_token %}
+                
+                <!-- Datos Personales -->
+                <div style="background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%); border: 2px solid #4caf50; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(76,175,80,0.2);">
+                    <h4 style="color: #2e7d32; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">👤 Datos Personales</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #2e7d32; font-weight: 600;">Nombre *</label>
+                            <input type="text" id="nombre" name="nombre" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #4caf50; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #2e7d32; font-weight: 600;">Apellido *</label>
+                            <input type="text" id="apellido" name="apellido" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #4caf50; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #2e7d32; font-weight: 600;">Fecha de Nacimiento *</label>
+                            <input type="date" id="fecha_nacimiento" name="fecha_nacimiento" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #4caf50; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #2e7d32; font-weight: 600;">Email *</label>
+                            <input type="email" id="email" name="email" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #4caf50; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contacto -->
+                <div style="background: linear-gradient(135deg, #e3f2fd 0%, #f0f8ff 100%); border: 2px solid #2196f3; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(33,150,243,0.2);">
+                    <h4 style="color: #1565c0; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">📱 Contacto</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #1565c0; font-weight: 600;">Celular *</label>
+                            <input type="text" id="celular" name="celular" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #2196f3; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documentación -->
+                <div style="background: linear-gradient(135deg, #fff3e0 0%, #fff8e1 100%); border: 2px solid #ff9800; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(255,152,0,0.2);">
+                    <h4 style="color: #ef6c00; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">📄 Documentación</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ef6c00; font-weight: 600;">Tipo de Documento *</label>
+                            <select id="tipo_doc" name="tipo_doc" required
+                                    style="width: 100%; padding: 10px; border: 2px solid #ff9800; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500; background: white;">
+                                <option value="DNI">DNI</option>
+                                <option value="PASAPORTE">Pasaporte</option>
+                                <option value="OTRO">Otro</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ef6c00; font-weight: 600;">Número de Documento *</label>
+                            <input type="text" id="dni" name="dni" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #ff9800; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ef6c00; font-weight: 600;">Tipo de Inscripción *</label>
+                            <select id="tipo_ins" name="tipo_ins" required
+                                    style="width: 100%; padding: 10px; border: 2px solid #ff9800; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500; background: white;">
+                                <option value="MONOTRIBUTO">Monotributo</option>
+                                <option value="RESPONSABLE_INSCRIPTO">Responsable Inscripto</option>
+                                <option value="CONSUMIDOR_FINAL">Consumidor Final</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ef6c00; font-weight: 600;">CUIT</label>
+                            <input type="text" id="cuit" name="cuit"
+                                   style="width: 100%; padding: 10px; border: 2px solid #ff9800; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dirección -->
+                <div style="background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 100%); border: 2px solid #e91e63; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(233,30,99,0.2);">
+                    <h4 style="color: #ad1457; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">🏡 Dirección</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ad1457; font-weight: 600;">Domicilio *</label>
+                            <input type="text" id="domicilio" name="domicilio" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #e91e63; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ad1457; font-weight: 600;">Localidad *</label>
+                            <input type="text" id="localidad" name="localidad" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #e91e63; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ad1457; font-weight: 600;">Provincia *</label>
+                            <input type="text" id="provincia" name="provincia" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #e91e63; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ad1457; font-weight: 600;">Código Postal *</label>
+                            <input type="text" id="codigo_postal" name="codigo_postal" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #e91e63; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Observaciones -->
+                <div style="background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); border: 2px solid #9c27b0; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(156,39,176,0.2);">
+                    <h4 style="color: #6a1b9a; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">📝 Información Adicional</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #6a1b9a; font-weight: 600;">Observaciones</label>
+                            <textarea id="observaciones" name="observaciones" rows="3"
+                                      style="width: 100%; padding: 10px; border: 2px solid #9c27b0; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500; resize: vertical;"></textarea>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #6a1b9a; font-weight: 600;">Garantía</label>
+                            <textarea id="garantia" name="garantia" rows="3"
+                                      style="width: 100%; padding: 10px; border: 2px solid #9c27b0; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500; resize: vertical;"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Footer -->
+        <div style="padding: 20px; border-top: 1px solid #e0e0e0; text-align: right; border-radius: 0 0 15px 15px; background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%); box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
+            <button onclick="cerrarModalInquilino()" 
+                    style="padding: 12px 25px; background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white; border: none; border-radius: 8px; margin-right: 15px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(108,117,125,0.3);">❌ Cancelar</button>
+            <button onclick="guardarInquilino()" 
+                    style="padding: 12px 30px; background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(76,175,80,0.3);">✅ GUARDAR INQUILINO</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Función para guardar el inquilino
+function guardarInquilino() {
+    const form = document.getElementById('crearInquilinoForm');
+    
+    // Validar campos requeridos
+    const camposRequeridos = ['nombre', 'apellido', 'fecha_nacimiento', 'email', 'celular', 'tipo_doc', 'dni', 'tipo_ins', 'localidad', 'provincia', 'domicilio', 'codigo_postal'];
+    
+    let camposVacios = [];
+    camposRequeridos.forEach(campo => {
+        const input = form.querySelector(`[name="${campo}"]`);
+        if (!input || !input.value.trim()) {
+            camposVacios.push(campo);
+        }
+    });
+    
+    if (camposVacios.length > 0) {
+        alert('❌ Por favor completa los siguientes campos:\n• ' + camposVacios.join('\n• '));
+        return;
+    }
+    
+    const formData = new FormData(form);
+    
+    // Debug: mostrar todos los datos que se van a enviar
+    console.log('💾 Guardando inquilino...');
+    console.log('📋 Datos del formulario:');
+    for (let [key, value] of formData.entries()) {
+        console.log(`  ${key}: ${value}`);
+    }
+
+    fetch('{% url "inmobiliaria:crear_inquilino_ajax" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => {
+        console.log('📊 Status de respuesta:', response.status);
+        console.log('📊 Headers de respuesta:', response.headers.get('content-type'));
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        return response.text(); // Primero obtener como texto
+    })
+    .then(responseText => {
+        console.log('📄 Respuesta cruda del servidor:', responseText.substring(0, 200) + '...');
+        
+        // Intentar parsear como JSON
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (e) {
+            console.error('❌ Error al parsear JSON:', e);
+            console.error('📄 Respuesta completa:', responseText);
+            throw new Error('El servidor no devolvió JSON válido. Posible error o página de login.');
+        }
+        
+        return data;
+    })
+    .then(data => {
+        console.log('📝 Respuesta crear inquilino:', data);
+        
+        if (data.success) {
+            console.log('🎉 ¡Inquilino creado exitosamente!');
+            
+            // 1. CERRAR EL MODAL INMEDIATAMENTE (primera prioridad)
+            console.log('🚪 Cerrando modal inmediatamente...');
+            window.cerrarModalInquilino();
+            
+            // 2. Agregar el nuevo inquilino al select SIN borrar los existentes
+            const inquilinoSelect = document.getElementById('inquilino');
+            
+            // Verificar si el inquilino ya existe en la lista
+            let inquilinoExiste = false;
+            for (let i = 0; i < inquilinoSelect.options.length; i++) {
+                if (inquilinoSelect.options[i].value == data.inquilino.id) {
+                    inquilinoExiste = true;
+                    break;
+                }
+            }
+            
+            // Solo agregar si no existe
+            if (!inquilinoExiste) {
+                const nombreCompleto = `ID: ${data.inquilino.id} - ${data.inquilino.nombre} ${data.inquilino.apellido}`;
+                const nuevaOpcion = new Option(nombreCompleto, data.inquilino.id);
+                
+                // Aplicar estilos consistentes y fuertes
+                nuevaOpcion.style.cssText = 'color: #000000 !important; font-weight: 700 !important; background: #ffffff !important; padding: 8px !important; font-size: 15px !important; border-bottom: 1px solid #e0e0e0;';
+                nuevaOpcion.setAttribute('data-nombre', `${data.inquilino.nombre.toLowerCase()} ${data.inquilino.apellido.toLowerCase()}`);
+                nuevaOpcion.setAttribute('data-id', data.inquilino.id);
+                
+                inquilinoSelect.add(nuevaOpcion);
+                console.log('✅ Nuevo inquilino agregado a la lista:', `${data.inquilino.nombre} ${data.inquilino.apellido}`);
+                
+                // Actualizar también la lista original para búsquedas
+                inquilinosOriginales.push({
+                    id: data.inquilino.id,
+                    nombre: `${data.inquilino.nombre.toLowerCase()} ${data.inquilino.apellido.toLowerCase()}`
+                });
+                console.log('📋 Lista inquilinosOriginales actualizada');
+            }
+            
+            // 3. Seleccionar el nuevo inquilino
+            inquilinoSelect.value = data.inquilino.id;
+            document.getElementById("modalInquilinoId").value = data.inquilino.id;
+            actualizarInquilinoId(); // Actualizar display de nombre
+            
+            // 4. Mostrar mensaje de éxito (con delay para que se vea después del cierre)
+            setTimeout(() => {
+                alert('✅ Inquilino creado correctamente: ' + data.inquilino.nombre + ' ' + data.inquilino.apellido);
+            }, 200);
+            
+            console.log('✅ Proceso completo: Modal cerrado, inquilino agregado y seleccionado');
+        } else {
+            console.error('❌ Error al crear inquilino:', data.error);
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+{% load custom_filters %}
+{% load static %}
+
+{% block extra_css %}
+    <style>
+    /* RESET COMPLETO Y DISEÑO MODERNO */
+    * {
+        box-sizing: border-box !important;
+    }
+
+    body {
+        background: linear-gradient(135deg, #a5d6a7 0%, #66bb6a 100%);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+        min-height: 100vh !important;
+        margin: 0 !important;
+        padding: 20px !important;
+    }
+
+    .container-fluid {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border-radius: 15px !important;
+        margin: 20px !important;
+        max-width: 98% !important;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
+        backdrop-filter: blur(10px) !important;
+        padding: 30px !important;
+    }
+
+    /* Estilos para el formulario de filtros */
+    .filters-row {
+        display: flex !important;
+        align-items: center !important;
+        gap: 15px !important;
+        flex-wrap: wrap !important;
+        margin-bottom: 20px !important;
+        padding: 15px !important;
+        background: rgba(255, 255, 255, 0.9) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05) !important;
+    }
+
+    .filters-row .form-group {
+        margin: 0 !important;
+        flex: 1 !important;
+        min-width: 200px !important;
+    }
+
+    .filters-row input[type="date"] {
+        height: 38px !important;
+        border-radius: 8px !important;
+        border: 1px solid #ced4da !important;
+        padding: 0.375rem 0.75rem !important;
+        background-color: white !important;
+    }
+
+    .filters-row .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        border: none !important;
+        padding: 8px 20px !important;
+        border-radius: 8px !important;
+        height: 38px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transition: all 0.3s ease !important;
+    }
+
+    .filters-row .btn-primary:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2) !important;
+    }
+
+    .filters-row .form-check {
+        display: flex !important;
+        align-items: center !important;
+        margin: 0 !important;
+        padding: 0 15px !important;
+    }
+
+    .filters-row .form-check-input {
+        margin-right: 8px !important;
+    }
+
+    .filters-row .form-check-label {
+        margin: 0 !important;
+        font-weight: 500 !important;
+    }
+
+    /* Resto de los estilos... */
+
+    /* Estilos para la tabla de propiedades */
+    #propiedadesTable {
+        margin-bottom: 0 !important;
+    }
+
+    .table-wrapper {
+        height: 400px !important;
+        overflow-y: auto !important;
+        margin-bottom: 20px !important;
+    }
+
+    #propiedadesTable thead th {
+        position: sticky !important;
+        top: 0 !important;
+        background: linear-gradient(135deg, #667eea, #764ba2) !important;
+        color: white !important;
+        z-index: 1 !important;
+    }
+
+    #propiedadesTable tbody tr {
+        height: 65px !important;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    #propiedadesTable tbody tr.selected {
+        background-color: #007bff !important;
+        color: white !important;
+    }
+
+    #propiedadesTable tbody tr.selected td {
+        color: white !important;
+    }
+
+    #propiedadesTable tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.1);
+    }
+
+    #propiedadesTable tbody td {
+        vertical-align: middle !important;
+    }
+
+    /* Estilo para el scrollbar */
+    .table-wrapper::-webkit-scrollbar {
+        width: 8px !important;
+    }
+
+    .table-wrapper::-webkit-scrollbar-track {
+        background: #f1f1f1 !important;
+        border-radius: 4px !important;
+    }
+
+    .table-wrapper::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, #667eea, #764ba2) !important;
+        border-radius: 4px !important;
+    }
+
+    .main-search-box {
+        background: linear-gradient(135deg, #1a237e, #0d47a1) !important;
+        border-radius: 15px !important;
+        padding: 25px !important;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.15) !important;
+        margin-bottom: 30px !important;
+    }
+
+    .form-group {
+        margin-bottom: 0 !important;
+    }
+
+    .input-group {
+        background: white !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
+        height: 45px !important;
+    }
+
+    .input-group-text {
+        border: none !important;
+        background-color: transparent !important;
+        color: #666 !important;
+        padding: 0 15px !important;
+    }
+
+    .form-control {
+        border: none !important;
+        height: 45px !important;
+        font-size: 0.95rem !important;
+        background: transparent !important;
+        padding: 0.375rem 0.75rem !important;
+    }
+
+    .form-control:focus {
+        box-shadow: none !important;
+        background: transparent !important;
+    }
+
+    .btn-primary {
+        height: 45px !important;
+        background: #2196f3 !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.5px !important;
+        transition: all 0.3s ease !important;
+        padding: 0 25px !important;
+    }
+
+    .btn-primary:hover {
+        background: #1976d2 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2) !important;
+    }
+
+    .form-check-input {
+        background-color: rgba(255,255,255,0.2) !important;
+        border-color: rgba(255,255,255,0.3) !important;
+        width: 1.5em !important;
+        height: 1.5em !important;
+        margin-top: 0.25em !important;
+    }
+
+    .form-check-input:checked {
+        background-color: #2196f3 !important;
+        border-color: #2196f3 !important;
+    }
+
+    .form-check-label {
+        font-size: 0.9rem !important;
+        color: white !important;
+        opacity: 0.9 !important;
+        margin-left: 0.5rem !important;
+    }
+
+    /* Estilos para los inputs de fecha */
+    input[type="date"] {
+        padding-right: 15px !important;
+        min-width: 150px !important;
+    }
+
+    /* Estilos para el select de pasajeros */
+    select.form-control {
+        padding-right: 30px !important;
+        min-width: 200px !important;
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        appearance: none !important;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23666' class='bi bi-chevron-down' viewBox='0 0 16 16'%3E%3Cpath d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E") !important;
+        background-repeat: no-repeat !important;
+        background-position: right 10px center !important;
+    }
+
+    /* Estilos para las etiquetas */
+    .form-group label {
+        color: white !important;
+        font-size: 0.85rem !important;
+        margin-bottom: 0.5rem !important;
+        font-weight: 500 !important;
+    }
+
+    /* Estilos para los iconos */
+    .fas {
+        font-size: 1.1rem !important;
+    }
+
+    /* Estilos para los switches */
+    .form-switch {
+        padding-left: 2.5em !important;
+    }
+
+    .form-switch .form-check-input {
+        margin-left: -2.5em !important;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(255,255,255,1)'/%3e%3c/svg%3e") !important;
+    }
+
+    .form-switch .form-check-input:checked {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
+    }
+
+    /* Estilos para el contenedor de switches */
+    .switches-container {
+        margin-top: 1.5rem !important;
+        display: flex !important;
+        gap: 2rem !important;
+        padding: 0 1rem !important;
+    }
+
+    /* Estilos para la galería de fotos */
+    .modal-xl {
+        max-width: 90% !important;
+    }
+
+    .carousel-item img {
+        transition: transform 0.3s ease;
+        max-height: 70vh;
+        object-fit: contain;
+    }
+
+    .active-thumbnail {
+        border: 3px solid #007bff !important;
+        opacity: 1 !important;
+    }
+
+    .thumbnail-nav {
+        opacity: 0.7;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        height: 80px;
+        width: 100%;
+        object-fit: cover;
+    }
+
+    .thumbnail-nav:hover {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+
+    #thumbnailsContainer {
+        padding: 15px;
+        background: rgba(0,0,0,0.03);
+        border-radius: 10px;
+        margin-top: 15px;
+    }
+
+    .carousel-control-prev,
+    .carousel-control-next {
+        background-color: rgba(0,0,0,0.3);
+        width: 5%;
+        border-radius: 50px;
+        height: 50px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+
+    /* Estilos para la tabla de precios */
+    .table-precios th {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .table-precios td {
+        vertical-align: middle;
+    }
+
+    /* Estilos adicionales para los filtros */
+    #filtrosAdicionales {
+        transition: opacity 0.3s ease-in-out;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .form-check-input {
+        cursor: pointer;
+    }
+
+    .form-check-label {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    /* Mejorar la apariencia del switch */
+    .form-switch .form-check-input {
+        width: 3em !important;
+        height: 1.5em !important;
+        margin-top: 0.25em;
+    }
+
+    .form-switch .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+
+    .switches-container {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 15px;
+    }
+
+    /* Estilo para el contenedor de características */
+    .caracteristicas-container {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+    }
+
+    /* Estilo para los grupos de características */
+    .caracteristicas-grupo {
+        margin-bottom: 20px;
+    }
+
+    .caracteristicas-grupo h6 {
+        color: #6c757d;
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+
+    #modalConfirmarReserva .modal-content {
+        background: #fff !important;
+        box-shadow: 0 0 20px rgba(0,0,0,0.15) !important;
+        border-radius: 10px !important;
+    }
+    #modalConfirmarReserva .modal-header {
+        background: #43a047 !important;
+        color: #fff !important;
+        border-top-left-radius: 10px !important;
+        border-top-right-radius: 10px !important;
+        padding: 1rem 1.5rem !important;
+    }
+    #modalConfirmarReserva .modal-body {
+        padding: 2rem !important;
+    }
+
+    /* Estilos principales de la página */
+    body {
+        background: linear-gradient(135deg, #a5d6a7 0%, #66bb6a 100%);
+        min-height: 100vh;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .container-fluid {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 15px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        margin: 20px;
+        padding: 30px;
+    }
+
+    .search-section {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 30px;
+        color: white;
+        box-shadow: 0 5px 15px rgba(46, 125, 50, 0.3);
+    }
+
+    .search-section h2 {
+        color: white;
+        margin-bottom: 25px;
+        text-align: center;
+        font-weight: 600;
+    }
+
+    .form-group label {
+        color: white;
+        font-weight: 500;
+        margin-bottom: 8px;
+    }
+
+    .form-control {
+        border: 2px solid rgba(255,255,255,0.3);
+        border-radius: 8px;
+        padding: 12px;
+        background: rgba(255,255,255,0.9);
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        border-color: #a5d6a7;
+        box-shadow: 0 0 0 0.2rem rgba(165, 214, 167, 0.25);
+        background: white;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #388e3c 0%, #2e7d32 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 12px 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 3px 10px rgba(56, 142, 60, 0.3);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(56, 142, 60, 0.4);
+    }
+
+    .table {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 3px 15px rgba(0,0,0,0.1);
+    }
+
+    .table thead th {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+        color: white;
+        border: none;
+        padding: 15px;
+        font-weight: 600;
+    }
+
+    .table tbody tr {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .table tbody tr:hover {
+        background-color: #e8f5e8;
+        transform: scale(1.01);
+    }
+
+    /* PROPIEDAD SELECCIONADA - COLOR DE FONDO MUY VISIBLE */
+    .table tbody tr.selected {
+        background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%) !important;
+        border: 3px solid #2e7d32 !important;
+        box-shadow: 0 8px 25px rgba(46, 125, 50, 0.6) !important;
+        transform: scale(1.03) !important;
+        transition: all 0.3s ease !important;
+    }
+
+    .table tbody tr.selected td {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
+        font-size: 1.05rem !important;
+    }
+
+    /* Animación adicional para que se note más */
+    .table tbody tr.selected {
+        animation: pulseSelection 2s infinite alternate !important;
+    }
+
+    @keyframes pulseSelection {
+        0% {
+            box-shadow: 0 8px 25px rgba(46, 125, 50, 0.6);
+        }
+        100% {
+            box-shadow: 0 12px 35px rgba(46, 125, 50, 0.8);
+        }
+    }
+
+    .card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 3px 15px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+        color: white;
+        border-radius: 12px 12px 0 0 !important;
+        padding: 15px 20px;
+        font-weight: 600;
+    }
+
+    .input-group-text {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+        color: white;
+        border: none;
+        font-weight: 500;
+    }
+
+    /* ESTILOS DEL MODAL - COMPLETAMENTE INTERACTIVO */
+    .modal-backdrop {
+        background-color: rgba(0, 0, 0, 0.6) !important;
+        pointer-events: auto !important;
+    }
+
+    #modalConfirmarReserva {
+        pointer-events: auto !important;
+        z-index: 1055 !important;
+    }
+
+    #modalConfirmarReserva .modal-dialog {
+        pointer-events: auto !important;
+        z-index: 1060 !important;
+    }
+
+    #modalConfirmarReserva .modal-content {
+        background: #ffffff !important;
+        border: 3px solid #2e7d32 !important;
+        border-radius: 15px !important;
+        box-shadow: 0 15px 50px rgba(0,0,0,0.4) !important;
+        overflow: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        position: relative !important;
+        z-index: 1065 !important;
+    }
+
+    #modalConfirmarReserva .modal-header {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%) !important;
+        color: white !important;
+        border-bottom: 3px solid #1b5e20 !important;
+        padding: 25px !important;
+        border-radius: 12px 12px 0 0 !important;
+    }
+
+    #modalConfirmarReserva .modal-title {
+        font-weight: 700 !important;
+        font-size: 1.5rem !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2) !important;
+    }
+
+    #modalConfirmarReserva .modal-body {
+        background: #ffffff !important;
+        padding: 30px !important;
+        color: #333 !important;
+    }
+
+    #modalConfirmarReserva .modal-footer {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+        border-top: 2px solid #2e7d32 !important;
+        padding: 25px !important;
+        border-radius: 0 0 12px 12px !important;
+    }
+
+    #modalConfirmarReserva .info-section {
+        background: linear-gradient(135deg, #f1f8e9 0%, #e8f5e8 100%) !important;
+        border: 2px solid #c8e6c9 !important;
+        border-radius: 12px !important;
+        padding: 25px !important;
+        margin-bottom: 25px !important;
+        box-shadow: 0 3px 10px rgba(46, 125, 50, 0.1) !important;
+    }
+
+    #modalConfirmarReserva .info-section h6 {
+        color: #1b5e20 !important;
+        font-weight: 700 !important;
+        font-size: 1.2rem !important;
+        margin-bottom: 20px !important;
+        border-bottom: 3px solid #2e7d32 !important;
+        padding-bottom: 10px !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+    }
+
+    #modalConfirmarReserva .info-section p {
+        color: #2e7d32 !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+        margin-bottom: 10px !important;
+    }
+
+    #modalConfirmarReserva .info-section span {
+        color: #1b5e20 !important;
+        font-weight: 700 !important;
+    }
 
     #modalConfirmarReserva .form-control {
         border: 2px solid #2e7d32 !important;
@@ -3540,7 +6860,7 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="number" class="form-control precio-input" data-field="precio_total" value="${precioTotal}" step="0.01" readonly>` :
+                        `<input type="number" class="form-control precio-input" data-field="precio_total" value="${precioTotal}" step="0.01">` :
                         `<span class="precio-display">$${precioTotal.toLocaleString('es-AR')}</span>`
                     }
                 </td>
@@ -3778,8 +7098,8 @@ function actualizarTablaPrecios(precios) {
         const row = `
             <tr>
                 <td>${precio.tipo_precio_display || precio.tipo_precio}</td>
-                <td class="text-end">$${precio.precio_total.toLocaleString()}</td>
                 <td class="text-end">$${precio.precio_por_dia.toLocaleString()}</td>
+                <td class="text-end">$${precio.precio_total.toLocaleString()}</td>
             </tr>
         `;
         tbody.innerHTML += row;
@@ -3787,3 +7107,4 @@ function actualizarTablaPrecios(precios) {
 }
 </script>
 {% endblock extra_js %}
+
