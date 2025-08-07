@@ -5181,4 +5181,3 @@ def guardar_precios_propiedad(request):
             'error': str(e)
         })
 
-@login_required
