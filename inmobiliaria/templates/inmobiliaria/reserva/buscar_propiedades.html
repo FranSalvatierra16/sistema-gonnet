@@ -1201,8 +1201,8 @@
                         <thead>
                             <tr style="background-color: #007bff; color: white;">
                                 <th>PERÍODO</th>
-                                <th class="text-end">PRECIO</th>
-                                <th class="text-end">POR DÍA</th>
+                                <th class="text-end">PRECIO POR DÍA</th>
+                                <th class="text-end">PRECIO POR QUINCENA</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -3403,8 +3403,8 @@ function actualizarTablaPrecios(precios) {
             const row = `
                 <tr>
                     <td>${precio.tipo_precio_display || precio.tipo_precio}</td>
-                    <td class="text-end">$${precioTotal.toLocaleString('es-AR')}</td>
-                    <td class="text-end">$${precioPorDia.toLocaleString('es-AR')}</td>
+                                         <td class="text-end">$${precioPorDia.toLocaleString('es-AR')}</td>
+                                         <td class="text-end">$${precioTotal.toLocaleString('es-AR')}</td>
                 </tr>
             `;
             tbody.innerHTML += row;
