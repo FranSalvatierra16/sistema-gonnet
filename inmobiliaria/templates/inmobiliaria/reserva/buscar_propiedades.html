@@ -3376,30 +3376,48 @@ function cargarPreciosPropiedad(propiedadId) {
 
 // Función para actualizar la tabla de precios
 function actualizarTablaPrecios(precios) {
+    console.log('🔧 actualizarTablaPrecios llamada con:', precios);
+    
     const tbody = document.querySelector('.table-precios tbody');
-    if (!tbody) return;
+    if (!tbody) {
+        console.error('❌ No se encontró .table-precios tbody');
+        return;
+    }
     
     tbody.innerHTML = '';
     
-    if (precios.length === 0) {
+    if (!precios || precios.length === 0) {
+        console.log('⚠️ No hay precios para mostrar');
         tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No hay precios definidos</td></tr>';
         return;
     }
     
-    precios.forEach(precio => {
+    console.log('📊 Procesando', precios.length, 'precios');
+    
+    precios.forEach((precio, index) => {
+        console.log(`💰 Precio ${index}:`, precio);
+        
         // Formatear precios como números
         const precioTotal = parseFloat(precio.precio_total) || 0;
         const precioPorDia = parseFloat(precio.precio_por_dia) || 0;
         
-        const row = `
-            <tr>
-                <td>${precio.tipo_precio_display || precio.tipo_precio}</td>
-                <td class="text-end">$${precioTotal.toLocaleString('es-AR')}</td>
-                <td class="text-end">$${precioPorDia.toLocaleString('es-AR')}</td>
-            </tr>
-        `;
-        tbody.innerHTML += row;
+        // Solo mostrar filas que tengan al menos un precio mayor a 0
+        if (precioTotal > 0 || precioPorDia > 0) {
+            const row = `
+                <tr>
+                    <td>${precio.tipo_precio_display || precio.tipo_precio}</td>
+                    <td class="text-end">$${precioTotal.toLocaleString('es-AR')}</td>
+                    <td class="text-end">$${precioPorDia.toLocaleString('es-AR')}</td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+            console.log(`✅ Agregada fila para ${precio.tipo_precio_display || precio.tipo_precio}`);
+        } else {
+            console.log(`⚠️ Omitiendo ${precio.tipo_precio_display || precio.tipo_precio} - sin precios`);
+        }
     });
+    
+    console.log('✅ Tabla de precios actualizada');
 }
 </script>
 {% endblock content %}
