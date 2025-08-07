@@ -1864,9 +1864,22 @@ function autenticarYReservar() {
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias, ambientes, estado, descripcion, caracteristicas) {
-    console.log('🔄 Función seleccionarPropiedad llamada con parámetros:', {
-        id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias, ambientes, estado, descripcion, caracteristicas
-    });
+    console.log('🔄 =================== SELECCIONAR PROPIEDAD ===================');
+    console.log('📋 Todos los parámetros recibidos:');
+    console.log('   - ID:', id);
+    console.log('   - Dirección:', direccion);
+    console.log('   - Propietario:', propietario);
+    console.log('   - Disponibilidad:', disponibilidad);
+    console.log('   - Precio:', precio);
+    console.log('   - Reserva ID:', reserva_id);
+    console.log('   - Estado Reserva:', estadoReserva);
+    console.log('   - Precio por día:', precio_por_dia);
+    console.log('   - Total días:', total_dias);
+    console.log('   - Ambientes:', ambientes, '(tipo:', typeof ambientes, ')');
+    console.log('   - Estado:', estado);
+    console.log('   - Descripción:', descripcion);
+    console.log('   - Características:', caracteristicas);
+    console.log('================================================================');
     
     // Buscar la fila clickeada para obtener los datos adicionales
     const filaClickeada = event.target.closest('tr');
@@ -1876,28 +1889,37 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
         id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias, ambientes, estado, descripcion, caracteristicas
     });
     
-    // Corregir el precio removiendo el cero extra
-    let precioCorregido = precio;
+    // Corregir el precio removiendo el cero extra de forma más robusta
+    let precioCorregido = 0;
     console.log('🔍 Precio original recibido:', precio, 'Tipo:', typeof precio);
     
-    if (typeof precio === 'string') {
-        // Remover todos los puntos y convertir a número
-        let precioNumerico = parseFloat(precio.replace(/\./g, ''));
-        console.log('🔢 Precio sin puntos:', precioNumerico);
-        
-        // Si el precio tiene más de 6 dígitos, tiene un cero extra
-        if (precioNumerico >= 1000000) {
-            precioCorregido = Math.floor(precioNumerico / 10);
-            console.log('✂️ Precio corregido (dividido por 10):', precioCorregido);
-        } else {
-            precioCorregido = precioNumerico;
-        }
-    } else if (typeof precio === 'number') {
-        if (precio >= 1000000) {
-            precioCorregido = Math.floor(precio / 10);
-        } else {
+    try {
+        if (precio === null || precio === undefined || precio === '') {
+            precioCorregido = 0;
+        } else if (typeof precio === 'string') {
+            // Remover todos los puntos, comas y espacios
+            let precioLimpio = precio.replace(/[\.\,\s]/g, '');
+            precioCorregido = parseInt(precioLimpio) || 0;
+            console.log('🧹 Precio limpio (string):', precioLimpio, '→', precioCorregido);
+        } else if (typeof precio === 'number') {
             precioCorregido = precio;
+            console.log('🔢 Precio directo (number):', precioCorregido);
+        } else {
+            // Intentar convertir a string y luego procesar
+            let precioStr = String(precio).replace(/[\.\,\s]/g, '');
+            precioCorregido = parseInt(precioStr) || 0;
+            console.log('🔄 Precio convertido:', precioStr, '→', precioCorregido);
         }
+        
+        // Si el número es muy grande, dividir por 10 hasta que sea razonable
+        while (precioCorregido > 10000000) {
+            precioCorregido = Math.floor(precioCorregido / 10);
+            console.log('✂️ Precio dividido por 10:', precioCorregido);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error procesando precio:', error);
+        precioCorregido = 0;
     }
     
     console.log('💰 Precio final corregido:', precioCorregido);
