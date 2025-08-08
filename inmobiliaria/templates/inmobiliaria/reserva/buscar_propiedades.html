@@ -272,8 +272,75 @@
     .switches-container {
         margin-top: 1.5rem !important;
         display: flex !important;
-        gap: 2rem !important;
-        padding: 0 1rem !important;
+        gap: 1rem !important;
+        padding: 1rem !important;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+        border: 1px solid #dee2e6 !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .switches-container .form-check {
+        margin: 0 !important;
+        padding: 0.75rem 1.25rem !important;
+        background: white !important;
+        border-radius: 8px !important;
+        border: 1px solid #ced4da !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+        cursor: pointer !important;
+        min-width: 200px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .switches-container .form-check:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+        border-color: #007bff !important;
+    }
+
+    .switches-container .form-check-input {
+        margin-right: 0.75rem !important;
+        transform: scale(1.2) !important;
+    }
+
+    .switches-container .form-check-input:checked {
+        background-color: #28a745 !important;
+        border-color: #28a745 !important;
+    }
+
+    .switches-container .form-check-label {
+        margin: 0 !important;
+        font-weight: 600 !important;
+        color: #495057 !important;
+        cursor: pointer !important;
+        font-size: 0.95rem !important;
+    }
+
+    .switches-container .form-check-input:checked + .form-check-label {
+        color: #28a745 !important;
+    }
+
+    /* Efecto de animación para el switch */
+    .switches-container .form-check-input {
+        transition: all 0.3s ease !important;
+    }
+
+    /* Responsive design para switches */
+    @media (max-width: 768px) {
+        .switches-container {
+            flex-direction: column !important;
+            gap: 0.75rem !important;
+        }
+        
+        .switches-container .form-check {
+            width: 100% !important;
+            min-width: unset !important;
+        }
     }
 
     /* Estilos para la galería de fotos */
@@ -898,12 +965,21 @@
                         {% for propiedad in propiedades_disponibles %}
                         {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
                         <tr style="background-color: white;" 
+                            class="propiedad-row"
                             data-index="{{ forloop.counter0 }}"
+                            data-propiedad-id="{{ propiedad.id }}"
+                            data-direccion="{{ propiedad.direccion|escapejs }}"
+                            data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
+                            data-disponibilidad="{{ propiedad.disponibilidad }}"
+                            data-precio-total="{{ propiedad.precio_total_reserva }}"
+                            data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
+                            data-estado-reserva="{{ propiedad.estado_reserva }}"
+                            data-precio-dia="{{ propiedad.precio_por_dia }}"
+                            data-total-dias="{{ total_dias }}"
                             data-ambientes="{{ propiedad.ambientes|default:0 }}"
                             data-estado="{{ propiedad.estado|default:'Disponible' }}"
                             data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
-                            data-caracteristicas="{{ propiedad.caracteristicas|default:'Sin características'|escapejs }}"
-                            onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}', '{{ propiedad.ambientes|default:"0" }}', 'Disponible', '{{ propiedad.descripcion|default:"Sin descripción"|escapejs }}', '{{ propiedad|get_caracteristicas|escapejs }}')">
+                            data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}">
                             <td style="color: red;">{{ propiedad.id }}</td>
                             <td style="color: red;">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td style="color: red;">{{ propiedad.ubicacion }}</td>
@@ -914,7 +990,22 @@
                             <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
                         </tr>
                         {% else %}
-                        <tr style="background-color: white;" data-index="{{ forloop.counter0 }}" onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:"" }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}', '{{ propiedad.ambientes|default:"0" }}', 'Disponible', '{{ propiedad.descripcion|default:"Sin descripción"|escapejs }}', '{{ propiedad|get_caracteristicas|escapejs }}')">
+                        <tr style="background-color: white;" 
+                            class="propiedad-row"
+                            data-index="{{ forloop.counter0 }}"
+                            data-propiedad-id="{{ propiedad.id }}"
+                            data-direccion="{{ propiedad.direccion|escapejs }}"
+                            data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
+                            data-disponibilidad="{{ propiedad.disponibilidad }}"
+                            data-precio-total="{{ propiedad.precio_total_reserva }}"
+                            data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
+                            data-estado-reserva="{{ propiedad.estado_reserva }}"
+                            data-precio-dia="{{ propiedad.precio_por_dia }}"
+                            data-total-dias="{{ total_dias }}"
+                            data-ambientes="{{ propiedad.ambientes|default:0 }}"
+                            data-estado="{{ propiedad.estado|default:'Disponible' }}"
+                            data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
+                            data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}">
                             <td>{{ propiedad.id }}</td>
                             <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td>{{ propiedad.ubicacion }}</td>
@@ -3494,6 +3585,7 @@ function cargarPreciosCompletos(propiedadId) {
 
 // Función para generar la tabla de gestión de precios
 function generarTablaGestionPrecios(precios, propiedadId) {
+    // Variable global para permisos de admin
     const esAdmin = {% if user.nivel >= 3 %}true{% else %}false{% endif %};
     console.log('👤 Usuario es admin:', esAdmin);
     
@@ -3617,6 +3709,29 @@ function calcularPrecioQuincena(fila) {
 
 // Agregar evento click a la tabla de precios
 document.addEventListener('DOMContentLoaded', function() {
+    // Event listener para las filas de propiedades
+    document.addEventListener('click', function(e) {
+        const propiedadRow = e.target.closest('.propiedad-row');
+        if (propiedadRow) {
+            const data = propiedadRow.dataset;
+            seleccionarPropiedad(
+                data.propiedadId,
+                data.direccion,
+                data.propietario,
+                data.disponibilidad,
+                data.precioTotal,
+                data.reservaId,
+                data.estadoReserva,
+                data.precioDia,
+                data.totalDias,
+                data.ambientes,
+                data.estado,
+                data.descripcion,
+                data.caracteristicas
+            );
+        }
+    });
+
     // Hacer que la tabla de precios sea clickeable
     document.addEventListener('click', function(e) {
         const tablaPrecios = e.target.closest('.table-precios');
@@ -3625,10 +3740,245 @@ document.addEventListener('DOMContentLoaded', function() {
             abrirModalGestionPrecios();
         }
     });
+});
+
+// Función para guardar cambios de precios
+function guardarCambiosPrecios() {
+    if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
+        alert('Error: No hay propiedad seleccionada');
+        return;
+    }
     
-    // Evento para guardar precios (solo para admins)
-    document.getElementById('guardarPreciosBtn').addEventListener('click', function() {
-        guardarCambiosPrecios();
+    console.log('💾 Guardando cambios de precios...');
+    
+    const filas = document.querySelectorAll('#tablaPreciosCompleta tr[data-precio-id]');
+    const precios = [];
+    
+    filas.forEach(fila => {
+        const tipoPrecio = fila.dataset.precioId;
+        const precioData = {
+            tipo_precio: tipoPrecio,
+            precio_toma: parseFloat(fila.querySelector('[data-field="precio_toma"]').value) || 0,
+            precio_dia_toma: parseFloat(fila.querySelector('[data-field="precio_dia_toma"]').value) || 0,
+            precio_por_dia: parseFloat(fila.querySelector('[data-field="precio_por_dia"]').value) || 0,
+            precio_total: parseFloat(fila.querySelector('[data-field="precio_total"]').value) || 0,
+            ajuste_porcentaje: parseFloat(fila.querySelector('[data-field="ajuste_porcentaje"]').value) || 0
+        };
+        precios.push(precioData);
+    });
+    
+    console.log('📊 Precios a guardar:', precios);
+    
+    // Mostrar loading
+    const guardarBtn = document.getElementById('guardarPreciosBtn');
+    const textoOriginal = guardarBtn.innerHTML;
+    guardarBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Guardando...';
+    guardarBtn.disabled = true;
+    
+    // Enviar al servidor
+    const formData = new FormData();
+    formData.append('propiedad_id', propiedadSeleccionada.id);
+    formData.append('precios', JSON.stringify(precios));
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch('{% url "inmobiliaria:guardar_precios_propiedad" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('📝 Respuesta del servidor:', data);
+        
+        if (data.success) {
+            alert('✅ Precios guardados correctamente');
+            
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalGestionPrecios'));
+            modal.hide();
+            
+            // Recargar precios en la tabla pequeña
+            cargarPreciosPropiedad(propiedadSeleccionada.id);
+            
+        } else {
+            alert('❌ Error al guardar precios: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('💥 Error guardando precios:', error);
+        alert('❌ Error de conexión al guardar precios');
+    })
+    .finally(() => {
+        // Restaurar botón
+        guardarBtn.innerHTML = textoOriginal;
+        guardarBtn.disabled = false;
+    });
+}
+</script>
+
+<script>
+    // Variables de Django para JavaScript
+    const djConfig = {
+        esAdmin: {% if user.nivel >= 3 %}true{% else %}false{% endif %}
+    };
+</script>
+
+<script>
+// Función para generar la tabla de gestión de precios
+function generarTablaGestionPrecios(precios, propiedadId) {
+    // Variable global para permisos de admin
+    const esAdmin = djConfig.esAdmin;
+    console.log('👤 Usuario es admin:', esAdmin);
+    
+    let tablaHTML = `
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="table-success">
+                    <tr>
+                        <th>Tipo de Precio</th>
+                        <th>Precio por Toma</th>
+                        <th>Precio por Día: Toma</th>
+                        <th>Precio por Día</th>
+                        <th>Precio por Quincena</th>
+                        <th>Ajuste (%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    precios.forEach((precio, index) => {
+        const precioTotal = parseFloat(precio.precio_total) || 0;
+        const precioPorDia = parseFloat(precio.precio_por_dia) || 0;
+        
+        tablaHTML += `
+            <tr data-precio-id="${precio.tipo_precio}">
+                <td class="fw-bold">${precio.tipo_precio_display}</td>
+                <td>
+                    ${esAdmin ? 
+                        `<input type="number" class="form-control precio-input" data-field="precio_toma" value="0.00" step="0.01">` :
+                        `<span class="precio-display">$0.00</span>`
+                    }
+                </td>
+                <td>
+                    ${esAdmin ? 
+                        `<input type="number" class="form-control precio-input" data-field="precio_dia_toma" value="0.00" step="0.01">` :
+                        `<span class="precio-display">$0.00</span>`
+                    }
+                </td>
+                <td>
+                    ${esAdmin ? 
+                        `<input type="number" class="form-control precio-input" data-field="precio_por_dia" value="${precioPorDia}" step="0.01">` :
+                        `<span class="precio-display">$${precioPorDia.toLocaleString('es-AR')}</span>`
+                    }
+                </td>
+                <td>
+                    ${esAdmin ? 
+                        `<input type="number" class="form-control precio-input" data-field="precio_total" value="${precioTotal}" step="0.01">` :
+                        `<span class="precio-display">$${precioTotal.toLocaleString('es-AR')}</span>`
+                    }
+                </td>
+                <td>
+                    ${esAdmin ? 
+                        `<input type="number" class="form-control precio-input" data-field="ajuste_porcentaje" value="0.00" step="0.01" min="-100" max="100">` :
+                        `<span class="precio-display">0.00%</span>`
+                    }
+                </td>
+            </tr>
+        `;
+    });
+    
+    tablaHTML += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    document.getElementById('tablaPreciosCompleta').innerHTML = tablaHTML;
+    
+    // Mostrar botón de guardar solo para admins
+    const guardarBtn = document.getElementById('guardarPreciosBtn');
+    if (esAdmin) {
+        guardarBtn.style.display = 'inline-block';
+        // Agregar eventos para calcular precios automáticamente
+        agregarEventosCalculoPrecios();
+    } else {
+        guardarBtn.style.display = 'none';
+    }
+}
+
+// Función para agregar eventos de cálculo de precios
+function agregarEventosCalculoPrecios() {
+    const inputs = document.querySelectorAll('.precio-input');
+    
+    inputs.forEach(input => {
+        input.addEventListener('input', function() {
+            const fila = this.closest('tr');
+            calcularPrecioQuincena(fila);
+        });
+    });
+}
+
+// Función para calcular precio de quincena automáticamente
+function calcularPrecioQuincena(fila) {
+    const precioPorDia = parseFloat(fila.querySelector('[data-field="precio_por_dia"]').value) || 0;
+    const ajuste = parseFloat(fila.querySelector('[data-field="ajuste_porcentaje"]').value) || 0;
+    
+    // Calcular precio base (15 días para la mayoría, 16 para enero, marzo, diciembre)
+    const tipoPrecio = fila.dataset.precioId;
+    let dias = 15;
+    
+    if (tipoPrecio.includes('ENERO') || tipoPrecio.includes('MARZO') || tipoPrecio.includes('DICIEMBRE')) {
+        dias = 16;
+    } else if (tipoPrecio === 'FINDE_LARGO') {
+        dias = 4;
+    } else if (tipoPrecio === 'TEMPORADA_BAJA') {
+        dias = 15;
+        // Para temporada baja no calculamos precio total
+        fila.querySelector('[data-field="precio_total"]').value = '0.00';
+        return;
+    }
+    
+    let precioTotal = precioPorDia * dias;
+    
+    // Aplicar ajuste porcentual
+    if (ajuste !== 0) {
+        precioTotal *= (1 + ajuste / 100);
+    }
+    
+    fila.querySelector('[data-field="precio_total"]').value = precioTotal.toFixed(2);
+}
+
+// Agregar evento click a la tabla de precios
+document.addEventListener('DOMContentLoaded', function() {
+    // Event listener para las filas de propiedades
+    document.addEventListener('click', function(e) {
+        const propiedadRow = e.target.closest('.propiedad-row');
+        if (propiedadRow) {
+            const data = propiedadRow.dataset;
+            seleccionarPropiedad(
+                data.propiedadId,
+                data.direccion,
+                data.propietario,
+                data.disponibilidad,
+                data.precioTotal,
+                data.reservaId,
+                data.estadoReserva,
+                data.precioDia,
+                data.totalDias,
+                data.ambientes,
+                data.estado,
+                data.descripcion,
+                data.caracteristicas
+            );
+        }
+    });
+
+    // Hacer que la tabla de precios sea clickeable
+    document.addEventListener('click', function(e) {
+        const tablaPrecios = e.target.closest('.table-precios');
+        if (tablaPrecios) {
+            e.preventDefault();
+            abrirModalGestionPrecios();
+        }
     });
 });
 
