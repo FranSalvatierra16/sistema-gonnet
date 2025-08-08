@@ -4352,6 +4352,10 @@ function guardarCambiosPrecios() {
                         <i class="fas fa-times me-1"></i>
                         Cancelar
                     </button>
+                    <button type="button" class="btn btn-warning" onclick="resetearFiltros()">
+                        <i class="fas fa-undo me-1"></i>
+                        Resetear Filtros
+                    </button>
                     <button type="button" class="btn btn-primary" onclick="aplicarFiltrosAvanzados()">
                         <i class="fas fa-search me-1"></i>
                         Aplicar Filtros
@@ -4600,5 +4604,71 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 100);
     });
 });
+
+// Función para resetear/limpiar todos los filtros
+function resetearFiltros() {
+    console.log('Reseteando filtros...');
+    
+    try {
+        const formModal = document.getElementById('formFiltrosAvanzados');
+        const formPrincipal = document.querySelector('form');
+        
+        if (!formModal || !formPrincipal) {
+            console.error('Formularios no encontrados');
+            return;
+        }
+        
+        // Limpiar campos básicos en el modal
+        const campos = ['tipo_inmueble', 'vista', 'valoracion'];
+        campos.forEach(campo => {
+            const campoModal = formModal.querySelector(`[name="${campo}"]`);
+            if (campoModal) {
+                campoModal.selectedIndex = 0; // Resetear a la primera opción
+            }
+        });
+        
+        // Limpiar todas las características (checkboxes)
+        const caracteristicas = ['amoblado', 'cochera', 'wifi', 'piscina', 'patio', 'parrilla', 'terraza', 'balcon', 'vista_al_Mar', 'a_estrenar', 'seguridad', 'apto_credito'];
+        caracteristicas.forEach(caracteristica => {
+            const checkbox = formModal.querySelector(`[name="${caracteristica}"]`);
+            if (checkbox) {
+                checkbox.checked = false;
+            }
+        });
+        
+        // Limpiar campos del formulario principal
+        campos.forEach(campo => {
+            const campoPrincipal = formPrincipal.querySelector(`[name="${campo}"]`);
+            if (campoPrincipal) {
+                campoPrincipal.selectedIndex = 0;
+            }
+        });
+        
+        // Limpiar campos ocultos de características en el formulario principal
+        caracteristicas.forEach(caracteristica => {
+            const existingHidden = formPrincipal.querySelector(`input[name="${caracteristica}"]`);
+            if (existingHidden) {
+                existingHidden.remove();
+            }
+        });
+        
+        // Cerrar modal
+        const modalElement = document.getElementById('modalFiltrosAvanzados');
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) {
+            modal.hide();
+        }
+        
+        // Recargar la página para aplicar el reseteo
+        setTimeout(() => {
+            // Crear URL sin parámetros de filtros
+            const baseUrl = window.location.pathname;
+            window.location.href = baseUrl;
+        }, 300);
+        
+    } catch (error) {
+        console.error('Error reseteando filtros:', error);
+    }
+}
 </script>
 {% endblock extra_js %}
