@@ -4190,13 +4190,13 @@ function guardarCambiosPrecios() {
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="filter-group">
-                                    <label for="filtro_tipo_inmueble">Tipo de Inmueble</label>
+                                    <label for="filtro_tipo_inmueble"><i class="fas fa-building me-1"></i>Tipo de Inmueble</label>
                                     {{ form.tipo_inmueble }}
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="filter-group">
-                                    <label for="filtro_vista">Vista de la Propiedad</label>
+                                    <label for="filtro_vista"><i class="fas fa-eye me-1"></i>Vista de la Propiedad</label>
                                     {{ form.vista }}
                                 </div>
                             </div>
@@ -4205,13 +4205,13 @@ function guardarCambiosPrecios() {
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="filter-group">
-                                    <label for="filtro_ambientes">Cantidad de Ambientes</label>
+                                    <label for="filtro_ambientes"><i class="fas fa-home me-1"></i>Cantidad de Ambientes</label>
                                     {{ form.ambientes }}
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="filter-group">
-                                    <label for="filtro_valoracion">Valoración</label>
+                                    <label for="filtro_valoracion"><i class="fas fa-star me-1"></i>Valoración</label>
                                     {{ form.valoracion }}
                                 </div>
                             </div>
@@ -4220,14 +4220,121 @@ function guardarCambiosPrecios() {
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="filter-group">
-                                    <label for="filtro_origen">Origen/Ubicación</label>
+                                    <label for="filtro_origen"><i class="fas fa-map-marker-alt me-1"></i>Origen/Ubicación</label>
                                     {{ form.origen }}
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="filter-group">
-                                    <label for="filtro_destino">Destino</label>
+                                    <label for="filtro_destino"><i class="fas fa-map-pin me-1"></i>Destino</label>
                                     {{ form.destino }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Características de la Propiedad -->
+                        <div class="filter-group">
+                            <label><i class="fas fa-check-circle me-1"></i>Características Especiales</label>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filtro_amoblado" name="amoblado">
+                                        <label class="form-check-label" for="filtro_amoblado">
+                                            <i class="fas fa-couch me-1"></i>Amoblado
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filtro_cochera" name="cochera">
+                                        <label class="form-check-label" for="filtro_cochera">
+                                            <i class="fas fa-car me-1"></i>Cochera
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filtro_wifi" name="wifi">
+                                        <label class="form-check-label" for="filtro_wifi">
+                                            <i class="fas fa-wifi me-1"></i>WiFi
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filtro_piscina" name="piscina">
+                                        <label class="form-check-label" for="filtro_piscina">
+                                            <i class="fas fa-swimming-pool me-1"></i>Piscina
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filtro_patio" name="patio">
+                                        <label class="form-check-label" for="filtro_patio">
+                                            <i class="fas fa-tree me-1"></i>Patio
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filtro_parrilla" name="parrilla">
+                                        <label class="form-check-label" for="filtro_parrilla">
+                                            <i class="fas fa-fire me-1"></i>Parrilla
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filtro_terraza" name="terraza">
+                                        <label class="form-check-label" for="filtro_terraza">
+                                            <i class="fas fa-building me-1"></i>Terraza
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filtro_balcon" name="balcon">
+                                        <label class="form-check-label" for="filtro_balcon">
+                                            <i class="fas fa-door-open me-1"></i>Balcón
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filtro_vista_al_mar" name="vista_al_Mar">
+                                        <label class="form-check-label" for="filtro_vista_al_mar">
+                                            <i class="fas fa-water me-1"></i>Vista al Mar
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filtro_a_estrenar" name="a_estrenar">
+                                        <label class="form-check-label" for="filtro_a_estrenar">
+                                            <i class="fas fa-star me-1"></i>A Estrenar
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filtro_seguridad" name="seguridad">
+                                        <label class="form-check-label" for="filtro_seguridad">
+                                            <i class="fas fa-shield-alt me-1"></i>Seguridad
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filtro_apto_credito" name="apto_credito">
+                                        <label class="form-check-label" for="filtro_apto_credito">
+                                            <i class="fas fa-credit-card me-1"></i>Apto Crédito
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -4387,7 +4494,7 @@ function aplicarFiltrosAvanzados() {
             return;
         }
         
-        // Copiar todos los campos del modal al formulario principal
+        // Copiar campos básicos del modal al formulario principal
         const campos = ['tipo_inmueble', 'vista', 'ambientes', 'valoracion', 'origen', 'destino'];
         
         campos.forEach(campo => {
@@ -4406,6 +4513,29 @@ function aplicarFiltrosAvanzados() {
                 } else {
                     campoPrincipal.value = campoModal.value;
                 }
+            }
+        });
+        
+        // Procesar características especiales (checkboxes)
+        const caracteristicas = ['amoblado', 'cochera', 'wifi', 'piscina', 'patio', 'parrilla', 'terraza', 'balcon', 'vista_al_Mar', 'a_estrenar', 'seguridad', 'apto_credito'];
+        
+        // Crear campos ocultos para las características seleccionadas
+        caracteristicas.forEach(caracteristica => {
+            const checkbox = formModal.querySelector(`[name="${caracteristica}"]`);
+            
+            // Remover campo oculto existente si existe
+            const existingHidden = formPrincipal.querySelector(`input[name="${caracteristica}"]`);
+            if (existingHidden) {
+                existingHidden.remove();
+            }
+            
+            // Si el checkbox está marcado, crear campo oculto
+            if (checkbox && checkbox.checked) {
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = caracteristica;
+                hiddenInput.value = 'true';
+                formPrincipal.appendChild(hiddenInput);
             }
         });
         
