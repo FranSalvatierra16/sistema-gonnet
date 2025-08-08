@@ -963,7 +963,7 @@
                         </button>
                         <div class="form-check">
                             {{ form.ver_todas }}
-                            <label class="control-btn" for="id_ver_todas" onclick="toggleVerTodas()">
+                            <label class="control-btn" for="id_ver_todas">
                                 <i class="fas fa-globe"></i>
                                 Ver Todas las Propiedades
                             </label>
@@ -4328,5 +4328,124 @@ function actualizarTablaPrecios(precios) {
         tbody.innerHTML += row;
     });
 }
+</script>
+
+<!-- JavaScript para Modal de Filtros -->
+<script>
+console.log('Cargando funciones de filtros...');
+
+// Función para abrir el modal de filtros avanzados
+function abrirModalFiltros() {
+    console.log('Abriendo modal de filtros...');
+    try {
+        const modalElement = document.getElementById('modalFiltrosAvanzados');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        } else {
+            console.error('Modal no encontrado');
+        }
+    } catch (error) {
+        console.error('Error al abrir modal:', error);
+    }
+}
+
+// Función para toggle de ver todas las propiedades
+function toggleVerTodas() {
+    console.log('Toggle ver todas...');
+    const checkbox = document.getElementById('id_ver_todas');
+    const label = document.querySelector('label[for="id_ver_todas"]');
+    
+    if (checkbox && label) {
+        if (checkbox.checked) {
+            label.classList.add('active');
+        } else {
+            label.classList.remove('active');
+        }
+        
+        // Enviar el formulario automáticamente
+        setTimeout(() => {
+            const form = document.querySelector('form');
+            if (form) {
+                form.submit();
+            }
+        }, 100);
+    }
+}
+
+// Función para aplicar filtros avanzados
+function aplicarFiltrosAvanzados() {
+    console.log('Aplicando filtros avanzados...');
+    
+    try {
+        // Copiar valores del modal al formulario principal
+        const formPrincipal = document.querySelector('form');
+        const formModal = document.getElementById('formFiltrosAvanzados');
+        
+        if (!formPrincipal || !formModal) {
+            console.error('Formularios no encontrados');
+            return;
+        }
+        
+        // Copiar todos los campos del modal al formulario principal
+        const campos = ['tipo_inmueble', 'vista', 'ambientes', 'valoracion', 'origen', 'destino'];
+        
+        campos.forEach(campo => {
+            const campoModal = formModal.querySelector(`[name="${campo}"]`);
+            const campoPrincipal = formPrincipal.querySelector(`[name="${campo}"]`);
+            
+            if (campoModal && campoPrincipal) {
+                if (campoModal.type === 'select-multiple') {
+                    // Para campos de selección múltiple
+                    Array.from(campoModal.selectedOptions).forEach(option => {
+                        const principalOption = campoPrincipal.querySelector(`option[value="${option.value}"]`);
+                        if (principalOption) {
+                            principalOption.selected = true;
+                        }
+                    });
+                } else {
+                    campoPrincipal.value = campoModal.value;
+                }
+            }
+        });
+        
+        // Cerrar modal
+        const modalElement = document.getElementById('modalFiltrosAvanzados');
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) {
+            modal.hide();
+        }
+        
+        // Enviar formulario
+        setTimeout(() => {
+            formPrincipal.submit();
+        }, 300);
+        
+    } catch (error) {
+        console.error('Error aplicando filtros:', error);
+    }
+}
+
+// Inicializar cuando se carga la página
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Inicializando funciones de filtros...');
+    
+    // Verificar estado inicial del checkbox "ver todas"
+    const checkbox = document.getElementById('id_ver_todas');
+    const label = document.querySelector('label[for="id_ver_todas"]');
+    
+    if (checkbox && label) {
+        if (checkbox.checked) {
+            label.classList.add('active');
+        }
+        
+        // Agregar evento al checkbox (pero no al label para evitar duplicados)
+        checkbox.addEventListener('change', function() {
+            toggleVerTodas();
+        });
+    }
+    
+    console.log('Funciones de filtros inicializadas correctamente');
+});
 </script>
 {% endblock extra_js %}
