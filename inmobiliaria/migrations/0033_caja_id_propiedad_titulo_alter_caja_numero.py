@@ -3,6 +3,36 @@
 from django.db import migrations, models
 
 
+def add_titulo_if_not_exists(apps, schema_editor):
+    """Agregar campo titulo solo si no existe"""
+    with schema_editor.connection.cursor() as cursor:
+        # Verificar si el campo titulo ya existe
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'inmobiliaria_propiedad' 
+            AND COLUMN_NAME = 'titulo'
+        """)
+        titulo_exists = cursor.fetchone()[0] > 0
+        
+        # Solo agregar si no existe
+        if not titulo_exists:
+            cursor.execute("""
+                ALTER TABLE inmobiliaria_propiedad 
+                ADD COLUMN titulo varchar(255) NULL
+            """)
+
+
+def remove_titulo_field(apps, schema_editor):
+    """Remover campo titulo"""
+    with schema_editor.connection.cursor() as cursor:
+        try:
+            cursor.execute("ALTER TABLE inmobiliaria_propiedad DROP COLUMN titulo")
+        except:
+            pass
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,10 +40,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='propiedad',
-            name='titulo',
-            field=models.CharField(blank=True, help_text='Nombre o título para identificar fácilmente la propiedad', max_length=255, null=True, verbose_name='Título descriptivo'),
+        migrations.RunPython(
+            add_titulo_if_not_exists,
+            remove_titulo_field,
         ),
         migrations.AlterField(
             model_name='caja',
