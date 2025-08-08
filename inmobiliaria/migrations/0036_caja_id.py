@@ -3,6 +3,55 @@
 from django.db import migrations, models
 
 
+def add_id_to_caja_safely(apps, schema_editor):
+    """Agregar campo id a caja de forma segura"""
+    with schema_editor.connection.cursor() as cursor:
+        # Verificar si ya existe un campo id
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'inmobiliaria_caja' 
+            AND COLUMN_NAME = 'id'
+        """)
+        id_exists = cursor.fetchone()[0] > 0
+        
+        if not id_exists:
+            # Verificar si numero es primary key
+            cursor.execute("""
+                SELECT COUNT(*) 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = 'inmobiliaria_caja' 
+                AND COLUMN_NAME = 'numero'
+                AND COLUMN_KEY = 'PRI'
+            """)
+            numero_is_pk = cursor.fetchone()[0] > 0
+            
+            if numero_is_pk:
+                # Remover primary key de numero
+                cursor.execute("ALTER TABLE inmobiliaria_caja DROP PRIMARY KEY")
+                # Cambiar numero para que no sea auto_increment
+                cursor.execute("ALTER TABLE inmobiliaria_caja MODIFY numero int NOT NULL")
+            
+            # Agregar campo id como primary key
+            cursor.execute("""
+                ALTER TABLE inmobiliaria_caja 
+                ADD COLUMN id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST
+            """)
+
+
+def remove_id_from_caja(apps, schema_editor):
+    """Remover campo id de caja"""
+    with schema_editor.connection.cursor() as cursor:
+        try:
+            cursor.execute("ALTER TABLE inmobiliaria_caja DROP COLUMN id")
+            # Restaurar numero como primary key si es necesario
+            cursor.execute("ALTER TABLE inmobiliaria_caja ADD PRIMARY KEY (numero)")
+        except:
+            pass
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,10 +59,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='caja',
-            name='id',
-            field=models.BigAutoField(auto_created=True, default=1, primary_key=True, serialize=False, verbose_name='ID'),
-            preserve_default=False,
+        migrations.RunPython(
+            add_id_to_caja_safely,
+            remove_id_from_caja,
         ),
     ]
