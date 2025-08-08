@@ -3908,13 +3908,27 @@ function guardarCambiosPrecios() {
         if (data.success) {
             alert('✅ Precios guardados correctamente');
             
-            // Cerrar modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('modalGestionPrecios'));
-            modal.hide();
+            // Cerrar modal de manera más robusta
+            const modalElement = document.getElementById('modalGestionPrecios');
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.hide();
+                
+                // Asegurar que el modal se cierre completamente
+                modalElement.addEventListener('hidden.bs.modal', function() {
+                    // Limpiar backdrop y estilos del body
+                    const backdrop = document.querySelector('.modal-backdrop');
+                    if (backdrop) {
+                        backdrop.remove();
+                    }
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
+                }, { once: true });
+            }
             
             // Recargar precios en la tabla pequeña
             cargarPreciosPropiedad(propiedadSeleccionada.id);
-            
         } else {
             alert('❌ Error al guardar precios: ' + (data.error || 'Error desconocido'));
         }
@@ -4148,13 +4162,27 @@ function guardarCambiosPrecios() {
         if (data.success) {
             alert('✅ Precios guardados correctamente');
             
-            // Cerrar modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('modalGestionPrecios'));
-            modal.hide();
+            // Cerrar modal de manera más robusta
+            const modalElement = document.getElementById('modalGestionPrecios');
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.hide();
+                
+                // Asegurar que el modal se cierre completamente
+                modalElement.addEventListener('hidden.bs.modal', function() {
+                    // Limpiar backdrop y estilos del body
+                    const backdrop = document.querySelector('.modal-backdrop');
+                    if (backdrop) {
+                        backdrop.remove();
+                    }
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
+                }, { once: true });
+            }
             
             // Recargar precios en la tabla pequeña
             cargarPreciosPropiedad(propiedadSeleccionada.id);
-            
         } else {
             alert('❌ Error al guardar precios: ' + (data.error || 'Error desconocido'));
         }
@@ -4555,6 +4583,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log('Funciones de filtros inicializadas correctamente');
+    
+    // Event listener global para limpiar modales cuando se cierran
+    document.addEventListener('hidden.bs.modal', function (event) {
+        console.log('Modal cerrado:', event.target.id);
+        
+        // Limpiar cualquier backdrop residual
+        setTimeout(() => {
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+            
+            // Restaurar scroll del body
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        }, 100);
+    });
 });
 </script>
 {% endblock extra_js %}
