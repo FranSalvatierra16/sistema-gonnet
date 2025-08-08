@@ -4203,31 +4203,10 @@ function guardarCambiosPrecios() {
                         </div>
                         
                         <div class="row">
-                            <div class="col-md-6">
-                                <div class="filter-group">
-                                    <label for="filtro_ambientes"><i class="fas fa-home me-1"></i>Cantidad de Ambientes</label>
-                                    {{ form.ambientes }}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
+                            <div class="col-md-12">
                                 <div class="filter-group">
                                     <label for="filtro_valoracion"><i class="fas fa-star me-1"></i>Valoración</label>
                                     {{ form.valoracion }}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="filter-group">
-                                    <label for="filtro_origen"><i class="fas fa-map-marker-alt me-1"></i>Origen/Ubicación</label>
-                                    {{ form.origen }}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="filter-group">
-                                    <label for="filtro_destino"><i class="fas fa-map-pin me-1"></i>Destino</label>
-                                    {{ form.destino }}
                                 </div>
                             </div>
                         </div>
@@ -4495,7 +4474,7 @@ function aplicarFiltrosAvanzados() {
         }
         
         // Copiar campos básicos del modal al formulario principal
-        const campos = ['tipo_inmueble', 'vista', 'ambientes', 'valoracion', 'origen', 'destino'];
+        const campos = ['tipo_inmueble', 'vista', 'valoracion'];
         
         campos.forEach(campo => {
             const campoModal = formModal.querySelector(`[name="${campo}"]`);
