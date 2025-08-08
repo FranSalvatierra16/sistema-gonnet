@@ -558,7 +558,7 @@ class PropiedadSearchForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Buscar por dirección, ficha o propietario'
+            'placeholder': 'Buscar por dirección, ficha, propietario o vendedor'
         })
     )
 

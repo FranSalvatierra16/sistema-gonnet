@@ -286,7 +286,10 @@ def propiedades(request):
                 Q(direccion__icontains=query) |
                 Q(id__icontains=query) |
                 Q(propietario__nombre__icontains=query) |
-                Q(propietario__apellido__icontains=query)
+                Q(propietario__apellido__icontains=query) |
+                Q(fichado_por__nombre__icontains=query) |
+                Q(fichado_por__apellido__icontains=query) |
+                Q(fichado_por__username__icontains=query)
             )
 
     # Ordenar numéricamente por ID en Python

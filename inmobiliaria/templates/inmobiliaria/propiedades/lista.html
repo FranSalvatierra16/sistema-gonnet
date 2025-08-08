@@ -57,6 +57,7 @@
                         <th><i class="bi bi-tag"></i> Título</th>
                         <th><i class="bi bi-star"></i> Valoración</th>
                         <th><i class="bi bi-person"></i> Propietario</th>
+                        <th><i class="bi bi-person-badge"></i> Fichado por</th>
                         <th><i class="bi bi-building"></i> Piso</th>
                         <th><i class="bi bi-door-closed"></i> Dpto</th>
                         <th><i class="bi bi-house"></i> Amb.</th>
@@ -85,6 +86,13 @@
                             {% endif %}
                         </td>
                         <td>{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</td>
+                        <td>
+                            {% if propiedad.fichado_por %}
+                                <span class="badge bg-info">{{ propiedad.fichado_por.nombre }} {{ propiedad.fichado_por.apellido }}</span>
+                            {% else %}
+                                <span class="text-muted">Sin asignar</span>
+                            {% endif %}
+                        </td>
                         <td>{{ propiedad.piso }}</td>
                         <td>{{ propiedad.departamento }}</td>
                         <td>
