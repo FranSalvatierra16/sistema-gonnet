@@ -787,6 +787,119 @@
     .status-disponible { color: #2e7d32; font-weight: bold; }
     .status-reservado { color: #d32f2f; font-weight: bold; }
     .precio-highlight { color: #2e7d32; font-weight: bold; font-size: 1.1em; }
+
+    /* Estilos para el contenedor de controles */
+    .controls-container {
+        margin-top: 1.5rem !important;
+        display: flex !important;
+        gap: 1rem !important;
+        padding: 1rem !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .control-btn {
+        padding: 0.75rem 1.5rem !important;
+        background: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        color: #495057 !important;
+        cursor: pointer !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+        min-width: 200px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 0.5rem !important;
+    }
+
+    .control-btn:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2) !important;
+        background: #f8f9fa !important;
+    }
+
+    .control-btn.active {
+        background: #28a745 !important;
+        color: white !important;
+    }
+
+    .control-btn i {
+        font-size: 1.1rem !important;
+    }
+
+    /* Modal de filtros */
+    .modal-filtros .modal-content {
+        border-radius: 15px !important;
+        border: none !important;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    .modal-filtros .modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border-radius: 15px 15px 0 0 !important;
+        border-bottom: none !important;
+    }
+
+    .modal-filtros .modal-title {
+        font-weight: 700 !important;
+        font-size: 1.25rem !important;
+    }
+
+    .modal-filtros .btn-close {
+        filter: invert(1) !important;
+    }
+
+    .modal-filtros .modal-body {
+        padding: 2rem !important;
+    }
+
+    .filter-group {
+        margin-bottom: 1.5rem !important;
+        padding: 1rem !important;
+        background: #f8f9fa !important;
+        border-radius: 8px !important;
+        border-left: 4px solid #667eea !important;
+    }
+
+    .filter-group label {
+        font-weight: 600 !important;
+        color: #495057 !important;
+        margin-bottom: 0.5rem !important;
+        display: block !important;
+    }
+
+    .filter-group select,
+    .filter-group input {
+        border-radius: 6px !important;
+        border: 1px solid #ced4da !important;
+        transition: border-color 0.3s ease !important;
+    }
+
+    .filter-group select:focus,
+    .filter-group input:focus {
+        border-color: #667eea !important;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .controls-container {
+            flex-direction: column !important;
+            gap: 0.75rem !important;
+        }
+        
+        .control-btn {
+            width: 100% !important;
+            min-width: unset !important;
+        }
+    }
     </style>
 {% endblock extra_css %}
 
@@ -842,15 +955,18 @@
                         </div>
                     </div>
 
-                    <!-- Switches -->
-                    <div class="switches-container">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="switchFiltros" role="switch">
-                            <label class="form-check-label" for="switchFiltros">Mostrar más filtros</label>
-                        </div>
-                        <div class="form-check form-switch">
+                    <!-- Controles modernos -->
+                    <div class="controls-container">
+                        <button type="button" class="control-btn" onclick="abrirModalFiltros()">
+                            <i class="fas fa-filter"></i>
+                            Mostrar Filtros Avanzados
+                        </button>
+                        <div class="form-check">
                             {{ form.ver_todas }}
-                            <label class="form-check-label" for="id_ver_todas">Ver todas las propiedades</label>
+                            <label class="control-btn" for="id_ver_todas" onclick="toggleVerTodas()">
+                                <i class="fas fa-globe"></i>
+                                Ver Todas las Propiedades
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -4054,6 +4170,83 @@ function guardarCambiosPrecios() {
     });
 }
 </script>
+
+        </form>
+    </div>
+
+    <!-- Modal de Filtros Avanzados -->
+    <div class="modal fade modal-filtros" id="modalFiltrosAvanzados" tabindex="-1" aria-labelledby="modalFiltrosLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalFiltrosLabel">
+                        <i class="fas fa-filter me-2"></i>
+                        Filtros Avanzados de Búsqueda
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formFiltrosAvanzados">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="filter-group">
+                                    <label for="filtro_tipo_inmueble">Tipo de Inmueble</label>
+                                    {{ form.tipo_inmueble }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="filter-group">
+                                    <label for="filtro_vista">Vista de la Propiedad</label>
+                                    {{ form.vista }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="filter-group">
+                                    <label for="filtro_ambientes">Cantidad de Ambientes</label>
+                                    {{ form.ambientes }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="filter-group">
+                                    <label for="filtro_valoracion">Valoración</label>
+                                    {{ form.valoracion }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="filter-group">
+                                    <label for="filtro_origen">Origen/Ubicación</label>
+                                    {{ form.origen }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="filter-group">
+                                    <label for="filtro_destino">Destino</label>
+                                    {{ form.destino }}
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="aplicarFiltrosAvanzados()">
+                        <i class="fas fa-search me-1"></i>
+                        Aplicar Filtros
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock content %}
 
 {% block extra_js %}
