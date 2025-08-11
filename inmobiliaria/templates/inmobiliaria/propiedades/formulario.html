@@ -36,14 +36,14 @@
             </div>
             <div class="card-body">
                 <div class="row g-4">
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <label for="id_id" class="form-label">
                             <i class="fas fa-hashtag me-1"></i>Ficha
                         </label>
                         {{ form.id }}
                         {{ form.id.errors }}
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label for="id_llave" class="form-label">
                             <i class="fas fa-key me-1"></i>Llave
                         </label>
@@ -60,14 +60,14 @@
                 </div>
 
                 <div class="row g-4 mt-3">
-                    <div class="col-md-6">
+                    <div class="col-md-8">
                         <label for="id_direccion" class="form-label">
                             <i class="fas fa-map-marker-alt me-1"></i>Dirección
                         </label>
                         {{ form.direccion }}
                         {{ form.direccion.errors }}
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label for="id_ubicacion" class="form-label">
                             <i class="fas fa-location-arrow me-1"></i>Ubicación
                         </label>
@@ -77,30 +77,30 @@
                 </div>
 
                 <div class="row g-4 mt-3">
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <label for="id_tipo_inmueble" class="form-label">
                             <i class="fas fa-building me-1"></i>Tipo de Inmueble
                         </label>
                         {{ form.tipo_inmueble }}
                         {{ form.tipo_inmueble.errors }}
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <label for="id_vista" class="form-label">
                             <i class="fas fa-eye me-1"></i>Vista
                         </label>
                         {{ form.vista }}
                         {{ form.vista.errors }}
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label for="id_piso" class="form-label">
                             <i class="fas fa-building me-1"></i>Piso
                         </label>
                         {{ form.piso }}
                         {{ form.piso.errors }}
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label for="id_departamento" class="form-label">
-                            <i class="fas fa-door-closed me-1"></i>Departamento
+                            <i class="fas fa-door-closed me-1"></i>Depto
                         </label>
                         {{ form.departamento }}
                         {{ form.departamento.errors }}
@@ -108,26 +108,19 @@
                 </div>
 
                 <div class="row g-4 mt-3">
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <label for="id_ambientes" class="form-label">
                             <i class="fas fa-home me-1"></i>Ambientes
                         </label>
                         {{ form.ambientes }}
                         {{ form.ambientes.errors }}
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <label for="id_valoracion" class="form-label">
                             <i class="fas fa-star me-1"></i>Valoración
                         </label>
                         {{ form.valoracion }}
                         {{ form.valoracion.errors }}
-                    </div>
-                    <div class="col-md-4">
-                        <label for="id_cuenta_bancaria" class="form-label">
-                            <i class="fas fa-university me-1"></i>Cuenta Bancaria
-                        </label>
-                        {{ form.cuenta_bancaria }}
-                        {{ form.cuenta_bancaria.errors }}
                     </div>
                 </div>
             </div>
@@ -178,6 +171,9 @@
                 </h4>
             </div>
             <div class="card-body">
+                <label for="id_descripcion" class="form-label">
+                    <i class="fas fa-edit me-1"></i>Descripción detallada de la propiedad
+                </label>
                 {{ form.descripcion }}
                 {{ form.descripcion.errors }}
             </div>
@@ -409,6 +405,18 @@
     
     .modern-form .row.g-4.mt-3 {
         margin-top: 1.5rem !important;
+    }
+    
+    /* Textarea de descripción más grande */
+    #id_descripcion {
+        min-height: 120px !important;
+        resize: vertical !important;
+    }
+    
+    /* Campos de texto principales más grandes */
+    #id_titulo, #id_direccion {
+        font-size: 1.1rem !important;
+        padding: 14px 16px !important;
     }
 </style>
 {% endblock %}
