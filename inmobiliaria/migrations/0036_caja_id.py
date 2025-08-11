@@ -3,8 +3,8 @@
 from django.db import migrations, models
 
 
-def add_id_to_caja_safely(apps, schema_editor):
-    """Agregar campo id a caja de forma segura"""
+def restructure_caja_table(apps, schema_editor):
+    """Restructurar tabla Caja completamente"""
     with schema_editor.connection.cursor() as cursor:
         # Verificar si ya existe un campo id
         cursor.execute("""
@@ -17,36 +17,46 @@ def add_id_to_caja_safely(apps, schema_editor):
         id_exists = cursor.fetchone()[0] > 0
         
         if not id_exists:
-            # Verificar si numero es primary key
+            # Verificar si numero es primary key y/o auto_increment
             cursor.execute("""
-                SELECT COUNT(*) 
+                SELECT COLUMN_KEY, EXTRA
                 FROM INFORMATION_SCHEMA.COLUMNS 
                 WHERE TABLE_SCHEMA = DATABASE() 
                 AND TABLE_NAME = 'inmobiliaria_caja' 
                 AND COLUMN_NAME = 'numero'
-                AND COLUMN_KEY = 'PRI'
             """)
-            numero_is_pk = cursor.fetchone()[0] > 0
+            result = cursor.fetchone()
+            numero_is_pk = result and result[0] == 'PRI'
+            numero_is_auto = result and 'auto_increment' in result[1].lower()
             
             if numero_is_pk:
                 # Remover primary key de numero
                 cursor.execute("ALTER TABLE inmobiliaria_caja DROP PRIMARY KEY")
+            
+            if numero_is_auto:
                 # Cambiar numero para que no sea auto_increment
                 cursor.execute("ALTER TABLE inmobiliaria_caja MODIFY numero int NOT NULL")
             
-            # Agregar campo id como primary key
+            # Agregar campo id como primary key al principio
             cursor.execute("""
                 ALTER TABLE inmobiliaria_caja 
                 ADD COLUMN id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST
             """)
+            
+            # Asegurar que numero sea un PositiveIntegerField normal
+            cursor.execute("""
+                ALTER TABLE inmobiliaria_caja 
+                MODIFY numero int UNSIGNED NOT NULL
+            """)
 
 
 def remove_id_from_caja(apps, schema_editor):
-    """Remover campo id de caja"""
+    """Remover campo id de caja y restaurar numero como PK"""
     with schema_editor.connection.cursor() as cursor:
         try:
             cursor.execute("ALTER TABLE inmobiliaria_caja DROP COLUMN id")
-            # Restaurar numero como primary key si es necesario
+            # Restaurar numero como primary key auto_increment
+            cursor.execute("ALTER TABLE inmobiliaria_caja MODIFY numero int NOT NULL AUTO_INCREMENT")
             cursor.execute("ALTER TABLE inmobiliaria_caja ADD PRIMARY KEY (numero)")
         except:
             pass
@@ -60,7 +70,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunPython(
-            add_id_to_caja_safely,
+            restructure_caja_table,
             remove_id_from_caja,
         ),
     ]

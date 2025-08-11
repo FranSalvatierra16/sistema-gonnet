@@ -44,9 +44,6 @@ class Migration(migrations.Migration):
             add_titulo_if_not_exists,
             remove_titulo_field,
         ),
-        migrations.AlterField(
-            model_name='caja',
-            name='numero',
-            field=models.PositiveIntegerField(),
-        ),
+        # REMOVIDO: AlterField que causaba conflicto con AUTO_INCREMENT
+        # El manejo del campo 'numero' de Caja se hace en migración 0036
     ]
