@@ -1137,6 +1137,86 @@
         user-select: auto !important;
     }
 
+    /* ========================================= */
+    /* ARREGLO CRÍTICO PARA BLUR Y VISIBILIDAD */
+    /* ========================================= */
+    
+    /* Eliminar TODOS los efectos visuales problemáticos */
+    .modal,
+    .modal *,
+    .modal-dialog,
+    .modal-dialog *,
+    .modal-content,
+    .modal-content *,
+    .modal-body,
+    .modal-body * {
+        filter: none !important;
+        -webkit-filter: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: none !important;
+        -webkit-transform: none !important;
+        transition: none !important;
+        -webkit-transition: none !important;
+    }
+    
+    /* Forzar visibilidad completa del modal */
+    .modal.show,
+    .modal.show .modal-dialog,
+    .modal.show .modal-content {
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: block !important;
+    }
+    
+    /* Asegurar contraste y legibilidad */
+    .modal-content {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        border: 2px solid #007bff !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
+    }
+    
+    /* Forzar visibilidad de texto y elementos */
+    .modal-body,
+    .modal-header,
+    .modal-footer {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+    
+    .modal-body *,
+    .modal-header *,
+    .modal-footer * {
+        color: #000000 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    /* Dropdowns dentro de modales */
+    .modal select,
+    .modal .form-select {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        border: 1px solid #ced4da !important;
+        opacity: 1 !important;
+    }
+    
+    /* Checkboxes y labels */
+    .modal .form-check-label {
+        color: #000000 !important;
+        font-weight: 500 !important;
+    }
+    
+    /* Botones */
+    .modal .btn {
+        opacity: 1 !important;
+        visibility: visible !important;
+        filter: none !important;
+    }
+
     /* Resto de los estilos... */
     </style>
 {% endblock extra_css %}
@@ -1601,9 +1681,7 @@
         <!-- Footer con mejor diseño -->
         <div style="padding: 20px; border-top: 1px solid #e0e0e0; text-align: right; border-radius: 0 0 15px 15px; background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%); box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
             <button onclick="cerrarModal()" 
-                    style="padding: 12px 25px; background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white; border: none; border-radius: 8px; margin-right: 15px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(108,117,125,0.3);"
-                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(108,117,125,0.4)'"
-                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(108,117,125,0.3)'">❌ Cancelar</button>
+                    style="padding: 12px 25px; background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white; border: none; border-radius: 8px; margin-right: 15px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(108,117,125,0.3);">❌ Cancelar</button>
             <button onclick="confirmarReservaFinal()" 
                     style="padding: 12px 30px; background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(46,125,50,0.3);"
                     onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(46,125,50,0.4)'"
@@ -4679,6 +4757,7 @@ function abrirModalFiltros() {
         if (modalElement) {
             // PASO 1: Hacer completamente interactivo ANTES de abrir
             hacerModalCompletamenteInteractivo(modalElement);
+            eliminarBlurYEfectos(modalElement);
             
             const modal = new bootstrap.Modal(modalElement);
             modal.show();
@@ -4686,16 +4765,19 @@ function abrirModalFiltros() {
             // PASO 2: Después de mostrar, aplicar arreglos adicionales múltiples veces
             setTimeout(() => {
                 hacerModalCompletamenteInteractivo(modalElement);
+                eliminarBlurYEfectos(modalElement);
                 console.log('✅ Modal de filtros totalmente interactivo - Fase 1');
             }, 100);
             
             setTimeout(() => {
                 hacerModalCompletamenteInteractivo(modalElement);
+                eliminarBlurYEfectos(modalElement);
                 console.log('✅ Modal de filtros totalmente interactivo - Fase 2');
             }, 300);
             
             setTimeout(() => {
                 hacerModalCompletamenteInteractivo(modalElement);
+                eliminarBlurYEfectos(modalElement);
                 console.log('✅ Modal de filtros totalmente interactivo - Fase Final');
             }, 500);
             
@@ -4750,6 +4832,43 @@ function hacerModalCompletamenteInteractivo(modalElement) {
     modalElement.style.isolation = 'isolate';
     
     console.log(`🔧 Modal ${modalElement.id} hecho completamente interactivo con ${todosLosElementos.length} elementos`);
+}
+
+// Función específica para eliminar blur y efectos problemáticos
+function eliminarBlurYEfectos(modalElement) {
+    if (!modalElement) return;
+    
+    console.log('🎯 Eliminando blur y efectos problemáticos...');
+    
+    // Lista de propiedades problemáticas
+    const propiedadesProblematicas = [
+        'filter', 'webkitFilter', 'backdropFilter', 'webkitBackdropFilter',
+        'transform', 'webkitTransform', 'transition', 'webkitTransition'
+    ];
+    
+    // Aplicar al modal y todos sus descendientes
+    const elementos = [modalElement, ...modalElement.querySelectorAll('*')];
+    
+    elementos.forEach(el => {
+        propiedadesProblematicas.forEach(prop => {
+            el.style[prop] = 'none';
+        });
+        
+        // Forzar visibilidad
+        el.style.opacity = '1';
+        el.style.visibility = 'visible';
+        el.style.display = el.style.display || 'block';
+        
+        // Para elementos de formulario
+        if (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'BUTTON') {
+            el.style.backgroundColor = '#ffffff';
+            el.style.color = '#000000';
+            el.style.pointerEvents = 'auto';
+            el.style.cursor = 'pointer';
+        }
+    });
+    
+    console.log('✅ Blur y efectos eliminados');
 }
 
 // Función para toggle de ver todas las propiedades
