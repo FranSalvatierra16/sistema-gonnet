@@ -3372,48 +3372,9 @@ function getCookie(name) {
 </script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM Cargado - Inicializando switches...'); // Debug
-
-    const switchFiltros = document.getElementById('switchFiltros');
-    const filtrosAdicionales = document.getElementById('filtrosAdicionales');
-
-    if (!switchFiltros || !filtrosAdicionales) {
-        console.error('No se encontraron elementos necesarios:',
-            !switchFiltros ? 'Falta switchFiltros' : '',
-            !filtrosAdicionales ? 'Falta filtrosAdicionales' : '');
-        return;
-    }
-
-    // Asegurarse de que el contenedor de filtros esté oculto inicialmente
-    filtrosAdicionales.style.display = 'none';
-    filtrosAdicionales.style.opacity = '0';
-    filtrosAdicionales.style.transition = 'opacity 0.3s ease-in-out';
-
-    switchFiltros.addEventListener('change', function(e) {
-        console.log('Switch cambió:', this.checked); // Debug
-
-        if (this.checked) {
-            // Mostrar filtros
-            filtrosAdicionales.style.display = 'block';
-            // Forzar un reflow
-            filtrosAdicionales.offsetHeight;
-            filtrosAdicionales.style.opacity = '1';
-        } else {
-            // Ocultar filtros
-            filtrosAdicionales.style.opacity = '0';
-            setTimeout(() => {
-                filtrosAdicionales.style.display = 'none';
-            }, 300); // Esperar a que termine la transición
-        }
-    });
-
-    // Agregar estilos adicionales para mejorar la apariencia
-    const checkboxes = document.querySelectorAll('.form-check-input');
-    checkboxes.forEach(checkbox => {
-        checkbox.classList.add('me-2');
-    });
-});
+// Script obsoleto de switchFiltros removido - causaba errores
+// Los filtros ahora funcionan solo a través del modal Bootstrap
+console.log('🔧 Sistema de filtros modal cargado correctamente');
 </script>
 
 <style>
@@ -4647,17 +4608,35 @@ console.log('Cargando funciones de filtros...');
 
 // Función para abrir el modal de filtros avanzados
 function abrirModalFiltros() {
-    console.log('Abriendo modal de filtros...');
+    console.log('🔍 Abriendo modal de filtros...');
     try {
         const modalElement = document.getElementById('modalFiltrosAvanzados');
         if (modalElement) {
+            // Hacer completamente interactivo ANTES de abrir
+            modalElement.style.pointerEvents = 'auto';
+            modalElement.querySelectorAll('*').forEach(el => {
+                el.style.pointerEvents = 'auto';
+                el.style.userSelect = 'auto';
+                if (el.tagName === 'BUTTON' || el.tagName === 'SELECT' || el.tagName === 'INPUT') {
+                    el.style.cursor = 'pointer';
+                }
+            });
+            
             const modal = new bootstrap.Modal(modalElement);
             modal.show();
+            
+            // Después de mostrar, aplicar arreglos adicionales
+            setTimeout(() => {
+                modalElement.style.zIndex = '9999';
+                modalElement.style.position = 'fixed';
+                console.log('✅ Modal de filtros totalmente interactivo');
+            }, 100);
+            
         } else {
-            console.error('Modal no encontrado');
+            console.error('❌ Modal no encontrado');
         }
     } catch (error) {
-        console.error('Error al abrir modal:', error);
+        console.error('❌ Error al abrir modal:', error);
     }
 }
 
