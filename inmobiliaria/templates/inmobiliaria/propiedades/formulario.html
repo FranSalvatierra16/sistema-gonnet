@@ -37,52 +37,42 @@
             <div class="card-body">
                 <div class="row g-4">
                     <div class="col-md-3">
-                        <div class="form-floating">
-                            {{ form.id }}
-                            <label for="id_id" class="form-label">
-                                <i class="fas fa-hashtag me-1"></i>Ficha
-                            </label>
-                            {{ form.id.errors }}
-                        </div>
+                        <label for="id_id" class="form-label">
+                            <i class="fas fa-hashtag me-1"></i>Ficha
+                        </label>
+                        {{ form.id }}
+                        {{ form.id.errors }}
                     </div>
                     <div class="col-md-3">
-                        <div class="form-floating">
-                            {{ form.llave }}
-                            <label for="id_llave" class="form-label">
-                                <i class="fas fa-key me-1"></i>Llave
-                            </label>
-                            {{ form.llave.errors }}
-                        </div>
+                        <label for="id_llave" class="form-label">
+                            <i class="fas fa-key me-1"></i>Llave
+                        </label>
+                        {{ form.llave }}
+                        {{ form.llave.errors }}
                     </div>
                     <div class="col-md-6">
-                        <div class="form-floating">
-                            {{ form.titulo }}
-                            <label for="id_titulo" class="form-label">
-                                <i class="fas fa-tag me-1"></i>Título Descriptivo
-                            </label>
-                            {{ form.titulo.errors }}
-                        </div>
+                        <label for="id_titulo" class="form-label">
+                            <i class="fas fa-tag me-1"></i>Título Descriptivo
+                        </label>
+                        {{ form.titulo }}
+                        {{ form.titulo.errors }}
                     </div>
                 </div>
 
                 <div class="row g-4 mt-3">
                     <div class="col-md-6">
-                        <div class="form-floating">
-                            {{ form.direccion }}
-                            <label for="id_direccion" class="form-label">
-                                <i class="fas fa-map-marker-alt me-1"></i>Dirección
-                            </label>
-                            {{ form.direccion.errors }}
-                        </div>
+                        <label for="id_direccion" class="form-label">
+                            <i class="fas fa-map-marker-alt me-1"></i>Dirección
+                        </label>
+                        {{ form.direccion }}
+                        {{ form.direccion.errors }}
                     </div>
                     <div class="col-md-6">
-                        <div class="form-floating">
-                            {{ form.ubicacion }}
-                            <label for="id_ubicacion" class="form-label">
-                                <i class="fas fa-location-arrow me-1"></i>Ubicación
-                            </label>
-                            {{ form.ubicacion.errors }}
-                        </div>
+                        <label for="id_ubicacion" class="form-label">
+                            <i class="fas fa-location-arrow me-1"></i>Ubicación
+                        </label>
+                        {{ form.ubicacion }}
+                        {{ form.ubicacion.errors }}
                     </div>
                 </div>
 
@@ -221,7 +211,6 @@
         </div>
 
         <!-- Sección: Imágenes -->
-        {% if propiedad.pk %}
         <div class="card shadow-modern border-radius-modern mb-4">
             <div class="card-header">
                 <h4 class="mb-0">
@@ -233,7 +222,8 @@
                 <div class="row mb-4">
                     <div class="col-12">
                         <label for="id_imagenes" class="form-label">
-                            <i class="fas fa-upload me-1"></i>Agregar Nuevas Imágenes
+                            <i class="fas fa-upload me-1"></i>
+                            {% if propiedad.pk %}Agregar Nuevas Imágenes{% else %}Seleccionar Imágenes{% endif %}
                         </label>
                         {{ form.imagenes }}
                         <small class="form-text text-muted">
@@ -243,7 +233,7 @@
                     </div>
                 </div>
 
-                {% if propiedad.imagenes.all %}
+                {% if propiedad.pk and propiedad.imagenes.all %}
                 <div class="border-top pt-4">
                     <h5 class="mb-3">
                         <i class="fas fa-photo-video me-1"></i>
@@ -269,15 +259,19 @@
                         {% endfor %}
                     </div>
                 </div>
-                {% else %}
+                {% elif propiedad.pk %}
                 <div class="text-center py-4">
                     <i class="fas fa-image fa-3x text-muted mb-3"></i>
                     <p class="text-muted">No hay imágenes cargadas para esta propiedad</p>
                 </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-camera fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">Las imágenes se mostrarán después de crear la propiedad</p>
+                </div>
                 {% endif %}
             </div>
         </div>
-        {% endif %}
 
         <!-- Botones de Acción -->
         <div class="card shadow-modern border-radius-modern">
@@ -350,9 +344,30 @@
         border-radius: 15px !important;
     }
     
-    .form-floating label {
+    .form-label {
         color: #2e7d32 !important;
         font-weight: 600 !important;
+        margin-bottom: 8px !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    
+    .form-label i {
+        margin-right: 8px !important;
+        width: 16px !important;
+        text-align: center !important;
+    }
+    
+    .form-control, .form-select {
+        border: 2px solid #e0e0e0 !important;
+        border-radius: 8px !important;
+        padding: 12px 15px !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #4caf50 !important;
+        box-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.25) !important;
     }
     
     .image-card {
@@ -368,9 +383,32 @@
         border-color: #4caf50 !important;
     }
     
-    .modern-form .form-control:focus {
-        border-color: #4caf50 !important;
-        box-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.25) !important;
+    .form-check-label {
+        display: flex !important;
+        align-items: center !important;
+        font-weight: 500 !important;
+    }
+    
+    .form-check-label i {
+        margin-right: 6px !important;
+    }
+    
+    .card-header h4 {
+        display: flex !important;
+        align-items: center !important;
+        color: white !important;
+    }
+    
+    .card-header h4 i {
+        margin-right: 10px !important;
+    }
+    
+    .modern-form .row.g-4 {
+        margin-bottom: 0 !important;
+    }
+    
+    .modern-form .row.g-4.mt-3 {
+        margin-top: 1.5rem !important;
     }
 </style>
 {% endblock %}
