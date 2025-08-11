@@ -5,67 +5,172 @@
 
 {% block content %}
 <div class="container-fluid fade-in-up">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-modern border-radius-modern">
+                <div class="card-header text-center py-4" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
+                    <h1 class="mb-2 text-gradient" style="font-size: 2.5rem; font-weight: 700;">
+                        <i class="fas fa-user-crown me-3"></i>👑 Lista de Propietarios
+                    </h1>
+                    <p class="mb-0 text-light" style="font-size: 1.1rem;">Gestión completa de propietarios de inmuebles</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Actions Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-modern border-radius-modern">
+                <div class="card-body py-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <!-- Formulario de búsqueda mejorado -->
+                            <form id="search-form" class="d-flex align-items-center">
+                                <div class="input-group search-input-group">
+                                    <span class="input-group-text bg-success text-white border-0">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    {{ form.termino }}
+                                    <button type="button" class="btn btn-outline-secondary" id="clear-search" title="Limpiar búsqueda">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <a href="{% url 'inmobiliaria:propietario_nuevo' %}" class="btn btn-success shadow-modern px-4 py-2">
+                                <i class="fas fa-user-plus me-2"></i>👑 Nuevo Propietario
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section -->
     <div class="row">
         <div class="col-12">
-            <h1 class="text-gradient mb-4">👥 Lista de Propietarios</h1>
-            
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <a href="{% url 'inmobiliaria:propietario_nuevo' %}" class="btn btn-success shadow-modern">
-                    <i class="fas fa-plus me-2"></i>Nuevo Propietario
-                </a>
-                <div class="alert alert-info border-radius-modern mb-0">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Gestión de propietarios registrados
+            <div class="card shadow-modern border-radius-modern">
+                <div class="card-header bg-light">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h5 class="mb-0">
+                                <i class="fas fa-list me-2 text-success"></i>Propietarios Registrados
+                                <span class="badge bg-success ms-2" id="total-propietarios">{{ propietarios|length }}</span>
+                            </h5>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Gestiona los datos de los propietarios de inmuebles
+                            </small>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            
-            <!-- Formulario de búsqueda -->
-            <div class="card shadow-modern mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-search me-2"></i>Búsqueda</h5>
-                </div>
-                <div class="card-body">
-                    <form id="search-form">
-                        {{ form.as_p }}
-                    </form>
-                </div>
-            </div>
-
-            <!-- Tabla de propietarios -->
-            <div class="card shadow-modern">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-users me-2"></i>Propietarios Registrados</h5>
-                </div>
-                <div class="card-body">
+                <div class="card-body p-0">
+                    <!-- Tabla moderna -->
                     <div class="table-responsive">
-                        <table class="table table-hover">
-    <thead>
-        <tr style="background-color: #007bff; color: white;">
-            <th>Nombre</th>
-            <th>Apellido</th>
-            <th>DNI</th>
-            <th>Acciones</th>
-        </tr>
-    </thead>
-    <tbody id="propietarios-body">
-        {% for propietario in propietarios %}
-        <tr style="background-color: white;">
-            <td>{{ propietario.nombre }}</td>
-            <td>{{ propietario.apellido }}</td>
-            <td>{{ propietario.dni }}</td>
-            <td>
-                <a href="{% url 'inmobiliaria:propietario_detalle' propietario.id %}" class="btn btn-sm btn-info">Ver</a>
-                <a href="{% url 'inmobiliaria:propietario_editar' propietario.id %}" class="btn btn-sm btn-warning">Editar</a>
-                <a href="{% url 'inmobiliaria:propietario_eliminar' propietario.id %}" class="btn btn-sm btn-danger">Eliminar</a>
-                <a href="{% url 'inmobiliaria:propiedades_propietario' propietario.id %}" class="btn btn-primary btn-sm">Propiedades</a>
-            </td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="4">No se encontraron propietarios.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
+                        <table class="table table-hover mb-0 modern-table">
+                            <thead class="table-header">
+                                <tr>
+                                    <th scope="col">
+                                        <i class="fas fa-user me-2"></i>Propietario
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-id-badge me-2"></i>DNI
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-envelope me-2"></i>Email
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-phone me-2"></i>Celular
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-home me-2"></i>Propiedades
+                                    </th>
+                                    <th scope="col" class="text-center">
+                                        <i class="fas fa-cogs me-2"></i>Acciones
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="propietarios-body">
+                                {% for propietario in propietarios %}
+                                <tr class="table-row-hover">
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-circle-owner me-2">
+                                                {{ propietario.nombre|first|upper }}
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold">{{ propietario.nombre }} {{ propietario.apellido }}</div>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-map-marker-alt me-1"></i>{{ propietario.localidad|default:"Sin localidad" }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="fw-bold text-success">{{ propietario.dni }}</td>
+                                    <td>
+                                        <i class="fas fa-envelope text-muted me-1"></i>
+                                        <small>{{ propietario.email|default:"Sin email" }}</small>
+                                    </td>
+                                    <td>
+                                        {% if propietario.celular %}
+                                            <i class="fas fa-phone text-muted me-1"></i>
+                                            <small>{{ propietario.celular }}</small>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="propiedades-badge">
+                                            <i class="fas fa-home me-1"></i>
+                                            {{ propietario.propiedades.count|default:0 }} propiedad{{ propietario.propiedades.count|pluralize:"es" }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{% url 'inmobiliaria:propietario_detalle' propietario.id %}" 
+                                               class="btn btn-outline-info btn-sm action-btn" 
+                                               title="Ver detalles">
+                                                <i class="bi bi-eye-fill"></i>
+                                            </a>
+                                            <a href="{% url 'inmobiliaria:propietario_editar' propietario.id %}" 
+                                               class="btn btn-outline-warning btn-sm action-btn" 
+                                               title="Editar">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </a>
+                                            <a href="{% url 'inmobiliaria:propiedades_propietario' propietario.id %}" 
+                                               class="btn btn-outline-success btn-sm action-btn" 
+                                               title="Ver propiedades">
+                                                <i class="fas fa-home"></i>
+                                            </a>
+                                            <a href="{% url 'inmobiliaria:propietario_eliminar' propietario.id %}" 
+                                               class="btn btn-outline-danger btn-sm action-btn" 
+                                               title="Eliminar">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-5">
+                                        <div class="empty-state">
+                                            <i class="fas fa-user-crown text-muted mb-3" style="font-size: 3rem;"></i>
+                                            <h5 class="text-muted">No se encontraron propietarios</h5>
+                                            <p class="text-muted">Intenta ajustar los filtros de búsqueda o agrega un nuevo propietario</p>
+                                            <a href="{% url 'inmobiliaria:propietario_nuevo' %}" class="btn btn-success">
+                                                <i class="fas fa-plus me-2"></i>Agregar Propietario
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -78,47 +183,297 @@
 <script>
 $(document).ready(function() {
     var typingTimer;
-    var doneTypingInterval = 300;  // Tiempo de espera tras dejar de escribir
+    var doneTypingInterval = 300;
 
+    // Búsqueda en tiempo real
     $('#id_termino').on('input', function() {
         clearTimeout(typingTimer);
         typingTimer = setTimeout(doneTyping, doneTypingInterval);
     });
 
+    // Limpiar búsqueda
+    $('#clear-search').on('click', function() {
+        $('#id_termino').val('');
+        doneTyping();
+    });
+
     function doneTyping() {
-        var searchTerm = $('#id_termino').val();  // Obtener el término de búsqueda
+        var searchTerm = $('#id_termino').val();
         $.ajax({
-            url: '{% url "inmobiliaria:propietarios" %}',  // La vista que maneja la búsqueda
+            url: '{% url "inmobiliaria:propietarios" %}',
             data: {
-                'termino': searchTerm  // Pasar el término de búsqueda a la vista
+                'termino': searchTerm
             },
             dataType: 'json',
             success: function(data) {
-                updateTable(data.propietarios);  // Actualizar la tabla con los nuevos datos
+                updateTable(data.propietarios);
+                updateResultsCount(data.propietarios.length);
+            },
+            error: function() {
+                console.error('Error en la búsqueda');
             }
         });
     }
 
     function updateTable(propietarios) {
-    var tbody = $('#propietarios-body');
-    tbody.empty();
-    $.each(propietarios, function(i, propietario) {
-        tbody.append(
-            '<tr>' +
-            '<td>' + propietario.nombre + '</td>' +
-            '<td>' + propietario.apellido + '</td>' +
-            '<td>' + propietario.dni + '</td>' +
-            '<td>' +
-            '<a href="/propietarios/' + propietario.id + '/" class="btn btn-sm btn-info">Ver</a> ' +
-            '<a href="/propietarios/' + propietario.id + '/editar/" class="btn btn-sm btn-warning">Editar</a> ' +
-            '<a href="/propietarios/' + propietario.id + '/eliminar/" class="btn btn-sm btn-danger">Eliminar</a> ' +
-            '<a href="/propietario/' + propietario.id + '/propiedades/" class="btn btn-sm btn-primary">Propiedades</a>' +
-            '</td>' +
-            '</tr>'
-        );
-    });
-}
+        var tbody = $('#propietarios-body');
+        tbody.empty();
+        
+        if (propietarios.length === 0) {
+            tbody.append(`
+                <tr>
+                    <td colspan="6" class="text-center py-5">
+                        <div class="empty-state">
+                            <i class="fas fa-search text-muted mb-3" style="font-size: 3rem;"></i>
+                            <h5 class="text-muted">No se encontraron resultados</h5>
+                            <p class="text-muted">Intenta con otros términos de búsqueda</p>
+                        </div>
+                    </td>
+                </tr>
+            `);
+            return;
+        }
 
+        $.each(propietarios, function(i, propietario) {
+            tbody.append(`
+                <tr class="table-row-hover">
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-circle-owner me-2">
+                                ${propietario.nombre.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <div class="fw-bold">${propietario.nombre} ${propietario.apellido}</div>
+                                <small class="text-muted">
+                                    <i class="fas fa-map-marker-alt me-1"></i>${propietario.localidad || 'Sin localidad'}
+                                </small>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="fw-bold text-success">${propietario.dni}</td>
+                    <td>
+                        <i class="fas fa-envelope text-muted me-1"></i>
+                        <small>${propietario.email || 'Sin email'}</small>
+                    </td>
+                    <td>
+                        ${propietario.celular ? 
+                            '<i class="fas fa-phone text-muted me-1"></i><small>' + propietario.celular + '</small>' : 
+                            '<span class="text-muted">-</span>'
+                        }
+                    </td>
+                    <td>
+                        <span class="propiedades-badge">
+                            <i class="fas fa-home me-1"></i>
+                            ${propietario.propiedades_count || 0} propiedad${(propietario.propiedades_count || 0) !== 1 ? 'es' : ''}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <a href="/propietarios/${propietario.id}/" 
+                               class="btn btn-outline-info btn-sm action-btn" 
+                               title="Ver detalles">
+                                <i class="bi bi-eye-fill"></i>
+                            </a>
+                            <a href="/propietarios/${propietario.id}/editar/" 
+                               class="btn btn-outline-warning btn-sm action-btn" 
+                               title="Editar">
+                                <i class="bi bi-pencil-fill"></i>
+                            </a>
+                            <a href="/propietario/${propietario.id}/propiedades/" 
+                               class="btn btn-outline-success btn-sm action-btn" 
+                               title="Ver propiedades">
+                                <i class="fas fa-home"></i>
+                            </a>
+                            <a href="/propietarios/${propietario.id}/eliminar/" 
+                               class="btn btn-outline-danger btn-sm action-btn" 
+                               title="Eliminar">
+                                <i class="bi bi-trash-fill"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            `);
+        });
+    }
+
+    function updateResultsCount(count) {
+        $('#total-propietarios').text(count);
+    }
+
+    // Tooltips para botones
+    $('[data-bs-toggle="tooltip"]').tooltip();
 });
 </script>
+
+<style>
+/* Estilos específicos para la lista de propietarios */
+.fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.shadow-modern {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1), 0 6px 20px rgba(0,0,0,0.08) !important;
+}
+
+.border-radius-modern {
+    border-radius: 15px !important;
+}
+
+.text-gradient {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Estilos para el campo de búsqueda */
+.search-input-group .form-control {
+    border: 2px solid #e1e5e9;
+    border-left: none;
+    border-right: none;
+    padding: 12px 15px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.search-input-group .form-control:focus {
+    border-color: #11998e;
+    box-shadow: none;
+}
+
+.search-input-group .input-group-text {
+    border: 2px solid #11998e;
+    border-right: none;
+}
+
+.search-input-group .btn {
+    border: 2px solid #e1e5e9;
+    border-left: none;
+}
+
+/* Estilos para la tabla moderna */
+.modern-table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.table-header th {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: none;
+    padding: 15px;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.table-row-hover {
+    transition: all 0.3s ease;
+}
+
+.table-row-hover:hover {
+    background-color: #f0fff0;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(17, 153, 142, 0.1);
+}
+
+.table-row-hover td {
+    padding: 15px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+/* Avatar circle para propietarios */
+.avatar-circle-owner {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+/* Badge para propiedades */
+.propiedades-badge {
+    background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%);
+    color: #11998e;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    border: 1px solid #c3e6cb;
+    font-weight: 600;
+}
+
+/* Botones de acción */
+.action-btn {
+    padding: 6px 10px;
+    margin: 0 2px;
+    border-radius: 6px !important;
+    transition: all 0.3s ease;
+    border-width: 2px !important;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Estado vacío */
+.empty-state {
+    padding: 2rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    
+    .action-btn {
+        flex: 1;
+        min-width: 40px;
+    }
+    
+    .avatar-circle-owner {
+        width: 35px;
+        height: 35px;
+        font-size: 14px;
+    }
+    
+    .table-responsive {
+        font-size: 0.9rem;
+    }
+}
+
+/* Animaciones para botones */
+.btn {
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+}
+
+/* Badge moderno */
+.badge {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+}
+</style>
 {% endblock %}

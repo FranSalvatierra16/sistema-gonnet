@@ -5,37 +5,399 @@
 {% block title %}Vendedores{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Listado de Vendedores</h1>
-<a href="{% url 'inmobiliaria:vendedor_nuevo' %}" class="btn btn-primary mb-3">Nuevo Vendedor</a>
-<table class="table table-striped">
-    <thead>
-        <tr style="background-color: #007bff; color: white;">
-            <th>DNI</th>
-            <th>Nombre</th>
-            <th>Apellido</th>
-            <th>Email</th>
-            <th>Acciones</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for vendedor in vendedores %}
-        <tr style="background-color: white;">
-            <td>{{ vendedor.dni }}</td>
-            <td>{{ vendedor.nombre }}</td>
-            <td>{{ vendedor.apellido }}</td>
-            <td>{{ vendedor.email }}</td>
-            <td>
-                <a href="{% url 'inmobiliaria:vendedor_detalle' vendedor.id %}" class="btn btn-sm btn-info">Ver</a>
-                <a href="{% url 'inmobiliaria:vendedor_editar' vendedor.id %}" class="btn btn-sm btn-warning">Editar</a>
-                <a href="{% url 'inmobiliaria:vendedor_eliminar' vendedor.id %}" class="btn btn-sm btn-danger">Eliminar</a>
-                <a href="{% url 'inmobiliaria:historial_reservas_vendedor' vendedor.id %}" class="btn btn-sm btn-secondary">Historial</a>
-            </td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="5">No hay vendedores registrados.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="container-fluid fade-in-up">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-modern border-radius-modern">
+                <div class="card-header text-center py-4" style="background: linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%); color: white;">
+                    <h1 class="mb-2 text-gradient" style="font-size: 2.5rem; font-weight: 700;">
+                        <i class="fas fa-user-tie me-3"></i>👔 Lista de Vendedores
+                    </h1>
+                    <p class="mb-0 text-light" style="font-size: 1.1rem;">Gestión completa del equipo de ventas</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-modern border-radius-modern">
+                <div class="card-body py-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center">
+                                <div class="stats-card me-4">
+                                    <div class="stats-number">{{ vendedores|length }}</div>
+                                    <div class="stats-label">Total Vendedores</div>
+                                </div>
+                                <div class="stats-card me-4">
+                                    <div class="stats-number">{{ vendedores_activos|length|default:0 }}</div>
+                                    <div class="stats-label">Activos</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <a href="{% url 'inmobiliaria:vendedor_nuevo' %}" class="btn btn-success shadow-modern px-4 py-2">
+                                <i class="fas fa-user-plus me-2"></i>👔 Nuevo Vendedor
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-modern border-radius-modern">
+                <div class="card-header bg-light">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h5 class="mb-0">
+                                <i class="fas fa-list me-2 text-primary"></i>Equipo de Ventas
+                                <span class="badge bg-primary ms-2">{{ vendedores|length }}</span>
+                            </h5>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Haz clic en los botones para gestionar vendedores
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <!-- Tabla moderna -->
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 modern-table">
+                            <thead class="table-header">
+                                <tr>
+                                    <th scope="col">
+                                        <i class="fas fa-id-badge me-2"></i>DNI
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-user me-2"></i>Vendedor
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-envelope me-2"></i>Email
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-star me-2"></i>Nivel
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-percentage me-2"></i>Comisión
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-building me-2"></i>Sucursal
+                                    </th>
+                                    <th scope="col" class="text-center">
+                                        <i class="fas fa-cogs me-2"></i>Acciones
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for vendedor in vendedores %}
+                                <tr class="table-row-hover">
+                                    <td class="fw-bold text-primary">{{ vendedor.dni }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-circle-vendor me-2">
+                                                {{ vendedor.nombre|first|upper }}
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold">{{ vendedor.nombre }} {{ vendedor.apellido }}</div>
+                                                <small class="text-muted">@{{ vendedor.username }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <i class="fas fa-envelope text-muted me-1"></i>
+                                        <small>{{ vendedor.email }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge nivel-badge nivel-{{ vendedor.nivel }}">
+                                            {% if vendedor.nivel == 1 %}
+                                                <i class="fas fa-star me-1"></i>Básico
+                                            {% elif vendedor.nivel == 2 %}
+                                                <i class="fas fa-star me-1"></i><i class="fas fa-star me-1"></i>Intermedio
+                                            {% elif vendedor.nivel == 3 %}
+                                                <i class="fas fa-star me-1"></i><i class="fas fa-star me-1"></i><i class="fas fa-star me-1"></i>Avanzado
+                                            {% elif vendedor.nivel == 4 %}
+                                                <i class="fas fa-crown me-1"></i>Admin
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if vendedor.comision %}
+                                            <span class="comision-badge">{{ vendedor.comision }}%</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="sucursal-badge">
+                                            <i class="fas fa-building me-1"></i>{{ vendedor.sucursal.nombre }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{% url 'inmobiliaria:vendedor_detalle' vendedor.id %}" 
+                                               class="btn btn-outline-info btn-sm action-btn" 
+                                               title="Ver detalles">
+                                                <i class="bi bi-eye-fill"></i>
+                                            </a>
+                                            <a href="{% url 'inmobiliaria:vendedor_editar' vendedor.id %}" 
+                                               class="btn btn-outline-warning btn-sm action-btn" 
+                                               title="Editar">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </a>
+                                            <a href="{% url 'inmobiliaria:vendedor_eliminar' vendedor.id %}" 
+                                               class="btn btn-outline-danger btn-sm action-btn" 
+                                               title="Eliminar">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </a>
+                                            <a href="{% url 'inmobiliaria:historial_reservas_vendedor' vendedor.id %}" 
+                                               class="btn btn-outline-secondary btn-sm action-btn" 
+                                               title="Historial">
+                                                <i class="fas fa-history"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <div class="empty-state">
+                                            <i class="fas fa-user-tie text-muted mb-3" style="font-size: 3rem;"></i>
+                                            <h5 class="text-muted">No hay vendedores registrados</h5>
+                                            <p class="text-muted">Comienza agregando vendedores al equipo de ventas</p>
+                                            <a href="{% url 'inmobiliaria:vendedor_nuevo' %}" class="btn btn-primary">
+                                                <i class="fas fa-plus me-2"></i>Agregar Vendedor
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Estilos específicos para la lista de vendedores */
+.fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.shadow-modern {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1), 0 6px 20px rgba(0,0,0,0.08) !important;
+}
+
+.border-radius-modern {
+    border-radius: 15px !important;
+}
+
+.text-gradient {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Tarjetas de estadísticas */
+.stats-card {
+    text-align: center;
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 10px;
+    border-left: 4px solid #ff6b6b;
+}
+
+.stats-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #ff6b6b;
+    line-height: 1;
+}
+
+.stats-label {
+    font-size: 0.85rem;
+    color: #666;
+    font-weight: 500;
+    margin-top: 5px;
+}
+
+/* Estilos para la tabla moderna */
+.modern-table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.table-header th {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: none;
+    padding: 15px;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.table-row-hover {
+    transition: all 0.3s ease;
+}
+
+.table-row-hover:hover {
+    background-color: #fff5f5;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.1);
+}
+
+.table-row-hover td {
+    padding: 15px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+/* Avatar circle para vendedores */
+.avatar-circle-vendor {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+/* Badges para niveles */
+.nivel-badge {
+    font-size: 0.75rem;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-weight: 600;
+}
+
+.nivel-1 {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+}
+
+.nivel-2 {
+    background: linear-gradient(135deg, #007bff 0%, #6610f2 100%);
+    color: white;
+}
+
+.nivel-3 {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    color: white;
+}
+
+.nivel-4 {
+    background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
+    color: white;
+}
+
+/* Badge para comisión */
+.comision-badge {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+/* Badge para sucursal */
+.sucursal-badge {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    color: #495057;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    border: 1px solid #dee2e6;
+}
+
+/* Botones de acción */
+.action-btn {
+    padding: 6px 10px;
+    margin: 0 2px;
+    border-radius: 6px !important;
+    transition: all 0.3s ease;
+    border-width: 2px !important;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Estado vacío */
+.empty-state {
+    padding: 2rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stats-card {
+        margin-bottom: 1rem;
+    }
+    
+    .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    
+    .action-btn {
+        flex: 1;
+        min-width: 40px;
+    }
+    
+    .avatar-circle-vendor {
+        width: 35px;
+        height: 35px;
+        font-size: 14px;
+    }
+    
+    .table-responsive {
+        font-size: 0.9rem;
+    }
+}
+
+/* Animaciones para botones */
+.btn {
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+}
+
+/* Badge moderno */
+.badge {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+}
+</style>
 {% endblock %}

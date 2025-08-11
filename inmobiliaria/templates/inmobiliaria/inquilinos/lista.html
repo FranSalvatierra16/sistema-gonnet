@@ -5,67 +5,192 @@
 {% block title %}Inquilinos{% endblock %}
 
 {% block content %}
-<h1>Lista de Inquilinos</h1>
+<div class="container-fluid fade-in-up">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-modern border-radius-modern">
+                <div class="card-header text-center py-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h1 class="mb-2 text-gradient" style="font-size: 2.5rem; font-weight: 700;">
+                        <i class="fas fa-users me-3"></i>👥 Lista de Inquilinos
+                    </h1>
+                    <p class="mb-0 text-light" style="font-size: 1.1rem;">Gestión completa de inquilinos del sistema</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<!-- Formulario de búsqueda -->
-<form id="search-form">
-    {{ form.as_p }}
-</form>
+    <!-- Search and Actions Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-modern border-radius-modern">
+                <div class="card-body py-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <!-- Formulario de búsqueda mejorado -->
+                            <form id="search-form" class="d-flex align-items-center">
+                                <div class="input-group search-input-group">
+                                    <span class="input-group-text bg-primary text-white border-0">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    {{ form.termino }}
+                                    <button type="button" class="btn btn-outline-secondary" id="clear-search" title="Limpiar búsqueda">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <a href="{% url 'inmobiliaria:inquilino_nuevo' %}" class="btn btn-success shadow-modern px-4 py-2">
+                                <i class="fas fa-user-plus me-2"></i>👤 Nuevo Inquilino
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<!-- Tabla de inquilinos -->
-<table class="table table-striped">
-    <thead>
-        <tr style="background-color: #007bff; color: white;">
-            <th>DNI</th>
-            <th>Nombre</th>
-            <th>Apellido</th>
-            <th>Email</th>
-            <th>Acciones</th>
-        </tr>
-    </thead>
-    <tbody id="inquilinos-body">
-        {% for inquilino in inquilinos %}
-        <tr style="background-color: white;">
-            <td>{{ inquilino.dni }}</td>
-            <td>{{ inquilino.nombre }}</td>
-            <td>{{ inquilino.apellido }}</td>
-            <td>{{ inquilino.email }}</td>
-            <td>
-                <a href="{% url 'inmobiliaria:inquilino_detalle' inquilino.id %}" class="btn btn-sm btn-info">Ver</a>
-                <a href="{% url 'inmobiliaria:inquilino_editar' inquilino.id %}" class="btn btn-sm btn-warning">Editar</a>
-                <a href="{% url 'inmobiliaria:inquilino_eliminar' inquilino.id %}" class="btn btn-sm btn-danger">Eliminar</a>
-                <a href="{% url 'inmobiliaria:historial_reservas_inquilino' inquilino.id %}" class="btn btn-sm btn-secondary">Historial</a>
-            </td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="5">No se encontraron inquilinos.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    <!-- Results Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-modern border-radius-modern">
+                <div class="card-header bg-light">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h5 class="mb-0">
+                                <i class="fas fa-list me-2 text-primary"></i>Resultados
+                                <span class="badge bg-primary ms-2" id="total-inquilinos">{{ inquilinos|length }}</span>
+                            </h5>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Haz clic en los botones para ver detalles, editar o eliminar
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <!-- Tabla moderna -->
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 modern-table">
+                            <thead class="table-header">
+                                <tr>
+                                    <th scope="col">
+                                        <i class="fas fa-id-badge me-2"></i>DNI
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-user me-2"></i>Nombre
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-user-tag me-2"></i>Apellido
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-envelope me-2"></i>Email
+                                    </th>
+                                    <th scope="col" class="text-center">
+                                        <i class="fas fa-cogs me-2"></i>Acciones
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="inquilinos-body">
+                                {% for inquilino in inquilinos %}
+                                <tr class="table-row-hover">
+                                    <td class="fw-bold text-primary">{{ inquilino.dni }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-circle me-2">
+                                                {{ inquilino.nombre|first|upper }}
+                                            </div>
+                                            <span>{{ inquilino.nombre }}</span>
+                                        </div>
+                                    </td>
+                                    <td>{{ inquilino.apellido }}</td>
+                                    <td>
+                                        <i class="fas fa-envelope text-muted me-1"></i>
+                                        <small>{{ inquilino.email }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{% url 'inmobiliaria:inquilino_detalle' inquilino.id %}" 
+                                               class="btn btn-outline-info btn-sm action-btn" 
+                                               title="Ver detalles">
+                                                <i class="bi bi-eye-fill"></i>
+                                            </a>
+                                            <a href="{% url 'inmobiliaria:inquilino_editar' inquilino.id %}" 
+                                               class="btn btn-outline-warning btn-sm action-btn" 
+                                               title="Editar">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </a>
+                                            <a href="{% url 'inmobiliaria:inquilino_eliminar' inquilino.id %}" 
+                                               class="btn btn-outline-danger btn-sm action-btn" 
+                                               title="Eliminar">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </a>
+                                            <a href="{% url 'inmobiliaria:historial_reservas_inquilino' inquilino.id %}" 
+                                               class="btn btn-outline-secondary btn-sm action-btn" 
+                                               title="Historial">
+                                                <i class="fas fa-history"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-5">
+                                        <div class="empty-state">
+                                            <i class="fas fa-users text-muted mb-3" style="font-size: 3rem;"></i>
+                                            <h5 class="text-muted">No se encontraron inquilinos</h5>
+                                            <p class="text-muted">Intenta ajustar los filtros de búsqueda o agrega un nuevo inquilino</p>
+                                            <a href="{% url 'inmobiliaria:inquilino_nuevo' %}" class="btn btn-primary">
+                                                <i class="fas fa-plus me-2"></i>Agregar Inquilino
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(document).ready(function() {
     var typingTimer;
-    var doneTypingInterval = 300;  // Tiempo de espera tras dejar de escribir
+    var doneTypingInterval = 300;
 
+    // Búsqueda en tiempo real
     $('#id_termino').on('input', function() {
         clearTimeout(typingTimer);
         typingTimer = setTimeout(doneTyping, doneTypingInterval);
     });
 
+    // Limpiar búsqueda
+    $('#clear-search').on('click', function() {
+        $('#id_termino').val('');
+        doneTyping();
+    });
+
     function doneTyping() {
-        var searchTerm = $('#id_termino').val();  // Obtener el término de búsqueda
+        var searchTerm = $('#id_termino').val();
         $.ajax({
-            url: '{% url "inmobiliaria:inquilinos" %}',  // La vista que maneja la búsqueda
+            url: '{% url "inmobiliaria:inquilinos" %}',
             data: {
-                'termino': searchTerm  // Pasar el término de búsqueda a la vista
+                'termino': searchTerm
             },
             dataType: 'json',
             success: function(data) {
-                updateTable(data.inquilinos);  // Actualizar la tabla con los nuevos datos
+                updateTable(data.inquilinos);
+                updateResultsCount(data.inquilinos.length);
+            },
+            error: function() {
+                console.error('Error en la búsqueda');
             }
         });
     }
@@ -73,25 +198,231 @@ $(document).ready(function() {
     function updateTable(inquilinos) {
         var tbody = $('#inquilinos-body');
         tbody.empty();
+        
+        if (inquilinos.length === 0) {
+            tbody.append(`
+                <tr>
+                    <td colspan="5" class="text-center py-5">
+                        <div class="empty-state">
+                            <i class="fas fa-search text-muted mb-3" style="font-size: 3rem;"></i>
+                            <h5 class="text-muted">No se encontraron resultados</h5>
+                            <p class="text-muted">Intenta con otros términos de búsqueda</p>
+                        </div>
+                    </td>
+                </tr>
+            `);
+            return;
+        }
+
         $.each(inquilinos, function(i, inquilino) {
-            tbody.append(
-                '<tr>' +
-                '<td>' + inquilino.dni + '</td>' +
-                '<td>' + inquilino.nombre + '</td>' +
-                '<td>' + inquilino.apellido + '</td>' +
-                '<td>' + inquilino.email + '</td>' +
-                '<td>' +
-                '<a href="/inquilinos/' + inquilino.id + '/" class="btn btn-sm btn-info">Ver</a> ' +
-                '<a href="/inquilinos/' + inquilino.id + '/editar/" class="btn btn-sm btn-warning">Editar</a>' +
-                '<a href="/inquilinos/' + inquilino.id + '/eliminar/" class="btn btn-sm btn-danger">Eliminar</a>' +
-                '<a href="/inquilinos/' + inquilino.id + '/historial/" class="btn btn-sm btn-secondary">Historial</a>' +
-                '</td>' +
-                '</tr>'
-            );
+            tbody.append(`
+                <tr class="table-row-hover">
+                    <td class="fw-bold text-primary">${inquilino.dni}</td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-circle me-2">
+                                ${inquilino.nombre.charAt(0).toUpperCase()}
+                            </div>
+                            <span>${inquilino.nombre}</span>
+                        </div>
+                    </td>
+                    <td>${inquilino.apellido}</td>
+                    <td>
+                        <i class="fas fa-envelope text-muted me-1"></i>
+                        <small>${inquilino.email}</small>
+                    </td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <a href="/inquilinos/${inquilino.id}/" 
+                               class="btn btn-outline-info btn-sm action-btn" 
+                               title="Ver detalles">
+                                <i class="bi bi-eye-fill"></i>
+                            </a>
+                            <a href="/inquilinos/${inquilino.id}/editar/" 
+                               class="btn btn-outline-warning btn-sm action-btn" 
+                               title="Editar">
+                                <i class="bi bi-pencil-fill"></i>
+                            </a>
+                            <a href="/inquilinos/${inquilino.id}/eliminar/" 
+                               class="btn btn-outline-danger btn-sm action-btn" 
+                               title="Eliminar">
+                                <i class="bi bi-trash-fill"></i>
+                            </a>
+                            <a href="/inquilinos/${inquilino.id}/historial/" 
+                               class="btn btn-outline-secondary btn-sm action-btn" 
+                               title="Historial">
+                                <i class="fas fa-history"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            `);
         });
     }
+
+    function updateResultsCount(count) {
+        $('#total-inquilinos').text(count);
+    }
+
+    // Tooltips para botones
+    $('[data-bs-toggle="tooltip"]').tooltip();
 });
 </script>
 
-<a href="{% url 'inmobiliaria:inquilino_nuevo' %}" class="btn btn-primary mb-3">Nuevo inquilino</a>
+<style>
+/* Estilos específicos para la lista de inquilinos */
+.fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.shadow-modern {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1), 0 6px 20px rgba(0,0,0,0.08) !important;
+}
+
+.border-radius-modern {
+    border-radius: 15px !important;
+}
+
+.text-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Estilos para el campo de búsqueda */
+.search-input-group .form-control {
+    border: 2px solid #e1e5e9;
+    border-left: none;
+    border-right: none;
+    padding: 12px 15px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.search-input-group .form-control:focus {
+    border-color: #667eea;
+    box-shadow: none;
+}
+
+.search-input-group .input-group-text {
+    border: 2px solid #667eea;
+    border-right: none;
+}
+
+.search-input-group .btn {
+    border: 2px solid #e1e5e9;
+    border-left: none;
+}
+
+/* Estilos para la tabla moderna */
+.modern-table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.table-header th {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: none;
+    padding: 15px;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.table-row-hover {
+    transition: all 0.3s ease;
+}
+
+.table-row-hover:hover {
+    background-color: #f8f9fa;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.table-row-hover td {
+    padding: 15px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+/* Avatar circle */
+.avatar-circle {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* Botones de acción */
+.action-btn {
+    padding: 6px 10px;
+    margin: 0 2px;
+    border-radius: 6px !important;
+    transition: all 0.3s ease;
+    border-width: 2px !important;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Estado vacío */
+.empty-state {
+    padding: 2rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    
+    .action-btn {
+        flex: 1;
+        min-width: 40px;
+    }
+    
+    .avatar-circle {
+        width: 30px;
+        height: 30px;
+        font-size: 12px;
+    }
+}
+
+/* Animaciones para botones */
+.btn {
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+}
+
+/* Badge moderno */
+.badge {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+}
+</style>
 {% endblock %}
