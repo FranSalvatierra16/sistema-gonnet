@@ -3828,6 +3828,14 @@ function actualizarTablaPrecios(precios) {
                 <h5 class="modal-title" id="modalGestionPreciosLabel">
                     <i class="fas fa-dollar-sign me-2"></i>
                     Gestionar Precios para <span id="propiedadNombreModal">Propiedad</span>
+                    <small class="d-block mt-1" style="font-size: 0.8rem; opacity: 0.9;">
+                        Usuario: {{ user.username }} | Nivel: {{ user.nivel }} | 
+                        {% if user.nivel >= 3 %}
+                            <span class="badge bg-light text-success">✅ Permisos de Edición</span>
+                        {% else %}
+                            <span class="badge bg-light text-danger">❌ Solo Lectura</span>
+                        {% endif %}
+                    </small>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -3899,8 +3907,16 @@ function generarTablaGestionPrecios(precios, propiedadId) {
     // Variable global para permisos de admin
     const esAdmin = {% if user.nivel >= 3 %}true{% else %}false{% endif %};
     console.log('👤 Usuario es admin:', esAdmin);
+    console.log('👤 User nivel:', {{ user.nivel }});
+    console.log('👤 User username:', '{{ user.username }}');
     
     let tablaHTML = `
+        <div class="alert alert-info mb-3">
+            <h6><i class="fas fa-info-circle me-2"></i>Información de Permisos</h6>
+            <p class="mb-1"><strong>Usuario:</strong> {{ user.username }}</p>
+            <p class="mb-1"><strong>Nivel:</strong> {{ user.nivel }}</p>
+            <p class="mb-0"><strong>Puede Editar:</strong> ${esAdmin ? '✅ SÍ' : '❌ NO (necesita nivel 3 o superior)'}</p>
+        </div>
         <div class="table-responsive">
             <table class="table table-bordered table-hover">
                 <thead class="table-success">
@@ -3911,6 +3927,7 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                         <th>Precio por Día</th>
                         <th>Precio por Quincena</th>
                         <th>Ajuste (%)</th>
+                        ${esAdmin ? '<th>Estado</th>' : ''}
                     </tr>
                 </thead>
                 <tbody>
@@ -3953,6 +3970,7 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                         `<span class="precio-display">0.00%</span>`
                     }
                 </td>
+                ${esAdmin ? `<td>${precio.estado}</td>` : ''}
             </tr>
         `;
     });
@@ -4153,8 +4171,16 @@ function generarTablaGestionPrecios(precios, propiedadId) {
     // Variable global para permisos de admin
     const esAdmin = djConfig.esAdmin;
     console.log('👤 Usuario es admin:', esAdmin);
+    console.log('👤 User nivel:', {{ user.nivel }});
+    console.log('👤 User username:', '{{ user.username }}');
     
     let tablaHTML = `
+        <div class="alert alert-info mb-3">
+            <h6><i class="fas fa-info-circle me-2"></i>Información de Permisos</h6>
+            <p class="mb-1"><strong>Usuario:</strong> {{ user.username }}</p>
+            <p class="mb-1"><strong>Nivel:</strong> {{ user.nivel }}</p>
+            <p class="mb-0"><strong>Puede Editar:</strong> ${esAdmin ? '✅ SÍ' : '❌ NO (necesita nivel 3 o superior)'}</p>
+        </div>
         <div class="table-responsive">
             <table class="table table-bordered table-hover">
                 <thead class="table-success">
@@ -4165,6 +4191,7 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                         <th>Precio por Día</th>
                         <th>Precio por Quincena</th>
                         <th>Ajuste (%)</th>
+                        ${esAdmin ? '<th>Estado</th>' : ''}
                     </tr>
                 </thead>
                 <tbody>
@@ -4207,6 +4234,7 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                         `<span class="precio-display">0.00%</span>`
                     }
                 </td>
+                ${esAdmin ? `<td>${precio.estado}</td>` : ''}
             </tr>
         `;
     });
