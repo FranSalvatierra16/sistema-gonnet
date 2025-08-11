@@ -445,6 +445,16 @@
     <script>
         // Global Scripts
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Inicializando Base.html...');
+            
+            // Verificar que Bootstrap esté cargado
+            if (typeof bootstrap === 'undefined') {
+                console.error('❌ Bootstrap no está cargado!');
+                return;
+            } else {
+                console.log('✅ Bootstrap cargado correctamente');
+            }
+            
             // Initialize all Bootstrap components
             const tooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
             tooltips.forEach(tooltip => new bootstrap.Tooltip(tooltip));
@@ -452,57 +462,57 @@
             const popovers = document.querySelectorAll('[data-bs-toggle="popover"]');
             popovers.forEach(popover => new bootstrap.Popover(popover));
             
-            // Enhanced dropdown functionality
-            const dropdowns = document.querySelectorAll('.dropdown-toggle');
-            dropdowns.forEach(dropdown => {
-                // Ensure dropdowns work on all devices
-                dropdown.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    const dropdownMenu = this.nextElementSibling;
-                    if (!dropdownMenu || !dropdownMenu.classList.contains('dropdown-menu')) {
-                        console.warn('Dropdown menu not found for:', this);
-                        return;
-                    }
-                    
-                    const isShown = dropdownMenu.classList.contains('show');
-                    
-                    // Close all other dropdowns
-                    document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-                        if (menu !== dropdownMenu) {
-                            menu.classList.remove('show');
-                            const parentDropdown = menu.previousElementSibling;
-                            if (parentDropdown) {
-                                parentDropdown.setAttribute('aria-expanded', 'false');
-                            }
-                        }
-                    });
-                    
-                    // Toggle current dropdown
-                    if (isShown) {
-                        dropdownMenu.classList.remove('show');
-                        this.setAttribute('aria-expanded', 'false');
-                    } else {
-                        dropdownMenu.classList.add('show');
-                        this.setAttribute('aria-expanded', 'true');
-                    }
-                });
+            console.log(`📋 Inicializados ${tooltips.length} tooltips y ${popovers.length} popovers`);
+            
+            // ===== DROPDOWNS - SOLO BOOTSTRAP NATIVO =====
+            console.log('🔽 Inicializando dropdowns con Bootstrap nativo...');
+            
+            // Encontrar todos los dropdowns del navbar
+            const navbarDropdowns = document.querySelectorAll('.navbar .dropdown-toggle');
+            
+            navbarDropdowns.forEach((dropdown, index) => {
+                console.log(`📌 Procesando dropdown: ${dropdown.id || 'sin-id'}`);
                 
-                // Add keyboard support
-                dropdown.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        this.click();
+                try {
+                    // Asegurar atributos Bootstrap
+                    dropdown.setAttribute('data-bs-toggle', 'dropdown');
+                    dropdown.setAttribute('role', 'button');
+                    
+                    // Crear instancia Bootstrap si no existe
+                    let bsDropdown = bootstrap.Dropdown.getInstance(dropdown);
+                    if (!bsDropdown) {
+                        bsDropdown = new bootstrap.Dropdown(dropdown);
+                        console.log(`✅ Bootstrap dropdown creado para: ${dropdown.id || 'dropdown-' + index}`);
                     }
-                });
+                    
+                } catch (error) {
+                    console.error(`❌ Error con dropdown ${dropdown.id}:`, error);
+                }
             });
+            
+            console.log(`✅ ${navbarDropdowns.length} dropdowns inicializados con Bootstrap`);
+            
+            // No agregar event listeners personalizados - dejar que Bootstrap maneje todo
             
             // Close dropdowns when clicking outside
             document.addEventListener('click', function(e) {
+                // Solo cerrar si no es parte de un dropdown
                 if (!e.target.closest('.dropdown')) {
-                    document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-                        menu.classList.remove('show');
+                    // Usar Bootstrap API primero
+                    document.querySelectorAll('.dropdown-toggle').forEach(toggle => {
+                        try {
+                            const bsDropdown = bootstrap.Dropdown.getInstance(toggle);
+                            if (bsDropdown) {
+                                bsDropdown.hide();
+                            }
+                        } catch (error) {
+                            // Fallback manual
+                            const menu = toggle.nextElementSibling;
+                            if (menu && menu.classList.contains('show')) {
+                                menu.classList.remove('show');
+                                toggle.setAttribute('aria-expanded', 'false');
+                            }
+                        }
                     });
                 }
             });
