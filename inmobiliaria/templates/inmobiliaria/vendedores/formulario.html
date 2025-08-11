@@ -5,11 +5,331 @@
 {% block title %}{% if vendedor %}Editar{% else %}Nuevo{% endif %} Vendedor{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">{% if vendedor %}Editar{% else %}Nuevo{% endif %} Vendedor</h1>
-<form method="post">
-    {% csrf_token %}
-    {% bootstrap_form form %}
-    <button type="submit" class="btn btn-primary">Guardar</button>
-    <a href="{% url 'inmobiliaria:vendedores' %}" class="btn btn-secondary">Cancelar</a>
-</form>
+<div class="container-fluid fade-in-up">
+    <div class="row justify-content-center">
+        <div class="col-12 col-xl-10">
+            <!-- Header Card -->
+            <div class="card shadow-modern border-radius-modern mb-4">
+                <div class="card-header text-center py-4" style="background: linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%); color: white;">
+                    <h1 class="mb-2 text-gradient" style="font-size: 2.2rem; font-weight: 700;">
+                        {% if vendedor %}
+                            <i class="fas fa-user-edit me-3"></i>✏️ Editar Vendedor
+                        {% else %}
+                            <i class="fas fa-user-tie me-3"></i>👔 Nuevo Vendedor
+                        {% endif %}
+                    </h1>
+                    <p class="mb-0 text-light" style="font-size: 1.1rem;">
+                        {% if vendedor %}
+                            Modifica los datos del vendedor
+                        {% else %}
+                            Complete los datos para registrar un nuevo vendedor
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                
+                <!-- Información Personal -->
+                <div class="card shadow-modern border-radius-modern mb-4">
+                    <div class="card-header" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
+                        <h4 class="mb-0">
+                            <i class="fas fa-user me-2"></i>📋 Información Personal
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-4">
+                            <div class="col-md-4">
+                                <label for="id_dni" class="form-label">
+                                    <i class="fas fa-id-badge me-1"></i>DNI *
+                                </label>
+                                {{ form.dni }}
+                                {{ form.dni.errors }}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="id_nombre" class="form-label">
+                                    <i class="fas fa-user me-1"></i>Nombre *
+                                </label>
+                                {{ form.nombre }}
+                                {{ form.nombre.errors }}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="id_apellido" class="form-label">
+                                    <i class="fas fa-user me-1"></i>Apellido *
+                                </label>
+                                {{ form.apellido }}
+                                {{ form.apellido.errors }}
+                            </div>
+                        </div>
+                        <div class="row g-4 mt-3">
+                            <div class="col-md-6">
+                                <label for="id_fecha_nacimiento" class="form-label">
+                                    <i class="fas fa-birthday-cake me-1"></i>Fecha de Nacimiento
+                                </label>
+                                {{ form.fecha_nacimiento }}
+                                {{ form.fecha_nacimiento.errors }}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_celular" class="form-label">
+                                    <i class="fas fa-mobile-alt me-1"></i>Celular
+                                </label>
+                                {{ form.celular }}
+                                {{ form.celular.errors }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información de Usuario -->
+                <div class="card shadow-modern border-radius-modern mb-4">
+                    <div class="card-header" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333;">
+                        <h4 class="mb-0">
+                            <i class="fas fa-key me-2"></i>🔐 Información de Usuario
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label for="id_username" class="form-label">
+                                    <i class="fas fa-user-circle me-1"></i>Nombre de Usuario *
+                                </label>
+                                {{ form.username }}
+                                {{ form.username.errors }}
+                                {% if form.username.help_text %}
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>{{ form.username.help_text }}
+                                    </small>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_email" class="form-label">
+                                    <i class="fas fa-envelope me-1"></i>Email *
+                                </label>
+                                {{ form.email }}
+                                {{ form.email.errors }}
+                            </div>
+                        </div>
+                        {% if not vendedor %}
+                        <div class="row g-4 mt-3">
+                            <div class="col-md-6">
+                                <label for="id_password1" class="form-label">
+                                    <i class="fas fa-lock me-1"></i>Contraseña *
+                                </label>
+                                {{ form.password1 }}
+                                {{ form.password1.errors }}
+                                {% if form.password1.help_text %}
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>{{ form.password1.help_text }}
+                                    </small>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_password2" class="form-label">
+                                    <i class="fas fa-lock me-1"></i>Confirmar Contraseña *
+                                </label>
+                                {{ form.password2 }}
+                                {{ form.password2.errors }}
+                                {% if form.password2.help_text %}
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>{{ form.password2.help_text }}
+                                    </small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Información Profesional -->
+                <div class="card shadow-modern border-radius-modern mb-4">
+                    <div class="card-header" style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); color: #333;">
+                        <h4 class="mb-0">
+                            <i class="fas fa-briefcase me-2"></i>💼 Información Profesional
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-4">
+                            <div class="col-md-4">
+                                <label for="id_nivel" class="form-label">
+                                    <i class="fas fa-star me-1"></i>Nivel *
+                                </label>
+                                {{ form.nivel }}
+                                {{ form.nivel.errors }}
+                                {% if form.nivel.help_text %}
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>{{ form.nivel.help_text }}
+                                    </small>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="id_comision" class="form-label">
+                                    <i class="fas fa-percentage me-1"></i>Comisión <small class="text-muted">(opcional)</small>
+                                </label>
+                                {{ form.comision }}
+                                {{ form.comision.errors }}
+                                {% if form.comision.help_text %}
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>{{ form.comision.help_text }}
+                                    </small>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="id_sucursal" class="form-label">
+                                    <i class="fas fa-building me-1"></i>Sucursal *
+                                </label>
+                                {{ form.sucursal }}
+                                {{ form.sucursal.errors }}
+                                {% if form.sucursal.help_text %}
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>{{ form.sucursal.help_text }}
+                                    </small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="card shadow-modern border-radius-modern">
+                    <div class="card-body text-center py-4">
+                        <button type="submit" class="btn btn-success shadow-modern px-5 py-3 me-3" style="font-size: 1.1rem; font-weight: 600;">
+                            <i class="fas fa-save me-2"></i>💾 Guardar Vendedor
+                        </button>
+                        <a href="{% url 'inmobiliaria:vendedores' %}" class="btn btn-secondary shadow-modern px-5 py-3" style="font-size: 1.1rem; font-weight: 600;">
+                            <i class="fas fa-times me-2"></i>❌ Cancelar
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Estilos específicos para el formulario de vendedor */
+.fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.shadow-modern {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1), 0 6px 20px rgba(0,0,0,0.08) !important;
+}
+
+.border-radius-modern {
+    border-radius: 15px !important;
+}
+
+.text-gradient {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.form-label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.form-control, .form-select {
+    border: 2px solid #e1e5e9;
+    border-radius: 8px !important;
+    padding: 12px 15px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #ff6b6b;
+    box-shadow: 0 0 15px rgba(255, 107, 107, 0.2);
+    transform: translateY(-2px);
+}
+
+.btn {
+    border-radius: 8px !important;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+}
+
+/* Estilos específicos para campos de contraseña */
+#id_password1, #id_password2 {
+    background: linear-gradient(45deg, #fff5f5 0%, #ffffff 100%);
+    border-left: 4px solid #ff6b6b;
+}
+
+#id_password1:focus, #id_password2:focus {
+    background: #ffffff;
+    border-left: 4px solid #ff4757;
+}
+
+/* Estilo especial para nivel */
+#id_nivel {
+    background: linear-gradient(45deg, #fff9e6 0%, #ffffff 100%);
+    border-left: 4px solid #ffa726;
+    font-weight: 600;
+}
+
+#id_nivel:focus {
+    background: #ffffff;
+    border-left: 4px solid #ff9500;
+}
+
+/* Estilo para comisión */
+#id_comision {
+    text-align: center;
+    font-weight: 600;
+    color: #ff6b6b;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .col-md-6, .col-md-4, .col-md-8 {
+        margin-bottom: 1rem;
+    }
+    
+    .btn {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+}
+
+/* Indicadores de campos requeridos */
+.form-label:contains("*") {
+    position: relative;
+}
+
+.form-label:contains("*")::after {
+    content: "";
+    color: #dc3545;
+    font-weight: bold;
+    margin-left: 3px;
+}
+
+/* Efectos especiales para diferentes tipos de inputs */
+input[type="email"] {
+    background-image: linear-gradient(45deg, #f0f8ff 0%, #ffffff 100%);
+}
+
+input[type="tel"] {
+    background-image: linear-gradient(45deg, #f5fff5 0%, #ffffff 100%);
+}
+</style>
 {% endblock %}
