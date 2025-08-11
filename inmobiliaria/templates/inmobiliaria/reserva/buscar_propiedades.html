@@ -5,7 +5,225 @@
 
 {% block extra_css %}
     <style>
-    /* RESET COMPLETO Y DISEÑO MODERNO */
+    /* ============================================= */
+    /* ARREGLO CRÍTICO PARA MODALES - MÁXIMA PRIORIDAD */
+    /* ============================================= */
+    
+    /* Resetear completamente el modal system */
+    .modal,
+    .modal.fade,
+    .modal.show,
+    #modalPrecios,
+    #modalGestionPrecios,
+    #modalFiltrosAvanzados {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: 99999 !important;
+        width: 100% !important;
+        height: 100% !important;
+        overflow: hidden !important;
+        outline: 0 !important;
+        background: transparent !important;
+        display: none !important;
+    }
+    
+    .modal.show,
+    .modal.show.fade {
+        display: block !important;
+    }
+    
+    .modal-dialog {
+        position: relative !important;
+        width: auto !important;
+        margin: 1.75rem auto !important;
+        max-width: 90% !important;
+        pointer-events: none !important;
+        z-index: 100000 !important;
+    }
+    
+    .modal-dialog.modal-lg {
+        max-width: 80% !important;
+    }
+    
+    .modal-dialog.modal-xl {
+        max-width: 95% !important;
+    }
+    
+    .modal-content {
+        position: relative !important;
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        pointer-events: auto !important;
+        background-color: #ffffff !important;
+        background-clip: padding-box !important;
+        border: 1px solid rgba(0, 0, 0, 0.2) !important;
+        border-radius: 0.5rem !important;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.5) !important;
+        outline: 0 !important;
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+        filter: none !important;
+        backdrop-filter: none !important;
+        z-index: 100001 !important;
+    }
+    
+    .modal-backdrop {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: 99998 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        background-color: rgba(0, 0, 0, 0.5) !important;
+        opacity: 1 !important;
+    }
+    
+    .modal-backdrop.fade {
+        opacity: 1 !important;
+    }
+    
+    .modal-backdrop.show {
+        opacity: 1 !important;
+    }
+    
+    .modal-header {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 1rem 1rem !important;
+        border-bottom: 1px solid #dee2e6 !important;
+        border-top-left-radius: 0.5rem !important;
+        border-top-right-radius: 0.5rem !important;
+        background-color: #198754 !important;
+        color: white !important;
+    }
+    
+    .modal-title {
+        margin-bottom: 0 !important;
+        line-height: 1.5 !important;
+        color: white !important;
+        font-size: 1.25rem !important;
+        font-weight: 500 !important;
+    }
+    
+    .modal-body {
+        position: relative !important;
+        flex: 1 1 auto !important;
+        padding: 1rem !important;
+        background-color: #ffffff !important;
+        color: #212529 !important;
+        max-height: 70vh !important;
+        overflow-y: auto !important;
+    }
+    
+    .modal-footer {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        padding: 0.75rem !important;
+        border-top: 1px solid #dee2e6 !important;
+        border-bottom-right-radius: 0.5rem !important;
+        border-bottom-left-radius: 0.5rem !important;
+        background-color: #f8f9fa !important;
+    }
+    
+    .btn-close {
+        box-sizing: content-box !important;
+        width: 1em !important;
+        height: 1em !important;
+        padding: 0.25em 0.25em !important;
+        color: white !important;
+        background: transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='white'%3e%3cpath d='m.235 1.201 4.236 4.236 4.236-4.236a.749.749 0 1 1 1.06 1.06L6.531 6.497l4.236 4.236a.749.749 0 1 1-1.061 1.06L5.47 7.557 1.235 11.793a.749.749 0 1 1-1.06-1.06l4.236-4.236-4.236-4.236a.749.749 0 0 1 1.06-1.061z'/%3e%3c/svg%3e") center/1em auto no-repeat !important;
+        border: 0 !important;
+        border-radius: 0.375rem !important;
+        opacity: 1 !important;
+    }
+    
+    .btn-close:hover {
+        color: white !important;
+        text-decoration: none !important;
+        opacity: 0.75 !important;
+    }
+    
+    /* Asegurar que body no tenga conflictos */
+    body.modal-open {
+        overflow: hidden !important;
+        padding-right: 0 !important;
+    }
+    
+    /* Arreglar todos los elementos dentro del modal */
+    .modal .form-control,
+    .modal .form-select,
+    .modal input,
+    .modal select,
+    .modal textarea,
+    .modal button,
+    .modal .btn {
+        opacity: 1 !important;
+        background-color: white !important;
+        color: #212529 !important;
+        border: 1px solid #ced4da !important;
+        z-index: auto !important;
+    }
+    
+    .modal .btn-primary {
+        background-color: #0d6efd !important;
+        border-color: #0d6efd !important;
+        color: white !important;
+    }
+    
+    .modal .btn-success {
+        background-color: #198754 !important;
+        border-color: #198754 !important;
+        color: white !important;
+    }
+    
+    .modal .btn-secondary {
+        background-color: #6c757d !important;
+        border-color: #6c757d !important;
+        color: white !important;
+    }
+    
+    .modal .table {
+        background-color: white !important;
+        color: #212529 !important;
+    }
+    
+    .modal .table th,
+    .modal .table td {
+        background-color: white !important;
+        color: #212529 !important;
+        border-color: #dee2e6 !important;
+    }
+    
+    .modal .table-success th {
+        background-color: #d1e7dd !important;
+        color: #0f5132 !important;
+    }
+    
+    /* Arreglar elementos específicos que puedan tener problemas */
+    .modal *,
+    .modal *::before,
+    .modal *::after {
+        box-sizing: border-box !important;
+    }
+    
+    /* Eliminar cualquier filtro o efecto que pueda causar transparencia */
+    .modal,
+    .modal *,
+    .modal-content,
+    .modal-dialog {
+        filter: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        transform: none !important;
+        transition: none !important;
+    }
+
+    /* RESTO DE ESTILOS ORIGINALES */
     * {
         box-sizing: border-box !important;
     }
@@ -5084,6 +5302,211 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     console.log('✅ Arreglos de modal aplicados correctamente');
+});
+
+// =============================================
+// FORZAR FUNCIONALIDAD DE MODALES - ÚLTIMO RECURSO
+// =============================================
+
+// Función para forzar apertura de modal de manera brutal
+function forzarAperturaModal(modalId, titulo, contenido) {
+    console.log(`🔧 FORZANDO apertura del modal: ${modalId}`);
+    
+    // Limpiar todo modal existente
+    document.querySelectorAll('.modal, .modal-backdrop').forEach(el => {
+        el.remove();
+    });
+    
+    // Crear modal completamente desde cero
+    const modalHTML = `
+        <div id="${modalId}" class="modal fade show" tabindex="-1" style="display: block; z-index: 99999; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent;">
+            <div class="modal-dialog modal-xl" style="margin: 50px auto; max-width: 90%; z-index: 100000; position: relative;">
+                <div class="modal-content" style="background: white; opacity: 1; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 10px; z-index: 100001;">
+                    <div class="modal-header" style="background: #198754; color: white; padding: 1rem; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h5 class="modal-title" style="color: white; margin: 0; font-size: 1.2rem;">${titulo}</h5>
+                        <button type="button" class="btn-close-custom" onclick="cerrarModalForzado('${modalId}')" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">×</button>
+                    </div>
+                    <div class="modal-body" style="background: white; padding: 1.5rem; max-height: 70vh; overflow-y: auto; color: #333;">
+                        ${contenido}
+                    </div>
+                    <div class="modal-footer" style="background: #f8f9fa; padding: 1rem; border-radius: 0 0 10px 10px; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" class="btn btn-secondary" onclick="cerrarModalForzado('${modalId}')" style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Cerrar</button>
+                        <button type="button" class="btn btn-success" id="guardarPreciosBtn" style="background: #198754; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; display: none;">Guardar Cambios</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Crear backdrop
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop fade show';
+    backdrop.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99998;';
+    backdrop.onclick = () => cerrarModalForzado(modalId);
+    
+    // Insertar en el DOM
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    document.body.appendChild(backdrop);
+    document.body.style.overflow = 'hidden';
+    
+    console.log(`✅ Modal ${modalId} creado forzadamente`);
+    return document.getElementById(modalId);
+}
+
+function cerrarModalForzado(modalId) {
+    console.log(`🔧 CERRANDO modal forzado: ${modalId}`);
+    const modal = document.getElementById(modalId);
+    if (modal) modal.remove();
+    
+    document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+    document.body.style.overflow = '';
+    console.log(`✅ Modal ${modalId} cerrado`);
+}
+
+// Sobrescribir completamente las funciones de modal
+function abrirModalPreciosForzado() {
+    console.log('🔧 ABRIENDO modal de precios FORZADO');
+    
+    if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
+        alert('Por favor, selecciona una propiedad primero.');
+        return;
+    }
+    
+    const titulo = `💰 Gestionar Precios - ${propiedadSeleccionada.direccion || propiedadSeleccionada.id}`;
+    const contenido = `
+        <div class="alert alert-info mb-3" style="background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; padding: 1rem; border-radius: 5px;">
+            <h6><i class="fas fa-info-circle me-2"></i>Información de Permisos</h6>
+            <p class="mb-1"><strong>Usuario:</strong> {{ user.username }}</p>
+            <p class="mb-1"><strong>Nivel:</strong> {{ user.nivel }}</p>
+            <p class="mb-0"><strong>Puede Editar:</strong> {% if user.nivel >= 3 %}✅ SÍ{% else %}❌ NO (necesita nivel 3 o superior){% endif %}</p>
+        </div>
+        <div id="tablaPreciosCompleta" style="background: white;">
+            <div class="text-center" style="padding: 2rem;">
+                <i class="fas fa-spinner fa-spin fa-2x" style="color: #198754;"></i>
+                <br><br>
+                <span style="color: #666;">Cargando precios...</span>
+            </div>
+        </div>
+    `;
+    
+    const modal = forzarAperturaModal('modalGestionPrecios', titulo, contenido);
+    
+    // Cargar precios después de que el modal esté visible
+    setTimeout(() => {
+        cargarPreciosCompletos(propiedadSeleccionada.id);
+    }, 500);
+}
+
+function abrirModalFiltrosForzado() {
+    console.log('🔧 ABRIENDO modal de filtros FORZADO');
+    
+    const titulo = '🔍 Filtros Avanzados de Búsqueda';
+    const contenido = `
+        <form id="formFiltrosAvanzados">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="filtro_tipo_inmueble" class="form-label"><i class="fas fa-building me-1"></i>Tipo de Inmueble</label>
+                        <select class="form-select" id="filtro_tipo_inmueble" name="tipo_inmueble">
+                            <option value="">Todos los tipos</option>
+                            <option value="casa">Casa</option>
+                            <option value="departamento">Departamento</option>
+                            <option value="ph">PH</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="filtro_vista" class="form-label"><i class="fas fa-eye me-1"></i>Vista de la Propiedad</label>
+                        <select class="form-select" id="filtro_vista" name="vista">
+                            <option value="">Cualquier vista</option>
+                            <option value="mar">Vista al Mar</option>
+                            <option value="ciudad">Vista a la Ciudad</option>
+                            <option value="parque">Vista al Parque</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label"><i class="fas fa-check-circle me-1"></i>Características Especiales</label>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filtro_amoblado" name="amoblado">
+                            <label class="form-check-label" for="filtro_amoblado">
+                                <i class="fas fa-couch me-1"></i>Amoblado
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filtro_cochera" name="cochera">
+                            <label class="form-check-label" for="filtro_cochera">
+                                <i class="fas fa-car me-1"></i>Cochera
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filtro_pileta" name="pileta">
+                            <label class="form-check-label" for="filtro_pileta">
+                                <i class="fas fa-swimmer me-1"></i>Pileta
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filtro_terraza" name="terraza">
+                            <label class="form-check-label" for="filtro_terraza">
+                                <i class="fas fa-building me-1"></i>Terraza
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    `;
+    
+    forzarAperturaModal('modalFiltrosAvanzados', titulo, contenido);
+}
+
+// Sobrescribir funciones globales cuando se carga la página
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔧 SOBRESCRIBIENDO funciones de modal con versiones forzadas...');
+    
+    // Sobrescribir después de un pequeño delay para asegurar que se aplique
+    setTimeout(() => {
+        // Sobrescribir funciones globales
+        window.abrirModalGestionPrecios = abrirModalPreciosForzado;
+        window.abrirModalFiltros = abrirModalFiltrosForzado;
+        window.verPrecios = abrirModalPreciosForzado;
+        
+        // Interceptar clicks en precios para usar la función forzada
+        document.addEventListener('click', function(e) {
+            // Si el click es en cualquier elemento relacionado con precios
+            if (e.target.closest('[onclick*="verPrecios"]') || 
+                e.target.closest('[onclick*="abrirModalGestionPrecios"]') ||
+                e.target.textContent.includes('Ver Precios') ||
+                e.target.closest('.precio-cell')) {
+                e.preventDefault();
+                e.stopPropagation();
+                abrirModalPreciosForzado();
+                return false;
+            }
+            
+            // Si el click es en filtros
+            if (e.target.closest('[onclick*="abrirModalFiltros"]') || 
+                e.target.textContent.includes('Mostrar Filtros')) {
+                e.preventDefault();
+                e.stopPropagation();
+                abrirModalFiltrosForzado();
+                return false;
+            }
+        });
+        
+        console.log('✅ Funciones de modal sobrescritas con versiones forzadas');
+    }, 1000);
 });
 </script>
 {% endblock extra_js %}
