@@ -1,73 +1,561 @@
-<!-- inmobiliaria/templates/inmobiliaria/autenticacion/login.html -->
-{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - Sistema Gonnet</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{% static 'images/logoG.png' %}">
 
-{% block content %}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card mt-5">
-                <div class="card-body">
-                    <h2 class="text-center mb-4">Iniciar Sesión</h2>
-                    
-                    {% if messages %}
-                    <div class="messages">
-                        {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }}">
-                            {{ message }}
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-                    <form method="post" id="loginForm">
-                        {% csrf_token %}
-                        {{ form.as_p }}
-                        <input type="hidden" name="next" value="{{ next }}">
-                        <div class="form-group">
-                            <a href="{% url 'inmobiliaria:recuperar_password' %}">¿Olvidaste tu contraseña?</a>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100">Iniciar Sesión</button>
-                    </form>
-                </div>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Fondo animado */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(120, 120, 120, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(120, 120, 120, 0.1) 0%, transparent 50%);
+            animation: floatingBg 20s ease-in-out infinite;
+        }
+
+        @keyframes floatingBg {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        /* Container principal */
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            box-shadow: 
+                0 25px 50px rgba(0, 0, 0, 0.15),
+                0 0 0 1px rgba(255, 255, 255, 0.2);
+            width: 100%;
+            max-width: 450px;
+            margin: 20px;
+            overflow: hidden;
+            position: relative;
+            animation: slideInUp 0.8s ease-out;
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Header del login */
+        .login-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .login-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(255, 255, 255, 0.05) 10px,
+                rgba(255, 255, 255, 0.05) 20px
+            );
+            animation: shine 15s linear infinite;
+        }
+
+        @keyframes shine {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .login-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .login-header p {
+            font-size: 1rem;
+            opacity: 0.9;
+            position: relative;
+            z-index: 2;
+        }
+
+        .logo-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        /* Formulario */
+        .login-form {
+            padding: 40px 30px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .form-control {
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            padding: 15px 20px 15px 50px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.2);
+            background: white;
+            transform: translateY(-2px);
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #667eea;
+            font-size: 1.1rem;
+            z-index: 3;
+            margin-top: 12px;
+        }
+
+        /* Botón de login */
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 15px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-login::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-login:hover::before {
+            left: 100%;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-login:active {
+            transform: translateY(-1px);
+        }
+
+        /* Enlaces */
+        .forgot-password {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .forgot-password a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .forgot-password a:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        /* Mensajes */
+        .alert {
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 25px;
+            border: none;
+            animation: slideInDown 0.5s ease-out;
+        }
+
+        @keyframes slideInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert-danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%);
+            color: white;
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .alert-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        /* Loading state */
+        .btn-login.loading {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        .btn-login.loading::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+            border: 2px solid transparent;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .login-container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+
+            .login-header {
+                padding: 30px 20px;
+            }
+
+            .login-header h1 {
+                font-size: 1.8rem;
+            }
+
+            .logo-icon {
+                font-size: 2.5rem;
+                margin-bottom: 15px;
+            }
+
+            .login-form {
+                padding: 30px 20px;
+            }
+
+            .form-control {
+                padding: 12px 15px 12px 45px;
+            }
+
+            .input-icon {
+                left: 15px;
+                font-size: 1rem;
+            }
+        }
+
+        /* Decorative elements */
+        .decorative-circle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .decorative-circle:nth-child(1) {
+            width: 100px;
+            height: 100px;
+            top: -50px;
+            right: -50px;
+            animation-delay: 0s;
+        }
+
+        .decorative-circle:nth-child(2) {
+            width: 60px;
+            height: 60px;
+            bottom: -30px;
+            left: -30px;
+            animation-delay: 2s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(180deg); }
+        }
+
+        /* Error styling */
+        .form-control.is-invalid {
+            border-color: #ff6b6b;
+            background: #fff5f5;
+        }
+
+        .invalid-feedback {
+            color: #ff6b6b;
+            font-size: 0.875rem;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="decorative-circle"></div>
+    <div class="decorative-circle"></div>
+
+    <div class="login-container">
+        <!-- Header -->
+        <div class="login-header">
+            <div class="logo-icon">
+                <i class="fas fa-building"></i>
             </div>
+            <h1>Sistema Gonnet</h1>
+            <p>Ingresa a tu cuenta para continuar</p>
+        </div>
+
+        <!-- Formulario -->
+        <div class="login-form">
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    <i class="fas fa-exclamation-circle me-2"></i>{{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="post" id="loginForm">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="username" class="form-label">
+                        <i class="fas fa-user me-2"></i>Usuario
+                    </label>
+                    <div class="position-relative">
+                        <i class="fas fa-user input-icon"></i>
+                        <input type="text" 
+                               name="username" 
+                               id="username" 
+                               class="form-control" 
+                               placeholder="Ingresa tu usuario"
+                               required
+                               autocomplete="username">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">
+                        <i class="fas fa-lock me-2"></i>Contraseña
+                    </label>
+                    <div class="position-relative">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" 
+                               name="password" 
+                               id="password" 
+                               class="form-control" 
+                               placeholder="Ingresa tu contraseña"
+                               required
+                               autocomplete="current-password">
+                        <button type="button" 
+                                class="btn btn-link position-absolute end-0 top-50 translate-middle-y me-3" 
+                                id="togglePassword"
+                                style="border: none; background: none; color: #667eea; z-index: 3; margin-top: 12px;">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <input type="hidden" name="next" value="{{ next }}">
+
+                <button type="submit" class="btn btn-login" id="loginBtn">
+                    <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión
+                </button>
+
+                <div class="forgot-password">
+                    <a href="{% url 'inmobiliaria:recuperar_password' %}">
+                        <i class="fas fa-key me-1"></i>¿Olvidaste tu contraseña?
+                    </a>
+                </div>
+            </form>
         </div>
     </div>
-</div>
 
-<script>
-document.getElementById('loginForm').addEventListener('submit', function(e) {
-    // e.preventDefault(); // Descomenta para prevenir el envío del formulario durante pruebas
-    
-    const formData = new FormData(this);
-    console.log('Datos del formulario:');
-    for (let pair of formData.entries()) {
-        console.log(pair[0] + ': ' + pair[1]);
-    }
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
-    // Verificar campos específicos
-    const username = formData.get('username');
-    const password = formData.get('password');
-    
-    console.log('Validaciones:');
-    console.log('Username presente:', !!username);
-    console.log('Password presente:', !!password);
-    console.log('Username length:', username ? username.length : 0);
-    console.log('Password length:', password ? password.length : 0);
-    
-    // Verificar CSRF token
-    const csrfToken = formData.get('csrfmiddlewaretoken');
-    console.log('CSRF token presente:', !!csrfToken);
-});
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            const loginBtn = document.getElementById('loginBtn');
+            const togglePassword = document.getElementById('togglePassword');
+            const passwordField = document.getElementById('password');
+            const usernameField = document.getElementById('username');
 
-// Verificar si los campos existen en el DOM
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Estado de los campos:');
-    console.log('Username field:', !!document.querySelector('input[name="username"]'));
-    console.log('Password field:', !!document.querySelector('input[name="password"]'));
-    console.log('CSRF token field:', !!document.querySelector('input[name="csrfmiddlewaretoken"]'));
-    
-    // Mostrar errores del backend si existen
-   
-});
-</script>
-{% endblock %}
+            // Toggle password visibility
+            togglePassword.addEventListener('click', function() {
+                const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordField.setAttribute('type', type);
+                
+                const icon = this.querySelector('i');
+                icon.classList.toggle('fa-eye');
+                icon.classList.toggle('fa-eye-slash');
+            });
+
+            // Form validation
+            function validateField(field) {
+                if (field.value.trim() === '') {
+                    field.classList.add('is-invalid');
+                    return false;
+                } else {
+                    field.classList.remove('is-invalid');
+                    return true;
+                }
+            }
+
+            // Real-time validation
+            usernameField.addEventListener('input', function() {
+                validateField(this);
+            });
+
+            passwordField.addEventListener('input', function() {
+                validateField(this);
+            });
+
+            // Form submission
+            loginForm.addEventListener('submit', function(e) {
+                const isUsernameValid = validateField(usernameField);
+                const isPasswordValid = validateField(passwordField);
+
+                if (!isUsernameValid || !isPasswordValid) {
+                    e.preventDefault();
+                    
+                    // Shake animation for errors
+                    loginForm.style.animation = 'shake 0.5s ease-in-out';
+                    setTimeout(() => {
+                        loginForm.style.animation = '';
+                    }, 500);
+                    
+                    return;
+                }
+
+                // Loading state
+                loginBtn.classList.add('loading');
+                loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Iniciando sesión...';
+                
+                // Disable form fields
+                usernameField.disabled = true;
+                passwordField.disabled = true;
+                togglePassword.disabled = true;
+            });
+
+            // Auto-focus on username field
+            usernameField.focus();
+
+            // Add enter key support
+            passwordField.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    loginForm.dispatchEvent(new Event('submit'));
+                }
+            });
+        });
+
+        // Add shake animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-5px); }
+                75% { transform: translateX(5px); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Prevent form resubmission on page refresh
+        if (window.history.replaceState) {
+            window.history.replaceState(null, null, window.location.href);
+        }
+    </script>
+</body>
+</html>
