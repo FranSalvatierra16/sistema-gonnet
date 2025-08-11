@@ -513,7 +513,6 @@
                 usernameField.className = 'form-control';
                 usernameField.placeholder = 'Ingresa tu usuario';
                 usernameField.autocomplete = 'username';
-                usernameField.required = true;
             }
 
             if (passwordField) {
@@ -521,7 +520,6 @@
                 passwordField.className = 'form-control';
                 passwordField.placeholder = 'Ingresa tu contraseña';
                 passwordField.autocomplete = 'current-password';
-                passwordField.required = true;
             }
 
             // Verificar si hay errores de Django y marcar campos
@@ -546,59 +544,13 @@
                 });
             }
 
-            // Form validation
-            function validateField(field) {
-                if (!field) return true;
-                
-                if (field.value.trim() === '') {
-                    field.classList.add('is-invalid');
-                    return false;
-                } else {
-                    field.classList.remove('is-invalid');
-                    return true;
-                }
-            }
-
-            // Real-time validation
-            if (usernameField) {
-                usernameField.addEventListener('input', function() {
-                    validateField(this);
-                });
-            }
-
-            if (passwordField) {
-                passwordField.addEventListener('input', function() {
-                    validateField(this);
-                });
-            }
-
-            // Form submission
+            // Form submission - solo agregar loading state, sin validación
             if (loginForm) {
                 loginForm.addEventListener('submit', function(e) {
-                    const isUsernameValid = validateField(usernameField);
-                    const isPasswordValid = validateField(passwordField);
-
-                    if (!isUsernameValid || !isPasswordValid) {
-                        e.preventDefault();
-                        
-                        // Shake animation for errors
-                        loginForm.style.animation = 'shake 0.5s ease-in-out';
-                        setTimeout(() => {
-                            loginForm.style.animation = '';
-                        }, 500);
-                        
-                        return;
-                    }
-
-                    // Loading state
+                    // Solo agregar estado de carga, no validar
                     if (loginBtn) {
                         loginBtn.classList.add('loading');
                         loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Iniciando sesión...';
-                        
-                        // Disable form fields
-                        if (usernameField) usernameField.disabled = true;
-                        if (passwordField) passwordField.disabled = true;
-                        if (togglePassword) togglePassword.disabled = true;
                     }
                 });
             }
@@ -612,7 +564,7 @@
             if (passwordField) {
                 passwordField.addEventListener('keypress', function(e) {
                     if (e.key === 'Enter' && loginForm) {
-                        loginForm.dispatchEvent(new Event('submit'));
+                        loginForm.submit();
                     }
                 });
             }
