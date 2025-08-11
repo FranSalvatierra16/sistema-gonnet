@@ -1,181 +1,217 @@
 {% extends 'inmobiliaria/base.html' %}
+{% load static %}
 {% load bootstrap4 %}
 
-{% block title %}{% if propiedad %}Editar{% else %}Nueva{% endif %} Propiedad{% endblock %}
 {% block content %}
 <div class="container-fluid fade-in-up">
-    <div class="row justify-content-center">
-        <div class="col-12 col-lg-10 col-xl-8">
-            <div class="card shadow-modern">
-                <div class="card-header text-center">
-                    <h1 class="mb-0">
-                        <i class="fas fa-building me-2"></i>
-                        {% if propiedad %}✏️ Editar Propiedad{% else %}🏠 Nueva Propiedad{% endif %}
-                    </h1>
-                    <p class="mt-2 mb-0 text-light">Complete todos los datos de la propiedad</p>
-                </div>
-                <div class="card-body">
+    <!-- Header elegante -->
+    <div class="text-center mb-5">
+        <h1 class="text-gradient">
+            <i class="fas fa-home me-3"></i>
+            {% if propiedad.pk %}
+                <strong>Editar Propiedad #{{ propiedad.id }}</strong>
+            {% else %}
+                <strong>Nueva Propiedad</strong>
+            {% endif %}
+        </h1>
+        <p class="lead text-muted">
+            {% if propiedad.pk %}
+                Modifica los datos de la propiedad
+            {% else %}
+                Completa la información para registrar una nueva propiedad
+            {% endif %}
+        </p>
+    </div>
 
-<style>
-    .form-label {
-        font-weight: 500;
-        color: #34495e;
-    }
-    .btn-primary {
-        width: 100%;
-        font-weight: 600;
-        letter-spacing: 1px;
-    }
-    .input-group .btn {
-        min-width: 120px;
-    }
-    .imagen-item {
-        transition: transform 0.2s ease;
-        cursor: grab;
-        position: relative;
-    }
-    .imagen-item.ui-sortable-helper {
-        transform: scale(1.05);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-        background: white;
-        cursor: grabbing;
-    }
-    .imagen-item .card-img-top {
-        height: 200px;
-        object-fit: cover;
-        border-radius: 4px 4px 0 0;
-    }
-    .imagen-item .orden-info {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        padding: 8px;
-        background: rgba(0,0,0,0.7);
-        color: white;
-        border-radius: 0 0 4px 4px;
-        text-align: center;
-    }
-    .imagen-item .eliminar-imagen {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        z-index: 10;
-        opacity: 0;
-        transition: opacity 0.2s ease;
-    }
-    .imagen-item:hover .eliminar-imagen {
-        opacity: 1;
-    }
-    .ui-sortable-placeholder {
-        visibility: visible !important;
-        background-color: #f8f9fa;
-        border: 2px dashed #dee2e6;
-        border-radius: 4px;
-        margin-bottom: 1rem;
-    }
-    </style>
-
-    <form method="post" enctype="multipart/form-data" novalidate>
+    <form method="post" enctype="multipart/form-data" class="modern-form">
         {% csrf_token %}
-        {% if form.non_field_errors %}
-            <div class="alert alert-danger">
-                {{ form.non_field_errors }}
+        
+        <!-- Sección: Información Básica -->
+        <div class="card shadow-modern border-radius-modern mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Información Básica
+                </h4>
             </div>
-        {% endif %}
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                {{ form.id.label_tag }} {{ form.id }}
-                {% if form.id.help_text %}<small class="form-text text-muted">{{ form.id.help_text }}</small>{% endif %}
-                {{ form.id.errors }}
-            </div>
-            <div class="col-md-6 mb-3">
-                {{ form.llave.label_tag }} {{ form.llave }}
-                {% if form.llave.help_text %}<small class="form-text text-muted">{{ form.llave.help_text }}</small>{% endif %}
-                {{ form.llave.errors }}
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-8 mb-3">
-                {{ form.direccion.label_tag }} {{ form.direccion }}
-                {{ form.direccion.errors }}
-            </div>
-            <div class="col-md-4 mb-3">
-                {{ form.ubicacion.label_tag }} {{ form.ubicacion }}
-                {{ form.ubicacion.errors }}
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-12 mb-3">
-                {{ form.titulo.label_tag }} {{ form.titulo }}
-                {{ form.titulo.errors }}
-                <small class="form-text text-muted">Nombre o título descriptivo para identificar fácilmente la propiedad (opcional)</small>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                {{ form.tipo_inmueble.label_tag }} {{ form.tipo_inmueble }}
-                {{ form.tipo_inmueble.errors }}
-            </div>
-            <div class="col-md-6 mb-3">
-                {{ form.vista.label_tag }} {{ form.vista }}
-                {{ form.vista.errors }}
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-4 mb-3">
-                {{ form.piso.label_tag }} {{ form.piso }}
-                {{ form.piso.errors }}
-            </div>
-            <div class="col-md-4 mb-3">
-                {{ form.departamento.label_tag }} {{ form.departamento }}
-                {{ form.departamento.errors }}
-            </div>
-            <div class="col-md-4 mb-3">
-                {{ form.ambientes.label_tag }} {{ form.ambientes }}
-                {{ form.ambientes.errors }}
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                {{ form.valoracion.label_tag }} {{ form.valoracion }}
-                {{ form.valoracion.errors }}
-            </div>
-            <div class="col-md-6 mb-3">
-                <label for="id_propietario" class="form-label">Propietario</label>
-                <div class="input-group">
-                    {{ form.propietario }}
-                    <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#modal-propietario">
-                        <i class="fas fa-user-plus"></i> Nuevo
-                    </button>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-3">
+                        <div class="form-floating">
+                            {{ form.id }}
+                            <label for="id_id" class="form-label">
+                                <i class="fas fa-hashtag me-1"></i>Ficha
+                            </label>
+                            {{ form.id.errors }}
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-floating">
+                            {{ form.llave }}
+                            <label for="id_llave" class="form-label">
+                                <i class="fas fa-key me-1"></i>Llave
+                            </label>
+                            {{ form.llave.errors }}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.titulo }}
+                            <label for="id_titulo" class="form-label">
+                                <i class="fas fa-tag me-1"></i>Título Descriptivo
+                            </label>
+                            {{ form.titulo.errors }}
+                        </div>
+                    </div>
                 </div>
-                {{ form.propietario.errors }}
-            </div>
-            <div class="col-md-6 mb-3">
-                {{ form.fichado_por.label_tag }} 
-                {{ form.fichado_por }}
-                {{ form.fichado_por.errors }}
-                {% if form.fichado_por.help_text %}
-                    <small class="form-text text-muted">{{ form.fichado_por.help_text }}</small>
-                {% endif %}
+
+                <div class="row g-4 mt-3">
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.direccion }}
+                            <label for="id_direccion" class="form-label">
+                                <i class="fas fa-map-marker-alt me-1"></i>Dirección
+                            </label>
+                            {{ form.direccion.errors }}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.ubicacion }}
+                            <label for="id_ubicacion" class="form-label">
+                                <i class="fas fa-location-arrow me-1"></i>Ubicación
+                            </label>
+                            {{ form.ubicacion.errors }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 mt-3">
+                    <div class="col-md-3">
+                        <label for="id_tipo_inmueble" class="form-label">
+                            <i class="fas fa-building me-1"></i>Tipo de Inmueble
+                        </label>
+                        {{ form.tipo_inmueble }}
+                        {{ form.tipo_inmueble.errors }}
+                    </div>
+                    <div class="col-md-3">
+                        <label for="id_vista" class="form-label">
+                            <i class="fas fa-eye me-1"></i>Vista
+                        </label>
+                        {{ form.vista }}
+                        {{ form.vista.errors }}
+                    </div>
+                    <div class="col-md-3">
+                        <label for="id_piso" class="form-label">
+                            <i class="fas fa-building me-1"></i>Piso
+                        </label>
+                        {{ form.piso }}
+                        {{ form.piso.errors }}
+                    </div>
+                    <div class="col-md-3">
+                        <label for="id_departamento" class="form-label">
+                            <i class="fas fa-door-closed me-1"></i>Departamento
+                        </label>
+                        {{ form.departamento }}
+                        {{ form.departamento.errors }}
+                    </div>
+                </div>
+
+                <div class="row g-4 mt-3">
+                    <div class="col-md-4">
+                        <label for="id_ambientes" class="form-label">
+                            <i class="fas fa-home me-1"></i>Ambientes
+                        </label>
+                        {{ form.ambientes }}
+                        {{ form.ambientes.errors }}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="id_valoracion" class="form-label">
+                            <i class="fas fa-star me-1"></i>Valoración
+                        </label>
+                        {{ form.valoracion }}
+                        {{ form.valoracion.errors }}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="id_cuenta_bancaria" class="form-label">
+                            <i class="fas fa-university me-1"></i>Cuenta Bancaria
+                        </label>
+                        {{ form.cuenta_bancaria }}
+                        {{ form.cuenta_bancaria.errors }}
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="row">
-            <div class="col-md-12 mb-3">
-                {{ form.descripcion.label_tag }} {{ form.descripcion }}
+
+        <!-- Sección: Personas Asociadas -->
+        <div class="card shadow-modern border-radius-modern mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-users me-2"></i>
+                    Personas Asociadas
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <label for="id_propietario" class="form-label">
+                            <i class="fas fa-user me-1"></i>Propietario
+                        </label>
+                        <div class="input-group">
+                            {{ form.propietario }}
+                            <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#modal-propietario">
+                                <i class="fas fa-user-plus"></i> Nuevo
+                            </button>
+                        </div>
+                        {{ form.propietario.errors }}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="id_fichado_por" class="form-label">
+                            <i class="fas fa-user-tag me-1"></i>Vendedor que Fichó
+                        </label>
+                        {{ form.fichado_por }}
+                        {{ form.fichado_por.errors }}
+                        {% if form.fichado_por.help_text %}
+                            <small class="form-text text-muted">{{ form.fichado_por.help_text }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección: Descripción -->
+        <div class="card shadow-modern border-radius-modern mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-file-alt me-2"></i>
+                    Descripción
+                </h4>
+            </div>
+            <div class="card-body">
+                {{ form.descripcion }}
                 {{ form.descripcion.errors }}
             </div>
         </div>
-        <!-- Características booleanas -->
-        <div class="row">
-            <div class="col-md-12">
-                <label class="form-label">Características</label>
-                <div class="row">
+
+        <!-- Sección: Características -->
+        <div class="card shadow-modern border-radius-modern mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-list-check me-2"></i>
+                    Características
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
                     {% for field in form %}
                         {% if field.field.widget.input_type == 'checkbox' and field.name not in 'habilitar_precio_diario,habilitar_precio_venta,habilitar_precio_alquiler' %}
-                            <div class="col-6 col-md-4 mb-2">
-                                <div class="form-check">
-                                    {{ field }} {{ field.label_tag }}
+                            <div class="col-6 col-md-4 col-lg-3">
+                                <div class="form-check form-switch">
+                                    {{ field }}
+                                    <label class="form-check-label" for="{{ field.id_for_label }}">
+                                        <i class="fas fa-check-circle me-1 text-success"></i>
+                                        {{ field.label }}
+                                    </label>
                                 </div>
                             </div>
                         {% endif %}
@@ -183,203 +219,166 @@
                 </div>
             </div>
         </div>
-        <!-- -------------  IMÁGENES DE LA PROPIEDAD ------------- -->
-        <div class="row mt-4">
-            <div class="col-md-12">
-                <h3>Imágenes de la Propiedad</h3>
 
-                <!-- Input para subir imágenes nuevas -->
-                <div class="form-group mb-4">
-                    <label for="id_imagenes" class="form-label">{% if propiedad %}Agregar nuevas imágenes:{% else %}Seleccionar imágenes:{% endif %}</label>
-                    <input type="file"
-                           id="id_imagenes"
-                           name="imagenes"
-                           multiple
-                           accept="image/*"
-                           class="form-control">
-                    <small class="text-muted">Puede seleccionar múltiples imágenes</small>
+        <!-- Sección: Imágenes -->
+        {% if propiedad.pk %}
+        <div class="card shadow-modern border-radius-modern mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-images me-2"></i>
+                    Galería de Imágenes
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <label for="id_imagenes" class="form-label">
+                            <i class="fas fa-upload me-1"></i>Agregar Nuevas Imágenes
+                        </label>
+                        {{ form.imagenes }}
+                        <small class="form-text text-muted">
+                            Puedes seleccionar múltiples imágenes. Formatos soportados: JPG, PNG, WEBP
+                        </small>
+                        {{ form.imagenes.errors }}
+                    </div>
                 </div>
 
-                <!-- Contenedor de imágenes existentes (solo en modo edición) -->
-                {% if propiedad and imagenes %}
-                <div class="row" id="imagenes-container">
-                    {% for imagen in imagenes %}
-                    <div class="col-md-3 mb-4">
-                        <div class="imagen-item card" data-id="{{ imagen.id }}">
-                            <div class="position-relative">
-                                <img src="{{ imagen.imagen.url }}"
-                                     class="card-img-top"
-                                     alt="Imagen {{ imagen.orden }}"
-                                     onerror="this.src='/static/images/placeholder.jpg'">
-                                <button type="button"
-                                        class="btn btn-danger btn-sm eliminar-imagen"
-                                        data-imagen-id="{{ imagen.id }}">
+                {% if propiedad.imagenes.all %}
+                <div class="border-top pt-4">
+                    <h5 class="mb-3">
+                        <i class="fas fa-photo-video me-1"></i>
+                        Imágenes Actuales
+                    </h5>
+                    <div class="row g-3" id="imagenes-container">
+                        {% for imagen in propiedad.imagenes.all %}
+                        <div class="col-6 col-md-4 col-lg-3">
+                            <div class="card image-card position-relative">
+                                <img src="{{ imagen.imagen.url }}" class="card-img-top" alt="Imagen de propiedad" 
+                                     style="height: 200px; object-fit: cover;">
+                                <div class="card-body p-2">
+                                    <small class="text-muted">Orden: {{ imagen.orden }}</small>
+                                </div>
+                                <button type="button" 
+                                        class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 eliminar-imagen"
+                                        data-imagen-id="{{ imagen.id }}"
+                                        title="Eliminar imagen">
                                     <i class="fas fa-trash"></i>
                                 </button>
-                                <div class="orden-info">
-                                    Orden: <span class="orden-texto">{{ imagen.orden }}</span>
-                                </div>
                             </div>
                         </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
-                </div>
-
-                <!-- Botón para eliminar todas las imágenes -->
-                <div class="text-end mt-3 mb-4">
-                    <button type="button" 
-                            id="eliminar-todas-imagenes" 
-                            class="btn btn-danger">
-                        <i class="fas fa-trash-alt me-2"></i>
-                        Eliminar todas las imágenes
-                    </button>
                 </div>
                 {% else %}
-                <div class="alert alert-info">
-                    {% if propiedad %}
-                        No hay imágenes cargadas para esta propiedad.
-                    {% else %}
-                        Las imágenes se mostrarán después de crear la propiedad.
-                    {% endif %}
+                <div class="text-center py-4">
+                    <i class="fas fa-image fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No hay imágenes cargadas para esta propiedad</p>
                 </div>
                 {% endif %}
             </div>
         </div>
-        <!-- ----------------------------------------------------- -->
-        <div class="text-center mt-4">
-            <button type="submit" class="btn btn-success shadow-modern px-5 py-3">
-                <i class="fas fa-save me-2"></i>Guardar Propiedad
-            </button>
-        </div>
-    </form>
+        {% endif %}
+
+        <!-- Botones de Acción -->
+        <div class="card shadow-modern border-radius-modern">
+            <div class="card-body text-center">
+                <div class="d-flex gap-3 justify-content-center">
+                    <button type="submit" class="btn btn-success btn-lg px-5">
+                        <i class="fas fa-save me-2"></i>
+                        {% if propiedad.pk %}Actualizar{% else %}Crear{% endif %} Propiedad
+                    </button>
+                    <a href="{% url 'inmobiliaria:propiedades' %}" class="btn btn-secondary btn-lg px-5">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Cancelar
+                    </a>
                 </div>
             </div>
         </div>
-    </div>
+    </form>
 </div>
 
-<!-- Modal para crear propietario -->
-<div class="modal fade" id="modal-propietario" tabindex="-1" aria-labelledby="modalPropietarioLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <form method="post" action="{% url 'inmobiliaria:crear_propietario_ajax' %}" id="form-nuevo-propietario">
-        {% csrf_token %}
-        <div class="modal-header">
-          <h5 class="modal-title" id="modalPropietarioLabel">Agregar Nuevo Propietario</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-        </div>
-        <div class="modal-body">
-          {% for field in propietario_form %}
-            <div class="mb-3">
-              {{ field.label_tag }} {{ field }}
-              {{ field.errors }}
+<!-- Modal para nuevo propietario -->
+<div class="modal fade" id="modal-propietario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-plus me-2"></i>
+                    Nuevo Propietario
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-          {% endfor %}
+            <div class="modal-body">
+                <!-- Aquí irá el formulario de propietario -->
+                <p>Formulario de nuevo propietario aquí...</p>
+            </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary" id="guardar-propietario-btn">Guardar Propietario</button>
-        </div>
-      </form>
     </div>
-  </div>
 </div>
+{% endblock %}
 
-<!-- SCRIPTS -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+{% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+<style>
+    .fade-in-up {
+        animation: fadeInUp 0.6s ease-out;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .text-gradient {
+        background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .shadow-modern {
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;
+    }
+    
+    .border-radius-modern {
+        border-radius: 15px !important;
+    }
+    
+    .form-floating label {
+        color: #2e7d32 !important;
+        font-weight: 600 !important;
+    }
+    
+    .image-card {
+        transition: transform 0.3s ease;
+    }
+    
+    .image-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .form-check-input:checked {
+        background-color: #4caf50 !important;
+        border-color: #4caf50 !important;
+    }
+    
+    .modern-form .form-control:focus {
+        border-color: #4caf50 !important;
+        box-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.25) !important;
+    }
+</style>
+{% endblock %}
 
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
 $(document).ready(function() {
-    // Tu script original para crear propietario
-    const guardarPropietarioBtn = $('#guardar-propietario-btn');
-    
-    function resetearBoton() {
-        guardarPropietarioBtn
-            .prop('disabled', false)
-            .html('Guardar Propietario')
-            .removeClass('loading');
-    }
-
-    function mostrarBotonCargando() {
-        guardarPropietarioBtn
-            .prop('disabled', true)
-            .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...')
-            .addClass('loading');
-    }
-
-    guardarPropietarioBtn.click(function(e) {
-        e.preventDefault();
-        
-        if ($(this).hasClass('loading')) {
-            return false;
-        }
-
-        $('.is-invalid').removeClass('is-invalid');
-        $('.invalid-feedback').remove();
-        
-        mostrarBotonCargando();
-        
-        var formData = $('#form-nuevo-propietario').serialize();
-        
-        $.ajax({
-            url: '{% url "inmobiliaria:crear_propietario_ajax" %}',
-            type: 'POST',
-            data: formData,
-            dataType: 'json'
-        })
-        .done(function(response) {
-            if (response.success) {
-                var newOption = new Option(
-                    response.propietario_nombre,
-                    response.propietario_id,
-                    true,
-                    true
-                );
-                $('#id_propietario').append(newOption).trigger('change');
-                $('#form-nuevo-propietario')[0].reset();
-                $('#modal-propietario').modal('hide');
-                alert('Propietario creado exitosamente');
-            } else {
-                if (response.errors) {
-                    Object.keys(response.errors).forEach(function(fieldName) {
-                        const field = $('#id_' + fieldName);
-                        field.addClass('is-invalid');
-                        const errorDiv = $('<div>')
-                            .addClass('invalid-feedback d-block')
-                            .text(response.errors[fieldName].join(', '));
-                        field.after(errorDiv);
-                    });
-                    alert('Por favor, complete todos los campos requeridos');
-                } else {
-                    alert(response.error || 'Error al crear el propietario');
-                }
-            }
-        })
-        .fail(function(xhr, status, error) {
-            alert('Error en la solicitud: ' + error);
-        })
-        .always(function() {
-            resetearBoton();
-        });
-    });
-
-    $('#modal-propietario').on('hidden.bs.modal', function () {
-        $('#form-nuevo-propietario')[0].reset();
-        $('.is-invalid').removeClass('is-invalid');
-        $('.invalid-feedback').remove();
-        resetearBoton();
-    });
-
-    $('#form-nuevo-propietario').on('submit', function(e) {
-        e.preventDefault();
-        if (!guardarPropietarioBtn.hasClass('loading')) {
-            guardarPropietarioBtn.click();
-        }
-    });
-
     // Inicialización de Select2 para propietario
     $('.select2-propietario').select2({
         ajax: {
@@ -412,152 +411,61 @@ $(document).ready(function() {
     });
 
     {% if propiedad.pk %}
-    $(function () {
-        const URL_REORDENAR = "{% url 'inmobiliaria:reordenar_imagenes' propiedad.id %}";
-        const CSRF = "{{ csrf_token }}";
-        let isDragging = false;
-
-        /* ---------- 1. Eliminar imagen ----------- */
-        $('#imagenes-container').on('click', '.eliminar-imagen', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (isDragging) return;
-            
-            const $btn = $(this);
-            const idImg = $btn.data('imagen-id');
-            
-            if (!confirm('¿Eliminar la imagen definitivamente?')) return;
-            
-            $btn.prop('disabled', true)
-                .html('<i class="fas fa-spinner fa-spin"></i>');
-            
-            $.post({
-                url: "{% url 'inmobiliaria:imagen_eliminar' 0 %}".replace('0', idImg),
-                headers: { "X-CSRFToken": CSRF },
-                success: function(resp) {
-                    if (resp.success) {
-                        $btn.closest('.col-md-3').fadeOut(300, function() {
-                            $(this).remove();
-                            actualizarOrdenes();
-                        });
-                    } else {
-                        alert('No se pudo eliminar la imagen.');
-                        $btn.prop('disabled', false)
-                            .html('<i class="fas fa-trash"></i>');
-                    }
-                },
-                error: function() {
-                    alert('Error de comunicación con el servidor');
-                    $btn.prop('disabled', false)
-                        .html('<i class="fas fa-trash"></i>');
-                }
-            });
-        });
-
-        /* ---------- 2. Función para actualizar órdenes ---------- */
-        function actualizarOrdenes() {
-            const nuevaLista = [];
-            $('#imagenes-container .imagen-item').each(function(idx) {
-                nuevaLista.push({
-                    id: $(this).data('id'),
-                    orden: idx + 1
-                });
-                $(this).find('.orden-texto').text(idx + 1);
-            });
-            return nuevaLista;
-        }
-
-        /* ---------- 3. Drag&drop para re-ordenar ---------- */
-        $('#imagenes-container').sortable({
-            items: '.col-md-3',
-            cancel: '.eliminar-imagen',
-            placeholder: 'col-md-3',
-            forcePlaceholderSize: true,
-            tolerance: 'pointer',
-            cursor: 'grabbing',
-            helper: 'clone',
-            opacity: 0.8,
-            revert: 200,
-            scroll: true,
-            scrollSensitivity: 30,
-            scrollSpeed: 10,
-            start: function(e, ui) {
-                isDragging = true;
-                ui.placeholder.height(ui.item.height());
-                ui.helper.css('z-index', 1000);
-                $('body').css('cursor', 'grabbing');
+    // Funcionalidad para eliminar imágenes
+    $('#imagenes-container').on('click', '.eliminar-imagen', function(e) {
+        e.preventDefault();
+        const $btn = $(this);
+        const idImg = $btn.data('imagen-id');
+        
+        if (!confirm('¿Eliminar la imagen definitivamente?')) return;
+        
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+        
+        $.post({
+            url: "{% url 'inmobiliaria:imagen_eliminar' 0 %}".replace('0', idImg),
+            data: {
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
             },
-            stop: function() {
-                setTimeout(() => {
-                    isDragging = false;
-                    $('body').css('cursor', '');
-                }, 100);
-            },
-            update: function() {
-                const nuevaLista = actualizarOrdenes();
-                
-                $.post({
-                    url: URL_REORDENAR,
-                    headers: { "X-CSRFToken": CSRF },
-                    data: { ordenes: JSON.stringify(nuevaLista) },
-                    success: function() {
-                        const toast = $('<div class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">')
-                            .html('<div class="d-flex"><div class="toast-body">Orden actualizado correctamente</div></div>')
-                            .appendTo($('body'));
-                        toast.toast({ delay: 2000 }).toast('show');
-                    }
-                });
-            }
-        });
-
-        /* ---------- 1. Eliminar todas las imágenes ----------- */
-        $('#eliminar-todas-imagenes').on('click', function() {
-            if (!confirm('¿Estás seguro de que deseas eliminar TODAS las imágenes de esta propiedad? Esta acción no se puede deshacer.')) {
-                return;
-            }
-
-            const $btn = $(this);
-            $btn.prop('disabled', true)
-                .html('<i class="fas fa-spinner fa-spin me-2"></i>Eliminando...');
-
-            $.ajax({
-                url: "{% url 'inmobiliaria:eliminar_todas_imagenes' propiedad.id %}",
-                method: 'POST',
-                headers: { "X-CSRFToken": CSRF },
-                success: function(response) {
-                    if (response.success) {
-                        // Eliminar todas las imágenes del DOM con animación
-                        $('#imagenes-container').fadeOut(300, function() {
-                            $(this).empty();
-                            // Mostrar mensaje de no hay imágenes
-                            $(this).after(
-                                '<div class="alert alert-info">No hay imágenes cargadas para esta propiedad.</div>'
-                            );
-                        });
-                        
-                        // Mostrar mensaje de éxito
-                        const toast = $('<div class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">')
-                            .html('<div class="d-flex"><div class="toast-body">Todas las imágenes han sido eliminadas</div></div>')
-                            .appendTo($('body'));
-                        toast.toast({ delay: 3000 }).toast('show');
-                        
-                        // Ocultar el botón
-                        $btn.parent().fadeOut();
-                    } else {
-                        alert('Error al eliminar las imágenes: ' + (response.error || 'Error desconocido'));
-                        $btn.prop('disabled', false)
-                            .html('<i class="fas fa-trash-alt me-2"></i>Eliminar todas las imágenes');
-                    }
-                },
-                error: function() {
-                    alert('Error de comunicación con el servidor');
-                    $btn.prop('disabled', false)
-                        .html('<i class="fas fa-trash-alt me-2"></i>Eliminar todas las imágenes');
+            success: function(response) {
+                if (response.success) {
+                    $btn.closest('.col-6, .col-md-4, .col-lg-3').fadeOut(300, function() {
+                        $(this).remove();
+                    });
+                } else {
+                    alert('Error: ' + response.error);
+                    $btn.prop('disabled', false).html('<i class="fas fa-trash"></i>');
                 }
-            });
+            },
+            error: function() {
+                alert('Error de conexión');
+                $btn.prop('disabled', false).html('<i class="fas fa-trash"></i>');
+            }
         });
     });
     {% endif %}
+
+    // Validaciones del formulario
+    $('form').on('submit', function(e) {
+        let hasErrors = false;
+        
+        // Validar campos requeridos
+        $(this).find('input[required], select[required], textarea[required]').each(function() {
+            if (!$(this).val()) {
+                $(this).addClass('is-invalid');
+                hasErrors = true;
+            } else {
+                $(this).removeClass('is-invalid');
+            }
+        });
+        
+        if (hasErrors) {
+            e.preventDefault();
+            // Scroll al primer error
+            $('html, body').animate({
+                scrollTop: $('.is-invalid').first().offset().top - 100
+            }, 500);
+        }
+    });
 });
 </script>
 {% endblock %}
