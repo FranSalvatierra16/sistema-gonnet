@@ -2450,6 +2450,13 @@ def eliminar_imagen(request):
 def enviar_recuperacion(request):
     if request.method == "POST":
         email = request.POST.get("email")
+        
+        # Validar que se proporcionó un email
+        if not email or not email.strip():
+            messages.error(request, 'Por favor, ingresa un correo electrónico válido.')
+            return render(request, 'inmobiliaria/autenticacion/password_reset_form.html')
+        
+        email = email.strip()  # Limpiar espacios
         User = get_user_model()
         
         try:
@@ -2458,7 +2465,7 @@ def enviar_recuperacion(request):
             
             if user:
                 # Verificar que el usuario tiene email válido
-                if not user.email or user.email.strip() == '':
+                if not user.email or not user.email.strip():
                     messages.error(request, 'Tu cuenta no tiene un correo electrónico configurado. Contacta al administrador.')
                     return render(request, 'inmobiliaria/autenticacion/password_reset_form.html')
                 
@@ -2496,12 +2503,9 @@ El equipo de Sistema Gonnet
                     user.refresh_from_db()
                     messages.error(request, f'Error al enviar el correo: {str(e)}. Por favor, contacta al administrador.')
             else:
-                # Debug: contar usuarios con emails similares
-                emails_existentes = User.objects.filter(email__icontains=email.split('@')[0] if '@' in email else email).values_list('email', flat=True)
-                if emails_existentes:
-                    messages.error(request, f'No se encontró una cuenta exacta con el correo {email}. Verifica que esté escrito correctamente.')
-                else:
-                    messages.error(request, 'No existe una cuenta con ese correo electrónico.')
+                # Mensaje simple sin debug complejo
+                messages.error(request, 'No existe una cuenta con ese correo electrónico. Verifica que esté escrito correctamente.')
+                    
         except Exception as e:
             messages.error(request, f'Error al procesar la solicitud: {str(e)}')
     
