@@ -203,12 +203,12 @@ class PropiedadForm(forms.ModelForm):
         queryset=Vendedor.objects.all(),
         required=False,
         label='Vendedor que fichó la propiedad',
-        help_text='Vendedor que registró esta propiedad',
+        help_text='Selecciona el vendedor que registró esta propiedad',
         widget=forms.Select(attrs={
-            'class': 'form-control',
-            'readonly': True,
-            'disabled': True
-        })
+            'class': 'form-control select2',
+            'data-placeholder': 'Buscar por ID o nombre del vendedor...'
+        }),
+        empty_label="Seleccionar vendedor..."
     )
 
     class Meta:
@@ -239,40 +239,30 @@ class PropiedadForm(forms.ModelForm):
         self.user = kwargs.pop('user', None)
         super(PropiedadForm, self).__init__(*args, **kwargs)
         
-        # Si es una propiedad existente, hacer el campo fichado_por no editable
-        if self.instance.pk:  # Propiedad existente
-            self.fields['fichado_por'].widget.attrs.update({
-                'readonly': True,
-                'disabled': True,
-                'style': 'background-color: #f8f9fa; color: #6c757d;'
-            })
-            # Si tiene fichado_por, establecer el valor inicial
-            if self.instance.fichado_por:
-                self.fields['fichado_por'].initial = self.instance.fichado_por
-        else:  # Nueva propiedad
-            # Para nuevas propiedades, ocultar el campo o establecer valor actual
-            if self.user:
-                self.fields['fichado_por'].initial = self.user
-                self.fields['fichado_por'].widget.attrs.update({
-                    'readonly': True,
-                    'disabled': True,
-                    'style': 'background-color: #e9ecef; color: #495057;'
-                })
+        # Para propiedades existentes, mostrar el vendedor actual seleccionado
+        if self.instance.pk and self.instance.fichado_por:
+            self.fields['fichado_por'].initial = self.instance.fichado_por
+        
+        # Hacer que el campo sea siempre editable para que el usuario pueda elegir
 
     def save(self, commit=True):
         propiedad = super(PropiedadForm, self).save(commit=False)
         if self.user and hasattr(self.user, 'sucursal'):
             propiedad.sucursal = self.user.sucursal  # Asigna la sucursal del vendedor
             
-        # Si es una nueva propiedad, establecer el usuario como quien la fichó
-        if not propiedad.pk and self.user:  # Solo para nuevas propiedades
-            propiedad.fichado_por = self.user
-            propiedad.fecha_fichado = timezone.now()
-        else:
-            # Para propiedades existentes, preservar el fichado_por original
-            if self.instance.pk and self.instance.fichado_por:
-                propiedad.fichado_por = self.instance.fichado_por
-                propiedad.fecha_fichado = self.instance.fecha_fichado
+        # Manejar el campo fichado_por según lo seleccionado en el formulario
+        fichado_por_seleccionado = self.cleaned_data.get('fichado_por')
+        
+        if fichado_por_seleccionado:
+            # Si se seleccionó un vendedor, usarlo
+            propiedad.fichado_por = fichado_por_seleccionado
+            # Solo asignar fecha_fichado si es una nueva propiedad o si cambió el vendedor
+            if not propiedad.pk or (self.instance.pk and self.instance.fichado_por != fichado_por_seleccionado):
+                propiedad.fecha_fichado = timezone.now()
+        elif not propiedad.pk:
+            # Para nuevas propiedades sin vendedor seleccionado, dejar en blanco
+            propiedad.fichado_por = None
+            propiedad.fecha_fichado = None
             
         if commit:
             propiedad.save()

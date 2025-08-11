@@ -151,6 +151,14 @@
                 </div>
                 {{ form.propietario.errors }}
             </div>
+            <div class="col-md-6 mb-3">
+                {{ form.fichado_por.label_tag }} 
+                {{ form.fichado_por }}
+                {{ form.fichado_por.errors }}
+                {% if form.fichado_por.help_text %}
+                    <small class="form-text text-muted">{{ form.fichado_por.help_text }}</small>
+                {% endif %}
+            </div>
         </div>
         <div class="row">
             <div class="col-md-12 mb-3">
@@ -394,6 +402,13 @@ $(document).ready(function() {
         minimumInputLength: 2,
         placeholder: 'Buscar propietario...',
         allowClear: true
+    });
+
+    // Inicialización de Select2 para vendedor que fichó
+    $('#id_fichado_por').select2({
+        placeholder: 'Buscar por ID o nombre del vendedor...',
+        allowClear: true,
+        width: '100%'
     });
 
     {% if propiedad.pk %}

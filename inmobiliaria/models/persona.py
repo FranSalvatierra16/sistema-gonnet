@@ -109,7 +109,7 @@ class Vendedor(AbstractUser):
     )
 
     def __str__(self):
-        return f"{self.nombre} {self.apellido}"
+        return f"#{self.id} - {self.nombre} {self.apellido}"
 
     def clean(self):
         super().clean()
