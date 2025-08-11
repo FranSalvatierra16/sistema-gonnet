@@ -2,14 +2,303 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
 
-{% block title %}{% if inquilino %}Editar{% else %}Nuevo{% endif %} inquilino{% endblock %}
+{% block title %}{% if inquilino %}Editar{% else %}Nuevo{% endif %} Inquilino{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">{% if inquilino %}Editar{% else %}Nuevo{% endif %} inquilino</h1>
-<form method="post">
-    {% csrf_token %}
-    {% bootstrap_form form %}
-    <button type="submit" class="btn btn-primary">Guardar</button>
-    <a href="{% url 'inmobiliaria:inquilinos' %}" class="btn btn-secondary">Cancelar</a>
-</form>
+<div class="container-fluid fade-in-up">
+    <div class="row justify-content-center">
+        <div class="col-12 col-xl-10">
+            <!-- Header Card -->
+            <div class="card shadow-modern border-radius-modern mb-4">
+                <div class="card-header text-center py-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h1 class="mb-2 text-gradient" style="font-size: 2.2rem; font-weight: 700;">
+                        {% if inquilino %}
+                            <i class="fas fa-user-edit me-3"></i>✏️ Editar Inquilino
+                        {% else %}
+                            <i class="fas fa-user-plus me-3"></i>👤 Nuevo Inquilino
+                        {% endif %}
+                    </h1>
+                    <p class="mb-0 text-light" style="font-size: 1.1rem;">
+                        {% if inquilino %}
+                            Modifica los datos del inquilino
+                        {% else %}
+                            Complete los datos para registrar un nuevo inquilino
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                
+                <!-- Información Personal -->
+                <div class="card shadow-modern border-radius-modern mb-4">
+                    <div class="card-header" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
+                        <h4 class="mb-0">
+                            <i class="fas fa-user me-2"></i>📋 Información Personal
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label for="id_nombre" class="form-label">
+                                    <i class="fas fa-user me-1"></i>Nombre
+                                </label>
+                                {{ form.nombre }}
+                                {{ form.nombre.errors }}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_apellido" class="form-label">
+                                    <i class="fas fa-user me-1"></i>Apellido
+                                </label>
+                                {{ form.apellido }}
+                                {{ form.apellido.errors }}
+                            </div>
+                        </div>
+                        <div class="row g-4 mt-3">
+                            <div class="col-md-4">
+                                <label for="id_fecha_nacimiento" class="form-label">
+                                    <i class="fas fa-birthday-cake me-1"></i>Fecha de Nacimiento
+                                </label>
+                                {{ form.fecha_nacimiento }}
+                                {{ form.fecha_nacimiento.errors }}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="id_tipo_doc" class="form-label">
+                                    <i class="fas fa-id-card me-1"></i>Tipo de Documento
+                                </label>
+                                {{ form.tipo_doc }}
+                                {{ form.tipo_doc.errors }}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="id_dni" class="form-label">
+                                    <i class="fas fa-id-badge me-1"></i>DNI
+                                </label>
+                                {{ form.dni }}
+                                {{ form.dni.errors }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información de Contacto -->
+                <div class="card shadow-modern border-radius-modern mb-4">
+                    <div class="card-header" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333;">
+                        <h4 class="mb-0">
+                            <i class="fas fa-phone me-2"></i>📞 Información de Contacto
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label for="id_email" class="form-label">
+                                    <i class="fas fa-envelope me-1"></i>Email
+                                </label>
+                                {{ form.email }}
+                                {{ form.email.errors }}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_celular" class="form-label">
+                                    <i class="fas fa-mobile-alt me-1"></i>Celular
+                                </label>
+                                {{ form.celular }}
+                                {{ form.celular.errors }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información Fiscal -->
+                <div class="card shadow-modern border-radius-modern mb-4">
+                    <div class="card-header" style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); color: #333;">
+                        <h4 class="mb-0">
+                            <i class="fas fa-file-invoice-dollar me-2"></i>💼 Información Fiscal
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label for="id_tipo_ins" class="form-label">
+                                    <i class="fas fa-building me-1"></i>Tipo de Inscripción
+                                </label>
+                                {{ form.tipo_ins }}
+                                {{ form.tipo_ins.errors }}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_cuit" class="form-label">
+                                    <i class="fas fa-hashtag me-1"></i>CUIT <small class="text-muted">(opcional)</small>
+                                </label>
+                                {{ form.cuit }}
+                                {{ form.cuit.errors }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Domicilio -->
+                <div class="card shadow-modern border-radius-modern mb-4">
+                    <div class="card-header" style="background: linear-gradient(135deg, #d299c2 0%, #fef9d7 100%); color: #333;">
+                        <h4 class="mb-0">
+                            <i class="fas fa-home me-2"></i>🏠 Domicilio
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-4">
+                            <div class="col-md-8">
+                                <label for="id_domicilio" class="form-label" style="font-size: 1.1rem;">
+                                    <i class="fas fa-map-marker-alt me-1"></i>Dirección
+                                </label>
+                                {{ form.domicilio }}
+                                {{ form.domicilio.errors }}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="id_codigo_postal" class="form-label">
+                                    <i class="fas fa-mail-bulk me-1"></i>Código Postal
+                                </label>
+                                {{ form.codigo_postal }}
+                                {{ form.codigo_postal.errors }}
+                            </div>
+                        </div>
+                        <div class="row g-4 mt-3">
+                            <div class="col-md-6">
+                                <label for="id_localidad" class="form-label">
+                                    <i class="fas fa-city me-1"></i>Localidad
+                                </label>
+                                {{ form.localidad }}
+                                {{ form.localidad.errors }}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_provincia" class="form-label">
+                                    <i class="fas fa-map me-1"></i>Provincia
+                                </label>
+                                {{ form.provincia }}
+                                {{ form.provincia.errors }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información Adicional -->
+                <div class="card shadow-modern border-radius-modern mb-4">
+                    <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                        <h4 class="mb-0">
+                            <i class="fas fa-clipboard-list me-2"></i>📝 Información Adicional
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label for="id_garantia" class="form-label">
+                                    <i class="fas fa-shield-alt me-1"></i>Garantía
+                                </label>
+                                {{ form.garantia }}
+                                {{ form.garantia.errors }}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_observaciones" class="form-label">
+                                    <i class="fas fa-sticky-note me-1"></i>Observaciones
+                                </label>
+                                {{ form.observaciones }}
+                                {{ form.observaciones.errors }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="card shadow-modern border-radius-modern">
+                    <div class="card-body text-center py-4">
+                        <button type="submit" class="btn btn-success shadow-modern px-5 py-3 me-3" style="font-size: 1.1rem; font-weight: 600;">
+                            <i class="fas fa-save me-2"></i>💾 Guardar Inquilino
+                        </button>
+                        <a href="{% url 'inmobiliaria:inquilinos' %}" class="btn btn-secondary shadow-modern px-5 py-3" style="font-size: 1.1rem; font-weight: 600;">
+                            <i class="fas fa-times me-2"></i>❌ Cancelar
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Estilos específicos para el formulario de inquilino */
+.fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.shadow-modern {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1), 0 6px 20px rgba(0,0,0,0.08) !important;
+}
+
+.border-radius-modern {
+    border-radius: 15px !important;
+}
+
+.text-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.form-label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.form-control, .form-select {
+    border: 2px solid #e1e5e9;
+    border-radius: 8px !important;
+    padding: 12px 15px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 15px rgba(102, 126, 234, 0.2);
+    transform: translateY(-2px);
+}
+
+.btn {
+    border-radius: 8px !important;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+}
+
+textarea.form-control {
+    min-height: 100px;
+    resize: vertical;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .col-md-6, .col-md-4, .col-md-8 {
+        margin-bottom: 1rem;
+    }
+    
+    .btn {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+}
+</style>
 {% endblock %}
