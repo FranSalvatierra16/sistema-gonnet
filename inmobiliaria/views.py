@@ -2453,10 +2453,15 @@ def enviar_recuperacion(request):
         User = get_user_model()
         
         try:
-            # Obtener el primer usuario con ese email
-            user = User.objects.filter(email=email).first()
+            # Buscar usuario por email (case-insensitive)
+            user = User.objects.filter(email__iexact=email).first()
             
             if user:
+                # Verificar que el usuario tiene email válido
+                if not user.email or user.email.strip() == '':
+                    messages.error(request, 'Tu cuenta no tiene un correo electrónico configurado. Contacta al administrador.')
+                    return render(request, 'inmobiliaria/autenticacion/password_reset_form.html')
+                
                 # Generar una nueva contraseña temporal
                 nueva_password = User.objects.make_random_password()
                 user.set_password(nueva_password)
@@ -2464,16 +2469,16 @@ def enviar_recuperacion(request):
                 user.save()
                 
                 # Enviar email con la nueva contraseña
-                subject = 'Tu nueva contraseña - Gonnet'
+                subject = 'Tu nueva contraseña - Sistema Gonnet'
                 message = f'''
-                Hola {user.username},
-                
-                Tu nueva contraseña temporal es: {nueva_password}
-                
-                Por favor, ingresa con esta contraseña y cámbiala inmediatamente por una de tu preferencia.
-                
-                Saludos,
-                El equipo de Gonnet
+Hola {user.first_name if user.first_name else user.username},
+
+Tu nueva contraseña temporal es: {nueva_password}
+
+Por favor, ingresa con esta contraseña y cámbiala inmediatamente por una de tu preferencia.
+
+Saludos,
+El equipo de Sistema Gonnet
                 '''
                 
                 try:
@@ -2481,15 +2486,22 @@ def enviar_recuperacion(request):
                         subject,
                         message,
                         'gonnetinterno@gmail.com',  # Remitente
-                        [email],  # Destinatario
+                        [user.email],  # Destinatario
                         fail_silently=False,
                     )
-                    messages.success(request, 'Se ha enviado un correo con tu nueva contraseña.')
-                    return redirect('login')
+                    messages.success(request, f'Se ha enviado un correo con tu nueva contraseña a {user.email}.')
+                    return redirect('inmobiliaria:password_reset_done')
                 except Exception as e:
-                    messages.error(request, f'Error al enviar el correo: {str(e)}')
+                    # Revertir el cambio de contraseña si falla el envío
+                    user.refresh_from_db()
+                    messages.error(request, f'Error al enviar el correo: {str(e)}. Por favor, contacta al administrador.')
             else:
-                messages.error(request, 'No existe una cuenta con ese correo electrónico.')
+                # Debug: contar usuarios con emails similares
+                emails_existentes = User.objects.filter(email__icontains=email.split('@')[0] if '@' in email else email).values_list('email', flat=True)
+                if emails_existentes:
+                    messages.error(request, f'No se encontró una cuenta exacta con el correo {email}. Verifica que esté escrito correctamente.')
+                else:
+                    messages.error(request, 'No existe una cuenta con ese correo electrónico.')
         except Exception as e:
             messages.error(request, f'Error al procesar la solicitud: {str(e)}')
     
