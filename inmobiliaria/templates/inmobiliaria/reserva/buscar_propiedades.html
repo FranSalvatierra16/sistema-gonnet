@@ -2747,6 +2747,26 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
     document.getElementById('modal_descripcion').textContent = propiedadSeleccionada.descripcion || 'Sin descripción';
     document.getElementById('modal_caracteristicas').textContent = propiedadSeleccionada.caracteristicas || 'Sin características';
     
+    // Función para formatear fecha de yyyy-mm-dd a dd-mm-yy
+    function formatearFecha(fechaISO) {
+        if (!fechaISO) return 'No seleccionada';
+        
+        // Si ya está en formato DD-MM-YY, no convertir
+        if (fechaISO.includes('-') && fechaISO.length <= 8) {
+            return fechaISO;
+        }
+        
+        try {
+            // Convertir de YYYY-MM-DD a DD-MM-YY
+            const [year, month, day] = fechaISO.split('-');
+            const yearShort = year ? year.slice(-2) : '00'; // Últimos 2 dígitos del año
+            return `${day}-${month}-${yearShort}`;
+        } catch (error) {
+            console.error('Error al formatear fecha:', error);
+            return fechaISO; // Devolver fecha original si hay error
+        }
+    }
+    
     // Fechas - verificar múltiples posibles IDs
     const fechaInicio = document.getElementById('id_fecha_inicio')?.value || 
                        document.getElementById('fecha_inicio')?.value || '';
@@ -2755,8 +2775,8 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
     
     console.log('📅 Fechas obtenidas:', { fechaInicio, fechaFin });
     
-    document.getElementById('modal_fecha_inicio').textContent = fechaInicio || 'No seleccionada';
-    document.getElementById('modal_fecha_fin').textContent = fechaFin || 'No seleccionada';
+    document.getElementById('modal_fecha_inicio').textContent = formatearFecha(fechaInicio);
+    document.getElementById('modal_fecha_fin').textContent = formatearFecha(fechaFin);
     
     // Precio - formatear para mostrar
     const precioFormateado = window.formatearPrecio(propiedadSeleccionada.precio || 0);
