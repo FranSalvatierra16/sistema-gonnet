@@ -458,21 +458,42 @@
                 // Ensure dropdowns work on all devices
                 dropdown.addEventListener('click', function(e) {
                     e.preventDefault();
+                    e.stopPropagation();
+                    
                     const dropdownMenu = this.nextElementSibling;
+                    if (!dropdownMenu || !dropdownMenu.classList.contains('dropdown-menu')) {
+                        console.warn('Dropdown menu not found for:', this);
+                        return;
+                    }
+                    
                     const isShown = dropdownMenu.classList.contains('show');
                     
                     // Close all other dropdowns
                     document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
                         if (menu !== dropdownMenu) {
                             menu.classList.remove('show');
+                            const parentDropdown = menu.previousElementSibling;
+                            if (parentDropdown) {
+                                parentDropdown.setAttribute('aria-expanded', 'false');
+                            }
                         }
                     });
                     
                     // Toggle current dropdown
                     if (isShown) {
                         dropdownMenu.classList.remove('show');
+                        this.setAttribute('aria-expanded', 'false');
                     } else {
                         dropdownMenu.classList.add('show');
+                        this.setAttribute('aria-expanded', 'true');
+                    }
+                });
+                
+                // Add keyboard support
+                dropdown.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.click();
                     }
                 });
             });
@@ -498,8 +519,15 @@
             // Smooth scrolling for anchor links
             document.querySelectorAll('a[href^="#"]').forEach(anchor => {
                 anchor.addEventListener('click', function (e) {
+                    const href = this.getAttribute('href');
+                    
+                    // Skip if href is just "#" or empty
+                    if (!href || href === '#' || href.length <= 1) {
+                        return; // Don't prevent default for dropdown toggles
+                    }
+                    
                     e.preventDefault();
-                    const target = document.querySelector(this.getAttribute('href'));
+                    const target = document.querySelector(href);
                     if (target) {
                         target.scrollIntoView({ behavior: 'smooth' });
                     }
@@ -533,6 +561,16 @@
         // Global error handling
         window.addEventListener('error', function(e) {
             console.error('Global error:', e.error);
+            // Don't let DOM errors break dropdowns
+            if (e.error && e.error.toString().includes('querySelector')) {
+                console.warn('Selector error prevented from breaking UI');
+                e.preventDefault();
+            }
+        });
+        
+        // Additional error handling for unhandled promise rejections
+        window.addEventListener('unhandledrejection', function(e) {
+            console.warn('Unhandled promise rejection:', e.reason);
         });
         
         // Utilities
