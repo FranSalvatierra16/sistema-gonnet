@@ -900,6 +900,179 @@
             min-width: unset !important;
         }
     }
+
+    /* ============================== */
+    /* ARREGLO MÍNIMO PARA MODALES */
+    /* ============================== */
+    
+    /* Solo arreglar z-index y visibilidad básica */
+    .modal {
+        z-index: 1055 !important;
+    }
+    
+    .modal-backdrop {
+        z-index: 1050 !important;
+    }
+    
+    .modal-content {
+        background-color: #ffffff !important;
+        opacity: 1 !important;
+    }
+    
+    .modal-body {
+        background-color: #ffffff !important;
+        color: #333333 !important;
+    }
+
+    /* ====================================== */
+    /* SOBRESCRIBIR CONFLICTOS DEL BASE.HTML */
+    /* ====================================== */
+    
+    /* Asegurar que los modales sean completamente interactivos */
+    .modal,
+    .modal * {
+        pointer-events: auto !important;
+        user-select: auto !important;
+        -webkit-user-select: auto !important;
+        -moz-user-select: auto !important;
+        -ms-user-select: auto !important;
+    }
+    
+    /* Sobrescribir cualquier z-index del main-content que pueda interferir */
+    .main-content {
+        z-index: auto !important;
+        position: relative !important;
+    }
+    
+    /* Asegurar que el modal y backdrop están por encima del main-content */
+    .modal {
+        z-index: 9999 !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+    
+    .modal-backdrop {
+        z-index: 9998 !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background-color: rgba(0, 0, 0, 0.5) !important;
+    }
+    
+    .modal-dialog {
+        z-index: 10000 !important;
+        position: relative !important;
+        margin: 1.75rem auto !important;
+        pointer-events: auto !important;
+    }
+    
+    .modal-content {
+        z-index: 10001 !important;
+        position: relative !important;
+        background-color: #ffffff !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.5) !important;
+        border: 1px solid rgba(0, 0, 0, 0.2) !important;
+        border-radius: 0.5rem !important;
+    }
+    
+    /* Asegurar que todos los elementos dentro del modal sean clickeables */
+    .modal input,
+    .modal button,
+    .modal select,
+    .modal textarea,
+    .modal a,
+    .modal .btn,
+    .modal .form-control,
+    .modal .form-select,
+    .modal .form-check-input,
+    .modal .close,
+    .modal .btn-close {
+        pointer-events: auto !important;
+        z-index: auto !important;
+        opacity: 1 !important;
+        user-select: auto !important;
+        cursor: pointer !important;
+    }
+    
+    /* Sobrescribir backdrop-filter que pueda estar causando problemas */
+    .modal,
+    .modal-dialog,
+    .modal-content {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        filter: none !important;
+        transform: none !important;
+        transition: none !important;
+    }
+    
+    /* Asegurar que el cuerpo del modal sea scrolleable si es necesario */
+    .modal-body {
+        overflow-y: auto !important;
+        max-height: 70vh !important;
+        padding: 1rem !important;
+    }
+    
+    /* Arreglar botones específicos */
+    .modal .btn-close {
+        position: relative !important;
+        z-index: 10002 !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        cursor: pointer !important;
+        background: none !important;
+        border: none !important;
+    }
+    
+    /* Arreglar formularios dentro de modales */
+    .modal form,
+    .modal .form-group,
+    .modal .input-group {
+        pointer-events: auto !important;
+        z-index: auto !important;
+    }
+    
+    /* Asegurar que tablas en modales sean interactivas */
+    .modal table,
+    .modal td,
+    .modal th {
+        pointer-events: auto !important;
+        user-select: auto !important;
+    }
+    
+    /* Desactivar cualquier overlay invisible que pueda estar bloqueando */
+    .modal::before,
+    .modal::after,
+    .modal-dialog::before,
+    .modal-dialog::after,
+    .modal-content::before,
+    .modal-content::after {
+        content: none !important;
+        display: none !important;
+    }
+    
+    /* Arreglar específicamente para este modal */
+    #modalPrecios,
+    #modalGestionPrecios,
+    #modalFiltrosAvanzados {
+        z-index: 9999 !important;
+        pointer-events: auto !important;
+    }
+    
+    #modalPrecios *,
+    #modalGestionPrecios *,
+    #modalFiltrosAvanzados * {
+        pointer-events: auto !important;
+        user-select: auto !important;
+    }
+
+    /* Resto de los estilos... */
     </style>
 {% endblock extra_css %}
 
@@ -4691,4 +4864,42 @@ function resetearFiltros() {
     }
 }
 </script>
+
+// Arreglo crítico para interactividad
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        console.log('🔄 Aplicando arreglos de interactividad...');
+        
+        // Función para hacer modales interactivos
+        function fijarModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.pointerEvents = 'auto';
+                modal.querySelectorAll('*').forEach(el => {
+                    el.style.pointerEvents = 'auto';
+                    el.style.userSelect = 'auto';
+                });
+            }
+        }
+        
+        // Interceptar eventos de modal
+        document.addEventListener('click', function(e) {
+            if (e.target.textContent.includes('Ver Precios') || e.target.closest('[onclick*="verPrecios"]')) {
+                setTimeout(() => fijarModal('modalPrecios'), 100);
+            }
+            if (e.target.textContent.includes('Mostrar Filtros') || e.target.closest('[onclick*="abrirModalFiltros"]')) {
+                setTimeout(() => fijarModal('modalFiltrosAvanzados'), 100);
+            }
+        });
+        
+        // Doble click en precios
+        document.addEventListener('dblclick', function(e) {
+            if (e.target.closest('td') && e.target.textContent.includes('$')) {
+                setTimeout(() => fijarModal('modalGestionPrecios'), 100);
+            }
+        });
+        
+        console.log('✅ Interactividad aplicada');
+    }, 500);
+});
 {% endblock extra_js %}
