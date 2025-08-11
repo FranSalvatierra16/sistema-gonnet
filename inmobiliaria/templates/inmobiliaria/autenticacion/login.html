@@ -27,7 +27,7 @@
 
         body {
             font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 50%, #06d79c 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -45,9 +45,9 @@
             width: 100%;
             height: 100%;
             background: 
-                radial-gradient(circle at 20% 80%, rgba(120, 120, 120, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 40% 40%, rgba(120, 120, 120, 0.1) 0%, transparent 50%);
+                radial-gradient(circle at 20% 80%, rgba(17, 153, 142, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(56, 239, 125, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(6, 215, 156, 0.15) 0%, transparent 50%);
             animation: floatingBg 20s ease-in-out infinite;
         }
 
@@ -62,7 +62,7 @@
             backdrop-filter: blur(20px);
             border-radius: 20px;
             box-shadow: 
-                0 25px 50px rgba(0, 0, 0, 0.15),
+                0 25px 50px rgba(17, 153, 142, 0.2),
                 0 0 0 1px rgba(255, 255, 255, 0.2);
             width: 100%;
             max-width: 450px;
@@ -85,7 +85,7 @@
 
         /* Header del login */
         .login-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
             color: white;
             padding: 40px 30px;
             text-align: center;
@@ -167,8 +167,8 @@
         }
 
         .form-control:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 20px rgba(102, 126, 234, 0.2);
+            border-color: #11998e;
+            box-shadow: 0 0 20px rgba(17, 153, 142, 0.2);
             background: white;
             transform: translateY(-2px);
         }
@@ -178,7 +178,7 @@
             left: 18px;
             top: 50%;
             transform: translateY(-50%);
-            color: #667eea;
+            color: #11998e;
             font-size: 1.1rem;
             z-index: 3;
             margin-top: 12px;
@@ -186,7 +186,7 @@
 
         /* Botón de login */
         .btn-login {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
             color: white;
             border: none;
             border-radius: 12px;
@@ -217,7 +217,7 @@
 
         .btn-login:hover {
             transform: translateY(-3px);
-            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 15px 35px rgba(17, 153, 142, 0.4);
         }
 
         .btn-login:active {
@@ -231,14 +231,14 @@
         }
 
         .forgot-password a {
-            color: #667eea;
+            color: #11998e;
             text-decoration: none;
             font-weight: 500;
             transition: all 0.3s ease;
         }
 
         .forgot-password a:hover {
-            color: #764ba2;
+            color: #38ef7d;
             text-decoration: underline;
         }
 
@@ -273,7 +273,7 @@
         }
 
         .alert-info {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
             color: white;
         }
 
@@ -341,7 +341,7 @@
         .decorative-circle {
             position: absolute;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(56, 239, 125, 0.1);
             animation: float 6s ease-in-out infinite;
         }
 
@@ -376,6 +376,26 @@
             color: #ff6b6b;
             font-size: 0.875rem;
             margin-top: 5px;
+            display: block;
+        }
+
+        /* Estilos para errores de Django */
+        .django-errors {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%);
+            color: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+
+        .django-errors ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .django-errors li {
+            margin-bottom: 5px;
         }
     </style>
 </head>
@@ -406,6 +426,16 @@
             </div>
             {% endif %}
 
+            <!-- Errores generales del formulario -->
+            {% if form.non_field_errors %}
+            <div class="django-errors">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                {% for error in form.non_field_errors %}
+                    {{ error }}
+                {% endfor %}
+            </div>
+            {% endif %}
+
             <form method="post" id="loginForm">
                 {% csrf_token %}
                 
@@ -415,14 +445,15 @@
                     </label>
                     <div class="position-relative">
                         <i class="fas fa-user input-icon"></i>
-                        <input type="text" 
-                               name="username" 
-                               id="username" 
-                               class="form-control" 
-                               placeholder="Ingresa tu usuario"
-                               required
-                               autocomplete="username">
+                        {{ form.username }}
                     </div>
+                    {% if form.username.errors %}
+                    <div class="invalid-feedback">
+                        {% for error in form.username.errors %}
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
 
                 <div class="form-group">
@@ -431,20 +462,21 @@
                     </label>
                     <div class="position-relative">
                         <i class="fas fa-lock input-icon"></i>
-                        <input type="password" 
-                               name="password" 
-                               id="password" 
-                               class="form-control" 
-                               placeholder="Ingresa tu contraseña"
-                               required
-                               autocomplete="current-password">
+                        {{ form.password }}
                         <button type="button" 
                                 class="btn btn-link position-absolute end-0 top-50 translate-middle-y me-3" 
                                 id="togglePassword"
-                                style="border: none; background: none; color: #667eea; z-index: 3; margin-top: 12px;">
+                                style="border: none; background: none; color: #11998e; z-index: 3; margin-top: 12px;">
                             <i class="fas fa-eye"></i>
                         </button>
                     </div>
+                    {% if form.password.errors %}
+                    <div class="invalid-feedback">
+                        {% for error in form.password.errors %}
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
 
                 <input type="hidden" name="next" value="{{ next }}">
@@ -470,21 +502,54 @@
             const loginForm = document.getElementById('loginForm');
             const loginBtn = document.getElementById('loginBtn');
             const togglePassword = document.getElementById('togglePassword');
-            const passwordField = document.getElementById('password');
-            const usernameField = document.getElementById('username');
+            
+            // Obtener campos del formulario de Django
+            const passwordField = document.querySelector('input[name="password"]');
+            const usernameField = document.querySelector('input[name="username"]');
+
+            // Agregar atributos necesarios a los campos de Django
+            if (usernameField) {
+                usernameField.id = 'username';
+                usernameField.className = 'form-control';
+                usernameField.placeholder = 'Ingresa tu usuario';
+                usernameField.autocomplete = 'username';
+                usernameField.required = true;
+            }
+
+            if (passwordField) {
+                passwordField.id = 'password';
+                passwordField.className = 'form-control';
+                passwordField.placeholder = 'Ingresa tu contraseña';
+                passwordField.autocomplete = 'current-password';
+                passwordField.required = true;
+            }
+
+            // Verificar si hay errores de Django y marcar campos
+            if (document.querySelector('.django-errors') || document.querySelector('.invalid-feedback')) {
+                if (usernameField && usernameField.parentElement.parentElement.querySelector('.invalid-feedback')) {
+                    usernameField.classList.add('is-invalid');
+                }
+                if (passwordField && passwordField.parentElement.parentElement.querySelector('.invalid-feedback')) {
+                    passwordField.classList.add('is-invalid');
+                }
+            }
 
             // Toggle password visibility
-            togglePassword.addEventListener('click', function() {
-                const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
-                passwordField.setAttribute('type', type);
-                
-                const icon = this.querySelector('i');
-                icon.classList.toggle('fa-eye');
-                icon.classList.toggle('fa-eye-slash');
-            });
+            if (togglePassword && passwordField) {
+                togglePassword.addEventListener('click', function() {
+                    const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+                    passwordField.setAttribute('type', type);
+                    
+                    const icon = this.querySelector('i');
+                    icon.classList.toggle('fa-eye');
+                    icon.classList.toggle('fa-eye-slash');
+                });
+            }
 
             // Form validation
             function validateField(field) {
+                if (!field) return true;
+                
                 if (field.value.trim() === '') {
                     field.classList.add('is-invalid');
                     return false;
@@ -495,50 +560,62 @@
             }
 
             // Real-time validation
-            usernameField.addEventListener('input', function() {
-                validateField(this);
-            });
+            if (usernameField) {
+                usernameField.addEventListener('input', function() {
+                    validateField(this);
+                });
+            }
 
-            passwordField.addEventListener('input', function() {
-                validateField(this);
-            });
+            if (passwordField) {
+                passwordField.addEventListener('input', function() {
+                    validateField(this);
+                });
+            }
 
             // Form submission
-            loginForm.addEventListener('submit', function(e) {
-                const isUsernameValid = validateField(usernameField);
-                const isPasswordValid = validateField(passwordField);
+            if (loginForm) {
+                loginForm.addEventListener('submit', function(e) {
+                    const isUsernameValid = validateField(usernameField);
+                    const isPasswordValid = validateField(passwordField);
 
-                if (!isUsernameValid || !isPasswordValid) {
-                    e.preventDefault();
-                    
-                    // Shake animation for errors
-                    loginForm.style.animation = 'shake 0.5s ease-in-out';
-                    setTimeout(() => {
-                        loginForm.style.animation = '';
-                    }, 500);
-                    
-                    return;
-                }
+                    if (!isUsernameValid || !isPasswordValid) {
+                        e.preventDefault();
+                        
+                        // Shake animation for errors
+                        loginForm.style.animation = 'shake 0.5s ease-in-out';
+                        setTimeout(() => {
+                            loginForm.style.animation = '';
+                        }, 500);
+                        
+                        return;
+                    }
 
-                // Loading state
-                loginBtn.classList.add('loading');
-                loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Iniciando sesión...';
-                
-                // Disable form fields
-                usernameField.disabled = true;
-                passwordField.disabled = true;
-                togglePassword.disabled = true;
-            });
+                    // Loading state
+                    if (loginBtn) {
+                        loginBtn.classList.add('loading');
+                        loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Iniciando sesión...';
+                        
+                        // Disable form fields
+                        if (usernameField) usernameField.disabled = true;
+                        if (passwordField) passwordField.disabled = true;
+                        if (togglePassword) togglePassword.disabled = true;
+                    }
+                });
+            }
 
             // Auto-focus on username field
-            usernameField.focus();
+            if (usernameField) {
+                usernameField.focus();
+            }
 
             // Add enter key support
-            passwordField.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    loginForm.dispatchEvent(new Event('submit'));
-                }
-            });
+            if (passwordField) {
+                passwordField.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' && loginForm) {
+                        loginForm.dispatchEvent(new Event('submit'));
+                    }
+                });
+            }
         });
 
         // Add shake animation
