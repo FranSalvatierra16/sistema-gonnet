@@ -1141,7 +1141,7 @@
     /* ARREGLO CRÍTICO PARA BLUR Y VISIBILIDAD */
     /* ========================================= */
     
-    /* Eliminar TODOS los efectos visuales problemáticos */
+    /* SOLO INTERACTIVIDAD - SIN CAMBIOS VISUALES */
     .modal,
     .modal *,
     .modal-dialog,
@@ -1150,71 +1150,44 @@
     .modal-content *,
     .modal-body,
     .modal-body * {
-        filter: none !important;
-        -webkit-filter: none !important;
+        pointer-events: auto !important;
+        user-select: auto !important;
+        -webkit-user-select: auto !important;
+        -moz-user-select: auto !important;
+        -ms-user-select: auto !important;
+    }
+    
+    /* Eliminar bloqueos invisibles - SIN cambiar diseño */
+    .modal,
+    .modal *,
+    .modal-dialog,
+    .modal-dialog * {
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
-        opacity: 1 !important;
-        visibility: visible !important;
         transform: none !important;
         -webkit-transform: none !important;
-        transition: none !important;
-        -webkit-transition: none !important;
     }
     
-    /* Forzar visibilidad completa del modal */
-    .modal.show,
-    .modal.show .modal-dialog,
-    .modal.show .modal-content {
-        opacity: 1 !important;
-        visibility: visible !important;
-        display: block !important;
-    }
-    
-    /* Asegurar contraste y legibilidad */
-    .modal-content {
-        background-color: #ffffff !important;
-        color: #000000 !important;
-        border: 2px solid #007bff !important;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
-    }
-    
-    /* Forzar visibilidad de texto y elementos */
-    .modal-body,
-    .modal-header,
-    .modal-footer {
-        background-color: #ffffff !important;
-        color: #000000 !important;
-    }
-    
-    .modal-body *,
-    .modal-header *,
-    .modal-footer * {
-        color: #000000 !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-    }
-    
-    /* Dropdowns dentro de modales */
+    /* Solo elementos de formulario clickeables */
+    .modal input,
+    .modal button,
     .modal select,
-    .modal .form-select {
-        background-color: #ffffff !important;
-        color: #000000 !important;
-        border: 1px solid #ced4da !important;
-        opacity: 1 !important;
-    }
-    
-    /* Checkboxes y labels */
+    .modal textarea,
+    .modal a,
+    .modal .btn,
+    .modal .form-control,
+    .modal .form-select,
+    .modal .dropdown-toggle,
+    .modal .dropdown-item,
+    .modal label,
+    .modal .form-check-input,
     .modal .form-check-label {
-        color: #000000 !important;
-        font-weight: 500 !important;
-    }
-    
-    /* Botones */
-    .modal .btn {
-        opacity: 1 !important;
-        visibility: visible !important;
-        filter: none !important;
+        pointer-events: auto !important;
+        cursor: pointer !important;
+        user-select: auto !important;
+        -webkit-user-select: auto !important;
+        -moz-user-select: auto !important;
+        -ms-user-select: auto !important;
     }
 
     /* Resto de los estilos... */
@@ -4838,37 +4811,36 @@ function hacerModalCompletamenteInteractivo(modalElement) {
 function eliminarBlurYEfectos(modalElement) {
     if (!modalElement) return;
     
-    console.log('🎯 Eliminando blur y efectos problemáticos...');
+    console.log('🎯 Arreglando SOLO interactividad (sin cambiar diseño)...');
     
-    // Lista de propiedades problemáticas
-    const propiedadesProblematicas = [
-        'filter', 'webkitFilter', 'backdropFilter', 'webkitBackdropFilter',
-        'transform', 'webkitTransform', 'transition', 'webkitTransition'
+    // SOLO propiedades que afectan interactividad - NO visuales
+    const propiedadesInteractividad = [
+        'backdropFilter', 'webkitBackdropFilter', 'transform', 'webkitTransform'
     ];
     
     // Aplicar al modal y todos sus descendientes
     const elementos = [modalElement, ...modalElement.querySelectorAll('*')];
     
     elementos.forEach(el => {
-        propiedadesProblematicas.forEach(prop => {
+        // SOLO arreglar interactividad
+        propiedadesInteractividad.forEach(prop => {
             el.style[prop] = 'none';
         });
         
-        // Forzar visibilidad
-        el.style.opacity = '1';
-        el.style.visibility = 'visible';
-        el.style.display = el.style.display || 'block';
+        // SOLO pointer-events y cursor - NO colores ni fondos
+        el.style.pointerEvents = 'auto';
+        el.style.userSelect = 'auto';
         
-        // Para elementos de formulario
-        if (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'BUTTON') {
-            el.style.backgroundColor = '#ffffff';
-            el.style.color = '#000000';
-            el.style.pointerEvents = 'auto';
+        // Solo para elementos de formulario - SOLO cursor
+        if (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'BUTTON' || 
+            el.classList.contains('btn') || el.classList.contains('form-control') ||
+            el.classList.contains('dropdown-toggle')) {
             el.style.cursor = 'pointer';
+            el.style.pointerEvents = 'auto';
         }
     });
     
-    console.log('✅ Blur y efectos eliminados');
+    console.log('✅ Interactividad arreglada (diseño intacto)');
 }
 
 // Función para toggle de ver todas las propiedades
