@@ -900,6 +900,156 @@
             min-width: unset !important;
         }
     }
+
+    /* ============================== */
+    /* ARREGLOS CRÍTICOS PARA MODALES */
+    /* ============================== */
+    
+    /* Sobrescribir z-index y backdrop del modal */
+    .modal {
+        z-index: 9999 !important;
+    }
+    
+    .modal-backdrop {
+        z-index: 9998 !important;
+        background-color: rgba(0, 0, 0, 0.5) !important;
+        opacity: 1 !important;
+    }
+    
+    .modal.show .modal-dialog {
+        z-index: 10000 !important;
+    }
+    
+    /* Asegurar que el contenido del modal sea completamente opaco */
+    .modal-content {
+        background-color: #ffffff !important;
+        opacity: 1 !important;
+        border: none !important;
+        border-radius: 12px !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+        position: relative !important;
+        z-index: 10001 !important;
+    }
+    
+    .modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border-bottom: none !important;
+        border-radius: 12px 12px 0 0 !important;
+        padding: 1rem 1.5rem !important;
+    }
+    
+    .modal-title {
+        color: white !important;
+        font-weight: 600 !important;
+        font-size: 1.1rem !important;
+    }
+    
+    .modal-body {
+        background-color: #ffffff !important;
+        padding: 1.5rem !important;
+        color: #333333 !important;
+        max-height: 70vh !important;
+        overflow-y: auto !important;
+    }
+    
+    .modal-footer {
+        background-color: #f8f9fa !important;
+        border-top: 1px solid #dee2e6 !important;
+        border-radius: 0 0 12px 12px !important;
+        padding: 1rem 1.5rem !important;
+    }
+    
+    .btn-close {
+        background-color: transparent !important;
+        border: none !important;
+        color: white !important;
+        opacity: 0.8 !important;
+        font-size: 1.2rem !important;
+    }
+    
+    .btn-close:hover {
+        opacity: 1 !important;
+        color: white !important;
+    }
+    
+    /* Arreglar modales específicos */
+    #modalPrecios,
+    #modalGestionPrecios,
+    #modalFiltrosAvanzados {
+        z-index: 9999 !important;
+    }
+    
+    #modalPrecios .modal-content,
+    #modalGestionPrecios .modal-content,
+    #modalFiltrosAvanzados .modal-content {
+        background: white !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+    
+    /* Arreglar el modal de filtros específicamente */
+    .modal-filtros .modal-dialog {
+        max-width: 900px !important;
+        margin: 3rem auto !important;
+    }
+    
+    .modal-filtros .modal-content {
+        background: white !important;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    /* Estilo para formularios dentro de modales */
+    .modal .form-control,
+    .modal .form-select {
+        background-color: white !important;
+        border: 1px solid #ced4da !important;
+        color: #333 !important;
+    }
+    
+    .modal .form-control:focus,
+    .modal .form-select:focus {
+        border-color: #667eea !important;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
+    }
+    
+    .modal .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        border: none !important;
+        color: white !important;
+    }
+    
+    .modal .btn-primary:hover {
+        background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
+    }
+    
+    .modal .btn-secondary {
+        background-color: #6c757d !important;
+        border: none !important;
+        color: white !important;
+    }
+    
+    .modal .btn-secondary:hover {
+        background-color: #5a6268 !important;
+        transform: translateY(-1px) !important;
+    }
+    
+    /* Asegurar que los elementos del modal no sean transparent */
+    .modal * {
+        opacity: 1 !important;
+    }
+    
+    /* Arreglar input groups en modales */
+    .modal .input-group .form-control {
+        z-index: auto !important;
+    }
+    
+    /* Arreglar select2 en modales si existe */
+    .modal .select2-container {
+        z-index: 10005 !important;
+    }
     </style>
 {% endblock extra_css %}
 
@@ -2380,9 +2530,34 @@ function verPrecios() {
     // Actualizar título del modal
     document.getElementById('tituloPreciosModal').textContent = propiedadSeleccionada.direccion;
 
-    // Mostrar el modal
-    const modalPrecios = new bootstrap.Modal(document.getElementById('modalPrecios'));
-    modalPrecios.show();
+    // Mostrar el modal - método robusto
+    try {
+        const modal = new bootstrap.Modal(document.getElementById('modalGestionPrecios'));
+        modal.show();
+    } catch (error) {
+        console.log('Bootstrap modal falló, usando método manual...');
+        const modalElement = document.getElementById('modalGestionPrecios');
+        if (modalElement) {
+            document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+            modalElement.style.display = 'block';
+            modalElement.style.zIndex = '9999';
+            modalElement.classList.add('show');
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            backdrop.style.zIndex = '9998';
+            document.body.appendChild(backdrop);
+            backdrop.addEventListener('click', () => {
+                modalElement.classList.remove('show');
+                modalElement.style.display = 'none';
+                backdrop.remove();
+            });
+            modalElement.querySelector('.btn-close')?.addEventListener('click', () => {
+                modalElement.classList.remove('show');
+                modalElement.style.display = 'none';
+                backdrop.remove();
+            });
+        }
+    }
 
     // Construir URL
     const url = `${URLS.obtenerPrecios}${propiedadSeleccionada.id}/`;
@@ -4690,5 +4865,197 @@ function resetearFiltros() {
         console.error('Error reseteando filtros:', error);
     }
 }
+
+// ============================
+// ARREGLOS PARA CONFLICTOS DE MODALES
+// ============================
+
+// Sobrescribir funciones de modal para máxima compatibilidad
+function abrirModalFiltrosSeguro() {
+    console.log('🔧 Abriendo modal de filtros (modo seguro)...');
+    try {
+        // Cerrar cualquier modal existente
+        document.querySelectorAll('.modal.show').forEach(modal => {
+            const modalInstance = bootstrap.Modal.getInstance(modal);
+            if (modalInstance) modalInstance.hide();
+        });
+        
+        // Limpiar cualquier backdrop existente
+        document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+            backdrop.remove();
+        });
+        
+        setTimeout(() => {
+            const modalElement = document.getElementById('modalFiltrosAvanzados');
+            if (modalElement) {
+                // Asegurar visibilidad
+                modalElement.style.display = 'block';
+                modalElement.style.zIndex = '9999';
+                modalElement.classList.add('show');
+                
+                // Crear backdrop manualmente
+                const backdrop = document.createElement('div');
+                backdrop.className = 'modal-backdrop fade show';
+                backdrop.style.zIndex = '9998';
+                document.body.appendChild(backdrop);
+                
+                // Añadir event listener para cerrar
+                backdrop.addEventListener('click', cerrarModalFiltrosSeguro);
+                modalElement.querySelector('.btn-close')?.addEventListener('click', cerrarModalFiltrosSeguro);
+                
+                console.log('✅ Modal de filtros abierto exitosamente');
+            } else {
+                console.error('❌ Modal element not found');
+            }
+        }, 100);
+        
+    } catch (error) {
+        console.error('❌ Error opening modal:', error);
+        // Fallback: usar Bootstrap normal
+        try {
+            const modal = new bootstrap.Modal(document.getElementById('modalFiltrosAvanzados'));
+            modal.show();
+        } catch (fallbackError) {
+            console.error('❌ Fallback también falló:', fallbackError);
+        }
+    }
+}
+
+function cerrarModalFiltrosSeguro() {
+    console.log('🔧 Cerrando modal de filtros (modo seguro)...');
+    try {
+        const modalElement = document.getElementById('modalFiltrosAvanzados');
+        if (modalElement) {
+            modalElement.classList.remove('show');
+            modalElement.style.display = 'none';
+        }
+        
+        // Remover todos los backdrops
+        document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+            backdrop.remove();
+        });
+        
+        // Restaurar scroll del body
+        document.body.style.overflow = '';
+        document.body.classList.remove('modal-open');
+        
+    } catch (error) {
+        console.error('❌ Error closing modal:', error);
+    }
+}
+
+function abrirModalPreciosSeguro() {
+    console.log('🔧 Abriendo modal de precios (modo seguro)...');
+    try {
+        if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
+            alert('Por favor, selecciona una propiedad primero.');
+            return;
+        }
+        
+        // Cerrar cualquier modal existente
+        document.querySelectorAll('.modal.show').forEach(modal => {
+            const modalInstance = bootstrap.Modal.getInstance(modal);
+            if (modalInstance) modalInstance.hide();
+        });
+        
+        // Limpiar backdops
+        document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+            backdrop.remove();
+        });
+        
+        setTimeout(() => {
+            const modalElement = document.getElementById('modalGestionPrecios');
+            if (modalElement) {
+                // Actualizar título
+                const titleElement = document.getElementById('propiedadNombreModal');
+                if (titleElement) {
+                    titleElement.textContent = propiedadSeleccionada.direccion || `ID: ${propiedadSeleccionada.id}`;
+                }
+                
+                // Mostrar modal
+                modalElement.style.display = 'block';
+                modalElement.style.zIndex = '9999';
+                modalElement.classList.add('show');
+                
+                // Crear backdrop
+                const backdrop = document.createElement('div');
+                backdrop.className = 'modal-backdrop fade show';
+                backdrop.style.zIndex = '9998';
+                document.body.appendChild(backdrop);
+                
+                // Event listeners para cerrar
+                backdrop.addEventListener('click', cerrarModalPreciosSeguro);
+                modalElement.querySelector('.btn-close')?.addEventListener('click', cerrarModalPreciosSeguro);
+                
+                // Cargar precios
+                cargarPreciosCompletos(propiedadSeleccionada.id);
+                
+                console.log('✅ Modal de precios abierto exitosamente');
+            } else {
+                console.error('❌ Modal de precios no encontrado');
+            }
+        }, 100);
+        
+    } catch (error) {
+        console.error('❌ Error abriendo modal de precios:', error);
+        // Fallback
+        try {
+            abrirModalGestionPrecios();
+        } catch (fallbackError) {
+            console.error('❌ Fallback de precios también falló:', fallbackError);
+        }
+    }
+}
+
+function cerrarModalPreciosSeguro() {
+    console.log('🔧 Cerrando modal de precios (modo seguro)...');
+    try {
+        const modalElement = document.getElementById('modalGestionPrecios');
+        if (modalElement) {
+            modalElement.classList.remove('show');
+            modalElement.style.display = 'none';
+        }
+        
+        // Remover backdrops
+        document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+            backdrop.remove();
+        });
+        
+        // Restaurar body
+        document.body.style.overflow = '';
+        document.body.classList.remove('modal-open');
+        
+    } catch (error) {
+        console.error('❌ Error cerrando modal de precios:', error);
+    }
+}
+
+// Reemplazar funciones originales al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔧 Aplicando arreglos de modal...');
+    
+    // Sobrescribir función global de filtros
+    if (typeof window.abrirModalFiltros !== 'undefined') {
+        window.abrirModalFiltrosOriginal = window.abrirModalFiltros;
+    }
+    window.abrirModalFiltros = abrirModalFiltrosSeguro;
+    
+    // Sobrescribir función de precios si existe
+    if (typeof window.abrirModalGestionPrecios !== 'undefined') {
+        window.abrirModalGestionPreciosOriginal = window.abrirModalGestionPrecios;
+    }
+    window.abrirModalGestionPrecios = abrirModalPreciosSeguro;
+    
+    // Asegurar que los botones de precios usen la función segura
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('[onclick*="precios"]') || e.target.closest('.btn-precios')) {
+            e.preventDefault();
+            e.stopPropagation();
+            abrirModalPreciosSeguro();
+        }
+    });
+    
+    console.log('✅ Arreglos de modal aplicados correctamente');
+});
 </script>
 {% endblock extra_js %}
