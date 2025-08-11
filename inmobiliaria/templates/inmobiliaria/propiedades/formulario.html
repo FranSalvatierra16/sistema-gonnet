@@ -242,7 +242,7 @@
                                 <img src="{{ imagen.imagen.url }}" class="card-img-top" alt="Imagen de propiedad" 
                                      style="height: 200px; object-fit: cover;">
                                 <div class="card-body p-2">
-                                    <small class="text-muted">Orden: {{ imagen.orden }}</small>
+                                    <small class="text-muted">Orden: <span class="orden-texto">{{ imagen.orden }}</span></small>
                                 </div>
                                 <button type="button" 
                                         class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 eliminar-imagen"
@@ -418,11 +418,55 @@
         font-size: 1.1rem !important;
         padding: 14px 16px !important;
     }
+    
+    /* Estilos para drag & drop de imágenes */
+    .image-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        cursor: grab;
+    }
+    
+    .image-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+    }
+    
+    .image-card:active {
+        cursor: grabbing;
+    }
+    
+    .sortable-placeholder {
+        border: 2px dashed #4caf50 !important;
+        background: rgba(76, 175, 80, 0.1) !important;
+        border-radius: 15px !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    .drag-placeholder {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 200px !important;
+        color: #4caf50 !important;
+    }
+    
+    .ui-sortable-helper {
+        transform: rotate(5deg) scale(1.05) !important;
+        box-shadow: 0 15px 40px rgba(0,0,0,0.3) !important;
+        z-index: 1000 !important;
+        cursor: grabbing !important;
+    }
+    
+    .orden-texto {
+        font-weight: bold !important;
+        color: #4caf50 !important;
+    }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 <script>
 $(document).ready(function() {
     // Inicialización de Select2 para propietario
@@ -457,9 +501,16 @@ $(document).ready(function() {
     });
 
     {% if propiedad.pk %}
+    const URL_REORDENAR = "{% url 'inmobiliaria:reordenar_imagenes' propiedad.id %}";
+    const CSRF = "{{ csrf_token }}";
+    let isDragging = false;
+
     // Funcionalidad para eliminar imágenes
     $('#imagenes-container').on('click', '.eliminar-imagen', function(e) {
         e.preventDefault();
+        e.stopPropagation();
+        if (isDragging) return;
+        
         const $btn = $(this);
         const idImg = $btn.data('imagen-id');
         
@@ -470,12 +521,13 @@ $(document).ready(function() {
         $.post({
             url: "{% url 'inmobiliaria:imagen_eliminar' 0 %}".replace('0', idImg),
             data: {
-                'csrfmiddlewaretoken': '{{ csrf_token }}'
+                'csrfmiddlewaretoken': CSRF
             },
             success: function(response) {
                 if (response.success) {
                     $btn.closest('.col-6, .col-md-4, .col-lg-3').fadeOut(300, function() {
                         $(this).remove();
+                        actualizarOrdenes();
                     });
                 } else {
                     alert('Error: ' + response.error);
@@ -488,6 +540,104 @@ $(document).ready(function() {
             }
         });
     });
+
+    // Función para actualizar órdenes visualmente
+    function actualizarOrdenes() {
+        const nuevaLista = [];
+        $('#imagenes-container .col-6, #imagenes-container .col-md-4, #imagenes-container .col-lg-3').each(function(idx) {
+            const $card = $(this).find('.image-card');
+            const id = $(this).find('.eliminar-imagen').data('imagen-id');
+            if (id) {
+                nuevaLista.push({
+                    id: id,
+                    orden: idx + 1
+                });
+                $(this).find('.orden-texto').text(idx + 1);
+            }
+        });
+        return nuevaLista;
+    }
+
+    // Hacer las imágenes arrastrables con jQuery UI Sortable
+    $('#imagenes-container').sortable({
+        items: '.col-6, .col-md-4, .col-lg-3',
+        cancel: '.eliminar-imagen',
+        placeholder: 'sortable-placeholder',
+        forcePlaceholderSize: true,
+        tolerance: 'pointer',
+        cursor: 'grabbing',
+        helper: 'clone',
+        opacity: 0.8,
+        revert: 200,
+        scroll: true,
+        scrollSensitivity: 30,
+        scrollSpeed: 10,
+        start: function(e, ui) {
+            isDragging = true;
+            ui.placeholder.height(ui.item.height());
+            ui.placeholder.html('<div class="drag-placeholder"><i class="fas fa-arrows-alt fa-2x text-muted"></i><p class="text-muted mt-2">Suelta aquí</p></div>');
+            ui.helper.css('z-index', 1000);
+            $('body').css('cursor', 'grabbing');
+        },
+        stop: function() {
+            setTimeout(() => {
+                isDragging = false;
+                $('body').css('cursor', '');
+            }, 100);
+        },
+        update: function() {
+            const nuevaLista = actualizarOrdenes();
+            
+            // Enviar nuevo orden al servidor
+            $.post({
+                url: URL_REORDENAR,
+                data: { 
+                    'csrfmiddlewaretoken': CSRF,
+                    'ordenes': JSON.stringify(nuevaLista) 
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Mostrar notificación de éxito
+                        showToast('Orden actualizado correctamente', 'success');
+                    } else {
+                        alert('Error al actualizar el orden');
+                    }
+                },
+                error: function() {
+                    alert('Error de conexión al actualizar el orden');
+                }
+            });
+        }
+    });
+
+    // Función para mostrar notificaciones toast
+    function showToast(message, type = 'success') {
+        const bgClass = type === 'success' ? 'bg-success' : 'bg-danger';
+        const toast = $(`
+            <div class="toast align-items-center text-white ${bgClass} border-0 position-fixed" 
+                 style="top: 20px; right: 20px; z-index: 9999;" 
+                 role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="fas fa-check-circle me-2"></i>${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" 
+                            data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        `).appendTo('body');
+        
+        const bsToast = new bootstrap.Toast(toast[0], { delay: 3000 });
+        bsToast.show();
+        
+        // Remover del DOM después de ocultarse
+        toast[0].addEventListener('hidden.bs.toast', () => {
+            toast.remove();
+        });
+    }
+
+    // Actualizar texto de orden en las imágenes existentes
+    actualizarOrdenes();
     {% endif %}
 
     // Validaciones del formulario
