@@ -1072,6 +1072,71 @@
         user-select: auto !important;
     }
 
+    /* =========================================== */
+    /* SOLUCIÓN DEFINITIVA PARA INTERACTIVIDAD   */
+    /* =========================================== */
+    
+    /* Forzar que TODOS los elementos dentro de modales sean clickeables */
+    .modal-dialog * {
+        pointer-events: auto !important;
+        user-select: text !important;
+        -webkit-user-select: text !important;
+        -moz-user-select: text !important;
+        -ms-user-select: text !important;
+        cursor: auto !important;
+    }
+    
+    /* Específicamente para inputs y botones */
+    .modal-dialog input,
+    .modal-dialog button,
+    .modal-dialog select,
+    .modal-dialog textarea,
+    .modal-dialog .btn,
+    .modal-dialog .form-control,
+    .modal-dialog .form-select,
+    .modal-dialog .dropdown-toggle,
+    .modal-dialog .dropdown-item {
+        pointer-events: auto !important;
+        cursor: pointer !important;
+        user-select: auto !important;
+        -webkit-user-select: auto !important;
+        -moz-user-select: auto !important;
+        -ms-user-select: auto !important;
+        z-index: auto !important;
+        position: relative !important;
+    }
+    
+    /* Remover cualquier overlay que pueda estar bloqueando */
+    .modal-dialog {
+        isolation: isolate !important;
+    }
+    
+    /* Asegurar que dropdowns funcionen dentro de modales */
+    .modal .dropdown-menu {
+        z-index: 10050 !important;
+        position: absolute !important;
+        pointer-events: auto !important;
+    }
+    
+    /* Arreglo crítico para checkboxes y radios */
+    .modal input[type="checkbox"],
+    .modal input[type="radio"],
+    .modal .form-check-input {
+        pointer-events: auto !important;
+        cursor: pointer !important;
+        z-index: auto !important;
+        position: relative !important;
+    }
+    
+    /* Etiquetas de formulario */
+    .modal label,
+    .modal .form-check-label,
+    .modal .form-label {
+        pointer-events: auto !important;
+        cursor: pointer !important;
+        user-select: auto !important;
+    }
+
     /* Resto de los estilos... */
     </style>
 {% endblock extra_css %}
@@ -4612,25 +4677,27 @@ function abrirModalFiltros() {
     try {
         const modalElement = document.getElementById('modalFiltrosAvanzados');
         if (modalElement) {
-            // Hacer completamente interactivo ANTES de abrir
-            modalElement.style.pointerEvents = 'auto';
-            modalElement.querySelectorAll('*').forEach(el => {
-                el.style.pointerEvents = 'auto';
-                el.style.userSelect = 'auto';
-                if (el.tagName === 'BUTTON' || el.tagName === 'SELECT' || el.tagName === 'INPUT') {
-                    el.style.cursor = 'pointer';
-                }
-            });
+            // PASO 1: Hacer completamente interactivo ANTES de abrir
+            hacerModalCompletamenteInteractivo(modalElement);
             
             const modal = new bootstrap.Modal(modalElement);
             modal.show();
             
-            // Después de mostrar, aplicar arreglos adicionales
+            // PASO 2: Después de mostrar, aplicar arreglos adicionales múltiples veces
             setTimeout(() => {
-                modalElement.style.zIndex = '9999';
-                modalElement.style.position = 'fixed';
-                console.log('✅ Modal de filtros totalmente interactivo');
+                hacerModalCompletamenteInteractivo(modalElement);
+                console.log('✅ Modal de filtros totalmente interactivo - Fase 1');
             }, 100);
+            
+            setTimeout(() => {
+                hacerModalCompletamenteInteractivo(modalElement);
+                console.log('✅ Modal de filtros totalmente interactivo - Fase 2');
+            }, 300);
+            
+            setTimeout(() => {
+                hacerModalCompletamenteInteractivo(modalElement);
+                console.log('✅ Modal de filtros totalmente interactivo - Fase Final');
+            }, 500);
             
         } else {
             console.error('❌ Modal no encontrado');
@@ -4638,6 +4705,51 @@ function abrirModalFiltros() {
     } catch (error) {
         console.error('❌ Error al abrir modal:', error);
     }
+}
+
+// Función super robusta para hacer modales interactivos
+function hacerModalCompletamenteInteractivo(modalElement) {
+    if (!modalElement) return;
+    
+    // Aplicar estilos al modal principal
+    modalElement.style.pointerEvents = 'auto';
+    modalElement.style.userSelect = 'auto';
+    modalElement.style.zIndex = '9999';
+    modalElement.style.position = 'fixed';
+    
+    // Aplicar a TODOS los elementos dentro del modal
+    const todosLosElementos = modalElement.querySelectorAll('*');
+    todosLosElementos.forEach(el => {
+        el.style.pointerEvents = 'auto';
+        el.style.userSelect = 'auto';
+        el.style.webkitUserSelect = 'auto';
+        el.style.mozUserSelect = 'auto';
+        el.style.msUserSelect = 'auto';
+        el.style.cursor = 'auto';
+        
+        // Elementos específicos que deben ser clickeables
+        if (el.tagName === 'BUTTON' || 
+            el.tagName === 'INPUT' || 
+            el.tagName === 'SELECT' || 
+            el.tagName === 'TEXTAREA' ||
+            el.tagName === 'A' ||
+            el.classList.contains('btn') ||
+            el.classList.contains('form-control') ||
+            el.classList.contains('form-select') ||
+            el.classList.contains('dropdown-toggle') ||
+            el.classList.contains('dropdown-item')) {
+            
+            el.style.cursor = 'pointer';
+            el.style.pointerEvents = 'auto';
+            el.style.zIndex = 'auto';
+            el.style.position = 'relative';
+        }
+    });
+    
+    // Remover cualquier overlay invisible
+    modalElement.style.isolation = 'isolate';
+    
+    console.log(`🔧 Modal ${modalElement.id} hecho completamente interactivo con ${todosLosElementos.length} elementos`);
 }
 
 // Función para toggle de ver todas las propiedades
@@ -4879,6 +4991,56 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         console.log('✅ Interactividad aplicada');
+    }, 500);
+});
+
+// Actualizar también las funciones de los event listeners para usar la nueva función
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        console.log('🔄 Aplicando arreglos de interactividad mejorados...');
+        
+        // Interceptar eventos de modal con función robusta
+        document.addEventListener('click', function(e) {
+            if (e.target.textContent.includes('Ver Precios') || e.target.closest('[onclick*="verPrecios"]')) {
+                setTimeout(() => {
+                    const modalPrecios = document.getElementById('modalPrecios');
+                    if (modalPrecios) {
+                        hacerModalCompletamenteInteractivo(modalPrecios);
+                    }
+                }, 100);
+            }
+            if (e.target.textContent.includes('Mostrar Filtros') || e.target.closest('[onclick*="abrirModalFiltros"]')) {
+                setTimeout(() => {
+                    const modalFiltros = document.getElementById('modalFiltrosAvanzados');
+                    if (modalFiltros) {
+                        hacerModalCompletamenteInteractivo(modalFiltros);
+                    }
+                }, 100);
+            }
+        });
+        
+        // Doble click en precios con función robusta
+        document.addEventListener('dblclick', function(e) {
+            if (e.target.closest('td') && e.target.textContent.includes('$')) {
+                setTimeout(() => {
+                    const modalGestion = document.getElementById('modalGestionPrecios');
+                    if (modalGestion) {
+                        hacerModalCompletamenteInteractivo(modalGestion);
+                    }
+                }, 100);
+            }
+        });
+        
+        // Aplicar interactividad a modales existentes inmediatamente
+        const modalesExistentes = ['modalPrecios', 'modalGestionPrecios', 'modalFiltrosAvanzados'];
+        modalesExistentes.forEach(modalId => {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                hacerModalCompletamenteInteractivo(modal);
+            }
+        });
+        
+        console.log('✅ Interactividad mejorada aplicada a todos los modales');
     }, 500);
 });
 {% endblock extra_js %}
