@@ -18,6 +18,9 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
     
+    <!-- Corrección de Modales -->
+    <link rel="stylesheet" href="{% static 'style/modal-fix.css' %}"?v=3.0>
+    
     <style>
         :root {
             --primary-color: #2563eb;
@@ -135,6 +138,199 @@
             min-width: 200px;
             backdrop-filter: blur(20px);
             background: var(--glass-bg);
+        }
+
+        /* =========================================== */
+        /* PROTECCIÓN GLOBAL PARA TODOS LOS MODALES  */
+        /* =========================================== */
+        
+        /* Asegurar que todos los modales funcionen correctamente */
+        .modal {
+            z-index: 999999 !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+        }
+        
+        .modal-backdrop {
+            z-index: 999998 !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            background-color: rgba(0, 0, 0, 0.5) !important;
+        }
+        
+        .modal.show {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        
+        .modal-dialog {
+            z-index: 1000000 !important;
+            position: relative !important;
+            margin: auto !important;
+            pointer-events: auto !important;
+        }
+        
+        .modal-content {
+            background: white !important;
+            border-radius: 12px !important;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25) !important;
+            pointer-events: auto !important;
+            position: relative !important;
+            z-index: 1000001 !important;
+        }
+        
+        /* Garantizar interactividad de TODOS los elementos del modal */
+        .modal *,
+        .modal input,
+        .modal button,
+        .modal select,
+        .modal textarea,
+        .modal .btn,
+        .modal .form-control,
+        .modal .form-select,
+        .modal .dropdown-toggle,
+        .modal .dropdown-item,
+        .modal label,
+        .modal .form-check-input,
+        .modal .form-check-label,
+        .modal .close,
+        .modal .btn-close,
+        .modal a,
+        .modal .nav-link,
+        .modal .tab-pane {
+            pointer-events: auto !important;
+            user-select: auto !important;
+            -webkit-user-select: auto !important;
+            -moz-user-select: auto !important;
+            -ms-user-select: auto !important;
+            cursor: pointer !important;
+            position: relative !important;
+        }
+        
+        /* Eliminar filtros que pueden causar problemas */
+        .modal,
+        .modal *,
+        .modal-dialog,
+        .modal-content {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            filter: none !important;
+            -webkit-filter: none !important;
+            transform: none !important;
+            -webkit-transform: none !important;
+        }
+        
+        /* Asegurar dropdowns dentro de modales */
+        .modal .dropdown-menu {
+            z-index: 1000050 !important;
+            position: absolute !important;
+            pointer-events: auto !important;
+            backdrop-filter: blur(10px) !important;
+            background: var(--glass-bg) !important;
+        }
+        
+        /* SweetAlert2 compatibility */
+        .swal2-container {
+            z-index: 1000100 !important;
+        }
+        
+        .swal2-popup {
+            pointer-events: auto !important;
+        }
+
+        /* ============================================= */
+        /* SOLUCIÓN TOTAL PARA MODALES BLOQUEADOS V2.0 */
+        /* ============================================= */
+        
+        /* Forzar máxima prioridad para TODOS los modales */
+        .modal,
+        .modal-backdrop,
+        div[id*="modal"],
+        div[id*="Modal"],
+        .swal2-container {
+            z-index: 2147483647 !important;
+            position: fixed !important;
+            pointer-events: auto !important;
+        }
+        
+        /* Hacer TODOS los elementos de modales completamente interactivos */
+        .modal *,
+        .modal input,
+        .modal button,
+        .modal select,
+        .modal textarea,
+        .modal .btn,
+        .modal .form-control,
+        .modal .form-select,
+        .modal .dropdown-toggle,
+        .modal .dropdown-item,
+        .modal label,
+        .modal .form-check-input,
+        .modal .form-check-label,
+        .modal .close,
+        .modal .btn-close,
+        .modal a,
+        div[id*="modal"] *,
+        div[id*="Modal"] *,
+        .swal2-popup *,
+        .swal2-popup input,
+        .swal2-popup button,
+        .swal2-popup select {
+            pointer-events: auto !important;
+            user-select: auto !important;
+            -webkit-user-select: auto !important;
+            -moz-user-select: auto !important;
+            -ms-user-select: auto !important;
+            cursor: pointer !important;
+            position: relative !important;
+        }
+        
+        /* Eliminar TODOS los efectos que puedan bloquear */
+        .modal,
+        .modal *,
+        .modal-dialog,
+        .modal-content,
+        div[id*="modal"],
+        div[id*="modal"] *,
+        div[id*="Modal"],
+        div[id*="Modal"] *,
+        .swal2-container,
+        .swal2-popup {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            filter: none !important;
+            -webkit-filter: none !important;
+            transform: none !important;
+            -webkit-transform: none !important;
+            isolation: auto !important;
+            contain: none !important;
+        }
+        
+        /* Configuración específica para cuando se muestran */
+        .modal.show,
+        .modal[style*="display: block"],
+        div[id*="modal"][style*="display: block"],
+        div[id*="Modal"][style*="display: block"] {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        
+        /* Asegurar que los dropdowns funcionen */
+        .modal .dropdown-menu,
+        div[id*="modal"] .dropdown-menu,
+        div[id*="Modal"] .dropdown-menu {
+            z-index: 2147483647 !important;
+            position: absolute !important;
+            pointer-events: auto !important;
+            background: white !important;
         }
 
         .dropdown-item {

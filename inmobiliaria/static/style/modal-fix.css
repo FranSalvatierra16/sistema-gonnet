@@ -1,0 +1,199 @@
+/* ===================================================== */
+/* SOLUCIÓN DEFINITIVA PARA MODALES BLOQUEADOS V3.0    */
+/* Sistema Gonnet - Corrección Global de Modales        */
+/* ===================================================== */
+
+/* FORZAR MÁXIMA PRIORIDAD PARA TODOS LOS MODALES */
+.modal,
+.modal-backdrop,
+div[id*="modal"],
+div[id*="Modal"],
+.swal2-container {
+    z-index: 2147483647 !important;
+    position: fixed !important;
+    pointer-events: auto !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+}
+
+/* HACER TODOS LOS ELEMENTOS DE MODALES COMPLETAMENTE INTERACTIVOS */
+.modal *,
+.modal input,
+.modal button,
+.modal select,
+.modal textarea,
+.modal .btn,
+.modal .form-control,
+.modal .form-select,
+.modal .dropdown-toggle,
+.modal .dropdown-item,
+.modal label,
+.modal .form-check-input,
+.modal .form-check-label,
+.modal .close,
+.modal .btn-close,
+.modal a,
+.modal .nav-link,
+.modal .tab-pane,
+div[id*="modal"] *,
+div[id*="Modal"] *,
+.swal2-popup *,
+.swal2-popup input,
+.swal2-popup button,
+.swal2-popup select {
+    pointer-events: auto !important;
+    user-select: auto !important;
+    -webkit-user-select: auto !important;
+    -moz-user-select: auto !important;
+    -ms-user-select: auto !important;
+    cursor: pointer !important;
+    position: relative !important;
+}
+
+/* ELIMINAR TODOS LOS EFECTOS QUE PUEDAN BLOQUEAR INTERACCIÓN */
+.modal,
+.modal *,
+.modal-dialog,
+.modal-content,
+.modal-header,
+.modal-body,
+.modal-footer,
+div[id*="modal"],
+div[id*="modal"] *,
+div[id*="Modal"],
+div[id*="Modal"] *,
+.swal2-container,
+.swal2-popup {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    transform: none !important;
+    -webkit-transform: none !important;
+    isolation: auto !important;
+    contain: none !important;
+    overflow: visible !important;
+}
+
+/* CONFIGURACIÓN ESPECÍFICA PARA CUANDO SE MUESTRAN LOS MODALES */
+.modal.show,
+.modal[style*="display: block"],
+.modal[style*="display: flex"],
+div[id*="modal"][style*="display: block"],
+div[id*="Modal"][style*="display: block"] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* CONFIGURACIÓN ESPECÍFICA PARA BOOTSTRAP MODALES */
+.modal-dialog {
+    position: relative !important;
+    margin: auto !important;
+    z-index: 2147483647 !important;
+    pointer-events: auto !important;
+}
+
+.modal-content {
+    background: white !important;
+    border-radius: 12px !important;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25) !important;
+    z-index: 2147483647 !important;
+    pointer-events: auto !important;
+    position: relative !important;
+}
+
+/* BACKDROP DE MODALES */
+.modal-backdrop {
+    z-index: 2147483646 !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    pointer-events: auto !important;
+}
+
+/* DROPDOWNS DENTRO DE MODALES */
+.modal .dropdown-menu,
+div[id*="modal"] .dropdown-menu,
+div[id*="Modal"] .dropdown-menu {
+    z-index: 2147483647 !important;
+    position: absolute !important;
+    pointer-events: auto !important;
+    background: white !important;
+    border: 1px solid #ccc !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* SWEETALERT2 CONFIGURACIÓN */
+.swal2-container {
+    z-index: 2147483647 !important;
+    pointer-events: auto !important;
+}
+
+.swal2-popup {
+    pointer-events: auto !important;
+    z-index: 2147483647 !important;
+}
+
+/* CORRECCIÓN ESPECÍFICA PARA MODALES CUSTOM */
+#modalConfirmarReserva {
+    z-index: 2147483647 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0, 0, 0, 0.8) !important;
+    pointer-events: auto !important;
+}
+
+#modalConfirmarReserva.show {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+#modalConfirmarReserva * {
+    pointer-events: auto !important;
+    user-select: auto !important;
+    cursor: pointer !important;
+}
+
+/* GARANTIZAR QUE LOS INPUTS FUNCIONEN */
+.modal input[type="text"],
+.modal input[type="email"],
+.modal input[type="number"],
+.modal input[type="date"],
+.modal input[type="password"],
+.modal select,
+.modal textarea,
+div[id*="modal"] input,
+div[id*="Modal"] input {
+    pointer-events: auto !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    cursor: text !important;
+}
+
+/* GARANTIZAR QUE LOS BOTONES FUNCIONEN */
+.modal button,
+.modal .btn,
+.modal input[type="button"],
+.modal input[type="submit"],
+div[id*="modal"] button,
+div[id*="Modal"] button {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    user-select: none !important;
+}
+
+/* CORRECCIÓN PARA FORMULARIOS EN MODALES */
+.modal form,
+.modal .form-group,
+.modal .form-control,
+div[id*="modal"] form,
+div[id*="Modal"] form {
+    pointer-events: auto !important;
+} 
