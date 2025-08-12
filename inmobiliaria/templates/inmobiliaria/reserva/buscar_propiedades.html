@@ -4,1031 +4,520 @@
 {% load static %}
 
 {% block extra_css %}
-    <style>
-    /* RESET COMPLETO Y DISEÑO MODERNO */
-    * {
-        box-sizing: border-box !important;
+<style>
+/* ========================================= */
+/* DISEÑO MODERNO PARA BUSCAR PROPIEDADES */
+/* ========================================= */
+
+/* Variables CSS para consistencia */
+:root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --success-gradient: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+    --warning-gradient: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    --info-gradient: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+    --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    --card-shadow-hover: 0 15px 40px rgba(0, 0, 0, 0.15);
+    --border-radius: 16px;
+    --border-radius-sm: 12px;
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Contenedor principal con diseño moderno */
+.container-fluid {
+    background: transparent !important;
+    padding: 2rem !important;
+}
+
+/* Formulario de búsqueda estilo dashboard */
+.search-form-modern {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    border-radius: var(--border-radius) !important;
+    box-shadow: var(--card-shadow) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    padding: 2.5rem !important;
+    margin-bottom: 2rem !important;
+    transition: var(--transition) !important;
+}
+
+.search-form-modern:hover {
+    box-shadow: var(--card-shadow-hover) !important;
+    transform: translateY(-2px) !important;
+}
+
+/* Header del formulario */
+.search-header {
+    text-align: center !important;
+    margin-bottom: 2rem !important;
+}
+
+.search-header h1 {
+    background: var(--primary-gradient) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    font-size: 2.5rem !important;
+    font-weight: 800 !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.search-header p {
+    color: #6c757d !important;
+    font-size: 1.1rem !important;
+    margin: 0 !important;
+}
+
+/* Inputs modernos */
+.form-control {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 2px solid #e9ecef !important;
+    border-radius: var(--border-radius-sm) !important;
+    padding: 0.875rem 1rem !important;
+    font-size: 1rem !important;
+    transition: var(--transition) !important;
+    height: auto !important;
+}
+
+.form-control:focus {
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+    background: #fff !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Labels modernos */
+.form-label {
+    font-weight: 600 !important;
+    color: #495057 !important;
+    margin-bottom: 0.75rem !important;
+    font-size: 0.95rem !important;
+}
+
+/* Input groups */
+.input-group-text {
+    background: var(--primary-gradient) !important;
+    border: none !important;
+    color: white !important;
+    border-radius: var(--border-radius-sm) 0 0 var(--border-radius-sm) !important;
+    font-weight: 500 !important;
+}
+
+/* Botones modernos */
+.btn-search-modern {
+    background: var(--primary-gradient) !important;
+    border: none !important;
+    border-radius: var(--border-radius-sm) !important;
+    padding: 0.875rem 2rem !important;
+    font-weight: 600 !important;
+    font-size: 1rem !important;
+    color: white !important;
+    transition: var(--transition) !important;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+}
+
+.btn-search-modern:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4) !important;
+    color: white !important;
+}
+
+.btn-filter-modern {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 2px solid #e9ecef !important;
+    border-radius: var(--border-radius-sm) !important;
+    padding: 0.875rem 1.5rem !important;
+    font-weight: 600 !important;
+    color: #495057 !important;
+    transition: var(--transition) !important;
+}
+
+.btn-filter-modern:hover {
+    border-color: #667eea !important;
+    background: #667eea !important;
+    color: white !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Sección de resultados moderna */
+.results-section {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    border-radius: var(--border-radius) !important;
+    box-shadow: var(--card-shadow) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    overflow: hidden !important;
+    margin-bottom: 2rem !important;
+}
+
+.results-header {
+    background: var(--success-gradient) !important;
+    color: white !important;
+    padding: 1.5rem 2rem !important;
+    margin: 0 !important;
+}
+
+.results-header h5 {
+    margin: 0 !important;
+    font-weight: 700 !important;
+    font-size: 1.25rem !important;
+}
+
+/* Tabla moderna */
+.table-modern {
+    margin: 0 !important;
+    background: white !important;
+}
+
+.table-modern thead th {
+    background: linear-gradient(135deg, #495057 0%, #343a40 100%) !important;
+    color: white !important;
+    border: none !important;
+    padding: 1rem 1.5rem !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+
+.table-modern tbody tr {
+    transition: var(--transition) !important;
+    border-bottom: 1px solid #f8f9fa !important;
+    cursor: pointer !important;
+}
+
+.table-modern tbody tr:hover {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+    transform: scale(1.001) !important;
+}
+
+.table-modern tbody tr.selected {
+    background: var(--primary-gradient) !important;
+    color: white !important;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+    transform: scale(1.002) !important;
+}
+
+.table-modern tbody tr.selected td {
+    color: white !important;
+    font-weight: 600 !important;
+}
+
+.table-modern tbody td {
+    padding: 1rem 1.5rem !important;
+    vertical-align: middle !important;
+    font-size: 0.95rem !important;
+}
+
+/* Tarjeta de información moderna */
+.property-card-modern {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    border-radius: var(--border-radius) !important;
+    box-shadow: var(--card-shadow) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    overflow: hidden !important;
+    transition: var(--transition) !important;
+}
+
+.property-card-modern:hover {
+    box-shadow: var(--card-shadow-hover) !important;
+    transform: translateY(-2px) !important;
+}
+
+.property-card-header {
+    background: var(--info-gradient) !important;
+    color: white !important;
+    padding: 1.5rem 2rem !important;
+}
+
+.property-card-header h5 {
+    margin: 0 !important;
+    font-weight: 700 !important;
+    font-size: 1.25rem !important;
+}
+
+.property-info-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+    gap: 1.5rem !important;
+    padding: 2rem !important;
+}
+
+.info-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 1rem !important;
+}
+
+.info-icon {
+    width: 50px !important;
+    height: 50px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.25rem !important;
+    font-weight: 600 !important;
+    flex-shrink: 0 !important;
+}
+
+.info-icon.primary { background: linear-gradient(135deg, #667eea 20%, #764ba2 80%) !important; color: white !important; }
+.info-icon.success { background: linear-gradient(135deg, #4caf50 20%, #45a049 80%) !important; color: white !important; }
+.info-icon.warning { background: linear-gradient(135deg, #ff9800 20%, #f57c00 80%) !important; color: white !important; }
+.info-icon.info { background: linear-gradient(135deg, #2196f3 20%, #1976d2 80%) !important; color: white !important; }
+
+.info-content h6 {
+    margin: 0 0 0.25rem 0 !important;
+    font-size: 0.85rem !important;
+    color: #6c757d !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    font-weight: 600 !important;
+}
+
+.info-content .value {
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    color: #495057 !important;
+}
+
+/* Sección de precios moderna */
+.prices-section {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    border-radius: var(--border-radius) !important;
+    box-shadow: var(--card-shadow) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    overflow: hidden !important;
+    position: sticky !important;
+    top: 2rem !important;
+}
+
+.prices-header {
+    background: var(--warning-gradient) !important;
+    color: white !important;
+    padding: 1.5rem 2rem !important;
+}
+
+.prices-header h5 {
+    margin: 0 !important;
+    font-weight: 700 !important;
+    font-size: 1.25rem !important;
+}
+
+/* Badges modernos */
+.badge-modern {
+    padding: 0.5rem 1rem !important;
+    border-radius: 50px !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 0.25px !important;
+}
+
+.badge-available {
+    background: var(--success-gradient) !important;
+    color: white !important;
+}
+
+.badge-reserved {
+    background: var(--warning-gradient) !important;
+    color: white !important;
+}
+
+/* Estado sin propiedades */
+.no-properties-state {
+    text-align: center !important;
+    padding: 4rem 2rem !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    border-radius: var(--border-radius) !important;
+    box-shadow: var(--card-shadow) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.no-properties-icon {
+    font-size: 4rem !important;
+    color: #dee2e6 !important;
+    margin-bottom: 1.5rem !important;
+}
+
+.no-properties-title {
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+    color: #495057 !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.no-properties-text {
+    color: #6c757d !important;
+    font-size: 1.1rem !important;
+    margin: 0 !important;
+}
+
+/* PROTECCIÓN PARA MODALES */
+.modal {
+    z-index: 1050 !important;
+    position: fixed !important;
+}
+
+.modal-backdrop {
+    z-index: 1040 !important;
+    position: fixed !important;
+}
+
+.modal-dialog {
+    z-index: 1055 !important;
+    position: relative !important;
+}
+
+.modal *,
+.modal input,
+.modal button,
+.modal select,
+.modal textarea,
+.modal .btn,
+.modal .form-control {
+    pointer-events: auto !important;
+    user-select: auto !important;
+}
+
+/* Modal personalizado */
+#modalConfirmarReserva {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0,0,0,0.7) !important;
+    z-index: 1050 !important;
+    display: none !important;
+    pointer-events: auto !important;
+}
+
+#modalConfirmarReserva * {
+    pointer-events: auto !important;
+    user-select: auto !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .search-form-modern {
+        padding: 1.5rem !important;
     }
-
-    body {
-        background: linear-gradient(135deg, #a5d6a7 0%, #66bb6a 100%);
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
-        min-height: 100vh !important;
-        margin: 0 !important;
-        padding: 20px !important;
-    }
-
-    .container-fluid {
-        background: rgba(255, 255, 255, 0.95) !important;
-        border-radius: 15px !important;
-        margin: 20px !important;
-        max-width: 98% !important;
-        box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
-        backdrop-filter: blur(10px) !important;
-        padding: 30px !important;
-    }
-
-    /* Estilos para el formulario de filtros */
-    .filters-row {
-        display: flex !important;
-        align-items: center !important;
-        gap: 15px !important;
-        flex-wrap: wrap !important;
-        margin-bottom: 20px !important;
-        padding: 15px !important;
-        background: rgba(255, 255, 255, 0.9) !important;
-        border-radius: 12px !important;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05) !important;
-    }
-
-    .filters-row .form-group {
-        margin: 0 !important;
-        flex: 1 !important;
-        min-width: 200px !important;
-    }
-
-    .filters-row input[type="date"] {
-        height: 38px !important;
-        border-radius: 8px !important;
-        border: 1px solid #ced4da !important;
-        padding: 0.375rem 0.75rem !important;
-        background-color: white !important;
-    }
-
-    .filters-row .btn-primary {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-        border: none !important;
-        padding: 8px 20px !important;
-        border-radius: 8px !important;
-        height: 38px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        transition: all 0.3s ease !important;
-    }
-
-    .filters-row .btn-primary:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2) !important;
-    }
-
-    .filters-row .form-check {
-        display: flex !important;
-        align-items: center !important;
-        margin: 0 !important;
-        padding: 0 15px !important;
-    }
-
-    .filters-row .form-check-input {
-        margin-right: 8px !important;
-    }
-
-    .filters-row .form-check-label {
-        margin: 0 !important;
-        font-weight: 500 !important;
-    }
-
-    /* Resto de los estilos... */
-
-    /* Estilos para la tabla de propiedades */
-    #propiedadesTable {
-        margin-bottom: 0 !important;
-    }
-
-    .table-wrapper {
-        height: 400px !important;
-        overflow-y: auto !important;
-        margin-bottom: 20px !important;
-    }
-
-    #propiedadesTable thead th {
-        position: sticky !important;
-        top: 0 !important;
-        background: linear-gradient(135deg, #667eea, #764ba2) !important;
-        color: white !important;
-        z-index: 1 !important;
-    }
-
-    #propiedadesTable tbody tr {
-        height: 65px !important;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-    }
-
-    #propiedadesTable tbody tr.selected {
-        background-color: #007bff !important;
-        color: white !important;
-    }
-
-    #propiedadesTable tbody tr.selected td {
-        color: white !important;
-    }
-
-    #propiedadesTable tbody tr:hover {
-        background-color: rgba(0, 123, 255, 0.1);
-    }
-
-    #propiedadesTable tbody td {
-        vertical-align: middle !important;
-    }
-
-    /* Estilo para el scrollbar */
-    .table-wrapper::-webkit-scrollbar {
-        width: 8px !important;
-    }
-
-    .table-wrapper::-webkit-scrollbar-track {
-        background: #f1f1f1 !important;
-        border-radius: 4px !important;
-    }
-
-    .table-wrapper::-webkit-scrollbar-thumb {
-        background: linear-gradient(135deg, #667eea, #764ba2) !important;
-        border-radius: 4px !important;
-    }
-
-    .main-search-box {
-        background: linear-gradient(135deg, #1a237e, #0d47a1) !important;
-        border-radius: 15px !important;
-        padding: 25px !important;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.15) !important;
-        margin-bottom: 30px !important;
-    }
-
-    .form-group {
-        margin-bottom: 0 !important;
-    }
-
-    .input-group {
-        background: white !important;
-        border-radius: 8px !important;
-        overflow: hidden !important;
-        height: 45px !important;
-    }
-
-    .input-group-text {
-        border: none !important;
-        background-color: transparent !important;
-        color: #666 !important;
-        padding: 0 15px !important;
-    }
-
-    .form-control {
-        border: none !important;
-        height: 45px !important;
-        font-size: 0.95rem !important;
-        background: transparent !important;
-        padding: 0.375rem 0.75rem !important;
-    }
-
-    .form-control:focus {
-        box-shadow: none !important;
-        background: transparent !important;
-    }
-
-    .btn-primary {
-        height: 45px !important;
-        background: #2196f3 !important;
-        border: none !important;
-        border-radius: 8px !important;
-        font-weight: 500 !important;
-        letter-spacing: 0.5px !important;
-        transition: all 0.3s ease !important;
-        padding: 0 25px !important;
-    }
-
-    .btn-primary:hover {
-        background: #1976d2 !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2) !important;
-    }
-
-    .form-check-input {
-        background-color: rgba(255,255,255,0.2) !important;
-        border-color: rgba(255,255,255,0.3) !important;
-        width: 1.5em !important;
-        height: 1.5em !important;
-        margin-top: 0.25em !important;
-    }
-
-    .form-check-input:checked {
-        background-color: #2196f3 !important;
-        border-color: #2196f3 !important;
-    }
-
-    .form-check-label {
-        font-size: 0.9rem !important;
-        color: white !important;
-        opacity: 0.9 !important;
-        margin-left: 0.5rem !important;
-    }
-
-    /* Estilos para los inputs de fecha */
-    input[type="date"] {
-        padding-right: 15px !important;
-        min-width: 150px !important;
-    }
-
-    /* Estilos para el select de pasajeros */
-    select.form-control {
-        padding-right: 30px !important;
-        min-width: 200px !important;
-        -webkit-appearance: none !important;
-        -moz-appearance: none !important;
-        appearance: none !important;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23666' class='bi bi-chevron-down' viewBox='0 0 16 16'%3E%3Cpath d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E") !important;
-        background-repeat: no-repeat !important;
-        background-position: right 10px center !important;
-    }
-
-    /* Estilos para las etiquetas */
-    .form-group label {
-        color: white !important;
-        font-size: 0.85rem !important;
-        margin-bottom: 0.5rem !important;
-        font-weight: 500 !important;
-    }
-
-    /* Estilos para los iconos */
-    .fas {
-        font-size: 1.1rem !important;
-    }
-
-    /* Estilos para los switches */
-    .form-switch {
-        padding-left: 2.5em !important;
-    }
-
-    .form-switch .form-check-input {
-        margin-left: -2.5em !important;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(255,255,255,1)'/%3e%3c/svg%3e") !important;
-    }
-
-    .form-switch .form-check-input:checked {
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
-    }
-
-    /* Estilos para el contenedor de switches */
-    .switches-container {
-        margin-top: 1.5rem !important;
-        display: flex !important;
+    
+    .property-info-grid {
+        grid-template-columns: 1fr !important;
         gap: 1rem !important;
-        padding: 1rem !important;
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
-        border-radius: 12px !important;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
-        border: 1px solid #dee2e6 !important;
-        align-items: center !important;
-        justify-content: center !important;
+        padding: 1.5rem !important;
     }
-
-    .switches-container .form-check {
-        margin: 0 !important;
-        padding: 0.75rem 1.25rem !important;
-        background: white !important;
-        border-radius: 8px !important;
-        border: 1px solid #ced4da !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
-        cursor: pointer !important;
-        min-width: 200px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-    }
-
-    .switches-container .form-check:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
-        border-color: #007bff !important;
-    }
-
-    .switches-container .form-check-input {
-        margin-right: 0.75rem !important;
-        transform: scale(1.2) !important;
-    }
-
-    .switches-container .form-check-input:checked {
-        background-color: #28a745 !important;
-        border-color: #28a745 !important;
-    }
-
-    .switches-container .form-check-label {
-        margin: 0 !important;
-        font-weight: 600 !important;
-        color: #495057 !important;
-        cursor: pointer !important;
-        font-size: 0.95rem !important;
-    }
-
-    .switches-container .form-check-input:checked + .form-check-label {
-        color: #28a745 !important;
-    }
-
-    /* Efecto de animación para el switch */
-    .switches-container .form-check-input {
-        transition: all 0.3s ease !important;
-    }
-
-    /* Responsive design para switches */
-    @media (max-width: 768px) {
-        .switches-container {
-            flex-direction: column !important;
-            gap: 0.75rem !important;
-        }
-        
-        .switches-container .form-check {
-            width: 100% !important;
-            min-width: unset !important;
-        }
-    }
-
-    /* Estilos para la galería de fotos */
-    .modal-xl {
-        max-width: 90% !important;
-    }
-
-    .carousel-item img {
-        transition: transform 0.3s ease;
-        max-height: 70vh;
-        object-fit: contain;
-    }
-
-    .active-thumbnail {
-        border: 3px solid #007bff !important;
-        opacity: 1 !important;
-    }
-
-    .thumbnail-nav {
-        opacity: 0.7;
-        transition: all 0.3s ease;
-        cursor: pointer;
-        height: 80px;
-        width: 100%;
-        object-fit: cover;
-    }
-
-    .thumbnail-nav:hover {
-        opacity: 1;
-        transform: scale(1.05);
-    }
-
-    #thumbnailsContainer {
-        padding: 15px;
-        background: rgba(0,0,0,0.03);
-        border-radius: 10px;
-        margin-top: 15px;
-    }
-
-    .carousel-control-prev,
-    .carousel-control-next {
-        background-color: rgba(0,0,0,0.3);
-        width: 5%;
-        border-radius: 50px;
-        height: 50px;
-        top: 50%;
-        transform: translateY(-50%);
-    }
-
-    /* Estilos para la tabla de precios */
-    .table-precios th {
-        background-color: #007bff;
-        color: white;
-    }
-
-    .table-precios td {
-        vertical-align: middle;
-    }
-
-    /* Estilos adicionales para los filtros */
-    #filtrosAdicionales {
-        transition: opacity 0.3s ease-in-out;
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        padding: 20px;
-        margin-top: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .form-check-input {
-        cursor: pointer;
-    }
-
-    .form-check-label {
-        cursor: pointer;
-        user-select: none;
-    }
-
-    /* Mejorar la apariencia del switch */
-    .form-switch .form-check-input {
-        width: 3em !important;
-        height: 1.5em !important;
-        margin-top: 0.25em;
-    }
-
-    .form-switch .form-check-input:checked {
-        background-color: #0d6efd;
-        border-color: #0d6efd;
-    }
-
-    .switches-container {
-        background-color: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        margin-top: 15px;
-    }
-
-    /* Estilo para el contenedor de características */
-    .caracteristicas-container {
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        padding: 15px;
-        margin-top: 15px;
-    }
-
-    /* Estilo para los grupos de características */
-    .caracteristicas-grupo {
-        margin-bottom: 20px;
-    }
-
-    .caracteristicas-grupo h6 {
-        color: #6c757d;
-        margin-bottom: 10px;
-        font-weight: 600;
-    }
-
-    #modalConfirmarReserva .modal-content {
-        background: #fff !important;
-        box-shadow: 0 0 20px rgba(0,0,0,0.15) !important;
-        border-radius: 10px !important;
-    }
-    #modalConfirmarReserva .modal-header {
-        background: #43a047 !important;
-        color: #fff !important;
-        border-top-left-radius: 10px !important;
-        border-top-right-radius: 10px !important;
+    
+    .results-header {
         padding: 1rem 1.5rem !important;
     }
-    #modalConfirmarReserva .modal-body {
-        padding: 2rem !important;
+    
+    .table-modern thead th,
+    .table-modern tbody td {
+        padding: 0.75rem !important;
+        font-size: 0.875rem !important;
     }
+}
 
-    /* Estilos principales de la página */
-    body {
-        background: linear-gradient(135deg, #a5d6a7 0%, #66bb6a 100%);
-        min-height: 100vh;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+/* Animaciones */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
     }
-
-    .container-fluid {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 15px;
-        box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        margin: 20px;
-        padding: 30px;
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
+}
 
-    .search-section {
-        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
-        border-radius: 15px;
-        padding: 25px;
-        margin-bottom: 30px;
-        color: white;
-        box-shadow: 0 5px 15px rgba(46, 125, 50, 0.3);
-    }
+.animate-fade-up {
+    animation: fadeInUp 0.6s ease-out;
+}
 
-    .search-section h2 {
-        color: white;
-        margin-bottom: 25px;
-        text-align: center;
-        font-weight: 600;
-    }
+.animate-fade-up-delay-1 {
+    animation: fadeInUp 0.6s ease-out 0.1s both;
+}
 
-    .form-group label {
-        color: white;
-        font-weight: 500;
-        margin-bottom: 8px;
-    }
-
-    .form-control {
-        border: 2px solid rgba(255,255,255,0.3);
-        border-radius: 8px;
-        padding: 12px;
-        background: rgba(255,255,255,0.9);
-        transition: all 0.3s ease;
-    }
-
-    .form-control:focus {
-        border-color: #a5d6a7;
-        box-shadow: 0 0 0 0.2rem rgba(165, 214, 167, 0.25);
-        background: white;
-    }
-
-    .btn-primary {
-        background: linear-gradient(135deg, #388e3c 0%, #2e7d32 100%);
-        border: none;
-        border-radius: 8px;
-        padding: 12px 25px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 3px 10px rgba(56, 142, 60, 0.3);
-    }
-
-    .btn-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(56, 142, 60, 0.4);
-    }
-
-    .table {
-        background: white;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 3px 15px rgba(0,0,0,0.1);
-    }
-
-    .table thead th {
-        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
-        color: white;
-        border: none;
-        padding: 15px;
-        font-weight: 600;
-    }
-
-    .table tbody tr {
-        transition: all 0.3s ease;
-        cursor: pointer;
-    }
-
-    .table tbody tr:hover {
-        background-color: #e8f5e8;
-        transform: scale(1.01);
-    }
-
-    /* PROPIEDAD SELECCIONADA - COLOR DE FONDO MUY VISIBLE */
-    .table tbody tr.selected {
-        background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%) !important;
-        border: 3px solid #2e7d32 !important;
-        box-shadow: 0 8px 25px rgba(46, 125, 50, 0.6) !important;
-        transform: scale(1.03) !important;
-        transition: all 0.3s ease !important;
-    }
-
-    .table tbody tr.selected td {
-        color: #ffffff !important;
-        font-weight: 700 !important;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
-        font-size: 1.05rem !important;
-    }
-
-    /* Animación adicional para que se note más */
-    .table tbody tr.selected {
-        animation: pulseSelection 2s infinite alternate !important;
-    }
-
-    @keyframes pulseSelection {
-        0% {
-            box-shadow: 0 8px 25px rgba(46, 125, 50, 0.6);
-        }
-        100% {
-            box-shadow: 0 12px 35px rgba(46, 125, 50, 0.8);
-        }
-    }
-
-    .card {
-        border: none;
-        border-radius: 12px;
-        box-shadow: 0 3px 15px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-    }
-
-    .card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 5px 20px rgba(0,0,0,0.15);
-    }
-
-    .card-header {
-        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
-        color: white;
-        border-radius: 12px 12px 0 0 !important;
-        padding: 15px 20px;
-        font-weight: 600;
-    }
-
-    .input-group-text {
-        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
-        color: white;
-        border: none;
-        font-weight: 500;
-    }
-
-    /* ESTILOS DEL MODAL - COMPLETAMENTE INTERACTIVO */
-    .modal-backdrop {
-        background-color: rgba(0, 0, 0, 0.6) !important;
-        pointer-events: auto !important;
-    }
-
-    #modalConfirmarReserva {
-        pointer-events: auto !important;
-        z-index: 1055 !important;
-    }
-
-    #modalConfirmarReserva .modal-dialog {
-        pointer-events: auto !important;
-        z-index: 1060 !important;
-    }
-
-    #modalConfirmarReserva .modal-content {
-        background: #ffffff !important;
-        border: 3px solid #2e7d32 !important;
-        border-radius: 15px !important;
-        box-shadow: 0 15px 50px rgba(0,0,0,0.4) !important;
-        overflow: visible !important;
-        opacity: 1 !important;
-        pointer-events: auto !important;
-        position: relative !important;
-        z-index: 1065 !important;
-    }
-
-    #modalConfirmarReserva .modal-header {
-        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%) !important;
-        color: white !important;
-        border-bottom: 3px solid #1b5e20 !important;
-        padding: 25px !important;
-        border-radius: 12px 12px 0 0 !important;
-    }
-
-    #modalConfirmarReserva .modal-title {
-        font-weight: 700 !important;
-        font-size: 1.5rem !important;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.2) !important;
-    }
-
-    #modalConfirmarReserva .modal-body {
-        background: #ffffff !important;
-        padding: 30px !important;
-        color: #333 !important;
-    }
-
-    #modalConfirmarReserva .modal-footer {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
-        border-top: 2px solid #2e7d32 !important;
-        padding: 25px !important;
-        border-radius: 0 0 12px 12px !important;
-    }
-
-    #modalConfirmarReserva .info-section {
-        background: linear-gradient(135deg, #f1f8e9 0%, #e8f5e8 100%) !important;
-        border: 2px solid #c8e6c9 !important;
-        border-radius: 12px !important;
-        padding: 25px !important;
-        margin-bottom: 25px !important;
-        box-shadow: 0 3px 10px rgba(46, 125, 50, 0.1) !important;
-    }
-
-    #modalConfirmarReserva .info-section h6 {
-        color: #1b5e20 !important;
-        font-weight: 700 !important;
-        font-size: 1.2rem !important;
-        margin-bottom: 20px !important;
-        border-bottom: 3px solid #2e7d32 !important;
-        padding-bottom: 10px !important;
-        text-transform: uppercase !important;
-        letter-spacing: 1px !important;
-    }
-
-    #modalConfirmarReserva .info-section p {
-        color: #2e7d32 !important;
-        font-weight: 600 !important;
-        font-size: 1rem !important;
-        margin-bottom: 10px !important;
-    }
-
-    #modalConfirmarReserva .info-section span {
-        color: #1b5e20 !important;
-        font-weight: 700 !important;
-    }
-
-    #modalConfirmarReserva .form-control {
-        border: 2px solid #2e7d32 !important;
-        border-radius: 8px !important;
-        padding: 12px 15px !important;
-        background: white !important;
-        font-weight: 600 !important;
-        font-size: 1rem !important;
-        pointer-events: auto !important;
-        user-select: auto !important;
-        -webkit-user-select: auto !important;
-        -moz-user-select: auto !important;
-        position: relative !important;
-        z-index: 1070 !important;
-    }
-
-    #modalConfirmarReserva .form-control:focus {
-        border-color: #1b5e20 !important;
-        box-shadow: 0 0 0 0.3rem rgba(46, 125, 50, 0.3) !important;
-        background: #f1f8e9 !important;
-        pointer-events: auto !important;
-    }
-
-    #modalConfirmarReserva input,
-    #modalConfirmarReserva select,
-    #modalConfirmarReserva button,
-    #modalConfirmarReserva .btn {
-        pointer-events: auto !important;
-        user-select: auto !important;
-        position: relative !important;
-        z-index: 1070 !important;
-    }
-
-    #modalConfirmarReserva .modal-body,
-    #modalConfirmarReserva .modal-header,
-    #modalConfirmarReserva .modal-footer {
-        pointer-events: auto !important;
-        position: relative !important;
-        z-index: 1068 !important;
-    }
-
-    #modalConfirmarReserva .btn-success {
-        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%) !important;
-        border: 2px solid #1b5e20 !important;
-        border-radius: 8px !important;
-        font-weight: 700 !important;
-        font-size: 1.1rem !important;
-        padding: 12px 25px !important;
-        text-transform: uppercase !important;
-        letter-spacing: 1px !important;
-        box-shadow: 0 4px 15px rgba(46, 125, 50, 0.3) !important;
-    }
-
-    #modalConfirmarReserva .btn-success:hover {
-        background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(46, 125, 50, 0.4) !important;
-    }
-
-    #modalConfirmarReserva .btn-primary {
-        background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%) !important;
-        border: 2px solid #0d47a1 !important;
-        border-radius: 8px !important;
-        font-weight: 700 !important;
-        color: white !important;
-        box-shadow: 0 4px 15px rgba(25, 118, 210, 0.3) !important;
-    }
-
-    #modalConfirmarReserva .btn-secondary {
-        background: linear-gradient(135deg, #6c757d 0%, #495057 100%) !important;
-        border: 2px solid #343a40 !important;
-        border-radius: 8px !important;
-        font-weight: 700 !important;
-        color: white !important;
-    }
-
-    /* Estilos adicionales */
-    .status-disponible { color: #2e7d32; font-weight: bold; }
-    .status-reservado { color: #d32f2f; font-weight: bold; }
-    .precio-highlight { color: #2e7d32; font-weight: bold; font-size: 1.1em; }
-
-    /* Estilos para el contenedor de controles */
-    .controls-container {
-        margin-top: 1.5rem !important;
-        display: flex !important;
-        gap: 1rem !important;
-        padding: 1rem !important;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-        border-radius: 12px !important;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
-        align-items: center !important;
-        justify-content: center !important;
-    }
-
-    .control-btn {
-        padding: 0.75rem 1.5rem !important;
-        background: white !important;
-        border: none !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-        color: #495057 !important;
-        cursor: pointer !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
-        min-width: 200px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 0.5rem !important;
-    }
-
-    .control-btn:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2) !important;
-        background: #f8f9fa !important;
-    }
-
-    .control-btn.active {
-        background: #28a745 !important;
-        color: white !important;
-    }
-
-    .control-btn i {
-        font-size: 1.1rem !important;
-    }
-
-    /* Modal de filtros */
-    .modal-filtros .modal-content {
-        border-radius: 15px !important;
-        border: none !important;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
-    }
-
-    .modal-filtros .modal-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-        color: white !important;
-        border-radius: 15px 15px 0 0 !important;
-        border-bottom: none !important;
-    }
-
-    .modal-filtros .modal-title {
-        font-weight: 700 !important;
-        font-size: 1.25rem !important;
-    }
-
-    .modal-filtros .btn-close {
-        filter: invert(1) !important;
-    }
-
-    .modal-filtros .modal-body {
-        padding: 2rem !important;
-    }
-
-    .filter-group {
-        margin-bottom: 1.5rem !important;
-        padding: 1rem !important;
-        background: #f8f9fa !important;
-        border-radius: 8px !important;
-        border-left: 4px solid #667eea !important;
-    }
-
-    .filter-group label {
-        font-weight: 600 !important;
-        color: #495057 !important;
-        margin-bottom: 0.5rem !important;
-        display: block !important;
-    }
-
-    .filter-group select,
-    .filter-group input {
-        border-radius: 6px !important;
-        border: 1px solid #ced4da !important;
-        transition: border-color 0.3s ease !important;
-    }
-
-    .filter-group select:focus,
-    .filter-group input:focus {
-        border-color: #667eea !important;
-        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
-    }
-
-    /* Responsive design */
-    @media (max-width: 768px) {
-        .controls-container {
-            flex-direction: column !important;
-            gap: 0.75rem !important;
-        }
-        
-        .control-btn {
-            width: 100% !important;
-            min-width: unset !important;
-        }
-    }
-
-    /* PROTECCIÓN ESPECÍFICA PARA MODALES CON NUEVO BASE.HTML */
-    <style>
-        /* ======================================= */
-        /* PROTECCIÓN PARA MODALES - SOLO FUNCIÓN */
-        /* ======================================= */
-        
-        /* Asegurar que modales tengan máxima prioridad */
-        .modal {
-            z-index: 9999 !important;
-            position: fixed !important;
-        }
-        
-        .modal-backdrop {
-            z-index: 9998 !important;
-            position: fixed !important;
-        }
-        
-        .modal-dialog {
-            z-index: 10000 !important;
-            position: relative !important;
-        }
-        
-        /* Garantizar interactividad completa */
-        .modal *,
-        .modal input,
-        .modal button,
-        .modal select,
-        .modal textarea,
-        .modal .btn,
-        .modal .form-control,
-        .modal .form-select,
-        .modal .dropdown-toggle,
-        .modal .dropdown-item,
-        .modal label,
-        .modal .form-check-input,
-        .modal .form-check-label {
-            pointer-events: auto !important;
-            user-select: auto !important;
-            -webkit-user-select: auto !important;
-            -moz-user-select: auto !important;
-            -ms-user-select: auto !important;
-            cursor: pointer !important;
-        }
-        
-        /* Eliminar efectos que bloquean interacción */
-        .modal,
-        .modal * {
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-            transform: none !important;
-            -webkit-transform: none !important;
-        }
-        
-        /* Asegurar dropdowns dentro de modales */
-        .modal .dropdown-menu {
-            z-index: 10050 !important;
-            position: absolute !important;
-            pointer-events: auto !important;
-        }
-        
-        /* Resto del CSS específico de esta página... */
-    </style>
-    </style>
+.animate-fade-up-delay-2 {
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+</style>
 {% endblock extra_css %}
 
 {% block content %}
 <div class="container-fluid">
-    <h1 class="text-center mb-4">Buscar Propiedades</h1>
-    
-    <!-- Cuadro principal de búsqueda -->
-    <div class="main-search-box">
-        <form method="post" id="buscar-propiedades-form-dia" class="m-0">
+    <!-- Formulario de búsqueda moderno -->
+    <div class="search-form-modern animate-fade-up">
+        <div class="search-header">
+            <h1><i class="fas fa-search me-3"></i>Buscar Propiedades</h1>
+            <p>Encuentra la propiedad perfecta para tus necesidades</p>
+        </div>
+        
+        <form method="post" id="buscar-propiedades-form-dia">
             {% csrf_token %}
-            <div class="row">
-                <div class="col-12">
-                    <div class="d-flex flex-wrap align-items-end gap-3">
-                        <!-- Fecha Inicio -->
-                        <div class="form-group">
-                            <label>Fecha de Inicio</label>
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-calendar"></i>
-                                </span>
-                                {{ form.fecha_inicio }}
-                            </div>
-                        </div>
-
-                        <!-- Fecha Fin -->
-                        <div class="form-group">
-                            <label>Fecha de Fin</label>
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-calendar"></i>
-                                </span>
-                                {{ form.fecha_fin }}
-                            </div>
-                        </div>
-
-                        <!-- Ambientes -->
-                        <div class="form-group">
-                            <label>Ambientes</label>
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-door-open"></i>
-                                </span>
-                                {{ form.ambientes }}
-                            </div>
-                        </div>
-
-                        <!-- Botón de búsqueda -->
-                        <div class="form-group">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-search me-2"></i>Buscar
-                            </button>
-                        </div>
+            <div class="row g-4 align-items-end">
+                <!-- Fecha Inicio -->
+                <div class="col-md-3">
+                    <label class="form-label">
+                        <i class="fas fa-calendar-alt me-2"></i>Fecha de Inicio
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-calendar"></i>
+                        </span>
+                        {{ form.fecha_inicio }}
                     </div>
+                </div>
 
-                    <!-- Controles modernos -->
-                    <div class="controls-container">
-                        <button type="button" class="control-btn" onclick="abrirModalFiltros()">
-                            <i class="fas fa-filter"></i>
-                            Mostrar Filtros Avanzados
+                <!-- Fecha Fin -->
+                <div class="col-md-3">
+                    <label class="form-label">
+                        <i class="fas fa-calendar-check me-2"></i>Fecha de Fin
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-calendar"></i>
+                        </span>
+                        {{ form.fecha_fin }}
+                    </div>
+                </div>
+
+                <!-- Ambientes -->
+                <div class="col-md-3">
+                    <label class="form-label">
+                        <i class="fas fa-door-open me-2"></i>Ambientes
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-home"></i>
+                        </span>
+                        {{ form.ambientes }}
+                    </div>
+                </div>
+
+                <!-- Botón de búsqueda -->
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-search-modern w-100">
+                        <i class="fas fa-search me-2"></i>Buscar Propiedades
+                    </button>
+                </div>
+            </div>
+
+            <!-- Controles adicionales -->
+            <div class="row mt-4">
+                <div class="col-md-8">
+                    <div class="d-flex gap-3 align-items-center">
+                        <button type="button" class="btn btn-filter-modern" onclick="abrirModalFiltros()">
+                            <i class="fas fa-sliders-h me-2"></i>Filtros Avanzados
                         </button>
-                        <div class="form-check">
+                        <div class="form-check form-switch">
                             {{ form.ver_todas }}
-                            <label class="control-btn" for="id_ver_todas">
-                                <i class="fas fa-globe"></i>
-                                Ver Todas las Propiedades
+                            <label class="form-check-label fw-semibold" for="id_ver_todas">
+                                <i class="fas fa-globe me-2"></i>Ver Todas las Propiedades
                             </label>
                         </div>
                     </div>
@@ -1037,251 +526,220 @@
         </form>
     </div>
 
-    <!-- Contenedor de filtros adicionales -->
-    <div id="filtrosAdicionales" class="mt-3" style="display: none;">
-        <div class="card">
-            <div class="card-body">
-                <div class="row">
-                    <!-- Filtros básicos -->
-                    <div class="col-md-4 mb-3">
-                        <div class="form-group">
-                            <label>Tipo de Inmueble</label>
-                            {{ form.tipo_inmueble }}
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="form-group">
-                            <label>Vista</label>
-                            {{ form.vista }}
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="form-group">
-                            <label>Valoración</label>
-                            {{ form.valoracion }}
-                        </div>
-                    </div>
-
-                    <!-- Características booleanas -->
-                    <div class="col-12">
-                        <h5 class="mb-3">Características adicionales</h5>
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.amoblado }}
-                                    <label class="form-check-label" for="{{ form.amoblado.id_for_label }}">Amoblado</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.cochera }}
-                                    <label class="form-check-label" for="{{ form.cochera.id_for_label }}">Cochera</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.tv_smart }}
-                                    <label class="form-check-label" for="{{ form.tv_smart.id_for_label }}">TV Smart</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.wifi }}
-                                    <label class="form-check-label" for="{{ form.wifi.id_for_label }}">WiFi</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.piscina }}
-                                    <label class="form-check-label" for="{{ form.piscina.id_for_label }}">Piscina</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.parrilla }}
-                                    <label class="form-check-label" for="{{ form.parrilla.id_for_label }}">Parrilla</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.terraza }}
-                                    <label class="form-check-label" for="{{ form.terraza.id_for_label }}">Terraza</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.balcon }}
-                                    <label class="form-check-label" for="{{ form.balcon.id_for_label }}">Balcón</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
+    <div class="row g-4">
         <!-- Columna izquierda: Lista de propiedades -->
-        <div class="col-md-8">
+        <div class="col-lg-8">
             {% if propiedades_disponibles %}
-            <h3 class="text-center mt-4">Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h3>
-            <div class="table-wrapper">
-                <table id="propiedadesTable" class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Disponibilidad</th>
-                            <th>Ubicación</th>
-                            <th>Piso</th>
-                            <th>Dpto</th>
-                            <th>Propietario</th>
-                            <th>Precio</th>
-                            <th>Sucursal</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for propiedad in propiedades_disponibles %}
-                        {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                        <tr style="background-color: white;" 
-                            class="propiedad-row"
-                            data-index="{{ forloop.counter0 }}"
-                            data-propiedad-id="{{ propiedad.id }}"
-                            data-direccion="{{ propiedad.direccion|escapejs }}"
-                            data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
-                            data-disponibilidad="{{ propiedad.disponibilidad }}"
-                            data-precio-total="{{ propiedad.precio_total_reserva }}"
-                            data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
-                            data-estado-reserva="{{ propiedad.estado_reserva }}"
-                            data-precio-dia="{{ propiedad.precio_por_dia }}"
-                            data-total-dias="{{ total_dias }}"
-                            data-ambientes="{{ propiedad.ambientes|default:0 }}"
-                            data-estado="{{ propiedad.estado|default:'Disponible' }}"
-                            data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
-                            data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}">
-                            <td style="color: red;">{{ propiedad.id }}</td>
-                            <td style="color: red;">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
-                            <td style="color: red;">{{ propiedad.ubicacion }}</td>
-                            <td style="color: red;">{{ propiedad.piso }}</td>
-                            <td style="color: red;">{{ propiedad.departamento }}</td>
-                            <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
-                            <td style="color: red;">{{ propiedad.precio_total_reserva|format_price }}</td>
-                            <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
-                        </tr>
-                        {% else %}
-                        <tr style="background-color: white;" 
-                            class="propiedad-row"
-                            data-index="{{ forloop.counter0 }}"
-                            data-propiedad-id="{{ propiedad.id }}"
-                            data-direccion="{{ propiedad.direccion|escapejs }}"
-                            data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
-                            data-disponibilidad="{{ propiedad.disponibilidad }}"
-                            data-precio-total="{{ propiedad.precio_total_reserva }}"
-                            data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
-                            data-estado-reserva="{{ propiedad.estado_reserva }}"
-                            data-precio-dia="{{ propiedad.precio_por_dia }}"
-                            data-total-dias="{{ total_dias }}"
-                            data-ambientes="{{ propiedad.ambientes|default:0 }}"
-                            data-estado="{{ propiedad.estado|default:'Disponible' }}"
-                            data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
-                            data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}">
-                            <td>{{ propiedad.id }}</td>
-                            <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
-                            <td>{{ propiedad.ubicacion }}</td>
-                            <td>{{ propiedad.piso }}</td>
-                            <td>{{ propiedad.departamento }}</td>
-                            <td>{{ propiedad.propietario.apellido }}</td>
-                            <td>{{ propiedad.precio_total_reserva|format_price }}</td>
-                            <td>{{ propiedad.sucursal.nombre }}</td>
-                        </tr>
-                        {% endif %}
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Ficha detallada mejorada -->
-            <div class="card mt-4" id="propertyCard" style="font-family: 'Courier New', monospace;">
-                <div class="card-header">
-                    <div class="d-flex justify-content-between">
-                        <h5 class="mb-0">FICHA: <span id="cardPropiedad"></span></h5>
-                        <h5 class="mb-0">DIRECCIÓN: <span id="cardDireccion"></span></h5>
-                    </div>
-                </div>
-                
-                <div class="card-body">
-                    <div class="descripcion p-3" style="background-color: #f8f9fa; border-radius: 8px;">
-                        <div class="row mt-3">
-                            <div class="col-md-6">
-                                <p><strong>PROPIETARIO:</strong> <span id="cardPropietario"></span></p>
-                                <p><strong>PRECIO TOTAL:</strong> <span id="cardPrecio"></span></p>
-                            </div>
-                            <div class="col-md-6">
-                                <p><strong>AMBIENTES:</strong> <span id="cardAmbiente"></span> </p>
-                                <p><strong>ESTADO:</strong> <span id="cardEstado"></span></p>
-                            </div>
-                        </div>
-
-                        <!-- Características/Amenities -->
-                        <div class="mt-4">
-                            <h3 class="mb-3">DESCRIPCIÓN:</h3>
-                            <div id="descripcionDetallada" class="text-uppercase" style="word-wrap: break-word; white-space: pre-wrap; max-height: 200px; overflow-y: auto; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; background-color: white;">
-                                <!-- Se llenará con JavaScript -->
-                            </div>
-                            <h5 class="mt-4 mb-3">CARACTERÍSTICAS:</h5>
-                            <div id="caracteristicas" class="text-uppercase d-flex flex-wrap gap-2">
-                                <!-- Se llenará con JavaScript -->
-                            </div>
-                        </div>
+                <!-- Sección de resultados moderna -->
+                <div class="results-section animate-fade-up-delay-1">
+                    <div class="results-header">
+                        <h5>
+                            <i class="fas fa-list me-2"></i>Propiedades Disponibles 
+                            <span class="badge bg-light text-dark ms-2 fw-normal">{{ fecha_inicio }} al {{ fecha_fin }}</span>
+                        </h5>
                     </div>
                     
-                    <!-- Agregar este botón cerca de los otros botones de acción -->
-                    <div class="mb-3">
-                        <button type="button" class="btn btn-info" onclick="abrirGaleriaFotos(propiedadSeleccionada.id)">
-                            <i class="fas fa-images"></i> Ver Fotos
-                        </button>
+                    <!-- Tabla moderna -->
+                    <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                        <table id="propiedadesTable" class="table table-modern mb-0">
+                            <thead class="sticky-top">
+                                <tr>
+                                    <th><i class="fas fa-hashtag me-1"></i>ID</th>
+                                    <th><i class="fas fa-calendar me-1"></i>Disponibilidad</th>
+                                    <th><i class="fas fa-map-marker-alt me-1"></i>Ubicación</th>
+                                    <th><i class="fas fa-building me-1"></i>Piso</th>
+                                    <th><i class="fas fa-door-open me-1"></i>Dpto</th>
+                                    <th><i class="fas fa-user me-1"></i>Propietario</th>
+                                    <th><i class="fas fa-dollar-sign me-1"></i>Precio</th>
+                                    <th><i class="fas fa-store me-1"></i>Sucursal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for propiedad in propiedades_disponibles %}
+                                {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
+                                <tr class="propiedad-row table-warning" 
+                                    data-index="{{ forloop.counter0 }}"
+                                    data-propiedad-id="{{ propiedad.id }}"
+                                    data-direccion="{{ propiedad.direccion|escapejs }}"
+                                    data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
+                                    data-disponibilidad="{{ propiedad.disponibilidad }}"
+                                    data-precio-total="{{ propiedad.precio_total_reserva }}"
+                                    data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
+                                    data-estado-reserva="{{ propiedad.estado_reserva }}"
+                                    data-precio-dia="{{ propiedad.precio_por_dia }}"
+                                    data-total-dias="{{ total_dias }}"
+                                    data-ambientes="{{ propiedad.ambientes|default:0 }}"
+                                    data-estado="{{ propiedad.estado|default:'Disponible' }}"
+                                    data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
+                                    data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}">
+                                    <td class="fw-bold">
+                                        <i class="fas fa-exclamation-triangle text-warning me-1"></i>{{ propiedad.id }}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-reserved">Reservado</span><br>
+                                        <small class="text-muted">{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</small>
+                                    </td>
+                                    <td>{{ propiedad.ubicacion }}</td>
+                                    <td>{{ propiedad.piso }}</td>
+                                    <td>{{ propiedad.departamento }}</td>
+                                    <td>{{ propiedad.propietario.apellido }}</td>
+                                    <td class="fw-bold">{{ propiedad.precio_total_reserva|format_price }}</td>
+                                    <td>{{ propiedad.sucursal.nombre }}</td>
+                                </tr>
+                                {% else %}
+                                <tr class="propiedad-row" 
+                                    data-index="{{ forloop.counter0 }}"
+                                    data-propiedad-id="{{ propiedad.id }}"
+                                    data-direccion="{{ propiedad.direccion|escapejs }}"
+                                    data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
+                                    data-disponibilidad="{{ propiedad.disponibilidad }}"
+                                    data-precio-total="{{ propiedad.precio_total_reserva }}"
+                                    data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
+                                    data-estado-reserva="{{ propiedad.estado_reserva }}"
+                                    data-precio-dia="{{ propiedad.precio_por_dia }}"
+                                    data-total-dias="{{ total_dias }}"
+                                    data-ambientes="{{ propiedad.ambientes|default:0 }}"
+                                    data-estado="{{ propiedad.estado|default:'Disponible' }}"
+                                    data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
+                                    data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}">
+                                    <td class="fw-bold text-primary">{{ propiedad.id }}</td>
+                                    <td>
+                                        <span class="badge badge-available">Disponible</span><br>
+                                        <small class="text-muted">{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</small>
+                                    </td>
+                                    <td>{{ propiedad.ubicacion }}</td>
+                                    <td>{{ propiedad.piso }}</td>
+                                    <td>{{ propiedad.departamento }}</td>
+                                    <td>{{ propiedad.propietario.apellido }}</td>
+                                    <td class="fw-bold text-success">{{ propiedad.precio_total_reserva|format_price }}</td>
+                                    <td>{{ propiedad.sucursal.nombre }}</td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-                
-                <div class="card-footer" id="cardButtons" style="background-color: #f8f9fa;">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                                <button type="button" class="btn btn-primary" disabled>
-                                    <i class="fas fa-calendar-check"></i> Reservado
-                                </button>
-                                <button type="button" class="btn btn-success" onclick="window.mostrarModalAutenticacion('${reserva_id}')">
-                                    <i class="fas fa-check-circle"></i> Finalizar Operación
-                                </button>
-                                <button type="button" class="btn btn-info" onclick="window.verPrecios()">
-                                    <i class="fas fa-dollar-sign"></i> Ver Precios
-                                </button>
-                            {% else %}
-                                <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
-                                        <i class="fas fa-calendar-plus"></i> Reservar
-                                    </button>
-                                    <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
-                                        <i class="fas fa-check-circle"></i> Operación Directa
-                                    </button>
-                                    <button type="button" class="btn btn-info" onclick="window.verPrecios()">
-                                        <i class="fas fa-dollar-sign"></i> Ver Precios
-                                    </button>
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <span class="badge bg-info text-white p-2">
-                                <i class="fas fa-info-circle"></i> 
-                                Estado: <span id="estadoPropiedad">Disponible</span>
+
+                <!-- Tarjeta de información de la propiedad moderna -->
+                <div class="property-card-modern animate-fade-up-delay-2 mt-4" id="propertyCard">
+                    <div class="property-card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-home me-2"></i>Información de la Propiedad
+                            </h5>
+                            <span class="badge bg-light text-dark">
+                                FICHA: <span id="cardPropiedad" class="fw-bold">-</span>
                             </span>
                         </div>
                     </div>
+                    
+                    <div class="property-info-grid">
+                        <!-- Información principal con iconos -->
+                        <div class="info-item">
+                            <div class="info-icon primary">
+                                <i class="fas fa-map-marker-alt"></i>
+                            </div>
+                            <div class="info-content">
+                                <h6>Dirección</h6>
+                                <div class="value" id="cardDireccion">Selecciona una propiedad</div>
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <div class="info-icon info">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="info-content">
+                                <h6>Propietario</h6>
+                                <div class="value" id="cardPropietario">-</div>
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <div class="info-icon success">
+                                <i class="fas fa-dollar-sign"></i>
+                            </div>
+                            <div class="info-content">
+                                <h6>Precio Total</h6>
+                                <div class="value" id="cardPrecio">-</div>
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <div class="info-icon warning">
+                                <i class="fas fa-door-open"></i>
+                            </div>
+                            <div class="info-content">
+                                <h6>Ambientes</h6>
+                                <div class="value" id="cardAmbiente">-</div>
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <div class="info-icon info">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <div class="info-content">
+                                <h6>Estado</h6>
+                                <div class="value" id="cardEstado">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Descripción -->
+                    <div class="px-4 pb-2">
+                        <h6 class="fw-bold text-muted mb-3">
+                            <i class="fas fa-align-left me-2"></i>DESCRIPCIÓN
+                        </h6>
+                        <div id="descripcionDetallada" class="p-3 bg-light rounded border-start border-primary border-3">
+                            Selecciona una propiedad para ver su descripción
+                        </div>
+                    </div>
+
+                    <!-- Características -->
+                    <div class="px-4 pb-4">
+                        <h6 class="fw-bold text-muted mb-3">
+                            <i class="fas fa-tags me-2"></i>CARACTERÍSTICAS
+                        </h6>
+                        <div id="caracteristicas" class="d-flex flex-wrap gap-2">
+                            <span class="badge bg-secondary">Selecciona una propiedad</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Botones de acción modernos -->
+                    <div class="card-footer bg-light border-0" id="cardButtons">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-primary" onclick="abrirGaleriaFotos(propiedadSeleccionada?.id)">
+                                    <i class="fas fa-images me-2"></i>Ver Fotos
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
+                                    <i class="fas fa-calendar-plus me-2"></i>Reservar
+                                </button>
+                                <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
+                                    <i class="fas fa-check-circle me-2"></i>Operación Directa
+                                </button>
+                                <button type="button" class="btn btn-info" onclick="window.verPrecios()">
+                                    <i class="fas fa-dollar-sign me-2"></i>Ver Precios
+                                </button>
+                            </div>
+                            <div>
+                                <span class="badge bg-info fs-6 p-2">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Estado: <span id="estadoPropiedad">Disponible</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
             {% else %}
-                <div class="alert alert-warning text-center mt-4">
-                    No hay propiedades disponibles para las fechas seleccionadas.
+                <div class="no-properties-state animate-fade-up-delay-1">
+                    <div class="no-properties-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h4 class="no-properties-title">No se encontraron propiedades</h4>
+                    <p class="no-properties-text">No hay propiedades disponibles para las fechas seleccionadas.</p>
                 </div>
                 {% if alerta_sin_precio %}
                 <script>
@@ -1300,6 +758,39 @@
                 {% endif %}
             {% endif %}
         </div>
+
+        <!-- Columna derecha: Tabla de precios moderna -->
+        <div class="col-lg-4">
+            <div class="prices-section animate-fade-up-delay-2">
+                <div class="prices-header">
+                    <h5>
+                        <i class="fas fa-dollar-sign me-2"></i>PRECIOS
+                    </h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-precios mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="fw-bold">PERÍODO</th>
+                                <th class="text-end fw-bold">Precio por Día</th>
+                                <th class="text-end fw-bold">Precio por Quincena</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="3" class="text-center text-muted py-4">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Selecciona una propiedad para ver precios
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL HERMOSO Y FUNCIONAL -->
 <div id="modalConfirmarReserva" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999;">
     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 15px; padding: 0; width: 90%; max-width: 700px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); animation: modalAppear 0.3s ease-out;">
