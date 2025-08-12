@@ -2015,6 +2015,8 @@ function verPrecios() {
             });
             return;
         }
+        
+        console.log('✅ Propiedad seleccionada válida:', propiedadSeleccionada);
 
         console.log('Intentando mostrar el modal...');
         
@@ -2083,14 +2085,39 @@ function verPrecios() {
             return `${day}/${month}/${year}`;
         }
 
-        // Actualizar textos del modal
-        document.getElementById('modal_ficha').textContent = propiedadSeleccionada.id || '-';
-        document.getElementById('modal_direccion').textContent = propiedadSeleccionada.direccion || '-';
-        document.getElementById('modal_propietario').textContent = propiedadSeleccionada.propietario || '-';
-        document.getElementById('modal_fecha_inicio').textContent = formatearFechaParaMostrar(propiedadSeleccionada.fechaInicio);
-        document.getElementById('modal_fecha_fin').textContent = formatearFechaParaMostrar(propiedadSeleccionada.fechaFin);
-        document.getElementById('modal_total_dias').textContent = propiedadSeleccionada.totalDias + ' días' || '-';
-        document.getElementById('modal_precio_total').textContent = '$' + (propiedadSeleccionada.precio || '0');
+        // Actualizar textos del modal con validación de existencia
+        const elementos = {
+            'modal_ficha': propiedadSeleccionada.id || '-',
+            'modal_direccion': propiedadSeleccionada.direccion || '-',
+            'modal_propietario': propiedadSeleccionada.propietario || '-',
+            'modal_fecha_inicio': formatearFechaParaMostrar(propiedadSeleccionada.fechaInicio),
+            'modal_fecha_fin': formatearFechaParaMostrar(propiedadSeleccionada.fechaFin),
+            'modal_total_dias': (propiedadSeleccionada.totalDias || '0') + ' días',
+            'modal_ambientes': propiedadSeleccionada.ambientes || 'No especificado',
+            'modal_estado': propiedadSeleccionada.estado || 'Disponible',
+            'modal_descripcion': propiedadSeleccionada.descripcion || 'Sin descripción',
+            'modal_caracteristicas': propiedadSeleccionada.caracteristicas || 'Sin características'
+        };
+        
+        // Poblar campos de texto del modal
+        Object.entries(elementos).forEach(([id, valor]) => {
+            const elemento = document.getElementById(id);
+            if (elemento) {
+                elemento.textContent = valor;
+                console.log(`✅ ${id}: ${valor}`);
+            } else {
+                console.error(`❌ Elemento no encontrado: ${id}`);
+            }
+        });
+        
+        // Poblar campo de precio editable
+        const precioInput = document.getElementById('precio_total_editable');
+        if (precioInput) {
+            precioInput.value = propiedadSeleccionada.precio || 0;
+            console.log(`✅ precio_total_editable: ${propiedadSeleccionada.precio}`);
+        } else {
+            console.error('❌ Campo precio_total_editable no encontrado');
+        }
 
         console.log('Modal debería estar visible ahora');
         console.log('Estilos del modal:', {
@@ -4097,6 +4124,39 @@ function guardarCambiosPrecios() {
 </div>
 {% endblock content %}
 
+<script>
+// Test de debugging para verificar que todo funcione
+console.log('🧪 Script de debugging cargado');
+
+// Verificar que las funciones existan
+setTimeout(() => {
+    console.log('🔍 Verificando funciones disponibles:');
+    console.log('- confirmarReserva:', typeof window.confirmarReserva);
+    console.log('- inicializarEventListenersTabla:', typeof inicializarEventListenersTabla);
+    console.log('- handleRowClick:', typeof handleRowClick);
+    console.log('- seleccionarPropiedad:', typeof seleccionarPropiedad);
+    
+    // Verificar elementos del DOM
+    const tabla = document.querySelector('#propiedadesTable');
+    const filas = document.querySelectorAll('.propiedad-row');
+    const modal = document.getElementById('modalConfirmarReserva');
+    
+    console.log('🏗️ Elementos DOM:');
+    console.log('- Tabla propiedades:', tabla ? '✅ Encontrada' : '❌ No encontrada');
+    console.log('- Filas de propiedades:', filas.length);
+    console.log('- Modal confirmar:', modal ? '✅ Encontrado' : '❌ No encontrado');
+    
+    // Verificar variable global
+    console.log('📊 Variables globales:');
+    console.log('- propiedadSeleccionada:', propiedadSeleccionada);
+    
+    if (filas.length > 0) {
+        console.log('🔧 Reinicializando event listeners...');
+        inicializarEventListenersTabla();
+    }
+}, 1000);
+</script>
+
 {% block extra_js %}
 <!-- Incluir jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -4455,5 +4515,36 @@ function resetearFiltros() {
         console.error('Error reseteando filtros:', error);
     }
 }
+
+// Test de debugging para verificar que todo funcione
+console.log('🧪 Script de debugging cargado');
+
+// Verificar que las funciones existan
+setTimeout(() => {
+    console.log('🔍 Verificando funciones disponibles:');
+    console.log('- confirmarReserva:', typeof window.confirmarReserva);
+    console.log('- inicializarEventListenersTabla:', typeof inicializarEventListenersTabla);
+    console.log('- handleRowClick:', typeof handleRowClick);
+    console.log('- seleccionarPropiedad:', typeof seleccionarPropiedad);
+    
+    // Verificar elementos del DOM
+    const tabla = document.querySelector('#propiedadesTable');
+    const filas = document.querySelectorAll('.propiedad-row');
+    const modal = document.getElementById('modalConfirmarReserva');
+    
+    console.log('🏗️ Elementos DOM:');
+    console.log('- Tabla propiedades:', tabla ? '✅ Encontrada' : '❌ No encontrada');
+    console.log('- Filas de propiedades:', filas.length);
+    console.log('- Modal confirmar:', modal ? '✅ Encontrado' : '❌ No encontrado');
+    
+    // Verificar variable global
+    console.log('📊 Variables globales:');
+    console.log('- propiedadSeleccionada:', propiedadSeleccionada);
+    
+    if (filas.length > 0) {
+        console.log('🔧 Reinicializando event listeners...');
+        inicializarEventListenersTabla();
+    }
+}, 1000);
 </script>
 {% endblock extra_js %}
