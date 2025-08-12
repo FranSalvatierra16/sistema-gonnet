@@ -2040,7 +2040,7 @@ function verPrecios() {
         console.log('✅ Propiedad seleccionada válida:', propiedadSeleccionada);
 
         // Usar SweetAlert2 para una experiencia más confiable
-        mostrarModalSweetAlert();
+        mostrarModalReservaSimple();
         return;
 
         console.log('Intentando mostrar el modal...');
@@ -5020,7 +5020,7 @@ function crearNuevoInquilino() {
                         }
                         
                         // Reabrir el modal de reserva
-                        mostrarModalSweetAlert();
+                        mostrarModalReservaSimple();
                     });
                 } else {
                     Swal.fire({
@@ -5187,7 +5187,19 @@ function mostrarModalReservaSimple() {
     console.log('✅ Modal de emergencia mostrado');
 }
 
+// Función SweetAlert que redirige a la función simple
+function mostrarModalSweetAlert() {
+    console.log('🔄 Redirigiendo a función simple...');
+    mostrarModalReservaSimple();
+}
+
 // Reemplazar confirmarReserva con la función simple
 window.confirmarReserva = mostrarModalReservaSimple;
+
+// Función de compatibilidad para evitar errores
+function mostrarModalSweetAlert() {
+    console.log('🔄 Función de compatibilidad - usando modal simple');
+    mostrarModalReservaSimple();
+}
 
 {% endblock extra_js %}
