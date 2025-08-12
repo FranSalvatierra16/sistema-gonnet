@@ -2005,14 +2005,115 @@ function verPrecios() {
         console.log('=== CONFIRMAR RESERVA ===');
         console.log('Propiedad seleccionada:', propiedadSeleccionada);
         
-    // Verificar que tengamos una propiedad seleccionada
-    if (!propiedadSeleccionada) {
-            alert('Por favor, selecciona una propiedad primero.');
-        return;
-    }
+        // Verificar que tengamos una propiedad seleccionada
+        if (!propiedadSeleccionada) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Atención',
+                text: 'Por favor, selecciona una propiedad primero.',
+                confirmButtonText: 'Entendido'
+            });
+            return;
+        }
 
-        // Mostrar directamente el modal de reserva
-        window.mostrarModalReserva(false); // false = reserva normal
+        console.log('Intentando mostrar el modal...');
+        
+        // Obtener el modal
+        const modal = document.getElementById('modalConfirmarReserva');
+        if (!modal) {
+            console.error('❌ Modal no encontrado!');
+            return;
+        }
+
+        // Crear o buscar elementos del modal si no existen
+        let modalPropiedadId = document.getElementById('modalPropiedadId');
+        if (!modalPropiedadId) {
+            modalPropiedadId = document.createElement('input');
+            modalPropiedadId.type = 'hidden';
+            modalPropiedadId.id = 'modalPropiedadId';
+            modal.appendChild(modalPropiedadId);
+        }
+
+        let modalFechaInicio = document.getElementById('modalFechaInicio');
+        if (!modalFechaInicio) {
+            modalFechaInicio = document.createElement('input');
+            modalFechaInicio.type = 'hidden';
+            modalFechaInicio.id = 'modalFechaInicio';
+            modal.appendChild(modalFechaInicio);
+        }
+
+        let modalFechaFin = document.getElementById('modalFechaFin');
+        if (!modalFechaFin) {
+            modalFechaFin = document.createElement('input');
+            modalFechaFin.type = 'hidden';
+            modalFechaFin.id = 'modalFechaFin';
+            modal.appendChild(modalFechaFin);
+        }
+
+        let modalPrecioTotal = document.getElementById('modalPrecioTotal');
+        if (!modalPrecioTotal) {
+            modalPrecioTotal = document.createElement('input');
+            modalPrecioTotal.type = 'hidden';
+            modalPrecioTotal.id = 'modalPrecioTotal';
+            modal.appendChild(modalPrecioTotal);
+        }
+
+        let esOperacionDirecta = document.getElementById('esOperacionDirecta');
+        if (!esOperacionDirecta) {
+            esOperacionDirecta = document.createElement('input');
+            esOperacionDirecta.type = 'hidden';
+            esOperacionDirecta.id = 'esOperacionDirecta';
+            modal.appendChild(esOperacionDirecta);
+        }
+
+        // Llenar datos del modal
+        modalPropiedadId.value = propiedadSeleccionada.id;
+        modalFechaInicio.value = propiedadSeleccionada.fechaInicio;
+        modalFechaFin.value = propiedadSeleccionada.fechaFin;
+        modalPrecioTotal.value = propiedadSeleccionada.precio;
+        esOperacionDirecta.value = 'false'; // Es una reserva normal
+
+        // Función para formatear fecha para mostrar
+        function formatearFechaParaMostrar(fecha) {
+            if (!fecha) return '-';
+            if (fecha.includes('/')) return fecha;
+            
+            // Convertir YYYY-MM-DD a DD/MM/YYYY
+            const [year, month, day] = fecha.split('-');
+            return `${day}/${month}/${year}`;
+        }
+
+        // Actualizar textos del modal
+        document.getElementById('modal_ficha').textContent = propiedadSeleccionada.id || '-';
+        document.getElementById('modal_direccion').textContent = propiedadSeleccionada.direccion || '-';
+        document.getElementById('modal_propietario').textContent = propiedadSeleccionada.propietario || '-';
+        document.getElementById('modal_fecha_inicio').textContent = formatearFechaParaMostrar(propiedadSeleccionada.fechaInicio);
+        document.getElementById('modal_fecha_fin').textContent = formatearFechaParaMostrar(propiedadSeleccionada.fechaFin);
+        document.getElementById('modal_total_dias').textContent = propiedadSeleccionada.totalDias + ' días' || '-';
+        document.getElementById('modal_precio_total').textContent = '$' + (propiedadSeleccionada.precio || '0');
+
+        console.log('Modal debería estar visible ahora');
+        console.log('Estilos del modal:', {
+            display: modal.style.display,
+            visibility: modal.style.visibility,
+            opacity: modal.style.opacity,
+            zIndex: modal.style.zIndex
+        });
+
+        // Mostrar el modal con métodos agresivos
+        modal.style.display = 'block';
+        modal.style.visibility = 'visible';
+        modal.style.opacity = '1';
+        modal.style.zIndex = '1050';
+        modal.classList.add('show');
+        modal.hidden = false;
+        modal.removeAttribute('aria-hidden');
+        modal.setAttribute('aria-modal', 'true');
+        
+        // Mover el modal al final del body para evitar problemas de z-index
+        document.body.appendChild(modal);
+
+        console.log('✅ Modal mostrado correctamente');
     }
 // Función para formatear precios disponible globalmente
 window.formatearPrecio = function(precio) {
@@ -2278,7 +2379,62 @@ document.addEventListener('DOMContentLoaded', function() {
     if (vendedorInput) {
         vendedorInput.addEventListener('input', buscarVendedor);
     }
+    
+    // Inicializar event listeners para las filas de la tabla
+    inicializarEventListenersTabla();
 });
+
+// Función para inicializar los event listeners de la tabla
+function inicializarEventListenersTabla() {
+    console.log('🔧 Inicializando event listeners de la tabla...');
+    
+    // Buscar todas las filas de propiedades
+    const filasPropiedad = document.querySelectorAll('.propiedad-row');
+    
+    filasPropiedad.forEach(fila => {
+        // Remover event listeners existentes para evitar duplicados
+        fila.removeEventListener('click', handleRowClick);
+        
+        // Agregar nuevo event listener
+        fila.addEventListener('click', handleRowClick);
+        
+        console.log(`✅ Event listener agregado a fila ID: ${fila.dataset.propiedadId}`);
+    });
+    
+    console.log(`🎯 Total de filas configuradas: ${filasPropiedad.length}`);
+}
+
+// Función para manejar el click en las filas
+function handleRowClick(event) {
+    console.log('🖱️ Click detectado en fila');
+    
+    const fila = event.currentTarget;
+    const data = fila.dataset;
+    
+    // Extraer datos de la fila
+    const id = data.propiedadId;
+    const direccion = data.direccion;
+    const propietario = data.propietario;
+    const disponibilidad = data.disponibilidad;
+    const precio = data.precioTotal;
+    const reservaId = data.reservaId;
+    const estadoReserva = data.estadoReserva;
+    const precioPorDia = data.precioDia;
+    const totalDias = data.totalDias;
+    const ambientes = data.ambientes;
+    const estado = data.estado;
+    const descripcion = data.descripcion;
+    const caracteristicas = data.caracteristicas;
+    
+    console.log('📊 Datos extraídos de la fila:', {
+        id, direccion, propietario, disponibilidad, precio, reservaId, 
+        estadoReserva, precioPorDia, totalDias, ambientes, estado, descripcion, caracteristicas
+    });
+    
+    // Llamar a la función de selección
+    window.event = event; // Asegurar que event esté disponible globalmente
+    seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio, reservaId, estadoReserva, precioPorDia, totalDias, ambientes, estado, descripcion, caracteristicas);
+}
 
 // FUNCIÓN SÚPER SIMPLE PARA EL MODAL SIN BOOTSTRAP
 window.mostrarModalReserva = function(esOperacionDirecta = false) {
@@ -4177,7 +4333,62 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.style.paddingRight = '';
         }, 100);
     });
+    
+    // Inicializar event listeners para las filas de la tabla
+    inicializarEventListenersTabla();
 });
+
+// Función para inicializar los event listeners de la tabla
+function inicializarEventListenersTabla() {
+    console.log('🔧 Inicializando event listeners de la tabla...');
+    
+    // Buscar todas las filas de propiedades
+    const filasPropiedad = document.querySelectorAll('.propiedad-row');
+    
+    filasPropiedad.forEach(fila => {
+        // Remover event listeners existentes para evitar duplicados
+        fila.removeEventListener('click', handleRowClick);
+        
+        // Agregar nuevo event listener
+        fila.addEventListener('click', handleRowClick);
+        
+        console.log(`✅ Event listener agregado a fila ID: ${fila.dataset.propiedadId}`);
+    });
+    
+    console.log(`🎯 Total de filas configuradas: ${filasPropiedad.length}`);
+}
+
+// Función para manejar el click en las filas
+function handleRowClick(event) {
+    console.log('🖱️ Click detectado en fila');
+    
+    const fila = event.currentTarget;
+    const data = fila.dataset;
+    
+    // Extraer datos de la fila
+    const id = data.propiedadId;
+    const direccion = data.direccion;
+    const propietario = data.propietario;
+    const disponibilidad = data.disponibilidad;
+    const precio = data.precioTotal;
+    const reservaId = data.reservaId;
+    const estadoReserva = data.estadoReserva;
+    const precioPorDia = data.precioDia;
+    const totalDias = data.totalDias;
+    const ambientes = data.ambientes;
+    const estado = data.estado;
+    const descripcion = data.descripcion;
+    const caracteristicas = data.caracteristicas;
+    
+    console.log('📊 Datos extraídos de la fila:', {
+        id, direccion, propietario, disponibilidad, precio, reservaId, 
+        estadoReserva, precioPorDia, totalDias, ambientes, estado, descripcion, caracteristicas
+    });
+    
+    // Llamar a la función de selección
+    window.event = event; // Asegurar que event esté disponible globalmente
+    seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio, reservaId, estadoReserva, precioPorDia, totalDias, ambientes, estado, descripcion, caracteristicas);
+}
 
 // Función para resetear/limpiar todos los filtros
 function resetearFiltros() {
