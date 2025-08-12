@@ -732,7 +732,7 @@
                                 <button type="button" class="btn btn-outline-primary" onclick="abrirGaleriaFotos(propiedadSeleccionada?.id)">
                                     <i class="fas fa-images me-2"></i>Ver Fotos
                                 </button>
-                                <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
+                                <button type="button" class="btn btn-primary" onclick="mostrarModalReservaSimple()">
                                     <i class="fas fa-calendar-plus me-2"></i>Reservar
                                 </button>
                                 <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
@@ -2704,7 +2704,11 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
 
 // Función para cerrar el modal
 window.cerrarModal = function() {
-    document.getElementById('modalConfirmarReserva').style.display = 'none';
+    const modal = document.getElementById('modalConfirmarReserva');
+    modal.style.display = 'none';
+    modal.classList.remove('show');
+    document.body.style.overflow = '';
+    console.log('Modal cerrado correctamente');
 };
 
 // Funciones para el modal de crear inquilino
@@ -5039,11 +5043,151 @@ function crearNuevoInquilino() {
     });
 }
 
+// RESTAURAR la función confirmarReserva ORIGINAL
 window.confirmarReserva = function() {
-    console.log('=== CONFIRMAR RESERVA (SWEETALERT) ===');
+    console.log('=== CONFIRMAR RESERVA (ORIGINAL) ===');
     console.log('Propiedad seleccionada:', propiedadSeleccionada);
     
-    mostrarModalSweetAlert();
+    // Verificar que tengamos una propiedad seleccionada
+    if (!propiedadSeleccionada) {
+        alert('Por favor, selecciona una propiedad primero.');
+        return;
+    }
+
+    console.log('Intentando mostrar el modal original...');
+    
+    // Obtener el modal
+    const modal = document.getElementById('modalConfirmarReserva');
+    if (!modal) {
+        console.error('❌ Modal no encontrado!');
+        return;
+    }
+
+    // Llenar datos del modal directamente
+    function formatearFechaParaMostrar(fecha) {
+        if (!fecha) return '-';
+        if (fecha.includes('/')) return fecha;
+        const [year, month, day] = fecha.split('-');
+        return `${day}/${month}/${year}`;
+    }
+
+    // Actualizar textos del modal
+    const elementos = {
+        'modal_ficha': propiedadSeleccionada.id || '-',
+        'modal_direccion': propiedadSeleccionada.direccion || '-',
+        'modal_propietario': propiedadSeleccionada.propietario || '-',
+        'modal_fecha_inicio': formatearFechaParaMostrar(propiedadSeleccionada.fechaInicio),
+        'modal_fecha_fin': formatearFechaParaMostrar(propiedadSeleccionada.fechaFin),
+        'modal_total_dias': (propiedadSeleccionada.totalDias || '0') + ' días',
+        'modal_ambientes': propiedadSeleccionada.ambientes || 'No especificado',
+        'modal_estado': propiedadSeleccionada.estado || 'Disponible',
+        'modal_descripcion': propiedadSeleccionada.descripcion || 'Sin descripción',
+        'modal_caracteristicas': propiedadSeleccionada.caracteristicas || 'Sin características'
+    };
+    
+    // Poblar campos del modal
+    Object.entries(elementos).forEach(([id, valor]) => {
+        const elemento = document.getElementById(id);
+        if (elemento) {
+            elemento.textContent = valor;
+        }
+    });
+    
+    // Poblar campo de precio editable
+    const precioInput = document.getElementById('precio_total_editable');
+    if (precioInput) {
+        precioInput.value = propiedadSeleccionada.precio || 0;
+    }
+
+    // Mostrar el modal SIMPLE
+    modal.style.display = 'flex';
+    modal.style.zIndex = '999999';
+    document.body.style.overflow = 'hidden';
+    
+    console.log('✅ Modal original mostrado');
+};
+
+// Función simple de emergencia para mostrar modal
+window.mostrarModalSimple = function() {
+    if (!propiedadSeleccionada) {
+        alert('Selecciona una propiedad primero');
+        return;
+    }
+    
+    const modal = document.getElementById('modalConfirmarReserva');
+    if (modal) {
+        // Llenar datos básicos
+        const ficha = document.getElementById('modal_ficha');
+        const direccion = document.getElementById('modal_direccion');
+        const precio = document.getElementById('precio_total_editable');
+        
+        if (ficha) ficha.textContent = propiedadSeleccionada.id;
+        if (direccion) direccion.textContent = propiedadSeleccionada.direccion;
+        if (precio) precio.value = propiedadSeleccionada.precio;
+        
+        // Mostrar modal
+        modal.style.display = 'block';
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
+        modal.style.zIndex = '9999';
+        modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
+        
+        console.log('Modal simple mostrado');
+    }
 };
 </script>
+// Función simple para mostrar modal - EMERGENCIA
+function mostrarModalReservaSimple() {
+    console.log('🆘 Función de emergencia ejecutada');
+    
+    if (!propiedadSeleccionada) {
+        alert('Por favor, selecciona una propiedad de la tabla primero.');
+        return;
+    }
+    
+    const modal = document.getElementById('modalConfirmarReserva');
+    if (!modal) {
+        alert('Modal no encontrado');
+        return;
+    }
+    
+    // Llenar datos básicos del modal
+    const elementos = {
+        'modal_ficha': propiedadSeleccionada.id || '-',
+        'modal_direccion': propiedadSeleccionada.direccion || '-',
+        'modal_propietario': propiedadSeleccionada.propietario || '-',
+        'modal_total_dias': (propiedadSeleccionada.totalDias || '1') + ' días'
+    };
+    
+    Object.entries(elementos).forEach(([id, valor]) => {
+        const elemento = document.getElementById(id);
+        if (elemento) elemento.textContent = valor;
+    });
+    
+    const precioInput = document.getElementById('precio_total_editable');
+    if (precioInput) precioInput.value = propiedadSeleccionada.precio || 0;
+    
+    // Mostrar modal con estilos forzados
+    modal.style.cssText = `
+        display: block !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        z-index: 999999 !important;
+        background: rgba(0,0,0,0.8) !important;
+    `;
+    
+    document.body.style.overflow = 'hidden';
+    
+    console.log('✅ Modal de emergencia mostrado');
+}
+
+// Reemplazar confirmarReserva con la función simple
+window.confirmarReserva = mostrarModalReservaSimple;
+
 {% endblock extra_js %}
