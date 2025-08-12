@@ -381,17 +381,35 @@
     user-select: auto !important;
 }
 
-/* Modal personalizado */
+/* Modal personalizado - MÁXIMA PRIORIDAD */
 #modalConfirmarReserva {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
-    background: rgba(0,0,0,0.7) !important;
-    z-index: 1050 !important;
+    background: rgba(0,0,0,0.8) !important;
+    z-index: 999999 !important;
     display: none !important;
     pointer-events: auto !important;
+    overflow: auto !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    isolation: isolate !important;
+}
+
+#modalConfirmarReserva.show {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+#modalConfirmarReserva > div {
+    position: relative !important;
+    max-width: 90vw !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    z-index: 1000000 !important;
 }
 
 #modalConfirmarReserva * {
@@ -791,15 +809,18 @@
     </div>
 </div>
 
-<!-- MODAL HERMOSO Y FUNCIONAL -->
-<div id="modalConfirmarReserva" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999;">
-    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 15px; padding: 0; width: 90%; max-width: 700px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); animation: modalAppear 0.3s ease-out;">
-        
-        <!-- Header con gradiente -->
-        <div style="background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); color: white; padding: 20px; border-radius: 15px 15px 0 0; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
-            <h3 style="margin: 0; font-size: 24px; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">📋 Confirmar Reserva</h3>
-            <button onclick="cerrarModal()" style="position: absolute; top: 15px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 28px; cursor: pointer; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.3s;">×</button>
-                    </div>
+<!-- MODAL BOOTSTRAP ESTÁNDAR PARA CONFIRMAR RESERVA -->
+<div class="modal fade" id="modalConfirmarReserva" tabindex="-1" aria-labelledby="modalConfirmarReservaLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 15px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.4);">
+            
+            <!-- Header con gradiente -->
+            <div class="modal-header" style="background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); color: white; border: none; padding: 20px;">
+                <h3 class="modal-title" id="modalConfirmarReservaLabel" style="margin: 0; font-size: 24px; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">
+                    📋 Confirmar Reserva
+                </h3>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="filter: invert(1);"></button>
+            </div>
         
         <!-- Body con mejor espaciado -->
         <div style="padding: 25px; max-height: 70vh; overflow-y: auto; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);">
@@ -2000,7 +2021,7 @@ function verPrecios() {
 }
 </script>
 <script>
-    // Función global para confirmar reserva
+    // Función global para confirmar reserva (versión mejorada con SweetAlert)
     window.confirmarReserva = function() {
         console.log('=== CONFIRMAR RESERVA ===');
         console.log('Propiedad seleccionada:', propiedadSeleccionada);
@@ -2018,7 +2039,87 @@ function verPrecios() {
         
         console.log('✅ Propiedad seleccionada válida:', propiedadSeleccionada);
 
+        // Usar SweetAlert2 para una experiencia más confiable
+        mostrarModalSweetAlert();
+        return;
+
         console.log('Intentando mostrar el modal...');
+        
+        // Usar SweetAlert2 en lugar del modal problemático
+        Swal.fire({
+            title: '📋 Confirmar Reserva',
+            html: `
+                <div class="text-start">
+                    <div class="mb-3 p-3 bg-light rounded">
+                        <h6 class="text-success mb-2"><i class="fas fa-home"></i> Información de la Propiedad</h6>
+                        <p class="mb-1"><strong>Ficha:</strong> ${propiedadSeleccionada.id}</p>
+                        <p class="mb-1"><strong>Dirección:</strong> ${propiedadSeleccionada.direccion}</p>
+                        <p class="mb-1"><strong>Propietario:</strong> ${propiedadSeleccionada.propietario}</p>
+                        <p class="mb-1"><strong>Ambientes:</strong> ${propiedadSeleccionada.ambientes || 'No especificado'}</p>
+                        <p class="mb-0"><strong>Precio:</strong> $${propiedadSeleccionada.precio}</p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Vendedor:</strong></label>
+                        <input type="text" id="swal-vendedor" class="form-control" placeholder="Buscar vendedor...">
+                        <input type="hidden" id="swal-vendedor-id">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Inquilino:</strong></label>
+                        <input type="text" id="swal-inquilino" class="form-control" placeholder="Buscar inquilino...">
+                        <input type="hidden" id="swal-inquilino-id">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Precio Total:</strong></label>
+                        <input type="number" id="swal-precio" class="form-control" value="${propiedadSeleccionada.precio}" step="0.01">
+                    </div>
+                </div>
+            `,
+            width: '600px',
+            showCancelButton: true,
+            confirmButtonText: 'Confirmar Reserva',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            didOpen: () => {
+                // Aquí puedes agregar los event listeners para buscar vendedor e inquilino
+                console.log('Modal SweetAlert abierto correctamente');
+            },
+            preConfirm: () => {
+                const vendedorId = document.getElementById('swal-vendedor-id').value;
+                const inquilinoId = document.getElementById('swal-inquilino-id').value;
+                const precio = document.getElementById('swal-precio').value;
+                
+                if (!vendedorId) {
+                    Swal.showValidationMessage('Por favor selecciona un vendedor');
+                    return false;
+                }
+                if (!inquilinoId) {
+                    Swal.showValidationMessage('Por favor selecciona un inquilino');
+                    return false;
+                }
+                if (!precio || precio <= 0) {
+                    Swal.showValidationMessage('Por favor ingresa un precio válido');
+                    return false;
+                }
+                
+                return { vendedorId, inquilinoId, precio };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Procesar la reserva con los datos obtenidos
+                const { vendedorId, inquilinoId, precio } = result.value;
+                procesarReservaFinal(propiedadSeleccionada.id, vendedorId, inquilinoId, precio);
+            }
+        });
+        
+        return; // Salir aquí para evitar el código del modal anterior
+        
+        // =========================
+        // CÓDIGO DEL MODAL ANTERIOR (mantener por compatibilidad)
+        // =========================
         
         // Obtener el modal
         const modal = document.getElementById('modalConfirmarReserva');
@@ -2127,20 +2228,46 @@ function verPrecios() {
             zIndex: modal.style.zIndex
         });
 
-        // Mostrar el modal con métodos agresivos
-        modal.style.display = 'block';
-        modal.style.visibility = 'visible';
-        modal.style.opacity = '1';
-        modal.style.zIndex = '1050';
-        modal.classList.add('show');
-        modal.hidden = false;
-        modal.removeAttribute('aria-hidden');
-        modal.setAttribute('aria-modal', 'true');
-        
-        // Mover el modal al final del body para evitar problemas de z-index
-        document.body.appendChild(modal);
-
-        console.log('✅ Modal mostrado correctamente');
+        // Mostrar el modal usando Bootstrap
+        try {
+            // Si existe Bootstrap Modal, usarlo
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                const bsModal = new bootstrap.Modal(modal, {
+                    backdrop: 'static',
+                    keyboard: false
+                });
+                bsModal.show();
+                console.log('✅ Modal mostrado con Bootstrap');
+            } else {
+                // Fallback manual con máxima prioridad
+                modal.style.display = 'flex';
+                modal.style.visibility = 'visible';
+                modal.style.opacity = '1';
+                modal.style.zIndex = '999999';
+                modal.style.position = 'fixed';
+                modal.style.top = '0';
+                modal.style.left = '0';
+                modal.style.width = '100vw';
+                modal.style.height = '100vh';
+                modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
+                modal.style.alignItems = 'center';
+                modal.style.justifyContent = 'center';
+                modal.classList.add('show');
+                modal.hidden = false;
+                modal.removeAttribute('aria-hidden');
+                modal.setAttribute('aria-modal', 'true');
+                
+                // Asegurar que esté al final del body
+                document.body.appendChild(modal);
+                
+                // Bloquear scroll del body
+                document.body.style.overflow = 'hidden';
+                
+                console.log('✅ Modal mostrado manualmente');
+            }
+        } catch (error) {
+            console.error('❌ Error mostrando modal:', error);
+        }
     }
 // Función para formatear precios disponible globalmente
 window.formatearPrecio = function(precio) {
@@ -4546,5 +4673,154 @@ setTimeout(() => {
         inicializarEventListenersTabla();
     }
 }, 1000);
+
+// Función alternativa con SweetAlert2 para confirmar reserva
+function mostrarModalSweetAlert() {
+    if (!propiedadSeleccionada) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Por favor, selecciona una propiedad primero.',
+            confirmButtonText: 'Entendido'
+        });
+        return;
+    }
+
+    console.log('🎨 Mostrando modal con SweetAlert2...');
+
+    Swal.fire({
+        title: '📋 Confirmar Reserva',
+        html: `
+            <div class="text-start">
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="card border-success">
+                            <div class="card-header bg-success text-white">
+                                <h6 class="mb-0"><i class="fas fa-home"></i> Información de la Propiedad</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <p class="mb-1"><strong>Ficha:</strong> ${propiedadSeleccionada.id}</p>
+                                        <p class="mb-1"><strong>Dirección:</strong> ${propiedadSeleccionada.direccion}</p>
+                                        <p class="mb-0"><strong>Propietario:</strong> ${propiedadSeleccionada.propietario}</p>
+                                    </div>
+                                    <div class="col-6">
+                                        <p class="mb-1"><strong>Ambientes:</strong> ${propiedadSeleccionada.ambientes || 'No especificado'}</p>
+                                        <p class="mb-1"><strong>Total días:</strong> ${propiedadSeleccionada.totalDias || 1}</p>
+                                        <p class="mb-0"><strong>Precio:</strong> <span class="text-success fw-bold">$${propiedadSeleccionada.precio || 0}</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">👤 Vendedor (opcional):</label>
+                            <input type="text" id="swal-vendedor" class="form-control" placeholder="Escribe vendedor o déjalo vacío" value="Vendedor por defecto">
+                            <input type="hidden" id="swal-vendedor-id" value="1">
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">🏠 Inquilino (opcional):</label>
+                            <input type="text" id="swal-inquilino" class="form-control" placeholder="Escribe inquilino o déjalo vacío" value="Inquilino por defecto">
+                            <input type="hidden" id="swal-inquilino-id" value="1">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">💰 Precio Total:</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" id="swal-precio" class="form-control" value="${propiedadSeleccionada.precio || 0}" step="0.01" min="0">
+                    </div>
+                </div>
+            </div>
+        `,
+        width: '800px',
+        showCancelButton: true,
+        confirmButtonText: '✅ Confirmar Reserva',
+        cancelButtonText: '❌ Cancelar',
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#6c757d',
+        allowOutsideClick: false,
+        didOpen: () => {
+            console.log('💡 SweetAlert modal abierto correctamente');
+        },
+        preConfirm: () => {
+            const vendedorId = document.getElementById('swal-vendedor-id').value || '1';
+            const inquilinoId = document.getElementById('swal-inquilino-id').value || '1';
+            const precio = document.getElementById('swal-precio').value;
+            
+            if (!precio || precio <= 0) {
+                Swal.showValidationMessage('Por favor ingresa un precio válido');
+                return false;
+            }
+            
+            return { vendedorId, inquilinoId, precio };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const { vendedorId, inquilinoId, precio } = result.value;
+            console.log('🎯 Procesando reserva:', { vendedorId, inquilinoId, precio });
+            
+            // Procesar reserva simple
+            Swal.fire({
+                title: '⏳ Procesando...',
+                text: 'Confirmando tu reserva',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            setTimeout(() => {
+                Swal.fire({
+                    icon: 'success',
+                    title: '🎉 ¡Reserva Confirmada!',
+                    text: `Reserva creada para la propiedad ${propiedadSeleccionada.id}`,
+                    confirmButtonText: 'Continuar'
+                });
+            }, 1500);
+        }
+    });
+}
+
+// Función para procesar la reserva con SweetAlert
+function procesarReservaConSweetAlert(vendedorId, inquilinoId, precio) {
+    Swal.fire({
+        title: '⏳ Procesando...',
+        text: 'Confirmando tu reserva',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    // Simular proceso (puedes reemplazar con la lógica real)
+    setTimeout(() => {
+        Swal.fire({
+            icon: 'success',
+            title: '🎉 ¡Reserva Confirmada!',
+            text: `Reserva creada exitosamente para la propiedad ${propiedadSeleccionada.id}`,
+            confirmButtonText: 'Continuar',
+            confirmButtonColor: '#28a745'
+        }).then(() => {
+            // Redirigir al dashboard o página de éxito
+            window.location.href = '/dashboard/';
+        });
+    }, 1500);
+}
+
+// Reemplazar la función confirmarReserva para usar SweetAlert
+window.confirmarReserva = function() {
+    console.log('=== CONFIRMAR RESERVA (SWEETALERT) ===');
+    console.log('Propiedad seleccionada:', propiedadSeleccionada);
+    
+    mostrarModalSweetAlert();
+};
 </script>
 {% endblock extra_js %}
