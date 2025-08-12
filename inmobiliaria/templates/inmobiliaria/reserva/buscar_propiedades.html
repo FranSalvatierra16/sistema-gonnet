@@ -1,16 +1,97 @@
-{% extends 'inmobiliaria/base_original.html' %}
+{% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
 {% load custom_filters %}
 {% load static %}
 
+{% block extra_css %}
+    <!-- Protección específica para modales -->
+    <style>
+        /* Asegurar que modales tengan máxima prioridad */
+        .modal {
+            z-index: 9999 !important;
+            position: fixed !important;
+        }
+        
+        .modal-backdrop {
+            z-index: 9998 !important;
+            position: fixed !important;
+        }
+        
+        .modal-dialog {
+            z-index: 10000 !important;
+            position: relative !important;
+        }
+        
+        /* Garantizar interactividad completa */
+        .modal *,
+        .modal input,
+        .modal button,
+        .modal select,
+        .modal textarea,
+        .modal .btn,
+        .modal .form-control,
+        .modal .form-select,
+        .modal .dropdown-toggle,
+        .modal .dropdown-item,
+        .modal label,
+        .modal .form-check-input,
+        .modal .form-check-label {
+            pointer-events: auto !important;
+            user-select: auto !important;
+            -webkit-user-select: auto !important;
+            -moz-user-select: auto !important;
+            -ms-user-select: auto !important;
+            cursor: pointer !important;
+        }
+        
+        /* Eliminar efectos que bloquean interacción */
+        .modal,
+        .modal * {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            transform: none !important;
+            -webkit-transform: none !important;
+        }
+        
+        /* Asegurar dropdowns dentro de modales */
+        .modal .dropdown-menu {
+            z-index: 10050 !important;
+            position: absolute !important;
+            pointer-events: auto !important;
+        }
+        
+        /* Tabla de propiedades seleccionada */
+        .table tbody tr.selected {
+            background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%) !important;
+            border: 3px solid #2e7d32 !important;
+            box-shadow: 0 8px 25px rgba(46, 125, 50, 0.6) !important;
+            transform: scale(1.02) !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        .table tbody tr.selected td {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
+            font-size: 1.05rem !important;
+        }
+        
+        /* Hover effect para filas */
+        .table tbody tr:hover {
+            background-color: rgba(0, 123, 255, 0.1);
+            cursor: pointer;
+        }
+    </style>
+{% endblock extra_css %}
+
 {% block content %}
-<div class="container-fluid">
-    <h1 class="text-center mb-4">Buscar Propiedades</h1>
+<div class="container-fluid fade-in-up">
+    <h1 class="text-center mb-4">🏠 Buscar Propiedades</h1>
     
-    <!-- Formulario de búsqueda simple -->
+    <!-- Formulario de búsqueda moderno -->
     <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Buscar Propiedades por Fecha</h5>
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-search me-2"></i>Buscar Propiedades por Fecha</h5>
         </div>
         <div class="card-body">
             <form method="post" id="buscar-propiedades-form-dia">
@@ -18,19 +99,19 @@
                 <div class="row">
                     <div class="col-md-3">
                         <div class="form-group">
-                            <label>Fecha de Inicio</label>
+                            <label><i class="fas fa-calendar me-1"></i>Fecha de Inicio</label>
                             {{ form.fecha_inicio }}
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="form-group">
-                            <label>Fecha de Fin</label>
+                            <label><i class="fas fa-calendar me-1"></i>Fecha de Fin</label>
                             {{ form.fecha_fin }}
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="form-group">
-                            <label>Ambientes</label>
+                            <label><i class="fas fa-door-open me-1"></i>Ambientes</label>
                             {{ form.ambientes }}
                         </div>
                     </div>
@@ -38,7 +119,7 @@
                         <div class="form-group">
                             <label>&nbsp;</label>
                             <button type="submit" class="btn btn-primary w-100">
-                                <i class="fas fa-search"></i> Buscar
+                                <i class="fas fa-search me-2"></i>Buscar
                             </button>
                         </div>
                     </div>
@@ -49,13 +130,13 @@
                         <div class="form-check">
                             {{ form.ver_todas }}
                             <label class="form-check-label" for="id_ver_todas">
-                                Ver Todas las Propiedades
+                                <i class="fas fa-globe me-1"></i>Ver Todas las Propiedades
                             </label>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <button type="button" class="btn btn-info" onclick="abrirModalFiltros()">
-                            <i class="fas fa-filter"></i> Mostrar Filtros Avanzados
+                            <i class="fas fa-filter me-2"></i>Mostrar Filtros Avanzados
                         </button>
                     </div>
                 </div>
@@ -67,74 +148,76 @@
         <!-- Lista de propiedades -->
         <div class="col-md-8">
             {% if propiedades_disponibles %}
-            <h3 class="text-center mt-4">Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h3>
+            <h3 class="text-center mt-4">📋 Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h3>
             
-            <div class="table-responsive">
-                <table id="propiedadesTable" class="table table-striped table-hover">
-                    <thead class="table-primary">
-                        <tr>
-                            <th>ID</th>
-                            <th>Disponibilidad</th>
-                            <th>Ubicación</th>
-                            <th>Piso</th>
-                            <th>Dpto</th>
-                            <th>Propietario</th>
-                            <th>Precio</th>
-                            <th>Sucursal</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for propiedad in propiedades_disponibles %}
-                        <tr class="propiedad-row" style="cursor: pointer;"
-                            data-propiedad-id="{{ propiedad.id }}"
-                            data-direccion="{{ propiedad.direccion|escapejs }}"
-                            data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
-                            data-disponibilidad="{{ propiedad.disponibilidad }}"
-                            data-precio-total="{{ propiedad.precio_total_reserva }}"
-                            data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
-                            data-estado-reserva="{{ propiedad.estado_reserva }}"
-                            data-precio-dia="{{ propiedad.precio_por_dia }}"
-                            data-total-dias="{{ total_dias }}"
-                            data-ambientes="{{ propiedad.ambientes|default:0 }}"
-                            data-estado="{{ propiedad.estado|default:'Disponible' }}"
-                            data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
-                            data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}"
-                            onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:'' }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}', '{{ propiedad.ambientes|default:0 }}', '{{ propiedad.estado|default:'Disponible' }}', '{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}', '{{ propiedad|get_caracteristicas|escapejs }}')">
-                            
-                            {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                                <td class="text-danger">{{ propiedad.id }}</td>
-                                <td class="text-danger">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
-                                <td class="text-danger">{{ propiedad.ubicacion }}</td>
-                                <td class="text-danger">{{ propiedad.piso }}</td>
-                                <td class="text-danger">{{ propiedad.departamento }}</td>
-                                <td class="text-danger">{{ propiedad.propietario.apellido }}</td>
-                                <td class="text-danger">{{ propiedad.precio_total_reserva|format_price }}</td>
-                                <td class="text-danger">{{ propiedad.sucursal.nombre }}</td>
-                            {% else %}
-                                <td>{{ propiedad.id }}</td>
-                                <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
-                                <td>{{ propiedad.ubicacion }}</td>
-                                <td>{{ propiedad.piso }}</td>
-                                <td>{{ propiedad.departamento }}</td>
-                                <td>{{ propiedad.propietario.apellido }}</td>
-                                <td>{{ propiedad.precio_total_reserva|format_price }}</td>
-                                <td>{{ propiedad.sucursal.nombre }}</td>
-                            {% endif %}
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="card">
+                <div class="table-responsive">
+                    <table id="propiedadesTable" class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-hashtag me-1"></i>ID</th>
+                                <th><i class="fas fa-calendar me-1"></i>Disponibilidad</th>
+                                <th><i class="fas fa-map-marker-alt me-1"></i>Ubicación</th>
+                                <th><i class="fas fa-building me-1"></i>Piso</th>
+                                <th><i class="fas fa-door-open me-1"></i>Dpto</th>
+                                <th><i class="fas fa-user me-1"></i>Propietario</th>
+                                <th><i class="fas fa-dollar-sign me-1"></i>Precio</th>
+                                <th><i class="fas fa-store me-1"></i>Sucursal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for propiedad in propiedades_disponibles %}
+                            <tr class="propiedad-row"
+                                data-propiedad-id="{{ propiedad.id }}"
+                                data-direccion="{{ propiedad.direccion|escapejs }}"
+                                data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
+                                data-disponibilidad="{{ propiedad.disponibilidad }}"
+                                data-precio-total="{{ propiedad.precio_total_reserva }}"
+                                data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
+                                data-estado-reserva="{{ propiedad.estado_reserva }}"
+                                data-precio-dia="{{ propiedad.precio_por_dia }}"
+                                data-total-dias="{{ total_dias }}"
+                                data-ambientes="{{ propiedad.ambientes|default:0 }}"
+                                data-estado="{{ propiedad.estado|default:'Disponible' }}"
+                                data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
+                                data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}"
+                                onclick="seleccionarPropiedad('{{ propiedad.id }}', '{{ propiedad.direccion|escapejs }}', '{{ propiedad.propietario.nombre|escapejs }}', '{{ propiedad.disponibilidad }}', '{{ propiedad.precio_total_reserva }}', '{{ propiedad.reserva.id|default:'' }}', '{{ propiedad.estado_reserva }}', '{{ propiedad.precio_por_dia }}', '{{ total_dias }}', '{{ propiedad.ambientes|default:0 }}', '{{ propiedad.estado|default:'Disponible' }}', '{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}', '{{ propiedad|get_caracteristicas|escapejs }}')">
+                                
+                                {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
+                                    <td class="text-danger fw-bold">{{ propiedad.id }}</td>
+                                    <td class="text-danger">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
+                                    <td class="text-danger">{{ propiedad.ubicacion }}</td>
+                                    <td class="text-danger">{{ propiedad.piso }}</td>
+                                    <td class="text-danger">{{ propiedad.departamento }}</td>
+                                    <td class="text-danger">{{ propiedad.propietario.apellido }}</td>
+                                    <td class="text-danger fw-bold">{{ propiedad.precio_total_reserva|format_price }}</td>
+                                    <td class="text-danger">{{ propiedad.sucursal.nombre }}</td>
+                                {% else %}
+                                    <td class="fw-bold">{{ propiedad.id }}</td>
+                                    <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
+                                    <td>{{ propiedad.ubicacion }}</td>
+                                    <td>{{ propiedad.piso }}</td>
+                                    <td>{{ propiedad.departamento }}</td>
+                                    <td>{{ propiedad.propietario.apellido }}</td>
+                                    <td class="fw-bold text-success">{{ propiedad.precio_total_reserva|format_price }}</td>
+                                    <td>{{ propiedad.sucursal.nombre }}</td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Ficha de propiedad seleccionada -->
             <div class="card mt-4" id="propertyCard">
-                <div class="card-header bg-primary text-white">
+                <div class="card-header">
                     <div class="row">
                         <div class="col-md-6">
-                            <h5 class="mb-0">FICHA: <span id="cardPropiedad"></span></h5>
+                            <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>FICHA: <span id="cardPropiedad">-</span></h5>
                         </div>
                         <div class="col-md-6 text-end">
-                            <h5 class="mb-0">DIRECCIÓN: <span id="cardDireccion"></span></h5>
+                            <h5 class="mb-0"><i class="fas fa-map-marker-alt me-2"></i>DIRECCIÓN: <span id="cardDireccion">-</span></h5>
                         </div>
                     </div>
                 </div>
@@ -142,50 +225,50 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6">
-                            <p><strong>PROPIETARIO:</strong> <span id="cardPropietario"></span></p>
-                            <p><strong>PRECIO TOTAL:</strong> <span id="cardPrecio"></span></p>
+                            <p><strong><i class="fas fa-user me-1"></i>PROPIETARIO:</strong> <span id="cardPropietario">-</span></p>
+                            <p><strong><i class="fas fa-dollar-sign me-1"></i>PRECIO TOTAL:</strong> <span id="cardPrecio" class="text-success fw-bold">-</span></p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>AMBIENTES:</strong> <span id="cardAmbiente"></span></p>
-                            <p><strong>ESTADO:</strong> <span id="cardEstado"></span></p>
+                            <p><strong><i class="fas fa-door-open me-1"></i>AMBIENTES:</strong> <span id="cardAmbiente">-</span></p>
+                            <p><strong><i class="fas fa-info-circle me-1"></i>ESTADO:</strong> <span id="cardEstado" class="badge bg-info">-</span></p>
                         </div>
                     </div>
 
                     <div class="mt-3">
-                        <h6>DESCRIPCIÓN:</h6>
-                        <div id="descripcionDetallada" class="border p-2 rounded bg-light">
-                            <!-- Se llenará con JavaScript -->
+                        <h6><i class="fas fa-align-left me-2"></i>DESCRIPCIÓN:</h6>
+                        <div id="descripcionDetallada" class="p-3 rounded" style="background: var(--glass-bg); border: 1px solid var(--border-color);">
+                            Selecciona una propiedad para ver su descripción
                         </div>
                         
-                        <h6 class="mt-3">CARACTERÍSTICAS:</h6>
+                        <h6 class="mt-3"><i class="fas fa-star me-2"></i>CARACTERÍSTICAS:</h6>
                         <div id="caracteristicas">
-                            <!-- Se llenará con JavaScript -->
+                            <span class="badge bg-secondary">Selecciona una propiedad</span>
                         </div>
                     </div>
                     
-                    <div class="mt-3">
-                        <button type="button" class="btn btn-info me-2" onclick="abrirGaleriaFotos(propiedadSeleccionada.id)">
-                            <i class="fas fa-images"></i> Ver Fotos
+                    <div class="mt-4 d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-info" onclick="abrirGaleriaFotos(propiedadSeleccionada?.id)">
+                            <i class="fas fa-images me-1"></i>Ver Fotos
                         </button>
-                        <button type="button" class="btn btn-warning me-2" onclick="window.verPrecios()">
-                            <i class="fas fa-dollar-sign"></i> Ver Precios
+                        <button type="button" class="btn btn-warning" onclick="window.verPrecios()">
+                            <i class="fas fa-dollar-sign me-1"></i>Ver Precios
                         </button>
                     </div>
                 </div>
                 
                 <div class="card-footer" id="cardButtons">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <button type="button" class="btn btn-primary me-2" onclick="window.confirmarReserva()">
-                                <i class="fas fa-calendar-plus"></i> Reservar
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
+                                <i class="fas fa-calendar-plus me-1"></i>Reservar
                             </button>
                             <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
-                                <i class="fas fa-check-circle"></i> Operación Directa
+                                <i class="fas fa-check-circle me-1"></i>Operación Directa
                             </button>
                         </div>
                         <div>
                             <span class="badge bg-info p-2">
-                                <i class="fas fa-info-circle"></i> 
+                                <i class="fas fa-info-circle me-1"></i>
                                 Estado: <span id="estadoPropiedad">Disponible</span>
                             </span>
                         </div>
@@ -194,6 +277,7 @@
             </div>
             {% else %}
                 <div class="alert alert-warning text-center mt-4">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
                     No hay propiedades disponibles para las fechas seleccionadas.
                 </div>
             {% endif %}
@@ -202,20 +286,24 @@
         <!-- Tabla de precios -->
         <div class="col-md-4">
             <div class="card">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">PRECIOS</h5>
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-dollar-sign me-2"></i>PRECIOS</h5>
                 </div>
                 <div class="card-body">
                     <table class="table table-bordered table-precios">
-                        <thead class="table-success">
+                        <thead>
                             <tr>
-                                <th>PERÍODO</th>
-                                <th class="text-end">Precio por Día</th>
-                                <th class="text-end">Precio por Quincena</th>
+                                <th><i class="fas fa-calendar me-1"></i>PERÍODO</th>
+                                <th class="text-end"><i class="fas fa-calendar-day me-1"></i>Precio por Día</th>
+                                <th class="text-end"><i class="fas fa-calendar-week me-1"></i>Precio por Quincena</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <!-- Se llenará dinámicamente con JavaScript -->
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>Selecciona una propiedad para ver precios
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -224,10 +312,135 @@
     </div>
 </div>
 
-<!-- Incluir todos los modales y scripts necesarios pero sin estilos complejos -->
-<!-- Script simplificado -->
+<!-- Modal de Filtros Avanzados -->
+<div class="modal fade" id="modalFiltrosAvanzados" tabindex="-1" aria-labelledby="modalFiltrosLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalFiltrosLabel">
+                    <i class="fas fa-filter me-2"></i>Filtros Avanzados de Búsqueda
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formFiltrosAvanzados">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="filtro_tipo_inmueble"><i class="fas fa-building me-1"></i>Tipo de Inmueble</label>
+                                {{ form.tipo_inmueble }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="filtro_vista"><i class="fas fa-eye me-1"></i>Vista de la Propiedad</label>
+                                {{ form.vista }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="filtro_valoracion"><i class="fas fa-star me-1"></i>Valoración</label>
+                                {{ form.valoracion }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Características de la Propiedad -->
+                    <div class="mb-3">
+                        <label><i class="fas fa-check-circle me-1"></i>Características Especiales</label>
+                        <div class="row mt-2">
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="filtro_amoblado" name="amoblado">
+                                    <label class="form-check-label" for="filtro_amoblado">
+                                        <i class="fas fa-couch me-1"></i>Amoblado
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="filtro_cochera" name="cochera">
+                                    <label class="form-check-label" for="filtro_cochera">
+                                        <i class="fas fa-car me-1"></i>Cochera
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="filtro_wifi" name="wifi">
+                                    <label class="form-check-label" for="filtro_wifi">
+                                        <i class="fas fa-wifi me-1"></i>WiFi
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="filtro_piscina" name="piscina">
+                                    <label class="form-check-label" for="filtro_piscina">
+                                        <i class="fas fa-swimming-pool me-1"></i>Piscina
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="filtro_patio" name="patio">
+                                    <label class="form-check-label" for="filtro_patio">
+                                        <i class="fas fa-tree me-1"></i>Patio
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="filtro_parrilla" name="parrilla">
+                                    <label class="form-check-label" for="filtro_parrilla">
+                                        <i class="fas fa-fire me-1"></i>Parrilla
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="filtro_terraza" name="terraza">
+                                    <label class="form-check-label" for="filtro_terraza">
+                                        <i class="fas fa-building me-1"></i>Terraza
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="filtro_balcon" name="balcon">
+                                    <label class="form-check-label" for="filtro_balcon">
+                                        <i class="fas fa-door-open me-1"></i>Balcón
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-warning" onclick="resetearFiltros()">
+                    <i class="fas fa-undo me-1"></i>Resetear Filtros
+                </button>
+                <button type="button" class="btn btn-primary" onclick="aplicarFiltrosAvanzados()">
+                    <i class="fas fa-search me-1"></i>Aplicar Filtros
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
 <script>
-// Variables globales básicas
+// Variables globales
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
 const URLS = {
@@ -235,28 +448,41 @@ const URLS = {
     obtenerFotos: "{% url 'inmobiliaria:obtener_fotos_propiedad' 0 %}".slice(0, -1)
 };
 
-// Función básica para seleccionar propiedad
+// Función para seleccionar propiedad
 function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias, ambientes, estado, descripcion, caracteristicas) {
     console.log('Seleccionando propiedad:', id);
     
     // Remover selección anterior
     document.querySelectorAll('.table tbody tr').forEach(row => {
-        row.classList.remove('table-primary');
+        row.classList.remove('selected');
     });
     
     // Agregar selección actual
-    event.target.closest('tr').classList.add('table-primary');
+    event.target.closest('tr').classList.add('selected');
     
     // Obtener fechas del formulario
     const fechaInicio = document.getElementById('id_fecha_inicio')?.value || '';
     const fechaFin = document.getElementById('id_fecha_fin')?.value || '';
+    
+    // Procesar precio
+    let precioCorregido = 0;
+    try {
+        if (typeof precio === 'string') {
+            let precioLimpio = precio.replace(',0', '').replace(/[\.\s]/g, '');
+            precioCorregido = parseInt(precioLimpio) || 0;
+        } else {
+            precioCorregido = precio || 0;
+        }
+    } catch (error) {
+        precioCorregido = 0;
+    }
     
     // Guardar datos
     propiedadSeleccionada = {
         id: id,
         direccion: direccion,
         propietario: propietario,
-        precio: parseFloat(precio) || 0,
+        precio: precioCorregido,
         fechaInicio: fechaInicio,
         fechaFin: fechaFin,
         estadoReserva: estadoReserva,
@@ -271,9 +497,10 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
     document.getElementById("cardPropiedad").innerText = id;
     document.getElementById("cardDireccion").innerText = direccion;
     document.getElementById("cardPropietario").innerText = propietario;
-    document.getElementById("cardPrecio").innerText = `$${precio}`;
+    document.getElementById("cardPrecio").innerText = `$${formatPrice(precioCorregido)}`;
     document.getElementById("cardAmbiente").innerText = ambientes || 'No especificado';
     document.getElementById("cardEstado").innerText = estadoReserva === 'confirmada_no_pagada' ? 'Reservado' : 'Disponible';
+    document.getElementById("cardEstado").className = estadoReserva === 'confirmada_no_pagada' ? 'badge bg-danger' : 'badge bg-success';
     
     // Actualizar descripción y características
     document.getElementById("descripcionDetallada").innerText = descripcion || 'No hay descripción disponible';
@@ -282,7 +509,7 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
     if (caracteristicas && caracteristicas !== 'Sin características especiales') {
         const caracteristicasArray = caracteristicas.split(', ');
         caracteristicasElement.innerHTML = caracteristicasArray
-            .map(caracteristica => `<span class="badge bg-primary me-1">${caracteristica.trim()}</span>`)
+            .map(caracteristica => `<span class="badge bg-primary me-1 mb-1">${caracteristica.trim()}</span>`)
             .join('');
     } else {
         caracteristicasElement.innerHTML = '<span class="badge bg-secondary">Sin características especiales</span>';
@@ -290,51 +517,93 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
     
     // Cargar precios
     cargarPreciosPropiedad(id);
+    
+    // Actualizar botones
+    updateButtons(estadoReserva, reserva_id);
 }
 
-// Funciones básicas para modales y precios
+// Funciones para modales y operaciones
 function abrirModalFiltros() {
-    alert('Modal de filtros - función pendiente de implementar');
+    console.log('Abriendo modal de filtros...');
+    const modal = new bootstrap.Modal(document.getElementById('modalFiltrosAvanzados'));
+    modal.show();
 }
 
 function cargarPreciosPropiedad(propiedadId) {
     console.log('Cargando precios para propiedad:', propiedadId);
-    // Implementación básica
+    
+    const tbody = document.querySelector('.table-precios tbody');
+    tbody.innerHTML = '<tr><td colspan="3" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando precios...</td></tr>';
+    
+    fetch(`${URLS.obtenerPrecios}${propiedadId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.precios && data.precios.length > 0) {
+                tbody.innerHTML = '';
+                data.precios.forEach(precio => {
+                    const row = `
+                        <tr>
+                            <td>${precio.tipo_precio_display || precio.tipo_precio}</td>
+                            <td class="text-end">$${formatPrice(precio.precio_por_dia)}</td>
+                            <td class="text-end">$${formatPrice(precio.precio_total)}</td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No hay precios definidos</td></tr>';
+            }
+        })
+        .catch(error => {
+            console.error('Error cargando precios:', error);
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Error cargando precios</td></tr>';
+        });
 }
 
-window.confirmarReserva = function() {
-    if (!propiedadSeleccionada) {
-        alert('Por favor, selecciona una propiedad primero.');
-        return;
+function updateButtons(estadoReserva, reservaId) {
+    const cardButtons = document.getElementById("cardButtons");
+    if (estadoReserva === 'confirmada_no_pagada') {
+        cardButtons.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-primary" disabled>
+                        <i class="fas fa-calendar-check me-1"></i>Reservado
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="window.mostrarModalAutenticacion('${reservaId}')">
+                        <i class="fas fa-check-circle me-1"></i>Finalizar Operación
+                    </button>
+                    <button type="button" class="btn btn-info" onclick="window.verPrecios()">
+                        <i class="fas fa-dollar-sign me-1"></i>Ver Precios
+                    </button>
+                </div>
+                <span class="badge bg-warning p-2">
+                    <i class="fas fa-clock me-1"></i>Pendiente de Pago
+                </span>
+            </div>
+        `;
+    } else {
+        cardButtons.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
+                        <i class="fas fa-calendar-plus me-1"></i>Reservar
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
+                        <i class="fas fa-check-circle me-1"></i>Operación Directa
+                    </button>
+                    <button type="button" class="btn btn-info" onclick="window.verPrecios()">
+                        <i class="fas fa-dollar-sign me-1"></i>Ver Precios
+                    </button>
+                </div>
+                <span class="badge bg-success p-2">
+                    <i class="fas fa-check-circle me-1"></i>Disponible
+                </span>
+            </div>
+        `;
     }
-    alert('Función de reserva - pendiente de implementar');
-};
-
-window.mostrarModalOperacion = function() {
-    if (!propiedadSeleccionada) {
-        alert('Por favor, selecciona una propiedad primero.');
-        return;
-    }
-    alert('Función de operación directa - pendiente de implementar');
-};
-
-window.verPrecios = function() {
-    if (!propiedadSeleccionada) {
-        alert('Por favor, selecciona una propiedad primero.');
-        return;
-    }
-    alert('Función de ver precios - pendiente de implementar');
-};
-
-function abrirGaleriaFotos(propiedadId) {
-    if (!propiedadId) {
-        alert('Por favor, selecciona una propiedad primero.');
-        return;
-    }
-    alert('Función de galería de fotos - pendiente de implementar');
 }
 
-// Formateo básico
+// Funciones de utilidad
 function formatPrice(value) {
     if (typeof value === 'string') {
         value = parseFloat(value.replace(/[^\d.-]/g, ''));
@@ -344,5 +613,55 @@ function formatPrice(value) {
         maximumFractionDigits: 0
     });
 }
+
+// Funciones placeholder para funcionalidades pendientes
+window.confirmarReserva = function() {
+    if (!propiedadSeleccionada) {
+        GonnetUtils.showNotification('Por favor, selecciona una propiedad primero.', 'warning');
+        return;
+    }
+    GonnetUtils.showNotification('Función de reserva - pendiente de implementar', 'info');
+};
+
+window.mostrarModalOperacion = function() {
+    if (!propiedadSeleccionada) {
+        GonnetUtils.showNotification('Por favor, selecciona una propiedad primero.', 'warning');
+        return;
+    }
+    GonnetUtils.showNotification('Función de operación directa - pendiente de implementar', 'info');
+};
+
+window.verPrecios = function() {
+    if (!propiedadSeleccionada) {
+        GonnetUtils.showNotification('Por favor, selecciona una propiedad primero.', 'warning');
+        return;
+    }
+    GonnetUtils.showNotification('Función de ver precios - pendiente de implementar', 'info');
+};
+
+function abrirGaleriaFotos(propiedadId) {
+    if (!propiedadId) {
+        GonnetUtils.showNotification('Por favor, selecciona una propiedad primero.', 'warning');
+        return;
+    }
+    GonnetUtils.showNotification('Función de galería de fotos - pendiente de implementar', 'info');
+}
+
+function aplicarFiltrosAvanzados() {
+    GonnetUtils.showNotification('Función de filtros - pendiente de implementar', 'info');
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalFiltrosAvanzados'));
+    modal.hide();
+}
+
+function resetearFiltros() {
+    document.getElementById('formFiltrosAvanzados').reset();
+    GonnetUtils.showNotification('Filtros reseteados', 'success');
+}
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🏠 Buscar Propiedades cargado con diseño moderno');
+});
 </script>
-{% endblock content %}
+{% endblock extra_js %}
+
