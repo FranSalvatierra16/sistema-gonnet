@@ -651,8 +651,8 @@
 </div>
 
 <!-- MODAL HERMOSO Y FUNCIONAL -->
-<div id="modalConfirmarReserva" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999;">
-    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 15px; padding: 0; width: 90%; max-width: 700px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); animation: modalAppear 0.3s ease-out;">
+<div id="modalConfirmarReserva" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1050; pointer-events: auto;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 15px; padding: 0; width: 90%; max-width: 700px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); animation: modalAppear 0.3s ease-out; pointer-events: auto;">
         
         <!-- Header con gradiente -->
         <div style="background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); color: white; padding: 20px; border-radius: 15px 15px 0 0; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
@@ -1854,29 +1854,95 @@ function verPrecios() {
             return;
         }
 
-        // Mostrar el modal de reserva personalizado
+        // Buscar el modal de reserva personalizado
         const modal = document.getElementById('modalConfirmarReserva');
+        console.log('Modal encontrado:', modal);
+        
         if (modal) {
-            // Llenar los datos del modal
-            document.getElementById('modal_ficha').textContent = propiedadSeleccionada.id;
-            document.getElementById('modal_direccion').textContent = propiedadSeleccionada.direccion;
-            document.getElementById('modal_propietario').textContent = propiedadSeleccionada.propietario;
-            document.getElementById('modal_ambientes').textContent = propiedadSeleccionada.ambientes || 'No especificado';
-            document.getElementById('modal_estado').textContent = propiedadSeleccionada.estado || 'Disponible';
-            document.getElementById('modal_fecha_inicio').textContent = propiedadSeleccionada.fechaInicio;
-            document.getElementById('modal_fecha_fin').textContent = propiedadSeleccionada.fechaFin;
-            document.getElementById('modal_total_dias').textContent = propiedadSeleccionada.totalDias;
-            document.getElementById('modal_descripcion').textContent = propiedadSeleccionada.descripcion || 'Sin descripción';
-            document.getElementById('modal_caracteristicas').textContent = propiedadSeleccionada.caracteristicas || 'Sin características';
-            
-            // Establecer precio editable
-            const precioInput = document.getElementById('precio_total_editable');
-            if (precioInput) {
-                precioInput.value = propiedadSeleccionada.precio;
+            try {
+                // Llenar los datos del modal
+                const elements = {
+                    'modal_ficha': propiedadSeleccionada.id,
+                    'modal_direccion': propiedadSeleccionada.direccion,
+                    'modal_propietario': propiedadSeleccionada.propietario,
+                    'modal_ambientes': propiedadSeleccionada.ambientes || 'No especificado',
+                    'modal_estado': propiedadSeleccionada.estado || 'Disponible',
+                    'modal_fecha_inicio': propiedadSeleccionada.fechaInicio,
+                    'modal_fecha_fin': propiedadSeleccionada.fechaFin,
+                    'modal_total_dias': propiedadSeleccionada.totalDias,
+                    'modal_descripcion': propiedadSeleccionada.descripcion || 'Sin descripción',
+                    'modal_caracteristicas': propiedadSeleccionada.caracteristicas || 'Sin características'
+                };
+                
+                // Llenar cada elemento del modal
+                for (const [elementId, value] of Object.entries(elements)) {
+                    const element = document.getElementById(elementId);
+                    if (element) {
+                        element.textContent = value;
+                        console.log(`Elemento ${elementId} actualizado con:`, value);
+                    } else {
+                        console.warn(`Elemento ${elementId} no encontrado`);
+                    }
+                }
+                
+                // Establecer precio editable
+                const precioInput = document.getElementById('precio_total_editable');
+                if (precioInput) {
+                    precioInput.value = propiedadSeleccionada.precio;
+                    console.log('Precio establecido:', propiedadSeleccionada.precio);
+                } else {
+                    console.warn('Campo precio_total_editable no encontrado');
+                }
+                
+                // Mostrar el modal con múltiples métodos para asegurar que funcione
+                console.log('Intentando mostrar el modal...');
+                
+                // Método 1: Display block
+                modal.style.display = 'block';
+                modal.style.visibility = 'visible';
+                modal.style.opacity = '1';
+                
+                // Método 2: Agregar clase show
+                modal.classList.add('show');
+                
+                // Método 3: Quitar hidden si existe
+                modal.hidden = false;
+                
+                console.log('Modal debería estar visible ahora');
+                console.log('Estilos del modal:', {
+                    display: modal.style.display,
+                    visibility: modal.style.visibility,
+                    opacity: modal.style.opacity,
+                    zIndex: modal.style.zIndex
+                });
+                
+            } catch (error) {
+                console.error('Error al configurar el modal:', error);
             }
+        } else {
+            console.error('Modal modalConfirmarReserva no encontrado en el DOM');
             
-            // Mostrar el modal
-            modal.style.display = 'block';
+            // Fallback: usar SweetAlert para mostrar información
+            Swal.fire({
+                title: 'Confirmar Reserva',
+                html: `
+                    <div class="text-start">
+                        <p><strong>Propiedad:</strong> ${propiedadSeleccionada.id}</p>
+                        <p><strong>Dirección:</strong> ${propiedadSeleccionada.direccion}</p>
+                        <p><strong>Propietario:</strong> ${propiedadSeleccionada.propietario}</p>
+                        <p><strong>Precio:</strong> $${propiedadSeleccionada.precio}</p>
+                        <p><strong>Fechas:</strong> ${propiedadSeleccionada.fechaInicio} al ${propiedadSeleccionada.fechaFin}</p>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Confirmar Reserva',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    console.log('Usuario confirmó la reserva');
+                    // Aquí se podría proceder con la reserva
+                }
+            });
         }
     }
 // Función para formatear precios disponible globalmente
@@ -4133,29 +4199,95 @@ window.confirmarReserva = function() {
         return;
     }
 
-    // Mostrar el modal de reserva personalizado
+    // Buscar el modal de reserva personalizado
     const modal = document.getElementById('modalConfirmarReserva');
+    console.log('Modal encontrado:', modal);
+    
     if (modal) {
-        // Llenar los datos del modal
-        document.getElementById('modal_ficha').textContent = propiedadSeleccionada.id;
-        document.getElementById('modal_direccion').textContent = propiedadSeleccionada.direccion;
-        document.getElementById('modal_propietario').textContent = propiedadSeleccionada.propietario;
-        document.getElementById('modal_ambientes').textContent = propiedadSeleccionada.ambientes || 'No especificado';
-        document.getElementById('modal_estado').textContent = propiedadSeleccionada.estado || 'Disponible';
-        document.getElementById('modal_fecha_inicio').textContent = propiedadSeleccionada.fechaInicio;
-        document.getElementById('modal_fecha_fin').textContent = propiedadSeleccionada.fechaFin;
-        document.getElementById('modal_total_dias').textContent = propiedadSeleccionada.totalDias;
-        document.getElementById('modal_descripcion').textContent = propiedadSeleccionada.descripcion || 'Sin descripción';
-        document.getElementById('modal_caracteristicas').textContent = propiedadSeleccionada.caracteristicas || 'Sin características';
-        
-        // Establecer precio editable
-        const precioInput = document.getElementById('precio_total_editable');
-        if (precioInput) {
-            precioInput.value = propiedadSeleccionada.precio;
+        try {
+            // Llenar los datos del modal
+            const elements = {
+                'modal_ficha': propiedadSeleccionada.id,
+                'modal_direccion': propiedadSeleccionada.direccion,
+                'modal_propietario': propiedadSeleccionada.propietario,
+                'modal_ambientes': propiedadSeleccionada.ambientes || 'No especificado',
+                'modal_estado': propiedadSeleccionada.estado || 'Disponible',
+                'modal_fecha_inicio': propiedadSeleccionada.fechaInicio,
+                'modal_fecha_fin': propiedadSeleccionada.fechaFin,
+                'modal_total_dias': propiedadSeleccionada.totalDias,
+                'modal_descripcion': propiedadSeleccionada.descripcion || 'Sin descripción',
+                'modal_caracteristicas': propiedadSeleccionada.caracteristicas || 'Sin características'
+            };
+            
+            // Llenar cada elemento del modal
+            for (const [elementId, value] of Object.entries(elements)) {
+                const element = document.getElementById(elementId);
+                if (element) {
+                    element.textContent = value;
+                    console.log(`Elemento ${elementId} actualizado con:`, value);
+                } else {
+                    console.warn(`Elemento ${elementId} no encontrado`);
+                }
+            }
+            
+            // Establecer precio editable
+            const precioInput = document.getElementById('precio_total_editable');
+            if (precioInput) {
+                precioInput.value = propiedadSeleccionada.precio;
+                console.log('Precio establecido:', propiedadSeleccionada.precio);
+            } else {
+                console.warn('Campo precio_total_editable no encontrado');
+            }
+            
+            // Mostrar el modal con múltiples métodos para asegurar que funcione
+            console.log('Intentando mostrar el modal...');
+            
+            // Método 1: Display block
+            modal.style.display = 'block';
+            modal.style.visibility = 'visible';
+            modal.style.opacity = '1';
+            
+            // Método 2: Agregar clase show
+            modal.classList.add('show');
+            
+            // Método 3: Quitar hidden si existe
+            modal.hidden = false;
+            
+            console.log('Modal debería estar visible ahora');
+            console.log('Estilos del modal:', {
+                display: modal.style.display,
+                visibility: modal.style.visibility,
+                opacity: modal.style.opacity,
+                zIndex: modal.style.zIndex
+            });
+            
+        } catch (error) {
+            console.error('Error al configurar el modal:', error);
         }
+    } else {
+        console.error('Modal modalConfirmarReserva no encontrado en el DOM');
         
-        // Mostrar el modal
-        modal.style.display = 'block';
+        // Fallback: usar SweetAlert para mostrar información
+        Swal.fire({
+            title: 'Confirmar Reserva',
+            html: `
+                <div class="text-start">
+                    <p><strong>Propiedad:</strong> ${propiedadSeleccionada.id}</p>
+                    <p><strong>Dirección:</strong> ${propiedadSeleccionada.direccion}</p>
+                    <p><strong>Propietario:</strong> ${propiedadSeleccionada.propietario}</p>
+                    <p><strong>Precio:</strong> $${propiedadSeleccionada.precio}</p>
+                    <p><strong>Fechas:</strong> ${propiedadSeleccionada.fechaInicio} al ${propiedadSeleccionada.fechaFin}</p>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Confirmar Reserva',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                console.log('Usuario confirmó la reserva');
+                // Aquí se podría proceder con la reserva
+            }
+        });
     }
 }
 
