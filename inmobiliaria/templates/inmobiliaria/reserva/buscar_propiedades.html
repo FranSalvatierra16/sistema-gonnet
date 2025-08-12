@@ -2258,6 +2258,191 @@ function confirmarReservaFinal() {
             console.log('✅ Fechas corregidas:', {fechaInicio, fechaFin});
         }
     }
+    
+    // Validaciones de campos requeridos
+    if (!vendedorId || vendedorId === '') {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Vendedor requerido',
+            text: 'Por favor, selecciona un vendedor'
+        });
+        return;
+    }
+    
+    if (!inquilinoId || inquilinoId === '') {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Inquilino requerido',
+            text: 'Por favor, selecciona un inquilino'
+        });
+        return;
+    }
+    
+    if (!precioTotal || precioTotal <= 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Precio inválido',
+            text: 'Por favor, ingresa un precio válido'
+        });
+        return;
+    }
+    
+    if (!propiedadId) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de datos',
+            text: 'No se encontró la propiedad seleccionada'
+        });
+        return;
+    }
+    
+    if (!fechaInicio || !fechaFin) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Fechas inválidas',
+            text: 'Las fechas no son válidas'
+        });
+        return;
+    }
+    
+    console.log('✅ Validación exitosa, enviando reserva al servidor...');
+    
+    // Función para asegurar formato YYYY-MM-DD (ISO) para el servidor
+    function asegurarFormatoISO(fecha) {
+        if (!fecha) return '';
+        
+        // Si ya está en formato ISO (YYYY-MM-DD), retornar como está
+        if (fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            return fecha;
+        }
+        
+        // Si está en formato DD/MM/YYYY, convertir a YYYY-MM-DD
+        if (fecha.includes('/')) {
+            const [day, month, year] = fecha.split('/');
+            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        }
+        
+        return fecha; // Retornar tal como está si no coincide con ningún formato
+    }
+    
+    // Asegurar formato ISO para el backend (el servidor espera YYYY-MM-DD)
+    const fechaInicioISO = asegurarFormatoISO(fechaInicio);
+    const fechaFinISO = asegurarFormatoISO(fechaFin);
+    
+    console.log('📅 Formato de fechas para servidor:', {
+        fechaInicio_original: fechaInicio,
+        fechaInicio_ISO: fechaInicioISO,
+        fechaFin_original: fechaFin,
+        fechaFin_ISO: fechaFinISO
+    });
+    
+    // Logging detallado de todos los datos que se enviarán
+    console.log('📦 Datos completos a enviar:', {
+        propiedad_id: propiedadId,
+        fecha_inicio: fechaInicioISO,
+        fecha_fin: fechaFinISO,
+        precio_total: precioTotal,
+        vendedor_id: vendedorId,
+        inquilino_id: inquilinoId,
+        es_operacion_directa: esOperacionDirecta ? '1' : '0'
+    });
+    
+    // Crear FormData para enviar al backend
+    const formData = new FormData();
+    formData.append('propiedad_id', propiedadId);
+    formData.append('fecha_inicio', fechaInicioISO);
+    formData.append('fecha_fin', fechaFinISO);
+    formData.append('precio_total', precioTotal);
+    formData.append('vendedor_id', vendedorId);
+    formData.append('inquilino_id', inquilinoId);
+    formData.append('es_operacion_directa', esOperacionDirecta ? '1' : '0');
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    console.log('🚀 Enviando petición al servidor...');
+    
+    // Mostrar loading
+    Swal.fire({
+        title: 'Procesando reserva...',
+        text: 'Por favor espera',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    // Enviar al servidor
+    fetch('{% url "inmobiliaria:confirmar_reserva" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        console.log('📡 Respuesta HTTP status:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('📨 Respuesta completa del servidor:', data);
+        
+        // Cerrar loading
+        Swal.close();
+        
+        if (data.success) {
+            console.log('✅ Reserva creada exitosamente!');
+            
+            // Mostrar mensaje de éxito
+            Swal.fire({
+                icon: 'success',
+                title: '¡Reserva Confirmada!',
+                text: 'La reserva se ha creado exitosamente.',
+                timer: 2000,
+                showConfirmButton: false
+            });
+            
+            // Cerrar el modal
+            window.cerrarModal();
+            
+            // Redirigir a la página de reserva exitosa
+            setTimeout(() => {
+                if (data.redirect_url) {
+                    console.log('🔄 Redirigiendo a:', data.redirect_url);
+                    window.location.href = data.redirect_url;
+                } else if (data.reserva_id) {
+                    // Fallback usando el ID de reserva
+                    const urlExitosa = `/reserva_exitosa/${data.reserva_id}/`;
+                    console.log('🔄 Redirigiendo a URL fallback:', urlExitosa);
+                    window.location.href = urlExitosa;
+                } else {
+                    // Último fallback - volver al dashboard
+                    console.log('🔄 Redirigiendo al dashboard');
+                    window.location.href = '/dashboard/';
+                }
+            }, 2500);
+        } else {
+            console.error('❌ Error del servidor:', data.error);
+            console.error('❌ Detalles adicionales:', data);
+            
+            // Mostrar error detallado con SweetAlert
+            Swal.fire({
+                icon: 'error',
+                title: 'Error al crear la reserva',
+                text: data.error || 'Error desconocido del servidor',
+                footer: 'Revisa la consola para más detalles'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('💥 Error en la solicitud:', error);
+        
+        // Cerrar loading
+        Swal.close();
+        
+        // Mostrar error de conexión con SweetAlert
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de conexión',
+            text: 'No se pudo conectar con el servidor: ' + error.message,
+            footer: 'Verifica tu conexión a internet'
+        });
+    });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
