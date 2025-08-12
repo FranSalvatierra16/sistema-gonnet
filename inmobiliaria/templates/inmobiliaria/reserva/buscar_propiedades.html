@@ -2307,40 +2307,49 @@ function confirmarReservaFinal() {
     
     console.log('✅ Validación exitosa, enviando reserva al servidor...');
     
-    // Función para asegurar formato YYYY-MM-DD (ISO) para el servidor
-    function asegurarFormatoISO(fecha) {
+    // Función para convertir fechas al formato DD/MM/YYYY que espera el servidor
+    function convertirAFormatoServidor(fecha) {
         if (!fecha) return '';
         
-        // Si ya está en formato ISO (YYYY-MM-DD), retornar como está
-        if (fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Si ya está en formato DD/MM/YYYY, retornar como está
+        if (fecha.includes('/') && fecha.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
             return fecha;
         }
         
-        // Si está en formato DD/MM/YYYY, convertir a YYYY-MM-DD
+        // Si está en formato YYYY-MM-DD (ISO), convertir a DD/MM/YYYY
+        if (fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const [year, month, day] = fecha.split('-');
+            return `${day}/${month}/${year}`;
+        }
+        
+        // Si está en formato DD/MM/YYYY pero no válido, intentar arreglar
         if (fecha.includes('/')) {
-            const [day, month, year] = fecha.split('/');
-            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+            const parts = fecha.split('/');
+            if (parts.length === 3) {
+                const [day, month, year] = parts;
+                return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+            }
         }
         
         return fecha; // Retornar tal como está si no coincide con ningún formato
     }
     
-    // Asegurar formato ISO para el backend (el servidor espera YYYY-MM-DD)
-    const fechaInicioISO = asegurarFormatoISO(fechaInicio);
-    const fechaFinISO = asegurarFormatoISO(fechaFin);
+    // Convertir fechas al formato DD/MM/YYYY que espera el backend
+    const fechaInicioServidor = convertirAFormatoServidor(fechaInicio);
+    const fechaFinServidor = convertirAFormatoServidor(fechaFin);
     
     console.log('📅 Formato de fechas para servidor:', {
         fechaInicio_original: fechaInicio,
-        fechaInicio_ISO: fechaInicioISO,
+        fechaInicio_servidor: fechaInicioServidor,
         fechaFin_original: fechaFin,
-        fechaFin_ISO: fechaFinISO
+        fechaFin_servidor: fechaFinServidor
     });
     
     // Logging detallado de todos los datos que se enviarán
     console.log('📦 Datos completos a enviar:', {
         propiedad_id: propiedadId,
-        fecha_inicio: fechaInicioISO,
-        fecha_fin: fechaFinISO,
+        fecha_inicio: fechaInicioServidor,
+        fecha_fin: fechaFinServidor,
         precio_total: precioTotal,
         vendedor_id: vendedorId,
         inquilino_id: inquilinoId,
@@ -2350,8 +2359,8 @@ function confirmarReservaFinal() {
     // Crear FormData para enviar al backend
     const formData = new FormData();
     formData.append('propiedad_id', propiedadId);
-    formData.append('fecha_inicio', fechaInicioISO);
-    formData.append('fecha_fin', fechaFinISO);
+    formData.append('fecha_inicio', fechaInicioServidor);
+    formData.append('fecha_fin', fechaFinServidor);
     formData.append('precio_total', precioTotal);
     formData.append('vendedor_id', vendedorId);
     formData.append('inquilino_id', inquilinoId);
