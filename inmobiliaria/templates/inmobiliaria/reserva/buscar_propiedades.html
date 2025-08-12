@@ -2205,7 +2205,19 @@ function buscarVendedor() {
 // Asigna el evento input solo una vez
 // Función para confirmar la reserva final
 function confirmarReservaFinal() {
-    console.log('🎯 Confirmando reserva final...');
+    console.log('🎯 =========================');
+    console.log('🎯 CONFIRMANDO RESERVA FINAL');
+    console.log('🎯 =========================');
+    
+    // Verificar fechas del formulario original de búsqueda
+    const fechaInicioFormulario = document.getElementById('id_fecha_inicio')?.value || 
+                                 document.getElementById('fecha_inicio')?.value;
+    const fechaFinFormulario = document.getElementById('id_fecha_fin')?.value || 
+                              document.getElementById('fecha_fin')?.value;
+    
+    console.log('📅 COMPARACIÓN DE FECHAS:');
+    console.log('   Formulario búsqueda - Inicio:', fechaInicioFormulario);
+    console.log('   Formulario búsqueda - Fin:', fechaFinFormulario);
     
     // Validar campos requeridos
     const vendedorId = document.getElementById('modalVendedorId')?.value;
@@ -2216,104 +2228,36 @@ function confirmarReservaFinal() {
     const fechaFin = document.getElementById('modalFechaFin')?.value;
     const esOperacionDirecta = document.getElementById('esOperacionDirecta')?.value === 'true';
     
-    console.log('📋 Datos de reserva:', {
-        vendedorId, inquilinoId, precioTotal, propiedadId, fechaInicio, fechaFin, esOperacionDirecta
-    });
+    console.log('📋 DATOS DE RESERVA MODAL:');
+    console.log('   Propiedad ID:', propiedadId);
+    console.log('   Fecha Inicio Modal:', fechaInicio);
+    console.log('   Fecha Fin Modal:', fechaFin);
+    console.log('   Precio Total:', precioTotal);
+    console.log('   Vendedor ID:', vendedorId);
+    console.log('   Inquilino ID:', inquilinoId);
+    console.log('   Es Operación Directa:', esOperacionDirecta);
     
-    if (!vendedorId || vendedorId === '') {
-        alert('Por favor, selecciona un vendedor');
-        return;
-    }
+    // CRÍTICO: Verificar si las fechas del modal coinciden con las del formulario
+    const fechasCoinciden = fechaInicio === fechaInicioFormulario && fechaFin === fechaFinFormulario;
+    console.log('🔍 ¿Las fechas coinciden?', fechasCoinciden);
     
-    if (!inquilinoId || inquilinoId === '') {
-        alert('Por favor, selecciona un inquilino');
-        return;
-    }
-    
-    if (!precioTotal || precioTotal <= 0) {
-        alert('Por favor, ingresa un precio válido');
-        return;
-    }
-    
-    if (!propiedadId) {
-        alert('Error: No se encontró la propiedad seleccionada');
-        return;
-    }
-    
-    if (!fechaInicio || !fechaFin) {
-        alert('Error: Fechas no válidas');
-        return;
-    }
-    
-    console.log('✅ Validación exitosa, enviando reserva al servidor...');
-    
-    // Función para convertir fecha de YYYY-MM-DD a DD/MM/YYYY
-    function convertirFecha(fechaISO) {
-        if (!fechaISO) return '';
+    if (!fechasCoinciden) {
+        console.warn('⚠️ ADVERTENCIA: Las fechas del modal no coinciden con las del formulario!');
+        console.warn('   Esto podría causar el error de disponibilidad');
         
-        // Si ya está en formato DD/MM/YYYY, no convertir
-        if (fechaISO.includes('/')) {
-            return fechaISO;
-        }
-        
-        // Convertir de YYYY-MM-DD a DD/MM/YYYY
-        const [year, month, day] = fechaISO.split('-');
-        return `${day}/${month}/${year}`;
-    }
-    
-    // Convertir fechas al formato esperado por el backend
-    const fechaInicioConvertida = convertirFecha(fechaInicio);
-    const fechaFinConvertida = convertirFecha(fechaFin);
-    
-    console.log('📅 Fechas convertidas:', {
-        original_inicio: fechaInicio,
-        convertida_inicio: fechaInicioConvertida,
-        original_fin: fechaFin,
-        convertida_fin: fechaFinConvertida
-    });
-    
-    // Crear FormData para enviar al backend
-    const formData = new FormData();
-    formData.append('propiedad_id', propiedadId);
-    formData.append('fecha_inicio', fechaInicioConvertida);
-    formData.append('fecha_fin', fechaFinConvertida);
-    formData.append('precio_total', precioTotal);
-    formData.append('vendedor_id', vendedorId);
-    formData.append('inquilino_id', inquilinoId);
-    formData.append('es_operacion_directa', esOperacionDirecta ? '1' : '0');
-    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-    
-    // Enviar al servidor
-    fetch('{% url "inmobiliaria:confirmar_reserva" %}', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('📨 Respuesta del servidor:', data);
-        
-        if (data.success) {
-            console.log('✅ Reserva creada exitosamente, redirigiendo...');
+        // Usar las fechas del formulario original (las que se usaron para la búsqueda)
+        if (fechaInicioFormulario && fechaFinFormulario) {
+            console.log('🔄 Corrigiendo fechas usando las del formulario original');
+            document.getElementById('modalFechaInicio').value = fechaInicioFormulario;
+            document.getElementById('modalFechaFin').value = fechaFinFormulario;
             
-            // Cerrar el modal primero
-            window.cerrarModal();
+            // Actualizar las variables
+            const fechaInicio = fechaInicioFormulario;
+            const fechaFin = fechaFinFormulario;
             
-            // Redirigir a la página de éxito
-            if (data.redirect_url) {
-                window.location.href = data.redirect_url;
-            } else {
-                // Fallback si no hay redirect_url
-                window.location.href = `/reserva_exitosa/${data.reserva_id}/`;
-            }
-        } else {
-            console.error('❌ Error del servidor:', data.error);
-            alert('❌ Error al crear la reserva: ' + (data.error || 'Error desconocido'));
+            console.log('✅ Fechas corregidas:', {fechaInicio, fechaFin});
         }
-    })
-    .catch(error => {
-        console.error('💥 Error en la solicitud:', error);
-        alert('❌ Error de conexión: ' + error.message);
-    });
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
