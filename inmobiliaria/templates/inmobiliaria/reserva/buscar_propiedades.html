@@ -1905,11 +1905,53 @@ function verPrecios() {
                 for (const [elementId, value] of Object.entries(elements)) {
                     const element = document.getElementById(elementId);
                     if (element) {
-                        element.textContent = value;
-                        console.log(`Elemento ${elementId} actualizado con:`, value);
+                        // Formatear fechas para mostrar
+                        if (elementId.includes('fecha') && value) {
+                            const fechaFormateada = formatearFechaParaMostrar(value);
+                            element.textContent = fechaFormateada;
+                            console.log(`Elemento ${elementId} actualizado con fecha formateada:`, fechaFormateada);
+                        } else {
+                            element.textContent = value;
+                            console.log(`Elemento ${elementId} actualizado con:`, value);
+                        }
                     } else {
                         console.warn(`Elemento ${elementId} no encontrado`);
                     }
+                }
+                
+                // CRÍTICO: Llenar los campos ocultos que usa confirmarReservaFinal
+                console.log('Llenando campos ocultos...');
+                const hiddenFields = {
+                    'modalPropiedadId': propiedadSeleccionada.id,
+                    'modalFechaInicio': propiedadSeleccionada.fechaInicio, // Mantener formato YYYY-MM-DD para el servidor
+                    'modalFechaFin': propiedadSeleccionada.fechaFin,       // Mantener formato YYYY-MM-DD para el servidor
+                    'modalPrecioTotal': propiedadSeleccionada.precio,
+                    'esOperacionDirecta': 'false'
+                };
+                
+                // Llenar o crear cada campo oculto
+                for (const [fieldId, value] of Object.entries(hiddenFields)) {
+                    let element = document.getElementById(fieldId);
+                    if (!element) {
+                        // Crear el campo oculto si no existe
+                        element = document.createElement('input');
+                        element.type = 'hidden';
+                        element.id = fieldId;
+                        element.name = fieldId;
+                        modal.appendChild(element);
+                        console.log(`Campo oculto ${fieldId} creado`);
+                    }
+                    element.value = value;
+                    console.log(`Campo oculto ${fieldId} actualizado con:`, value);
+                }
+                
+                // Función para formatear fechas para mostrar (DD/MM/YYYY)
+                function formatearFechaParaMostrar(fechaISO) {
+                    if (!fechaISO) return '';
+                    if (fechaISO.includes('/')) return fechaISO; // Ya está formateada
+                    
+                    const [year, month, day] = fechaISO.split('-');
+                    return `${day}/${month}/${year}`;
                 }
                 
                 // Establecer precio editable
@@ -2395,7 +2437,31 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
 
 // Función para cerrar el modal
 window.cerrarModal = function() {
-    document.getElementById('modalConfirmarReserva').style.display = 'none';
+    console.log('Cerrando modal...');
+    const modal = document.getElementById('modalConfirmarReserva');
+    if (modal) {
+        // Ocultar el modal
+        modal.style.display = 'none';
+        modal.style.visibility = 'hidden';
+        modal.style.opacity = '0';
+        
+        // Quitar clases y atributos
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+        modal.removeAttribute('aria-modal');
+        
+        // Limpiar campos del modal
+        const inputs = modal.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            if (input.type !== 'hidden') {
+                input.value = '';
+            }
+        });
+        
+        console.log('Modal cerrado correctamente');
+    } else {
+        console.error('Modal no encontrado para cerrar');
+    }
 };
 
 // Funciones para el modal de crear inquilino
@@ -4248,9 +4314,30 @@ function resetearFiltros() {
 
 // Función para cerrar el modal personalizado de reserva
 function cerrarModal() {
+    console.log('Cerrando modal...');
     const modal = document.getElementById('modalConfirmarReserva');
     if (modal) {
+        // Ocultar el modal
         modal.style.display = 'none';
+        modal.style.visibility = 'hidden';
+        modal.style.opacity = '0';
+        
+        // Quitar clases y atributos
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+        modal.removeAttribute('aria-modal');
+        
+        // Limpiar campos del modal
+        const inputs = modal.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            if (input.type !== 'hidden') {
+                input.value = '';
+            }
+        });
+        
+        console.log('Modal cerrado correctamente');
+    } else {
+        console.error('Modal no encontrado para cerrar');
     }
 }
 
@@ -4293,11 +4380,53 @@ window.confirmarReserva = function() {
             for (const [elementId, value] of Object.entries(elements)) {
                 const element = document.getElementById(elementId);
                 if (element) {
-                    element.textContent = value;
-                    console.log(`Elemento ${elementId} actualizado con:`, value);
+                    // Formatear fechas para mostrar
+                    if (elementId.includes('fecha') && value) {
+                        const fechaFormateada = formatearFechaParaMostrar(value);
+                        element.textContent = fechaFormateada;
+                        console.log(`Elemento ${elementId} actualizado con fecha formateada:`, fechaFormateada);
+                    } else {
+                        element.textContent = value;
+                        console.log(`Elemento ${elementId} actualizado con:`, value);
+                    }
                 } else {
                     console.warn(`Elemento ${elementId} no encontrado`);
                 }
+            }
+            
+            // CRÍTICO: Llenar los campos ocultos que usa confirmarReservaFinal
+            console.log('Llenando campos ocultos...');
+            const hiddenFields = {
+                'modalPropiedadId': propiedadSeleccionada.id,
+                'modalFechaInicio': propiedadSeleccionada.fechaInicio, // Mantener formato YYYY-MM-DD para el servidor
+                'modalFechaFin': propiedadSeleccionada.fechaFin,       // Mantener formato YYYY-MM-DD para el servidor
+                'modalPrecioTotal': propiedadSeleccionada.precio,
+                'esOperacionDirecta': 'false'
+            };
+            
+            // Llenar o crear cada campo oculto
+            for (const [fieldId, value] of Object.entries(hiddenFields)) {
+                let element = document.getElementById(fieldId);
+                if (!element) {
+                    // Crear el campo oculto si no existe
+                    element = document.createElement('input');
+                    element.type = 'hidden';
+                    element.id = fieldId;
+                    element.name = fieldId;
+                    modal.appendChild(element);
+                    console.log(`Campo oculto ${fieldId} creado`);
+                }
+                element.value = value;
+                console.log(`Campo oculto ${fieldId} actualizado con:`, value);
+            }
+            
+            // Función para formatear fechas para mostrar (DD/MM/YYYY)
+            function formatearFechaParaMostrar(fechaISO) {
+                if (!fechaISO) return '';
+                if (fechaISO.includes('/')) return fechaISO; // Ya está formateada
+                
+                const [year, month, day] = fechaISO.split('-');
+                return `${day}/${month}/${year}`;
             }
             
             // Establecer precio editable
