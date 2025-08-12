@@ -4719,16 +4719,22 @@ function mostrarModalSweetAlert() {
                 <div class="row">
                     <div class="col-6">
                         <div class="mb-3">
-                            <label class="form-label fw-bold">👤 Vendedor (opcional):</label>
-                            <input type="text" id="swal-vendedor" class="form-control" placeholder="Escribe vendedor o déjalo vacío" value="Vendedor por defecto">
-                            <input type="hidden" id="swal-vendedor-id" value="1">
+                            <label class="form-label fw-bold">👤 Vendedor:</label>
+                            <input type="number" id="swal-vendedor-id" class="form-control" placeholder="Ingresa ID del vendedor" min="1">
+                            <div id="swal-vendedor-info" class="mt-1 text-muted small"></div>
                         </div>
                     </div>
                     <div class="col-6">
                         <div class="mb-3">
-                            <label class="form-label fw-bold">🏠 Inquilino (opcional):</label>
-                            <input type="text" id="swal-inquilino" class="form-control" placeholder="Escribe inquilino o déjalo vacío" value="Inquilino por defecto">
-                            <input type="hidden" id="swal-inquilino-id" value="1">
+                            <label class="form-label fw-bold">🏠 Inquilino:</label>
+                            <div class="input-group">
+                                <input type="text" id="swal-inquilino" class="form-control" placeholder="ID o nombre del inquilino">
+                                <button type="button" id="swal-nuevo-inquilino" class="btn btn-success btn-sm">
+                                    <i class="fas fa-plus"></i> Nuevo
+                                </button>
+                            </div>
+                            <input type="hidden" id="swal-inquilino-id">
+                            <div id="swal-inquilino-info" class="mt-1 text-muted small"></div>
                         </div>
                     </div>
                 </div>
@@ -4751,6 +4757,87 @@ function mostrarModalSweetAlert() {
         allowOutsideClick: false,
         didOpen: () => {
             console.log('💡 SweetAlert modal abierto correctamente');
+            
+            // Funcionalidad para búsqueda de vendedor por ID
+            const vendedorInput = document.getElementById('swal-vendedor-id');
+            const vendedorInfo = document.getElementById('swal-vendedor-info');
+            
+            vendedorInput.addEventListener('input', function() {
+                const vendedorId = this.value;
+                if (vendedorId && vendedorId.length > 0) {
+                    vendedorInfo.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando vendedor...';
+                    
+                    // Buscar vendedor por ID
+                    fetch(\`{% url 'inmobiliaria:api_vendedor_detalle' 0 %}\`.replace('0', vendedorId))
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                vendedorInfo.innerHTML = \`<i class="fas fa-check text-success"></i> \${data.vendedor.nombre} \${data.vendedor.apellido}\`;
+                            } else {
+                                vendedorInfo.innerHTML = '<i class="fas fa-times text-danger"></i> Vendedor no encontrado';
+                            }
+                        })
+                        .catch(error => {
+                            vendedorInfo.innerHTML = '<i class="fas fa-exclamation-triangle text-warning"></i> Error al buscar vendedor';
+                        });
+                } else {
+                    vendedorInfo.innerHTML = '';
+                }
+            });
+            
+            // Funcionalidad para búsqueda de inquilino
+            const inquilinoInput = document.getElementById('swal-inquilino');
+            const inquilinoInfo = document.getElementById('swal-inquilino-info');
+            const inquilinoIdHidden = document.getElementById('swal-inquilino-id');
+            
+            inquilinoInput.addEventListener('input', function() {
+                const searchTerm = this.value;
+                if (searchTerm && searchTerm.length > 1) {
+                    inquilinoInfo.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando inquilino...';
+                    
+                    // Buscar inquilino por ID o nombre
+                    const searchUrl = isNaN(searchTerm) 
+                        ? \`{% url 'inmobiliaria:buscar_inquilinos' %}?term=\${encodeURIComponent(searchTerm)}\`
+                        : \`{% url 'inmobiliaria:api_inquilino_detalle' 0 %}\`.replace('0', searchTerm);
+                    
+                    fetch(searchUrl)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (isNaN(searchTerm)) {
+                                // Búsqueda por nombre - usar formato de buscar_inquilinos
+                                if (data.results && data.results.length > 0) {
+                                    const inquilino = data.results[0];
+                                    inquilinoIdHidden.value = inquilino.id;
+                                    inquilinoInfo.innerHTML = \`<i class="fas fa-check text-success"></i> \${inquilino.text}\`;
+                                } else {
+                                    inquilinoIdHidden.value = '';
+                                    inquilinoInfo.innerHTML = '<i class="fas fa-times text-danger"></i> Inquilino no encontrado';
+                                }
+                            } else {
+                                // Búsqueda por ID - usar formato de api_inquilino_detalle
+                                if (data.success && data.inquilino) {
+                                    inquilinoIdHidden.value = data.inquilino.id;
+                                    inquilinoInfo.innerHTML = \`<i class="fas fa-check text-success"></i> \${data.inquilino.nombre} \${data.inquilino.apellido}\`;
+                                } else {
+                                    inquilinoIdHidden.value = '';
+                                    inquilinoInfo.innerHTML = '<i class="fas fa-times text-danger"></i> Inquilino no encontrado';
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            inquilinoInfo.innerHTML = '<i class="fas fa-exclamation-triangle text-warning"></i> Error al buscar inquilino';
+                        });
+                } else {
+                    inquilinoInfo.innerHTML = '';
+                    inquilinoIdHidden.value = '';
+                }
+            });
+            
+            // Botón para crear nuevo inquilino
+            const nuevoInquilinoBtn = document.getElementById('swal-nuevo-inquilino');
+            nuevoInquilinoBtn.addEventListener('click', function() {
+                crearNuevoInquilino();
+            });
         },
         preConfirm: () => {
             const vendedorId = document.getElementById('swal-vendedor-id').value || '1';
@@ -4816,6 +4903,142 @@ function procesarReservaConSweetAlert(vendedorId, inquilinoId, precio) {
 }
 
 // Reemplazar la función confirmarReserva para usar SweetAlert
+// Función para crear nuevo inquilino
+function crearNuevoInquilino() {
+    Swal.fire({
+        title: '👤 Crear Nuevo Inquilino',
+        html: `
+            <div class="text-start">
+                <div class="row">
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label class="form-label">Nombre:</label>
+                            <input type="text" id="nuevo-nombre" class="form-control" placeholder="Nombre del inquilino" required>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label class="form-label">Apellido:</label>
+                            <input type="text" id="nuevo-apellido" class="form-control" placeholder="Apellido del inquilino" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label class="form-label">DNI:</label>
+                            <input type="text" id="nuevo-dni" class="form-control" placeholder="DNI" required>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label class="form-label">Teléfono:</label>
+                            <input type="tel" id="nuevo-telefono" class="form-control" placeholder="Teléfono" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Email:</label>
+                    <input type="email" id="nuevo-email" class="form-control" placeholder="Email (opcional)">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Dirección:</label>
+                    <input type="text" id="nuevo-direccion" class="form-control" placeholder="Dirección (opcional)">
+                </div>
+            </div>
+        `,
+        width: '600px',
+        showCancelButton: true,
+        confirmButtonText: '💾 Crear Inquilino',
+        cancelButtonText: '❌ Cancelar',
+        confirmButtonColor: '#28a745',
+        preConfirm: () => {
+            const nombre = document.getElementById('nuevo-nombre').value;
+            const apellido = document.getElementById('nuevo-apellido').value;
+            const dni = document.getElementById('nuevo-dni').value;
+            const telefono = document.getElementById('nuevo-telefono').value;
+            const email = document.getElementById('nuevo-email').value;
+            const direccion = document.getElementById('nuevo-direccion').value;
+            
+            if (!nombre || !apellido || !dni || !telefono) {
+                Swal.showValidationMessage('Por favor completa todos los campos obligatorios');
+                return false;
+            }
+            
+            return { nombre, apellido, dni, telefono, email, direccion };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const datosInquilino = result.value;
+            
+            // Mostrar loading
+            Swal.fire({
+                title: '⏳ Creando Inquilino...',
+                text: 'Por favor espera',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+            
+            // Crear FormData para enviar
+            const formData = new FormData();
+            formData.append('nombre', datosInquilino.nombre);
+            formData.append('apellido', datosInquilino.apellido);
+            formData.append('dni', datosInquilino.dni);
+            formData.append('telefono', datosInquilino.telefono);
+            formData.append('email', datosInquilino.email || '');
+            formData.append('direccion', datosInquilino.direccion || '');
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            
+            // Enviar al servidor
+            fetch('/inmobiliaria/inquilinos/crear/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '✅ Inquilino Creado',
+                        text: `${datosInquilino.nombre} ${datosInquilino.apellido} fue creado exitosamente (ID: ${data.inquilino.id})`,
+                        confirmButtonText: 'Continuar'
+                    }).then(() => {
+                        // Volver al modal de reserva y poblar con el nuevo inquilino
+                        const inquilinoInput = document.getElementById('swal-inquilino');
+                        const inquilinoIdHidden = document.getElementById('swal-inquilino-id');
+                        const inquilinoInfo = document.getElementById('swal-inquilino-info');
+                        
+                        if (inquilinoInput && inquilinoIdHidden && inquilinoInfo) {
+                            inquilinoInput.value = `${datosInquilino.nombre} ${datosInquilino.apellido}`;
+                            inquilinoIdHidden.value = data.inquilino.id;
+                            inquilinoInfo.innerHTML = `<i class="fas fa-check text-success"></i> ${datosInquilino.nombre} ${datosInquilino.apellido} (ID: ${data.inquilino.id})`;
+                        }
+                        
+                        // Reabrir el modal de reserva
+                        mostrarModalSweetAlert();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: '❌ Error',
+                        text: data.error || 'Error al crear el inquilino',
+                        confirmButtonText: 'Intentar de nuevo'
+                    });
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    icon: 'error',
+                    title: '💥 Error de conexión',
+                    text: 'No se pudo conectar con el servidor',
+                    confirmButtonText: 'Intentar de nuevo'
+                });
+            });
+        }
+    });
+}
+
 window.confirmarReserva = function() {
     console.log('=== CONFIRMAR RESERVA (SWEETALERT) ===');
     console.log('Propiedad seleccionada:', propiedadSeleccionada);
