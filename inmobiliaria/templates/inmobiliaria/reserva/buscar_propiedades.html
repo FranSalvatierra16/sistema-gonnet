@@ -105,17 +105,44 @@
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
+    width: 100vw !important;
+    height: 100vh !important;
     background: rgba(0,0,0,0.7) !important;
-    z-index: 1050 !important;
+    z-index: 9999 !important;
     display: none !important;
     pointer-events: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    outline: none !important;
+    overflow: auto !important;
+}
+
+#modalConfirmarReserva.show {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 #modalConfirmarReserva * {
     pointer-events: auto !important;
     user-select: auto !important;
+    position: relative !important;
+}
+
+#modalConfirmarReserva > div {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    background: white !important;
+    border-radius: 15px !important;
+    padding: 0 !important;
+    width: 90% !important;
+    max-width: 700px !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8) !important;
+    z-index: 10000 !important;
+    pointer-events: auto !important;
 }
 
 /* Estilos para la tabla de propiedades */
@@ -1896,26 +1923,69 @@ function verPrecios() {
                 
                 // Mostrar el modal con múltiples métodos para asegurar que funcione
                 console.log('Intentando mostrar el modal...');
+                console.log('Modal antes de mostrar:', modal);
+                console.log('Posición del modal en DOM:', modal.offsetParent, modal.offsetTop, modal.offsetLeft);
                 
-                // Método 1: Display block
+                // Método 1: Display block y estilos forzados
                 modal.style.display = 'block';
                 modal.style.visibility = 'visible';
                 modal.style.opacity = '1';
+                modal.style.position = 'fixed';
+                modal.style.top = '0';
+                modal.style.left = '0';
+                modal.style.width = '100vw';
+                modal.style.height = '100vh';
+                modal.style.zIndex = '9999';
+                modal.style.pointerEvents = 'auto';
+                modal.style.overflow = 'auto';
                 
                 // Método 2: Agregar clase show
                 modal.classList.add('show');
                 
-                // Método 3: Quitar hidden si existe
+                // Método 3: Quitar hidden y aria-hidden
                 modal.hidden = false;
+                modal.removeAttribute('aria-hidden');
+                modal.setAttribute('aria-modal', 'true');
+                
+                // Método 4: Mover el modal al final del body para evitar contenedores problemáticos
+                document.body.appendChild(modal);
+                
+                // Método 5: Forzar reflow
+                modal.offsetHeight;
+                
+                // Método 6: Verificar si está realmente visible
+                const rect = modal.getBoundingClientRect();
+                console.log('Dimensiones del modal:', rect);
+                console.log('¿Modal es visible?', rect.width > 0 && rect.height > 0);
                 
                 console.log('Modal debería estar visible ahora');
-                console.log('Estilos del modal:', {
+                console.log('Estilos del modal después:', {
                     display: modal.style.display,
                     visibility: modal.style.visibility,
                     opacity: modal.style.opacity,
-                    zIndex: modal.style.zIndex
+                    zIndex: modal.style.zIndex,
+                    position: modal.style.position,
+                    width: modal.style.width,
+                    height: modal.style.height
                 });
                 
+                // Método 7: Si aún no es visible, usar timeout
+                setTimeout(() => {
+                    const rectAfter = modal.getBoundingClientRect();
+                    console.log('Verificación después de timeout:', rectAfter);
+                    if (rectAfter.width === 0 || rectAfter.height === 0) {
+                        console.error('Modal sigue sin ser visible, usando fallback');
+                        // Forzar con Bootstrap modal si existe
+                        if (typeof bootstrap !== 'undefined') {
+                            try {
+                                const bsModal = new bootstrap.Modal(modal);
+                                bsModal.show();
+                            } catch (e) {
+                                console.error('Error con Bootstrap modal:', e);
+                            }
+                        }
+                    }
+                }, 100);
             } catch (error) {
                 console.error('Error al configurar el modal:', error);
             }
@@ -4241,26 +4311,69 @@ window.confirmarReserva = function() {
             
             // Mostrar el modal con múltiples métodos para asegurar que funcione
             console.log('Intentando mostrar el modal...');
+            console.log('Modal antes de mostrar:', modal);
+            console.log('Posición del modal en DOM:', modal.offsetParent, modal.offsetTop, modal.offsetLeft);
             
-            // Método 1: Display block
+            // Método 1: Display block y estilos forzados
             modal.style.display = 'block';
             modal.style.visibility = 'visible';
             modal.style.opacity = '1';
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100vw';
+            modal.style.height = '100vh';
+            modal.style.zIndex = '9999';
+            modal.style.pointerEvents = 'auto';
+            modal.style.overflow = 'auto';
             
             // Método 2: Agregar clase show
             modal.classList.add('show');
             
-            // Método 3: Quitar hidden si existe
+            // Método 3: Quitar hidden y aria-hidden
             modal.hidden = false;
+            modal.removeAttribute('aria-hidden');
+            modal.setAttribute('aria-modal', 'true');
+            
+            // Método 4: Mover el modal al final del body para evitar contenedores problemáticos
+            document.body.appendChild(modal);
+            
+            // Método 5: Forzar reflow
+            modal.offsetHeight;
+            
+            // Método 6: Verificar si está realmente visible
+            const rect = modal.getBoundingClientRect();
+            console.log('Dimensiones del modal:', rect);
+            console.log('¿Modal es visible?', rect.width > 0 && rect.height > 0);
             
             console.log('Modal debería estar visible ahora');
-            console.log('Estilos del modal:', {
+            console.log('Estilos del modal después:', {
                 display: modal.style.display,
                 visibility: modal.style.visibility,
                 opacity: modal.style.opacity,
-                zIndex: modal.style.zIndex
+                zIndex: modal.style.zIndex,
+                position: modal.style.position,
+                width: modal.style.width,
+                height: modal.style.height
             });
             
+            // Método 7: Si aún no es visible, usar timeout
+            setTimeout(() => {
+                const rectAfter = modal.getBoundingClientRect();
+                console.log('Verificación después de timeout:', rectAfter);
+                if (rectAfter.width === 0 || rectAfter.height === 0) {
+                    console.error('Modal sigue sin ser visible, usando fallback');
+                    // Forzar con Bootstrap modal si existe
+                    if (typeof bootstrap !== 'undefined') {
+                        try {
+                            const bsModal = new bootstrap.Modal(modal);
+                            bsModal.show();
+                        } catch (e) {
+                            console.error('Error con Bootstrap modal:', e);
+                        }
+                    }
+                }
+            }, 100);
         } catch (error) {
             console.error('Error al configurar el modal:', error);
         }
