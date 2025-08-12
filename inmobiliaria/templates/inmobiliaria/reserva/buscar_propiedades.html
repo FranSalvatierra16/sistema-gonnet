@@ -152,325 +152,393 @@
     background: linear-gradient(135deg, #667eea, #764ba2);
     border-radius: 4px;
 }
+
+/* Íconos circulares para información */
+.icon-circle {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+/* Animaciones Animate.css locales */
+.animate__animated {
+    animation-duration: 0.8s;
+    animation-fill-mode: both;
+}
+
+.animate__fadeInDown {
+    animation-name: fadeInDown;
+}
+
+.animate__fadeInUp {
+    animation-name: fadeInUp;
+}
+
+.animate__fadeInLeft {
+    animation-name: fadeInLeft;
+}
+
+.animate__fadeInRight {
+    animation-name: fadeInRight;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translate3d(0, -100%, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 100%, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes fadeInLeft {
+    from {
+        opacity: 0;
+        transform: translate3d(-100%, 0, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes fadeInRight {
+    from {
+        opacity: 0;
+        transform: translate3d(100%, 0, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
 </style>
 {% endblock extra_css %}
 
 {% block content %}
-<div class="container-fluid">
-    <h1 class="text-center mb-4">Buscar Propiedades</h1>
-    
-    <!-- Cuadro principal de búsqueda -->
-    <div class="main-search-box">
-        <form method="post" id="buscar-propiedades-form-dia" class="m-0">
-            {% csrf_token %}
-            <div class="row">
-                <div class="col-12">
-                    <div class="d-flex flex-wrap align-items-end gap-3">
-                        <!-- Fecha Inicio -->
-                        <div class="form-group">
-                            <label>Fecha de Inicio</label>
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-calendar"></i>
-                                </span>
-                                {{ form.fecha_inicio }}
-                            </div>
-                        </div>
-
-                        <!-- Fecha Fin -->
-                        <div class="form-group">
-                            <label>Fecha de Fin</label>
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-calendar"></i>
-                                </span>
-                                {{ form.fecha_fin }}
-                            </div>
-                        </div>
-
-                        <!-- Ambientes -->
-                        <div class="form-group">
-                            <label>Ambientes</label>
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-door-open"></i>
-                                </span>
-                                {{ form.ambientes }}
-                            </div>
-                        </div>
-
-                        <!-- Botón de búsqueda -->
-                        <div class="form-group">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-search me-2"></i>Buscar
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Controles modernos -->
-                    <div class="controls-container">
-                        <button type="button" class="control-btn" onclick="abrirModalFiltros()">
-                            <i class="fas fa-filter"></i>
-                            Mostrar Filtros Avanzados
-                        </button>
-                        <div class="form-check">
-                            {{ form.ver_todas }}
-                            <label class="control-btn" for="id_ver_todas">
-                                <i class="fas fa-globe"></i>
-                                Ver Todas las Propiedades
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </form>
+<div class="container-fluid py-4">
+    <!-- Header con gradiente moderno -->
+    <div class="text-center mb-5">
+        <h1 class="display-4 fw-bold text-white mb-3 animate__animated animate__fadeInDown">
+            <i class="fas fa-search me-3"></i>Buscar Propiedades
+        </h1>
+        <p class="lead text-white-50">Encuentra la propiedad perfecta para tus necesidades</p>
     </div>
+    
+    <!-- Formulario de búsqueda moderno -->
+    <div class="card shadow-lg border-0 mb-4 animate__animated animate__fadeInUp">
+        <div class="card-header bg-gradient-primary text-white py-3">
+            <h5 class="mb-0 fw-bold">
+                <i class="fas fa-filter me-2"></i>Criterios de Búsqueda
+            </h5>
+        </div>
+        <div class="card-body p-4">
+            <form method="post" id="buscar-propiedades-form-dia" class="m-0">
+                {% csrf_token %}
+                <div class="row g-3 align-items-end">
+                    <!-- Fecha Inicio -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold text-muted">
+                            <i class="fas fa-calendar-alt me-2"></i>Fecha de Inicio
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0">
+                                <i class="fas fa-calendar text-primary"></i>
+                            </span>
+                            {{ form.fecha_inicio }}
+                        </div>
+                    </div>
 
-    <!-- Contenedor de filtros adicionales -->
-    <div id="filtrosAdicionales" class="mt-3" style="display: none;">
-        <div class="card">
-            <div class="card-body">
-                <div class="row">
-                    <!-- Filtros básicos -->
-                    <div class="col-md-4 mb-3">
-                        <div class="form-group">
-                            <label>Tipo de Inmueble</label>
-                            {{ form.tipo_inmueble }}
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="form-group">
-                            <label>Vista</label>
-                            {{ form.vista }}
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="form-group">
-                            <label>Valoración</label>
-                            {{ form.valoracion }}
+                    <!-- Fecha Fin -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold text-muted">
+                            <i class="fas fa-calendar-check me-2"></i>Fecha de Fin
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0">
+                                <i class="fas fa-calendar text-primary"></i>
+                            </span>
+                            {{ form.fecha_fin }}
                         </div>
                     </div>
 
-                    <!-- Características booleanas -->
-                    <div class="col-12">
-                        <h5 class="mb-3">Características adicionales</h5>
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.amoblado }}
-                                    <label class="form-check-label" for="{{ form.amoblado.id_for_label }}">Amoblado</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.cochera }}
-                                    <label class="form-check-label" for="{{ form.cochera.id_for_label }}">Cochera</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.tv_smart }}
-                                    <label class="form-check-label" for="{{ form.tv_smart.id_for_label }}">TV Smart</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.wifi }}
-                                    <label class="form-check-label" for="{{ form.wifi.id_for_label }}">WiFi</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.piscina }}
-                                    <label class="form-check-label" for="{{ form.piscina.id_for_label }}">Piscina</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.parrilla }}
-                                    <label class="form-check-label" for="{{ form.parrilla.id_for_label }}">Parrilla</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.terraza }}
-                                    <label class="form-check-label" for="{{ form.terraza.id_for_label }}">Terraza</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.balcon }}
-                                    <label class="form-check-label" for="{{ form.balcon.id_for_label }}">Balcón</label>
-                                </div>
+                    <!-- Ambientes -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold text-muted">
+                            <i class="fas fa-door-open me-2"></i>Ambientes
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0">
+                                <i class="fas fa-home text-primary"></i>
+                            </span>
+                            {{ form.ambientes }}
+                        </div>
+                    </div>
+
+                    <!-- Botón de búsqueda -->
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary btn-lg w-100 shadow-sm">
+                            <i class="fas fa-search me-2"></i>Buscar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Controles adicionales -->
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="d-flex gap-3">
+                            <button type="button" class="btn btn-outline-info" onclick="abrirModalFiltros()">
+                                <i class="fas fa-sliders-h me-2"></i>Filtros Avanzados
+                            </button>
+                            <div class="form-check form-switch">
+                                {{ form.ver_todas }}
+                                <label class="form-check-label fw-semibold" for="id_ver_todas">
+                                    Ver Todas las Propiedades
+                                </label>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 
     <div class="row">
         <!-- Columna izquierda: Lista de propiedades -->
-        <div class="col-md-8">
+        <div class="col-lg-8">
             {% if propiedades_disponibles %}
-            <h3 class="text-center mt-4">Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h3>
-            <div class="table-wrapper">
-                <table id="propiedadesTable" class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Disponibilidad</th>
-                            <th>Ubicación</th>
-                            <th>Piso</th>
-                            <th>Dpto</th>
-                            <th>Propietario</th>
-                            <th>Precio</th>
-                            <th>Sucursal</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for propiedad in propiedades_disponibles %}
-                        {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                        <tr style="background-color: white;" 
-                            class="propiedad-row"
-                            data-index="{{ forloop.counter0 }}"
-                            data-propiedad-id="{{ propiedad.id }}"
-                            data-direccion="{{ propiedad.direccion|escapejs }}"
-                            data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
-                            data-disponibilidad="{{ propiedad.disponibilidad }}"
-                            data-precio-total="{{ propiedad.precio_total_reserva }}"
-                            data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
-                            data-estado-reserva="{{ propiedad.estado_reserva }}"
-                            data-precio-dia="{{ propiedad.precio_por_dia }}"
-                            data-total-dias="{{ total_dias }}"
-                            data-ambientes="{{ propiedad.ambientes|default:0 }}"
-                            data-estado="{{ propiedad.estado|default:'Disponible' }}"
-                            data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
-                            data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}">
-                            <td style="color: red;">{{ propiedad.id }}</td>
-                            <td style="color: red;">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
-                            <td style="color: red;">{{ propiedad.ubicacion }}</td>
-                            <td style="color: red;">{{ propiedad.piso }}</td>
-                            <td style="color: red;">{{ propiedad.departamento }}</td>
-                            <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
-                            <td style="color: red;">{{ propiedad.precio_total_reserva|format_price }}</td>
-                            <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
-                        </tr>
-                        {% else %}
-                        <tr style="background-color: white;" 
-                            class="propiedad-row"
-                            data-index="{{ forloop.counter0 }}"
-                            data-propiedad-id="{{ propiedad.id }}"
-                            data-direccion="{{ propiedad.direccion|escapejs }}"
-                            data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
-                            data-disponibilidad="{{ propiedad.disponibilidad }}"
-                            data-precio-total="{{ propiedad.precio_total_reserva }}"
-                            data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
-                            data-estado-reserva="{{ propiedad.estado_reserva }}"
-                            data-precio-dia="{{ propiedad.precio_por_dia }}"
-                            data-total-dias="{{ total_dias }}"
-                            data-ambientes="{{ propiedad.ambientes|default:0 }}"
-                            data-estado="{{ propiedad.estado|default:'Disponible' }}"
-                            data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
-                            data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}">
-                            <td>{{ propiedad.id }}</td>
-                            <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
-                            <td>{{ propiedad.ubicacion }}</td>
-                            <td>{{ propiedad.piso }}</td>
-                            <td>{{ propiedad.departamento }}</td>
-                            <td>{{ propiedad.propietario.apellido }}</td>
-                            <td>{{ propiedad.precio_total_reserva|format_price }}</td>
-                            <td>{{ propiedad.sucursal.nombre }}</td>
-                        </tr>
-                        {% endif %}
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Ficha detallada mejorada -->
-            <div class="card mt-4" id="propertyCard" style="font-family: 'Courier New', monospace;">
-                <div class="card-header">
-                    <div class="d-flex justify-content-between">
-                        <h5 class="mb-0">FICHA: <span id="cardPropiedad"></span></h5>
-                        <h5 class="mb-0">DIRECCIÓN: <span id="cardDireccion"></span></h5>
+                <!-- Header de resultados -->
+                <div class="card shadow border-0 mb-4 animate__animated animate__fadeInLeft">
+                    <div class="card-header bg-gradient-success text-white">
+                        <h5 class="mb-0 fw-bold">
+                            <i class="fas fa-list me-2"></i>Propiedades Disponibles 
+                            <span class="badge bg-light text-dark ms-2">{{ fecha_inicio }} al {{ fecha_fin }}</span>
+                        </h5>
+                    </div>
+                    
+                    <!-- Tabla moderna -->
+                    <div class="card-body p-0">
+                        <div class="table-responsive table-wrapper">
+                            <table id="propiedadesTable" class="table table-hover table-striped mb-0">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th class="fw-bold"><i class="fas fa-hashtag me-1"></i>ID</th>
+                                        <th class="fw-bold"><i class="fas fa-calendar me-1"></i>Disponibilidad</th>
+                                        <th class="fw-bold"><i class="fas fa-map-marker-alt me-1"></i>Ubicación</th>
+                                        <th class="fw-bold"><i class="fas fa-building me-1"></i>Piso</th>
+                                        <th class="fw-bold"><i class="fas fa-door-open me-1"></i>Dpto</th>
+                                        <th class="fw-bold"><i class="fas fa-user me-1"></i>Propietario</th>
+                                        <th class="fw-bold"><i class="fas fa-dollar-sign me-1"></i>Precio</th>
+                                        <th class="fw-bold"><i class="fas fa-store me-1"></i>Sucursal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for propiedad in propiedades_disponibles %}
+                                    {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
+                                    <tr class="propiedad-row table-warning border-start border-warning border-3" 
+                                        data-index="{{ forloop.counter0 }}"
+                                        data-propiedad-id="{{ propiedad.id }}"
+                                        data-direccion="{{ propiedad.direccion|escapejs }}"
+                                        data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
+                                        data-disponibilidad="{{ propiedad.disponibilidad }}"
+                                        data-precio-total="{{ propiedad.precio_total_reserva }}"
+                                        data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
+                                        data-estado-reserva="{{ propiedad.estado_reserva }}"
+                                        data-precio-dia="{{ propiedad.precio_por_dia }}"
+                                        data-total-dias="{{ total_dias }}"
+                                        data-ambientes="{{ propiedad.ambientes|default:0 }}"
+                                        data-estado="{{ propiedad.estado|default:'Disponible' }}"
+                                        data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
+                                        data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}">
+                                        <td class="fw-bold text-warning">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>{{ propiedad.id }}
+                                        </td>
+                                        <td class="text-warning fw-semibold">
+                                            <span class="badge bg-warning text-dark">Reservado</span><br>
+                                            <small>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</small>
+                                        </td>
+                                        <td class="text-warning">{{ propiedad.ubicacion }}</td>
+                                        <td class="text-warning">{{ propiedad.piso }}</td>
+                                        <td class="text-warning">{{ propiedad.departamento }}</td>
+                                        <td class="text-warning">{{ propiedad.propietario.apellido }}</td>
+                                        <td class="text-warning fw-bold">{{ propiedad.precio_total_reserva|format_price }}</td>
+                                        <td class="text-warning">{{ propiedad.sucursal.nombre }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr class="propiedad-row border-start border-success border-2" 
+                                        data-index="{{ forloop.counter0 }}"
+                                        data-propiedad-id="{{ propiedad.id }}"
+                                        data-direccion="{{ propiedad.direccion|escapejs }}"
+                                        data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
+                                        data-disponibilidad="{{ propiedad.disponibilidad }}"
+                                        data-precio-total="{{ propiedad.precio_total_reserva }}"
+                                        data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
+                                        data-estado-reserva="{{ propiedad.estado_reserva }}"
+                                        data-precio-dia="{{ propiedad.precio_por_dia }}"
+                                        data-total-dias="{{ total_dias }}"
+                                        data-ambientes="{{ propiedad.ambientes|default:0 }}"
+                                        data-estado="{{ propiedad.estado|default:'Disponible' }}"
+                                        data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
+                                        data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}">
+                                        <td class="fw-bold text-primary">{{ propiedad.id }}</td>
+                                        <td>
+                                            <span class="badge bg-success">Disponible</span><br>
+                                            <small class="text-muted">{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</small>
+                                        </td>
+                                        <td>{{ propiedad.ubicacion }}</td>
+                                        <td>{{ propiedad.piso }}</td>
+                                        <td>{{ propiedad.departamento }}</td>
+                                        <td>{{ propiedad.propietario.apellido }}</td>
+                                        <td class="fw-bold text-success">{{ propiedad.precio_total_reserva|format_price }}</td>
+                                        <td>{{ propiedad.sucursal.nombre }}</td>
+                                    </tr>
+                                    {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
-                
-                <div class="card-body">
-                    <div class="descripcion p-3" style="background-color: #f8f9fa; border-radius: 8px;">
-                        <div class="row mt-3">
-                            <div class="col-md-6">
-                                <p><strong>PROPIETARIO:</strong> <span id="cardPropietario"></span></p>
-                                <p><strong>PRECIO TOTAL:</strong> <span id="cardPrecio"></span></p>
-                            </div>
-                            <div class="col-md-6">
-                                <p><strong>AMBIENTES:</strong> <span id="cardAmbiente"></span> </p>
-                                <p><strong>ESTADO:</strong> <span id="cardEstado"></span></p>
-                            </div>
-                        </div>
 
-                        <!-- Características/Amenities -->
-                        <div class="mt-4">
-                            <h3 class="mb-3">DESCRIPCIÓN:</h3>
-                            <div id="descripcionDetallada" class="text-uppercase" style="word-wrap: break-word; white-space: pre-wrap; max-height: 200px; overflow-y: auto; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; background-color: white;">
-                                <!-- Se llenará con JavaScript -->
+                <!-- Tarjeta de información de la propiedad -->
+                <div class="card shadow border-0 animate__animated animate__fadeInUp" id="propertyCard">
+                    <div class="card-header bg-gradient-info text-white">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h5 class="mb-0 fw-bold">
+                                    <i class="fas fa-home me-2"></i>FICHA: <span id="cardPropiedad" class="badge bg-light text-dark ms-2">-</span>
+                                </h5>
                             </div>
-                            <h5 class="mt-4 mb-3">CARACTERÍSTICAS:</h5>
-                            <div id="caracteristicas" class="text-uppercase d-flex flex-wrap gap-2">
-                                <!-- Se llenará con JavaScript -->
+                            <div class="col-auto">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-map-marker-alt me-1"></i>DIRECCIÓN: <span id="cardDireccion">-</span>
+                                </h6>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Agregar este botón cerca de los otros botones de acción -->
-                    <div class="mb-3">
-                        <button type="button" class="btn btn-info" onclick="abrirGaleriaFotos(propiedadSeleccionada.id)">
-                            <i class="fas fa-images"></i> Ver Fotos
-                        </button>
+                    <div class="card-body">
+                        <!-- Información principal -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="icon-circle bg-primary bg-opacity-10 me-3">
+                                        <i class="fas fa-user text-primary"></i>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted d-block">PROPIETARIO</small>
+                                        <span id="cardPropietario" class="fw-bold">-</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="icon-circle bg-success bg-opacity-10 me-3">
+                                        <i class="fas fa-dollar-sign text-success"></i>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted d-block">PRECIO TOTAL</small>
+                                        <span id="cardPrecio" class="fw-bold text-success fs-5">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="icon-circle bg-info bg-opacity-10 me-3">
+                                        <i class="fas fa-door-open text-info"></i>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted d-block">AMBIENTES</small>
+                                        <span id="cardAmbiente" class="fw-bold">-</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="icon-circle bg-warning bg-opacity-10 me-3">
+                                        <i class="fas fa-info-circle text-warning"></i>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted d-block">ESTADO</small>
+                                        <span id="cardEstado" class="fw-bold">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Descripción -->
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-muted mb-3">
+                                <i class="fas fa-align-left me-2"></i>DESCRIPCIÓN
+                            </h6>
+                            <div id="descripcionDetallada" class="p-3 bg-light rounded border-start border-primary border-3">
+                                <!-- Se llenará con JavaScript -->
+                            </div>
+                        </div>
+
+                        <!-- Características -->
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-muted mb-3">
+                                <i class="fas fa-tags me-2"></i>CARACTERÍSTICAS
+                            </h6>
+                            <div id="caracteristicas" class="d-flex flex-wrap gap-2">
+                                <!-- Se llenará con JavaScript -->
+                            </div>
+                        </div>
+
+                        <!-- Botón de galería -->
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-outline-primary" onclick="abrirGaleriaFotos(propiedadSeleccionada.id)">
+                                <i class="fas fa-images me-2"></i>Ver Galería de Fotos
+                            </button>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="card-footer" id="cardButtons" style="background-color: #f8f9fa;">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                                <button type="button" class="btn btn-primary" disabled>
-                                    <i class="fas fa-calendar-check"></i> Reservado
+                    
+                    <!-- Botones de acción -->
+                    <div class="card-footer bg-light" id="cardButtons">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
+                                    <i class="fas fa-calendar-plus me-2"></i>Reservar
                                 </button>
-                                <button type="button" class="btn btn-success" onclick="window.mostrarModalAutenticacion('${reserva_id}')">
-                                    <i class="fas fa-check-circle"></i> Finalizar Operación
+                                <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
+                                    <i class="fas fa-check-circle me-2"></i>Operación Directa
                                 </button>
                                 <button type="button" class="btn btn-info" onclick="window.verPrecios()">
-                                    <i class="fas fa-dollar-sign"></i> Ver Precios
+                                    <i class="fas fa-dollar-sign me-2"></i>Ver Precios
                                 </button>
-                            {% else %}
-                                <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
-                                        <i class="fas fa-calendar-plus"></i> Reservar
-                                    </button>
-                                    <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
-                                        <i class="fas fa-check-circle"></i> Operación Directa
-                                    </button>
-                                    <button type="button" class="btn btn-info" onclick="window.verPrecios()">
-                                        <i class="fas fa-dollar-sign"></i> Ver Precios
-                                    </button>
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <span class="badge bg-info text-white p-2">
-                                <i class="fas fa-info-circle"></i> 
-                                Estado: <span id="estadoPropiedad">Disponible</span>
-                            </span>
+                            </div>
+                            <div>
+                                <span class="badge bg-info fs-6 p-2">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Estado: <span id="estadoPropiedad">Disponible</span>
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
             {% else %}
-                <div class="alert alert-warning text-center mt-4">
-                    No hay propiedades disponibles para las fechas seleccionadas.
+                <div class="text-center py-5">
+                    <div class="card shadow border-0">
+                        <div class="card-body py-5">
+                            <i class="fas fa-search text-muted mb-3" style="font-size: 4rem;"></i>
+                            <h4 class="text-muted mb-3">No se encontraron propiedades</h4>
+                            <p class="text-muted">No hay propiedades disponibles para las fechas seleccionadas.</p>
+                        </div>
+                    </div>
                 </div>
                 {% if alerta_sin_precio %}
                 <script>
@@ -489,6 +557,36 @@
                 {% endif %}
             {% endif %}
         </div>
+
+        <!-- Columna derecha: Tabla de precios -->
+        <div class="col-lg-4">
+            <div class="card shadow border-0 sticky-top animate__animated animate__fadeInRight">
+                <div class="card-header bg-gradient-warning text-dark">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="fas fa-dollar-sign me-2"></i>PRECIOS
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-precios mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="fw-bold">PERÍODO</th>
+                                    <th class="text-end fw-bold">Precio por Día</th>
+                                    <th class="text-end fw-bold">Precio por Quincena</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Se llenará dinámicamente con JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL HERMOSO Y FUNCIONAL -->
 <div id="modalConfirmarReserva" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999;">
     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 15px; padding: 0; width: 90%; max-width: 700px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); animation: modalAppear 0.3s ease-out;">
@@ -2974,7 +3072,7 @@ function cargarPreciosCompletos(propiedadId) {
 // Función para generar la tabla de gestión de precios
 function generarTablaGestionPrecios(precios, propiedadId) {
     // Variable global para permisos de admin
-    const esAdmin = {% if user.nivel >= 3 %}true{% else %}false{% endif %};
+    const esAdmin = {{ user.nivel|default:0 }} >= 3;
     console.log('👤 Usuario es admin:', esAdmin);
     
     let tablaHTML = `
