@@ -1041,6 +1041,66 @@
             if (modal) {
                 const bsModal = new bootstrap.Modal(modal);
                 bsModal.show();
+                
+                // SOLUCIÓN SÚPER AGRESIVA ESPECÍFICA PARA ESTE MODAL
+                setTimeout(() => {
+                    console.log('🚀 APLICANDO SOLUCIÓN SÚPER AGRESIVA AL MODAL DE FILTROS...');
+                    
+                    // Limpiar cualquier backdrop problemático
+                    document.querySelectorAll('.modal-backdrop').forEach(el => {
+                        el.style.setProperty('z-index', '1040', 'important');
+                        el.style.setProperty('opacity', '0.5', 'important');
+                    });
+                    
+                    // FORZAR EL MODAL COMPLETAMENTE
+                    modal.style.setProperty('display', 'block', 'important');
+                    modal.style.setProperty('opacity', '1', 'important');
+                    modal.style.setProperty('visibility', 'visible', 'important');
+                    modal.style.setProperty('z-index', '999999999', 'important');
+                    modal.style.setProperty('pointer-events', 'auto', 'important');
+                    modal.style.setProperty('position', 'fixed', 'important');
+                    modal.style.setProperty('top', '0', 'important');
+                    modal.style.setProperty('left', '0', 'important');
+                    modal.style.setProperty('width', '100%', 'important');
+                    modal.style.setProperty('height', '100%', 'important');
+                    
+                    // FORZAR TODO EL CONTENIDO
+                    modal.querySelectorAll('*').forEach(elemento => {
+                        elemento.style.setProperty('pointer-events', 'auto', 'important');
+                        elemento.style.setProperty('opacity', '1', 'important');
+                        elemento.style.setProperty('visibility', 'visible', 'important');
+                        elemento.style.setProperty('z-index', 'inherit', 'important');
+                        
+                        if (elemento.tagName === 'INPUT' || elemento.tagName === 'SELECT' || elemento.tagName === 'TEXTAREA') {
+                            elemento.removeAttribute('disabled');
+                            elemento.removeAttribute('readonly');
+                            elemento.style.setProperty('cursor', 'text', 'important');
+                        }
+                        
+                        if (elemento.tagName === 'BUTTON' || elemento.classList.contains('btn')) {
+                            elemento.style.setProperty('cursor', 'pointer', 'important');
+                            elemento.removeAttribute('disabled');
+                        }
+                        
+                        if (elemento.type === 'checkbox' || elemento.type === 'radio') {
+                            elemento.style.setProperty('cursor', 'pointer', 'important');
+                        }
+                        
+                        if (elemento.tagName === 'LABEL') {
+                            elemento.style.setProperty('cursor', 'pointer', 'important');
+                        }
+                    });
+                    
+                    // Aplicar también la solución general
+                    solucionDefinitivaModales();
+                    
+                    console.log('✅ MODAL DE FILTROS COMPLETAMENTE DESBLOQUEADO');
+                }, 100);
+                
+                // Aplicar otra vez por si acaso
+                setTimeout(() => {
+                    solucionDefinitivaModales();
+                }, 500);
             } else {
                 console.warn('⚠️ No se encontró modal de filtros');
             }

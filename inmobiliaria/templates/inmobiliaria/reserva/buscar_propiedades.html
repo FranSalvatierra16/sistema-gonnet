@@ -24,8 +24,66 @@
         margin: 20px !important;
         max-width: 98% !important;
         box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
-        backdrop-filter: blur(10px) !important;
+        /* backdrop-filter: blur(10px) !important; COMENTADO - puede bloquear modales */
         padding: 30px !important;
+    }
+    
+    /* =============================================== */
+    /* SOLUCIÓN DEFINITIVA PARA MODALES BLOQUEADOS */
+    /* =============================================== */
+    
+    .modal, 
+    .modal * {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        pointer-events: auto !important;
+        user-select: auto !important;
+    }
+    
+    .modal.show {
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        z-index: 999999999 !important;
+        pointer-events: auto !important;
+    }
+    
+    .modal.show .modal-dialog {
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        transform: none !important;
+        background: white !important;
+    }
+    
+    .modal.show .modal-content {
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        background: white !important;
+        border-radius: 10px !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
+    }
+    
+    .modal.show .modal-body,
+    .modal.show .modal-header,
+    .modal.show .modal-footer,
+    .modal.show input,
+    .modal.show select,
+    .modal.show button,
+    .modal.show label {
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        cursor: pointer !important;
+    }
+    
+    .modal.show input[type="text"],
+    .modal.show input[type="number"], 
+    .modal.show input[type="date"],
+    .modal.show select,
+    .modal.show textarea {
+        cursor: text !important;
     }
 
     /* Estilos para el formulario de filtros */
@@ -4460,7 +4518,239 @@ function guardarCambiosPrecios() {
 <!-- Incluir SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+<!-- =============================================== -->
+<!-- SOLUCIÓN ESPECÍFICA PARA MODALES BLOQUEADOS  -->
+<!-- =============================================== -->
 <script>
+function desbloquearModalesCompleto() {
+    console.log('🚀 DESBLOQUEANDO MODALES ESPECÍFICAMENTE...');
+    
+    // Forzar TODOS los modales
+    document.querySelectorAll('.modal, div[id*="modal"], div[id*="Modal"]').forEach(modal => {
+        modal.style.setProperty('pointer-events', 'auto', 'important');
+        modal.style.setProperty('z-index', '999999999', 'important');
+        modal.style.setProperty('backdrop-filter', 'none', 'important');
+        modal.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
+        
+        // Forzar TODO el contenido del modal
+        modal.querySelectorAll('*').forEach(elemento => {
+            elemento.style.setProperty('pointer-events', 'auto', 'important');
+            elemento.style.setProperty('backdrop-filter', 'none', 'important');
+            elemento.style.setProperty('opacity', '1', 'important');
+            elemento.style.setProperty('visibility', 'visible', 'important');
+            
+            if (elemento.tagName === 'INPUT' || elemento.tagName === 'SELECT' || elemento.tagName === 'TEXTAREA') {
+                elemento.removeAttribute('disabled');
+                elemento.removeAttribute('readonly');
+                elemento.style.setProperty('cursor', 'text', 'important');
+            }
+            
+            if (elemento.tagName === 'BUTTON' || elemento.classList.contains('btn')) {
+                elemento.style.setProperty('cursor', 'pointer', 'important');
+                elemento.removeAttribute('disabled');
+            }
+        });
+    });
+    
+    console.log('✅ MODALES COMPLETAMENTE DESBLOQUEADOS');
+}
+
+// Redefinir abrirModalFiltros para esta página específica
+window.abrirModalFiltros = function() {
+    console.log('🔍 ABRIENDO MODAL FILTROS - PÁGINA ESPECÍFICA...');
+    const modal = document.getElementById('modalFiltrosAvanzados') || document.querySelector('#modalFiltros') || document.querySelector('.modal-filtros');
+    if (modal) {
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        
+        // Aplicar desbloqueo inmediato y múltiple
+        setTimeout(desbloquearModalesCompleto, 50);
+        setTimeout(desbloquearModalesCompleto, 200);
+        setTimeout(desbloquearModalesCompleto, 500);
+    } else {
+        console.warn('⚠️ No se encontró modal de filtros');
+    }
+};
+
+// Aplicar desbloqueo cada vez que se abre un modal
+document.addEventListener('shown.bs.modal', function(e) {
+    console.log('🎯 Modal abierto - aplicando desbloqueo...');
+    setTimeout(desbloquearModalesCompleto, 100);
+});
+
+// Aplicar desbloqueo al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(desbloquearModalesCompleto, 1000);
+});
+
+console.log('🎉 Sistema de desbloqueo de modales específico cargado');
+</script>
+
+<script>
+// ===============================================
+// SOLUCIÓN ESPECÍFICA PARA MODALES BLOQUEADOS 
+// ===============================================
+
+function desbloquearModalesCompleto() {
+    console.log('🚀 DESBLOQUEANDO MODALES ESPECÍFICAMENTE...');
+    
+    // Eliminar cualquier backdrop problemático
+    document.querySelectorAll('.modal-backdrop').forEach(el => {
+        el.style.setProperty('pointer-events', 'none', 'important');
+        el.style.setProperty('z-index', '1040', 'important');
+    });
+    
+    // Forzar TODOS los modales
+    document.querySelectorAll('.modal, div[id*="modal"], div[id*="Modal"]').forEach(modal => {
+        modal.style.setProperty('pointer-events', 'auto', 'important');
+        modal.style.setProperty('z-index', '999999999', 'important');
+        modal.style.setProperty('backdrop-filter', 'none', 'important');
+        modal.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
+        
+        // Forzar TODO el contenido del modal
+        modal.querySelectorAll('*').forEach(elemento => {
+            elemento.style.setProperty('pointer-events', 'auto', 'important');
+            elemento.style.setProperty('backdrop-filter', 'none', 'important');
+            elemento.style.setProperty('opacity', '1', 'important');
+            elemento.style.setProperty('visibility', 'visible', 'important');
+            
+            if (elemento.tagName === 'INPUT' || elemento.tagName === 'SELECT' || elemento.tagName === 'TEXTAREA') {
+                elemento.removeAttribute('disabled');
+                elemento.removeAttribute('readonly');
+                elemento.style.setProperty('cursor', 'text', 'important');
+            }
+            
+            if (elemento.tagName === 'BUTTON' || elemento.classList.contains('btn')) {
+                elemento.style.setProperty('cursor', 'pointer', 'important');
+                elemento.removeAttribute('disabled');
+            }
+            
+            if (elemento.type === 'checkbox' || elemento.type === 'radio') {
+                elemento.style.setProperty('cursor', 'pointer', 'important');
+            }
+            
+            if (elemento.tagName === 'LABEL') {
+                elemento.style.setProperty('cursor', 'pointer', 'important');
+            }
+        });
+    });
+    
+    console.log('✅ MODALES COMPLETAMENTE DESBLOQUEADOS');
+}
+
+// Redefinir abrirModalFiltros para esta página específica
+window.abrirModalFiltros = function() {
+    console.log('🔍 ABRIENDO MODAL FILTROS - PÁGINA ESPECÍFICA...');
+    const modal = document.getElementById('modalFiltrosAvanzados') || document.querySelector('#modalFiltros') || document.querySelector('.modal-filtros');
+    if (modal) {
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        
+        // Aplicar desbloqueo inmediato y múltiple
+        setTimeout(desbloquearModalesCompleto, 50);
+        setTimeout(desbloquearModalesCompleto, 200);
+        setTimeout(desbloquearModalesCompleto, 500);
+    } else {
+        console.warn('⚠️ No se encontró modal de filtros');
+    }
+};
+
+// Aplicar desbloqueo cada vez que se abre un modal
+document.addEventListener('shown.bs.modal', function(e) {
+    console.log('🎯 Modal abierto - aplicando desbloqueo...');
+    setTimeout(desbloquearModalesCompleto, 100);
+});
+
+// Aplicar desbloqueo al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(desbloquearModalesCompleto, 1000);
+});
+
+console.log('🎉 Sistema de desbloqueo de modales específico cargado');
+</script>
+
+<script>
+// ===============================================
+// SOLUCIÓN ESPECÍFICA PARA MODALES BLOQUEADOS 
+// ===============================================
+
+function desbloquearModalesCompleto() {
+    console.log('🚀 DESBLOQUEANDO MODALES ESPECÍFICAMENTE...');
+    
+    // Eliminar cualquier backdrop problemático
+    document.querySelectorAll('.modal-backdrop').forEach(el => {
+        el.style.setProperty('pointer-events', 'none', 'important');
+        el.style.setProperty('z-index', '1040', 'important');
+    });
+    
+    // Forzar TODOS los modales
+    document.querySelectorAll('.modal, div[id*="modal"], div[id*="Modal"]').forEach(modal => {
+        modal.style.setProperty('pointer-events', 'auto', 'important');
+        modal.style.setProperty('z-index', '999999999', 'important');
+        modal.style.setProperty('backdrop-filter', 'none', 'important');
+        modal.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
+        
+        // Forzar TODO el contenido del modal
+        modal.querySelectorAll('*').forEach(elemento => {
+            elemento.style.setProperty('pointer-events', 'auto', 'important');
+            elemento.style.setProperty('backdrop-filter', 'none', 'important');
+            elemento.style.setProperty('opacity', '1', 'important');
+            elemento.style.setProperty('visibility', 'visible', 'important');
+            
+            if (elemento.tagName === 'INPUT' || elemento.tagName === 'SELECT' || elemento.tagName === 'TEXTAREA') {
+                elemento.removeAttribute('disabled');
+                elemento.removeAttribute('readonly');
+                elemento.style.setProperty('cursor', 'text', 'important');
+            }
+            
+            if (elemento.tagName === 'BUTTON' || elemento.classList.contains('btn')) {
+                elemento.style.setProperty('cursor', 'pointer', 'important');
+                elemento.removeAttribute('disabled');
+            }
+            
+            if (elemento.type === 'checkbox' || elemento.type === 'radio') {
+                elemento.style.setProperty('cursor', 'pointer', 'important');
+            }
+            
+            if (elemento.tagName === 'LABEL') {
+                elemento.style.setProperty('cursor', 'pointer', 'important');
+            }
+        });
+    });
+    
+    console.log('✅ MODALES COMPLETAMENTE DESBLOQUEADOS');
+}
+
+// Redefinir abrirModalFiltros para esta página específica
+window.abrirModalFiltros = function() {
+    console.log('🔍 ABRIENDO MODAL FILTROS - PÁGINA ESPECÍFICA...');
+    const modal = document.getElementById('modalFiltrosAvanzados') || document.querySelector('#modalFiltros') || document.querySelector('.modal-filtros');
+    if (modal) {
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        
+        // Aplicar desbloqueo inmediato y múltiple
+        setTimeout(desbloquearModalesCompleto, 50);
+        setTimeout(desbloquearModalesCompleto, 200);
+        setTimeout(desbloquearModalesCompleto, 500);
+    } else {
+        console.warn('⚠️ No se encontró modal de filtros');
+    }
+};
+
+// Aplicar desbloqueo cada vez que se abre un modal
+document.addEventListener('shown.bs.modal', function(e) {
+    console.log('🎯 Modal abierto - aplicando desbloqueo...');
+    setTimeout(desbloquearModalesCompleto, 100);
+});
+
+// Aplicar desbloqueo al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(desbloquearModalesCompleto, 1000);
+});
+
+console.log('🎉 Sistema de desbloqueo de modales específico cargado');
+
 // Función para obtener datos adicionales de la propiedad
 function obtenerDatosPropiedad(propiedadId, estadoReserva) {
     fetch(`/inmobiliaria/api/propiedad/${propiedadId}/`)
