@@ -1007,4 +1007,88 @@
                     }
                 });
                 
-                console.log(`
+                console.log(`✅ Modal ${index + 1} COMPLETAMENTE FORZADO`);
+            });
+            
+            // Limpiar el body
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            console.log('💥 SOLUCIÓN DEFINITIVA COMPLETADA - Modales forzados:', modales.length);
+        }
+        
+        // NO ejecutar automáticamente al cargar para evitar que se abran todos los modales
+        
+        // Ejecutar SOLO cuando se muestre un modal
+        document.addEventListener('shown.bs.modal', function(e) {
+            console.log('🚀 Modal mostrado - aplicando solución definitiva...');
+            setTimeout(solucionDefinitivaModales, 100);
+        });
+        
+        // NO ejecutar cada segundo automáticamente
+        
+        // Funciones globales para debugging
+        window.solucionDefinitivaModales = solucionDefinitivaModales;
+        
+        // ===============================================
+        // FUNCIONES PARA MODALES DE FILTROS
+        // ===============================================
+        
+        window.abrirModalFiltros = function() {
+            console.log('🔍 Abriendo modal de filtros...');
+            const modal = document.getElementById('modalFiltrosAvanzados') || document.querySelector('#modalFiltros') || document.querySelector('.modal-filtros');
+            if (modal) {
+                const bsModal = new bootstrap.Modal(modal);
+                bsModal.show();
+            } else {
+                console.warn('⚠️ No se encontró modal de filtros');
+            }
+        };
+        
+        window.cerrarModalFiltros = function() {
+            console.log('❌ Cerrando modal de filtros...');
+            const modal = document.getElementById('modalFiltrosAvanzados') || document.querySelector('#modalFiltros') || document.querySelector('.modal-filtros');
+            if (modal) {
+                const bsModal = bootstrap.Modal.getInstance(modal);
+                if (bsModal) {
+                    bsModal.hide();
+                }
+            }
+        };
+        
+        window.aplicarFiltros = function() {
+            console.log('✅ Aplicando filtros...');
+            cerrarModalFiltros();
+        };
+        
+        window.resetearFiltros = function() {
+            console.log('🔄 Reseteando filtros...');
+            const modal = document.getElementById('modalFiltrosAvanzados') || document.querySelector('#modalFiltros');
+            if (modal) {
+                modal.querySelectorAll('input, select').forEach(field => {
+                    if (field.type === 'checkbox') {
+                        field.checked = false;
+                    } else {
+                        field.value = '';
+                    }
+                });
+            }
+        };
+        
+        // Crear switchFiltros si no existe
+        if (!document.getElementById('switchFiltros')) {
+            const switchElement = document.createElement('input');
+            switchElement.type = 'checkbox';
+            switchElement.id = 'switchFiltros';
+            switchElement.style.display = 'none';
+            document.body.appendChild(switchElement);
+            console.log('✅ switchFiltros creado');
+        }
+        
+        console.log('🎉 Todas las funciones de modales cargadas correctamente');
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
