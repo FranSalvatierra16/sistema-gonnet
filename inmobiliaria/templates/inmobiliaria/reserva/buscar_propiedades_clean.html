@@ -1,0 +1,335 @@
+{% extends 'inmobiliaria/base_minimal.html' %}
+{% load bootstrap4 %}
+{% load custom_filters %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+/* SOLO ESTILOS BÁSICOS NECESARIOS */
+.table {
+    margin-top: 20px;
+}
+
+.btn {
+    margin: 2px;
+}
+
+.modal {
+    z-index: 9999 !important;
+}
+
+.modal-backdrop {
+    z-index: 9998 !important;
+}
+
+.modal * {
+    pointer-events: auto !important;
+    user-select: auto !important;
+}
+
+.card {
+    margin-top: 20px;
+}
+</style>
+{% endblock extra_css %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="text-center mb-4">🏠 Buscar Propiedades para Reserva</h1>
+    
+    <!-- FORMULARIO DE BÚSQUEDA SIMPLE -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label for="fecha_inicio" class="form-label">📅 Fecha Inicio</label>
+                    <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" value="{{ request.GET.fecha_inicio }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="fecha_fin" class="form-label">📅 Fecha Fin</label>
+                    <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" value="{{ request.GET.fecha_fin }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="ambientes" class="form-label">🏠 Ambientes</label>
+                    <select class="form-select" id="ambientes" name="ambientes">
+                        <option value="">Todos</option>
+                        <option value="1" {% if request.GET.ambientes == '1' %}selected{% endif %}>1 ambiente</option>
+                        <option value="2" {% if request.GET.ambientes == '2' %}selected{% endif %}>2 ambientes</option>
+                        <option value="3" {% if request.GET.ambientes == '3' %}selected{% endif %}>3 ambientes</option>
+                        <option value="4" {% if request.GET.ambientes == '4' %}selected{% endif %}>4+ ambientes</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-2"></i>Buscar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if propiedades %}
+    <!-- TABLA DE PROPIEDADES -->
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Dirección</th>
+                    <th>Propietario</th>
+                    <th>Ambientes</th>
+                    <th>Precio/Día</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for propiedad in propiedades %}
+                <tr class="propiedad-row" style="cursor: pointer;" 
+                    data-propiedad-id="{{ propiedad.id }}"
+                    data-direccion="{{ propiedad.direccion }}"
+                    data-propietario="{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}"
+                    data-ambientes="{{ propiedad.ambientes }}"
+                    data-precio="{{ propiedad.precio_por_dia|default:0 }}"
+                    data-estado="{{ propiedad.estado }}">
+                    <td>{{ propiedad.id }}</td>
+                    <td>{{ propiedad.direccion }}</td>
+                    <td>{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</td>
+                    <td>{{ propiedad.ambientes|default:"N/A" }}</td>
+                    <td>${{ propiedad.precio_por_dia|default:0|floatformat:0 }}</td>
+                    <td>
+                        {% if propiedad.estado == 'disponible' %}
+                            <span class="badge bg-success">Disponible</span>
+                        {% else %}
+                            <span class="badge bg-warning">{{ propiedad.estado|title }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="seleccionarYReservar({{ propiedad.id }}, '{{ propiedad.direccion }}', '{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}', {{ propiedad.precio_por_dia|default:0 }})">
+                            <i class="fas fa-calendar-plus me-1"></i>Reservar
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info text-center">
+        <i class="fas fa-info-circle me-2"></i>
+        No se encontraron propiedades. Ajusta los filtros de búsqueda.
+    </div>
+    {% endif %}
+
+    <!-- INFORMACIÓN DE PROPIEDAD SELECCIONADA -->
+    <div id="infoPropiedad" class="card mt-4" style="display: none;">
+        <div class="card-header">
+            <h5><i class="fas fa-info-circle me-2"></i>Propiedad Seleccionada</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>ID:</strong> <span id="propId">-</span></p>
+                    <p><strong>Dirección:</strong> <span id="propDireccion">-</span></p>
+                    <p><strong>Propietario:</strong> <span id="propPropietario">-</span></p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Ambientes:</strong> <span id="propAmbientes">-</span></p>
+                    <p><strong>Precio/Día:</strong> $<span id="propPrecio">-</span></p>
+                    <p><strong>Estado:</strong> <span id="propEstado">-</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE RESERVA SIMPLE -->
+<div class="modal fade" id="modalReserva" tabindex="-1" aria-labelledby="modalReservaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalReservaLabel">
+                    <i class="fas fa-calendar-plus me-2"></i>Confirmar Reserva
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formReserva">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="modalPropiedadInfo" class="form-label">Propiedad</label>
+                        <div id="modalPropiedadInfo" class="form-control-plaintext bg-light p-2 rounded">
+                            <strong>ID:</strong> <span id="modalPropId">-</span><br>
+                            <strong>Dirección:</strong> <span id="modalPropDireccion">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="modalFechaInicio" class="form-label">Fecha Inicio</label>
+                                <input type="date" class="form-control" id="modalFechaInicio" name="fecha_inicio" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="modalFechaFin" class="form-label">Fecha Fin</label>
+                                <input type="date" class="form-control" id="modalFechaFin" name="fecha_fin" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="modalPrecioTotal" class="form-label">Precio Total</label>
+                        <input type="number" class="form-control" id="modalPrecioTotal" name="precio_total" step="0.01" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="modalObservaciones" class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="modalObservaciones" name="observaciones" rows="3"></textarea>
+                    </div>
+                    
+                    <input type="hidden" id="modalPropiedadId" name="propiedad_id">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="confirmarReservaFinal()">
+                    <i class="fas fa-check me-1"></i>Confirmar Reserva
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+// Variables globales
+let propiedadSeleccionada = null;
+
+// Función para seleccionar propiedad y mostrar información
+function seleccionarPropiedad(id, direccion, propietario, ambientes, precio, estado) {
+    propiedadSeleccionada = {
+        id: id,
+        direccion: direccion,
+        propietario: propietario,
+        ambientes: ambientes,
+        precio: precio,
+        estado: estado
+    };
+    
+    // Mostrar información de la propiedad
+    document.getElementById('propId').textContent = id;
+    document.getElementById('propDireccion').textContent = direccion;
+    document.getElementById('propPropietario').textContent = propietario;
+    document.getElementById('propAmbientes').textContent = ambientes;
+    document.getElementById('propPrecio').textContent = precio;
+    document.getElementById('propEstado').textContent = estado;
+    
+    document.getElementById('infoPropiedad').style.display = 'block';
+    
+    console.log('✅ Propiedad seleccionada:', propiedadSeleccionada);
+}
+
+// Función para seleccionar y abrir modal de reserva directamente
+function seleccionarYReservar(id, direccion, propietario, precio) {
+    seleccionarPropiedad(id, direccion, propietario, 'N/A', precio, 'Disponible');
+    
+    // Llenar datos del modal
+    document.getElementById('modalPropId').textContent = id;
+    document.getElementById('modalPropDireccion').textContent = direccion;
+    document.getElementById('modalPropiedadId').value = id;
+    
+    // Llenar fechas desde el formulario de búsqueda
+    const fechaInicio = document.getElementById('fecha_inicio').value;
+    const fechaFin = document.getElementById('fecha_fin').value;
+    
+    if (fechaInicio) document.getElementById('modalFechaInicio').value = fechaInicio;
+    if (fechaFin) document.getElementById('modalFechaFin').value = fechaFin;
+    
+    // Calcular precio total básico (días * precio)
+    if (fechaInicio && fechaFin && precio) {
+        const inicio = new Date(fechaInicio);
+        const fin = new Date(fechaFin);
+        const dias = Math.ceil((fin - inicio) / (1000 * 60 * 60 * 24));
+        const total = dias * precio;
+        document.getElementById('modalPrecioTotal').value = total.toFixed(2);
+    }
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalReserva'));
+    modal.show();
+    
+    console.log('🎯 Modal de reserva abierto para propiedad:', id);
+}
+
+// Event listener para filas de la tabla
+document.addEventListener('click', function(e) {
+    const row = e.target.closest('.propiedad-row');
+    if (row && !e.target.closest('button')) {
+        const data = row.dataset;
+        seleccionarPropiedad(
+            data.propiedadId,
+            data.direccion,
+            data.propietario,
+            data.ambientes,
+            data.precio,
+            data.estado
+        );
+    }
+});
+
+// Función para confirmar reserva
+function confirmarReservaFinal() {
+    const form = document.getElementById('formReserva');
+    const formData = new FormData(form);
+    
+    // Validaciones básicas
+    if (!formData.get('fecha_inicio') || !formData.get('fecha_fin')) {
+        alert('❌ Por favor completa las fechas');
+        return;
+    }
+    
+    if (!formData.get('precio_total')) {
+        alert('❌ Por favor ingresa el precio total');
+        return;
+    }
+    
+    console.log('📤 Enviando reserva...');
+    
+    // Enviar al servidor
+    fetch('{% url "inmobiliaria:crear_reserva" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Reserva creada exitosamente');
+            
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalReserva'));
+            modal.hide();
+            
+            // Recargar página
+            window.location.reload();
+        } else {
+            alert('❌ Error: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('💥 Error:', error);
+        alert('❌ Error de conexión');
+    });
+}
+
+console.log('🚀 Búsqueda de propiedades LIMPIA cargada correctamente');
+</script>
+{% endblock extra_js %} 

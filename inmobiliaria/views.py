@@ -4482,7 +4482,7 @@ def buscar_propiedades(request):
         Q(sucursal=sucursal_vendedor) | Q(sucursal__isnull=True)
     ).order_by('nombre')
 
-    return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
+    return render(request, 'inmobiliaria/reserva/buscar_propiedades_clean.html', {
         'form': form,
         'propiedades_disponibles': propiedades_disponibles,
         'alerta_sin_precio': alerta_sin_precio,
