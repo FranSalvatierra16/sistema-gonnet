@@ -426,6 +426,54 @@
         .swal2-popup {
             z-index: 1071 !important;
         }
+
+        /* FORZAR MODALES INTERACTIVOS - AGRESIVO */
+        .modal,
+        .modal *,
+        .modal-content,
+        .modal-dialog,
+        div[id*="modal"],
+        div[id*="modal"] * {
+            opacity: 1 !important;
+            visibility: visible !important;
+            position: relative !important;
+            isolation: auto !important;
+        }
+
+        /* FORZAR TODOS LOS ELEMENTOS CLICKEABLES */
+        .modal input,
+        .modal button,
+        .modal select,
+        .modal textarea,
+        .modal .btn,
+        .modal .form-control,
+        .modal .form-select,
+        .modal label,
+        .modal a,
+        div[id*="modal"] input,
+        div[id*="modal"] button,
+        div[id*="modal"] select,
+        div[id*="modal"] textarea,
+        div[id*="modal"] .btn {
+            pointer-events: auto !important;
+            cursor: pointer !important;
+            user-select: auto !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        /* INPUTS ESPECÍFICOS */
+        .modal input[type="text"],
+        .modal input[type="number"], 
+        .modal input[type="date"],
+        .modal select,
+        .modal textarea,
+        div[id*="modal"] input,
+        div[id*="modal"] select,
+        div[id*="modal"] textarea {
+            cursor: text !important;
+            user-select: text !important;
+        }
     </style>
     
     {% block extra_css %}{% endblock %}
@@ -728,6 +776,58 @@
         window.limpiarInterferencias = limpiarInterferencias;
 
         console.log('🛡️ Sistema de protección de modales activado');
+        
+        // FUNCIÓN SÚPER AGRESIVA PARA MODALES
+        function forzarModalInteractivo() {
+            console.log('🔥 FORZANDO modales interactivos...');
+            
+            const modales = document.querySelectorAll('.modal, div[id*="modal"]');
+            modales.forEach(modal => {
+                // Forzar estilos en el modal
+                modal.style.cssText += `
+                    z-index: 99999 !important;
+                    pointer-events: auto !important;
+                    user-select: auto !important;
+                    position: fixed !important;
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                `;
+                
+                // Forzar TODOS los elementos internos
+                modal.querySelectorAll('*').forEach(elemento => {
+                    elemento.style.cssText += `
+                        pointer-events: auto !important;
+                        user-select: auto !important;
+                        cursor: pointer !important;
+                        opacity: 1 !important;
+                        visibility: visible !important;
+                    `;
+                    
+                    // Para inputs
+                    if (elemento.tagName === 'INPUT' || elemento.tagName === 'TEXTAREA' || elemento.tagName === 'SELECT') {
+                        elemento.style.cssText += `
+                            cursor: text !important;
+                            user-select: text !important;
+                            pointer-events: auto !important;
+                        `;
+                    }
+                });
+            });
+            
+            console.log('✅ Modales forzados:', modales.length);
+        }
+        
+        // Ejecutar INMEDIATAMENTE
+        forzarModalInteractivo();
+        
+        // Ejecutar cada vez que se abra un modal
+        document.addEventListener('shown.bs.modal', forzarModalInteractivo);
+        
+        // Ejecutar después de 1 segundo
+        setTimeout(forzarModalInteractivo, 1000);
+        
+        // Función global
+        window.forzarModalInteractivo = forzarModalInteractivo;
     </script>
     
     {% block extra_js %}{% endblock %}
