@@ -437,13 +437,10 @@
             -webkit-backdrop-filter: none !important;
         }
         
-        /* FORZAR MODALES A SER VISIBLES Y FUNCIONALES */
-        .modal,
+        /* SOLO FORZAR MODALES CUANDO ESTÁN REALMENTE ABIERTOS */
         .modal.show,
-        .modal.fade,
-        .modal.fade.show,
-        div[id*="modal"],
-        div[id*="Modal"] {
+        .modal[style*="display: block"],
+        .modal[style*="display: flex"] {
             z-index: 999999 !important;
             position: fixed !important;
             top: 0 !important;
@@ -994,17 +991,15 @@
             console.log('💥 SOLUCIÓN DEFINITIVA COMPLETADA - Modales forzados:', modales.length);
         }
         
-        // Ejecutar INMEDIATAMENTE al cargar
-        solucionDefinitivaModales();
+        // NO ejecutar automáticamente al cargar para evitar que se abran todos los modales
         
-        // Ejecutar cada vez que se muestre un modal
+        // Ejecutar SOLO cuando se muestre un modal
         document.addEventListener('shown.bs.modal', function(e) {
             console.log('🚀 Modal mostrado - aplicando solución definitiva...');
             setTimeout(solucionDefinitivaModales, 100);
         });
         
-        // Ejecutar cada segundo por si acaso
-        setInterval(solucionDefinitivaModales, 2000);
+        // NO ejecutar cada segundo automáticamente
         
         // Funciones globales para debugging
         window.solucionDefinitivaModales = solucionDefinitivaModales;
