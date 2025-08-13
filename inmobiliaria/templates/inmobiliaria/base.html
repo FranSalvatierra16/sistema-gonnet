@@ -481,15 +481,40 @@
         .modal[style*="display: block"] .modal-content,
         .modal[style*="display: flex"] .modal-content {
             background: white !important;
-            border-radius: 10px !important;
-            border: 1px solid #ddd !important;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
+            border-radius: 12px !important;
+            border: none !important;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25) !important;
             pointer-events: auto !important;
             user-select: auto !important;
             opacity: 1 !important;
             visibility: visible !important;
             position: relative !important;
             z-index: 1000001 !important;
+            overflow: hidden !important;
+        }
+        
+        /* RESTAURAR DISEÑO HERMOSO DE HEADERS */
+        .modal.show .modal-header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%) !important;
+            color: white !important;
+            font-weight: 600 !important;
+            border: none !important;
+            padding: 1.25rem !important;
+            border-radius: 12px 12px 0 0 !important;
+        }
+        
+        /* RESTAURAR DISEÑO HERMOSO DE BODY */
+        .modal.show .modal-body {
+            padding: 1.5rem !important;
+            background: white !important;
+        }
+        
+        /* RESTAURAR DISEÑO HERMOSO DE FOOTER */
+        .modal.show .modal-footer {
+            background: var(--light-color) !important;
+            border: none !important;
+            padding: 1rem 1.5rem !important;
+            border-radius: 0 0 12px 12px !important;
         }
         
         /* ASEGURAR QUE EL CONTENIDO SEA VISIBLE */
@@ -540,37 +565,79 @@
             transform: none !important;
         }
         
-        /* FORZAR INPUTS ESPECÍFICAMENTE */
-        .modal input,
-        .modal textarea,
-        .modal select,
-        div[id*="modal"] input,
-        div[id*="modal"] textarea,
-        div[id*="modal"] select {
+        /* RESTAURAR DISEÑO HERMOSO DE FORMULARIOS */
+        .modal.show input,
+        .modal.show textarea,
+        .modal.show select,
+        .modal.show .form-control,
+        .modal.show .form-select {
             cursor: text !important;
             user-select: text !important;
             pointer-events: auto !important;
             background: white !important;
-            border: 2px solid #007bff !important;
-            padding: 10px !important;
-            border-radius: 5px !important;
-            font-size: 14px !important;
+            border: 2px solid var(--border-color) !important;
+            padding: 0.75rem !important;
+            border-radius: 8px !important;
+            font-size: 1rem !important;
+            transition: var(--transition) !important;
+            font-weight: 500 !important;
         }
         
-        /* FORZAR BOTONES */
-        .modal button,
-        .modal .btn,
-        div[id*="modal"] button,
-        div[id*="modal"] .btn {
+        .modal.show input:focus,
+        .modal.show textarea:focus,
+        .modal.show select:focus,
+        .modal.show .form-control:focus,
+        .modal.show .form-select:focus {
+            border-color: var(--primary-color) !important;
+            box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.25) !important;
+            transform: translateY(-1px) !important;
+        }
+        
+        .modal.show .form-label {
+            font-weight: 600 !important;
+            color: var(--text-primary) !important;
+            margin-bottom: 0.5rem !important;
+        }
+        
+        /* RESTAURAR DISEÑO HERMOSO DE BOTONES */
+        .modal.show .btn,
+        .modal.show button {
             cursor: pointer !important;
             pointer-events: auto !important;
             user-select: none !important;
-            background: #007bff !important;
-            color: white !important;
+            border-radius: 8px !important;
+            font-weight: 600 !important;
+            padding: 0.75rem 1.5rem !important;
+            transition: var(--transition) !important;
             border: none !important;
-            padding: 10px 20px !important;
-            border-radius: 5px !important;
-            font-size: 14px !important;
+            position: relative !important;
+            overflow: hidden !important;
+        }
+        
+        .modal.show .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%) !important;
+            color: white !important;
+        }
+        
+        .modal.show .btn-primary:hover {
+            background: linear-gradient(135deg, var(--primary-hover) 0%, var(--primary-color) 100%) !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 5px 15px rgba(37, 99, 235, 0.4) !important;
+        }
+        
+        .modal.show .btn-secondary {
+            background: linear-gradient(135deg, var(--secondary-color) 0%, #475569 100%) !important;
+            color: white !important;
+        }
+        
+        .modal.show .btn-success {
+            background: linear-gradient(135deg, var(--success-color) 0%, #059669 100%) !important;
+            color: white !important;
+        }
+        
+        .modal.show .btn-danger {
+            background: linear-gradient(135deg, var(--danger-color) 0%, #dc2626 100%) !important;
+            color: white !important;
         }
         
         /* ELIMINAR BACKDROP QUE PUEDA INTERFERIR */
@@ -918,103 +985,26 @@
                     contenido.style.setProperty('visibility', 'visible', 'important');
                 }
                 
-                // Forzar CADA elemento interno individualmente
+                // Forzar CADA elemento interno individualmente SOLO para interactividad
                 modal.querySelectorAll('*').forEach((elemento, elemIndex) => {
-                    elemento.style.cssText += `
-                        pointer-events: auto !important;
-                        user-select: auto !important;
-                        cursor: pointer !important;
-                        opacity: 1 !important;
-                        visibility: visible !important;
-                        position: relative !important;
-                    `;
+                    // SOLO forzar interactividad, NO estilos visuales
+                    elemento.style.setProperty('pointer-events', 'auto', 'important');
+                    elemento.style.setProperty('user-select', 'auto', 'important');
+                    elemento.style.setProperty('opacity', '1', 'important');
+                    elemento.style.setProperty('visibility', 'visible', 'important');
                     
-                    // Inputs específicos
-                    if (elemento.tagName === 'INPUT') {
-                        elemento.style.cssText += `
-                            cursor: text !important;
-                            user-select: text !important;
-                            background: #fff !important;
-                            border: 2px solid #007bff !important;
-                            padding: 10px !important;
-                            border-radius: 5px !important;
-                            font-size: 16px !important;
-                        `;
+                    // Solo remover atributos bloqueantes
+                    if (elemento.tagName === 'INPUT' || elemento.tagName === 'TEXTAREA' || elemento.tagName === 'SELECT') {
+                        elemento.style.setProperty('cursor', 'text', 'important');
+                        elemento.style.setProperty('user-select', 'text', 'important');
                         elemento.removeAttribute('disabled');
                         elemento.removeAttribute('readonly');
                     }
                     
-                    // Selects específicos
-                    if (elemento.tagName === 'SELECT') {
-                        elemento.style.cssText += `
-                            cursor: pointer !important;
-                            background: #fff !important;
-                            border: 2px solid #007bff !important;
-                            padding: 10px !important;
-                            border-radius: 5px !important;
-                            font-size: 16px !important;
-                        `;
-                        elemento.removeAttribute('disabled');
-                    }
-                    
-                    // Botones específicos
                     if (elemento.tagName === 'BUTTON' || elemento.classList.contains('btn')) {
-                        elemento.style.cssText += `
-                            cursor: pointer !important;
-                            background: #007bff !important;
-                            color: white !important;
-                            border: none !important;
-                            padding: 12px 24px !important;
-                            border-radius: 6px !important;
-                            font-size: 16px !important;
-                            font-weight: bold !important;
-                        `;
+                        elemento.style.setProperty('cursor', 'pointer', 'important');
                         elemento.removeAttribute('disabled');
-                    }
-                    
-                    // Textareas
-                    if (elemento.tagName === 'TEXTAREA') {
-                        elemento.style.cssText += `
-                            cursor: text !important;
-                            user-select: text !important;
-                            background: #fff !important;
-                            border: 2px solid #007bff !important;
-                            padding: 10px !important;
-                            border-radius: 5px !important;
-                            font-size: 16px !important;
-                            resize: vertical !important;
-                        `;
-                        elemento.removeAttribute('disabled');
-                        elemento.removeAttribute('readonly');
                     }
                 });
                 
-                console.log(`✅ Modal ${index + 1} COMPLETAMENTE FORZADO`);
-            });
-            
-            // Limpiar el body
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
-            document.body.style.paddingRight = '';
-            
-            console.log('💥 SOLUCIÓN DEFINITIVA COMPLETADA - Modales forzados:', modales.length);
-        }
-        
-        // NO ejecutar automáticamente al cargar para evitar que se abran todos los modales
-        
-        // Ejecutar SOLO cuando se muestre un modal
-        document.addEventListener('shown.bs.modal', function(e) {
-            console.log('🚀 Modal mostrado - aplicando solución definitiva...');
-            setTimeout(solucionDefinitivaModales, 100);
-        });
-        
-        // NO ejecutar cada segundo automáticamente
-        
-        // Funciones globales para debugging
-        window.solucionDefinitivaModales = solucionDefinitivaModales;
-        
-    </script>
-    
-    {% block extra_js %}{% endblock %}
-</body>
-</html>
+                console.log(`
