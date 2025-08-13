@@ -462,22 +462,54 @@
             background: rgba(0,0,0,0.5) !important;
         }
         
-        /* FORZAR CONTENIDO DEL MODAL */
-        .modal-dialog,
-        .modal-content {
+        /* FORZAR CONTENIDO DEL MODAL SOLO CUANDO ESTÁ ABIERTO */
+        .modal.show .modal-dialog,
+        .modal[style*="display: block"] .modal-dialog,
+        .modal[style*="display: flex"] .modal-dialog {
             position: relative !important;
             z-index: 1000000 !important;
             pointer-events: auto !important;
             user-select: auto !important;
             opacity: 1 !important;
             visibility: visible !important;
-            background: white !important;
-            border-radius: 10px !important;
             margin: auto !important;
-            padding: 20px !important;
             max-width: 600px !important;
             width: 90% !important;
-            border: 2px solid #000 !important;
+        }
+        
+        .modal.show .modal-content,
+        .modal[style*="display: block"] .modal-content,
+        .modal[style*="display: flex"] .modal-content {
+            background: white !important;
+            border-radius: 10px !important;
+            border: 1px solid #ddd !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
+            pointer-events: auto !important;
+            user-select: auto !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            position: relative !important;
+            z-index: 1000001 !important;
+        }
+        
+        /* ASEGURAR QUE EL CONTENIDO SEA VISIBLE */
+        .modal.show .modal-body,
+        .modal.show .modal-header,
+        .modal.show .modal-footer,
+        .modal.show h1,
+        .modal.show h2,
+        .modal.show h3,
+        .modal.show h4,
+        .modal.show h5,
+        .modal.show p,
+        .modal.show div,
+        .modal.show span,
+        .modal.show label {
+            display: block !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+            color: #333 !important;
         }
         
         /* FORZAR TODOS LOS ELEMENTOS INTERNOS */
@@ -870,43 +902,20 @@
             modales.forEach((modal, index) => {
                 console.log(`🔧 Forzando modal ${index + 1}:`, modal.id || modal.className);
                 
-                // FORZAR el modal completamente
-                modal.style.cssText = `
-                    z-index: 999999 !important;
-                    position: fixed !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    width: 100vw !important;
-                    height: 100vh !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    background: rgba(0,0,0,0.7) !important;
-                    pointer-events: auto !important;
-                    user-select: auto !important;
-                    opacity: 1 !important;
-                    visibility: visible !important;
-                `;
+                // Solo forzar propiedades esenciales del modal SIN sobrescribir todo
+                modal.style.setProperty('z-index', '999999', 'important');
+                modal.style.setProperty('pointer-events', 'auto', 'important');
+                modal.style.setProperty('user-select', 'auto', 'important');
+                modal.style.setProperty('opacity', '1', 'important');
+                modal.style.setProperty('visibility', 'visible', 'important');
                 
                 // Forzar el contenido del modal
                 const contenido = modal.querySelector('.modal-content, .modal-dialog, .modal-body');
                 if (contenido) {
-                    contenido.style.cssText = `
-                        background: white !important;
-                        border: 3px solid #007bff !important;
-                        border-radius: 10px !important;
-                        padding: 30px !important;
-                        position: relative !important;
-                        z-index: 1000000 !important;
-                        pointer-events: auto !important;
-                        user-select: auto !important;
-                        opacity: 1 !important;
-                        visibility: visible !important;
-                        max-width: 700px !important;
-                        width: 95% !important;
-                        max-height: 80vh !important;
-                        overflow-y: auto !important;
-                    `;
+                    contenido.style.setProperty('pointer-events', 'auto', 'important');
+                    contenido.style.setProperty('user-select', 'auto', 'important');
+                    contenido.style.setProperty('opacity', '1', 'important');
+                    contenido.style.setProperty('visibility', 'visible', 'important');
                 }
                 
                 // Forzar CADA elemento interno individualmente
