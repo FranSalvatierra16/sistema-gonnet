@@ -427,20 +427,64 @@
             z-index: 1071 !important;
         }
 
-        /* FORZAR MODALES INTERACTIVOS - AGRESIVO */
+        /* =============================================== */
+        /* SOLUCIÓN SÚPER AGRESIVA PARA MODALES */
+        /* =============================================== */
+        
+        /* DESTRUIR CUALQUIER COSA QUE BLOQUEE MODALES */
+        * {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        
+        /* FORZAR MODALES A SER VISIBLES Y FUNCIONALES */
         .modal,
-        .modal *,
-        .modal-content,
-        .modal-dialog,
+        .modal.show,
+        .modal.fade,
+        .modal.fade.show,
         div[id*="modal"],
-        div[id*="modal"] * {
+        div[id*="Modal"] {
+            z-index: 999999 !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            pointer-events: auto !important;
+            user-select: auto !important;
             opacity: 1 !important;
             visibility: visible !important;
-            position: relative !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            filter: none !important;
+            transform: none !important;
             isolation: auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: rgba(0,0,0,0.5) !important;
         }
-
-        /* FORZAR TODOS LOS ELEMENTOS CLICKEABLES */
+        
+        /* FORZAR CONTENIDO DEL MODAL */
+        .modal-dialog,
+        .modal-content {
+            position: relative !important;
+            z-index: 1000000 !important;
+            pointer-events: auto !important;
+            user-select: auto !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            background: white !important;
+            border-radius: 10px !important;
+            margin: auto !important;
+            padding: 20px !important;
+            max-width: 600px !important;
+            width: 90% !important;
+            border: 2px solid #000 !important;
+        }
+        
+        /* FORZAR TODOS LOS ELEMENTOS INTERNOS */
+        .modal *,
         .modal input,
         .modal button,
         .modal select,
@@ -450,29 +494,59 @@
         .modal .form-select,
         .modal label,
         .modal a,
-        div[id*="modal"] input,
-        div[id*="modal"] button,
-        div[id*="modal"] select,
-        div[id*="modal"] textarea,
-        div[id*="modal"] .btn {
+        .modal div,
+        .modal span,
+        div[id*="modal"] *,
+        div[id*="Modal"] * {
             pointer-events: auto !important;
-            cursor: pointer !important;
             user-select: auto !important;
+            cursor: pointer !important;
             opacity: 1 !important;
             visibility: visible !important;
+            position: relative !important;
+            z-index: inherit !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            filter: none !important;
+            transform: none !important;
         }
-
-        /* INPUTS ESPECÍFICOS */
-        .modal input[type="text"],
-        .modal input[type="number"], 
-        .modal input[type="date"],
-        .modal select,
+        
+        /* FORZAR INPUTS ESPECÍFICAMENTE */
+        .modal input,
         .modal textarea,
+        .modal select,
         div[id*="modal"] input,
-        div[id*="modal"] select,
-        div[id*="modal"] textarea {
+        div[id*="modal"] textarea,
+        div[id*="modal"] select {
             cursor: text !important;
             user-select: text !important;
+            pointer-events: auto !important;
+            background: white !important;
+            border: 2px solid #007bff !important;
+            padding: 10px !important;
+            border-radius: 5px !important;
+            font-size: 14px !important;
+        }
+        
+        /* FORZAR BOTONES */
+        .modal button,
+        .modal .btn,
+        div[id*="modal"] button,
+        div[id*="modal"] .btn {
+            cursor: pointer !important;
+            pointer-events: auto !important;
+            user-select: none !important;
+            background: #007bff !important;
+            color: white !important;
+            border: none !important;
+            padding: 10px 20px !important;
+            border-radius: 5px !important;
+            font-size: 14px !important;
+        }
+        
+        /* ELIMINAR BACKDROP QUE PUEDA INTERFERIR */
+        .modal-backdrop {
+            display: none !important;
         }
     </style>
     
@@ -777,57 +851,164 @@
 
         console.log('🛡️ Sistema de protección de modales activado');
         
-        // FUNCIÓN SÚPER AGRESIVA PARA MODALES
-        function forzarModalInteractivo() {
-            console.log('🔥 FORZANDO modales interactivos...');
+        // ===============================================
+        // SOLUCIÓN JAVASCRIPT DEFINITIVA PARA MODALES
+        // ===============================================
+        
+        function solucionDefinitivaModales() {
+            console.log('💥 SOLUCIÓN DEFINITIVA ACTIVADA');
             
-            const modales = document.querySelectorAll('.modal, div[id*="modal"]');
-            modales.forEach(modal => {
-                // Forzar estilos en el modal
-                modal.style.cssText += `
-                    z-index: 99999 !important;
+            // Eliminar CUALQUIER cosa que pueda bloquear
+            document.querySelectorAll('.modal-backdrop, .overlay, .loading-overlay').forEach(el => el.remove());
+            
+            // Limpiar estilos globales problemáticos
+            document.querySelectorAll('*').forEach(el => {
+                el.style.backdropFilter = '';
+                el.style.webkitBackdropFilter = '';
+            });
+            
+            // Forzar TODOS los modales
+            const modales = document.querySelectorAll('.modal, div[id*="modal"], div[id*="Modal"]');
+            
+            modales.forEach((modal, index) => {
+                console.log(`🔧 Forzando modal ${index + 1}:`, modal.id || modal.className);
+                
+                // FORZAR el modal completamente
+                modal.style.cssText = `
+                    z-index: 999999 !important;
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    background: rgba(0,0,0,0.7) !important;
                     pointer-events: auto !important;
                     user-select: auto !important;
-                    position: fixed !important;
                     opacity: 1 !important;
                     visibility: visible !important;
                 `;
                 
-                // Forzar TODOS los elementos internos
-                modal.querySelectorAll('*').forEach(elemento => {
+                // Forzar el contenido del modal
+                const contenido = modal.querySelector('.modal-content, .modal-dialog, .modal-body');
+                if (contenido) {
+                    contenido.style.cssText = `
+                        background: white !important;
+                        border: 3px solid #007bff !important;
+                        border-radius: 10px !important;
+                        padding: 30px !important;
+                        position: relative !important;
+                        z-index: 1000000 !important;
+                        pointer-events: auto !important;
+                        user-select: auto !important;
+                        opacity: 1 !important;
+                        visibility: visible !important;
+                        max-width: 700px !important;
+                        width: 95% !important;
+                        max-height: 80vh !important;
+                        overflow-y: auto !important;
+                    `;
+                }
+                
+                // Forzar CADA elemento interno individualmente
+                modal.querySelectorAll('*').forEach((elemento, elemIndex) => {
                     elemento.style.cssText += `
                         pointer-events: auto !important;
                         user-select: auto !important;
                         cursor: pointer !important;
                         opacity: 1 !important;
                         visibility: visible !important;
+                        position: relative !important;
                     `;
                     
-                    // Para inputs
-                    if (elemento.tagName === 'INPUT' || elemento.tagName === 'TEXTAREA' || elemento.tagName === 'SELECT') {
+                    // Inputs específicos
+                    if (elemento.tagName === 'INPUT') {
                         elemento.style.cssText += `
                             cursor: text !important;
                             user-select: text !important;
-                            pointer-events: auto !important;
+                            background: #fff !important;
+                            border: 2px solid #007bff !important;
+                            padding: 10px !important;
+                            border-radius: 5px !important;
+                            font-size: 16px !important;
                         `;
+                        elemento.removeAttribute('disabled');
+                        elemento.removeAttribute('readonly');
+                    }
+                    
+                    // Selects específicos
+                    if (elemento.tagName === 'SELECT') {
+                        elemento.style.cssText += `
+                            cursor: pointer !important;
+                            background: #fff !important;
+                            border: 2px solid #007bff !important;
+                            padding: 10px !important;
+                            border-radius: 5px !important;
+                            font-size: 16px !important;
+                        `;
+                        elemento.removeAttribute('disabled');
+                    }
+                    
+                    // Botones específicos
+                    if (elemento.tagName === 'BUTTON' || elemento.classList.contains('btn')) {
+                        elemento.style.cssText += `
+                            cursor: pointer !important;
+                            background: #007bff !important;
+                            color: white !important;
+                            border: none !important;
+                            padding: 12px 24px !important;
+                            border-radius: 6px !important;
+                            font-size: 16px !important;
+                            font-weight: bold !important;
+                        `;
+                        elemento.removeAttribute('disabled');
+                    }
+                    
+                    // Textareas
+                    if (elemento.tagName === 'TEXTAREA') {
+                        elemento.style.cssText += `
+                            cursor: text !important;
+                            user-select: text !important;
+                            background: #fff !important;
+                            border: 2px solid #007bff !important;
+                            padding: 10px !important;
+                            border-radius: 5px !important;
+                            font-size: 16px !important;
+                            resize: vertical !important;
+                        `;
+                        elemento.removeAttribute('disabled');
+                        elemento.removeAttribute('readonly');
                     }
                 });
+                
+                console.log(`✅ Modal ${index + 1} COMPLETAMENTE FORZADO`);
             });
             
-            console.log('✅ Modales forzados:', modales.length);
+            // Limpiar el body
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            console.log('💥 SOLUCIÓN DEFINITIVA COMPLETADA - Modales forzados:', modales.length);
         }
         
-        // Ejecutar INMEDIATAMENTE
-        forzarModalInteractivo();
+        // Ejecutar INMEDIATAMENTE al cargar
+        solucionDefinitivaModales();
         
-        // Ejecutar cada vez que se abra un modal
-        document.addEventListener('shown.bs.modal', forzarModalInteractivo);
+        // Ejecutar cada vez que se muestre un modal
+        document.addEventListener('shown.bs.modal', function(e) {
+            console.log('🚀 Modal mostrado - aplicando solución definitiva...');
+            setTimeout(solucionDefinitivaModales, 100);
+        });
         
-        // Ejecutar después de 1 segundo
-        setTimeout(forzarModalInteractivo, 1000);
+        // Ejecutar cada segundo por si acaso
+        setInterval(solucionDefinitivaModales, 2000);
         
-        // Función global
-        window.forzarModalInteractivo = forzarModalInteractivo;
+        // Funciones globales para debugging
+        window.solucionDefinitivaModales = solucionDefinitivaModales;
+        
     </script>
     
     {% block extra_js %}{% endblock %}
