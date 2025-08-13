@@ -1,0 +1,394 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema Gonnet{% endblock %}</title>
+    
+    <!-- Bootstrap CSS 5.3.0 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome 6.4.0 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
+    
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --secondary-color: #64748b;
+            --accent-color: #06b6d4;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --dark-color: #1e293b;
+            --light-color: #f8fafc;
+            --border-color: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        /* NAVBAR SIMPLIFICADO */
+        .navbar {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            padding: 1rem 0;
+        }
+
+        .navbar-brand {
+            font-weight: 800;
+            color: var(--primary-color) !important;
+            font-size: 1.5rem;
+        }
+
+        .navbar-nav .nav-link {
+            font-weight: 500;
+            color: var(--secondary-color) !important;
+            transition: var(--transition);
+            padding: 0.5rem 1rem !important;
+            border-radius: 8px;
+            margin: 0 0.25rem;
+        }
+
+        .navbar-nav .nav-link:hover {
+            color: var(--primary-color) !important;
+            background: rgba(37, 99, 235, 0.1);
+        }
+
+        /* CONTENIDO PRINCIPAL */
+        .main-content {
+            flex: 1;
+            padding: 2rem 0;
+        }
+
+        .container-fluid {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+            margin: 1rem;
+            padding: 2rem;
+            min-height: calc(100vh - 8rem);
+        }
+
+        /* BOTONES MODERNOS */
+        .btn {
+            border-radius: 8px;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            transition: var(--transition);
+            border: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(37, 99, 235, 0.4);
+            background: linear-gradient(135deg, var(--primary-hover) 0%, var(--primary-color) 100%);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success-color) 0%, #059669 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
+        }
+
+        /* ============================================= */
+        /* MODALES - PROTECCIÓN MÁXIMA Y SIMPLIFICADA  */
+        /* ============================================= */
+        
+        /* TODOS los modales deben tener máxima prioridad */
+        .modal,
+        .modal-backdrop,
+        div[id*="modal"],
+        div[id*="Modal"],
+        .swal2-container {
+            z-index: 999999 !important;
+            position: fixed !important;
+        }
+        
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.5) !important;
+        }
+        
+        /* Todos los elementos de modales son interactivos */
+        .modal *,
+        .modal input,
+        .modal button,
+        .modal select,
+        .modal textarea,
+        .modal .btn,
+        .modal .form-control,
+        .modal .form-select,
+        .modal .dropdown-toggle,
+        .modal .dropdown-item,
+        .modal label,
+        .modal .form-check-input,
+        .modal .form-check-label,
+        .modal .close,
+        .modal .btn-close,
+        .modal a,
+        div[id*="modal"] *,
+        div[id*="Modal"] *,
+        .swal2-popup *,
+        .swal2-popup input,
+        .swal2-popup button {
+            pointer-events: auto !important;
+            user-select: auto !important;
+            cursor: pointer !important;
+        }
+        
+        /* NO aplicar filtros problemáticos */
+        .modal,
+        .modal *,
+        .modal-dialog,
+        .modal-content,
+        div[id*="modal"],
+        div[id*="modal"] *,
+        div[id*="Modal"],
+        div[id*="Modal"] *,
+        .swal2-container,
+        .swal2-popup {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            filter: none !important;
+            transform: none !important;
+            isolation: auto !important;
+        }
+        
+        /* Configuración Bootstrap modal */
+        .modal.show {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        
+        .modal-dialog {
+            z-index: 1000000 !important;
+            position: relative !important;
+            margin: auto !important;
+        }
+        
+        .modal-content {
+            background: white !important;
+            border-radius: 12px !important;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25) !important;
+            z-index: 1000001 !important;
+        }
+
+        /* Dropdowns en modales */
+        .modal .dropdown-menu,
+        div[id*="modal"] .dropdown-menu,
+        div[id*="Modal"] .dropdown-menu {
+            z-index: 1000050 !important;
+            position: absolute !important;
+            background: white !important;
+        }
+
+        /* SweetAlert2 */
+        .swal2-container {
+            z-index: 1000100 !important;
+        }
+        
+        .swal2-popup {
+            z-index: 1000101 !important;
+        }
+
+        /* FORMULARIOS */
+        .form-control,
+        .form-select {
+            border-radius: 8px;
+            border: 2px solid var(--border-color);
+            padding: 0.75rem;
+            transition: var(--transition);
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.25);
+        }
+
+        /* CARDS */
+        .card {
+            border: none;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* TABLAS */
+        .table {
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .table thead th {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+            color: white;
+            border: none;
+            font-weight: 600;
+        }
+
+        /* ALERTAS */
+        .alert {
+            border-radius: var(--border-radius);
+            border: none;
+            font-weight: 500;
+        }
+
+        /* BADGES */
+        .badge {
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        /* ANIMACIONES */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in-up {
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .container-fluid {
+                margin: 0.5rem;
+                padding: 1rem;
+            }
+            
+            .btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
+            }
+        }
+
+        {% block extra_css %}{% endblock %}
+    </style>
+</head>
+
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-expand-lg sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="{% url 'inmobiliaria:dashboard' %}">
+                <img src="{% static 'images/logo.png' %}" alt="Logo" width="32" height="32" class="me-2">
+                Sistema Gonnet
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'inmobiliaria:dashboard' %}">
+                            <i class="fas fa-home me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'inmobiliaria:buscar_propiedades' %}">
+                            <i class="fas fa-search me-1"></i>Buscar Propiedades
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'inmobiliaria:listar_propiedades' %}">
+                            <i class="fas fa-building me-1"></i>Propiedades
+                        </a>
+                    </li>
+                </ul>
+                
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                            <i class="fas fa-user me-1"></i>{{ user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'admin:logout' %}">
+                                <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="main-content">
+        <div class="container-fluid fade-in-up">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Scripts básicos -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Sistema Gonnet Simplificado inicializado');
+            
+            // Initialize Bootstrap components
+            const tooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+            tooltips.forEach(tooltip => new bootstrap.Tooltip(tooltip));
+            
+            const popovers = document.querySelectorAll('[data-bs-toggle="popover"]');
+            popovers.forEach(popover => new bootstrap.Popover(popover));
+            
+            console.log('✅ Bootstrap componentes inicializados');
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 
