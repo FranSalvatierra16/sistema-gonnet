@@ -21,6 +21,38 @@
     <!-- Corrección de Modales -->
     <link rel="stylesheet" href="{% static 'style/modal-fix.css' %}"?v=3.0>
     
+    <!-- CSS CRÍTICO PARA MODALES - INLINE -->
+    <style>
+    /* SOLUCIÓN INMEDIATA PARA MODALES BLOQUEADOS */
+    .modal, .modal-backdrop, div[id*="modal"], div[id*="Modal"], .swal2-container {
+        z-index: 2147483647 !important;
+        position: fixed !important;
+        pointer-events: auto !important;
+    }
+    
+    .modal *, .modal input, .modal button, .modal select, .modal .btn, 
+    div[id*="modal"] *, div[id*="Modal"] *, .swal2-popup * {
+        pointer-events: auto !important;
+        user-select: auto !important;
+        cursor: pointer !important;
+    }
+    
+    .modal, .modal *, div[id*="modal"], div[id*="modal"] *, 
+    div[id*="Modal"], div[id*="Modal"] * {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        filter: none !important;
+        transform: none !important;
+        isolation: auto !important;
+    }
+    
+    .modal.show, .modal[style*="display: block"] {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    </style>
+    
     <style>
         :root {
             --primary-color: #2563eb;
@@ -788,6 +820,93 @@
         };
         
         console.log('🎉 Sistema Gonnet inicializado completamente');
+        
+        // ===================================================
+        // SOLUCIÓN JAVASCRIPT AGRESIVA PARA MODALES BLOQUEADOS
+        // ===================================================
+        
+        // Función para forzar interactividad de modales
+        function forzarModalInteractivo() {
+            console.log('🔧 Aplicando corrección agresiva de modales...');
+            
+            // Obtener TODOS los modales
+            const modales = document.querySelectorAll('.modal, div[id*="modal"], div[id*="Modal"]');
+            
+            modales.forEach((modal, index) => {
+                console.log(`🔧 Corrigiendo modal ${index + 1}:`, modal.id || modal.className);
+                
+                // Forzar estilos críticos
+                modal.style.setProperty('z-index', '999999999', 'important');
+                modal.style.setProperty('position', 'fixed', 'important');
+                modal.style.setProperty('pointer-events', 'auto', 'important');
+                modal.style.setProperty('user-select', 'auto', 'important');
+                modal.style.setProperty('cursor', 'default', 'important');
+                
+                // Eliminar filtros problemáticos
+                modal.style.setProperty('backdrop-filter', 'none', 'important');
+                modal.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
+                modal.style.setProperty('filter', 'none', 'important');
+                modal.style.setProperty('transform', 'none', 'important');
+                modal.style.setProperty('isolation', 'auto', 'important');
+                
+                // Forzar interactividad de TODOS los elementos hijos
+                const elementos = modal.querySelectorAll('*');
+                elementos.forEach(elemento => {
+                    elemento.style.setProperty('pointer-events', 'auto', 'important');
+                    elemento.style.setProperty('user-select', 'auto', 'important');
+                    elemento.style.setProperty('cursor', 'pointer', 'important');
+                    elemento.style.setProperty('position', 'relative', 'important');
+                    
+                    // Para inputs, forzar cursor de texto
+                    if (elemento.tagName === 'INPUT' || elemento.tagName === 'TEXTAREA') {
+                        elemento.style.setProperty('cursor', 'text', 'important');
+                        elemento.style.setProperty('user-select', 'text', 'important');
+                    }
+                });
+            });
+            
+            console.log('✅ Corrección agresiva aplicada a', modales.length, 'modales');
+        }
+        
+        // Ejecutar corrección inmediatamente
+        forzarModalInteractivo();
+        
+        // Ejecutar cada vez que se abra un modal
+        document.addEventListener('show.bs.modal', function() {
+            console.log('🚀 Modal detectado - aplicando corrección...');
+            setTimeout(forzarModalInteractivo, 100);
+        });
+        
+        // Observer para detectar modales dinámicos
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                    const target = mutation.target;
+                    if (target.classList.contains('modal') || target.id.includes('modal')) {
+                        console.log('🔄 Modal modificado - reaplican do corrección...');
+                        setTimeout(forzarModalInteractivo, 50);
+                    }
+                }
+                
+                mutation.addedNodes.forEach(function(node) {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.classList && (node.classList.contains('modal') || node.id.includes('modal'))) {
+                            console.log('🆕 Nuevo modal detectado - aplicando corrección...');
+                            setTimeout(forzarModalInteractivo, 50);
+                        }
+                    }
+                });
+            });
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['style', 'class']
+        });
+        
+        console.log('🛡️ Sistema de protección de modales activado');
     </script>
     
     {% block extra_js %}{% endblock %}

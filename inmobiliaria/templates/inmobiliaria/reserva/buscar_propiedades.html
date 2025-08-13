@@ -1290,7 +1290,32 @@
                                 </button>
                             {% else %}
                                 <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
+                                    <button type="button" class="btn btn-primary" onclick="
+                                        if(!propiedadSeleccionada) { 
+                                            alert('Selecciona una propiedad primero'); 
+                                            return; 
+                                        }
+                                        const modal = document.getElementById('modalConfirmarReserva');
+                                        if(modal) {
+                                            // Forzar visibilidad máxima
+                                            modal.style.cssText = 'display: flex !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 999999999 !important; background: rgba(0,0,0,0.8) !important; align-items: center !important; justify-content: center !important; pointer-events: auto !important;';
+                                            document.body.style.overflow = 'hidden';
+                                            // Llenar datos
+                                            const ficha = document.getElementById('modal_ficha');
+                                            const direccion = document.getElementById('modal_direccion');
+                                            const precio = document.getElementById('precio_total_editable');
+                                            if(ficha) ficha.textContent = propiedadSeleccionada.id;
+                                            if(direccion) direccion.textContent = propiedadSeleccionada.direccion;
+                                            if(precio) precio.value = propiedadSeleccionada.precio;
+                                            // Forzar interactividad de todos los elementos
+                                            modal.querySelectorAll('*').forEach(el => {
+                                                el.style.cssText += 'pointer-events: auto !important; user-select: auto !important; cursor: pointer !important;';
+                                            });
+                                            console.log('✅ Modal forzado a mostrar');
+                                        } else {
+                                            alert('Modal no encontrado');
+                                        }
+                                    ">
                                         <i class="fas fa-calendar-plus"></i> Reservar
                                     </button>
                                     <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
@@ -2342,7 +2367,7 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
     } else {
         cardButtons.innerHTML = `
             <div class="d-flex gap-2">
-                <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
+                <button type="button" class="btn btn-primary" onclick="forzarModalEmergencia()">
                     <i class="fas fa-calendar-plus"></i> Reservar
                 </button>
                 <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
@@ -4914,3 +4939,76 @@ function resetearFiltros() {
     z-index: 1000101 !important;
 }
 </style>
+
+<script>
+// ===============================================
+// FUNCIÓN DE EMERGENCIA PARA MODAL BLOQUEADO
+// ===============================================
+function forzarModalEmergencia() {
+    console.log('🚨 FUNCIÓN DE EMERGENCIA ACTIVADA');
+    
+    if(!propiedadSeleccionada) { 
+        alert('Selecciona una propiedad primero'); 
+        return; 
+    }
+    
+    const modal = document.getElementById('modalConfirmarReserva');
+    if(!modal) {
+        alert('Modal no encontrado');
+        return;
+    }
+    
+    console.log('🔧 Forzando modal visible...');
+    
+    // Forzar visibilidad ABSOLUTA
+    modal.style.cssText = `
+        display: flex !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 999999999 !important;
+        background: rgba(0,0,0,0.8) !important;
+        align-items: center !important;
+        justify-content: center !important;
+        pointer-events: auto !important;
+        user-select: auto !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    `;
+    
+    document.body.style.overflow = 'hidden';
+    
+    // Llenar datos del modal
+    const ficha = document.getElementById('modal_ficha');
+    const direccion = document.getElementById('modal_direccion');
+    const precio = document.getElementById('precio_total_editable');
+    
+    if(ficha) ficha.textContent = propiedadSeleccionada.id || 'N/A';
+    if(direccion) direccion.textContent = propiedadSeleccionada.direccion || 'N/A';
+    if(precio) precio.value = propiedadSeleccionada.precio || 0;
+    
+    // Forzar interactividad de todos los elementos
+    modal.querySelectorAll('*').forEach(elemento => {
+        elemento.style.cssText += `
+            pointer-events: auto !important;
+            user-select: auto !important;
+            cursor: pointer !important;
+            position: relative !important;
+            z-index: 1000000000 !important;
+        `;
+        
+        if(elemento.tagName === 'INPUT' || elemento.tagName === 'TEXTAREA') {
+            elemento.style.cursor = 'text !important';
+            elemento.style.userSelect = 'text !important';
+        }
+    });
+    
+    console.log('✅ Modal de emergencia mostrado');
+}
+
+// Reemplazar función original
+window.confirmarReserva = forzarModalEmergencia;
+console.log('🛡️ Función de emergencia lista');
+</script>
