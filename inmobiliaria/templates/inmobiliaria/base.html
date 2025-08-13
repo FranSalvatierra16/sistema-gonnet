@@ -52,6 +52,8 @@
             min-height: 100vh;
             color: var(--text-primary);
             line-height: 1.6;
+            display: flex;
+            flex-direction: column;
         }
 
         /* =============================================== */
@@ -144,16 +146,18 @@
         /* =============================================== */
         .main-content {
             flex: 1;
-            padding: 2rem 0;
+            padding: 1rem 0;
+            min-height: calc(100vh - 120px);
         }
 
         .container-fluid {
             background: var(--glass-bg);
             border-radius: var(--border-radius);
             box-shadow: var(--shadow-lg);
-            margin: 1rem;
+            margin: 2rem auto;
             padding: 2rem;
-            min-height: calc(100vh - 8rem);
+            max-width: 1400px;
+            min-height: auto;
             position: relative;
             /* SIN backdrop-filter */
         }
@@ -452,8 +456,9 @@
         /* =============================================== */
         @media (max-width: 768px) {
             .container-fluid {
-                margin: 0.5rem;
+                margin: 1rem;
                 padding: 1rem;
+                max-width: 100%;
             }
             
             .btn {
@@ -597,7 +602,7 @@
     <nav class="navbar navbar-expand-lg sticky-top">
         <div class="container-fluid">
             <a class="navbar-brand d-flex align-items-center" href="{% url 'inmobiliaria:dashboard' %}">
-                <img src="{% static 'images/logo.png' %}" alt="Logo" width="32" height="32" class="me-2">
+                <i class="fas fa-home me-2" style="font-size: 1.5rem;"></i>
                 Sistema Gonnet
             </a>
             
@@ -635,6 +640,9 @@
                             </a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:propietarios' %}">
                                 <i class="fas fa-user-crown"></i>Propietarios
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:sucursales' %}">
+                                <i class="fas fa-building"></i>Sucursales
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:caja' %}">
