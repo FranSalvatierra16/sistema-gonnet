@@ -36,127 +36,275 @@
     {% block extra_css %}
     <style>
         /* ========================================
-           MODERNIZACIÓN CONSERVADORA DEL BASE
+           DISEÑO ULTRA MODERNO 2024
            ======================================== */
 
-        /* Variables CSS para consistencia */
+        /* Variables CSS avanzadas */
         :root {
-            --primary-color: #007bff;
-            --primary-dark: #0056b3;
-            --success-color: #28a745;
-            --danger-color: #dc3545;
-            --warning-color: #ffc107;
-            --info-color: #17a2b8;
-            --light-bg: #f8f9fa;
-            --dark-text: #212529;
-            --border-radius: 8px;
-            --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.15);
-            --transition: all 0.3s ease;
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --dark-gradient: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            
+            --primary-color: #667eea;
+            --primary-dark: #5a67d8;
+            --secondary-color: #f093fb;
+            --success-color: #4facfe;
+            --danger-color: #ff6b6b;
+            --warning-color: #feca57;
+            --info-color: #48dbfb;
+            
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --dark-glass: rgba(0, 0, 0, 0.1);
+            
+            --border-radius-sm: 12px;
+            --border-radius-md: 16px;
+            --border-radius-lg: 24px;
+            
+            --shadow-soft: 0 8px 32px rgba(31, 38, 135, 0.37);
+            --shadow-strong: 0 15px 35px rgba(31, 38, 135, 0.5);
+            --shadow-glow: 0 0 30px rgba(102, 126, 234, 0.3);
+            
+            --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-bounce: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         }
 
-        /* Body y HTML modernos */
+        /* Fondo ultra moderno con partículas */
         html, body {
             height: 100%;
-            display: flex;
-            flex-direction: column;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f0f23;
+            background-image: 
+                radial-gradient(circle at 25% 25%, #667eea 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, #764ba2 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, #f093fb 0%, transparent 50%);
+            background-size: 100% 100%, 100% 100%, 100% 100%;
             background-attachment: fixed;
+            overflow-x: hidden;
+            position: relative;
         }
 
-        /* Contenedor principal */
+        /* Efecto de partículas flotantes */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="40" r="0.5" fill="rgba(255,255,255,0.15)"/><circle cx="40" cy="80" r="1.5" fill="rgba(255,255,255,0.08)"/><circle cx="70" cy="70" r="0.8" fill="rgba(255,255,255,0.12)"/><circle cx="10" cy="60" r="0.3" fill="rgba(255,255,255,0.2)"/></svg>') repeat;
+            background-size: 200px 200px;
+            animation: float-particles 20s linear infinite;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        @keyframes float-particles {
+            0% { transform: translateY(0px) rotate(0deg); }
+            100% { transform: translateY(-100vh) rotate(360deg); }
+        }
+
+        /* Contenedor principal glass morphism */
         .container {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(10px);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-md);
-            margin-top: 2rem;
-            margin-bottom: 2rem;
-            padding: 2rem;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-soft);
+            margin: 2rem auto;
+            padding: 2.5rem;
+            position: relative;
+            overflow: hidden;
+            animation: slideInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* Navbar moderno */
+        .container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: conic-gradient(from 0deg, transparent, rgba(102, 126, 234, 0.03), transparent);
+            animation: rotate-gradient 10s linear infinite;
+            z-index: -1;
+        }
+
+        /* Navbar futurista */
         .navbar {
-            background: rgba(255, 255, 255, 0.95) !important;
-            backdrop-filter: blur(20px);
-            box-shadow: var(--shadow-md);
-            border-bottom: 1px solid rgba(0,0,0,0.1);
-            transition: var(--transition);
+            background: rgba(255, 255, 255, 0.08) !important;
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0 0 var(--border-radius-md) var(--border-radius-md);
+            box-shadow: var(--shadow-soft);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            transition: var(--transition-smooth);
+        }
+
+        .navbar:hover {
+            background: rgba(255, 255, 255, 0.12) !important;
+            box-shadow: var(--shadow-strong);
         }
 
         .navbar-brand {
-            font-weight: 600;
-            color: var(--primary-color) !important;
-            font-size: 1.4rem;
-            transition: var(--transition);
+            font-weight: 700;
+            font-size: 1.8rem;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            transition: var(--transition-bounce);
+            position: relative;
+        }
+
+        .navbar-brand::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 3px;
+            background: var(--primary-gradient);
+            border-radius: 2px;
+            transition: var(--transition-smooth);
+        }
+
+        .navbar-brand:hover::after {
+            width: 100%;
         }
 
         .navbar-brand:hover {
-            transform: scale(1.05);
+            transform: scale(1.05) rotate(-1deg);
+            filter: drop-shadow(0 0 20px rgba(102, 126, 234, 0.5));
         }
 
-        /* Links del navbar */
+        /* Links del navbar con efectos neomorfismo */
         .navbar-nav .nav-link {
-            color: var(--dark-text) !important;
+            color: rgba(255, 255, 255, 0.9) !important;
             font-weight: 500;
-            padding: 0.5rem 1rem !important;
-            border-radius: var(--border-radius);
-            transition: var(--transition);
+            padding: 0.75rem 1.5rem !important;
+            border-radius: var(--border-radius-sm);
+            margin: 0 0.25rem;
+            transition: var(--transition-smooth);
             position: relative;
+            overflow: hidden;
+        }
+
+        .navbar-nav .nav-link::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: var(--transition-smooth);
+        }
+
+        .navbar-nav .nav-link:hover::before {
+            left: 100%;
         }
 
         .navbar-nav .nav-link:hover {
-            background: rgba(0, 123, 255, 0.1);
-            transform: translateY(-1px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+            color: white !important;
         }
 
-        .navbar-nav .nav-link::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            width: 0;
-            height: 2px;
-            background: var(--primary-color);
-            transition: var(--transition);
-            transform: translateX(-50%);
-        }
-
-        .navbar-nav .nav-link:hover::after {
-            width: 80%;
-        }
-
-        /* Dropdown mejorado */
+        /* Dropdown futurista */
         .dropdown-menu {
-            border: none;
-            box-shadow: var(--shadow-md);
-            border-radius: var(--border-radius);
-            backdrop-filter: blur(10px);
-            background: rgba(255, 255, 255, 0.95);
-            overflow: hidden;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--border-radius-md);
+            box-shadow: var(--shadow-strong);
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+            animation: dropdownSlide 0.3s ease-out;
+        }
+
+        @keyframes dropdownSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-10px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
         .dropdown-item {
-            transition: var(--transition);
-            border-radius: 4px;
-            margin: 2px 4px;
+            color: rgba(255, 255, 255, 0.9);
+            border-radius: var(--border-radius-sm);
+            margin: 0.2rem 0;
+            padding: 0.75rem 1rem;
+            transition: var(--transition-fast);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dropdown-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 3px;
+            height: 100%;
+            background: var(--primary-gradient);
+            transform: scaleY(0);
+            transition: var(--transition-fast);
         }
 
         .dropdown-item:hover {
-            background: rgba(0, 123, 255, 0.1);
-            transform: translateX(4px);
+            background: rgba(102, 126, 234, 0.2);
+            color: white;
+            transform: translateX(8px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
         }
 
-        /* Botones modernos */
+        .dropdown-item:hover::before {
+            transform: scaleY(1);
+        }
+
+        /* Botones ultra modernos */
         .btn {
-            border-radius: var(--border-radius);
-            font-weight: 500;
-            transition: var(--transition);
+            border-radius: var(--border-radius-sm);
+            font-weight: 600;
+            padding: 0.75rem 2rem;
             border: none;
             position: relative;
             overflow: hidden;
+            transition: var(--transition-smooth);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.875rem;
+        }
+
+        .btn-primary {
+            background: var(--primary-gradient);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: var(--success-gradient);
+            box-shadow: 0 8px 25px rgba(79, 172, 254, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
         }
 
         .btn::before {
@@ -168,9 +316,8 @@
             height: 0;
             background: rgba(255, 255, 255, 0.3);
             border-radius: 50%;
-            transition: all 0.5s ease;
+            transition: all 0.6s ease;
             transform: translate(-50%, -50%);
-            z-index: 1;
         }
 
         .btn:hover::before {
@@ -179,170 +326,270 @@
         }
 
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
         }
 
-        /* Cards modernos */
+        .btn:active {
+            transform: translateY(-1px) scale(0.98);
+        }
+
+        /* Cards con efectos avanzados */
         .card {
-            border: none;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-sm);
-            transition: var(--transition);
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--border-radius-md);
+            box-shadow: var(--shadow-soft);
+            transition: var(--transition-smooth);
             overflow: hidden;
+            position: relative;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: var(--primary-gradient);
+            transform: scaleX(0);
+            transition: var(--transition-smooth);
+        }
+
+        .card:hover::before {
+            transform: scaleX(1);
         }
 
         .card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: var(--shadow-strong);
+            border-color: rgba(102, 126, 234, 0.3);
         }
 
         .card-header {
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            background: var(--primary-gradient);
             color: white;
             border: none;
             font-weight: 600;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
         }
 
-        /* Forms modernos */
+        .card-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transform: rotate(45deg);
+            transition: var(--transition-smooth);
+            opacity: 0;
+        }
+
+        .card-header:hover::before {
+            animation: shimmer 1s ease-in-out;
+            opacity: 1;
+        }
+
+        @keyframes shimmer {
+            0% { right: -50%; }
+            100% { right: 150%; }
+        }
+
+        /* Forms futuristas */
         .form-control, .form-select {
-            border-radius: var(--border-radius);
-            border: 2px solid #e9ecef;
-            transition: var(--transition);
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--border-radius-sm);
+            color: rgba(255, 255, 255, 0.9);
+            padding: 0.875rem 1rem;
+            transition: var(--transition-smooth);
+        }
+
+        .form-control::placeholder, .form-select::placeholder {
+            color: rgba(255, 255, 255, 0.5);
         }
 
         .form-control:focus, .form-select:focus {
+            background: rgba(255, 255, 255, 0.08);
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
             transform: scale(1.02);
+            color: white;
         }
 
-        /* Alerts modernos */
+        /* Alerts con glassmorphism */
         .alert {
-            border: none;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-sm);
-            border-left: 4px solid transparent;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--border-radius-sm);
+            border-left: 4px solid;
+            color: rgba(255, 255, 255, 0.95);
+            animation: alertSlide 0.5s ease-out;
         }
 
-        .alert-success {
-            border-left-color: var(--success-color);
+        @keyframes alertSlide {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
 
-        .alert-danger {
-            border-left-color: var(--danger-color);
-        }
+        .alert-success { border-left-color: var(--success-color); }
+        .alert-danger { border-left-color: var(--danger-color); }
+        .alert-warning { border-left-color: var(--warning-color); }
+        .alert-info { border-left-color: var(--info-color); }
 
-        .alert-warning {
-            border-left-color: var(--warning-color);
-        }
-
-        .alert-info {
-            border-left-color: var(--info-color);
-        }
-
-        /* Footer moderno */
-        .footer {
-            background: rgba(255, 255, 255, 0.9) !important;
-            backdrop-filter: blur(10px);
-            border-top: 1px solid rgba(0,0,0,0.1);
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-        }
-
-        /* Tablas modernas */
+        /* Tablas futuristas */
         .table {
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: var(--border-radius);
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(10px);
+            border-radius: var(--border-radius-md);
             overflow: hidden;
-            box-shadow: var(--shadow-sm);
+            box-shadow: var(--shadow-soft);
+            color: rgba(255, 255, 255, 0.9);
         }
 
         .table thead th {
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            background: var(--primary-gradient);
             color: white;
             border: none;
             font-weight: 600;
+            padding: 1.25rem 1rem;
+            position: relative;
         }
 
         .table tbody tr {
-            transition: var(--transition);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transition: var(--transition-fast);
         }
 
         .table tbody tr:hover {
-            background: rgba(0, 123, 255, 0.05);
+            background: rgba(102, 126, 234, 0.1);
             transform: scale(1.01);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
         }
 
-        /* Mejoras responsive */
+        .table tbody td {
+            padding: 1rem;
+            border: none;
+        }
+
+        /* Footer futurista */
+        .footer {
+            background: rgba(255, 255, 255, 0.05) !important;
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.1);
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 3rem;
+        }
+
+        /* Scrollbar cyberpunk */
+        ::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-gradient);
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary-gradient);
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* Animaciones principales */
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes rotate-gradient {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive ultra moderno */
         @media (max-width: 768px) {
             .container {
                 margin: 1rem;
-                padding: 1rem;
-                border-radius: var(--border-radius);
+                padding: 1.5rem;
+                border-radius: var(--border-radius-md);
             }
             
             .navbar-brand {
-                font-size: 1.2rem;
+                font-size: 1.4rem;
             }
             
-            .card {
-                margin-bottom: 1rem;
+            .btn {
+                padding: 0.625rem 1.5rem;
+                font-size: 0.8rem;
             }
         }
 
-        /* Animaciones sutiles */
-        @keyframes fadeInUp {
+        /* Modo oscuro mejorado para modales */
+        .modal-content {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--border-radius-md);
+            box-shadow: var(--shadow-strong);
+            color: rgba(255, 255, 255, 0.95);
+        }
+
+        .modal-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--primary-gradient);
+        }
+
+        .modal-footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .modal-backdrop {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        /* Efectos de carga y entrada */
+        .container {
+            animation: slideInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .navbar {
+            animation: slideInDown 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes slideInDown {
             from {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(-100%);
             }
             to {
                 opacity: 1;
                 transform: translateY(0);
             }
-        }
-
-        .container {
-            animation: fadeInUp 0.6s ease-out;
-        }
-
-        /* Scrollbar personalizada */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--primary-color);
-            border-radius: 10px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--primary-dark);
-        }
-
-        /* IMPORTANTE: Preservar modales existentes */
-        .modal {
-            /* No modificar modales para mantener funcionalidad */
-        }
-
-        .modal-content {
-            border-radius: var(--border-radius);
-            border: none;
-            box-shadow: var(--shadow-md);
-        }
-
-        .modal-header {
-            border-bottom: 1px solid rgba(0,0,0,0.1);
-        }
-
-        .modal-footer {
-            border-top: 1px solid rgba(0,0,0,0.1);
         }
     </style>
     {% endblock %}
