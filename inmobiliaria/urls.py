@@ -13,6 +13,7 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(next_page='inmobiliaria:login'), name='logout'),
     path('register/', views.register, name='register'),
     path('dashboard/', views.dashboard, name='dashboard'),
+    path('recuperar-password/', views.login_view, name='recuperar_password'),  # Temporal - redirige a login
 
     # Redirect root URL to register
     path('', RedirectView.as_view(url='/register/', permanent=False), name='index'),
