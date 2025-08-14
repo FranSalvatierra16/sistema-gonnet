@@ -753,6 +753,63 @@
             left: auto !important;
             right: auto !important;
         }
+
+        /* DROPDOWN ARRIBA DE TODO - SIN RESTRICCIONES */
+        .dropdown-menu {
+            background: rgba(255, 255, 255, 0.98) !important;
+            backdrop-filter: blur(20px) !important;
+            border: 2px solid rgba(34, 197, 94, 0.3) !important;
+            border-radius: 16px !important;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2) !important;
+            padding: 1rem 0 !important;
+            min-width: 250px !important;
+            z-index: 999999 !important;
+            position: fixed !important;
+            top: auto !important;
+            left: auto !important;
+            transform: none !important;
+            max-height: none !important;
+            overflow: visible !important;
+            margin: 0 !important;
+        }
+
+        .dropdown-menu.show {
+            display: block !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        /* Items del dropdown */
+        .dropdown-item {
+            display: block !important;
+            width: 100% !important;
+            padding: 1rem 1.5rem !important;
+            color: var(--gray-700) !important;
+            text-decoration: none !important;
+            background: transparent !important;
+            border: none !important;
+            border-radius: 12px !important;
+            margin: 0.25rem 0.75rem !important;
+            transition: all 0.3s ease !important;
+            font-weight: 500 !important;
+        }
+
+        .dropdown-item:hover {
+            color: white !important;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;
+            transform: translateX(8px) scale(1.02) !important;
+            box-shadow: 0 8px 25px rgba(34, 197, 94, 0.4) !important;
+        }
+
+        /* Asegurar que nada interfiera */
+        .navbar,
+        .navbar-collapse,
+        .navbar-nav,
+        .nav-item,
+        .dropdown {
+            overflow: visible !important;
+            position: relative !important;
+        }
     </style>
     {% endblock %}
 </head>
@@ -1025,14 +1082,14 @@
     });
     </script>
 
-    <!-- DROPDOWN FIX DEFINITIVO - POSICIÓN CORRECTA -->
+    <!-- DROPDOWN ARRIBA DE TODO - POSICIÓN PERFECTA -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const utilidadesBtn = document.getElementById('utilidadesDropdown');
         const utilidadesMenu = utilidadesBtn?.nextElementSibling;
         
         if (utilidadesBtn && utilidadesMenu) {
-            console.log('✅ Dropdown encontrado');
+            console.log('✅ Dropdown encontrado, aplicando fix supremo...');
             
             utilidadesBtn.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -1046,24 +1103,48 @@
                     }
                 });
                 
-                // Toggle este dropdown
+                // Toggle
                 const isOpen = utilidadesMenu.classList.contains('show');
                 
                 if (isOpen) {
                     utilidadesMenu.style.display = 'none';
                     utilidadesMenu.classList.remove('show');
-                    console.log('🔴 Cerrado');
+                    console.log('🔴 Dropdown cerrado');
                 } else {
-                    // Calcular posición correcta
+                    // Calcular posición del botón
                     const rect = utilidadesBtn.getBoundingClientRect();
+                    const windowWidth = window.innerWidth;
+                    const windowHeight = window.innerHeight;
                     
+                    // Posicionar SIEMPRE visible
+                    let top = rect.bottom + 8;
+                    let left = rect.left;
+                    
+                    // Si se sale por la derecha, alinear a la derecha
+                    if (left + 250 > windowWidth) {
+                        left = rect.right - 250;
+                    }
+                    
+                    // Si se sale por abajo, mostrar arriba del botón
+                    if (top + 400 > windowHeight) {
+                        top = rect.top - 400;
+                    }
+                    
+                    // Asegurar que no se salga de pantalla
+                    if (left < 10) left = 10;
+                    if (top < 10) top = 10;
+                    
+                    // Aplicar posición
                     utilidadesMenu.style.position = 'fixed';
-                    utilidadesMenu.style.top = (rect.bottom + 5) + 'px';
-                    utilidadesMenu.style.left = rect.left + 'px';
+                    utilidadesMenu.style.top = top + 'px';
+                    utilidadesMenu.style.left = left + 'px';
+                    utilidadesMenu.style.right = 'auto';
+                    utilidadesMenu.style.bottom = 'auto';
+                    utilidadesMenu.style.zIndex = '999999';
                     utilidadesMenu.style.display = 'block';
                     utilidadesMenu.classList.add('show');
                     
-                    console.log('🟢 Abierto en posición:', rect.left, rect.bottom + 5);
+                    console.log('🟢 Dropdown abierto en:', left, top);
                 }
             });
             
@@ -1075,9 +1156,17 @@
                 }
             });
             
-            console.log('✅ Fix aplicado correctamente');
+            // Cerrar con ESC
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    utilidadesMenu.style.display = 'none';
+                    utilidadesMenu.classList.remove('show');
+                }
+            });
+            
+            console.log('✅ Dropdown supremo configurado');
         } else {
-            console.error('❌ No encontrado');
+            console.error('❌ Dropdown no encontrado');
         }
     });
     </script>
