@@ -5,370 +5,42 @@
 
 {% block extra_css %}
     <style>
-    /* DISEÑO LIMPIO Y MODERNO */
+    /* USAR EL MISMO DISEÑO QUE TODAS LAS PÁGINAS */
     
-    :root {
-        --primary-color: #22c55e;
-        --primary-dark: #16a34a;
-        --primary-light: #4ade80;
-        --gray-50: #f8fafc;
-        --gray-100: #f1f5f9;
-        --gray-700: #334155;
-        --gray-800: #1e293b;
-    }
-
-    /* Remover el fondo global horrible */
-    body {
-        background: var(--gray-50) !important;
-    }
-
-    /* Container principal limpio */
-    .container-fluid {
-        background: white !important;
-        border-radius: 16px !important;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08) !important;
-        padding: 2.5rem !important;
-        margin: 2rem auto !important;
-        max-width: 1400px !important;
-        border: none !important;
-    }
-
-    /* Título elegante */
-    h1 {
-        color: var(--gray-800) !important;
-        font-weight: 700 !important;
-        font-size: 2.5rem !important;
-        text-align: center !important;
-        margin-bottom: 3rem !important;
-        position: relative !important;
-    }
-
-    h1::after {
-        content: '';
-        position: absolute;
-        bottom: -10px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 80px;
-        height: 4px;
-        background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
-        border-radius: 2px;
-    }
-
-    /* Cuadro de búsqueda hermoso */
-    .main-search-box {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%) !important;
-        border-radius: 20px !important;
-        padding: 3rem !important;
-        margin-bottom: 3rem !important;
-        box-shadow: 0 20px 40px rgba(34, 197, 94, 0.15) !important;
-        position: relative !important;
-        overflow: hidden !important;
-    }
-
-    .main-search-box::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        right: -50%;
-        width: 100%;
-        height: 200%;
-        background: linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.05) 50%, transparent 60%);
-        animation: shine 3s ease-in-out infinite;
-    }
-
-    @keyframes shine {
-        0% { transform: translateX(-100%); }
-        100% { transform: translateX(100%); }
-    }
-
-    /* Formulario elegante */
-    .form-group label {
-        color: white !important;
-        font-weight: 600 !important;
-        font-size: 0.95rem !important;
-        margin-bottom: 0.75rem !important;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
-    }
-
-    .input-group {
-        background: white !important;
-        border-radius: 12px !important;
-        overflow: hidden !important;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
-        border: 2px solid transparent !important;
-        transition: all 0.3s ease !important;
-    }
-
-    .input-group:focus-within {
-        border-color: rgba(255, 255, 255, 0.5) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15) !important;
-    }
-
-    .input-group-text {
-        background: transparent !important;
-        border: none !important;
-        color: var(--primary-color) !important;
-        font-size: 1.1rem !important;
-        padding: 1rem !important;
-    }
-
-    .form-control {
-        border: none !important;
-        background: transparent !important;
-        padding: 1rem !important;
-        font-size: 1rem !important;
-        color: var(--gray-800) !important;
-        font-weight: 500 !important;
-    }
-
-    .form-control:focus {
-        box-shadow: none !important;
-        background: transparent !important;
-    }
-
-    /* Botón de búsqueda hermoso */
-    .btn-primary {
-        background: white !important;
-        color: var(--primary-color) !important;
-        border: 3px solid white !important;
-        font-weight: 700 !important;
-        font-size: 1.1rem !important;
-        padding: 1rem 2.5rem !important;
-        border-radius: 12px !important;
-        transition: all 0.3s ease !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
-        box-shadow: 0 4px 15px rgba(255, 255, 255, 0.3) !important;
-    }
-
-    .btn-primary:hover {
-        background: var(--gray-50) !important;
-        color: var(--primary-dark) !important;
-        transform: translateY(-3px) !important;
-        box-shadow: 0 8px 25px rgba(255, 255, 255, 0.4) !important;
-    }
-
-    /* Controles elegantes */
-    .controls-container {
-        background: rgba(255, 255, 255, 0.15) !important;
-        backdrop-filter: blur(10px) !important;
-        border-radius: 16px !important;
-        padding: 2rem !important;
-        margin-top: 2rem !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        display: flex !important;
-        gap: 1.5rem !important;
-        align-items: center !important;
-        justify-content: center !important;
-        flex-wrap: wrap !important;
-    }
-
-    .control-btn {
-        background: rgba(255, 255, 255, 0.95) !important;
-        color: var(--primary-color) !important;
-        border: none !important;
-        border-radius: 12px !important;
-        padding: 1rem 2rem !important;
-        font-weight: 600 !important;
-        font-size: 1rem !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2) !important;
-        cursor: pointer !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 0.75rem !important;
-    }
-
-    .control-btn:hover {
-        background: white !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 25px rgba(255, 255, 255, 0.3) !important;
-        color: var(--primary-dark) !important;
-    }
-
-    /* Tabla hermosa */
+    /* Solo ajustes mínimos para funcionalidad específica */
     .table-wrapper {
-        background: white !important;
-        border-radius: 16px !important;
-        overflow: hidden !important;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08) !important;
-        border: 1px solid var(--gray-100) !important;
-        margin-bottom: 2rem !important;
-        height: 500px !important;
+        height: 400px !important;
         overflow-y: auto !important;
-    }
-
-    .table {
-        margin: 0 !important;
-        font-size: 0.95rem !important;
+        margin-bottom: 20px !important;
     }
 
     .table thead th {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;
-        color: white !important;
-        border: none !important;
-        padding: 1.25rem 1rem !important;
-        font-weight: 600 !important;
-        font-size: 0.9rem !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
         position: sticky !important;
         top: 0 !important;
-        z-index: 10 !important;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+        z-index: 1 !important;
     }
 
     .table tbody tr {
-        transition: all 0.2s ease !important;
-        cursor: pointer !important;
-        border-bottom: 1px solid var(--gray-100) !important;
-    }
-
-    .table tbody tr:hover {
-        background: rgba(34, 197, 94, 0.05) !important;
-        transform: scale(1.001) !important;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
     }
 
     .table tbody tr.selected {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-light)) !important;
+        background-color: var(--primary-color) !important;
         color: white !important;
-        box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3) !important;
     }
 
     .table tbody tr.selected td {
         color: white !important;
         font-weight: 600 !important;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .table tbody tr:hover {
+        background-color: rgba(34, 197, 94, 0.1);
     }
 
     .table tbody td {
-        padding: 1rem !important;
         vertical-align: middle !important;
-        border: none !important;
-    }
-
-    /* Cards elegantes */
-    .card {
-        background: white !important;
-        border: 1px solid var(--gray-100) !important;
-        border-radius: 16px !important;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
-        transition: all 0.3s ease !important;
-        overflow: hidden !important;
-        position: relative !important;
-    }
-
-    .card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
-    }
-
-    .card:hover {
-        transform: translateY(-4px) !important;
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12) !important;
-    }
-
-    .card-header {
-        background: linear-gradient(135deg, var(--gray-800), var(--gray-700)) !important;
-        color: white !important;
-        border: none !important;
-        padding: 1.5rem !important;
-        font-weight: 600 !important;
-        font-size: 1.1rem !important;
-    }
-
-    .card-body {
-        padding: 2rem !important;
-        color: var(--gray-700) !important;
-    }
-
-    .card-footer {
-        background: var(--gray-50) !important;
-        border-top: 1px solid var(--gray-100) !important;
-        padding: 1.5rem !important;
-    }
-
-    /* Badges hermosos */
-    .badge {
-        padding: 0.5rem 1rem !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-        font-size: 0.85rem !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
-    }
-
-    .bg-primary {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;
-    }
-
-    .bg-info {
-        background: linear-gradient(135deg, #0ea5e9, #0284c7) !important;
-    }
-
-    /* Alert elegante */
-    .alert {
-        border-radius: 12px !important;
-        border: none !important;
-        padding: 1.5rem !important;
-        font-weight: 500 !important;
-    }
-
-    .alert-warning {
-        background: linear-gradient(135deg, #fef3c7, #fde68a) !important;
-        color: #92400e !important;
-    }
-
-    /* Scrollbar hermoso */
-    .table-wrapper::-webkit-scrollbar {
-        width: 8px !important;
-    }
-
-    .table-wrapper::-webkit-scrollbar-track {
-        background: var(--gray-100) !important;
-        border-radius: 4px !important;
-    }
-
-    .table-wrapper::-webkit-scrollbar-thumb {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;
-        border-radius: 4px !important;
-    }
-
-    .table-wrapper::-webkit-scrollbar-thumb:hover {
-        background: var(--primary-dark) !important;
-    }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-        .container-fluid {
-            margin: 1rem !important;
-            padding: 1.5rem !important;
-        }
-        
-        .main-search-box {
-            padding: 2rem !important;
-        }
-
-        h1 {
-            font-size: 2rem !important;
-        }
-
-        .controls-container {
-            flex-direction: column !important;
-            gap: 1rem !important;
-        }
-
-        .control-btn {
-            width: 100% !important;
-            justify-content: center !important;
-        }
     }
 
     /* Mantener funcionalidad crítica */
@@ -381,24 +53,18 @@
         z-index: 1055 !important;
     }
 
-    /* Animación de selección */
+    /* Animación de selección simple */
     .table tbody tr.selected {
         animation: pulseSelection 2s infinite alternate !important;
     }
 
     @keyframes pulseSelection {
         0% {
-            box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3);
+            box-shadow: 0 0 0 0px rgba(34, 197, 94, 0.4);
         }
         100% {
-            box-shadow: 0 8px 30px rgba(34, 197, 94, 0.5);
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
         }
-    }
-
-    /* Filtros adicionales */
-    #filtrosAdicionales .card {
-        border: 1px solid var(--gray-200) !important;
-        background: var(--gray-50) !important;
     }
 
     .form-check-input:checked {
