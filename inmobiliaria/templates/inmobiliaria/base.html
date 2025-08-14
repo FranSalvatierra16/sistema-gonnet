@@ -42,11 +42,11 @@
 
         /* Variables CSS Modernas Neutras */
         :root {
-            /* Colores Principales Modernos */
-            --primary-color: #0ea5e9;          /* Sky Blue moderno */
-            --primary-light: #38bdf8;
-            --primary-dark: #0284c7;
-            --secondary-color: #10b981;        /* Emerald moderno */
+            /* Colores Principales Modernos - Verde Logo */
+            --primary-color: #22c55e;          /* Green del logo */
+            --primary-light: #4ade80;
+            --primary-dark: #16a34a;
+            --secondary-color: #0ea5e9;        /* Sky Blue como secundario */
             --accent-color: #f59e0b;           /* Amber para acentos */
             
             /* Grises Modernos Premium */
@@ -62,14 +62,14 @@
             --gray-900: #0f172a;
             
             /* Estados Modernos */
-            --success-color: #10b981;
+            --success-color: #22c55e;
             --warning-color: #f59e0b;
             --danger-color: #ef4444;
             --info-color: #06b6d4;
             
-            /* Gradientes Modernos Sutiles */
-            --primary-gradient: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-            --secondary-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            /* Gradientes Modernos Sutiles - Verde Principal */
+            --primary-gradient: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            --secondary-gradient: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
             --neutral-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
             --dark-gradient: linear-gradient(135deg, #1e293b 0%, #334155 100%);
             
@@ -80,12 +80,12 @@
             --surface-glass: rgba(255, 255, 255, 0.8);
             --surface-dark: #1e293b;
             
-            /* Sombras Modernas */
+            /* Sombras Modernas - Verde */
             --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
             --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            --shadow-glow: 0 0 0 1px rgba(14, 165, 233, 0.1), 0 4px 8px -2px rgba(14, 165, 233, 0.2);
+            --shadow-glow: 0 0 0 1px rgba(34, 197, 94, 0.1), 0 4px 8px -2px rgba(34, 197, 94, 0.2);
             
             /* Efectos Modernos */
             --border-radius: 16px;
@@ -139,8 +139,8 @@
             width: 100%;
             height: 100%;
             background-image: 
-                radial-gradient(circle at 25% 25%, rgba(14, 165, 233, 0.05) 0%, transparent 50%),
-                radial-gradient(circle at 75% 75%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
+                radial-gradient(circle at 25% 25%, rgba(34, 197, 94, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(14, 165, 233, 0.05) 0%, transparent 50%);
             pointer-events: none;
             z-index: 0;
         }
@@ -193,13 +193,13 @@
             left: -100%;
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(14, 165, 233, 0.1), transparent);
+            background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.1), transparent);
             transition: var(--transition);
         }
 
         .navbar-nav .nav-link:hover {
             color: var(--primary-color) !important;
-            background: rgba(14, 165, 233, 0.08);
+            background: rgba(34, 197, 94, 0.08);
             transform: translateY(-2px);
             box-shadow: var(--shadow-sm);
         }
@@ -210,7 +210,7 @@
 
         .navbar-nav .nav-link.active {
             color: var(--primary-color) !important;
-            background: rgba(14, 165, 233, 0.1);
+            background: rgba(34, 197, 94, 0.1);
             box-shadow: var(--shadow-glow);
         }
 
@@ -355,13 +355,13 @@
             left: 0;
             right: 0;
             height: 3px;
-            background: var(--secondary-gradient);
+            background: var(--primary-gradient);
         }
 
         .card:hover {
             box-shadow: var(--shadow-xl);
             transform: translateY(-6px) scale(1.02);
-            border-color: rgba(14, 165, 233, 0.3);
+            border-color: rgba(34, 197, 94, 0.3);
         }
 
         .card-header {
@@ -417,7 +417,7 @@
         }
 
         .btn-primary:hover {
-            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+            background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
             box-shadow: var(--shadow-lg);
             transform: translateY(-2px);
         }
@@ -429,7 +429,7 @@
         }
 
         .btn-success:hover {
-            background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
             box-shadow: var(--shadow-lg);
             transform: translateY(-2px);
         }
@@ -475,7 +475,7 @@
         }
 
         .table tbody tr:hover {
-            background: rgba(14, 165, 233, 0.05) !important;
+            background: rgba(34, 197, 94, 0.05) !important;
             transform: scale(1.005);
         }
 
