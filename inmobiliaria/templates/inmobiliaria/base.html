@@ -302,35 +302,150 @@
             background: var(--secondary-gradient);
         }
 
-        /* IMPORTANTE: Modales preservados */
+        /* IMPORTANTE: Modales completamente funcionales */
         .modal-content {
+            background: white !important;
             border-radius: var(--border-radius);
             border: none;
             box-shadow: var(--shadow-strong);
-            background: white; /* Fondo sólido para modales */
+            color: #212529 !important;
         }
 
         .modal-header {
             background: var(--primary-gradient);
-            color: white;
+            color: white !important;
             border-bottom: none;
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+        }
+
+        .modal-body {
+            background: white !important;
+            color: #212529 !important;
+            padding: 1.5rem;
         }
 
         .modal-footer {
+            background: #f8f9fa !important;
             border-top: 1px solid #dee2e6;
+            border-radius: 0 0 var(--border-radius) var(--border-radius);
         }
 
         .modal-backdrop {
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.5) !important;
         }
 
         /* Asegurar que los modales funcionen */
         .modal {
-            z-index: 1055;
+            z-index: 1055 !important;
         }
 
         .modal-backdrop {
-            z-index: 1050;
+            z-index: 1050 !important;
+        }
+
+        /* Forms dentro de modales */
+        .modal .form-control, 
+        .modal .form-select,
+        .modal input,
+        .modal textarea,
+        .modal select {
+            background: white !important;
+            color: #212529 !important;
+            border: 2px solid #dee2e6 !important;
+            border-radius: 8px;
+        }
+
+        .modal .form-control:focus, 
+        .modal .form-select:focus,
+        .modal input:focus,
+        .modal textarea:focus,
+        .modal select:focus {
+            background: white !important;
+            color: #212529 !important;
+            border-color: var(--primary-color) !important;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
+        }
+
+        /* Labels y texto en modales */
+        .modal label,
+        .modal .form-label,
+        .modal .control-label,
+        .modal p,
+        .modal span,
+        .modal div {
+            color: #212529 !important;
+        }
+
+        /* Botones en modales */
+        .modal .btn {
+            border-radius: 8px;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+        }
+
+        .modal .btn-primary {
+            background: var(--primary-gradient) !important;
+            border: none !important;
+            color: white !important;
+        }
+
+        .modal .btn-secondary {
+            background: #6c757d !important;
+            border: none !important;
+            color: white !important;
+        }
+
+        .modal .btn-success {
+            background: var(--success-color) !important;
+            border: none !important;
+            color: white !important;
+        }
+
+        /* Checkbox y radio buttons en modales */
+        .modal .form-check-input {
+            background-color: white !important;
+            border: 2px solid #dee2e6 !important;
+        }
+
+        .modal .form-check-input:checked {
+            background-color: var(--primary-color) !important;
+            border-color: var(--primary-color) !important;
+        }
+
+        .modal .form-check-label {
+            color: #212529 !important;
+        }
+
+        /* Select2 y otros componentes en modales */
+        .modal .select2-container--default .select2-selection--single,
+        .modal .select2-container--default .select2-selection--multiple {
+            background-color: white !important;
+            border: 2px solid #dee2e6 !important;
+            color: #212529 !important;
+        }
+
+        /* Tabs en modales */
+        .modal .nav-tabs .nav-link {
+            color: #495057 !important;
+            background-color: transparent;
+            border: 1px solid #dee2e6;
+        }
+
+        .modal .nav-tabs .nav-link.active {
+            color: var(--primary-color) !important;
+            background-color: white !important;
+            border-color: #dee2e6 #dee2e6 #fff;
+        }
+
+        /* Close button */
+        .modal .btn-close {
+            background-color: transparent;
+            color: white !important;
+            opacity: 0.8;
+        }
+
+        .modal .btn-close:hover {
+            opacity: 1;
         }
 
         /* Animaciones de entrada */
