@@ -4,46 +4,418 @@
 
 {% block title %}Reservas Pendientes{% endblock %}
 
+{% block extra_css %}
+<style>
+    .reservas-container {
+        background: linear-gradient(135deg, #a5d6a7 0%, #66bb6a 100%);
+        min-height: calc(100vh - 120px);
+        padding: 2rem 0;
+    }
+
+    .header-section {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+    }
+
+    .page-title {
+        background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+
+    .subtitle {
+        text-align: center;
+        color: #666;
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+    }
+
+    .btn-nueva-reserva {
+        background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+        border: none;
+        border-radius: 15px;
+        padding: 1rem 2rem;
+        color: white;
+        font-weight: 600;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .btn-nueva-reserva:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4);
+        color: white;
+    }
+
+    .reservas-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+        gap: 1.5rem;
+        margin-top: 2rem;
+    }
+
+    .reserva-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+        border-left: 5px solid transparent;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .reserva-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+    }
+
+    .reserva-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    .reserva-card.en-espera {
+        border-left-color: #FF9800;
+    }
+
+    .reserva-card.confirmada {
+        border-left-color: #2196F3;
+    }
+
+    .property-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .property-icon {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        margin-right: 1rem;
+    }
+
+    .property-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #2e7d32;
+        margin: 0;
+    }
+
+    .reserva-details {
+        margin-bottom: 1.5rem;
+    }
+
+    .detail-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 0.5rem 0;
+        padding: 0.5rem 0;
+    }
+
+    .detail-label {
+        font-weight: 500;
+        color: #666;
+        display: flex;
+        align-items: center;
+    }
+
+    .detail-label i {
+        margin-right: 0.5rem;
+        width: 16px;
+    }
+
+    .detail-value {
+        font-weight: 600;
+        color: #2e7d32;
+    }
+
+    .price-badge {
+        background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .status-en-espera {
+        background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+        color: white;
+    }
+
+    .status-confirmada {
+        background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+        color: white;
+    }
+
+    .actions-section {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-action {
+        border: none;
+        border-radius: 10px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+    }
+
+    .btn-action i {
+        margin-right: 0.3rem;
+    }
+
+    .btn-ver {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+        color: white;
+    }
+
+    .btn-editar {
+        background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+        color: #212529;
+    }
+
+    .btn-eliminar {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+    }
+
+    .btn-finalizar {
+        background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+        color: white;
+    }
+
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .no-reservas {
+        text-align: center;
+        padding: 3rem;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .no-reservas i {
+        font-size: 4rem;
+        color: #ccc;
+        margin-bottom: 1rem;
+    }
+
+    .no-reservas h3 {
+        color: #666;
+        margin-bottom: 1rem;
+    }
+
+    .fade-in {
+        animation: fadeInUp 0.6s ease-out forwards;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .reservas-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .page-title {
+            font-size: 2rem;
+        }
+        
+        .reservas-container {
+            padding: 1rem;
+        }
+        
+        .header-section {
+            padding: 1.5rem;
+        }
+        
+        .actions-section {
+            justify-content: stretch;
+        }
+        
+        .btn-action {
+            flex: 1;
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<h1 class="mb-4">Listado de Reservas Pendientes</h1>
-<a href="{% url 'inmobiliaria:crear_reserva' %}" class="btn btn-primary mb-3">Nueva Reserva</a>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Propiedad</th>
-            <th>Fecha de Inicio</th>
-            <th>Fecha de Fin</th>
-            <th>Precio Total</th>
-            <th>Estado</th>
-            <th>Acciones</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for reserva in reservas %}
-            {% if reserva.estado == 'en_espera' or reserva.estado == 'confirmada_no_pagada' %}
-            <tr class="text-dark">
-                <td>{{ reserva.propiedad }}</td>
-                <td>{{ reserva.fecha_inicio }}</td>
-                <td>{{ reserva.fecha_fin }}</td>
-                <td>{{ reserva.precio_total|format_price }}</td>
-                <td>
-                    <span class="badge {% if reserva.estado == 'en_espera' %}bg-warning{% else %}bg-info{% endif %}">
-                        {% if reserva.estado == 'en_espera' %}En Espera{% else %}Confirmada No Pagada{% endif %}
-                    </span>
-                </td>
-                <td>
-                    <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn btn-sm btn-info">Ver</a>
-                    <a href="{% url 'inmobiliaria:reserva_editar' reserva.id %}" class="btn btn-sm btn-warning">Editar</a>
-                    <a href="{% url 'inmobiliaria:reserva_eliminar' reserva.id %}" class="btn btn-sm btn-danger">Eliminar</a>
-                    <a href="{% url 'inmobiliaria:finalizar_reserva_nueva' reserva.id %}" class="btn btn-sm btn-success">Finalizar</a>
-                </td>
-            </tr>
-            {% endif %}
-        {% empty %}
-        <tr>
-            <td colspan="6">No hay reservas pendientes.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="reservas-container">
+    <div class="container-fluid">
+        <!-- Header Section -->
+        <div class="header-section fade-in">
+            <h1 class="page-title">📋 Reservas Pendientes</h1>
+            <p class="subtitle">Gestiona todas las reservas que están esperando confirmación o pago</p>
+            
+            <div class="text-center">
+                <a href="{% url 'inmobiliaria:crear_reserva' %}" class="btn-nueva-reserva">
+                    <i class="fas fa-plus me-2"></i>Nueva Reserva
+                </a>
+            </div>
+        </div>
+
+        <!-- Reservas Grid -->
+        {% if reservas %}
+            <div class="reservas-grid">
+                {% for reserva in reservas %}
+                    {% if reserva.estado == 'en_espera' or reserva.estado == 'confirmada_no_pagada' %}
+                    <div class="reserva-card fade-in {% if reserva.estado == 'en_espera' %}en-espera{% else %}confirmada{% endif %}" 
+                         style="animation-delay: {{ forloop.counter0|floatformat:1 }}s;">
+                        
+                        <!-- Property Header -->
+                        <div class="property-header">
+                            <div class="property-icon">
+                                <i class="fas fa-home"></i>
+                            </div>
+                            <div>
+                                <h3 class="property-title">{{ reserva.propiedad }}</h3>
+                                <span class="status-badge {% if reserva.estado == 'en_espera' %}status-en-espera{% else %}status-confirmada{% endif %}">
+                                    {% if reserva.estado == 'en_espera' %}En Espera{% else %}Confirmada No Pagada{% endif %}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Reserva Details -->
+                        <div class="reserva-details">
+                            <div class="detail-item">
+                                <span class="detail-label">
+                                    <i class="fas fa-calendar-check"></i>
+                                    Fecha Inicio
+                                </span>
+                                <span class="detail-value">{{ reserva.fecha_inicio }}</span>
+                            </div>
+
+                            <div class="detail-item">
+                                <span class="detail-label">
+                                    <i class="fas fa-calendar-times"></i>
+                                    Fecha Fin
+                                </span>
+                                <span class="detail-value">{{ reserva.fecha_fin }}</span>
+                            </div>
+
+                            <div class="detail-item">
+                                <span class="detail-label">
+                                    <i class="fas fa-dollar-sign"></i>
+                                    Precio Total
+                                </span>
+                                <span class="price-badge">{{ reserva.precio_total|format_price }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="actions-section">
+                            <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn-action btn-ver">
+                                <i class="fas fa-eye"></i>Ver
+                            </a>
+                            <a href="{% url 'inmobiliaria:reserva_editar' reserva.id %}" class="btn-action btn-editar">
+                                <i class="fas fa-edit"></i>Editar
+                            </a>
+                            <a href="{% url 'inmobiliaria:reserva_eliminar' reserva.id %}" class="btn-action btn-eliminar">
+                                <i class="fas fa-trash"></i>Eliminar
+                            </a>
+                            <a href="{% url 'inmobiliaria:finalizar_reserva_nueva' reserva.id %}" class="btn-action btn-finalizar">
+                                <i class="fas fa-check"></i>Finalizar
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="no-reservas fade-in">
+                <i class="fas fa-calendar-times"></i>
+                <h3>No hay reservas pendientes</h3>
+                <p>Cuando tengas reservas esperando confirmación o pago, aparecerán aquí.</p>
+                <a href="{% url 'inmobiliaria:crear_reserva' %}" class="btn-nueva-reserva mt-3">
+                    <i class="fas fa-plus me-2"></i>Crear Primera Reserva
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animar las cards al aparecer
+    const cards = document.querySelectorAll('.reserva-card');
+    cards.forEach((card, index) => {
+        card.style.animationDelay = `${index * 0.1}s`;
+    });
+
+    // Agregar efectos hover adicionales
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-8px) scale(1.02)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0) scale(1)';
+        });
+    });
+});
+</script>
 {% endblock %}
