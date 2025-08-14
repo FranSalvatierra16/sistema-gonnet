@@ -75,12 +75,13 @@
 {% endblock extra_css %}
 
 {% block content %}
-<div class="container-fluid">
-    <h1 class="text-center mb-4">Buscar Propiedades</h1>
+<div class="container-fluid fade-in-up">
+    <h1 class="text-gradient text-center mb-4">🔍 Buscar Propiedades</h1>
     
     <!-- Cuadro principal de búsqueda -->
-    <div class="main-search-box">
-        <form method="post" id="buscar-propiedades-form-dia" class="m-0">
+    <div class="card shadow-modern border-radius-modern mb-4">
+        <div class="card-body">
+            <form method="post" id="buscar-propiedades-form-dia" class="m-0">
             {% csrf_token %}
             <div class="row">
                 <div class="col-12">
@@ -143,11 +144,12 @@
                 </div>
             </div>
         </form>
+        </div>
     </div>
 
     <!-- Contenedor de filtros adicionales -->
     <div id="filtrosAdicionales" class="mt-3" style="display: none;">
-        <div class="card">
+        <div class="card shadow-modern border-radius-modern">
             <div class="card-body">
                 <div class="row">
                     <!-- Filtros básicos -->
@@ -570,9 +572,9 @@
         
         <!-- Columna derecha: Tabla de precios -->
         <div class="col-md-4">
-            <div class="card">
+            <div class="card shadow-modern border-radius-modern">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">PRECIOS</h5>
+                    <h5 class="mb-0">💰 PRECIOS</h5>
                 </div>
                 <div class="card-body">
                     <table class="table table-bordered table-precios">
