@@ -214,79 +214,51 @@
             box-shadow: var(--shadow-glow);
         }
 
-        /* Dropdown Moderno Glassmorphism */
+        /* Dropdown FUNCIONAL - Sin conflictos */
         .dropdown-menu {
-            background: var(--surface-glass) !important;
-            backdrop-filter: var(--backdrop-blur);
-            border: 1px solid rgba(226, 232, 240, 0.5) !important;
-            border-radius: var(--border-radius) !important;
-            box-shadow: var(--shadow-xl);
-            padding: 0.75rem !important;
-            min-width: 240px !important;
-            margin-top: 0.5rem !important;
-            animation: dropdownSlide 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 9999 !important;
-            display: none !important;
-            opacity: 0 !important;
-            visibility: hidden !important;
-            transform: translateY(-10px) scale(0.95) !important;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            background: rgba(255, 255, 255, 0.95) !important;
+            border: 1px solid rgba(0, 0, 0, 0.125) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.175) !important;
+            padding: 0.5rem 0 !important;
+            min-width: 200px !important;
+            margin-top: 0.125rem !important;
+            z-index: 1000 !important;
         }
 
         .dropdown-menu.show {
             display: block !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-            transform: translateY(0) scale(1) !important;
         }
 
-        /* Asegurar que el dropdown toggle funcione */
+        /* Dropdown toggle arrow */
         .dropdown-toggle::after {
-            border-top: 0.3em solid;
-            border-right: 0.3em solid transparent;
-            border-bottom: 0;
-            border-left: 0.3em solid transparent;
-            margin-left: 0.5em !important;
-        }
-
-        @keyframes dropdownSlide {
-            from {
-                opacity: 0;
-                transform: translateY(-10px) scale(0.95);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
+            display: inline-block !important;
+            margin-left: 0.255em !important;
+            vertical-align: 0.255em !important;
+            content: "" !important;
+            border-top: 0.3em solid !important;
+            border-right: 0.3em solid transparent !important;
+            border-bottom: 0 !important;
+            border-left: 0.3em solid transparent !important;
         }
 
         .dropdown-item {
-            border-radius: var(--border-radius-sm) !important;
-            margin: 0.25rem 0 !important;
-            padding: 0.75rem 1rem !important;
-            transition: var(--transition);
-            font-weight: var(--font-weight-medium);
-            color: var(--gray-700) !important;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .dropdown-item::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 0;
-            height: 100%;
-            background: var(--primary-gradient);
-            transition: var(--transition);
-            z-index: -1;
+            display: block !important;
+            width: 100% !important;
+            padding: 0.375rem 1rem !important;
+            clear: both !important;
+            font-weight: 400 !important;
+            color: #212529 !important;
+            text-align: inherit !important;
+            text-decoration: none !important;
+            white-space: nowrap !important;
+            background-color: transparent !important;
+            border: 0 !important;
         }
 
         .dropdown-item:hover {
-            color: white !important;
-            transform: translateX(4px);
-            box-shadow: var(--shadow-sm);
+            color: #1e2125 !important;
+            background-color: #e9ecef !important;
         }
 
         .dropdown-item:hover::before {
@@ -667,6 +639,59 @@
             background: var(--surface-glass) !important;
             backdrop-filter: var(--backdrop-blur);
         }
+
+        /* DROPDOWN FORCE VISIBILITY - OVERRIDE TOTAL */
+        .dropdown-menu {
+            background: white !important;
+            border: 1px solid #dee2e6 !important;
+            border-radius: 0.375rem !important;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+            padding: 0.5rem 0 !important;
+            min-width: 10rem !important;
+            z-index: 1000 !important;
+            position: absolute !important;
+            top: 100% !important;
+            left: 0 !important;
+            margin: 0.125rem 0 0 !important;
+            font-size: 1rem !important;
+            color: #212529 !important;
+            text-align: left !important;
+            list-style: none !important;
+            background-color: #fff !important;
+            background-clip: padding-box !important;
+        }
+
+        .dropdown-menu.show {
+            display: block !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        .dropdown-item {
+            display: block !important;
+            width: 100% !important;
+            padding: 0.375rem 1rem !important;
+            clear: both !important;
+            font-weight: 400 !important;
+            color: #212529 !important;
+            text-align: inherit !important;
+            text-decoration: none !important;
+            white-space: nowrap !important;
+            background-color: transparent !important;
+            border: 0 !important;
+        }
+
+        .dropdown-item:hover,
+        .dropdown-item:focus {
+            color: #1e2125 !important;
+            background-color: #e9ecef !important;
+        }
+
+        /* Override cualquier otro CSS que pueda interferir */
+        .nav-item.dropdown .dropdown-menu {
+            position: absolute !important;
+            will-change: transform !important;
+        }
     </style>
     {% endblock %}
 </head>
@@ -939,80 +964,53 @@
     });
     </script>
 
-    <!-- Dropdown Fix Script - Asegurar funcionalidad -->
+    <!-- DROPDOWN FIX DEFINITIVO -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('🔧 Inicializando dropdowns...');
+        // SOLUCIÓN SÚPER SIMPLE - Sin Bootstrap conflicts
+        const utilidadesDropdown = document.getElementById('utilidadesDropdown');
+        const utilidadesMenu = document.querySelector('#utilidadesDropdown + .dropdown-menu');
         
-        // Verificar que Bootstrap esté cargado
-        if (typeof bootstrap === 'undefined') {
-            console.error('❌ Bootstrap no está cargado');
-            return;
-        }
-        
-        // Inicializar todos los dropdowns manualmente
-        const dropdownElements = document.querySelectorAll('[data-bs-toggle="dropdown"]');
-        console.log('📋 Encontrados ' + dropdownElements.length + ' dropdowns');
-        
-        dropdownElements.forEach(function(element) {
-            try {
-                new bootstrap.Dropdown(element);
-                console.log('✅ Dropdown inicializado:', element.id || element.textContent.trim());
-            } catch (e) {
-                console.error('❌ Error inicializando dropdown:', e);
-            }
-        });
-
-        // Fix específico para el dropdown de Utilidades
-        const utilidadesToggle = document.getElementById('utilidadesDropdown');
-        const utilidadesMenu = utilidadesToggle?.nextElementSibling;
-        
-        console.log('🎯 Utilidades Toggle:', utilidadesToggle);
-        console.log('📝 Utilidades Menu:', utilidadesMenu);
-        
-        if (utilidadesToggle && utilidadesMenu) {
-            // Remover listeners previos
-            utilidadesToggle.removeEventListener('click', handleUtilidades);
+        if (utilidadesDropdown && utilidadesMenu) {
+            console.log('✅ Dropdown encontrado, aplicando fix...');
             
-            function handleUtilidades(e) {
-                console.log('🖱️ Click en Utilidades');
+            utilidadesDropdown.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Toggle manual del dropdown
-                if (utilidadesMenu.classList.contains('show')) {
-                    console.log('🔄 Cerrando dropdown');
-                    utilidadesMenu.classList.remove('show');
-                    utilidadesToggle.setAttribute('aria-expanded', 'false');
-                } else {
-                    console.log('🔄 Abriendo dropdown');
-                    // Cerrar otros dropdowns
-                    document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-                        menu.classList.remove('show');
-                    });
-                    
-                    // Abrir este dropdown
-                    utilidadesMenu.classList.add('show');
-                    utilidadesToggle.setAttribute('aria-expanded', 'true');
-                }
-            }
-            
-            utilidadesToggle.addEventListener('click', handleUtilidades);
-        }
-
-        // Cerrar dropdown al hacer click fuera
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.dropdown')) {
-                document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
+                // Simple toggle
+                const isVisible = utilidadesMenu.style.display === 'block';
+                
+                // Cerrar todos los dropdowns primero
+                document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                    menu.style.display = 'none';
                     menu.classList.remove('show');
                 });
-                document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(toggle => {
-                    toggle.setAttribute('aria-expanded', 'false');
-                });
-            }
-        });
-        
-        console.log('✅ Dropdown fix completado');
+                
+                // Toggle este dropdown
+                if (!isVisible) {
+                    utilidadesMenu.style.display = 'block';
+                    utilidadesMenu.classList.add('show');
+                    console.log('🟢 Dropdown abierto');
+                } else {
+                    utilidadesMenu.style.display = 'none';
+                    utilidadesMenu.classList.remove('show');
+                    console.log('🔴 Dropdown cerrado');
+                }
+            });
+            
+            // Cerrar al hacer click fuera
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.dropdown')) {
+                    utilidadesMenu.style.display = 'none';
+                    utilidadesMenu.classList.remove('show');
+                }
+            });
+            
+            console.log('✅ Dropdown fix aplicado correctamente');
+        } else {
+            console.error('❌ No se encontró el dropdown de utilidades');
+        }
     });
     </script>
 
