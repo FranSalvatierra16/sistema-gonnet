@@ -5,242 +5,169 @@
 
 {% block extra_css %}
     <style>
-    /* DISEÑO MODERNO COMPATIBLE CON BASE.HTML */
+    /* DISEÑO SIMPLE Y FUNCIONAL CON VERDE DEL LOGO */
     
-    /* Variables del diseño moderno */
+    /* Variables simplificadas */
     :root {
         --primary-color: #22c55e;
-        --primary-light: #4ade80;
         --primary-dark: #16a34a;
-        --secondary-color: #0ea5e9;
-        --gray-50: #f8fafc;
         --gray-100: #f1f5f9;
-        --gray-200: #e2e8f0;
-        --gray-300: #cbd5e1;
-        --gray-600: #475569;
         --gray-700: #334155;
-        --gray-800: #1e293b;
     }
 
-    /* Container principal moderno */
+    /* Container principal simple */
     .container-fluid {
-        background: rgba(255, 255, 255, 0.95) !important;
-        backdrop-filter: blur(10px) !important;
-        border-radius: 20px !important;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1) !important;
+        background: white !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
         padding: 2rem !important;
         margin: 1rem !important;
-        max-width: 98% !important;
-        border: 1px solid rgba(34, 197, 94, 0.1) !important;
+        border: 1px solid #e2e8f0 !important;
     }
 
-    /* Título principal */
+    /* Título verde */
     h1 {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        color: var(--primary-color) !important;
         font-weight: 700 !important;
-        font-size: 2.5rem !important;
         text-align: center !important;
         margin-bottom: 2rem !important;
     }
 
-    /* Cuadro de búsqueda principal */
+    /* Cuadro de búsqueda verde simple */
     .main-search-box {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;
-        border-radius: 20px !important;
+        background: var(--primary-color) !important;
+        border-radius: 12px !important;
         padding: 2rem !important;
-        box-shadow: 0 15px 40px rgba(34, 197, 94, 0.3) !important;
         margin-bottom: 2rem !important;
-        position: relative !important;
-        overflow: hidden !important;
+        color: white !important;
     }
 
-    .main-search-box::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(45deg, rgba(255, 255, 255, 0.1) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.1) 75%);
-        background-size: 20px 20px;
-        animation: movePattern 20s linear infinite;
-        pointer-events: none;
-    }
-
-    @keyframes movePattern {
-        0% { background-position: 0 0; }
-        100% { background-position: 20px 20px; }
-    }
-
-    /* Formularios y controles */
+    /* Labels blancas en formulario */
     .form-group label {
         color: white !important;
         font-weight: 600 !important;
         margin-bottom: 0.5rem !important;
-        font-size: 0.9rem !important;
     }
 
+    /* Input groups simples */
     .input-group {
-        background: rgba(255, 255, 255, 0.95) !important;
-        border-radius: 12px !important;
+        background: white !important;
+        border-radius: 8px !important;
         overflow: hidden !important;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
-        transition: all 0.3s ease !important;
-    }
-
-    .input-group:focus-within {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(34, 197, 94, 0.2) !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
     }
 
     .input-group-text {
-        border: none !important;
         background: transparent !important;
+        border: none !important;
         color: var(--primary-color) !important;
-        font-weight: 600 !important;
     }
 
     .form-control {
         border: none !important;
         background: transparent !important;
-        font-weight: 500 !important;
         padding: 0.75rem !important;
     }
 
-    .form-control:focus {
-        box-shadow: none !important;
-        background: transparent !important;
-    }
-
-    /* Botones modernos */
+    /* Botones verdes simples */
     .btn-primary {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1)) !important;
-        border: 2px solid rgba(255, 255, 255, 0.3) !important;
-        color: white !important;
+        background: white !important;
+        color: var(--primary-color) !important;
+        border: 2px solid white !important;
         font-weight: 600 !important;
-        padding: 0.75rem 1.5rem !important;
-        border-radius: 12px !important;
+        border-radius: 8px !important;
         transition: all 0.3s ease !important;
-        backdrop-filter: blur(10px) !important;
     }
 
     .btn-primary:hover {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2)) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 25px rgba(255, 255, 255, 0.2) !important;
+        background: rgba(255, 255, 255, 0.9) !important;
+        color: var(--primary-dark) !important;
+        transform: translateY(-1px) !important;
     }
 
-    /* Controles container */
+    /* Controles container simple */
     .controls-container {
-        background: rgba(255, 255, 255, 0.15) !important;
-        backdrop-filter: blur(10px) !important;
-        border-radius: 15px !important;
-        padding: 1.5rem !important;
-        margin-top: 1.5rem !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        background: rgba(255, 255, 255, 0.2) !important;
+        border-radius: 8px !important;
+        padding: 1rem !important;
+        margin-top: 1rem !important;
     }
 
     .control-btn {
-        background: rgba(255, 255, 255, 0.9) !important;
+        background: white !important;
         color: var(--primary-color) !important;
         border: none !important;
-        border-radius: 12px !important;
-        padding: 0.75rem 1.5rem !important;
+        border-radius: 8px !important;
+        padding: 0.75rem 1rem !important;
         font-weight: 600 !important;
         transition: all 0.3s ease !important;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+        margin: 0.25rem !important;
     }
 
     .control-btn:hover {
-        background: white !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 25px rgba(34, 197, 94, 0.2) !important;
+        background: var(--gray-100) !important;
     }
 
-    /* Tabla moderna */
+    /* Tabla simple */
     .table-wrapper {
         background: white !important;
-        border-radius: 16px !important;
+        border-radius: 8px !important;
         overflow: hidden !important;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
-        border: 1px solid rgba(34, 197, 94, 0.1) !important;
-    }
-
-    .table {
-        margin: 0 !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+        border: 1px solid #e2e8f0 !important;
+        height: 400px !important;
+        overflow-y: auto !important;
     }
 
     .table thead th {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;
+        background: var(--primary-color) !important;
         color: white !important;
         border: none !important;
-        padding: 1rem !important;
+        padding: 1rem 0.75rem !important;
         font-weight: 600 !important;
-        font-size: 0.9rem !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 10 !important;
     }
 
     .table tbody tr {
-        transition: all 0.3s ease !important;
+        transition: background-color 0.2s ease !important;
         cursor: pointer !important;
-        border-bottom: 1px solid rgba(34, 197, 94, 0.1) !important;
     }
 
     .table tbody tr:hover {
         background: rgba(34, 197, 94, 0.05) !important;
-        transform: scale(1.01) !important;
     }
 
-    /* Propiedad seleccionada con diseño moderno */
+    /* Propiedad seleccionada simple */
     .table tbody tr.selected {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-light)) !important;
+        background: var(--primary-color) !important;
         color: white !important;
-        transform: scale(1.02) !important;
-        box-shadow: 0 8px 25px rgba(34, 197, 94, 0.4) !important;
-        border-radius: 8px !important;
     }
 
     .table tbody tr.selected td {
         color: white !important;
-        font-weight: 700 !important;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2) !important;
+        font-weight: 600 !important;
     }
 
-    /* Cards modernos */
+    /* Cards simples */
     .card {
-        background: rgba(255, 255, 255, 0.95) !important;
-        backdrop-filter: blur(10px) !important;
-        border: 1px solid rgba(34, 197, 94, 0.1) !important;
-        border-radius: 16px !important;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
-        transition: all 0.3s ease !important;
-        overflow: hidden !important;
-    }
-
-    .card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        background: white !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+        transition: box-shadow 0.3s ease !important;
     }
 
     .card:hover {
-        transform: translateY(-5px) !important;
-        box-shadow: 0 20px 40px rgba(34, 197, 94, 0.2) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
     }
 
     .card-header {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;
+        background: var(--primary-color) !important;
         color: white !important;
         border: none !important;
-        padding: 1.25rem !important;
+        padding: 1rem !important;
         font-weight: 600 !important;
     }
 
@@ -249,68 +176,72 @@
     }
 
     .card-footer {
-        background: rgba(248, 250, 252, 0.8) !important;
-        border-top: 1px solid rgba(34, 197, 94, 0.1) !important;
-        padding: 1.25rem !important;
+        background: var(--gray-100) !important;
+        border-top: 1px solid #e2e8f0 !important;
+        padding: 1rem !important;
     }
 
-    /* Badges y estados */
+    /* Badges simples */
     .badge {
-        padding: 0.5rem 1rem !important;
-        border-radius: 8px !important;
+        padding: 0.375rem 0.75rem !important;
+        border-radius: 6px !important;
         font-weight: 600 !important;
-        font-size: 0.8rem !important;
     }
 
     .bg-primary {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;
+        background: var(--primary-color) !important;
     }
 
     .bg-info {
-        background: linear-gradient(135deg, var(--secondary-color), #0284c7) !important;
+        background: #0ea5e9 !important;
     }
 
-    /* Modal moderno (mantener funcionalidad) */
+    /* Modal simple */
     .modal-content {
-        background: rgba(255, 255, 255, 0.98) !important;
-        backdrop-filter: blur(20px) !important;
+        border-radius: 12px !important;
         border: none !important;
-        border-radius: 20px !important;
-        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3) !important;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2) !important;
     }
 
     .modal-header {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;
+        background: var(--primary-color) !important;
         color: white !important;
         border: none !important;
-        border-radius: 20px 20px 0 0 !important;
-        padding: 1.5rem !important;
+        border-radius: 12px 12px 0 0 !important;
     }
 
-    /* Scrollbar moderno */
+    /* Scrollbar simple */
     .table-wrapper::-webkit-scrollbar {
-        width: 8px !important;
+        width: 6px !important;
     }
 
     .table-wrapper::-webkit-scrollbar-track {
-        background: var(--gray-100) !important;
-        border-radius: 4px !important;
+        background: #f1f1f1 !important;
     }
 
     .table-wrapper::-webkit-scrollbar-thumb {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;
-        border-radius: 4px !important;
+        background: var(--primary-color) !important;
+        border-radius: 3px !important;
     }
 
-    /* Filtros adicionales */
+    /* Filtros */
     #filtrosAdicionales .card {
-        background: rgba(255, 255, 255, 0.9) !important;
-        border: 1px solid rgba(34, 197, 94, 0.2) !important;
+        border: 1px solid #e2e8f0 !important;
     }
 
     .form-check-input:checked {
         background-color: var(--primary-color) !important;
         border-color: var(--primary-color) !important;
+    }
+
+    /* Mantener funcionalidad */
+    .status-disponible { color: var(--primary-color); font-weight: bold; }
+    .status-reservado { color: #ef4444; font-weight: bold; }
+    .precio-highlight { color: var(--primary-color); font-weight: bold; }
+    
+    #modalConfirmarReserva {
+        pointer-events: auto !important;
+        z-index: 1055 !important;
     }
 
     /* Responsive */
@@ -323,39 +254,19 @@
         .main-search-box {
             padding: 1.5rem !important;
         }
-        
-        h1 {
-            font-size: 2rem !important;
-        }
     }
 
-    /* Animaciones suaves */
-    * {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    }
-
-    /* Mantener todos los estilos funcionales existentes */
-    .status-disponible { color: var(--primary-color); font-weight: bold; }
-    .status-reservado { color: #ef4444; font-weight: bold; }
-    .precio-highlight { color: var(--primary-color); font-weight: bold; font-size: 1.1em; }
-    
-    /* Mantener estilos del modal personalizado */
-    #modalConfirmarReserva {
-        pointer-events: auto !important;
-        z-index: 1055 !important;
-    }
-    
-    /* Asegurar que todos los elementos interactivos mantengan su funcionalidad */
+    /* Animación de selección mantenida */
     .table tbody tr.selected {
         animation: pulseSelection 2s infinite alternate !important;
     }
 
     @keyframes pulseSelection {
         0% {
-            box-shadow: 0 8px 25px rgba(34, 197, 94, 0.4);
+            box-shadow: 0 0 0 0px rgba(34, 197, 94, 0.4);
         }
         100% {
-            box-shadow: 0 12px 35px rgba(34, 197, 94, 0.6);
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
         }
     }
     </style>

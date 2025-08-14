@@ -811,18 +811,18 @@
             position: relative !important;
         }
 
-        /* SIDEBAR MODERNO DE UTILIDADES */
+        /* SIDEBAR MODERNO DE UTILIDADES - MEJORADO */
         .sidebar {
             position: fixed;
             top: 0;
-            left: -320px;
-            width: 320px;
+            left: -350px;
+            width: 350px;
             height: 100vh;
-            background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.98));
-            backdrop-filter: blur(20px);
-            border-right: 2px solid rgba(34, 197, 94, 0.2);
-            box-shadow: 5px 0 30px rgba(0, 0, 0, 0.1);
-            z-index: 10000;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+            backdrop-filter: blur(25px);
+            border-right: 3px solid rgba(34, 197, 94, 0.3);
+            box-shadow: 8px 0 40px rgba(0, 0, 0, 0.15);
+            z-index: 99999;
             transition: left 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             overflow-y: auto;
         }
@@ -960,7 +960,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 {% if user.is_authenticated %}
                 <div class="navbar-nav me-auto">
-                    <a class="nav-link" href="{% url 'inmobiliaria:dashboard' %}">Inicio</a>
+                    
                     <a class="nav-link" href="{% url 'inmobiliaria:buscar_propiedades' %}">Reservas</a>
                     <a class="nav-link" href="#" id="utilidadesSidebarBtn">
                         <i class="fas fa-tools me-2"></i>Utilidades
@@ -1242,7 +1242,7 @@
     });
     </script>
 
-    <!-- SIDEBAR JAVASCRIPT -->
+    <!-- SIDEBAR JAVASCRIPT MEJORADO -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const sidebarBtn = document.getElementById('utilidadesSidebarBtn');
@@ -1250,48 +1250,82 @@
         const overlay = document.getElementById('sidebarOverlay');
         const closeBtn = document.getElementById('closeSidebarBtn');
         
-        console.log('✅ Sidebar configurado');
+        console.log('🔧 Inicializando sidebar...');
+        console.log('🎯 Sidebar button:', sidebarBtn);
+        console.log('📋 Sidebar element:', sidebar);
+        console.log('🔍 Overlay element:', overlay);
+        console.log('❌ Close button:', closeBtn);
         
         // Función para abrir sidebar
         function openSidebar() {
-            sidebar.classList.add('open');
-            overlay.classList.add('active');
-            document.body.style.overflow = 'hidden'; // Evitar scroll del body
-            console.log('🟢 Sidebar abierto');
+            if (sidebar) {
+                sidebar.classList.add('open');
+                console.log('✅ Clase "open" agregada al sidebar');
+            }
+            if (overlay) {
+                overlay.classList.add('active');
+                console.log('✅ Clase "active" agregada al overlay');
+            }
+            document.body.style.overflow = 'hidden';
+            console.log('🟢 Sidebar abierto exitosamente');
         }
         
         // Función para cerrar sidebar
         function closeSidebar() {
-            sidebar.classList.remove('open');
-            overlay.classList.remove('active');
+            if (sidebar) {
+                sidebar.classList.remove('open');
+                console.log('❌ Clase "open" removida del sidebar');
+            }
+            if (overlay) {
+                overlay.classList.remove('active');
+                console.log('❌ Clase "active" removida del overlay');
+            }
             document.body.style.overflow = 'auto';
-            console.log('🔴 Sidebar cerrado');
+            console.log('🔴 Sidebar cerrado exitosamente');
         }
         
-        // Event listeners
+        // Event listeners con debug
         if (sidebarBtn) {
             sidebarBtn.addEventListener('click', function(e) {
                 e.preventDefault();
+                console.log('🖱️ Click en botón de Utilidades detectado');
                 openSidebar();
             });
+            console.log('✅ Event listener agregado al botón de Utilidades');
+        } else {
+            console.error('❌ No se encontró el botón utilidadesSidebarBtn');
         }
         
         if (closeBtn) {
-            closeBtn.addEventListener('click', closeSidebar);
+            closeBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('🖱️ Click en botón cerrar detectado');
+                closeSidebar();
+            });
+            console.log('✅ Event listener agregado al botón cerrar');
+        } else {
+            console.error('❌ No se encontró el botón closeSidebarBtn');
         }
         
         if (overlay) {
-            overlay.addEventListener('click', closeSidebar);
+            overlay.addEventListener('click', function(e) {
+                console.log('🖱️ Click en overlay detectado');
+                closeSidebar();
+            });
+            console.log('✅ Event listener agregado al overlay');
+        } else {
+            console.error('❌ No se encontró el overlay');
         }
         
         // Cerrar con ESC
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
+                console.log('⌨️ Tecla ESC presionada');
                 closeSidebar();
             }
         });
         
-        console.log('✅ Sidebar listo para usar');
+        console.log('✅ Sidebar completamente configurado');
     });
     </script>
 
