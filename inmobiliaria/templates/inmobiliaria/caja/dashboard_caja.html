@@ -211,7 +211,7 @@
         <div class="cards-grid">
             <!-- Caja Actual -->
             <div class="action-card caja-actual" 
-                 onclick="{% if caja_actual %}window.location.href='{% url 'inmobiliaria:caja' caja_actual.numero %}'{% else %}window.location.href='{% url 'inmobiliaria:abrir_caja' %}'{% endif %}">
+                 onclick="{% if caja_actual %}window.location.href='{% url 'inmobiliaria:detalle_caja' caja_actual.numero %}'{% else %}window.location.href='{% url 'inmobiliaria:abrir_caja' %}'{% endif %}">
                 <div class="card-header">
                     <div class="card-icon success">
                         {% if caja_actual %}

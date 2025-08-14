@@ -3942,7 +3942,26 @@ def eliminar_todas_imagenes(request, propiedad_id):
 
 @login_required
 def dashboard_caja(request):
-    return render(request, 'inmobiliaria/caja/dashboard_caja.html')
+    try:
+        # Obtener la sucursal del usuario logueado
+        sucursal = request.user.sucursal
+        
+        # Verificar si hay una caja abierta para esta sucursal
+        caja_actual = Caja.objects.filter(
+            sucursal=sucursal,
+            estado='abierta'
+        ).first()
+        
+        context = {
+            'sucursal': sucursal,
+            'caja_actual': caja_actual,
+        }
+        
+        return render(request, 'inmobiliaria/caja/dashboard_caja.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Error al acceder al dashboard de caja: {str(e)}')
+        return redirect('inmobiliaria:dashboard')
 
 @login_required
 def reportes_caja(request):

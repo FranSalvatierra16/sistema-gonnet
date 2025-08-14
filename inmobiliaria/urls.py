@@ -24,6 +24,7 @@ urlpatterns = [
     path('vendedores/<int:vendedor_id>/editar/', views.vendedor_editar, name='vendedor_editar'),
     path('vendedores/<int:vendedor_id>/eliminar/', views.vendedor_eliminar, name='vendedor_eliminar'),
     path('historial-reservas-vendedor/<int:vendedor_id>/', views.historial_reservas_vendedor, name='historial_reservas_vendedor'),
+    
     # Inquilino URLs
     path('inquilinos/', views.inquilinos, name='inquilinos'),
     path('inquilinos/<int:inquilino_id>/', views.inquilino_detalle, name='inquilino_detalle'),
@@ -31,6 +32,7 @@ urlpatterns = [
     path('inquilinos/<int:inquilino_id>/editar/', views.inquilino_editar, name='inquilino_editar'),
     path('inquilinos/<int:inquilino_id>/eliminar/', views.inquilino_eliminar, name='inquilino_eliminar'),
     path('historial-reservas-inquilino/<int:inquilino_id>/', views.historial_reservas_inquilino, name='historial_reservas_inquilino'),
+    
     # Propietario URLs
     path('propietarios/', views.propietarios, name='propietarios'),
     path('propietarios/<int:propietario_id>/', views.propietario_detalle, name='propietario_detalle'),
@@ -40,15 +42,51 @@ urlpatterns = [
     path('crear-propietario/', views.crear_propietario_ajax, name='crear_propietario_ajax'),
     path('propiedad/<int:propiedad_id>/precios/', views.gestionar_precios, name='gestionar_precios'),
     path('propietario/<int:propietario_id>/propiedades/', views.propiedades_por_propietario, name='propiedades_propietario'),
+    
     # Propiedad URLs
     path('propiedades/', views.propiedades, name='propiedades'),
     path('propiedades/<int:propiedad_id>/', views.propiedad_detalle, name='propiedad_detalle'),
     path('propiedades/nuevo/', views.propiedad_nuevo, name='propiedad_nuevo'),
     path('propiedades/<int:propiedad_id>/editar/', views.propiedad_editar, name='propiedad_editar'),
     path('propiedades/<int:propiedad_id>/eliminar/', views.propiedad_eliminar, name='propiedad_eliminar'),
-    path('propiedades/nuevo/', views.propiedad_nuevo, name='propiedad_nuevo'),
     path('propiedad/<int:propiedad_id>/crear-disponibilidad/', views.crear_disponibilidad, name='crear_disponibilidad'),
- 
+
+    # Reserva URLs
+    path('reservas/', views.reservas, name='reservas'),
+    path('reservas/<int:reserva_id>/', views.reserva_detalle, name='reserva_detalle'),
+    path('reservas/nueva/', views.reserva_nueva, name='reserva_nueva'),
+    path('reservas/<int:reserva_id>/editar/', views.reserva_editar, name='reserva_editar'),
+    path('reservas/<int:reserva_id>/eliminar/', views.reserva_eliminar, name='reserva_eliminar'),
+    path('reservas/<int:reserva_id>/confirmar-pago/', views.confirmar_pago, name='confirmar_pago'),
+    path('reservas/<int:reserva_id>/agregar-pago/', views.agregar_pago, name='agregar_pago'),
+    path('reservas/<int:reserva_id>/agregar-deposito/', views.agregar_deposito, name='agregar_deposito'),
+    path('pago/<int:pago_id>/eliminar/', views.eliminar_pago, name='eliminar_pago'),
+    
+    # ============================
+    # URLs SIMPLIFICADAS PARA CAJA
+    # ============================
+    
+    # Dashboard y gestión general
+    path('caja/dashboard/', views.dashboard_caja, name='dashboard_caja'),
+    path('caja/', views.gestionar_caja, name='gestionar_caja'),
+    path('caja/abrir/', views.abrir_caja, name='abrir_caja'),
+    
+    # Lista de cajas
+    path('cajas/', views.lista_cajas, name='lista_cajas'),
+    path('cajas/<int:numero>/', views.detalle_caja, name='detalle_caja'),
+    path('cajas/<int:numero>/cerrar/', views.cerrar_caja, name='cerrar_caja'),
+    
+    # Movimientos
+    path('caja/movimiento/nuevo/', views.nuevo_movimiento, name='nuevo_movimiento'),
+    path('caja/movimiento/<int:movimiento_id>/eliminar/', views.eliminar_movimiento, name='eliminar_movimiento'),
+    
+    # APIs y utilidades de caja
+    path('caja/obtener-actual/', views.obtener_caja_actual, name='obtener_caja_actual'),
+    path('caja/conceptos/buscar/', views.buscar_conceptos, name='buscar_conceptos'),
+    path('caja/conceptos/crear/', views.crear_concepto, name='crear_concepto'),
+    path('caja/propiedades/buscar/', views.buscar_propiedades_caja, name='buscar_propiedades_caja'),
+
+    # Otros URLs
     path('propietario/nuevo/ajax/', views.propietario_nuevo_ajax, name='propietario_nuevo_ajax'),
     path('buscar-clientes/', views.buscar_clientes, name='buscar_clientes'),
     path('crear-inquilino-ajax/', views.crear_inquilino_ajax, name='crear_inquilino_ajax'),
@@ -56,139 +94,47 @@ urlpatterns = [
     path('procesar-movimiento-reserva/', views.procesar_movimiento_reserva, name='procesar_movimiento_reserva'),
     path('test-json/', views.test_json_response, name='test_json_response'),
     path('api/propiedad/<int:propiedad_id>/', views.api_propiedad_detalle, name='api_propiedad_detalle'),
-    path('recibo-movimiento/<int:movimiento_id>/', views.ver_recibo_movimiento, name='ver_recibo_movimiento'),
-    path('disponibilidad-masiva/', views.agregar_disponibilidad_masiva, name='agregar_disponibilidad_masiva'),
-    path('propiedad/<int:propiedad_id>/historial-disponibilidad/', views.ver_historial_disponibilidad, name='historial_disponibilidad'),
-
-    # Búsqueda URLs
-    path('buscar-propiedad/', views.buscar_propiedad, name='buscar_propiedad'),
-    path('buscar-vendedor/', views.buscar_vendedor, name='buscar_vendedor'),
-    path('buscar-vendedores/', views.buscar_vendedores, name='buscar_vendedores'),
-    path('buscar-movimiento/', views.buscar_movimiento, name='buscar_movimiento'),
-    path('buscar-movimientos/', views.buscar_movimientos, name='buscar_movimientos'),
-
-    # Reserva URLs
-    path('reservas/', views.reservas, name='reservas'),
-    path('operaciones/', views.operaciones, name='operaciones'),
-    path('reservas/nuevo/', views.buscar_propiedades, name='buscar_propiedades'),
-    path('reservas/crear/', views.crear_reserva, name='crear_reserva'),
-    path('reservas/<int:reserva_id>/', views.reserva_detalle, name='reserva_detalle'),
-    path('confirmar_reserva/', views.confirmar_reserva, name='confirmar_reserva'),
-    path('reserva_exitosa/<int:reserva_id>/', views.reserva_exitosa, name='reserva_exitosa'),
-    path('reservas/<int:reserva_id>/terminar/', views.terminar_reserva, name='finalizar_reserva'),
-    path('reservas/<int:reserva_id>/finalizar-nueva/', views.finalizar_reserva_nueva, name='finalizar_reserva_nueva'),
-    path('reservas/<int:reserva_id>/editar/', views.reserva_editar, name='reserva_editar'),
-    path('reservas/<int:reserva_id>/agregar-pago/', views.agregar_pago, name='agregar_pago'),
-    path('reservas/<int:reserva_id>/agregar-deposito/', views.agregar_deposito, name='agregar_deposito'),
-    path('buscar-propietarios/', views.buscar_propietarios, name='buscar_propietarios'),
-    path('buscar-inquilinos/', views.buscar_inquilinos, name='buscar_inquilinos'),
-    path('reserva/eliminar/<int:reserva_id>/', views.reserva_eliminar, name='reserva_eliminar'),
-    path('autenticacion-vendedor/', views.autenticacion_vendedor, name='autenticacion_vendedor'),
-    path('obtener_precios_propiedad/', views.obtener_precios_propiedad, name='obtener_precios_propiedad'),
-    path('obtener_vendedor/<int:vendedor_id>/', views.obtener_vendedor, name='obtener_vendedor'),
-    path('obtener-inquilino/<int:inquilino_id>/', views.obtener_inquilino, name='obtener_inquilino'),
-    path('crear-sucursal/', views.crear_sucursal, name='crear_sucursal'),
-    path('actualizar-orden-imagenes/', views.actualizar_orden_imagenes, name='actualizar_orden_imagenes'),
-    path('eliminar-imagen/', views.eliminar_imagen, name='eliminar_imagen'),
-    path('ver-recibo/<int:reserva_id>/', views.ver_recibo, name='ver_recibo'),
-    path('reserva/<int:reserva_id>/recibo/', views.ver_recibo, name='ver_recibo'),
-   
-    path('password_reset/done/', 
-         auth_views.PasswordResetDoneView.as_view(
-             template_name='inmobiliaria/autenticacion/password_reset_done.html'
-         ), 
-         name='password_reset_done'),
-    path('reset/<uidb64>/<token>/',
-         auth_views.PasswordResetConfirmView.as_view(
-             template_name='inmobiliaria/autenticacion/password_reset_confirm.html'
-         ),
-         name='password_reset_confirm'),
-    path('reset/done/',
-         auth_views.PasswordResetCompleteView.as_view(
-             template_name='inmobiliaria/autenticacion/password_reset_complete.html'
-         ),
-         name='password_reset_complete'),
-    path('recuperar-password/', views.enviar_recuperacion, name='recuperar_password'),
+    path('api/precio/<int:precio_id>/', views.api_precio_detalle, name='api_precio_detalle'),
+    path('api/conceptos/', views.api_conceptos, name='api_conceptos'),
+    path('api/vendedores/', views.api_vendedores, name='api_vendedores'),
+    path('api/inquilinos/', views.api_inquilinos, name='api_inquilinos'),
+    path('api/propietarios/', views.api_propietarios, name='api_propietarios'),
+    path('api/propietario/<int:propietario_id>/', views.api_propietario_detalle, name='api_propietario_detalle'),
+    path('api/propiedades/', views.api_propiedades, name='api_propiedades'),
+    path('api/check-disponibilidad/', views.api_check_disponibilidad, name='api_check_disponibilidad'),
+    path('buscar-propiedades/', views.buscar_propiedades, name='buscar_propiedades'),
     path('cambiar-password/', views.cambiar_password, name='cambiar_password'),
-    path('reserva/<int:reserva_id>/confirmar-pago/', views.confirmar_pago, name='confirmar_pago'),
-    path('reserva/<int:reserva_id>/agregar-pago/', views.agregar_pago, name='agregar_pago'),
-    path('pago/<int:pago_id>/eliminar/', views.eliminar_pago, name='eliminar_pago'),
-    path('reserva/<int:reserva_id>/agregar-deposito/', views.agregar_deposito, name='agregar_deposito'),
-    path('propiedades/<str:propiedad_id>/editar-venta/', 
-         views.editar_info_venta, 
-         name='editar_info_venta'),
+    path('propiedades/<str:propiedad_id>/editar-venta/', views.editar_info_venta, name='editar_info_venta'),
     path('propiedades/<int:propiedad_id>/editar-meses/', views.editar_info_meses, name='editar_info_meses'),
     path('ventas/', views.ventas, name='ventas'),
     path('alquileres-24-meses/', views.alquileres_24_meses, name='alquileres_24_meses'),
     path('dashboard/ventas/', views.ventas, name='dashboard_ventas'),
     path('propiedad/<int:propiedad_id>/iniciar-compra/', views.iniciar_compra, name='iniciar_compra'),
-    path('caja/', views.gestionar_caja, name='gestionar_caja'),
-    path('caja/abrir/', views.abrir_caja, name='abrir_caja'),
-    path('caja/<int:numero>/cerrar/', views.cerrar_caja, name='cerrar_caja'),
-    path('caja/movimiento/nuevo/', views.nuevo_movimiento, name='nuevo_movimiento'),
-    path('caja/', views.caja, name='caja'),
-    path('caja/nuevo/', views.nuevo_movimiento, name='nuevo_movimiento'),
-    path('caja/eliminar/<int:movimiento_id>/', views.eliminar_movimiento, name='eliminar_movimiento'),
-    path('cajas/', views.lista_cajas, name='lista_cajas'),
-    path('cajas/abrir/', views.abrir_caja, name='abrir_caja'),
-    path('cajas/<int:numero>/', views.detalle_caja, name='detalle_caja'),
-    path('cajas/<int:numero_caja>/movimiento/', views.nuevo_movimiento, name='nuevo_movimiento'),
-    path('cajas/<int:numero_caja>/cerrar/', views.cerrar_caja, name='cerrar_caja'),
-    path('caja/nuevo-registro/', views.nuevo_registro, name='nuevo_registro'),
-    path('caja/nuevo-concepto/', views.nuevo_concepto, name='nuevo_concepto'),
-    path('caja/buscar-cuentas/', views.buscar_cuentas, name='buscar_cuentas'),
-    path('caja/crear-concepto/', views.crear_concepto, name='crear_concepto'),
+
+    # Utilidades
     path('crear-propiedad/', views.crear_propiedad, name='crear_propiedad'),
     path('api/simple-select2/', views.simple_select2, name='simple_select2'),
-    path('caja/crear-cuenta/', views.crear_cuenta, name='crear_cuenta'),
     path('buscar/propietarios/', views.buscar_propietarios, name='buscar_propietarios'),
     path('buscar/operacion/', views.buscar_operacion, name='buscar_operacion'),
     path('buscar/productores/', views.buscar_productores, name='buscar_productores'),
     path('conceptos/', views.conceptos_list, name='conceptos_list'),
     path('propietario_cuentas/', views.propietario_cuentas, name='propietario_cuentas'),
     path('guardar_movimiento/', views.guardar_movimiento, name='guardar_movimiento'),
-    path(
-        "propietarios/buscar/",
-        views.buscar_propietarios,
-        name="buscar_propietarios",
-    ),
-    path("propiedades/nuevo/",               views.propiedad_nuevo,       name="propiedad_nuevo"),
-    path("propiedades/<int:propiedad_id>/editar/",
-         views.propiedad_editar,             name="propiedad_editar"),
+
     # Rutas de imágenes
     path('imagen/<int:imagen_id>/eliminar/', views.imagen_eliminar, name='imagen_eliminar'),
     path('propiedad/<int:propiedad_id>/eliminar-todas-imagenes/', views.eliminar_todas_imagenes, name='eliminar_todas_imagenes'),
     path('propiedades/<int:propiedad_id>/reordenar-imagenes/', views.reordenar_imagenes, name='reordenar_imagenes'),
     path('obtener-caracteristicas-propiedad/', views.obtener_caracteristicas_propiedad, name='obtener_caracteristicas_propiedad'),
-    # Sucursal URLs
-    path('sucursal/', views.sucursales, name='sucursales'),
-    path('sucursal/<int:sucursal_id>/', views.sucursal_detalle, name='sucursal_detalle'),
-    path('sucursal/<int:sucursal_id>/editar/', views.editar_sucursal, name='editar_sucursal'),
     path('obtener-fotos-propiedad/<int:propiedad_id>/', views.obtener_fotos_propiedad, name='obtener_fotos_propiedad'),
     path('obtener-precios-propiedad/<int:propiedad_id>/', views.obtener_precios_propiedad, name='obtener_precios_propiedad'),
     path('guardar-precios-propiedad/', views.guardar_precios_propiedad, name='guardar_precios_propiedad'),
     
-    # Rutas de imágenes
-    path('imagen/<int:imagen_id>/eliminar/', views.imagen_eliminar, name='imagen_eliminar'),
-    path('propiedad/<int:propiedad_id>/eliminar-todas-imagenes/', views.eliminar_todas_imagenes, name='eliminar_todas_imagenes'),
-    
-    # Caja URLs
-    path('cajas/', views.lista_cajas, name='lista_cajas'),
-    path('cajas/<int:numero_caja>/movimiento/', views.nuevo_movimiento, name='nuevo_movimiento'),
-    path('cajas/<int:numero_caja>/cerrar/', views.cerrar_caja, name='cerrar_caja'),
-    path('cajas/<int:numero>/detalle/', views.detalle_caja, name='detalle_caja'),
-    path('caja/', views.caja, name='caja'),
-    path('caja/nuevo-movimiento/', views.nuevo_movimiento, name='nuevo_movimiento_sin_caja'),
-    path('caja/dashboard/', views.dashboard_caja, name='dashboard_caja'),
-    path('caja/reportes/', views.reportes_caja, name='reportes_caja'),
-    path('caja/arqueo/', views.arqueo_caja, name='arqueo_caja'),
-    path('caja/historial/', views.historial_caja, name='historial_caja'),
-    path('caja/conceptos/buscar/', views.buscar_conceptos, name='buscar_conceptos'),
-    path('caja/conceptos/crear/', views.crear_concepto, name='crear_concepto'),
-    path('caja/propiedad/buscar/', views.buscar_propiedad, name='buscar_propiedad'),
-    path('caja/propiedades/buscar/', views.buscar_propiedades_caja, name='buscar_propiedades_caja'),
-    path('caja/obtener-actual/', views.obtener_caja_actual, name='obtener_caja_actual'),
-    
+    # Sucursal URLs
+    path('sucursal/', views.sucursales, name='sucursales'),
+    path('sucursal/<int:sucursal_id>/', views.sucursal_detalle, name='sucursal_detalle'),
+    path('sucursal/<int:sucursal_id>/editar/', views.editar_sucursal, name='editar_sucursal'),
+
     # ============================
     # URLs PARA CONTRATOS 24 MESES
     # ============================
