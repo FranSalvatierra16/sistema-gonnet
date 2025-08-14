@@ -810,6 +810,140 @@
             overflow: visible !important;
             position: relative !important;
         }
+
+        /* SIDEBAR MODERNO DE UTILIDADES */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -320px;
+            width: 320px;
+            height: 100vh;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.98));
+            backdrop-filter: blur(20px);
+            border-right: 2px solid rgba(34, 197, 94, 0.2);
+            box-shadow: 5px 0 30px rgba(0, 0, 0, 0.1);
+            z-index: 10000;
+            transition: left 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            overflow-y: auto;
+        }
+
+        .sidebar.open {
+            left: 0;
+        }
+
+        .sidebar-header {
+            padding: 2rem 1.5rem 1.5rem;
+            border-bottom: 1px solid rgba(34, 197, 94, 0.15);
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            color: white;
+            position: relative;
+        }
+
+        .sidebar-header h5 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 1.25rem;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
+        }
+
+        .sidebar-content {
+            padding: 1rem 0;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            color: var(--gray-700);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            margin: 0.25rem 1rem;
+            border-radius: 12px;
+            font-weight: 500;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .sidebar-item:hover {
+            color: var(--primary-color);
+            background: rgba(34, 197, 94, 0.08);
+            transform: translateX(8px);
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.2);
+        }
+
+        .sidebar-item:hover::before {
+            left: 100%;
+        }
+
+        .sidebar-item i {
+            color: var(--primary-color);
+            opacity: 0.8;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-item:hover i {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        /* OVERLAY */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 280px;
+                left: -280px;
+            }
+        }
     </style>
     {% endblock %}
 </head>
@@ -828,24 +962,9 @@
                 <div class="navbar-nav me-auto">
                     <a class="nav-link" href="{% url 'inmobiliaria:dashboard' %}">Inicio</a>
                     <a class="nav-link" href="{% url 'inmobiliaria:buscar_propiedades' %}">Reservas</a>
-                    <div class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="utilidadesDropdown" role="button" 
-                           data-bs-toggle="dropdown" aria-expanded="false">
-                            Utilidades
-                        </a>
-                        <ul class="dropdown-menu" aria-labelledby="utilidadesDropdown">
-                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:vendedores' %}">Vendedores</a></li>
-                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:inquilinos' %}">Turistas</a></li>
-                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:propietarios' %}">Propietarios</a></li>
-                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:propiedades' %}">Propiedades</a></li>
-                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:reservas' %}">Lista Reservas</a></li>
-                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:operaciones' %}">Operaciones</a></li>
-                            {% if user.nivel == 4 %}
-                                <li><a class="dropdown-item" href="{% url 'inmobiliaria:register' %}">Registrar Usuario</a></li>
-                            {% endif %}
-                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:crear_sucursal' %}">Crear Sucursal</a></li>
-                        </ul>
-                    </div>
+                    <a class="nav-link" href="#" id="utilidadesSidebarBtn">
+                        <i class="fas fa-tools me-2"></i>Utilidades
+                    </a>
                 </div>
                 {% endif %}
                 <div class="navbar-nav ms-auto">
@@ -859,6 +978,47 @@
             </div>
         </div>
     </nav>
+
+    <!-- SIDEBAR DE UTILIDADES -->
+    <div id="utilidadesSidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h5><i class="fas fa-tools me-2"></i>Utilidades</h5>
+            <button id="closeSidebarBtn" class="close-btn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="sidebar-content">
+            <a href="{% url 'inmobiliaria:vendedores' %}" class="sidebar-item">
+                <i class="fas fa-user-tie me-3"></i>Vendedores
+            </a>
+            <a href="{% url 'inmobiliaria:inquilinos' %}" class="sidebar-item">
+                <i class="fas fa-users me-3"></i>Turistas
+            </a>
+            <a href="{% url 'inmobiliaria:propietarios' %}" class="sidebar-item">
+                <i class="fas fa-user-crown me-3"></i>Propietarios
+            </a>
+            <a href="{% url 'inmobiliaria:propiedades' %}" class="sidebar-item">
+                <i class="fas fa-building me-3"></i>Propiedades
+            </a>
+            <a href="{% url 'inmobiliaria:reservas' %}" class="sidebar-item">
+                <i class="fas fa-calendar-check me-3"></i>Lista Reservas
+            </a>
+            <a href="{% url 'inmobiliaria:operaciones' %}" class="sidebar-item">
+                <i class="fas fa-file-invoice-dollar me-3"></i>Operaciones
+            </a>
+            {% if user.nivel == 4 %}
+                <a href="{% url 'inmobiliaria:register' %}" class="sidebar-item">
+                    <i class="fas fa-user-plus me-3"></i>Registrar Usuario
+                </a>
+            {% endif %}
+            <a href="{% url 'inmobiliaria:crear_sucursal' %}" class="sidebar-item">
+                <i class="fas fa-map-marker-alt me-3"></i>Crear Sucursal
+            </a>
+        </div>
+    </div>
+
+    <!-- OVERLAY para cerrar sidebar -->
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
 
     <div class="content-wrapper">
         <div class="container-fluid fade-in-up">
@@ -1082,92 +1242,56 @@
     });
     </script>
 
-    <!-- DROPDOWN ARRIBA DE TODO - POSICIÓN PERFECTA -->
+    <!-- SIDEBAR JAVASCRIPT -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const utilidadesBtn = document.getElementById('utilidadesDropdown');
-        const utilidadesMenu = utilidadesBtn?.nextElementSibling;
+        const sidebarBtn = document.getElementById('utilidadesSidebarBtn');
+        const sidebar = document.getElementById('utilidadesSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const closeBtn = document.getElementById('closeSidebarBtn');
         
-        if (utilidadesBtn && utilidadesMenu) {
-            console.log('✅ Dropdown encontrado, aplicando fix supremo...');
-            
-            utilidadesBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Cerrar otros dropdowns
-                document.querySelectorAll('.dropdown-menu').forEach(menu => {
-                    if (menu !== utilidadesMenu) {
-                        menu.style.display = 'none';
-                        menu.classList.remove('show');
-                    }
-                });
-                
-                // Toggle
-                const isOpen = utilidadesMenu.classList.contains('show');
-                
-                if (isOpen) {
-                    utilidadesMenu.style.display = 'none';
-                    utilidadesMenu.classList.remove('show');
-                    console.log('🔴 Dropdown cerrado');
-                } else {
-                    // Calcular posición del botón
-                    const rect = utilidadesBtn.getBoundingClientRect();
-                    const windowWidth = window.innerWidth;
-                    const windowHeight = window.innerHeight;
-                    
-                    // Posicionar SIEMPRE visible
-                    let top = rect.bottom + 8;
-                    let left = rect.left;
-                    
-                    // Si se sale por la derecha, alinear a la derecha
-                    if (left + 250 > windowWidth) {
-                        left = rect.right - 250;
-                    }
-                    
-                    // Si se sale por abajo, mostrar arriba del botón
-                    if (top + 400 > windowHeight) {
-                        top = rect.top - 400;
-                    }
-                    
-                    // Asegurar que no se salga de pantalla
-                    if (left < 10) left = 10;
-                    if (top < 10) top = 10;
-                    
-                    // Aplicar posición
-                    utilidadesMenu.style.position = 'fixed';
-                    utilidadesMenu.style.top = top + 'px';
-                    utilidadesMenu.style.left = left + 'px';
-                    utilidadesMenu.style.right = 'auto';
-                    utilidadesMenu.style.bottom = 'auto';
-                    utilidadesMenu.style.zIndex = '999999';
-                    utilidadesMenu.style.display = 'block';
-                    utilidadesMenu.classList.add('show');
-                    
-                    console.log('🟢 Dropdown abierto en:', left, top);
-                }
-            });
-            
-            // Cerrar al hacer click fuera
-            document.addEventListener('click', function(e) {
-                if (!e.target.closest('.dropdown')) {
-                    utilidadesMenu.style.display = 'none';
-                    utilidadesMenu.classList.remove('show');
-                }
-            });
-            
-            // Cerrar con ESC
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    utilidadesMenu.style.display = 'none';
-                    utilidadesMenu.classList.remove('show');
-                }
-            });
-            
-            console.log('✅ Dropdown supremo configurado');
-        } else {
-            console.error('❌ Dropdown no encontrado');
+        console.log('✅ Sidebar configurado');
+        
+        // Función para abrir sidebar
+        function openSidebar() {
+            sidebar.classList.add('open');
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden'; // Evitar scroll del body
+            console.log('🟢 Sidebar abierto');
         }
+        
+        // Función para cerrar sidebar
+        function closeSidebar() {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+            document.body.style.overflow = 'auto';
+            console.log('🔴 Sidebar cerrado');
+        }
+        
+        // Event listeners
+        if (sidebarBtn) {
+            sidebarBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                openSidebar();
+            });
+        }
+        
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeSidebar);
+        }
+        
+        if (overlay) {
+            overlay.addEventListener('click', closeSidebar);
+        }
+        
+        // Cerrar con ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeSidebar();
+            }
+        });
+        
+        console.log('✅ Sidebar listo para usar');
     });
     </script>
 
@@ -1203,11 +1327,11 @@
         });
 
         // Agregar logging para debugging
-        document.querySelector('#utilidadesDropdown').addEventListener('show.bs.dropdown', function () {
+        document.querySelector('#utilidadesSidebarBtn').addEventListener('show.bs.dropdown', function () {
             console.log('Dropdown Utilidades abriéndose');
         });
 
-        document.querySelector('#utilidadesDropdown').addEventListener('shown.bs.dropdown', function () {
+        document.querySelector('#utilidadesSidebarBtn').addEventListener('shown.bs.dropdown', function () {
             console.log('Dropdown Utilidades abierto');
         });
     });
