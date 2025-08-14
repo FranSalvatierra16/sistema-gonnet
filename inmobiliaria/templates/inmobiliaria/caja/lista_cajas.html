@@ -1,156 +1,480 @@
 {% extends 'inmobiliaria/base.html' %}
 
+{% block title %}Gestión de Caja{% endblock %}
+
+{% block extra_css %}
+<style>
+    .caja-container {
+        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        min-height: calc(100vh - 120px);
+        padding: 2rem 0;
+    }
+
+    .header-section {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+        text-align: center;
+    }
+
+    .page-title {
+        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .page-subtitle {
+        color: #666;
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+    }
+
+    .sucursal-badge {
+        background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+        color: white;
+        padding: 0.8rem 1.5rem;
+        border-radius: 25px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        display: inline-flex;
+        align-items: center;
+        box-shadow: 0 5px 15px rgba(33, 150, 243, 0.3);
+    }
+
+    .caja-status-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .caja-status-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    }
+
+    .status-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .info-box {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 15px;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+
+    .info-box:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .info-box.success {
+        border-left-color: #28a745;
+    }
+
+    .info-box.info {
+        border-left-color: #17a2b8;
+    }
+
+    .info-box.warning {
+        border-left-color: #ffc107;
+    }
+
+    .info-box.danger {
+        border-left-color: #dc3545;
+    }
+
+    .info-box h5 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+
+    .info-box .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .info-box.success .value {
+        color: #28a745;
+    }
+
+    .info-box.info .value {
+        color: #17a2b8;
+    }
+
+    .info-box.warning .value {
+        color: #ffc107;
+    }
+
+    .info-box.danger .value {
+        color: #dc3545;
+    }
+
+    .info-box .subtitle {
+        font-size: 0.9rem;
+        color: #666;
+    }
+
+    .actions-section {
+        text-align: center;
+        margin: 2rem 0;
+    }
+
+    .btn-modern {
+        border: none;
+        border-radius: 15px;
+        padding: 1rem 2rem;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        margin: 0.5rem;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .btn-modern i {
+        margin-right: 0.5rem;
+    }
+
+    .btn-success-modern {
+        background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+        color: white;
+        box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+    }
+
+    .btn-success-modern:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+        color: white;
+    }
+
+    .btn-primary-modern {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+        box-shadow: 0 5px 15px rgba(0, 123, 255, 0.3);
+    }
+
+    .btn-primary-modern:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0, 123, 255, 0.4);
+        color: white;
+    }
+
+    .btn-danger-modern {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+    }
+
+    .btn-danger-modern:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(220, 53, 69, 0.4);
+        color: white;
+    }
+
+    .btn-warning-modern {
+        background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+        color: #212529;
+        box-shadow: 0 5px 15px rgba(255, 193, 7, 0.3);
+    }
+
+    .btn-warning-modern:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(255, 193, 7, 0.4);
+        color: #212529;
+    }
+
+    .no-caja-message {
+        text-align: center;
+        padding: 3rem;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .no-caja-message i {
+        font-size: 4rem;
+        color: #ffc107;
+        margin-bottom: 1rem;
+    }
+
+    .no-caja-message h3 {
+        color: #2c3e50;
+        margin-bottom: 1rem;
+    }
+
+    .no-caja-message p {
+        color: #666;
+        margin-bottom: 2rem;
+    }
+
+    .alert-modern {
+        border: none;
+        border-radius: 15px;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .alert-success-modern {
+        background: linear-gradient(135deg, rgba(40, 167, 69, 0.1) 0%, rgba(30, 126, 52, 0.1) 100%);
+        border-left: 4px solid #28a745;
+        color: #155724;
+    }
+
+    .alert-warning-modern {
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(224, 168, 0, 0.1) 100%);
+        border-left: 4px solid #ffc107;
+        color: #856404;
+    }
+
+    .alert-danger-modern {
+        background: linear-gradient(135deg, rgba(220, 53, 69, 0.1) 0%, rgba(200, 35, 51, 0.1) 100%);
+        border-left: 4px solid #dc3545;
+        color: #721c24;
+    }
+
+    .alert-info-modern {
+        background: linear-gradient(135deg, rgba(23, 162, 184, 0.1) 0%, rgba(19, 132, 150, 0.1) 100%);
+        border-left: 4px solid #17a2b8;
+        color: #0c5460;
+    }
+
+    .fade-in {
+        animation: fadeInUp 0.6s ease-out forwards;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .page-title {
+            font-size: 2rem;
+        }
+        
+        .caja-container {
+            padding: 1rem;
+        }
+        
+        .header-section,
+        .caja-status-card {
+            padding: 1.5rem;
+        }
+        
+        .status-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .btn-modern {
+            width: 100%;
+            margin: 0.5rem 0;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }}">
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
-
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h3 class="card-title mb-0">Estado de Caja - {{ request.user.sucursal }}</h3>
+<div class="caja-container">
+    <div class="container-fluid">
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert-modern alert-{{ message.tags }}-modern fade-in">
+                    <i class="fas fa-info-circle me-2"></i>
+                    {{ message }}
                 </div>
-                <div class="card-body">
-                    {% if caja_actual %}
-                        <div class="row">
-                            <div class="col-md-3">
-                                <div class="info-box bg-success text-white">
-                                    <h5>Caja #{{ caja_actual.numero }}</h5>
-                                    <p>Abierta el: {{ caja_actual.fecha_apertura|date:"d/m/Y H:i" }}</p>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="info-box bg-info text-white">
-                                    <h5>Saldo Inicial</h5>
-                                    <p>${{ caja_actual.saldo_inicial|floatformat:2 }}</p>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="info-box bg-warning text-dark">
-                                    <h5>Saldo Actual</h5>
-                                    <p>${{ caja_actual.get_saldo_actual|floatformat:2 }}</p>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="d-grid gap-2">
-                                    <a href="{% url 'inmobiliaria:nuevo_movimiento' caja_actual.numero %}" class="btn btn-primary mb-2">
-                                        <i class="fas fa-plus"></i> Nuevo Movimiento
-                                    </a>
-                                    <a href="{% url 'inmobiliaria:cerrar_caja' caja_actual.numero %}" class="btn btn-danger">
-                                        <i class="fas fa-lock"></i> Cerrar Caja
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    {% else %}
-                        <div class="text-center">
-                            <p class="lead">No hay caja abierta actualmente</p>
-                            <a href="{% url 'inmobiliaria:abrir_caja' %}" class="btn btn-primary">
-                                <i class="fas fa-lock-open"></i> Abrir Nueva Caja
-                            </a>
-                        </div>
-                    {% endif %}
+            {% endfor %}
+        {% endif %}
+
+        <!-- Header Section -->
+        <div class="header-section fade-in">
+            <h1 class="page-title">💰 Gestión de Caja</h1>
+            <p class="page-subtitle">Control financiero y movimientos de caja</p>
+            <div class="sucursal-badge">
+                <i class="fas fa-building me-2"></i>
+                {{ request.user.sucursal }}
+            </div>
+        </div>
+
+        <!-- Estado de Caja Actual -->
+        {% if caja_actual %}
+            <div class="caja-status-card fade-in">
+                <h3 style="text-align: center; color: #2c3e50; margin-bottom: 1.5rem;">
+                    <i class="fas fa-cash-register me-2"></i>
+                    Estado de Caja Actual
+                </h3>
+                
+                <div class="status-grid">
+                    <div class="info-box success">
+                        <h5>Caja Número</h5>
+                        <div class="value">#{{ caja_actual.numero }}</div>
+                        <div class="subtitle">Caja Activa</div>
+                    </div>
+
+                    <div class="info-box info">
+                        <h5>Fecha de Apertura</h5>
+                        <div class="value">{{ caja_actual.fecha_apertura|date:"d/m/Y" }}</div>
+                        <div class="subtitle">{{ caja_actual.fecha_apertura|date:"H:i" }}</div>
+                    </div>
+
+                    <div class="info-box warning">
+                        <h5>Saldo Inicial</h5>
+                        <div class="value">${{ caja_actual.saldo_inicial|floatformat:2 }}</div>
+                        <div class="subtitle">Monto de Apertura</div>
+                    </div>
+
+                    <div class="info-box success">
+                        <h5>Saldo Actual</h5>
+                        <div class="value">${{ caja_actual.get_saldo_actual|floatformat:2 }}</div>
+                        <div class="subtitle">Saldo Disponible</div>
+                    </div>
+                </div>
+
+                <!-- Actions for Current Caja -->
+                <div class="actions-section">
+                    <a href="{% url 'inmobiliaria:nuevo_movimiento' %}" class="btn-modern btn-success-modern">
+                        <i class="fas fa-plus"></i>
+                        Nuevo Movimiento
+                    </a>
+                    
+                    <a href="{% url 'inmobiliaria:caja' caja_actual.numero %}" class="btn-modern btn-primary-modern">
+                        <i class="fas fa-eye"></i>
+                        Ver Movimientos
+                    </a>
+                    
+                    <a href="{% url 'inmobiliaria:cerrar_caja' caja_actual.numero %}" 
+                       class="btn-modern btn-danger-modern"
+                       onclick="return confirm('¿Estás seguro de que deseas cerrar la caja?')">
+                        <i class="fas fa-times-circle"></i>
+                        Cerrar Caja
+                    </a>
                 </div>
             </div>
-        </div>
-    </div>
+        {% else %}
+            <!-- No hay caja abierta -->
+            <div class="no-caja-message fade-in">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>No hay caja abierta</h3>
+                <p>Debes abrir una caja antes de realizar movimientos. El saldo inicial puede ser $0.00</p>
+                
+                <a href="{% url 'inmobiliaria:abrir_caja' %}" class="btn-modern btn-success-modern">
+                    <i class="fas fa-folder-open"></i>
+                    Abrir Nueva Caja
+                </a>
+            </div>
+        {% endif %}
 
-    <div class="card">
-        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
-            <h4 class="mb-0">Historial de Cajas</h4>
-            <div>
-                <button class="btn btn-light" data-bs-toggle="collapse" data-bs-target="#filtros">
-                    <i class="fas fa-filter"></i> Filtros
-                </button>
+        <!-- Actions adicionales -->
+        <div class="caja-status-card fade-in">
+            <h3 style="text-align: center; color: #2c3e50; margin-bottom: 1.5rem;">
+                <i class="fas fa-tools me-2"></i>
+                Acciones Disponibles
+            </h3>
+            
+            <div class="actions-section">
+                {% if not caja_actual %}
+                    <a href="{% url 'inmobiliaria:abrir_caja' %}" class="btn-modern btn-success-modern">
+                        <i class="fas fa-folder-open"></i>
+                        Abrir Nueva Caja
+                    </a>
+                {% endif %}
+                
+                <a href="{% url 'inmobiliaria:dashboard_caja' %}" class="btn-modern btn-primary-modern">
+                    <i class="fas fa-tachometer-alt"></i>
+                    Dashboard Caja
+                </a>
+                
+                <a href="{% url 'inmobiliaria:dashboard' %}" class="btn-modern btn-warning-modern">
+                    <i class="fas fa-arrow-left"></i>
+                    Volver al Dashboard
+                </a>
             </div>
-        </div>
-        <div id="filtros" class="collapse">
-            <div class="card-body bg-light">
-                <form method="get" class="row g-3">
-                    <div class="col-md-3">
-                        <label>Fecha Desde</label>
-                        <input type="date" name="fecha_desde" class="form-control" value="{{ request.GET.fecha_desde }}">
-                    </div>
-                    <div class="col-md-3">
-                        <label>Fecha Hasta</label>
-                        <input type="date" name="fecha_hasta" class="form-control" value="{{ request.GET.fecha_hasta }}">
-                    </div>
-                    <div class="col-md-3">
-                        <label>Estado</label>
-                        <select name="estado" class="form-control">
-                            <option value="">Todos</option>
-                            <option value="abierta">Abierta</option>
-                            <option value="cerrada">Cerrada</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary">Filtrar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Número</th>
-                        <th>Fecha Apertura</th>
-                        <th>Fecha Cierre</th>
-                        <th>Saldo Inicial</th>
-                        <th>Saldo Final</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for caja in cajas %}
-                    <tr>
-                        <td>{{ caja.numero }}</td>
-                        <td>{{ caja.fecha_apertura|date:"d/m/Y H:i" }}</td>
-                        <td>{{ caja.fecha_cierre|date:"d/m/Y H:i"|default:"-" }}</td>
-                        <td>${{ caja.saldo_inicial|floatformat:2 }}</td>
-                        <td>${{ caja.saldo_final|floatformat:2|default:"-" }}</td>
-                        <td>
-                            <span class="badge bg-{% if caja.estado == 'abierta' %}success{% else %}secondary{% endif %}">
-                                {{ caja.get_estado_display }}
-                            </span>
-                        </td>
-                        <td>
-                            <a href="{% url 'inmobiliaria:detalle_caja' caja.numero %}" class="btn btn-sm btn-info">
-                                <i class="fas fa-eye"></i> Ver Detalles
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="text-center">No hay registros de caja</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
         </div>
     </div>
 </div>
 
-<style>
-.info-box {
-    padding: 15px;
-    border-radius: 5px;
-    margin-bottom: 10px;
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animar las cards al aparecer
+    const elements = document.querySelectorAll('.fade-in');
+    elements.forEach((element, index) => {
+        element.style.animationDelay = `${index * 0.1}s`;
+    });
+
+    // Animar las info-boxes
+    const infoBoxes = document.querySelectorAll('.info-box');
+    infoBoxes.forEach((box, index) => {
+        box.style.opacity = '0';
+        box.style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            box.style.transition = 'all 0.6s ease';
+            box.style.opacity = '1';
+            box.style.transform = 'translateY(0)';
+        }, 300 + (index * 100));
+    });
+
+    // Efecto contador para los valores numéricos
+    const valueElements = document.querySelectorAll('.value');
+    valueElements.forEach(element => {
+        const text = element.textContent;
+        if (text.includes('$')) {
+            const number = parseFloat(text.replace('$', '').replace(',', ''));
+            if (!isNaN(number)) {
+                animateNumber(element, 0, number, 1000);
+            }
+        }
+    });
+});
+
+function animateNumber(element, start, end, duration) {
+    const range = end - start;
+    const increment = range / (duration / 16);
+    let current = start;
+    
+    const timer = setInterval(() => {
+        current += increment;
+        if (current >= end) {
+            current = end;
+            clearInterval(timer);
+        }
+        element.textContent = '$' + current.toFixed(2);
+    }, 16);
 }
-.info-box h5 {
-    margin-bottom: 5px;
-}
-.info-box p {
-    margin-bottom: 0;
-    font-size: 1.2em;
-    font-weight: bold;
-}
-</style>
+</script>
 {% endblock %} 

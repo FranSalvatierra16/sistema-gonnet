@@ -1,34 +1,590 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
+{% load custom_filters %}
+
+{% block title %}Detalle de Reserva{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detalle-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: calc(100vh - 120px);
+        padding: 2rem 0;
+    }
+
+    .detalle-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 25px;
+        padding: 2.5rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(20px);
+        transform: translateY(20px);
+        animation: slideUp 0.8s ease-out forwards;
+        position: relative;
+        overflow: hidden;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .detalle-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(102, 126, 234, 0.1) 0%, transparent 70%);
+        animation: rotate 20s linear infinite;
+    }
+
+    .card-header-modern {
+        text-align: center;
+        margin-bottom: 2rem;
+        position: relative;
+        z-index: 2;
+    }
+
+    .header-icon {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2.5rem;
+        margin: 0 auto 1.5rem;
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    }
+
+    .page-title {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+
+    .page-subtitle {
+        color: #666;
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+    }
+
+    .details-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+        position: relative;
+        z-index: 2;
+    }
+
+    .detail-section {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 15px;
+        padding: 1.5rem;
+        border-left: 5px solid #667eea;
+        transition: all 0.3s ease;
+    }
+
+    .detail-section:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .section-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #667eea;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .section-title i {
+        margin-right: 0.5rem;
+        width: 20px;
+    }
+
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 0.8rem 0;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+
+    .detail-label {
+        font-weight: 500;
+        color: #666;
+        display: flex;
+        align-items: center;
+    }
+
+    .detail-label i {
+        margin-right: 0.5rem;
+        width: 16px;
+        color: #667eea;
+    }
+
+    .detail-value {
+        font-weight: 600;
+        color: #2c3e50;
+        text-align: right;
+    }
+
+    .price-highlight {
+        background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+        color: white !important;
+        padding: 0.5rem 1rem;
+        border-radius: 10px;
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .status-confirmada {
+        background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+        color: white;
+    }
+
+    .status-pendiente {
+        background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+        color: #212529;
+    }
+
+    .status-cancelada {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+    }
+
+    .actions-section {
+        margin-top: 2rem;
+        text-align: center;
+        position: relative;
+        z-index: 2;
+    }
+
+    .btn-modern {
+        border: none;
+        border-radius: 15px;
+        padding: 1rem 2rem;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        margin: 0.5rem;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .btn-modern i {
+        margin-right: 0.5rem;
+    }
+
+    .btn-primary-modern {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-primary-modern:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+
+    .btn-warning-modern {
+        background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+        color: #212529;
+        box-shadow: 0 5px 15px rgba(255, 193, 7, 0.3);
+    }
+
+    .btn-warning-modern:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(255, 193, 7, 0.4);
+        color: #212529;
+    }
+
+    .btn-danger-modern {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+    }
+
+    .btn-danger-modern:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(220, 53, 69, 0.4);
+        color: white;
+    }
+
+    .btn-secondary-modern {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        color: white;
+        box-shadow: 0 5px 15px rgba(108, 117, 125, 0.3);
+    }
+
+    .btn-secondary-modern:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(108, 117, 125, 0.4);
+        color: white;
+    }
+
+    .timeline {
+        position: relative;
+        padding: 1rem 0;
+    }
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 20px;
+        height: 100%;
+        width: 2px;
+        background: linear-gradient(to bottom, #667eea, #764ba2);
+    }
+
+    .timeline-item {
+        position: relative;
+        margin: 1rem 0;
+        padding-left: 3rem;
+    }
+
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: 12px;
+        top: 5px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #667eea;
+        border: 3px solid white;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(50px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes rotate {
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .detalle-card {
+            padding: 1.5rem;
+            margin: 1rem;
+        }
+        
+        .page-title {
+            font-size: 1.8rem;
+        }
+        
+        .details-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .btn-modern {
+            width: 100%;
+            margin: 0.5rem 0;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="text-center">Detalles de la Reserva</h2>
+<div class="detalle-container">
+    <div class="container">
+        <div class="detalle-card">
+            <!-- Header -->
+            <div class="card-header-modern">
+                <div class="header-icon">
+                    <i class="fas fa-calendar-check"></i>
                 </div>
-                <div class="card-body">
-                    <dl class="row">
-                        <dt class="col-sm-3">Propiedad:</dt>
-                        <dd class="col-sm-9">{{ reserva.propiedad }}</dd>
-                        
-                        <dt class="col-sm-3">Fecha de Inicio:</dt>
-                        <dd class="col-sm-9">{{ reserva.fecha_inicio }}</dd>
-                        
-                        <dt class="col-sm-3">Fecha de Fin:</dt>
-                        <dd class="col-sm-9">{{ reserva.fecha_fin }}</dd>
-                    </dl>
-                </div>
-                <div class="card-footer text-center">
-                    <a href="{% url 'inmobiliaria:reserva_editar' reserva.id %}">Editar</a>
+                <h1 class="page-title">Detalle de Reserva</h1>
+                <p class="page-subtitle">Información completa de la reserva #{{ reserva.id }}</p>
+            </div>
 
+            <!-- Details Grid -->
+            <div class="details-grid">
+                <!-- Información de la Propiedad -->
+                <div class="detail-section">
+                    <h3 class="section-title">
+                        <i class="fas fa-home"></i>
+                        Información de la Propiedad
+                    </h3>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">
+                            <i class="fas fa-map-marker-alt"></i>
+                            Dirección
+                        </span>
+                        <span class="detail-value">{{ reserva.propiedad }}</span>
+                    </div>
 
-                    <a href="{% url 'inmobiliaria:reserva_eliminar' reserva.id %}" class="btn btn-danger">Eliminar</a>
+                    {% if reserva.propiedad.tipo %}
+                    <div class="detail-row">
+                        <span class="detail-label">
+                            <i class="fas fa-building"></i>
+                            Tipo
+                        </span>
+                        <span class="detail-value">{{ reserva.propiedad.tipo }}</span>
+                    </div>
+                    {% endif %}
+
+                    {% if reserva.propiedad.ambientes %}
+                    <div class="detail-row">
+                        <span class="detail-label">
+                            <i class="fas fa-door-open"></i>
+                            Ambientes
+                        </span>
+                        <span class="detail-value">{{ reserva.propiedad.ambientes }}</span>
+                    </div>
+                    {% endif %}
                 </div>
+
+                <!-- Información de Fechas -->
+                <div class="detail-section">
+                    <h3 class="section-title">
+                        <i class="fas fa-calendar-alt"></i>
+                        Fechas y Horarios
+                    </h3>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">
+                            <i class="fas fa-calendar-check"></i>
+                            Fecha Inicio
+                        </span>
+                        <span class="detail-value">{{ reserva.fecha_inicio }}</span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="detail-label">
+                            <i class="fas fa-calendar-times"></i>
+                            Fecha Fin
+                        </span>
+                        <span class="detail-value">{{ reserva.fecha_fin }}</span>
+                    </div>
+
+                    {% if reserva.hora_ingreso %}
+                    <div class="detail-row">
+                        <span class="detail-label">
+                            <i class="fas fa-clock"></i>
+                            Hora Ingreso
+                        </span>
+                        <span class="detail-value">{{ reserva.hora_ingreso }}</span>
+                    </div>
+                    {% endif %}
+
+                    {% if reserva.hora_egreso %}
+                    <div class="detail-row">
+                        <span class="detail-label">
+                            <i class="fas fa-clock"></i>
+                            Hora Egreso
+                        </span>
+                        <span class="detail-value">{{ reserva.hora_egreso }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Información Financiera -->
+                <div class="detail-section">
+                    <h3 class="section-title">
+                        <i class="fas fa-dollar-sign"></i>
+                        Información Financiera
+                    </h3>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">
+                            <i class="fas fa-money-bill-wave"></i>
+                            Precio Total
+                        </span>
+                        <span class="detail-value price-highlight">
+                            {% if reserva.precio_total %}
+                                ${{ reserva.precio_total|format_price }}
+                            {% else %}
+                                ${{ reserva.precio_total|floatformat:2 }}
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    {% if reserva.total_pagado %}
+                    <div class="detail-row">
+                        <span class="detail-label">
+                            <i class="fas fa-credit-card"></i>
+                            Total Pagado
+                        </span>
+                        <span class="detail-value" style="color: #28a745; font-weight: 600;">
+                            ${{ reserva.total_pagado|floatformat:2 }}
+                        </span>
+                    </div>
+                    {% endif %}
+
+                    {% if reserva.saldo_pendiente %}
+                    <div class="detail-row">
+                        <span class="detail-label">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Saldo Pendiente
+                        </span>
+                        <span class="detail-value" style="color: #dc3545; font-weight: 600;">
+                            ${{ reserva.saldo_pendiente|floatformat:2 }}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Información del Cliente -->
+                {% if reserva.cliente or reserva.inquilino %}
+                <div class="detail-section">
+                    <h3 class="section-title">
+                        <i class="fas fa-user"></i>
+                        Información del Cliente
+                    </h3>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">
+                            <i class="fas fa-user-circle"></i>
+                            Cliente
+                        </span>
+                        <span class="detail-value">
+                            {% if reserva.cliente %}
+                                {{ reserva.cliente.nombre_completo_inquilino }}
+                            {% elif reserva.inquilino %}
+                                {{ reserva.inquilino.nombre }} {{ reserva.inquilino.apellido }}
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    {% if reserva.vendedor %}
+                    <div class="detail-row">
+                        <span class="detail-label">
+                            <i class="fas fa-user-tie"></i>
+                            Vendedor
+                        </span>
+                        <span class="detail-value">{{ reserva.vendedor.nombre_completo_vendedor }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Estado de la Reserva -->
+                <div class="detail-section">
+                    <h3 class="section-title">
+                        <i class="fas fa-info-circle"></i>
+                        Estado de la Reserva
+                    </h3>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">
+                            <i class="fas fa-flag"></i>
+                            Estado Actual
+                        </span>
+                        <span class="detail-value">
+                            <span class="status-badge 
+                                {% if reserva.estado == 'confirmada' or reserva.estado == 'pagada' %}status-confirmada
+                                {% elif reserva.estado == 'pendiente' or reserva.estado == 'en_espera' %}status-pendiente
+                                {% else %}status-cancelada{% endif %}">
+                                {{ reserva.estado|capfirst }}
+                            </span>
+                        </span>
+                    </div>
+
+                    {% if reserva.fecha_creacion %}
+                    <div class="detail-row">
+                        <span class="detail-label">
+                            <i class="fas fa-calendar-plus"></i>
+                            Fecha Creación
+                        </span>
+                        <span class="detail-value">{{ reserva.fecha_creacion|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Actions Section -->
+            <div class="actions-section">
+                <a href="{% url 'inmobiliaria:reserva_lista' %}" class="btn-modern btn-secondary-modern">
+                    <i class="fas fa-arrow-left"></i>
+                    Volver a Lista
+                </a>
+                
+                <a href="{% url 'inmobiliaria:reserva_editar' reserva.id %}" class="btn-modern btn-warning-modern">
+                    <i class="fas fa-edit"></i>
+                    Editar Reserva
+                </a>
+
+                {% if reserva.estado == 'confirmada_no_pagada' %}
+                <a href="{% url 'inmobiliaria:finalizar_reserva_nueva' reserva.id %}" class="btn-modern btn-primary-modern">
+                    <i class="fas fa-check"></i>
+                    Finalizar Reserva
+                </a>
+                {% endif %}
+
+                <a href="{% url 'inmobiliaria:reserva_eliminar' reserva.id %}" 
+                   class="btn-modern btn-danger-modern"
+                   onclick="return confirm('¿Estás seguro de que deseas eliminar esta reserva?')">
+                    <i class="fas fa-trash"></i>
+                    Eliminar Reserva
+                </a>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animar las secciones al aparecer
+    const sections = document.querySelectorAll('.detail-section');
+    sections.forEach((section, index) => {
+        section.style.opacity = '0';
+        section.style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            section.style.transition = 'all 0.6s ease';
+            section.style.opacity = '1';
+            section.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+
+    // Efecto hover mejorado para las secciones
+    sections.forEach(section => {
+        section.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px) scale(1.02)';
+        });
+        
+        section.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0) scale(1)';
+        });
+    });
+});
+</script>
 {% endblock %}
