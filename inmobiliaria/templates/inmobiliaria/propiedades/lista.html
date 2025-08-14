@@ -5,119 +5,123 @@
 {% block title %}Listado de Propiedades{% endblock %}
 
 {% block content %}
-<div class="container-fluid fade-in-up">
-    <div class="row">
+<div class="container-fluid fade-in-up px-2">
+    <div class="row gx-2">
         <div class="col-12">
-            <h1 class="text-gradient mb-4 text-center">🏠 Listado de Propiedades</h1>
-
-            <!-- Formulario de búsqueda -->
-            <div class="card shadow-modern mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-search me-2"></i>Búsqueda de Propiedades</h5>
+            <!-- Header compacto -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1 class="text-gradient mb-0 h3">🏠 Listado de Propiedades</h1>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'inmobiliaria:propiedad_nuevo' %}" class="btn btn-success btn-sm">
+                        <i class="fas fa-plus me-1"></i>Nueva
+                    </a>
+                    <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}" class="btn btn-info btn-sm">
+                        <i class="fas fa-calendar-plus me-1"></i>Disponibilidad
+                    </a>
                 </div>
-                <div class="card-body">
-                    <form method="get" class="d-flex align-items-center">
-                        {{ form.query|as_crispy_field }}  
-                        <button type="submit" class="btn btn-primary shadow-modern ms-3">
-                            <i class="fas fa-search me-2"></i>Buscar
-                        </button>
+            </div>
+
+            <!-- Formulario de búsqueda compacto -->
+            <div class="card shadow-modern mb-3">
+                <div class="card-body py-2">
+                    <form method="get" class="d-flex align-items-center gap-3">
+                        <div class="flex-grow-1">
+                            <label class="form-label mb-1 small">Buscar</label>
+                            {{ form.query|as_crispy_field }}
+                        </div>
+                        <div class="d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="fas fa-search me-1"></i>Buscar
+                            </button>
+                        </div>
+                        <div class="alert alert-info mb-0 py-1 px-2 small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Propiedades disponibles
+                        </div>
                     </form>
                 </div>
             </div>
 
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                    <a href="{% url 'inmobiliaria:propiedad_nuevo' %}" class="btn btn-success shadow-modern me-3">
-                        <i class="fas fa-plus me-2"></i>Nueva Propiedad
-                    </a>
-                    <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}" class="btn btn-info shadow-modern">
-                        <i class="fas fa-calendar-plus me-2"></i>Disponibilidad Masiva
-                    </a>
-                </div>
-                <div class="alert alert-info border-radius-modern mb-0">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Propiedades disponibles para alquiler
-                </div>
-            </div>
-
-            <!-- Tabla de propiedades -->
+            <!-- Tabla optimizada para pantalla completa -->
             <div class="card shadow-modern">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Propiedades Registradas</h5>
+                <div class="card-header py-2">
+                    <h6 class="mb-0"><i class="fas fa-list me-2"></i>Propiedades Registradas</h6>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-0">
                     <div class="table-responsive">  
-                        <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th class="text-center" style="width: 80px;">
-                            <i class="bi bi-hash"></i> Ficha
-                        </th>
-                        <th><i class="bi bi-geo-alt"></i> Dirección</th>
-                        <th><i class="bi bi-tag"></i> Título</th>
-                        <th><i class="bi bi-star"></i> Valoración</th>
-                        <th><i class="bi bi-person"></i> Propietario</th>
-                        <th><i class="bi bi-person-badge"></i> Fichado por</th>
-                        <th><i class="bi bi-building"></i> Piso</th>
-                        <th><i class="bi bi-door-closed"></i> Dpto</th>
-                        <th><i class="bi bi-house"></i> Amb.</th>
-                        <th class="text-center"><i class="bi bi-gear"></i> Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
+                        <table class="table table-hover table-sm mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="text-center" style="width: 60px;">
+                                        <i class="bi bi-hash"></i> #
+                                    </th>
+                                    <th style="min-width: 200px;"><i class="bi bi-geo-alt"></i> Dirección</th>
+                                    <th style="min-width: 150px;"><i class="bi bi-tag"></i> Título</th>
+                                    <th class="text-center" style="width: 80px;"><i class="bi bi-star"></i> Val.</th>
+                                    <th style="min-width: 120px;"><i class="bi bi-person"></i> Propietario</th>
+                                    <th style="min-width: 100px;"><i class="bi bi-person-badge"></i> Fichado</th>
+                                    <th class="text-center" style="width: 60px;"><i class="bi bi-building"></i> P</th>
+                                    <th class="text-center" style="width: 60px;"><i class="bi bi-door-closed"></i> D</th>
+                                    <th class="text-center" style="width: 60px;"><i class="bi bi-house"></i> Amb</th>
+                                    <th class="text-center" style="width: 120px;"><i class="bi bi-gear"></i> Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
                     {% for propiedad in propiedades %}
-                    <tr>
+                    <tr class="align-middle">
                         <td class="text-center">
                             <span class="badge bg-primary">#{{ propiedad.id }}</span>
                         </td>
-                        <td>{{ propiedad.direccion }}</td>
-                        <td>
+                        <td class="fw-bold">{{ propiedad.direccion }}</td>
+                        <td class="text-truncate" style="max-width: 150px;">
                             {% if propiedad.titulo %}
-                                <span class="text-muted">{{ propiedad.titulo }}</span>
+                                <span class="text-muted small" title="{{ propiedad.titulo }}">{{ propiedad.titulo }}</span>
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="text-center">
                             {% if propiedad.valoracion %}
                                 <span class="badge bg-info">{{ propiedad.valoracion }}</span>
                             {% else %}
-                                <span class="badge bg-secondary">Sin valoración</span>
+                                <span class="badge bg-secondary">bueno</span>
                             {% endif %}
                         </td>
-                        <td>{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</td>
-                        <td>
+                        <td class="text-truncate" style="max-width: 120px;" title="{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}">
+                            <small>{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</small>
+                        </td>
+                        <td class="text-center">
                             {% if propiedad.fichado_por %}
-                                <span class="badge bg-info">{{ propiedad.fichado_por.nombre }} {{ propiedad.fichado_por.apellido }}</span>
+                                <span class="badge bg-info small">{{ propiedad.fichado_por.nombre }} {{ propiedad.fichado_por.apellido }}</span>
                             {% else %}
-                                <span class="text-muted">Sin asignar</span>
+                                <span class="text-muted small">Sin asignar</span>
                             {% endif %}
                         </td>
-                        <td>{{ propiedad.piso }}</td>
-                        <td>{{ propiedad.departamento }}</td>
-                        <td>
+                        <td class="text-center">{{ propiedad.piso }}</td>
+                        <td class="text-center">{{ propiedad.departamento }}</td>
+                        <td class="text-center">
                             <span class="badge bg-success">{{ propiedad.ambientes }} Amb.</span>
                         </td>
                         <td class="text-center">
-                            <div class="btn-group">
+                            <div class="btn-group btn-group-sm" role="group">
                                 <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad_id=propiedad.id %}" 
-                                   class="btn btn-info btn-sm" 
+                                   class="btn btn-outline-info btn-sm" 
                                    data-bs-toggle="tooltip" 
                                    title="Ver detalles">
-                                    <i class="bi bi-eye-fill"></i>
+                                    <i class="bi bi-eye"></i>
                                 </a>
                                 <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" 
-                                   class="btn btn-warning btn-sm" 
+                                   class="btn btn-outline-warning btn-sm" 
                                    data-bs-toggle="tooltip" 
                                    title="Editar">
-                                    <i class="bi bi-pencil-fill"></i>
+                                    <i class="bi bi-pencil"></i>
                                 </a>
                                 <button type="button" 
-                                        class="btn btn-danger btn-sm" 
+                                        class="btn btn-outline-danger btn-sm" 
                                         onclick="confirmarEliminacion('{{ propiedad.id }}')"
                                         data-bs-toggle="tooltip" 
                                         title="Eliminar">
-                                    <i class="bi bi-trash-fill"></i>
+                                    <i class="bi bi-trash"></i>
                                 </button>
                             </div>
                         </td>
