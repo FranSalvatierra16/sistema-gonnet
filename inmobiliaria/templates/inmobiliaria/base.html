@@ -302,91 +302,137 @@
             background: var(--secondary-gradient);
         }
 
-        /* IMPORTANTE: Modales completamente funcionales */
+        /* MODALES - ESTILOS MINIMOS FUNCIONALES */
         .modal-content {
-            background: white !important;
-            border-radius: var(--border-radius);
+            background: white;
+            border-radius: 12px;
             border: none;
-            box-shadow: var(--shadow-strong);
-            color: #212529 !important;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
         }
 
         .modal-header {
-            background: var(--primary-gradient);
-            color: white !important;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             border-bottom: none;
-            border-radius: var(--border-radius) var(--border-radius) 0 0;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .modal-title {
+            color: white;
+            font-weight: 600;
         }
 
         .modal-body {
-            background: white !important;
-            color: #212529 !important;
             padding: 1.5rem;
         }
 
         .modal-footer {
-            background: #f8f9fa !important;
             border-top: 1px solid #dee2e6;
-            border-radius: 0 0 var(--border-radius) var(--border-radius);
+            border-radius: 0 0 12px 12px;
         }
 
-        .modal-backdrop {
-            background-color: rgba(0, 0, 0, 0.5) !important;
+        /* Form controls - mantener funcionalidad Bootstrap */
+        .modal .form-control,
+        .modal .form-select {
+            border-radius: 8px;
         }
 
-        /* Asegurar que los modales funcionen */
+        .modal .form-control:focus,
+        .modal .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        /* Botones mejorados */
+        .modal .btn {
+            border-radius: 8px;
+            font-weight: 500;
+        }
+
+        .modal .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+
+        .modal .btn-close {
+            color: white;
+            opacity: 0.8;
+        }
+
+        .modal .btn-close:hover {
+            opacity: 1;
+        }
+
+        /* Backdrop y z-index para Bootstrap 5 */
         .modal {
             z-index: 1055 !important;
         }
 
         .modal-backdrop {
             z-index: 1050 !important;
+            background-color: rgba(0, 0, 0, 0.5) !important;
         }
 
-        /* Forms dentro de modales */
-        .modal .form-control, 
-        .modal .form-select,
-        .modal input,
+        /* Form controls específicos para modales */
+        .modal input[type="text"],
+        .modal input[type="number"],
+        .modal input[type="date"],
+        .modal input[type="email"],
         .modal textarea,
-        .modal select {
-            background: white !important;
+        .modal select,
+        .modal .form-control,
+        .modal .form-select {
+            background-color: white !important;
             color: #212529 !important;
             border: 2px solid #dee2e6 !important;
-            border-radius: 8px;
+            border-radius: 8px !important;
+            padding: 0.5rem 0.75rem !important;
         }
 
-        .modal .form-control:focus, 
-        .modal .form-select:focus,
         .modal input:focus,
         .modal textarea:focus,
-        .modal select:focus {
-            background: white !important;
+        .modal select:focus,
+        .modal .form-control:focus,
+        .modal .form-select:focus {
+            background-color: white !important;
             color: #212529 !important;
-            border-color: var(--primary-color) !important;
+            border-color: #667eea !important;
             box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
+            outline: none !important;
         }
 
         /* Labels y texto en modales */
         .modal label,
         .modal .form-label,
-        .modal .control-label,
+        .modal .control-label {
+            color: #212529 !important;
+            font-weight: 500 !important;
+            margin-bottom: 0.5rem !important;
+        }
+
         .modal p,
-        .modal span,
-        .modal div {
+        .modal div,
+        .modal span {
             color: #212529 !important;
         }
 
         /* Botones en modales */
         .modal .btn {
-            border-radius: 8px;
-            font-weight: 500;
-            padding: 0.5rem 1rem;
+            border-radius: 8px !important;
+            font-weight: 500 !important;
+            padding: 0.5rem 1rem !important;
+            transition: all 0.2s ease !important;
         }
 
         .modal .btn-primary {
-            background: var(--primary-gradient) !important;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
             border: none !important;
             color: white !important;
+        }
+
+        .modal .btn-primary:hover {
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3) !important;
         }
 
         .modal .btn-secondary {
@@ -396,56 +442,39 @@
         }
 
         .modal .btn-success {
-            background: var(--success-color) !important;
+            background: #28a745 !important;
             border: none !important;
             color: white !important;
         }
 
-        /* Checkbox y radio buttons en modales */
+        /* Checkboxes en modales */
         .modal .form-check-input {
             background-color: white !important;
             border: 2px solid #dee2e6 !important;
+            border-radius: 4px !important;
         }
 
         .modal .form-check-input:checked {
-            background-color: var(--primary-color) !important;
-            border-color: var(--primary-color) !important;
+            background-color: #667eea !important;
+            border-color: #667eea !important;
         }
 
         .modal .form-check-label {
             color: #212529 !important;
         }
 
-        /* Select2 y otros componentes en modales */
-        .modal .select2-container--default .select2-selection--single,
-        .modal .select2-container--default .select2-selection--multiple {
-            background-color: white !important;
-            border: 2px solid #dee2e6 !important;
-            color: #212529 !important;
+        /* NO interferir con JavaScript de Bootstrap */
+        .modal.fade .modal-dialog {
+            transition: transform 0.3s ease-out !important;
         }
 
-        /* Tabs en modales */
-        .modal .nav-tabs .nav-link {
-            color: #495057 !important;
-            background-color: transparent;
-            border: 1px solid #dee2e6;
+        .modal.show .modal-dialog {
+            transform: none !important;
         }
 
-        .modal .nav-tabs .nav-link.active {
-            color: var(--primary-color) !important;
-            background-color: white !important;
-            border-color: #dee2e6 #dee2e6 #fff;
-        }
-
-        /* Close button */
-        .modal .btn-close {
-            background-color: transparent;
-            color: white !important;
-            opacity: 0.8;
-        }
-
-        .modal .btn-close:hover {
-            opacity: 1;
+        /* Asegurar que los eventos de Bootstrap funcionen */
+        .modal * {
+            pointer-events: auto !important;
         }
 
         /* Animaciones de entrada */
@@ -558,6 +587,120 @@
         </div>
     </footer>
 
+    <!-- Modal Emergency Fix Script -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('🔧 Aplicando fix de emergencia para modales...');
+        
+        // Force reset modal styles que puedan estar bloqueando
+        const style = document.createElement('style');
+        style.textContent = `
+            .modal { pointer-events: auto !important; }
+            .modal * { pointer-events: auto !important; }
+            .modal-dialog { pointer-events: auto !important; }
+            .modal-content { pointer-events: auto !important; }
+            .modal-body { pointer-events: auto !important; }
+            .modal-body * { pointer-events: auto !important; }
+            .form-control { pointer-events: auto !important; }
+            .form-select { pointer-events: auto !important; }
+            input { pointer-events: auto !important; }
+            textarea { pointer-events: auto !important; }
+            select { pointer-events: auto !important; }
+            button { pointer-events: auto !important; }
+            .btn { pointer-events: auto !important; }
+        `;
+        document.head.appendChild(style);
+        
+        // Manual modal trigger para casos de emergencia
+        document.querySelectorAll('[data-bs-toggle="modal"]').forEach(function(trigger) {
+            trigger.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const targetId = this.getAttribute('data-bs-target');
+                if (targetId) {
+                    const modalElement = document.querySelector(targetId);
+                    if (modalElement) {
+                        console.log('🚀 Abriendo modal manual:', targetId);
+                        
+                        // Force show modal
+                        try {
+                            const modal = new bootstrap.Modal(modalElement, {
+                                backdrop: true,
+                                keyboard: true,
+                                focus: true
+                            });
+                            modal.show();
+                            
+                            // Ensure modal is fully functional
+                            setTimeout(() => {
+                                modalElement.style.display = 'block';
+                                modalElement.classList.add('show');
+                                document.body.classList.add('modal-open');
+                                
+                                // Add backdrop if missing
+                                if (!document.querySelector('.modal-backdrop')) {
+                                    const backdrop = document.createElement('div');
+                                    backdrop.className = 'modal-backdrop fade show';
+                                    document.body.appendChild(backdrop);
+                                }
+                                
+                                // Focus first input
+                                const firstInput = modalElement.querySelector('input:not([type="hidden"]), textarea, select');
+                                if (firstInput) {
+                                    firstInput.focus();
+                                }
+                                
+                                console.log('✅ Modal abierto exitosamente');
+                            }, 100);
+                            
+                        } catch (error) {
+                            console.error('❌ Error al abrir modal:', error);
+                            // Fallback: force manual open
+                            modalElement.style.display = 'block';
+                            modalElement.classList.add('show');
+                            document.body.classList.add('modal-open');
+                        }
+                    }
+                }
+            });
+        });
+        
+        // Ensure close functionality
+        document.querySelectorAll('[data-bs-dismiss="modal"]').forEach(function(closeBtn) {
+            closeBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const modal = this.closest('.modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                    modal.classList.remove('show');
+                    document.body.classList.remove('modal-open');
+                    // Remove backdrop
+                    const backdrop = document.querySelector('.modal-backdrop');
+                    if (backdrop) {
+                        backdrop.remove();
+                    }
+                }
+            });
+        });
+        
+        // Backdrop click close
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('modal')) {
+                e.target.style.display = 'none';
+                e.target.classList.remove('show');
+                document.body.classList.remove('modal-open');
+                const backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+            }
+        });
+        
+        console.log('✅ Fix de emergencia aplicado correctamente');
+    });
+    </script>
+
     {% block extra_js %}{% endblock %}
     {% block javascript %}
     <script>
@@ -602,3 +745,4 @@
     {% endblock %}
 </body>
 </html>
+
