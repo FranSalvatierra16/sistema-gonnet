@@ -692,6 +692,67 @@
             position: absolute !important;
             will-change: transform !important;
         }
+
+        /* DROPDOWN FIX DIRECTO - Se ve completo */
+        .dropdown-menu {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(10px) !important;
+            border: 1px solid rgba(34, 197, 94, 0.2) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+            padding: 0.75rem 0 !important;
+            min-width: 220px !important;
+            margin-top: 0.5rem !important;
+            z-index: 9999 !important;
+            position: absolute !important;
+            transform: none !important;
+            max-height: none !important;
+            overflow: visible !important;
+        }
+
+        .dropdown-menu.show {
+            display: block !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        /* Dropdown items bonitos */
+        .dropdown-item {
+            display: block !important;
+            width: 100% !important;
+            padding: 0.75rem 1.25rem !important;
+            clear: both !important;
+            font-weight: 500 !important;
+            color: var(--gray-700) !important;
+            text-align: inherit !important;
+            text-decoration: none !important;
+            white-space: nowrap !important;
+            background-color: transparent !important;
+            border: 0 !important;
+            border-radius: 8px !important;
+            margin: 0.25rem 0.5rem !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .dropdown-item:hover,
+        .dropdown-item:focus {
+            color: white !important;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;
+            transform: translateX(4px) !important;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3) !important;
+        }
+
+        /* Asegurar que el dropdown no se corte */
+        .navbar .dropdown {
+            position: static !important;
+        }
+
+        .navbar .dropdown-menu {
+            position: fixed !important;
+            top: 60px !important;
+            left: auto !important;
+            right: auto !important;
+        }
     </style>
     {% endblock %}
 </head>
@@ -964,38 +1025,45 @@
     });
     </script>
 
-    <!-- DROPDOWN FIX DEFINITIVO -->
+    <!-- DROPDOWN FIX DEFINITIVO - POSICIÓN CORRECTA -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // SOLUCIÓN SÚPER SIMPLE - Sin Bootstrap conflicts
-        const utilidadesDropdown = document.getElementById('utilidadesDropdown');
-        const utilidadesMenu = document.querySelector('#utilidadesDropdown + .dropdown-menu');
+        const utilidadesBtn = document.getElementById('utilidadesDropdown');
+        const utilidadesMenu = utilidadesBtn?.nextElementSibling;
         
-        if (utilidadesDropdown && utilidadesMenu) {
-            console.log('✅ Dropdown encontrado, aplicando fix...');
+        if (utilidadesBtn && utilidadesMenu) {
+            console.log('✅ Dropdown encontrado');
             
-            utilidadesDropdown.addEventListener('click', function(e) {
+            utilidadesBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Simple toggle
-                const isVisible = utilidadesMenu.style.display === 'block';
-                
-                // Cerrar todos los dropdowns primero
+                // Cerrar otros dropdowns
                 document.querySelectorAll('.dropdown-menu').forEach(menu => {
-                    menu.style.display = 'none';
-                    menu.classList.remove('show');
+                    if (menu !== utilidadesMenu) {
+                        menu.style.display = 'none';
+                        menu.classList.remove('show');
+                    }
                 });
                 
                 // Toggle este dropdown
-                if (!isVisible) {
-                    utilidadesMenu.style.display = 'block';
-                    utilidadesMenu.classList.add('show');
-                    console.log('🟢 Dropdown abierto');
-                } else {
+                const isOpen = utilidadesMenu.classList.contains('show');
+                
+                if (isOpen) {
                     utilidadesMenu.style.display = 'none';
                     utilidadesMenu.classList.remove('show');
-                    console.log('🔴 Dropdown cerrado');
+                    console.log('🔴 Cerrado');
+                } else {
+                    // Calcular posición correcta
+                    const rect = utilidadesBtn.getBoundingClientRect();
+                    
+                    utilidadesMenu.style.position = 'fixed';
+                    utilidadesMenu.style.top = (rect.bottom + 5) + 'px';
+                    utilidadesMenu.style.left = rect.left + 'px';
+                    utilidadesMenu.style.display = 'block';
+                    utilidadesMenu.classList.add('show');
+                    
+                    console.log('🟢 Abierto en posición:', rect.left, rect.bottom + 5);
                 }
             });
             
@@ -1007,9 +1075,9 @@
                 }
             });
             
-            console.log('✅ Dropdown fix aplicado correctamente');
+            console.log('✅ Fix aplicado correctamente');
         } else {
-            console.error('❌ No se encontró el dropdown de utilidades');
+            console.error('❌ No encontrado');
         }
     });
     </script>
