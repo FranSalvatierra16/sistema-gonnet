@@ -1,471 +1,284 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load static %}
 
-{% block title %}Dashboard Caja{% endblock %}
+{% block title %}Gestión de Caja{% endblock %}
 
 {% block extra_css %}
 <style>
-    .dashboard-container {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    .caja-dashboard {
+        background: #f8f9fa;
         min-height: calc(100vh - 120px);
         padding: 2rem 0;
     }
 
-    .header-section {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 25px;
-        padding: 2.5rem;
+    .header-card {
+        background: white;
+        border-radius: 10px;
+        padding: 2rem;
         margin-bottom: 2rem;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-        backdrop-filter: blur(20px);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         text-align: center;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .header-section::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: radial-gradient(circle, rgba(102, 126, 234, 0.1) 0%, transparent 70%);
-        animation: rotate 20s linear infinite;
     }
 
     .page-title {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        font-size: 3rem;
-        font-weight: 700;
+        color: #2c3e50;
+        font-size: 2rem;
+        font-weight: 600;
         margin-bottom: 0.5rem;
-        position: relative;
-        z-index: 2;
     }
 
     .page-subtitle {
         color: #666;
-        font-size: 1.2rem;
-        margin-bottom: 0;
-        position: relative;
-        z-index: 2;
+        font-size: 1rem;
+        margin: 0;
     }
 
-    .dashboard-grid {
+    .cards-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-        gap: 2rem;
-        margin-top: 2rem;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
     }
 
-    .dashboard-card {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 25px;
-        padding: 2rem;
-        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
-        backdrop-filter: blur(20px);
-        transition: all 0.4s ease;
+    .action-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
         cursor: pointer;
-        position: relative;
-        overflow: hidden;
-        border: 2px solid transparent;
+        border-left: 4px solid transparent;
     }
 
-    .dashboard-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 6px;
-        background: linear-gradient(135deg, var(--card-color-1), var(--card-color-2));
-        transform: scaleX(0);
-        transition: transform 0.3s ease;
+    .action-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
     }
 
-    .dashboard-card:hover::before {
-        transform: scaleX(1);
+    .action-card.caja-actual {
+        border-left-color: #28a745;
     }
 
-    .dashboard-card:hover {
-        transform: translateY(-10px) scale(1.02);
-        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15);
-        border-color: rgba(102, 126, 234, 0.3);
+    .action-card.lista-cajas {
+        border-left-color: #007bff;
     }
 
-    .dashboard-card.nuevo-movimiento {
-        --card-color-1: #28a745;
-        --card-color-2: #20c997;
+    .action-card.nuevo-movimiento {
+        border-left-color: #17a2b8;
     }
 
-    .dashboard-card.lista-cajas {
-        --card-color-1: #17a2b8;
-        --card-color-2: #6f42c1;
-    }
-
-    .dashboard-card.caja-actual {
-        --card-color-1: #ffc107;
-        --card-color-2: #fd7e14;
+    .card-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
     }
 
     .card-icon {
-        width: 80px;
-        height: 80px;
-        border-radius: 20px;
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
         color: white;
-        font-size: 2.5rem;
-        margin: 0 auto 1.5rem;
-        position: relative;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        font-size: 1.5rem;
+        margin-right: 1rem;
     }
 
     .card-icon.success {
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        background: #28a745;
+    }
+
+    .card-icon.primary {
+        background: #007bff;
     }
 
     .card-icon.info {
-        background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
-    }
-
-    .card-icon.warning {
-        background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
-    }
-
-    .card-icon::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 100%;
-        height: 100%;
-        border-radius: 20px;
-        transform: translate(-50%, -50%) scale(1.5);
-        background: inherit;
-        opacity: 0.2;
-        z-index: -1;
-        transition: all 0.3s ease;
-    }
-
-    .dashboard-card:hover .card-icon::after {
-        transform: translate(-50%, -50%) scale(2);
-        opacity: 0.1;
+        background: #17a2b8;
     }
 
     .card-title {
-        font-size: 1.5rem;
-        font-weight: 700;
+        font-size: 1.3rem;
+        font-weight: 600;
         color: #2c3e50;
-        margin-bottom: 1rem;
-        text-align: center;
+        margin: 0;
     }
 
     .card-description {
         color: #666;
-        text-align: center;
-        margin-bottom: 1.5rem;
-        font-size: 1rem;
-        line-height: 1.5;
+        font-size: 0.95rem;
+        margin-bottom: 1rem;
+        line-height: 1.4;
     }
 
     .card-status {
-        text-align: center;
+        display: inline-block;
+        padding: 0.3rem 0.8rem;
+        border-radius: 15px;
+        font-size: 0.85rem;
+        font-weight: 500;
     }
 
-    .status-badge {
-        padding: 0.6rem 1.2rem;
-        border-radius: 25px;
-        font-weight: 600;
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+    .status-active {
+        background: #d4edda;
+        color: #155724;
     }
 
-    .badge-success {
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-        color: white;
-        box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+    .status-available {
+        background: #d1ecf1;
+        color: #0c5460;
     }
 
-    .badge-info {
-        background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
-        color: white;
-        box-shadow: 0 5px 15px rgba(23, 162, 184, 0.3);
+    .status-closed {
+        background: #fff3cd;
+        color: #856404;
     }
 
-    .badge-warning {
-        background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
-        color: #212529;
-        box-shadow: 0 5px 15px rgba(255, 193, 7, 0.3);
-    }
-
-    .action-buttons {
-        position: absolute;
-        bottom: -50px;
-        left: 50%;
-        transform: translateX(-50%);
-        opacity: 0;
-        transition: all 0.3s ease;
-    }
-
-    .dashboard-card:hover .action-buttons {
-        bottom: 1rem;
-        opacity: 1;
-    }
-
-    .btn-quick-action {
-        background: rgba(255, 255, 255, 0.9);
-        border: 2px solid rgba(102, 126, 234, 0.3);
-        border-radius: 12px;
-        padding: 0.5rem 1rem;
-        color: #667eea;
-        font-weight: 600;
-        font-size: 0.9rem;
-        text-decoration: none;
-        transition: all 0.3s ease;
-    }
-
-    .btn-quick-action:hover {
-        background: #667eea;
-        color: white;
-        transform: scale(1.05);
-    }
-
-    .stats-section {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 20px;
-        padding: 2rem;
-        margin-top: 2rem;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        backdrop-filter: blur(10px);
+    .stats-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
 
     .stats-title {
-        font-size: 1.5rem;
-        font-weight: 700;
         color: #2c3e50;
-        text-align: center;
+        font-size: 1.2rem;
+        font-weight: 600;
         margin-bottom: 1.5rem;
+        text-align: center;
     }
 
     .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
     }
 
     .stat-item {
         text-align: center;
         padding: 1rem;
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 15px;
-        border-left: 4px solid #667eea;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border-left: 3px solid #007bff;
     }
 
     .stat-value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #667eea;
-        margin-bottom: 0.5rem;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #007bff;
+        margin-bottom: 0.3rem;
     }
 
     .stat-label {
         color: #666;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
 
-    .pulse-animation {
-        animation: pulse 2s infinite;
-    }
-
-    .float-animation {
-        animation: float 3s ease-in-out infinite;
-    }
-
-    .fade-in {
-        animation: fadeInUp 0.8s ease-out forwards;
-    }
-
-    @keyframes pulse {
-        0%, 100% {
-            transform: scale(1);
-        }
-        50% {
-            transform: scale(1.05);
-        }
-    }
-
-    @keyframes float {
-        0%, 100% {
-            transform: translateY(0);
-        }
-        50% {
-            transform: translateY(-10px);
-        }
-    }
-
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    @keyframes rotate {
-        from {
-            transform: rotate(0deg);
-        }
-        to {
-            transform: rotate(360deg);
-        }
-    }
-
     @media (max-width: 768px) {
-        .dashboard-grid {
+        .cards-grid {
             grid-template-columns: 1fr;
-            gap: 1.5rem;
         }
         
         .page-title {
-            font-size: 2.2rem;
+            font-size: 1.5rem;
         }
         
-        .dashboard-container {
+        .caja-dashboard {
             padding: 1rem;
         }
         
-        .header-section {
-            padding: 1.5rem;
-        }
-        
-        .stats-grid {
-            grid-template-columns: repeat(2, 1fr);
+        .header-card,
+        .stats-card {
+            padding: 1rem;
         }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="dashboard-container">
+<div class="caja-dashboard">
     <div class="container-fluid">
-        <!-- Header Section -->
-        <div class="header-section fade-in">
+        <!-- Header -->
+        <div class="header-card">
             <h1 class="page-title">💰 Gestión de Caja</h1>
-            <p class="page-subtitle">Control financiero y movimientos centralizados</p>
+            <p class="page-subtitle">Control de movimientos y estado de caja</p>
         </div>
 
-        <!-- Dashboard Grid -->
-        <div class="dashboard-grid">
-            <!-- Nuevo Movimiento -->
-            <div class="dashboard-card nuevo-movimiento fade-in float-animation" 
-                 onclick="window.location.href='{% url 'inmobiliaria:nuevo_movimiento' %}'"
-                 style="animation-delay: 0.1s;">
-                <div class="card-icon success">
-                    <i class="fas fa-exchange-alt"></i>
+        <!-- Action Cards -->
+        <div class="cards-grid">
+            <!-- Caja Actual -->
+            <div class="action-card caja-actual" 
+                 onclick="{% if caja_actual %}window.location.href='{% url 'inmobiliaria:caja' caja_actual.numero %}'{% else %}window.location.href='{% url 'inmobiliaria:abrir_caja' %}'{% endif %}">
+                <div class="card-header">
+                    <div class="card-icon success">
+                        {% if caja_actual %}
+                            <i class="fas fa-cash-register"></i>
+                        {% else %}
+                            <i class="fas fa-folder-open"></i>
+                        {% endif %}
+                    </div>
+                    <h3 class="card-title">
+                        {% if caja_actual %}
+                            Caja Actual #{{ caja_actual.numero }}
+                        {% else %}
+                            Abrir Nueva Caja
+                        {% endif %}
+                    </h3>
                 </div>
-                <h4 class="card-title">Nuevo Movimiento</h4>
                 <p class="card-description">
-                    Registrar ingresos y egresos de caja de forma rápida y segura
+                    {% if caja_actual %}
+                        Ver movimientos y gestionar la caja activa
+                    {% else %}
+                        No hay caja abierta. Crear una nueva caja para comenzar
+                    {% endif %}
                 </p>
-                <div class="card-status">
-                    <span class="status-badge badge-success">Disponible</span>
-                </div>
-                <div class="action-buttons">
-                    <a href="{% url 'inmobiliaria:nuevo_movimiento' %}" class="btn-quick-action">
-                        <i class="fas fa-plus me-1"></i>Crear
-                    </a>
-                </div>
+                <span class="card-status {% if caja_actual %}status-active{% else %}status-closed{% endif %}">
+                    {% if caja_actual %}Activa{% else %}Cerrada{% endif %}
+                </span>
             </div>
 
             <!-- Lista de Cajas -->
-            <div class="dashboard-card lista-cajas fade-in float-animation" 
-                 onclick="window.location.href='{% url 'inmobiliaria:lista_cajas' %}'"
-                 style="animation-delay: 0.2s;">
-                <div class="card-icon info">
-                    <i class="fas fa-list"></i>
+            <div class="action-card lista-cajas" 
+                 onclick="window.location.href='{% url 'inmobiliaria:lista_cajas' %}'">
+                <div class="card-header">
+                    <div class="card-icon primary">
+                        <i class="fas fa-list"></i>
+                    </div>
+                    <h3 class="card-title">Lista de Cajas</h3>
                 </div>
-                <h4 class="card-title">Lista de Cajas</h4>
                 <p class="card-description">
-                    Consultar historial completo de todas las cajas y sus movimientos
+                    Ver historial de todas las cajas y su estado
                 </p>
-                <div class="card-status">
-                    <span class="status-badge badge-info">Historial</span>
-                </div>
-                <div class="action-buttons">
-                    <a href="{% url 'inmobiliaria:lista_cajas' %}" class="btn-quick-action">
-                        <i class="fas fa-eye me-1"></i>Ver
-                    </a>
-                </div>
+                <span class="card-status status-available">Disponible</span>
             </div>
 
-            <!-- Caja Actual -->
-            <div class="dashboard-card caja-actual fade-in pulse-animation" 
-                 onclick="{% if caja_actual %}window.location.href='{% url 'inmobiliaria:caja' caja_actual.numero %}'{% else %}window.location.href='{% url 'inmobiliaria:abrir_caja' %}'{% endif %}"
-                 style="animation-delay: 0.3s;">
-                <div class="card-icon warning">
-                    {% if caja_actual %}
-                        <i class="fas fa-cash-register"></i>
-                    {% else %}
-                        <i class="fas fa-folder-open"></i>
-                    {% endif %}
+            <!-- Nuevo Movimiento -->
+            <div class="action-card nuevo-movimiento" 
+                 onclick="window.location.href='{% url 'inmobiliaria:nuevo_movimiento' %}'">
+                <div class="card-header">
+                    <div class="card-icon info">
+                        <i class="fas fa-plus-circle"></i>
+                    </div>
+                    <h3 class="card-title">Nuevo Movimiento</h3>
                 </div>
-                <h4 class="card-title">
-                    {% if caja_actual %}
-                        Caja Actual #{{ caja_actual.numero }}
-                    {% else %}
-                        Abrir Nueva Caja
-                    {% endif %}
-                </h4>
                 <p class="card-description">
-                    {% if caja_actual %}
-                        Gestionar la caja activa y realizar operaciones
-                    {% else %}
-                        No hay caja abierta. Abrir una nueva caja para comenzar
-                    {% endif %}
+                    Registrar ingresos y egresos de dinero
                 </p>
-                <div class="card-status">
-                    {% if caja_actual %}
-                        <span class="status-badge badge-success">Activa</span>
-                    {% else %}
-                        <span class="status-badge badge-warning">Cerrada</span>
-                    {% endif %}
-                </div>
-                <div class="action-buttons">
-                    {% if caja_actual %}
-                        <a href="{% url 'inmobiliaria:caja' caja_actual.numero %}" class="btn-quick-action">
-                            <i class="fas fa-cog me-1"></i>Gestionar
-                        </a>
-                    {% else %}
-                        <a href="{% url 'inmobiliaria:abrir_caja' %}" class="btn-quick-action">
-                            <i class="fas fa-plus me-1"></i>Abrir
-                        </a>
-                    {% endif %}
-                </div>
+                <span class="card-status status-available">Disponible</span>
             </div>
         </div>
 
         <!-- Stats Section -->
         {% if caja_actual %}
-        <div class="stats-section fade-in" style="animation-delay: 0.4s;">
-            <h3 class="stats-title">
-                <i class="fas fa-chart-line me-2"></i>
-                Estadísticas de Caja Actual
-            </h3>
+        <div class="stats-card">
+            <h3 class="stats-title">Estado de Caja Actual</h3>
             <div class="stats-grid">
                 <div class="stat-item">
                     <div class="stat-value">#{{ caja_actual.numero }}</div>
-                    <div class="stat-label">Número de Caja</div>
+                    <div class="stat-label">Número</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-value">${{ caja_actual.saldo_inicial|floatformat:0 }}</div>
@@ -477,7 +290,7 @@
                 </div>
                 <div class="stat-item">
                     <div class="stat-value">{{ caja_actual.fecha_apertura|date:"d/m" }}</div>
-                    <div class="stat-label">Fecha Apertura</div>
+                    <div class="stat-label">Apertura</div>
                 </div>
             </div>
         </div>
@@ -487,89 +300,17 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Animar las cards al aparecer
-    const cards = document.querySelectorAll('.dashboard-card');
-    cards.forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(50px)';
-        
-        setTimeout(() => {
-            card.style.transition = 'all 0.8s ease';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-        }, 200 + (index * 150));
-    });
-
-    // Efecto de hover mejorado
+    // Efectos hover simples
+    const cards = document.querySelectorAll('.action-card');
     cards.forEach(card => {
         card.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateY(-15px) scale(1.03)';
+            this.style.transform = 'translateY(-5px)';
         });
         
         card.addEventListener('mouseleave', function() {
-            this.style.transform = 'translateY(0) scale(1)';
+            this.style.transform = 'translateY(0)';
         });
     });
-
-    // Animar estadísticas numéricas
-    const statValues = document.querySelectorAll('.stat-value');
-    statValues.forEach(element => {
-        const text = element.textContent;
-        if (text.includes('$')) {
-            const number = parseFloat(text.replace('$', '').replace(',', ''));
-            if (!isNaN(number)) {
-                animateNumber(element, 0, number, 1500, '$');
-            }
-        } else if (text.includes('#')) {
-            const number = parseInt(text.replace('#', ''));
-            if (!isNaN(number)) {
-                animateNumber(element, 0, number, 1000, '#');
-            }
-        }
-    });
-
-    // Efecto de partículas en el header
-    createParticles();
 });
-
-function animateNumber(element, start, end, duration, prefix = '') {
-    const range = end - start;
-    const increment = range / (duration / 16);
-    let current = start;
-    
-    const timer = setInterval(() => {
-        current += increment;
-        if (current >= end) {
-            current = end;
-            clearInterval(timer);
-        }
-        
-        if (prefix === '$') {
-            element.textContent = prefix + Math.floor(current).toLocaleString();
-        } else {
-            element.textContent = prefix + Math.floor(current);
-        }
-    }, 16);
-}
-
-function createParticles() {
-    const header = document.querySelector('.header-section');
-    for (let i = 0; i < 20; i++) {
-        const particle = document.createElement('div');
-        particle.style.cssText = `
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background: rgba(102, 126, 234, 0.3);
-            border-radius: 50%;
-            left: ${Math.random() * 100}%;
-            top: ${Math.random() * 100}%;
-            animation: float ${3 + Math.random() * 2}s ease-in-out infinite;
-            animation-delay: ${Math.random() * 2}s;
-            z-index: 1;
-        `;
-        header.appendChild(particle);
-    }
-}
 </script>
 {% endblock %} 
