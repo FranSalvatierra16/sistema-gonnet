@@ -701,104 +701,97 @@
     });
     </script>
 
-    <!-- Modal Accessibility Fix Script -->
+    <!-- Modal Aggressive Fix Script -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('🔧 Aplicando fix de accesibilidad para modales...');
+        console.log('🔧 Aplicando fix agresivo para aria-hidden...');
         
-        // Override Bootstrap modal behavior to fix aria-hidden issue
+        // Override Bootstrap Modal class to prevent aria-hidden
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            const OriginalModal = bootstrap.Modal;
+            
+            // Create custom modal class
+            bootstrap.Modal = class extends OriginalModal {
+                constructor(element, config) {
+                    super(element, config);
+                    this._element = element;
+                }
+                
+                show() {
+                    // Clear any existing focus
+                    if (document.activeElement && document.activeElement.blur) {
+                        document.activeElement.blur();
+                    }
+                    
+                    // Remove aria-hidden before showing
+                    this._element.removeAttribute('aria-hidden');
+                    
+                    // Call original show
+                    const result = super.show();
+                    
+                    // Immediately fix attributes after show
+                    setTimeout(() => {
+                        this._element.removeAttribute('aria-hidden');
+                        this._element.setAttribute('aria-modal', 'true');
+                        this._element.setAttribute('role', 'dialog');
+                    }, 0);
+                    
+                    return result;
+                }
+                
+                hide() {
+                    // Clear focus before hiding
+                    const focusedElement = this._element.querySelector(':focus');
+                    if (focusedElement && focusedElement.blur) {
+                        focusedElement.blur();
+                    }
+                    
+                    return super.hide();
+                }
+            };
+            
+            console.log('✅ Bootstrap Modal class overridden');
+        }
+        
+        // Additional protection: Intercept setAttribute calls
+        document.querySelectorAll('.modal').forEach(function(modal) {
+            const originalSetAttribute = modal.setAttribute;
+            modal.setAttribute = function(name, value) {
+                if (name === 'aria-hidden' && this.classList.contains('show')) {
+                    console.log('🚫 Blocked aria-hidden on open modal');
+                    return; // Block aria-hidden on open modals
+                }
+                return originalSetAttribute.call(this, name, value);
+            };
+        });
+        
+        // Force remove aria-hidden every 100ms on open modals (aggressive)
+        setInterval(() => {
+            document.querySelectorAll('.modal.show[aria-hidden]').forEach(function(modal) {
+                modal.removeAttribute('aria-hidden');
+                modal.setAttribute('aria-modal', 'true');
+            });
+        }, 100);
+        
+        // Handle modal triggers
         document.querySelectorAll('[data-bs-toggle="modal"]').forEach(function(trigger) {
             trigger.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
                 const targetId = this.getAttribute('data-bs-target');
                 if (targetId) {
                     const modalElement = document.querySelector(targetId);
                     if (modalElement) {
-                        console.log('🚀 Abriendo modal:', targetId);
+                        // Pre-clear attributes
+                        modalElement.removeAttribute('aria-hidden');
+                        modalElement.setAttribute('aria-modal', 'true');
+                        modalElement.setAttribute('role', 'dialog');
                         
-                        try {
-                            // Create modal instance
-                            const modal = new bootstrap.Modal(modalElement, {
-                                backdrop: true,
-                                keyboard: true,
-                                focus: true
-                            });
-                            
-                            // Fix aria-hidden before showing
-                            modalElement.addEventListener('show.bs.modal', function(e) {
-                                // Remove aria-hidden immediately
-                                e.target.removeAttribute('aria-hidden');
-                                console.log('✅ Removed aria-hidden from modal');
-                            });
-                            
-                            modalElement.addEventListener('shown.bs.modal', function(e) {
-                                // Ensure aria-hidden stays removed
-                                e.target.removeAttribute('aria-hidden');
-                                e.target.setAttribute('aria-modal', 'true');
-                                
-                                // Clear focus from any element before focusing modal content
-                                if (document.activeElement) {
-                                    document.activeElement.blur();
-                                }
-                                
-                                // Focus the modal container first
-                                e.target.focus();
-                                
-                                // Then focus first input after a delay
-                                setTimeout(() => {
-                                    const firstInput = e.target.querySelector('input:not([type="hidden"]), textarea, select');
-                                    if (firstInput) {
-                                        firstInput.focus();
-                                    }
-                                }, 150);
-                                
-                                console.log('✅ Modal completamente abierto y accesible');
-                            });
-                            
-                            modalElement.addEventListener('hide.bs.modal', function(e) {
-                                // Clear any focus before hiding
-                                const focusedElement = e.target.querySelector(':focus');
-                                if (focusedElement) {
-                                    focusedElement.blur();
-                                }
-                            });
-                            
-                            // Show the modal
-                            modal.show();
-                            
-                        } catch (error) {
-                            console.error('❌ Error al abrir modal:', error);
-                        }
+                        console.log('🚀 Preparando modal:', targetId);
                     }
                 }
             });
         });
         
-        // Additional fix: Monitor and remove aria-hidden from open modals
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'aria-hidden') {
-                    const modal = mutation.target;
-                    if (modal.classList.contains('modal') && modal.classList.contains('show')) {
-                        // If modal is shown but has aria-hidden, remove it
-                        if (modal.hasAttribute('aria-hidden')) {
-                            modal.removeAttribute('aria-hidden');
-                            modal.setAttribute('aria-modal', 'true');
-                            console.log('🔧 Fixed aria-hidden on open modal');
-                        }
-                    }
-                }
-            });
-        });
-        
-        // Observe all modals for aria-hidden changes
-        document.querySelectorAll('.modal').forEach(function(modal) {
-            observer.observe(modal, { attributes: true, attributeFilter: ['aria-hidden'] });
-        });
-        
-        console.log('✅ Fix de accesibilidad aplicado correctamente');
+        console.log('✅ Fix agresivo aplicado');
     });
     </script>
 
