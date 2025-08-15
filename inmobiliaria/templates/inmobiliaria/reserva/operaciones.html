@@ -88,45 +88,150 @@
 
     .operacion-card {
         background: rgba(255, 255, 255, 0.95);
-        border-radius: 12px;
-        padding: 1.25rem;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
         backdrop-filter: blur(10px);
         transition: all 0.3s ease;
         position: relative;
         overflow: hidden;
-        border-left: 4px solid transparent;
-        min-height: 80px;
+        border-left: 3px solid transparent;
+        min-height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
     
-    /* Layout horizontal para lista */
+    /* Layout compacto horizontal */
     .property-header {
         display: flex;
         align-items: center;
-        margin-bottom: 0.75rem;
-        padding-bottom: 0.75rem;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+        flex: 0 0 auto;
+        min-width: 200px;
+    }
+    
+    .property-icon {
+        width: 35px;
+        height: 35px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1rem;
+        margin-right: 0.75rem;
+        position: relative;
+        flex-shrink: 0;
+    }
+    
+    .property-info {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .property-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 0.25rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     
     .operacion-details {
         display: flex;
         align-items: center;
+        gap: 1.5rem;
+        flex: 1;
         justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 1rem;
+        margin-left: 1rem;
     }
     
     .operacion-info {
         display: flex;
         align-items: center;
-        gap: 2rem;
+        gap: 1.5rem;
         flex: 1;
+    }
+    
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 80px;
+    }
+    
+    .info-label {
+        font-size: 0.7rem;
+        color: #64748b;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.25rem;
+    }
+    
+    .info-value {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #1e293b;
+    }
+    
+    .status-badge {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     
     .operacion-actions {
         display: flex;
         gap: 0.5rem;
         flex-shrink: 0;
+    }
+    
+    .btn-action {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.75rem;
+        border-radius: 6px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+    }
+    
+    .btn-detalles {
+        background: rgba(34, 197, 94, 0.1);
+        color: #16a34a;
+        border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+    
+    .btn-detalles:hover {
+        background: rgba(34, 197, 94, 0.2);
+        color: #15803d;
+        transform: translateY(-1px);
+    }
+    
+    .btn-eliminar {
+        background: rgba(239, 68, 68, 0.1);
+        color: #dc2626;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    
+    .btn-eliminar:hover {
+        background: rgba(239, 68, 68, 0.2);
+        color: #b91c1c;
+        transform: translateY(-1px);
     }
 
     .operacion-card.pagada-completa {
@@ -156,28 +261,6 @@
 
     .operacion-card.pendiente::before {
         background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
-    }
-
-    .property-icon {
-        width: 60px;
-        height: 60px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 15px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 1.8rem;
-        margin-right: 1rem;
-        position: relative;
-    }
-
-    .property-title {
-        font-size: 1.3rem;
-        font-weight: 600;
-        color: #2c3e50;
-        margin: 0;
-        line-height: 1.2;
     }
 
     .detail-row {
@@ -250,15 +333,6 @@
         background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
     }
 
-    .status-badge {
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-weight: 600;
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
     .status-pagada {
         background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
         color: white;
@@ -284,19 +358,6 @@
         border-top: 1px solid rgba(0, 0, 0, 0.1);
     }
 
-    .btn-action {
-        border: none;
-        border-radius: 10px;
-        padding: 0.6rem 1rem;
-        font-weight: 500;
-        font-size: 0.9rem;
-        transition: all 0.3s ease;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        white-space: nowrap;
-    }
-
     .btn-action i {
         margin-right: 0.3rem;
     }
@@ -313,11 +374,6 @@
 
     .btn-finalizar {
         background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
-        color: white;
-    }
-
-    .btn-eliminar {
-        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
         color: white;
     }
 
@@ -467,7 +523,7 @@
                                     </div>
                                 {% endif %}
                             </div>
-                            <div style="flex: 1;">
+                            <div class="property-info">
                                 <h3 class="property-title">{{ reserva.propiedad }}</h3>
                                 <span class="status-badge 
                                     {% if reserva.estado == 'pagada' and reserva.saldo_pendiente == 0 %}status-pagada
@@ -486,20 +542,13 @@
 
                         <!-- Operacion Details -->
                         <div class="operacion-details">
-                            <div class="detail-row">
-                                <span class="detail-label">
-                                    <i class="fas fa-calendar-check"></i>
-                                    Fecha Inicio
-                                </span>
-                                <span class="detail-value">{{ reserva.fecha_inicio }}</span>
+                            <div class="info-item">
+                                <span class="info-label">Fecha Inicio</span>
+                                <span class="info-value">{{ reserva.fecha_inicio }}</span>
                             </div>
-
-                            <div class="detail-row">
-                                <span class="detail-label">
-                                    <i class="fas fa-calendar-times"></i>
-                                    Fecha Fin
-                                </span>
-                                <span class="detail-value">{{ reserva.fecha_fin }}</span>
+                            <div class="info-item">
+                                <span class="info-label">Fecha Fin</span>
+                                <span class="info-value">{{ reserva.fecha_fin }}</span>
                             </div>
                         </div>
 
@@ -543,8 +592,8 @@
                         </div>
 
                         <!-- Actions -->
-                        <div class="actions-section">
-                            <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn-action btn-ver">
+                        <div class="operacion-actions">
+                            <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn-action btn-detalles">
                                 <i class="fas fa-eye"></i>Ver
                             </a>
                             
