@@ -5,29 +5,200 @@
 
 {% block extra_css %}
     <style>
-    /* USAR EL MISMO DISEÑO QUE TODAS LAS PÁGINAS */
+    /* FORZAR DISEÑO EXACTO DEL DASHBOARD */
     
-    /* Solo ajustes mínimos para funcionalidad específica */
+    /* Variables que necesitamos */
+    :root {
+        --primary-color: #22c55e;
+        --primary-light: #4ade80;
+        --primary-dark: #16a34a;
+        --secondary-color: #0ea5e9;
+        --gray-50: #f8fafc;
+        --gray-100: #f1f5f9;
+        --gray-200: #e2e8f0;
+        --gray-300: #cbd5e1;
+        --gray-700: #334155;
+        --gray-800: #1e293b;
+        --surface-glass: rgba(255, 255, 255, 0.8);
+        --backdrop-blur: blur(20px);
+        --border-radius: 16px;
+        --border-radius-lg: 24px;
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        --primary-gradient: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        --dark-gradient: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        --neutral-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    }
+    
+    /* FORZAR FONDO IGUAL AL DASHBOARD */
+    body {
+        background: var(--neutral-gradient) !important;
+        min-height: 100vh !important;
+    }
+    
+    /* FORZAR CONTAINER GLASSMORPHISM IGUAL AL DASHBOARD */
+    .container-fluid {
+        background: var(--surface-glass) !important;
+        backdrop-filter: var(--backdrop-blur) !important;
+        -webkit-backdrop-filter: var(--backdrop-blur) !important;
+        border: 1px solid rgba(226, 232, 240, 0.5) !important;
+        border-radius: var(--border-radius-lg) !important;
+        padding: 2.5rem !important;
+        box-shadow: var(--shadow-lg) !important;
+        transition: var(--transition-slow) !important;
+        position: relative !important;
+        max-width: 1600px !important;
+        margin: 0 auto !important;
+        overflow: hidden !important;
+    }
+    
+    /* Línea verde arriba igual al dashboard */
+    .container-fluid::before {
+        content: '' !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 4px !important;
+        background: var(--primary-gradient) !important;
+        border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0 !important;
+    }
+    
+    /* Hover effect igual al dashboard */
+    .container-fluid:hover {
+        box-shadow: var(--shadow-xl) !important;
+        transform: translateY(-4px) !important;
+    }
+    
+    /* TÍTULO IGUAL AL DASHBOARD */
+    h1, .h1 {
+        font-size: 2.25rem !important;
+        font-weight: 700 !important;
+        background: var(--dark-gradient) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        background-clip: text !important;
+        margin-bottom: 2rem !important;
+        line-height: 1.2 !important;
+        letter-spacing: -0.025em !important;
+    }
+    
+    /* CARDS IGUALES AL DASHBOARD */
+    .card {
+        background: var(--surface-glass) !important;
+        backdrop-filter: var(--backdrop-blur) !important;
+        -webkit-backdrop-filter: var(--backdrop-blur) !important;
+        border: 1px solid rgba(226, 232, 240, 0.5) !important;
+        border-radius: var(--border-radius) !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+        transition: var(--transition-slow) !important;
+        overflow: hidden !important;
+        position: relative !important;
+    }
+    
+    /* Línea verde en cards igual al dashboard */
+    .card::before {
+        content: '' !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 3px !important;
+        background: var(--primary-gradient) !important;
+        border-radius: var(--border-radius) var(--border-radius) 0 0 !important;
+    }
+    
+    /* Hover en cards igual al dashboard */
+    .card:hover {
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+        transform: translateY(-4px) !important;
+    }
+    
+    /* BOTONES IGUALES AL DASHBOARD */
+    .btn-primary {
+        background: var(--primary-gradient) !important;
+        border: none !important;
+        color: white !important;
+        font-weight: 600 !important;
+        padding: 0.75rem 1.5rem !important;
+        border-radius: var(--border-radius) !important;
+        transition: var(--transition-slow) !important;
+        box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.2) !important;
+    }
+    
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 15px -3px rgba(34, 197, 94, 0.3) !important;
+        color: white !important;
+    }
+    
+    /* INPUTS MODERNOS */
+    .form-control {
+        background: rgba(255, 255, 255, 0.9) !important;
+        border: 1px solid rgba(226, 232, 240, 0.5) !important;
+        border-radius: var(--border-radius) !important;
+        padding: 0.75rem 1rem !important;
+        transition: var(--transition-slow) !important;
+        backdrop-filter: blur(10px) !important;
+    }
+    
+    .form-control:focus {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border-color: var(--primary-color) !important;
+        box-shadow: 0 0 0 0.2rem rgba(34, 197, 94, 0.25) !important;
+    }
+    
+    /* EFECTOS DE ANIMACIÓN */
+    .fade-in-up {
+        animation: fadeInUp 0.8s ease-out !important;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* TABLE WRAPPER CON GLASSMORPHISM */
     .table-wrapper {
+        background: var(--surface-glass) !important;
+        backdrop-filter: var(--backdrop-blur) !important;
+        border-radius: var(--border-radius) !important;
+        overflow: hidden !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
         height: 400px !important;
         overflow-y: auto !important;
         margin-bottom: 20px !important;
     }
 
     .table thead th {
+        background: var(--primary-gradient) !important;
+        color: white !important;
         position: sticky !important;
         top: 0 !important;
         z-index: 1 !important;
+        border: none !important;
+        padding: 1rem !important;
+        font-weight: 600 !important;
     }
 
     .table tbody tr {
         cursor: pointer;
-        transition: background-color 0.3s ease;
+        transition: all 0.3s ease;
+        background: rgba(255, 255, 255, 0.5) !important;
     }
 
     .table tbody tr.selected {
-        background-color: var(--primary-color) !important;
+        background: var(--primary-gradient) !important;
         color: white !important;
+        box-shadow: 0 4px 8px rgba(34, 197, 94, 0.3) !important;
     }
 
     .table tbody tr.selected td {
@@ -35,12 +206,15 @@
         font-weight: 600 !important;
     }
 
-    .table tbody tr:hover {
-        background-color: rgba(34, 197, 94, 0.1);
+    .table tbody tr:hover:not(.selected) {
+        background: rgba(34, 197, 94, 0.1) !important;
+        transform: translateX(4px) !important;
     }
 
     .table tbody td {
         vertical-align: middle !important;
+        border: none !important;
+        padding: 0.75rem 1rem !important;
     }
 
     /* Mantener funcionalidad crítica */
@@ -53,23 +227,32 @@
         z-index: 1055 !important;
     }
 
-    /* Animación de selección simple */
+    /* Animación de selección */
     .table tbody tr.selected {
         animation: pulseSelection 2s infinite alternate !important;
     }
 
     @keyframes pulseSelection {
         0% {
-            box-shadow: 0 0 0 0px rgba(34, 197, 94, 0.4);
+            box-shadow: 0 4px 8px rgba(34, 197, 94, 0.3);
         }
         100% {
-            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
+            box-shadow: 0 8px 15px rgba(34, 197, 94, 0.5);
         }
     }
 
     .form-check-input:checked {
         background-color: var(--primary-color) !important;
         border-color: var(--primary-color) !important;
+    }
+    
+    /* ALERT CON GLASSMORPHISM */
+    .alert {
+        background: var(--surface-glass) !important;
+        backdrop-filter: var(--backdrop-blur) !important;
+        border: 1px solid rgba(226, 232, 240, 0.5) !important;
+        border-radius: var(--border-radius) !important;
+        color: var(--gray-800) !important;
     }
     </style>
 {% endblock extra_css %}
