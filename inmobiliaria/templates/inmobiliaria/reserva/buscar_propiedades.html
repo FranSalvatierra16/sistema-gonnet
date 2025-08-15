@@ -432,6 +432,48 @@
         z-index: 999997 !important;
     }
     
+    /* MODAL DE FILTROS MÁS ABAJO */
+    .modal-filtros {
+        padding-top: 100px !important;
+    }
+    
+    .modal-filtros .modal-dialog {
+        margin-top: 3rem !important;
+        margin-bottom: 3rem !important;
+    }
+    
+    /* CARTEL DE PRECIOS MEJORADO */
+    .card-header.bg-primary {
+        background: var(--primary-gradient) !important;
+        border: none !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+    
+    .card-header.bg-primary::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 100%;
+        height: 200%;
+        background: linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.1) 50%, transparent 60%);
+        animation: shine 3s ease-in-out infinite;
+    }
+    
+    .card-header.bg-primary h5 {
+        color: white !important;
+        font-weight: 700 !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+        font-size: 1.1rem !important;
+        letter-spacing: 0.5px !important;
+    }
+    
+    @keyframes shine {
+        0% { transform: translateX(-100%) rotate(45deg); }
+        100% { transform: translateX(100%) rotate(45deg); }
+    }
+    
     /* Estilo del header del sidebar */
     .sidebar-header {
         padding: 2rem 1.5rem 1.5rem !important;
@@ -1531,11 +1573,7 @@ function autenticarYReservar() {
             </div>
         `;
 
-        // Mostrar el modal antes de cargar las fotos
-        const modalGaleriaFotos = new bootstrap.Modal(document.getElementById('modalGaleriaFotos'));
-        modalGaleriaFotos.show();
-        
-        // Realizar la petición
+        // Realizar la petición PRIMERO para verificar si hay fotos
         fetch(url)
             .then(response => {
                 if (!response.ok) {
@@ -1545,6 +1583,9 @@ function autenticarYReservar() {
             })
             .then(data => {
                 if (data.success && data.fotos && data.fotos.length > 0) {
+                    // HAY FOTOS - Mostrar el modal
+                    const modalGaleriaFotos = new bootstrap.Modal(document.getElementById('modalGaleriaFotos'));
+                    modalGaleriaFotos.show();
                     carouselInner.innerHTML = '';
                     
                     data.fotos.forEach((foto, index) => {
@@ -1577,20 +1618,26 @@ function autenticarYReservar() {
                     // Actualizar contador
                     contadorFotos.textContent = `1 / ${data.fotos.length}`;
                 } else {
-                    carouselInner.innerHTML = `
-                        <div class="alert alert-info m-3">
-                            No hay fotos disponibles para esta propiedad
-                        </div>
-                    `;
+                    // NO HAY FOTOS - Mostrar alert sin abrir modal
+                    Swal.fire({
+                        icon: 'info',
+                        title: '📷 Sin Fotos',
+                        text: 'Esta propiedad no tiene fotos disponibles en este momento.',
+                        confirmButtonText: 'Entendido',
+                        confirmButtonColor: '#22c55e'
+                    });
                 }
             })
             .catch(error => {
                 console.error("Error al cargar las fotos:", error);
-                carouselInner.innerHTML = `
-                    <div class="alert alert-danger m-3">
-                        Error al cargar las fotos: ${error.message}
-                    </div>
-                `;
+                // ERROR - Mostrar alert sin abrir modal
+                Swal.fire({
+                    icon: 'error',
+                    title: '❌ Error',
+                    text: `Error al cargar las fotos: ${error.message}`,
+                    confirmButtonText: 'Entendido',
+                    confirmButtonColor: '#ef4444'
+                });
             });
     }
     function irAFoto(index) {
