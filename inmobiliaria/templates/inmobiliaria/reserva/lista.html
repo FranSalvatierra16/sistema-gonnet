@@ -60,23 +60,27 @@
         color: white;
     }
 
-    .reservas-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-        gap: 1.5rem;
+    .reservas-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
         margin-top: 2rem;
     }
 
     .reserva-card {
         background: rgba(255, 255, 255, 0.95);
-        border-radius: 20px;
-        padding: 1.5rem;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         backdrop-filter: blur(10px);
         transition: all 0.3s ease;
-        border-left: 5px solid transparent;
+        border-left: 4px solid transparent;
         position: relative;
         overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 80px;
     }
 
     .reserva-card::before {
@@ -85,13 +89,13 @@
         top: 0;
         left: 0;
         right: 0;
-        height: 4px;
+        height: 3px;
         background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
     }
 
     .reserva-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        transform: translateX(8px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
     }
 
     .reserva-card.en-espera {
@@ -320,7 +324,7 @@
 
         <!-- Reservas Grid -->
         {% if reservas %}
-            <div class="reservas-grid">
+            <div class="reservas-list">
                 {% for reserva in reservas %}
                     {% if reserva.estado == 'en_espera' or reserva.estado == 'confirmada_no_pagada' %}
                     <div class="reserva-card fade-in {% if reserva.estado == 'en_espera' %}en-espera{% else %}confirmada{% endif %}" 
