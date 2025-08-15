@@ -246,6 +246,132 @@
         border-color: var(--primary-color) !important;
     }
     
+    /* CONTROLES MODERNOS MEJORADOS */
+    .controls-container {
+        display: flex !important;
+        gap: 1.5rem !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-wrap: wrap !important;
+        margin-top: 2rem !important;
+        padding: 1.5rem !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(10px) !important;
+        border-radius: var(--border-radius) !important;
+        border: 1px solid rgba(226, 232, 240, 0.3) !important;
+    }
+    
+    /* Botón de filtros moderno */
+    .modern-filter-btn {
+        background: rgba(255, 255, 255, 0.9) !important;
+        border: 2px solid var(--primary-color) !important;
+        color: var(--primary-color) !important;
+        font-weight: 600 !important;
+        padding: 0.875rem 2rem !important;
+        border-radius: var(--border-radius) !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        backdrop-filter: blur(10px) !important;
+        box-shadow: 0 4px 15px rgba(34, 197, 94, 0.15) !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+    
+    .modern-filter-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.1), transparent);
+        transition: left 0.5s ease;
+    }
+    
+    .modern-filter-btn:hover::before {
+        left: 100%;
+    }
+    
+    .modern-filter-btn:hover {
+        background: var(--primary-gradient) !important;
+        color: white !important;
+        transform: translateY(-3px) !important;
+        box-shadow: 0 8px 25px rgba(34, 197, 94, 0.3) !important;
+        border-color: var(--primary-dark) !important;
+    }
+    
+    /* Container del checkbox moderno */
+    .modern-checkbox-container {
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+        padding: 0.875rem 1.5rem !important;
+        background: rgba(255, 255, 255, 0.8) !important;
+        backdrop-filter: blur(10px) !important;
+        border-radius: var(--border-radius) !important;
+        border: 2px solid rgba(34, 197, 94, 0.2) !important;
+        transition: all 0.3s ease !important;
+        cursor: pointer !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+    
+    .modern-checkbox-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, transparent 30%, rgba(34, 197, 94, 0.05) 50%, transparent 70%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .modern-checkbox-container:hover::before {
+        opacity: 1;
+    }
+    
+    .modern-checkbox-container:hover {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border-color: var(--primary-color) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(34, 197, 94, 0.2) !important;
+    }
+    
+    /* Label del checkbox */
+    .modern-checkbox-label {
+        color: var(--gray-700) !important;
+        font-weight: 600 !important;
+        margin: 0 !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        font-size: 0.95rem !important;
+        transition: color 0.3s ease !important;
+    }
+    
+    .modern-checkbox-container:hover .modern-checkbox-label {
+        color: var(--primary-dark) !important;
+    }
+    
+    /* Checkbox personalizado */
+    .modern-checkbox-container input[type="checkbox"] {
+        width: 1.25rem !important;
+        height: 1.25rem !important;
+        border: 2px solid var(--primary-color) !important;
+        border-radius: 6px !important;
+        background: white !important;
+        cursor: pointer !important;
+        transition: all 0.3s ease !important;
+        margin: 0 !important;
+    }
+    
+    .modern-checkbox-container input[type="checkbox"]:checked {
+        background: var(--primary-gradient) !important;
+        border-color: var(--primary-dark) !important;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2) !important;
+    }
+    
     /* ALERT CON GLASSMORPHISM */
     .alert {
         background: var(--surface-glass) !important;
@@ -310,16 +436,16 @@
                         </div>
                     </div>
 
-                    <!-- Controles modernos -->
+                    <!-- Controles modernos mejorados -->
                     <div class="controls-container">
-                        <button type="button" class="control-btn" onclick="abrirModalFiltros()">
-                            <i class="fas fa-filter"></i>
+                        <button type="button" class="btn btn-outline-primary modern-filter-btn" onclick="abrirModalFiltros()">
+                            <i class="fas fa-filter me-2"></i>
                             Mostrar Filtros Avanzados
                         </button>
-                        <div class="form-check">
+                        <div class="modern-checkbox-container">
                             {{ form.ver_todas }}
-                            <label class="control-btn" for="id_ver_todas">
-                                <i class="fas fa-globe"></i>
+                            <label class="modern-checkbox-label" for="id_ver_todas">
+                                <i class="fas fa-globe me-2"></i>
                                 Ver Todas las Propiedades
                             </label>
                         </div>
