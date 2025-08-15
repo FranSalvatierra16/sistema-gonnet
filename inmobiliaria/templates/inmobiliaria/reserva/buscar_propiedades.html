@@ -380,6 +380,133 @@
         border-radius: var(--border-radius) !important;
         color: var(--gray-800) !important;
     }
+    
+    /* FORZAR SIDEBAR VISIBLE - ARREGLO COMPLETO */
+    .sidebar {
+        position: fixed !important;
+        top: 0 !important;
+        left: -350px !important;
+        width: 350px !important;
+        height: 100vh !important;
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98)) !important;
+        backdrop-filter: blur(25px) !important;
+        border-right: 3px solid rgba(34, 197, 94, 0.3) !important;
+        box-shadow: 8px 0 40px rgba(0, 0, 0, 0.15) !important;
+        z-index: 999999 !important;
+        transition: left 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+        overflow-y: auto !important;
+    }
+    
+    .sidebar.open {
+        left: 0 !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    .sidebar-overlay {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background-color: rgba(0, 0, 0, 0.5) !important;
+        z-index: 999998 !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .sidebar-overlay.active {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    /* Asegurar que el container no tape el sidebar */
+    .container-fluid {
+        z-index: 1 !important;
+        position: relative !important;
+    }
+    
+    /* Override del navbar para que no tape el sidebar */
+    .navbar {
+        z-index: 999997 !important;
+    }
+    
+    /* Estilo del header del sidebar */
+    .sidebar-header {
+        padding: 2rem 1.5rem 1.5rem !important;
+        border-bottom: 1px solid rgba(34, 197, 94, 0.15) !important;
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;
+        color: white !important;
+        position: relative !important;
+    }
+    
+    .sidebar-header h5 {
+        margin: 0 !important;
+        font-weight: 600 !important;
+        font-size: 1.25rem !important;
+    }
+    
+    .close-btn {
+        position: absolute !important;
+        top: 1.5rem !important;
+        right: 1.5rem !important;
+        background: rgba(255, 255, 255, 0.2) !important;
+        border: none !important;
+        color: white !important;
+        width: 35px !important;
+        height: 35px !important;
+        border-radius: 50% !important;
+        cursor: pointer !important;
+        transition: all 0.3s ease !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    .close-btn:hover {
+        background: rgba(255, 255, 255, 0.3) !important;
+        transform: rotate(90deg) !important;
+    }
+    
+    .sidebar-content {
+        padding: 1rem 0 !important;
+    }
+    
+    .sidebar-item {
+        display: flex !important;
+        align-items: center !important;
+        padding: 1rem 1.5rem !important;
+        color: var(--gray-700) !important;
+        text-decoration: none !important;
+        transition: all 0.3s ease !important;
+        border-left: 3px solid transparent !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+    
+    .sidebar-item::before {
+        content: '' !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: -100% !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.1), transparent) !important;
+        transition: left 0.5s ease !important;
+    }
+    
+    .sidebar-item:hover::before {
+        left: 100% !important;
+    }
+    
+    .sidebar-item:hover {
+        background: rgba(34, 197, 94, 0.1) !important;
+        border-left-color: var(--primary-color) !important;
+        color: var(--primary-dark) !important;
+        transform: translateX(5px) !important;
+        text-decoration: none !important;
+    }
     </style>
 {% endblock extra_css %}
 
