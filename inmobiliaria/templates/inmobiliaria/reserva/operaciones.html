@@ -664,5 +664,69 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// SIDEBAR JAVASCRIPT PARA UTILIDADES
+document.addEventListener('DOMContentLoaded', function() {
+    const sidebarBtn = document.getElementById('utilidadesSidebarBtn');
+    const sidebar = document.getElementById('utilidadesSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const closeBtn = document.getElementById('closeSidebarBtn');
+    
+    console.log('🔧 Inicializando sidebar en operaciones...');
+    console.log('🎯 Sidebar button:', sidebarBtn);
+    console.log('📋 Sidebar element:', sidebar);
+    
+    // Función para abrir sidebar
+    function openSidebar() {
+        if (sidebar) {
+            sidebar.classList.add('open');
+            console.log('✅ Sidebar abierto en operaciones');
+        }
+        if (overlay) {
+            overlay.classList.add('active');
+        }
+        document.body.style.overflow = 'hidden';
+    }
+    
+    // Función para cerrar sidebar
+    function closeSidebar() {
+        if (sidebar) {
+            sidebar.classList.remove('open');
+        }
+        if (overlay) {
+            overlay.classList.remove('active');
+        }
+        document.body.style.overflow = 'auto';
+    }
+    
+    // Event listeners
+    if (sidebarBtn) {
+        sidebarBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('🖱️ Click en Utilidades detectado en operaciones');
+            openSidebar();
+        });
+    }
+    
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            closeSidebar();
+        });
+    }
+    
+    if (overlay) {
+        overlay.addEventListener('click', function(e) {
+            closeSidebar();
+        });
+    }
+    
+    // Cerrar con ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeSidebar();
+        }
+    });
+});
 </script>
 {% endblock %}
