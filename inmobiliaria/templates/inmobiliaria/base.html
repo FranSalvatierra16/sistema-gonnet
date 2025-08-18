@@ -962,7 +962,7 @@
                 <div class="navbar-nav me-auto">
                     
                     <a class="nav-link" href="{% url 'inmobiliaria:buscar_propiedades' %}">Reservas</a>
-                    <a class="nav-link" href="#" id="utilidadesSidebarBtn">
+                    <a class="nav-link" href="#" id="utilidadesSidebarBtn" onclick="toggleUtilidades(event)">
                         <i class="fas fa-tools me-2"></i>Utilidades
                     </a>
                 </div>
@@ -1242,91 +1242,86 @@
     });
     </script>
 
-    <!-- SIDEBAR JAVASCRIPT MEJORADO -->
+    <!-- SIDEBAR JAVASCRIPT GLOBAL -->
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const sidebarBtn = document.getElementById('utilidadesSidebarBtn');
-        const sidebar = document.getElementById('utilidadesSidebar');
-        const overlay = document.getElementById('sidebarOverlay');
-        const closeBtn = document.getElementById('closeSidebarBtn');
+    // Evitar inicialización múltiple
+    if (!window.sidebarInitialized) {
+        window.sidebarInitialized = true;
         
-        console.log('🔧 Inicializando sidebar...');
-        console.log('🎯 Sidebar button:', sidebarBtn);
-        console.log('📋 Sidebar element:', sidebar);
-        console.log('🔍 Overlay element:', overlay);
-        console.log('❌ Close button:', closeBtn);
-        
-        // Función para abrir sidebar
-        function openSidebar() {
-            if (sidebar) {
-                sidebar.classList.add('open');
-                console.log('✅ Clase "open" agregada al sidebar');
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebarBtn = document.getElementById('utilidadesSidebarBtn');
+            const sidebar = document.getElementById('utilidadesSidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            const closeBtn = document.getElementById('closeSidebarBtn');
+            
+            console.log('🔧 Inicializando sidebar GLOBAL...');
+            console.log('🎯 Sidebar button:', sidebarBtn);
+            console.log('📋 Sidebar element:', sidebar);
+            console.log('🔍 Overlay element:', overlay);
+            console.log('❌ Close button:', closeBtn);
+            
+            // Función global para abrir sidebar
+            window.openUtilidades = function() {
+                if (sidebar) {
+                    sidebar.classList.add('open');
+                    console.log('✅ Sidebar abierto');
+                }
+                if (overlay) {
+                    overlay.classList.add('active');
+                }
+                document.body.style.overflow = 'hidden';
             }
-            if (overlay) {
-                overlay.classList.add('active');
-                console.log('✅ Clase "active" agregada al overlay');
+            
+            // Función global para cerrar sidebar
+            window.closeUtilidades = function() {
+                if (sidebar) {
+                    sidebar.classList.remove('open');
+                }
+                if (overlay) {
+                    overlay.classList.remove('active');
+                }
+                document.body.style.overflow = 'auto';
             }
-            document.body.style.overflow = 'hidden';
-            console.log('🟢 Sidebar abierto exitosamente');
-        }
-        
-        // Función para cerrar sidebar
-        function closeSidebar() {
-            if (sidebar) {
-                sidebar.classList.remove('open');
-                console.log('❌ Clase "open" removida del sidebar');
+            
+            // Event listeners ÚNICOS
+            if (sidebarBtn && !sidebarBtn.hasAttribute('data-sidebar-initialized')) {
+                sidebarBtn.setAttribute('data-sidebar-initialized', 'true');
+                sidebarBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('🖱️ CLICK GLOBAL en Utilidades');
+                    window.openUtilidades();
+                });
+                console.log('✅ Event listener GLOBAL agregado');
             }
-            if (overlay) {
-                overlay.classList.remove('active');
-                console.log('❌ Clase "active" removida del overlay');
+            
+            if (closeBtn && !closeBtn.hasAttribute('data-sidebar-initialized')) {
+                closeBtn.setAttribute('data-sidebar-initialized', 'true');
+                closeBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.closeUtilidades();
+                });
             }
-            document.body.style.overflow = 'auto';
-            console.log('🔴 Sidebar cerrado exitosamente');
-        }
-        
-        // Event listeners con debug
-        if (sidebarBtn) {
-            sidebarBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                console.log('🖱️ Click en botón de Utilidades detectado');
-                openSidebar();
-            });
-            console.log('✅ Event listener agregado al botón de Utilidades');
-        } else {
-            console.error('❌ No se encontró el botón utilidadesSidebarBtn');
-        }
-        
-        if (closeBtn) {
-            closeBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                console.log('🖱️ Click en botón cerrar detectado');
-                closeSidebar();
-            });
-            console.log('✅ Event listener agregado al botón cerrar');
-        } else {
-            console.error('❌ No se encontró el botón closeSidebarBtn');
-        }
-        
-        if (overlay) {
-            overlay.addEventListener('click', function(e) {
-                console.log('🖱️ Click en overlay detectado');
-                closeSidebar();
-            });
-            console.log('✅ Event listener agregado al overlay');
-        } else {
-            console.error('❌ No se encontró el overlay');
-        }
-        
-        // Cerrar con ESC
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                console.log('⌨️ Tecla ESC presionada');
-                closeSidebar();
+            
+            if (overlay && !overlay.hasAttribute('data-sidebar-initialized')) {
+                overlay.setAttribute('data-sidebar-initialized', 'true');
+                overlay.addEventListener('click', function(e) {
+                    window.closeUtilidades();
+                });
             }
+            
+            // Cerrar con ESC - ÚNICO
+            if (!document.hasAttribute('data-esc-initialized')) {
+                document.setAttribute('data-esc-initialized', 'true');
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        window.closeUtilidades();
+                    }
+                });
+            }
+            
+            console.log('✅ Sidebar GLOBAL completamente configurado');
         });
-        
-        console.log('✅ Sidebar completamente configurado');
-    });
+    }
     </script>
 
     {% block extra_js %}{% endblock %}
@@ -1354,23 +1349,75 @@
     </script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Inicializar todos los dropdowns
-        var dropdownElementList = [].slice.call(document.querySelectorAll('.dropdown-toggle'));
-        var dropdownList = dropdownElementList.map(function(dropdownToggleEl) {
-            return new bootstrap.Dropdown(dropdownToggleEl);
-        });
-
-        // Agregar logging para debugging
-        document.querySelector('#utilidadesSidebarBtn').addEventListener('show.bs.dropdown', function () {
-            console.log('Dropdown Utilidades abriéndose');
-        });
-
-        document.querySelector('#utilidadesSidebarBtn').addEventListener('shown.bs.dropdown', function () {
-            console.log('Dropdown Utilidades abierto');
-        });
+        // NO inicializar dropdowns para evitar conflictos con sidebar
+        console.log('✅ Script de dropdown omitido para evitar conflictos con sidebar');
     });
     </script>
     {% endblock %}
+
+    <!-- FUNCIONES GLOBALES PARA SIDEBAR -->
+    <script>
+    function toggleUtilidades(e) {
+        e.preventDefault();
+        console.log('🔥 FUNCIÓN DIRECTA toggleUtilidades llamada');
+        
+        const sidebar = document.getElementById('utilidadesSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        
+        if (sidebar && overlay) {
+            if (sidebar.classList.contains('open')) {
+                // Cerrar
+                sidebar.classList.remove('open');
+                overlay.classList.remove('active');
+                document.body.style.overflow = 'auto';
+                console.log('❌ Sidebar cerrado');
+            } else {
+                // Abrir
+                sidebar.classList.add('open');
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+                console.log('✅ Sidebar abierto');
+            }
+        } else {
+            console.error('❌ No se encontraron elementos del sidebar');
+        }
+    }
+    
+    function closeUtilidades() {
+        const sidebar = document.getElementById('utilidadesSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        
+        if (sidebar) sidebar.classList.remove('open');
+        if (overlay) overlay.classList.remove('active');
+        document.body.style.overflow = 'auto';
+        console.log('❌ Sidebar cerrado por función directa');
+    }
+    
+    // Event listeners simples
+    document.addEventListener('DOMContentLoaded', function() {
+        const closeBtn = document.getElementById('closeSidebarBtn');
+        const overlay = document.getElementById('sidebarOverlay');
+        
+        if (closeBtn) {
+            closeBtn.onclick = function(e) {
+                e.preventDefault();
+                closeUtilidades();
+            };
+        }
+        
+        if (overlay) {
+            overlay.onclick = closeUtilidades;
+        }
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeUtilidades();
+            }
+        });
+        
+        console.log('✅ Funciones globales del sidebar configuradas');
+    });
+    </script>
 </body>
 </html>
 
