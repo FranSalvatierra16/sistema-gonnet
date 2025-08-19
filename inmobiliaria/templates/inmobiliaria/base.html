@@ -1202,51 +1202,59 @@
 
     <!-- SIDEBAR JAVASCRIPT ULTRA SIMPLE -->
     <script>
-    // FUNCIÓN CON ESTILOS INLINE - GARANTIZADA FUNCIONANTE
+    // TEST SÚPER SIMPLE - SIN COMPLICACIONES
     function toggleUtilidades(e) {
         e.preventDefault();
-        console.log('🔥 toggleUtilidades ejecutada');
+        e.stopPropagation();
+        
+        alert('¡Función toggleUtilidades ejecutada!'); // TEST
         
         const sidebar = document.getElementById('utilidadesSidebar');
         const overlay = document.getElementById('sidebarOverlay');
         
-        console.log('📋 Sidebar element:', sidebar);
-        console.log('🔍 Overlay element:', overlay);
+        console.log('📋 Sidebar encontrado:', sidebar);
+        console.log('🔍 Overlay encontrado:', overlay);
         
-        if (sidebar && overlay) {
-            const isOpen = sidebar.style.left === '0px';
-            
-            if (isOpen) {
-                // Cerrar
-                sidebar.style.left = '-450px';
-                sidebar.style.display = 'none';
-                sidebar.style.visibility = 'hidden';
-                sidebar.style.opacity = '0';
-                overlay.style.display = 'none';
-                overlay.style.visibility = 'hidden';
-                overlay.style.opacity = '0';
-                document.body.style.overflow = 'auto';
-                console.log('❌ Sidebar cerrado');
-            } else {
-                // Abrir
-                sidebar.style.left = '0px';
-                sidebar.style.display = 'block';
-                sidebar.style.visibility = 'visible';
-                sidebar.style.opacity = '1';
-                overlay.style.display = 'block';
-                overlay.style.visibility = 'visible';
-                overlay.style.opacity = '1';
-                document.body.style.overflow = 'hidden';
-                console.log('✅ Sidebar abierto');
-            }
+        if (!sidebar) {
+            alert('❌ ERROR: No se encontró el sidebar');
+            return;
+        }
+        
+        if (!overlay) {
+            alert('❌ ERROR: No se encontró el overlay');
+            return;
+        }
+        
+        // Verificar estado actual
+        const currentLeft = sidebar.style.left;
+        console.log('📏 Left actual:', currentLeft);
+        
+        if (currentLeft === '0px') {
+            // Cerrar
+            alert('🔄 Cerrando sidebar...');
+            sidebar.style.left = '-450px';
+            sidebar.style.display = 'none';
+            sidebar.style.visibility = 'hidden';
+            sidebar.style.opacity = '0';
+            overlay.style.display = 'none';
+            overlay.style.visibility = 'hidden';
+            overlay.style.opacity = '0';
+            document.body.style.overflow = 'auto';
         } else {
-            console.error('❌ Elementos del sidebar no encontrados');
-            console.error('- Sidebar:', sidebar);
-            console.error('- Overlay:', overlay);
+            // Abrir
+            alert('🔄 Abriendo sidebar...');
+            sidebar.style.left = '0px';
+            sidebar.style.display = 'block';
+            sidebar.style.visibility = 'visible';
+            sidebar.style.opacity = '1';
+            overlay.style.display = 'block';
+            overlay.style.visibility = 'visible';
+            overlay.style.opacity = '1';
+            document.body.style.overflow = 'hidden';
         }
     }
     
-    // Función para cerrar - CON ESTILOS INLINE
+    // Función para cerrar
     function cerrarUtilidades() {
         const sidebar = document.getElementById('utilidadesSidebar');
         const overlay = document.getElementById('sidebarOverlay');
@@ -1263,7 +1271,6 @@
             overlay.style.opacity = '0';
         }
         document.body.style.overflow = 'auto';
-        console.log('❌ Sidebar cerrado');
     }
     
     // Configurar eventos cuando cargue el DOM
@@ -1273,22 +1280,17 @@
         const closeBtn = document.getElementById('closeSidebarBtn');
         const overlay = document.getElementById('sidebarOverlay');
         
-        console.log('❌ Close button:', closeBtn);
-        console.log('🔍 Overlay:', overlay);
-        
         if (closeBtn) {
             closeBtn.onclick = function(e) {
                 e.preventDefault();
                 cerrarUtilidades();
             };
-            console.log('✅ Close button configurado');
         }
         
         if (overlay) {
             overlay.onclick = function() {
                 cerrarUtilidades();
             };
-            console.log('✅ Overlay configurado');
         }
         
         // ESC para cerrar
@@ -1298,7 +1300,7 @@
             }
         };
         
-        console.log('✅ Sidebar ULTRA SIMPLE configurado');
+        console.log('✅ Sidebar configurado');
     });
     </script>
 
