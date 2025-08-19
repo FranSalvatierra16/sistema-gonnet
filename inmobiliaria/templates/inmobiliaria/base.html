@@ -811,22 +811,26 @@
             position: relative !important;
         }
 
-        /* SIDEBAR ULTRA SIMPLIFICADO - GARANTIZADO FUNCIONANTE */
+        /* SIDEBAR ULTRA SIMPLIFICADO - OCULTO POR DEFECTO */
         .sidebar {
-            position: fixed;
-            top: 0;
-            left: -400px;
-            width: 400px;
-            height: 100vh;
-            background: white;
-            border-right: 3px solid #22c55e;
-            box-shadow: 5px 0 20px rgba(0,0,0,0.2);
-            z-index: 9999;
-            transition: left 0.3s ease;
+            position: fixed !important;
+            top: 0 !important;
+            left: -400px !important;
+            width: 400px !important;
+            height: 100vh !important;
+            background: white !important;
+            border-right: 3px solid #22c55e !important;
+            box-shadow: 5px 0 20px rgba(0,0,0,0.2) !important;
+            z-index: 99999 !important;
+            transition: left 0.3s ease !important;
+            display: none !important;
+            visibility: hidden !important;
         }
         
         .sidebar.open {
-            left: 0;
+            left: 0 !important;
+            display: block !important;
+            visibility: visible !important;
         }
         
         .sidebar-header {
@@ -934,7 +938,7 @@
     </nav>
 
     <!-- SIDEBAR DE UTILIDADES -->
-    <div id="utilidadesSidebar" class="sidebar">
+    <div id="utilidadesSidebar" class="sidebar" style="position: fixed !important; top: 0 !important; left: -450px !important; width: 400px !important; height: 100vh !important; background: white !important; border-right: 3px solid #22c55e !important; box-shadow: 5px 0 20px rgba(0,0,0,0.2) !important; z-index: 999999 !important; transition: left 0.3s ease !important; display: none !important; visibility: hidden !important; opacity: 0 !important;">
         <div class="sidebar-header">
             <h5><i class="fas fa-tools me-2"></i>Utilidades</h5>
             <button id="closeSidebarBtn" class="close-btn">
@@ -972,7 +976,7 @@
     </div>
 
     <!-- OVERLAY para cerrar sidebar -->
-    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+    <div id="sidebarOverlay" class="sidebar-overlay" style="position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; background: rgba(0,0,0,0.5) !important; z-index: 999998 !important; display: none !important; visibility: hidden !important; opacity: 0 !important;"></div>
 
     <div class="content-wrapper">
         <div class="container-fluid fade-in-up">
@@ -1198,7 +1202,7 @@
 
     <!-- SIDEBAR JAVASCRIPT ULTRA SIMPLE -->
     <script>
-    // Una sola función global para toggle
+    // FUNCIÓN CON ESTILOS INLINE - GARANTIZADA FUNCIONANTE
     function toggleUtilidades(e) {
         e.preventDefault();
         console.log('🔥 toggleUtilidades ejecutada');
@@ -1210,18 +1214,28 @@
         console.log('🔍 Overlay element:', overlay);
         
         if (sidebar && overlay) {
-            const isOpen = sidebar.classList.contains('open');
+            const isOpen = sidebar.style.left === '0px';
             
             if (isOpen) {
                 // Cerrar
-                sidebar.classList.remove('open');
-                overlay.classList.remove('active');
+                sidebar.style.left = '-450px';
+                sidebar.style.display = 'none';
+                sidebar.style.visibility = 'hidden';
+                sidebar.style.opacity = '0';
+                overlay.style.display = 'none';
+                overlay.style.visibility = 'hidden';
+                overlay.style.opacity = '0';
                 document.body.style.overflow = 'auto';
                 console.log('❌ Sidebar cerrado');
             } else {
                 // Abrir
-                sidebar.classList.add('open');
-                overlay.classList.add('active');
+                sidebar.style.left = '0px';
+                sidebar.style.display = 'block';
+                sidebar.style.visibility = 'visible';
+                sidebar.style.opacity = '1';
+                overlay.style.display = 'block';
+                overlay.style.visibility = 'visible';
+                overlay.style.opacity = '1';
                 document.body.style.overflow = 'hidden';
                 console.log('✅ Sidebar abierto');
             }
@@ -1232,13 +1246,22 @@
         }
     }
     
-    // Función para cerrar
+    // Función para cerrar - CON ESTILOS INLINE
     function cerrarUtilidades() {
         const sidebar = document.getElementById('utilidadesSidebar');
         const overlay = document.getElementById('sidebarOverlay');
         
-        if (sidebar) sidebar.classList.remove('open');
-        if (overlay) overlay.classList.remove('active');
+        if (sidebar) {
+            sidebar.style.left = '-450px';
+            sidebar.style.display = 'none';
+            sidebar.style.visibility = 'hidden';
+            sidebar.style.opacity = '0';
+        }
+        if (overlay) {
+            overlay.style.display = 'none';
+            overlay.style.visibility = 'hidden';
+            overlay.style.opacity = '0';
+        }
         document.body.style.overflow = 'auto';
         console.log('❌ Sidebar cerrado');
     }
@@ -1303,6 +1326,53 @@
         inactivityTime();
     </script>
     {% endblock %}
+    
+    <!-- CSS AGRESIVO PARA FORZAR SIDEBAR OCULTO -->
+    <style>
+        /* FORZAR SIDEBAR OCULTO - MÁXIMA PRIORIDAD */
+        #utilidadesSidebar {
+            position: fixed !important;
+            top: 0 !important;
+            left: -450px !important;
+            width: 400px !important;
+            height: 100vh !important;
+            background: white !important;
+            border-right: 3px solid #22c55e !important;
+            box-shadow: 5px 0 20px rgba(0,0,0,0.2) !important;
+            z-index: 999999 !important;
+            transition: left 0.3s ease !important;
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+        
+        #utilidadesSidebar.open {
+            left: 0 !important;
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
+        /* FORZAR OVERLAY OCULTO */
+        #sidebarOverlay {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background: rgba(0,0,0,0.5) !important;
+            z-index: 999998 !important;
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+        
+        #sidebarOverlay.active {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+    </style>
 </body>
 </html>
 
