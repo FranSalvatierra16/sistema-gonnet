@@ -1,6 +1,6 @@
 {% extends 'inmobiliaria/base.html' %}
+{% load crispy_forms_tags %}
 {% load bootstrap4 %}
-{% load custom_filters %}
 
 {% block title %}Reservas Pendientes{% endblock %}
 
@@ -453,6 +453,8 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('📋 Lista de reservas cargada - sidebar manejado por base.html');
+    
     // Animar las cards al aparecer
     const cards = document.querySelectorAll('.reserva-card');
     cards.forEach((card, index) => {
@@ -468,70 +470,6 @@ document.addEventListener('DOMContentLoaded', function() {
         card.addEventListener('mouseleave', function() {
             this.style.transform = 'translateY(0) scale(1)';
         });
-    });
-});
-
-// SIDEBAR JAVASCRIPT PARA UTILIDADES
-document.addEventListener('DOMContentLoaded', function() {
-    const sidebarBtn = document.getElementById('utilidadesSidebarBtn');
-    const sidebar = document.getElementById('utilidadesSidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    const closeBtn = document.getElementById('closeSidebarBtn');
-    
-    console.log('🔧 Inicializando sidebar en reservas...');
-    console.log('🎯 Sidebar button:', sidebarBtn);
-    console.log('📋 Sidebar element:', sidebar);
-    
-    // Función para abrir sidebar
-    function openSidebar() {
-        if (sidebar) {
-            sidebar.classList.add('open');
-            console.log('✅ Sidebar abierto en reservas');
-        }
-        if (overlay) {
-            overlay.classList.add('active');
-        }
-        document.body.style.overflow = 'hidden';
-    }
-    
-    // Función para cerrar sidebar
-    function closeSidebar() {
-        if (sidebar) {
-            sidebar.classList.remove('open');
-        }
-        if (overlay) {
-            overlay.classList.remove('active');
-        }
-        document.body.style.overflow = 'auto';
-    }
-    
-    // Event listeners
-    if (sidebarBtn) {
-        sidebarBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('🖱️ Click en Utilidades detectado en reservas');
-            openSidebar();
-        });
-    }
-    
-    if (closeBtn) {
-        closeBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            closeSidebar();
-        });
-    }
-    
-    if (overlay) {
-        overlay.addEventListener('click', function(e) {
-            closeSidebar();
-        });
-    }
-    
-    // Cerrar con ESC
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            closeSidebar();
-        }
     });
 });
 </script>

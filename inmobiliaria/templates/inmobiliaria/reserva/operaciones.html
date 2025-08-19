@@ -634,98 +634,24 @@
 </div>
 
 <script>
+// Animar las cards al aparecer y efectos hover
 document.addEventListener('DOMContentLoaded', function() {
-    // Animar las cards al aparecer
+    console.log('💼 Lista de operaciones cargada - sidebar manejado por base.html');
+    
     const cards = document.querySelectorAll('.operacion-card');
     cards.forEach((card, index) => {
         card.style.animationDelay = `${index * 0.1}s`;
     });
 
-    // Animar las barras de progreso
-    setTimeout(() => {
-        const progressBars = document.querySelectorAll('.progress-fill');
-        progressBars.forEach(bar => {
-            const width = bar.style.width;
-            bar.style.width = '0%';
-            setTimeout(() => {
-                bar.style.width = width;
-            }, 100);
-        });
-    }, 500);
-
-    // Agregar efectos hover adicionales
+    // Efectos hover
     cards.forEach(card => {
         card.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateY(-8px) scale(1.02)';
+            this.style.transform = 'translateY(-5px) scale(1.01)';
         });
         
         card.addEventListener('mouseleave', function() {
             this.style.transform = 'translateY(0) scale(1)';
         });
-    });
-});
-
-// SIDEBAR JAVASCRIPT PARA UTILIDADES
-document.addEventListener('DOMContentLoaded', function() {
-    const sidebarBtn = document.getElementById('utilidadesSidebarBtn');
-    const sidebar = document.getElementById('utilidadesSidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    const closeBtn = document.getElementById('closeSidebarBtn');
-    
-    console.log('🔧 Inicializando sidebar en operaciones...');
-    console.log('🎯 Sidebar button:', sidebarBtn);
-    console.log('📋 Sidebar element:', sidebar);
-    
-    // Función para abrir sidebar
-    function openSidebar() {
-        if (sidebar) {
-            sidebar.classList.add('open');
-            console.log('✅ Sidebar abierto en operaciones');
-        }
-        if (overlay) {
-            overlay.classList.add('active');
-        }
-        document.body.style.overflow = 'hidden';
-    }
-    
-    // Función para cerrar sidebar
-    function closeSidebar() {
-        if (sidebar) {
-            sidebar.classList.remove('open');
-        }
-        if (overlay) {
-            overlay.classList.remove('active');
-        }
-        document.body.style.overflow = 'auto';
-    }
-    
-    // Event listeners
-    if (sidebarBtn) {
-        sidebarBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('🖱️ Click en Utilidades detectado en operaciones');
-            openSidebar();
-        });
-    }
-    
-    if (closeBtn) {
-        closeBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            closeSidebar();
-        });
-    }
-    
-    if (overlay) {
-        overlay.addEventListener('click', function(e) {
-            closeSidebar();
-        });
-    }
-    
-    // Cerrar con ESC
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            closeSidebar();
-        }
     });
 });
 </script>
