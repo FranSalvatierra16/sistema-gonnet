@@ -1,0 +1,1 @@
+# Este archivo es necesario para que Django reconozca templatetags como un módulo Python 
