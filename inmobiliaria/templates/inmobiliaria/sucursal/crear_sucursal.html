@@ -3,89 +3,277 @@
 
 {% block title %}Nueva Sucursal{% endblock %}
 
+{% block extra_css %}
+<style>
+    .sucursal-container {
+        background: linear-gradient(135deg, #a5d6a7 0%, #66bb6a 100%);
+        min-height: calc(100vh - 120px);
+        padding: 2rem 0;
+    }
+
+    .header-section {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+    }
+
+    .page-title {
+        background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+
+    .subtitle {
+        text-align: center;
+        color: #666;
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+    }
+
+    .form-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(34, 197, 94, 0.2);
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-control {
+        border: 2px solid rgba(34, 197, 94, 0.2);
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: rgba(255, 255, 255, 0.9);
+    }
+
+    .form-control:focus {
+        border-color: #22c55e;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+        background: white;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .form-label i {
+        margin-right: 0.5rem;
+        color: #22c55e;
+    }
+
+    .btn-volver {
+        background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+        border: none;
+        border-radius: 12px;
+        padding: 0.75rem 1.5rem;
+        color: white;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
+    }
+
+    .btn-volver:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-guardar {
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        border: none;
+        border-radius: 12px;
+        padding: 0.75rem 2rem;
+        color: white;
+        font-weight: 600;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+    }
+
+    .btn-guardar:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+    }
+
+    .btn-cancelar {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border: none;
+        border-radius: 12px;
+        padding: 0.75rem 1.5rem;
+        color: white;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+    }
+
+    .btn-cancelar:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    .alert-danger {
+        background: rgba(239, 68, 68, 0.1);
+        border: 2px solid rgba(239, 68, 68, 0.3);
+        border-radius: 12px;
+        color: #dc2626;
+    }
+
+    .fade-in {
+        animation: fadeInUp 0.6s ease-out forwards;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12 col-md-8 col-lg-6 mx-auto">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">
-                        <i class="fas fa-building"></i>
-                        Nueva Sucursal
-                    </h3>
-                    <div class="card-tools">
-                        <a href="{% url 'inmobiliaria:sucursales' %}" class="btn btn-secondary">
-                            <i class="fas fa-arrow-left"></i> Volver a Lista
-                        </a>
+<div class="sucursal-container">
+    <div class="container-fluid">
+        <!-- Header Section -->
+        <div class="header-section fade-in">
+            <h1 class="page-title">🏢 Nueva Sucursal</h1>
+            <p class="subtitle">Crea una nueva sucursal para expandir tu red de oficinas</p>
+            
+            <div class="text-center">
+                <a href="{% url 'inmobiliaria:sucursales' %}" class="btn-volver">
+                    <i class="fas fa-arrow-left me-2"></i>Volver a Lista
+                </a>
+            </div>
+        </div>
+
+        <!-- Form Card -->
+        <div class="form-card fade-in">
+            <form method="post" novalidate>
+                {% csrf_token %}
+                
+                {% if form.errors %}
+                    <div class="alert alert-danger">
+                        <h6><i class="fas fa-exclamation-triangle me-2"></i>¡Error!</h6>
+                        Por favor corrige los errores en el formulario.
+                    </div>
+                {% endif %}
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <label for="{{ form.nombre.id_for_label }}" class="form-label">
+                                <i class="fas fa-building"></i>Nombre de la Sucursal *
+                            </label>
+                            <input type="text" 
+                                   name="nombre" 
+                                   class="form-control" 
+                                   id="{{ form.nombre.id_for_label }}" 
+                                   value="{{ form.nombre.value|default:'' }}" 
+                                   placeholder="Ej: Sucursal Centro"
+                                   required>
+                            {% if form.nombre.errors %}
+                                <div class="text-danger mt-1">{{ form.nombre.errors }}</div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
-                <div class="card-body">
-                    <form method="post" novalidate>
-                        {% csrf_token %}
-                        
-                        {% if form.errors %}
-                            <div class="alert alert-danger">
-                                <h6><i class="icon fas fa-ban"></i> Error!</h6>
-                                Por favor corrige los errores en el formulario.
-                            </div>
-                        {% endif %}
 
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <label for="{{ form.nombre.id_for_label }}">Nombre de la Sucursal *</label>
-                                    <input type="text" name="nombre" class="form-control" id="{{ form.nombre.id_for_label }}" value="{{ form.nombre.value|default:'' }}" required>
-                                    {% if form.nombre.errors %}
-                                        <div class="text-danger">{{ form.nombre.errors }}</div>
-                                    {% endif %}
-                                </div>
-                            </div>
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <label for="{{ form.direccion.id_for_label }}" class="form-label">
+                                <i class="fas fa-map-marker-alt"></i>Dirección
+                            </label>
+                            <input type="text" 
+                                   name="direccion" 
+                                   class="form-control" 
+                                   id="{{ form.direccion.id_for_label }}" 
+                                   value="{{ form.direccion.value|default:'' }}"
+                                   placeholder="Ej: Av. Principal 123, Ciudad">
+                            {% if form.direccion.errors %}
+                                <div class="text-danger mt-1">{{ form.direccion.errors }}</div>
+                            {% endif %}
                         </div>
-
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <label for="{{ form.direccion.id_for_label }}">Dirección</label>
-                                    <input type="text" name="direccion" class="form-control" id="{{ form.direccion.id_for_label }}" value="{{ form.direccion.value|default:'' }}">
-                                    {% if form.direccion.errors %}
-                                        <div class="text-danger">{{ form.direccion.errors }}</div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="{{ form.telefono.id_for_label }}">Teléfono</label>
-                                    <input type="text" name="telefono" class="form-control" id="{{ form.telefono.id_for_label }}" value="{{ form.telefono.value|default:'' }}">
-                                    {% if form.telefono.errors %}
-                                        <div class="text-danger">{{ form.telefono.errors }}</div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="{{ form.email.id_for_label }}">Email</label>
-                                    <input type="email" name="email" class="form-control" id="{{ form.email.id_for_label }}" value="{{ form.email.value|default:'' }}">
-                                    {% if form.email.errors %}
-                                        <div class="text-danger">{{ form.email.errors }}</div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-group mt-4">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save"></i> Guardar Sucursal
-                            </button>
-                            <a href="{% url 'inmobiliaria:sucursales' %}" class="btn btn-secondary ml-2">
-                                <i class="fas fa-times"></i> Cancelar
-                            </a>
-                        </div>
-                    </form>
+                    </div>
                 </div>
-            </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="{{ form.telefono.id_for_label }}" class="form-label">
+                                <i class="fas fa-phone"></i>Teléfono
+                            </label>
+                            <input type="text" 
+                                   name="telefono" 
+                                   class="form-control" 
+                                   id="{{ form.telefono.id_for_label }}" 
+                                   value="{{ form.telefono.value|default:'' }}"
+                                   placeholder="Ej: +54 11 1234-5678">
+                            {% if form.telefono.errors %}
+                                <div class="text-danger mt-1">{{ form.telefono.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="{{ form.email.id_for_label }}" class="form-label">
+                                <i class="fas fa-envelope"></i>Email
+                            </label>
+                            <input type="email" 
+                                   name="email" 
+                                   class="form-control" 
+                                   id="{{ form.email.id_for_label }}" 
+                                   value="{{ form.email.value|default:'' }}"
+                                   placeholder="Ej: sucursal@empresa.com">
+                            {% if form.email.errors %}
+                                <div class="text-danger mt-1">{{ form.email.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <div class="d-flex gap-3 justify-content-center">
+                        <a href="{% url 'inmobiliaria:sucursales' %}" class="btn-cancelar">
+                            <i class="fas fa-times me-2"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn-guardar">
+                            <i class="fas fa-save me-2"></i>Guardar Sucursal
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 </div>
