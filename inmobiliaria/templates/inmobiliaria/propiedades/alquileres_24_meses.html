@@ -186,6 +186,80 @@
 
 {% include 'inmobiliaria/propiedades/modal_crear_contrato.html' %}
 
+<!-- MODAL SIMPLE DE CONTRATO (RESPALDO) -->
+<div class="modal fade" id="modalContratoSimple" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">🏠 Crear Contrato de Alquiler</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formContratoSimple" method="post" action="{% url 'inmobiliaria:crear_contrato_alquiler' %}">
+                    {% csrf_token %}
+                    <input type="hidden" id="propiedad_id_simple" name="propiedad_id">
+                    
+                    <div class="alert alert-info">
+                        <strong>Propiedad:</strong> <span id="info_propiedad"></span>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha de Operación</label>
+                            <input type="date" class="form-control" id="fecha_operacion_simple" name="fecha_operacion" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Duración</label>
+                            <select class="form-control" name="duracion_meses">
+                                <option value="24" selected>24 Meses</option>
+                                <option value="12">12 Meses</option>
+                                <option value="36">36 Meses</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha de Inicio</label>
+                            <input type="date" class="form-control" name="fecha_inicio" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha de Fin</label>
+                            <input type="date" class="form-control" name="fecha_fin" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Precio Mensual</label>
+                            <input type="text" class="form-control" id="precio_mensual_simple" name="precio_mensual" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Depósito de Garantía (1 mes)</label>
+                            <input type="text" class="form-control" id="deposito_simple" name="deposito_garantia" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Inquilino ID</label>
+                            <input type="number" class="form-control" name="inquilino_id" required placeholder="ID del inquilino">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Vendedor ID</label>
+                            <input type="number" class="form-control" name="vendedor_id" required placeholder="ID del vendedor">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="formContratoSimple" class="btn btn-success">Crear Contrato</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal de Galería de Imágenes -->
 <div class="modal fade" id="modalGaleriaImagenes" tabindex="-1" aria-labelledby="modalGaleriaImagenesLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
@@ -264,16 +338,21 @@ function abrirGaleriaImagenes(propiedadId, imagenIndex) {
 // Variable global para el timeout de búsqueda
 let busquedaVendedorTimeout;
 
-// Función principal para mostrar el modal (COPIADA DIRECTAMENTE DEL MODAL)
+// Función principal para mostrar el modal (CON RESPALDO)
 function mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, expensas) {
     console.log('🏠 Abriendo modal para contrato 24 meses:', {
         propiedadId, direccion, sucursal, precioMensual, expensas
     });
     
-    // Configurar el formulario
-    const form = document.getElementById('formContrato');
-    form.action = `{% url 'inmobiliaria:crear_contrato_alquiler' %}`;
-    document.getElementById('propiedad_id').value = propiedadId;
+    // Intentar modal principal primero
+    const modalPrincipal = document.getElementById('modalContrato');
+    const modalSimple = document.getElementById('modalContratoSimple');
+    
+    if (modalPrincipal && document.getElementById('formContrato')) {
+        // Usar modal principal
+        const form = document.getElementById('formContrato');
+        form.action = `{% url 'inmobiliaria:crear_contrato_alquiler' %}`;
+        document.getElementById('propiedad_id').value = propiedadId;
     
     // Auto-completar fecha de operación con la fecha actual
     const today = new Date().toISOString().split('T')[0];
@@ -340,6 +419,54 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ Función mostrarModalContrato definida correctamente');
     console.log('Función disponible:', typeof mostrarModalContrato === 'function');
 });
+
+// ===============================================
+// FUNCIÓN SIMPLE Y DIRECTA (SOLUCIÓN DEFINITIVA)
+// ===============================================
+window.mostrarModalContrato = function(propiedadId, direccion, sucursal, precioMensual, expensas) {
+    console.log('🚨 FUNCIÓN EJECUTÁNDOSE:', {propiedadId, direccion, sucursal, precioMensual, expensas});
+    
+    // Buscar modal principal o simple
+    let modal = document.getElementById('modalContrato');
+    let formId = 'formContrato';
+    
+    if (!modal) {
+        modal = document.getElementById('modalContratoSimple');
+        formId = 'formContratoSimple';
+        console.log('🔄 Usando modal simple como respaldo');
+    }
+    
+    if (modal) {
+        // Llenar datos básicos en modal simple
+        if (formId === 'formContratoSimple') {
+            document.getElementById('propiedad_id_simple').value = propiedadId;
+            document.getElementById('info_propiedad').textContent = `#${propiedadId} - ${direccion}`;
+            
+            // Fecha actual
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('fecha_operacion_simple').value = today;
+            
+            // Precios
+            if (precioMensual && precioMensual > 0) {
+                document.getElementById('precio_mensual_simple').value = precioMensual.toLocaleString('es-ES');
+                document.getElementById('deposito_simple').value = (precioMensual * 1).toLocaleString('es-ES');
+            }
+        }
+        
+        // Mostrar modal
+        const bootstrapModal = new bootstrap.Modal(modal);
+        bootstrapModal.show();
+        
+        console.log('✅ Modal mostrado exitosamente');
+        return true;
+    } else {
+        console.error('❌ No se encontró ningún modal');
+        alert(`Crear contrato para propiedad #${propiedadId}\nDirección: ${direccion}\nPrecio: $${precioMensual}`);
+        return false;
+    }
+};
+
+console.log('🔥 FUNCIÓN DEFINIDA GLOBALMENTE - DEBERÍA FUNCIONAR');
 </script>
 
 {% endblock %}
