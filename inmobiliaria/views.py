@@ -5282,3 +5282,120 @@ El equipo de Sistema Gonnet
     
     return render(request, 'inmobiliaria/autenticacion/password_reset_form.html', {'form': form})
 
+@login_required
+def buscar_propiedades_ajax(request):
+    """Vista AJAX para búsqueda en tiempo real"""
+    if request.method == 'GET':
+        sucursal_vendedor = request.user.sucursal
+        
+        # Obtener parámetros de búsqueda
+        query = request.GET.get('q', '').strip()
+        origen = request.GET.get('origen', '').strip()
+        destino = request.GET.get('destino', '').strip()
+        fecha_inicio = request.GET.get('fecha_inicio')
+        fecha_fin = request.GET.get('fecha_fin')
+        ambientes = request.GET.get('ambientes')
+        tipo_inmueble = request.GET.get('tipo_inmueble')
+        vista = request.GET.get('vista')
+        valoracion = request.GET.get('valoracion')
+        ver_todas = request.GET.get('ver_todas') == 'true'
+        
+        # Filtrar propiedades según la opción seleccionada
+        if ver_todas:
+            propiedades = Propiedad.objects.all()
+        else:
+            propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor)
+        
+        # Búsqueda por texto general (dirección, ubicación, descripción)
+        if query:
+            propiedades = propiedades.filter(
+                Q(direccion__icontains=query) |
+                Q(ubicacion__icontains=query) |
+                Q(descripcion__icontains=query) |
+                Q(tipo_inmueble__icontains=query)
+            )
+        
+        # Aplicar filtros específicos
+        if origen:
+            propiedades = propiedades.filter(ubicacion__icontains=origen)
+        
+        if destino:
+            propiedades = propiedades.filter(ubicacion__icontains=destino)
+        
+        if ambientes:
+            propiedades = propiedades.filter(ambientes=ambientes)
+        
+        if tipo_inmueble:
+            propiedades = propiedades.filter(tipo_inmueble=tipo_inmueble)
+        
+        if vista:
+            propiedades = propiedades.filter(vista=vista)
+        
+        if valoracion:
+            propiedades = propiedades.filter(valoracion=valoracion)
+        
+        # Prefetch los precios para optimizar queries
+        propiedades = propiedades.prefetch_related(
+            Prefetch('precios', queryset=Precio.objects.all(), to_attr='todos_precios')
+        ).select_related('sucursal')
+        
+        # Filtrar por fechas si están presentes
+        if fecha_inicio and fecha_fin:
+            try:
+                fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+                fecha_fin_obj = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+                
+                # Calcular días de reserva
+                total_dias = (fecha_fin_obj - fecha_inicio_obj).days
+                
+                propiedades_disponibles = []
+                propiedades_sin_precio = []
+                
+                for propiedad in propiedades:
+                    # Verificar disponibilidad
+                    reservas_conflicto = Reserva.objects.filter(
+                        propiedad=propiedad,
+                        fecha_inicio__lt=fecha_fin_obj,
+                        fecha_fin__gt=fecha_inicio_obj,
+                        estado__in=['confirmada', 'en_espera', 'confirmada_no_pagada']
+                    ).exists()
+                    
+                    if not reservas_conflicto:
+                        # Buscar precio válido
+                        precio_valido = None
+                        for precio in propiedad.todos_precios:
+                            if (precio.fecha_desde <= fecha_inicio_obj <= precio.fecha_hasta and
+                                precio.fecha_desde <= fecha_fin_obj <= precio.fecha_hasta):
+                                precio_valido = precio
+                                break
+                        
+                        if precio_valido:
+                            # Calcular precio total
+                            precio_total = precio_valido.precio_por_dia * total_dias
+                            propiedad.precio_total_reserva = precio_total
+                            propiedad.precio_por_dia_actual = precio_valido.precio_por_dia
+                            propiedades_disponibles.append(propiedad)
+                        else:
+                            propiedades_sin_precio.append(propiedad)
+                
+                propiedades = propiedades_disponibles
+            except ValueError:
+                pass
+        
+        # Limitar resultados para mejor performance
+        propiedades = propiedades[:50]
+        
+        # Renderizar HTML parcial
+        html = render_to_string('inmobiliaria/reserva/propiedades_table_partial.html', {
+            'propiedades': propiedades,
+            'user': request.user,
+        })
+        
+        return JsonResponse({
+            'success': True,
+            'html': html,
+            'count': len(propiedades)
+        })
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+

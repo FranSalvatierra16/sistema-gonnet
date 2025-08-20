@@ -1,0 +1,81 @@
+{% load custom_filters %}
+{% for propiedad in propiedades %}
+<tr class="property-row" data-property-id="{{ propiedad.id }}">
+    <td class="text-center">
+        <div class="property-number-badge">
+            {{ propiedad.id }}
+        </div>
+    </td>
+    <td>
+        <div class="property-info">
+            <div class="property-title">{{ propiedad.direccion }}</div>
+            <div class="property-subtitle">{{ propiedad.ubicacion }}</div>
+        </div>
+    </td>
+    <td class="text-center">
+        <span class="badge bg-info">{{ propiedad.ambientes }} amb</span>
+    </td>
+    <td class="text-center">
+        <span class="badge bg-secondary">{{ propiedad.tipo_inmueble|default:"Casa" }}</span>
+    </td>
+    <td class="text-center">
+        {% if propiedad.precio_por_dia_actual %}
+            <div class="price-info">
+                <div class="price-per-day">${{ propiedad.precio_por_dia_actual|format_price }}/día</div>
+                {% if propiedad.precio_total_reserva %}
+                    <div class="price-total">Total: ${{ propiedad.precio_total_reserva|format_price }}</div>
+                {% endif %}
+            </div>
+        {% else %}
+            <span class="text-muted">Sin precio</span>
+        {% endif %}
+    </td>
+    <td class="text-center">
+        <div class="action-buttons">
+            <button type="button" 
+                    class="btn btn-sm btn-info me-1" 
+                    onclick="abrirModalDetalles({{ propiedad.id }})"
+                    data-bs-toggle="tooltip" 
+                    title="Ver detalles">
+                <i class="fas fa-eye"></i>
+            </button>
+            
+            <button type="button" 
+                    class="btn btn-sm btn-success me-1" 
+                    onclick="abrirGaleriaFotos({{ propiedad.id }})"
+                    data-bs-toggle="tooltip" 
+                    title="Ver fotos">
+                <i class="fas fa-images"></i>
+            </button>
+            
+            <button type="button" 
+                    class="btn btn-sm btn-warning me-1" 
+                    onclick="abrirModalPrecios({{ propiedad.id }})"
+                    data-bs-toggle="tooltip" 
+                    title="Ver precios">
+                <i class="fas fa-tag"></i>
+            </button>
+            
+            {% if user.nivel >= 3 %}
+                <button type="button" 
+                        class="btn btn-sm btn-primary" 
+                        onclick="crearReservaDirecta({{ propiedad.id }})"
+                        data-bs-toggle="tooltip" 
+                        title="Reservar">
+                    <i class="fas fa-calendar-plus"></i>
+                </button>
+            {% endif %}
+        </div>
+    </td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="6" class="text-center py-5">
+        <div class="no-results">
+            <i class="fas fa-search text-muted mb-3" style="font-size: 3rem;"></i>
+            <h5 class="text-muted">No se encontraron propiedades</h5>
+            <p class="text-muted">Intenta ajustar los filtros de búsqueda</p>
+        </div>
+    </td>
+</tr>
+{% endfor %} 

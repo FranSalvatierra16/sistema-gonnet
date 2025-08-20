@@ -556,6 +556,32 @@
 <div class="container-fluid fade-in-up">
     <h1 class="text-gradient text-center mb-4">🔍 Buscar Propiedades</h1>
     
+    <!-- BÚSQUEDA EN TIEMPO REAL -->
+    <div class="card shadow-modern border-radius-modern mb-3" style="border: 2px solid rgba(34, 197, 94, 0.4);">
+        <div class="card-body py-3">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-search text-success me-3 fa-lg"></i>
+                <div class="flex-grow-1">
+                    <input type="text" 
+                           id="liveSearchInput" 
+                           class="form-control form-control-lg" 
+                           placeholder="🔍 Buscar propiedades en tiempo real... (dirección, ubicación, tipo)"
+                           style="border: 2px solid rgba(34, 197, 94, 0.3); border-radius: 12px; font-size: 1.1rem;">
+                </div>
+                <div id="searchLoader" class="ms-3" style="display: none;">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">Buscando...</span>
+                    </div>
+                </div>
+            </div>
+            <div id="searchStatus" class="mt-2 text-center"></div>
+            <small class="text-muted mt-2 d-block">
+                <i class="fas fa-lightbulb me-1"></i>
+                Escribe para buscar automáticamente. La búsqueda se actualiza mientras escribes.
+            </small>
+        </div>
+    </div>
+
     <!-- Cuadro principal de búsqueda -->
     <div class="card shadow-modern border-radius-modern mb-4">
         <div class="card-body">
@@ -4344,6 +4370,306 @@ function resetearFiltros() {
         
     } catch (error) {
         console.error('Error reseteando filtros:', error);
+    }
+}
+
+// =============================================
+// BÚSQUEDA EN TIEMPO REAL - LIVE SEARCH
+// =============================================
+
+let searchTimeout;
+let isSearching = false;
+
+function initLiveSearch() {
+    // Agregar campo de búsqueda rápida
+    const formContainer = document.querySelector('.container-fluid .card-body');
+    if (formContainer && !document.getElementById('liveSearchContainer')) {
+        const searchHtml = `
+            <div id="liveSearchContainer" class="mb-4 p-3" style="background: rgba(34, 197, 94, 0.1); border-radius: 12px; border: 2px solid rgba(34, 197, 94, 0.3);">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-search text-success me-2"></i>
+                    <input type="text" 
+                           id="liveSearchInput" 
+                           class="form-control" 
+                           placeholder="🔍 Buscar propiedades en tiempo real... (dirección, ubicación, tipo)"
+                           style="border: 2px solid rgba(34, 197, 94, 0.3); border-radius: 8px;">
+                    <div id="searchLoader" class="ms-2" style="display: none;">
+                        <div class="spinner-border spinner-border-sm text-success" role="status">
+                            <span class="visually-hidden">Buscando...</span>
+                        </div>
+                    </div>
+                </div>
+                <small class="text-muted mt-1 d-block">
+                    <i class="fas fa-lightbulb me-1"></i>
+                    Escribe para buscar automáticamente por dirección, ubicación o tipo de propiedad
+                </small>
+            </div>
+        `;
+        formContainer.insertAdjacentHTML('afterbegin', searchHtml);
+        
+        // Configurar event listeners
+        const searchInput = document.getElementById('liveSearchInput');
+        searchInput.addEventListener('input', handleLiveSearch);
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                performLiveSearch(this.value);
+            }
+        });
+    }
+}
+
+function handleLiveSearch(event) {
+    const query = event.target.value.trim();
+    
+    // Limpiar timeout anterior
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
+    }
+    
+    // Mostrar loader
+    showSearchLoader(true);
+    
+    // Buscar después de 500ms de pausa en la escritura
+    searchTimeout = setTimeout(() => {
+        performLiveSearch(query);
+    }, 500);
+}
+
+function performLiveSearch(query) {
+    if (isSearching) return;
+    
+    isSearching = true;
+    showSearchLoader(true);
+    
+    // Obtener parámetros del formulario actual
+    const form = document.querySelector('form');
+    const formData = new FormData(form);
+    const params = new URLSearchParams();
+    
+    // Agregar query de búsqueda
+    params.append('q', query);
+    
+    // Agregar otros filtros del formulario
+    for (let [key, value] of formData.entries()) {
+        if (value && value !== '') {
+            params.append(key, value);
+        }
+    }
+    
+    // Hacer petición AJAX
+    fetch(`{% url 'inmobiliaria:buscar_propiedades_ajax' %}?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateResultsTable(data.html, data.count);
+            updateSearchStatus(data.count, query);
+        } else {
+            console.error('Error en búsqueda:', data.error);
+            showSearchError();
+        }
+    })
+    .catch(error => {
+        console.error('Error en petición AJAX:', error);
+        showSearchError();
+    })
+    .finally(() => {
+        isSearching = false;
+        showSearchLoader(false);
+    });
+}
+
+function updateResultsTable(html, count) {
+    const tbody = document.querySelector('#tablaResultados tbody');
+    if (tbody) {
+        tbody.innerHTML = html;
+        
+        // Reinicializar tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // Aplicar animación a las nuevas filas
+        const rows = tbody.querySelectorAll('tr');
+        rows.forEach((row, index) => {
+            row.style.opacity = '0';
+            row.style.transform = 'translateY(20px)';
+            setTimeout(() => {
+                row.style.transition = 'all 0.3s ease';
+                row.style.opacity = '1';
+                row.style.transform = 'translateY(0)';
+            }, index * 50);
+        });
+    }
+}
+
+function updateSearchStatus(count, query) {
+    let statusContainer = document.getElementById('searchStatus');
+    if (!statusContainer) {
+        statusContainer = document.createElement('div');
+        statusContainer.id = 'searchStatus';
+        statusContainer.className = 'mt-2 text-center';
+        document.getElementById('liveSearchContainer').appendChild(statusContainer);
+    }
+    
+    if (query) {
+        statusContainer.innerHTML = `
+            <small class="text-success">
+                <i class="fas fa-check-circle me-1"></i>
+                ${count} propiedad${count !== 1 ? 'es' : ''} encontrada${count !== 1 ? 's' : ''} para "${query}"
+            </small>
+        `;
+    } else {
+        statusContainer.innerHTML = '';
+    }
+}
+
+function showSearchLoader(show) {
+    const loader = document.getElementById('searchLoader');
+    if (loader) {
+        loader.style.display = show ? 'block' : 'none';
+    }
+}
+
+function showSearchError() {
+    const statusContainer = document.getElementById('searchStatus') || (() => {
+        const container = document.createElement('div');
+        container.id = 'searchStatus';
+        container.className = 'mt-2 text-center';
+        document.getElementById('liveSearchContainer').appendChild(container);
+        return container;
+    })();
+    
+    statusContainer.innerHTML = `
+        <small class="text-danger">
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            Error en la búsqueda. Intenta nuevamente.
+        </small>
+    `;
+    
+    setTimeout(() => {
+        statusContainer.innerHTML = '';
+    }, 3000);
+}
+
+// Inicializar live search cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(initLiveSearch, 1000); // Esperar a que se cargue todo
+});
+</script>
+
+<script>
+// =============================================
+// BÚSQUEDA EN TIEMPO REAL SIMPLIFICADA
+// =============================================
+
+// Agregar campo de búsqueda en tiempo real
+document.addEventListener('DOMContentLoaded', function() {
+    // Crear el campo de búsqueda
+    const searchHtml = `
+        <div class="mb-3 p-3" style="background: rgba(34, 197, 94, 0.1); border-radius: 12px; border: 2px solid rgba(34, 197, 94, 0.3);">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-search text-success me-2"></i>
+                <input type="text" 
+                       id="quickSearch" 
+                       class="form-control" 
+                       placeholder="🔍 Buscar propiedades mientras escribes... (dirección, ubicación)"
+                       style="border: 2px solid rgba(34, 197, 94, 0.3); border-radius: 8px;">
+            </div>
+            <small class="text-muted mt-1 d-block">
+                <i class="fas fa-lightbulb me-1"></i>
+                Busca por dirección, ubicación o tipo de propiedad
+            </small>
+        </div>
+    `;
+    
+    // Insertar antes del primer card
+    const firstCard = document.querySelector('.card');
+    if (firstCard) {
+        firstCard.insertAdjacentHTML('beforebegin', searchHtml);
+    }
+    
+    // Configurar event listener
+    const searchInput = document.getElementById('quickSearch');
+    if (searchInput) {
+        let searchTimeout;
+        
+        searchInput.addEventListener('input', function(e) {
+            const query = e.target.value.trim();
+            
+            // Limpiar timeout anterior
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            
+            // Buscar después de 300ms de pausa
+            searchTimeout = setTimeout(() => {
+                filterPropertiesInRealTime(query);
+            }, 300);
+        });
+    }
+});
+
+function filterPropertiesInRealTime(query) {
+    const rows = document.querySelectorAll('#tablaResultados tbody tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        if (!query) {
+            // Si no hay query, mostrar todas
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            // Buscar en el contenido de la fila
+            const text = row.textContent.toLowerCase();
+            const matches = text.includes(query.toLowerCase());
+            
+            if (matches) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    });
+    
+    // Mostrar mensaje si no hay resultados
+    showSearchFeedback(visibleCount, query);
+}
+
+function showSearchFeedback(count, query) {
+    let feedback = document.getElementById('searchFeedback');
+    if (!feedback) {
+        feedback = document.createElement('div');
+        feedback.id = 'searchFeedback';
+        feedback.className = 'alert alert-info mt-2';
+        document.getElementById('quickSearch').parentNode.appendChild(feedback);
+    }
+    
+    if (query) {
+        if (count === 0) {
+            feedback.innerHTML = `
+                <i class="fas fa-search me-1"></i>
+                No se encontraron propiedades para "${query}"
+            `;
+            feedback.className = 'alert alert-warning mt-2';
+        } else {
+            feedback.innerHTML = `
+                <i class="fas fa-check-circle me-1"></i>
+                ${count} propiedad${count !== 1 ? 'es' : ''} encontrada${count !== 1 ? 's' : ''} para "${query}"
+            `;
+            feedback.className = 'alert alert-success mt-2';
+        }
+    } else {
+        feedback.innerHTML = '';
+        feedback.className = 'alert alert-info mt-2';
     }
 }
 </script>
