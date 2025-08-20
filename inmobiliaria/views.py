@@ -4278,6 +4278,17 @@ def buscar_propiedades(request):
     origen = None
     destino = None
 
+    # CARGAR PROPIEDADES POR DEFECTO AL INICIO
+    # Si no hay formulario enviado, mostrar todas las propiedades
+    if not request.POST:
+        propiedades_todas = Propiedad.objects.filter(sucursal=sucursal_vendedor)
+        propiedades_todas = propiedades_todas.prefetch_related(
+            Prefetch('precios', queryset=Precio.objects.all(), to_attr='todos_precios')
+        ).select_related('sucursal')[:20]  # Limitar a 20 para mejor performance inicial
+        
+        for propiedad in propiedades_todas:
+            propiedades_disponibles.append(propiedad)
+
     if form.is_valid():
         fecha_inicio = form.cleaned_data['fecha_inicio']
         fecha_fin = form.cleaned_data['fecha_fin']
