@@ -1354,6 +1354,76 @@
         inactivityTime();
     </script>
     {% endblock %}
+    <!-- CSS AGRESIVO PARA FORZAR SIDEBAR OCULTO -->
+    <style>
+        /* FORZAR SIDEBAR OCULTO - MÁXIMA PRIORIDAD */
+        #utilidadesSidebar {
+            position: fixed !important;
+            top: 0 !important;
+            left: -450px !important;
+            width: 400px !important;
+            height: 100vh !important;
+            background: white !important;
+            border-right: 3px solid #22c55e !important;
+            box-shadow: 5px 0 20px rgba(0,0,0,0.2) !important;
+            z-index: 999999 !important;
+            transition: left 0.3s ease !important;
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+        
+        #utilidadesSidebar.open {
+            left: 0 !important;
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
+        /* FORZAR OVERLAY OCULTO */
+        #sidebarOverlay {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background: rgba(0,0,0,0.5) !important;
+            z-index: 999998 !important;
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+        
+        #sidebarOverlay.active {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
+        /* SOLUCIÓN BRUTAL - OCULTAR CUALQUIER LISTA HORIZONTAL DE ENLACES */
+        /* Si hay elementos con estos textos que se muestran horizontalmente, ocultarlos */
+        nav a[href*="vendedores"]:not(.sidebar-item),
+        nav a[href*="inquilinos"]:not(.sidebar-item),
+        nav a[href*="propietarios"]:not(.sidebar-item),
+        nav a[href*="propiedades"]:not(.sidebar-item),
+        nav a[href*="reservas"]:not(.sidebar-item),
+        nav a[href*="operaciones"]:not(.sidebar-item),
+        .nav-link[href*="vendedores"]:not(.sidebar-item),
+        .nav-link[href*="inquilinos"]:not(.sidebar-item),
+        .nav-link[href*="propietarios"]:not(.sidebar-item),
+        .nav-link[href*="propiedades"]:not(.sidebar-item),
+        .nav-link[href*="reservas"]:not(.sidebar-item),
+        .nav-link[href*="operaciones"]:not(.sidebar-item) {
+            display: none !important;
+            visibility: hidden !important;
+        }
+        
+        /* Excepciones: Solo mostrar el botón de Utilidades en el navbar */
+        .nav-link[onclick*="toggleUtilidades"] {
+            display: inline-block !important;
+            visibility: visible !important;
+        }
+    </style>
 </body>
 </html>
 
