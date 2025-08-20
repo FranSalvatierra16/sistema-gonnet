@@ -921,6 +921,170 @@
             opacity: 1;
             transform: scale(1.1);
         }
+        
+        /* CSS GLOBAL PARA TODAS LAS PÁGINAS - DISEÑO UNIFICADO */
+        
+        /* FONDO GLOBAL PARA TODAS LAS PÁGINAS */
+        .content-wrapper {
+            background: linear-gradient(135deg, #a5d6a7 0%, #66bb6a 100%) !important;
+            min-height: calc(100vh - 120px) !important;
+            padding: 2rem 0 !important;
+        }
+        
+        /* CARDS MODERNAS GLOBALES */
+        .card {
+            background: rgba(255, 255, 255, 0.95) !important;
+            border-radius: 20px !important;
+            border: 2px solid rgba(34, 197, 94, 0.2) !important;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
+            backdrop-filter: blur(10px) !important;
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+            color: white !important;
+            border-radius: 18px 18px 0 0 !important;
+            border-bottom: 2px solid rgba(34, 197, 94, 0.3) !important;
+            padding: 1.5rem !important;
+        }
+        
+        .card-title {
+            color: white !important;
+            font-weight: 600 !important;
+            margin: 0 !important;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+        }
+        
+        .card-body {
+            padding: 2rem !important;
+        }
+        
+        /* FORMULARIOS MODERNOS GLOBALES */
+        .form-control {
+            border: 2px solid rgba(34, 197, 94, 0.2) !important;
+            border-radius: 12px !important;
+            padding: 0.75rem 1rem !important;
+            font-size: 1rem !important;
+            transition: all 0.3s ease !important;
+            background: rgba(255, 255, 255, 0.9) !important;
+        }
+        
+        .form-control:focus {
+            border-color: #22c55e !important;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1) !important;
+            background: white !important;
+        }
+        
+        .form-label, label {
+            font-weight: 600 !important;
+            color: #1e293b !important;
+            margin-bottom: 0.5rem !important;
+        }
+        
+        /* BOTONES MODERNOS GLOBALES */
+        .btn-primary {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+            border: none !important;
+            border-radius: 12px !important;
+            padding: 0.75rem 1.5rem !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3) !important;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4) !important;
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%) !important;
+            border: none !important;
+            border-radius: 12px !important;
+            padding: 0.75rem 1.5rem !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3) !important;
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4) !important;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+            border: none !important;
+            border-radius: 12px !important;
+            padding: 0.75rem 1.5rem !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3) !important;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4) !important;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important;
+            border: none !important;
+            border-radius: 12px !important;
+            padding: 0.75rem 1.5rem !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3) !important;
+        }
+        
+        .btn-danger:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4) !important;
+        }
+        
+        /* ALERTAS MODERNAS */
+        .alert {
+            border-radius: 12px !important;
+            border: 2px solid !important;
+            backdrop-filter: blur(10px) !important;
+        }
+        
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.1) !important;
+            border-color: rgba(239, 68, 68, 0.3) !important;
+            color: #dc2626 !important;
+        }
+        
+        .alert-success {
+            background: rgba(34, 197, 94, 0.1) !important;
+            border-color: rgba(34, 197, 94, 0.3) !important;
+            color: #16a34a !important;
+        }
+        
+        /* HEADERS DE PÁGINA GLOBALES */
+        h1, h2, h3, .page-title {
+            background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            background-clip: text !important;
+            font-weight: 700 !important;
+        }
+        
+        /* ANIMACIÓN GLOBAL */
+        .container-fluid, .card, .form-card {
+            animation: fadeInUp 0.6s ease-out forwards !important;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
 
         /* OVERLAY */
         .sidebar-overlay {
@@ -1542,6 +1706,7 @@
             visibility: visible !important;
         }
     </style>
+    {% endblock %}
 </body>
 </html>
 
