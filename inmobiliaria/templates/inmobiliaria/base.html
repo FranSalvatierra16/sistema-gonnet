@@ -1682,26 +1682,36 @@
             opacity: 1 !important;
         }
         
-        /* SOLUCIÓN BRUTAL - OCULTAR CUALQUIER LISTA HORIZONTAL DE ENLACES */
-        /* Si hay elementos con estos textos que se muestran horizontalmente, ocultarlos */
-        nav a[href*="vendedores"]:not(.sidebar-item),
-        nav a[href*="inquilinos"]:not(.sidebar-item),
-        nav a[href*="propietarios"]:not(.sidebar-item),
-        nav a[href*="propiedades"]:not(.sidebar-item),
-        nav a[href*="reservas"]:not(.sidebar-item),
-        nav a[href*="operaciones"]:not(.sidebar-item),
-        .nav-link[href*="vendedores"]:not(.sidebar-item),
-        .nav-link[href*="inquilinos"]:not(.sidebar-item),
-        .nav-link[href*="propietarios"]:not(.sidebar-item),
-        .nav-link[href*="propiedades"]:not(.sidebar-item),
-        .nav-link[href*="reservas"]:not(.sidebar-item),
-        .nav-link[href*="operaciones"]:not(.sidebar-item) {
+        /* SOLUCIÓN ESPECÍFICA - OCULTAR SOLO ENLACES DE NAVEGACIÓN, NO BOTONES */
+        /* Solo ocultar enlaces que están en el navbar principal */
+        .navbar nav a[href*="vendedores"]:not(.sidebar-item):not(.btn),
+        .navbar nav a[href*="inquilinos"]:not(.sidebar-item):not(.btn),
+        .navbar nav a[href*="propietarios"]:not(.sidebar-item):not(.btn),
+        .navbar nav a[href*="propiedades/"]:not(.sidebar-item):not(.btn),
+        .navbar nav a[href*="reservas"]:not(.sidebar-item):not(.btn),
+        .navbar nav a[href*="operaciones"]:not(.sidebar-item):not(.btn),
+        .navbar .nav-link[href*="vendedores"]:not(.sidebar-item):not(.btn),
+        .navbar .nav-link[href*="inquilinos"]:not(.sidebar-item):not(.btn),
+        .navbar .nav-link[href*="propietarios"]:not(.sidebar-item):not(.btn),
+        .navbar .nav-link[href*="propiedades/"]:not(.sidebar-item):not(.btn),
+        .navbar .nav-link[href*="reservas"]:not(.sidebar-item):not(.btn),
+        .navbar .nav-link[href*="operaciones"]:not(.sidebar-item):not(.btn) {
             display: none !important;
             visibility: hidden !important;
         }
         
-        /* Excepciones: Solo mostrar el botón de Utilidades en el navbar */
-        .nav-link[onclick*="toggleUtilidades"] {
+        /* EXCEPCIÓN IMPORTANTE: Los botones SIEMPRE deben ser visibles */
+        .btn,
+        a.btn,
+        button.btn {
+            display: inline-block !important;
+            visibility: visible !important;
+        }
+        
+        /* EXCEPCIÓN ESPECÍFICA: Botones de acción en páginas de detalle */
+        .card-footer .btn,
+        .btn-group .btn,
+        .action-buttons .btn {
             display: inline-block !important;
             visibility: visible !important;
         }
