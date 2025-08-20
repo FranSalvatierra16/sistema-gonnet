@@ -4570,7 +4570,7 @@ def crear_contrato_alquiler(request):
             except (Propiedad.DoesNotExist, Inquilino.DoesNotExist, Vendedor.DoesNotExist) as e:
                 return JsonResponse({'error': f'Error al obtener datos: {str(e)}'}, status=400)
 
-            # Crear el contrato
+            # Crear el contrato (sin total fijo - precios pueden cambiar)
             contrato = ContratoAlquiler.objects.create(
                 propiedad=propiedad,
                 inquilino=inquilino,
@@ -4580,8 +4580,8 @@ def crear_contrato_alquiler(request):
                 fecha_inicio=fecha_inicio,
                 fecha_fin=fecha_fin,
                 duracion_meses=duracion_meses,
-                precio_mensual=precio_mensual,
-                deposito_garantia=deposito_garantia,
+                precio_mensual=precio_mensual,  # Precio inicial (puede modificarse)
+                deposito_garantia=deposito_garantia,  # Ahora = 1 mes de alquiler
                 estado='reservado'  # Iniciar en estado reservado
             )
 
