@@ -257,63 +257,88 @@ function abrirGaleriaImagenes(propiedadId, imagenIndex) {
     modal.show();
 }
 
-// =============================================
-// FIX PARA FUNCIÓN MOSTRARMODALCONTRATO
-// =============================================
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔍 Verificando función mostrarModalContrato...');
+// ========================================================
+// FUNCIÓN MOSTRAR MODAL CONTRATO - DEFINICIÓN DIRECTA
+// ========================================================
+
+// Variable global para el timeout de búsqueda
+let busquedaVendedorTimeout;
+
+// Función principal para mostrar el modal (COPIADA DIRECTAMENTE DEL MODAL)
+function mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, expensas) {
+    console.log('🏠 Abriendo modal para contrato 24 meses:', {
+        propiedadId, direccion, sucursal, precioMensual, expensas
+    });
     
-    // Crear función si no existe
-    if (typeof window.mostrarModalContrato === 'undefined') {
-        console.log('⚠️ Creando función mostrarModalContrato...');
+    // Configurar el formulario
+    const form = document.getElementById('formContrato');
+    form.action = `{% url 'inmobiliaria:crear_contrato_alquiler' %}`;
+    document.getElementById('propiedad_id').value = propiedadId;
+    
+    // Auto-completar fecha de operación con la fecha actual
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha_operacion').value = today;
+    
+    // ✅ LLENAR INFORMACIÓN DIRECTAMENTE (sin API)
+    document.getElementById('modal_ficha').textContent = `#${propiedadId}`;
+    document.getElementById('modal_direccion').textContent = direccion || 'No especificada';
+    document.getElementById('modal_sucursal').textContent = sucursal || 'No especificada';
+    
+    // Información específica de 24 meses
+    if (precioMensual && precioMensual > 0) {
+        console.log(`💰 Usando datos directos - Precio: ${precioMensual}, Expensas: ${expensas}`);
         
-        window.mostrarModalContrato = function(propiedadId, direccion, sucursal, precioMensual, expensas) {
-            console.log('🏠 Abriendo modal para contrato:', {
-                propiedadId, direccion, sucursal, precioMensual, expensas
-            });
-            
-            // Configurar el formulario
-            const form = document.getElementById('formContrato');
-            if (form) {
-                form.action = `{% url 'inmobiliaria:crear_contrato_alquiler' %}`;
-                document.getElementById('propiedad_id').value = propiedadId;
-                
-                // Auto-completar fecha actual
-                const today = new Date().toISOString().split('T')[0];
-                document.getElementById('fecha_operacion').value = today;
-                
-                // Llenar datos de la propiedad
-                document.getElementById('modal_ficha').textContent = `#${propiedadId}`;
-                document.getElementById('modal_direccion').textContent = direccion || 'No especificada';
-                document.getElementById('modal_sucursal').textContent = sucursal || 'No especificada';
-                
-                if (precioMensual && precioMensual > 0) {
-                    document.getElementById('modal_precio_mensual').textContent = `$${precioMensual.toLocaleString('es-ES')}`;
-                    document.getElementById('precio_mensual_input').value = precioMensual.toLocaleString('es-ES');
-                    
-                    document.getElementById('modal_expensas').textContent = expensas > 0 ? 
-                        `$${expensas.toLocaleString('es-ES')}` : 'No incluye';
-                    
-                    // Depósito = 1 mes de alquiler
-                    const depositoSugerido = precioMensual * 1;
-                    document.getElementById('deposito_garantia').value = depositoSugerido.toLocaleString('es-ES');
-                }
-                
-                // Mostrar el modal
-                const modalElement = document.getElementById('modalContrato');
-                const modal = new bootstrap.Modal(modalElement);
-                modal.show();
-                
-                console.log('✅ Modal mostrado correctamente');
-            } else {
-                console.error('❌ No se encontró el formulario');
-            }
-        };
+        document.getElementById('modal_precio_mensual').textContent = `$${precioMensual.toLocaleString('es-ES')}`;
+        document.getElementById('precio_mensual_input').value = precioMensual.toLocaleString('es-ES');
         
-        console.log('✅ Función creada exitosamente');
+        document.getElementById('modal_expensas').textContent = expensas > 0 ? 
+            `$${expensas.toLocaleString('es-ES')}` : 'No incluye';
+        
+        // Calcular depósito sugerido (1 mes - nuevo requisito)
+        const depositoSugerido = precioMensual * 1;
+        document.getElementById('deposito_garantia').value = depositoSugerido.toLocaleString('es-ES');
+        
+        // Actualizar resumen
+        actualizarResumenContrato();
     } else {
-        console.log('✅ Función ya existe');
+        console.warn('⚠️ No hay precio mensual, usando valores por defecto');
+        document.getElementById('modal_precio_mensual').textContent = 'No configurado';
+        document.getElementById('modal_expensas').textContent = 'No configurado';
+        
+        // Establecer valores por defecto
+        document.getElementById('precio_mensual_input').value = '50.000';
+        document.getElementById('deposito_garantia').value = '100.000';
     }
+    
+    // Mostrar el modal
+    const modalElement = document.getElementById('modalContrato');
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
+    
+    console.log('✅ Modal de contrato mostrado exitosamente');
+}
+
+// Función para actualizar el resumen del contrato
+function actualizarResumenContrato() {
+    const duracionMeses = parseInt(document.getElementById('duracion_meses').value) || 24;
+    const precioMensualTexto = document.getElementById('precio_mensual_input').value;
+    const depositoTexto = document.getElementById('deposito_garantia').value;
+    
+    // Parsear valores (eliminar puntos y convertir)
+    const precioMensual = parseFloat(precioMensualTexto.replace(/\./g, '')) || 0;
+    const deposito = parseFloat(depositoTexto.replace(/\./g, '')) || 0;
+    
+    // Actualizar resumen (sin total del contrato)
+    document.getElementById('total_cuotas').textContent = duracionMeses;
+    document.getElementById('precio_por_cuota').textContent = `$${precioMensual.toLocaleString('es-ES')}`;
+    document.getElementById('duracion_display').textContent = `${duracionMeses} meses`;
+    document.getElementById('total_deposito').textContent = `$${deposito.toLocaleString('es-ES')}`;
+}
+
+// Verificar que la función esté disponible
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ Función mostrarModalContrato definida correctamente');
+    console.log('Función disponible:', typeof mostrarModalContrato === 'function');
 });
 </script>
 
