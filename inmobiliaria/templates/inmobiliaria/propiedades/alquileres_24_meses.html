@@ -131,8 +131,13 @@
 
                     <!-- Botones de Acción -->
                     <div class="d-grid gap-2">
-                        <button type="button" class="btn btn-primary" 
-                                onclick="abrirModalContratoSimple({{ propiedad.id }}, '{{ propiedad.direccion|safe }}', '{{ propiedad.sucursal.nombre|safe }}', {{ propiedad.info_meses.precio_mensual|default:0 }}, {{ propiedad.info_meses.precio_expensas|default:0 }})">
+                        <button type="button" class="btn btn-primary btn-contrato" 
+                                id="btn-contrato-{{ propiedad.id }}"
+                                data-id="{{ propiedad.id }}"
+                                data-dir="{{ propiedad.direccion }}"
+                                data-suc="{{ propiedad.sucursal.nombre }}"
+                                data-precio="{{ propiedad.info_meses.precio_mensual|default:0 }}"
+                                data-exp="{{ propiedad.info_meses.precio_expensas|default:0 }}">
                             <i class="fas fa-file-contract"></i> Crear Contrato
                         </button>
                         <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-outline-secondary">
@@ -330,19 +335,47 @@ function abrirModalContratoSimple(propiedadId, direccion, sucursal, precioMensua
     }
 }
 
-// Test al cargar
+// CONFIGURAR EVENT LISTENERS
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔥 FUNCIÓN ULTRA SIMPLE CARGADA');
-    console.log('Función disponible:', typeof abrirModalContratoSimple);
+    console.log('🔥 CONFIGURANDO EVENT LISTENERS PARA CONTRATOS');
     
-    // Test rápido
-    setTimeout(function() {
-        const botones = document.querySelectorAll('.btn-primary');
-        console.log('🎯 Botones primarios encontrados:', botones.length);
-    }, 1000);
+    // Buscar todos los botones de contrato
+    const botonesContrato = document.querySelectorAll('.btn-contrato');
+    console.log('📋 Botones de contrato encontrados:', botonesContrato.length);
+    
+    // Configurar cada botón
+    botonesContrato.forEach(function(boton, index) {
+        console.log('🔧 Configurando botón', index + 1);
+        
+        boton.addEventListener('click', function() {
+            console.log('🎯 CLICK EN BOTÓN CONTRATO');
+            
+            // Obtener datos del botón
+            const propiedadId = this.getAttribute('data-id');
+            const direccion = this.getAttribute('data-dir');
+            const sucursal = this.getAttribute('data-suc');
+            const precioMensual = parseFloat(this.getAttribute('data-precio')) || 0;
+            const precioExpensas = parseFloat(this.getAttribute('data-exp')) || 0;
+            
+            console.log('📊 Datos extraídos:', {
+                propiedadId: propiedadId,
+                direccion: direccion,
+                sucursal: sucursal,
+                precioMensual: precioMensual,
+                precioExpensas: precioExpensas
+            });
+            
+            // Llamar a la función
+            abrirModalContratoSimple(propiedadId, direccion, sucursal, precioMensual, precioExpensas);
+        });
+        
+        console.log('✅ Botón', index + 1, 'configurado correctamente');
+    });
+    
+    console.log('🎉 TODOS LOS EVENT LISTENERS CONFIGURADOS');
 });
 
-console.log('🚀 JAVASCRIPT ULTRA SIMPLE DEFINIDO');
+console.log('🚀 JAVASCRIPT CARGADO - FUNCIÓN DISPONIBLE:', typeof abrirModalContratoSimple);
 </script>
 
 {% endblock %}
