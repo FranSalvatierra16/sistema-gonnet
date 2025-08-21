@@ -57,9 +57,10 @@
                             {% for imagen in propiedad.imagenes.all %}
                             <div class="carousel-item {% if forloop.first %}active{% endif %}" style="height: 250px;">
                                 <img src="{{ imagen.imagen.url }}" 
-                                     class="d-block w-100 h-100 object-fit-cover" 
+                                     class="d-block w-100 h-100 object-fit-cover gallery-trigger" 
                                      alt="Imagen {{ forloop.counter }}"
-                                     onclick="abrirGaleriaImagenes({{ propiedad.id }}, {{ forloop.counter0 }})"
+                                     data-propiedad-id="{{ propiedad.id }}"
+                                     data-imagen-index="{{ forloop.counter0 }}"
                                      style="cursor: pointer;">
                             </div>
                             {% endfor %}
@@ -130,8 +131,12 @@
 
                     <!-- Botones de Acción -->
                     <div class="d-grid gap-2">
-                        <button type="button" class="btn btn-primary" 
-                                onclick="mostrarModalContrato({{ propiedad.id }}, '{{ propiedad.direccion|escapejs }}', '{{ propiedad.sucursal.nombre|escapejs }}', {{ propiedad.info_meses.precio_mensual|default:0 }}, {{ propiedad.info_meses.precio_expensas|default:0 }})">
+                        <button type="button" class="btn btn-primary contract-trigger" 
+                                data-propiedad-id="{{ propiedad.id }}"
+                                data-direccion="{{ propiedad.direccion }}"
+                                data-sucursal="{{ propiedad.sucursal.nombre }}"
+                                data-precio-mensual="{{ propiedad.info_meses.precio_mensual|default:0 }}"
+                                data-precio-expensas="{{ propiedad.info_meses.precio_expensas|default:0 }}">
                             <i class="fas fa-file-contract"></i> Crear Contrato
                         </button>
                         <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-outline-secondary">
@@ -464,6 +469,44 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         console.error('❌ La función no está disponible globalmente');
     }
+    
+    // EVENT LISTENERS PARA BOTONES CON DATA-ATTRIBUTES
+    
+    // 1. Botones de crear contrato
+    document.querySelectorAll('.contract-trigger').forEach(button => {
+        button.addEventListener('click', function() {
+            const propiedadId = this.dataset.propiedadId;
+            const direccion = this.dataset.direccion;
+            const sucursal = this.dataset.sucursal;
+            const precioMensual = parseFloat(this.dataset.precioMensual) || 0;
+            const precioExpensas = parseFloat(this.dataset.precioExpensas) || 0;
+            
+            console.log('🏠 Botón crear contrato clickeado:', {
+                propiedadId, direccion, sucursal, precioMensual, precioExpensas
+            });
+            
+            // Llamar a la función
+            if (typeof window.mostrarModalContrato === 'function') {
+                window.mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, precioExpensas);
+            } else {
+                console.error('❌ Función mostrarModalContrato no disponible');
+                alert('Error: No se puede abrir el modal de contrato');
+            }
+        });
+    });
+    
+    // 2. Imágenes de galería
+    document.querySelectorAll('.gallery-trigger').forEach(img => {
+        img.addEventListener('click', function() {
+            const propiedadId = this.dataset.propiedadId;
+            const imagenIndex = parseInt(this.dataset.imagenIndex) || 0;
+            
+            console.log('🖼️ Imagen clickeada:', { propiedadId, imagenIndex });
+            abrirGaleriaImagenes(propiedadId, imagenIndex);
+        });
+    });
+    
+    console.log('🔥 Event listeners configurados correctamente');
 });
 
 console.log('🔥 FUNCIÓN DEFINIDA GLOBALMENTE - DEBERÍA FUNCIONAR');
