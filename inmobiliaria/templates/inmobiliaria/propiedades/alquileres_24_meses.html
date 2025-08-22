@@ -57,10 +57,9 @@
                             {% for imagen in propiedad.imagenes.all %}
                             <div class="carousel-item {% if forloop.first %}active{% endif %}" style="height: 250px;">
                                 <img src="{{ imagen.imagen.url }}" 
-                                     class="d-block w-100 h-100 object-fit-cover gallery-trigger" 
+                                     class="d-block w-100 h-100 object-fit-cover" 
                                      alt="Imagen {{ forloop.counter }}"
-                                     data-propiedad-id="{{ propiedad.id }}"
-                                     data-imagen-index="{{ forloop.counter0 }}"
+                                     onclick="abrirGaleriaImagenes({{ propiedad.id }}, {{ forloop.counter0 }})"
                                      style="cursor: pointer;">
                             </div>
                             {% endfor %}
@@ -131,13 +130,8 @@
 
                     <!-- Botones de Acción -->
                     <div class="d-grid gap-2">
-                        <button type="button" class="btn btn-primary btn-contrato" 
-                                id="btn-contrato-{{ propiedad.id }}"
-                                data-id="{{ propiedad.id }}"
-                                data-dir="{{ propiedad.direccion }}"
-                                data-suc="{{ propiedad.sucursal.nombre }}"
-                                data-precio="{{ propiedad.info_meses.precio_mensual|default:0 }}"
-                                data-exp="{{ propiedad.info_meses.precio_expensas|default:0 }}">
+                        <button type="button" class="btn btn-primary" 
+                                onclick="mostrarModalContrato({{ propiedad.id }}, '{{ propiedad.direccion|escapejs }}', '{{ propiedad.sucursal.nombre|escapejs }}', {{ propiedad.info_meses.precio_mensual|default:0 }}, {{ propiedad.info_meses.precio_expensas|default:0 }})">
                             <i class="fas fa-file-contract"></i> Crear Contrato
                         </button>
                         <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-outline-secondary">
@@ -192,83 +186,6 @@
 
 {% include 'inmobiliaria/propiedades/modal_crear_contrato.html' %}
 
-<!-- MODAL SIMPLE DE CONTRATO (RESPALDO) -->
-<div class="modal fade" id="modalContratoSimple" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title">🏠 Crear Contrato de Alquiler</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="formContratoSimple" method="post" action="{% url 'inmobiliaria:crear_contrato_alquiler' %}">
-                    {% csrf_token %}
-                    <input type="hidden" id="propiedad_id_simple" name="propiedad_id">
-                    
-                    <div class="alert alert-info">
-                        <strong>Propiedad:</strong> <span id="info_propiedad"></span>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <label class="form-label">Fecha de Operación</label>
-                            <input type="date" class="form-control" id="fecha_operacion_simple" name="fecha_operacion" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Duración</label>
-                            <select class="form-control" name="duracion_meses">
-                                <option value="24" selected>24 Meses</option>
-                                <option value="12">12 Meses</option>
-                                <option value="36">36 Meses</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="row mt-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Fecha de Inicio</label>
-                            <input type="date" class="form-control" name="fecha_inicio" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Fecha de Fin</label>
-                            <input type="date" class="form-control" name="fecha_fin" required>
-                        </div>
-                    </div>
-                    
-                    <div class="row mt-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Precio Mensual</label>
-                            <input type="text" class="form-control" id="precio_mensual_simple" name="precio_mensual" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Depósito de Garantía (1 mes)</label>
-                            <input type="text" class="form-control" id="deposito_simple" name="deposito_garantia" required>
-                        </div>
-                    </div>
-                    
-                    <div class="row mt-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Inquilino ID</label>
-                            <input type="number" class="form-control" name="inquilino_id" required placeholder="ID del inquilino">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Vendedor ID</label>
-                            <input type="number" class="form-control" name="vendedor_id" required placeholder="ID del vendedor">
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                 <button type="button" class="btn btn-primary" 
-                         onclick="mostrarModalContrato({{ propiedad.id }}, '{{ propiedad.direccion|escapejs }}', '{{ propiedad.sucursal.nombre|escapejs }}', {{ propiedad.info_meses.precio_mensual|default:0 }}, {{ propiedad.info_meses.precio_expensas|default:0 }})">
-                            <i class="fas fa-file-contract"></i> Crear Contrato
-                        </button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Modal de Galería de Imágenes -->
 <div class="modal fade" id="modalGaleriaImagenes" tabindex="-1" aria-labelledby="modalGaleriaImagenesLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
@@ -296,89 +213,49 @@
     </div>
 </div>
 
-// ========================================================
-// FUNCIÓN ULTRA SIMPLE PARA MODAL DE CONTRATOS
-// ========================================================
+<script>
+let propiedadesImagenes = {};
 
-function abrirModalContratoSimple(propiedadId, direccion, sucursal, precioMensual, expensas) {
-    console.log('🚨 FUNCIÓN ULTRA SIMPLE EJECUTÁNDOSE');
-    console.log('Datos recibidos:', propiedadId, direccion, sucursal, precioMensual, expensas);
-    
-    // Buscar el modal simple
-    const modal = document.getElementById('modalContratoSimple');
-    
-    if (modal) {
-        console.log('✅ Modal encontrado');
-        
-        // Llenar datos básicos
-        document.getElementById('propiedad_id_simple').value = propiedadId;
-        document.getElementById('info_propiedad').textContent = 'Propiedad #' + propiedadId + ' - ' + direccion;
-        
-        // Fecha actual
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('fecha_operacion_simple').value = today;
-        
-        // Precios
-        if (precioMensual > 0) {
-            document.getElementById('precio_mensual_simple').value = precioMensual;
-            document.getElementById('deposito_simple').value = precioMensual;
-        } else {
-            document.getElementById('precio_mensual_simple').value = '50000';
-            document.getElementById('deposito_simple').value = '50000';
-        }
-        
-        // Mostrar modal
-        const bootstrapModal = new bootstrap.Modal(modal);
-        bootstrapModal.show();
-        
-        console.log('✅ MODAL MOSTRADO CORRECTAMENTE');
-    } else {
-        console.error('❌ Modal no encontrado');
-        alert('Error: Modal no encontrado');
-    }
-}
-
-// CONFIGURAR EVENT LISTENERS
+// Recopilar todas las imágenes de las propiedades al cargar la página
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔥 CONFIGURANDO EVENT LISTENERS PARA CONTRATOS');
-    
-    // Buscar todos los botones de contrato
-    const botonesContrato = document.querySelectorAll('.btn-contrato');
-    console.log('📋 Botones de contrato encontrados:', botonesContrato.length);
-    
-    // Configurar cada botón
-    botonesContrato.forEach(function(boton, index) {
-        console.log('🔧 Configurando botón', index + 1);
-        
-        boton.addEventListener('click', function() {
-            console.log('🎯 CLICK EN BOTÓN CONTRATO');
-            
-            // Obtener datos del botón
-            const propiedadId = this.getAttribute('data-id');
-            const direccion = this.getAttribute('data-dir');
-            const sucursal = this.getAttribute('data-suc');
-            const precioMensual = parseFloat(this.getAttribute('data-precio')) || 0;
-            const precioExpensas = parseFloat(this.getAttribute('data-exp')) || 0;
-            
-            console.log('📊 Datos extraídos:', {
-                propiedadId: propiedadId,
-                direccion: direccion,
-                sucursal: sucursal,
-                precioMensual: precioMensual,
-                precioExpensas: precioExpensas
-            });
-            
-            // Llamar a la función
-            abrirModalContratoSimple(propiedadId, direccion, sucursal, precioMensual, precioExpensas);
-        });
-        
-        console.log('✅ Botón', index + 1, 'configurado correctamente');
-    });
-    
-    console.log('🎉 TODOS LOS EVENT LISTENERS CONFIGURADOS');
+    {% for propiedad in propiedades %}
+        propiedadesImagenes[{{ propiedad.id }}] = [
+            {% for imagen in propiedad.imagenes.all %}
+                {
+                    url: "{{ imagen.imagen.url }}",
+                    alt: "Imagen {{ forloop.counter }} - {{ propiedad.direccion }}"
+                }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+    {% endfor %}
 });
 
-console.log('🚀 JAVASCRIPT CARGADO - FUNCIÓN DISPONIBLE:', typeof abrirModalContratoSimple);
+function abrirGaleriaImagenes(propiedadId, imagenIndex) {
+    const imagenes = propiedadesImagenes[propiedadId];
+    if (!imagenes || imagenes.length === 0) return;
+    
+    const carouselInner = document.getElementById('galeriaCarouselInner');
+    carouselInner.innerHTML = '';
+    
+    // Crear los slides de la galería
+    imagenes.forEach((imagen, index) => {
+        const slide = document.createElement('div');
+        slide.className = `carousel-item ${index === imagenIndex ? 'active' : ''}`;
+        slide.innerHTML = `
+            <div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
+                <img src="${imagen.url}" 
+                     class="img-fluid" 
+                     alt="${imagen.alt}"
+                     style="max-height: 100%; max-width: 100%; object-fit: contain;">
+            </div>
+        `;
+        carouselInner.appendChild(slide);
+    });
+    
+    // Mostrar el modal
+    const modal = new bootstrap.Modal(document.getElementById('modalGaleriaImagenes'));
+    modal.show();
+}
 </script>
 
 {% endblock %}
