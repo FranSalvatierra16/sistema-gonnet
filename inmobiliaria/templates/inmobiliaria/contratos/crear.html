@@ -31,16 +31,23 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Propiedad</label>
-                        <select name="propiedad_id" id="propiedad_id" class="form-select" required>
-                            <option value="">Seleccionar propiedad...</option>
-                            {% for propiedad in propiedades %}
-                            <option value="{{ propiedad.id }}" 
-                                    data-precio="{{ propiedad.info_meses.precio_mensual|default:0 }}"
-                                    {% if propiedad.id|stringformat:"s" == propiedad_id_selected %}selected{% endif %}>
-                                {{ propiedad.direccion }} - ${{ propiedad.info_meses.precio_mensual|format_price }}
-                            </option>
-                            {% endfor %}
-                        </select>
+                        {% if propiedad_selected %}
+                            <input type="hidden" name="propiedad_id" value="{{ propiedad_selected.id }}">
+                            <div class="form-control bg-light" style="border: 1px solid #ced4da;">
+                                <strong>{{ propiedad_selected.direccion }}</strong>
+                                <small class="text-muted d-block">Ficha #{{ propiedad_selected.id }}</small>
+                            </div>
+                        {% else %}
+                            <select name="propiedad_id" id="propiedad_id" class="form-select" required>
+                                <option value="">Seleccionar propiedad...</option>
+                                {% for propiedad in propiedades %}
+                                <option value="{{ propiedad.id }}" 
+                                        data-precio="{{ propiedad.info_meses.precio_mensual|default:0 }}">
+                                    {{ propiedad.direccion }} - ${{ propiedad.info_meses.precio_mensual|format_price }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        {% endif %}
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Precio Mensual</label>
@@ -72,15 +79,10 @@
                         </select>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Vendedor</label>
-                        <select name="vendedor_id" id="vendedor_id" class="form-select" required>
-                            <option value="">Seleccionar vendedor...</option>
-                            {% for vendedor in vendedores %}
-                            <option value="{{ vendedor.id }}">
-                                {{ vendedor.nombre }} {{ vendedor.apellido }}
-                            </option>
-                            {% endfor %}
-                        </select>
+                        <label class="form-label">Vendedor ID</label>
+                        <input type="number" name="vendedor_id" id="vendedor_id" class="form-control" 
+                               placeholder="Ingrese ID del vendedor" required>
+                        <small class="text-muted">Ingrese el ID numérico del vendedor</small>
                     </div>
                 </div>
 
@@ -101,8 +103,8 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Fecha de Fin</label>
-                        <input type="date" name="fecha_fin" id="fecha_fin" class="form-control" required readonly>
-                        <small class="text-muted">Se calcula automáticamente (24 meses)</small>
+                        <input type="date" name="fecha_fin" id="fecha_fin" class="form-control" required>
+                        <small class="text-muted">Seleccione la fecha de finalización del contrato</small>
                     </div>
                 </div>
 
@@ -160,19 +162,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     precioMensual.addEventListener('input', calcularDeposito);
     
-    // Calcular fecha fin cuando cambie fecha inicio
-    const fechaInicio = document.getElementById('fecha_inicio');
-    const fechaFin = document.getElementById('fecha_fin');
-    
-    function calcularFechaFin() {
-        if (fechaInicio.value) {
-            const inicio = new Date(fechaInicio.value);
-            inicio.setMonth(inicio.getMonth() + 24); // 24 meses
-            fechaFin.value = inicio.toISOString().split('T')[0];
-        }
-    }
-    
-    fechaInicio.addEventListener('change', calcularFechaFin);
+    // Las fechas ahora son manuales - no hay cálculo automático
     
     // Formatear números
     function formatearNumero(input) {
@@ -200,8 +190,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Obtener parámetros de la URL para precargar
     const urlParams = new URLSearchParams(window.location.search);
-    const propiedadId = urlParams.get('propiedad_id');
-    const direccion = urlParams.get('direccion');
     const precioMensualUrl = urlParams.get('precio_mensual');
     
     if (precioMensualUrl) {
@@ -209,8 +197,8 @@ document.addEventListener('DOMContentLoaded', function() {
         calcularDeposito();
     }
     
-    // Si hay propiedad preseleccionada, cargar su precio
-    if (propiedadId && propiedadSelect.value === propiedadId) {
+    // Si hay propiedad preseleccionada y select disponible, cargar su precio
+    if (propiedadSelect && propiedadSelect.selectedIndex > 0) {
         const selectedOption = propiedadSelect.options[propiedadSelect.selectedIndex];
         const precio = selectedOption.getAttribute('data-precio');
         if (precio && precio !== '0') {

@@ -4609,11 +4609,20 @@ def crear_contrato_alquiler(request):
     inquilinos = Inquilino.objects.filter(sucursal=request.user.sucursal)
     vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal)
     
+    # Si hay propiedad_id, obtener la propiedad específica
+    propiedad_selected = None
+    if propiedad_id:
+        try:
+            propiedad_selected = Propiedad.objects.get(id=propiedad_id, sucursal=request.user.sucursal)
+        except Propiedad.DoesNotExist:
+            pass
+    
     context = {
         'propiedades': propiedades,
         'inquilinos': inquilinos,
         'vendedores': vendedores,
         'propiedad_id_selected': propiedad_id,
+        'propiedad_selected': propiedad_selected,
     }
     
     return render(request, 'inmobiliaria/contratos/crear.html', context)
