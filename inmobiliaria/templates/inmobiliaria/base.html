@@ -1715,23 +1715,23 @@
             display: inline-block !important;
             visibility: visible !important;
         }
-        /* FIX MODAL BOOTSTRAP - FORZAR VISIBILIDAD Y FUNCIONALIDAD */
-        .modal,
-        .modal.show,
-        .modal.fade {
+        /* FIX SOLO PARA MODALS ABIERTOS */
+        .modal:not(.show) {
+            display: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+        }
+        .modal.show {
             display: block !important;
-            visibility: visible !important;
             opacity: 1 !important;
+            visibility: visible !important;
             z-index: 1050 !important;
             pointer-events: auto !important;
         }
-        .modal-backdrop {
+        .modal-backdrop.show {
             display: block !important;
             opacity: 0.5 !important;
             z-index: 1040 !important;
-        }
-        body.modal-open {
-            overflow: hidden !important;
         }
     </style>
 </body>
