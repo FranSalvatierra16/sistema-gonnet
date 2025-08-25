@@ -31,13 +31,18 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Propiedad</label>
-
-                        {% if propiedad_selected %}
-                            <input type="hidden" name="propiedad_id" value="{{ propiedad_selected.id }}">
-                            <div class="form-control bg-light" style="border: 1px solid #ced4da;">
-                                <strong>{{ propiedad_selected.direccion }}</strong>
-                                <small class="text-muted d-block">Ficha #{{ propiedad_selected.id }}</small>
-                            </div>
+                        <!-- DEBUG: propiedad_id_selected = "{{ propiedad_id_selected }}" -->
+                        {% if propiedad_id_selected %}
+                            {% for propiedad in propiedades %}
+                                {% if propiedad.id|stringformat:"s" == propiedad_id_selected %}
+                                    <input type="hidden" name="propiedad_id" value="{{ propiedad.id }}">
+                                    <input type="hidden" id="precio_propiedad" value="{{ propiedad.info_meses.precio_mensual|default:0 }}">
+                                    <div class="form-control bg-light" style="border: 1px solid #ced4da;">
+                                        <strong>{{ propiedad.direccion }}</strong>
+                                        <small class="text-muted d-block">Ficha #{{ propiedad.id }} - ${{ propiedad.info_meses.precio_mensual|format_price }}</small>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
                         {% else %}
 
                             <select name="propiedad_id" id="propiedad_id" class="form-select" required>
