@@ -1715,6 +1715,24 @@
             display: inline-block !important;
             visibility: visible !important;
         }
+        /* FIX MODAL BOOTSTRAP - FORZAR VISIBILIDAD Y FUNCIONALIDAD */
+        .modal,
+        .modal.show,
+        .modal.fade {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            z-index: 1050 !important;
+            pointer-events: auto !important;
+        }
+        .modal-backdrop {
+            display: block !important;
+            opacity: 0.5 !important;
+            z-index: 1040 !important;
+        }
+        body.modal-open {
+            overflow: hidden !important;
+        }
     </style>
 </body>
 </html>
