@@ -31,6 +31,7 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Propiedad</label>
+
                         {% if propiedad_selected %}
                             <input type="hidden" name="propiedad_id" value="{{ propiedad_selected.id }}">
                             <div class="form-control bg-light" style="border: 1px solid #ced4da;">
@@ -38,11 +39,13 @@
                                 <small class="text-muted d-block">Ficha #{{ propiedad_selected.id }}</small>
                             </div>
                         {% else %}
+
                             <select name="propiedad_id" id="propiedad_id" class="form-select" required>
                                 <option value="">Seleccionar propiedad...</option>
                                 {% for propiedad in propiedades %}
                                 <option value="{{ propiedad.id }}" 
-                                        data-precio="{{ propiedad.info_meses.precio_mensual|default:0 }}">
+                                        data-precio="{{ propiedad.info_meses.precio_mensual|default:0 }}"
+                                        {% if propiedad.id|stringformat:"s" == propiedad_id_selected %}selected{% endif %}>
                                     {{ propiedad.direccion }} - ${{ propiedad.info_meses.precio_mensual|format_price }}
                                 </option>
                                 {% endfor %}
@@ -69,20 +72,27 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Inquilino</label>
-                        <select name="inquilino_id" id="inquilino_id" class="form-select" required>
-                            <option value="">Seleccionar inquilino...</option>
-                            {% for inquilino in inquilinos %}
-                            <option value="{{ inquilino.id }}">
-                                {{ inquilino.nombre }} {{ inquilino.apellido }} - {{ inquilino.dni }}
-                            </option>
-                            {% endfor %}
-                        </select>
+                        <input type="text" id="inquilino_search" class="form-control" 
+                               placeholder="Buscar por nombre, apellido o ID..." autocomplete="off">
+                        <input type="hidden" name="inquilino_id" id="inquilino_id" required>
+                        <div id="inquilino_results" class="list-group position-absolute w-100" style="z-index: 1000; display: none;"></div>
+                        <small class="text-muted">Escriba el nombre, apellido o ID del inquilino</small>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Vendedor ID</label>
-                        <input type="number" name="vendedor_id" id="vendedor_id" class="form-control" 
-                               placeholder="Ingrese ID del vendedor" required>
-                        <small class="text-muted">Ingrese el ID numérico del vendedor</small>
+                        <label class="form-label">Vendedor</label>
+                        <div class="input-group">
+                            <input type="number" name="vendedor_id" id="vendedor_id" class="form-control" 
+                                   placeholder="ID" required>
+                            <span class="input-group-text">
+                                <i class="fas fa-search" id="search_vendedor_icon"></i>
+                            </span>
+                        </div>
+                        <div id="vendedor_info" class="mt-2" style="display: none;">
+                            <small class="text-success">
+                                <i class="fas fa-check"></i> <span id="vendedor_nombre"></span>
+                            </small>
+                        </div>
+                        <small class="text-muted">Ingrese el ID del vendedor</small>
                     </div>
                 </div>
 
@@ -197,6 +207,13 @@ document.addEventListener('DOMContentLoaded', function() {
         calcularDeposito();
     }
     
+    // Si hay precio de propiedad hidden, usarlo
+    const precioPropiedad = document.getElementById('precio_propiedad');
+    if (precioPropiedad && precioPropiedad.value && precioPropiedad.value !== '0') {
+        precioMensual.value = parseInt(precioPropiedad.value).toLocaleString('es-AR');
+        calcularDeposito();
+    }
+    
     // Si hay propiedad preseleccionada y select disponible, cargar su precio
     if (propiedadSelect && propiedadSelect.selectedIndex > 0) {
         const selectedOption = propiedadSelect.options[propiedadSelect.selectedIndex];
@@ -206,6 +223,91 @@ document.addEventListener('DOMContentLoaded', function() {
             calcularDeposito();
         }
     }
+    
+    // FUNCIONALIDAD VENDEDOR - Buscar por ID
+    const vendedorIdInput = document.getElementById('vendedor_id');
+    const vendedorInfo = document.getElementById('vendedor_info');
+    const vendedorNombre = document.getElementById('vendedor_nombre');
+    
+    vendedorIdInput.addEventListener('blur', function() {
+        const vendedorId = this.value;
+        if (vendedorId) {
+            fetch(`{% url 'inmobiliaria:get_vendedor_info' %}?vendedor_id=${vendedorId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        vendedorInfo.style.display = 'none';
+                        alert('Vendedor no encontrado');
+                    } else {
+                        vendedorNombre.textContent = data.nombre_completo;
+                        vendedorInfo.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    vendedorInfo.style.display = 'none';
+                });
+        } else {
+            vendedorInfo.style.display = 'none';
+        }
+    });
+    
+    // FUNCIONALIDAD INQUILINO - Búsqueda
+    const inquilinoSearch = document.getElementById('inquilino_search');
+    const inquilinoId = document.getElementById('inquilino_id');
+    const inquilinoResults = document.getElementById('inquilino_results');
+    let searchTimeout;
+    
+    inquilinoSearch.addEventListener('input', function() {
+        const query = this.value.trim();
+        
+        clearTimeout(searchTimeout);
+        
+        if (query.length < 2) {
+            inquilinoResults.style.display = 'none';
+            return;
+        }
+        
+        searchTimeout = setTimeout(() => {
+            fetch(`{% url 'inmobiliaria:search_inquilinos' %}?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    inquilinoResults.innerHTML = '';
+                    
+                    if (data.inquilinos.length === 0) {
+                        inquilinoResults.innerHTML = '<div class="list-group-item">No se encontraron inquilinos</div>';
+                    } else {
+                        data.inquilinos.forEach(inquilino => {
+                            const item = document.createElement('div');
+                            item.className = 'list-group-item list-group-item-action';
+                            item.style.cursor = 'pointer';
+                            item.innerHTML = `<strong>${inquilino.nombre_completo}</strong>`;
+                            
+                            item.addEventListener('click', function() {
+                                inquilinoSearch.value = inquilino.nombre_completo;
+                                inquilinoId.value = inquilino.id;
+                                inquilinoResults.style.display = 'none';
+                            });
+                            
+                            inquilinoResults.appendChild(item);
+                        });
+                    }
+                    
+                    inquilinoResults.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    inquilinoResults.style.display = 'none';
+                });
+        }, 300);
+    });
+    
+    // Ocultar resultados al hacer clic fuera
+    document.addEventListener('click', function(e) {
+        if (!inquilinoSearch.contains(e.target) && !inquilinoResults.contains(e.target)) {
+            inquilinoResults.style.display = 'none';
+        }
+    });
     
     // Envío del formulario
     document.getElementById('formCrearContrato').addEventListener('submit', function(e) {

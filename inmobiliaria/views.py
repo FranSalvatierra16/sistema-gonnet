@@ -5437,3 +5437,51 @@ def buscar_propiedades_ajax(request):
     
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
+@login_required
+def get_vendedor_info(request):
+    """Vista AJAX para obtener información del vendedor por ID"""
+    vendedor_id = request.GET.get('vendedor_id')
+    if not vendedor_id:
+        return JsonResponse({'error': 'ID de vendedor requerido'}, status=400)
+    
+    try:
+        vendedor = Vendedor.objects.get(id=vendedor_id, sucursal=request.user.sucursal)
+        return JsonResponse({
+            'id': vendedor.id,
+            'nombre': vendedor.nombre,
+            'apellido': vendedor.apellido,
+            'nombre_completo': f"{vendedor.nombre} {vendedor.apellido}"
+        })
+    except Vendedor.DoesNotExist:
+        return JsonResponse({'error': 'Vendedor no encontrado'}, status=404)
+
+@login_required  
+def search_inquilinos(request):
+    """Vista AJAX para buscar inquilinos por nombre o ID"""
+    query = request.GET.get('q', '').strip()
+    if not query:
+        return JsonResponse({'inquilinos': []})
+    
+    inquilinos = Inquilino.objects.filter(sucursal=request.user.sucursal)
+    
+    # Si es numérico, buscar por ID
+    if query.isdigit():
+        inquilinos = inquilinos.filter(id=query)
+    else:
+        # Buscar por nombre o apellido
+        inquilinos = inquilinos.filter(
+            Q(nombre__icontains=query) | Q(apellido__icontains=query)
+        )
+    
+    inquilinos_data = []
+    for inquilino in inquilinos[:10]:  # Limitar a 10 resultados
+        inquilinos_data.append({
+            'id': inquilino.id,
+            'nombre': inquilino.nombre,
+            'apellido': inquilino.apellido,
+            'dni': inquilino.dni,
+            'nombre_completo': f"{inquilino.nombre} {inquilino.apellido} - {inquilino.dni}"
+        })
+    
+    return JsonResponse({'inquilinos': inquilinos_data})
+
