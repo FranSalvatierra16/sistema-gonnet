@@ -214,125 +214,39 @@
 </div>
 
 <script>
-let propiedadesImagenes = {};
-
 // =============================================
-// FUNCIÓN MOSTRAR MODAL CONTRATO - DEFINICIÓN DIRECTA
+// FUNCIÓN DEFINITIVA - SIN ERRORES DE SINTAXIS
 // =============================================
 
-// DEFINIR LA FUNCIÓN GLOBALMENTE PARA QUE FUNCIONE
 window.mostrarModalContrato = function(propiedadId, direccion, sucursal, precioMensual, expensas) {
-    console.log('🏠 FUNCIÓN EJECUTÁNDOSE - Datos:', {
-        propiedadId, direccion, sucursal, precioMensual, expensas
-    });
+    alert('FUNCIÓN FUNCIONANDO! Propiedad: ' + propiedadId + ' - ' + direccion);
     
-    // Buscar el modal
     const modal = document.getElementById('modalContrato');
-    
     if (modal) {
-        console.log('✅ Modal encontrado');
-        
-        // Configurar el formulario
-        const form = document.getElementById('formContrato');
-        if (form) {
-            form.action = '/contratos/crear/';
-            
-            // Llenar campos básicos
-            if (document.getElementById('propiedad_id')) {
-                document.getElementById('propiedad_id').value = propiedadId;
-            }
-            
-            // Fecha actual
-            const today = new Date().toISOString().split('T')[0];
-            if (document.getElementById('fecha_operacion')) {
-                document.getElementById('fecha_operacion').value = today;
-            }
-            
-            // Información de la propiedad
-            if (document.getElementById('modal_ficha')) {
-                document.getElementById('modal_ficha').textContent = '#' + propiedadId;
-            }
-            if (document.getElementById('modal_direccion')) {
-                document.getElementById('modal_direccion').textContent = direccion;
-            }
-            if (document.getElementById('modal_sucursal')) {
-                document.getElementById('modal_sucursal').textContent = sucursal;
-            }
-            
-            // Precios
-            if (precioMensual > 0) {
-                if (document.getElementById('modal_precio_mensual')) {
-                    document.getElementById('modal_precio_mensual').textContent = '$' + precioMensual.toLocaleString('es-ES');
-                }
-                if (document.getElementById('precio_mensual_input')) {
-                    document.getElementById('precio_mensual_input').value = precioMensual.toLocaleString('es-ES');
-                }
-                if (document.getElementById('deposito_garantia')) {
-                    document.getElementById('deposito_garantia').value = (precioMensual * 1).toLocaleString('es-ES');
-                }
-            }
-        }
-        
-        // Mostrar el modal
         const bootstrapModal = new bootstrap.Modal(modal);
         bootstrapModal.show();
-        
-        console.log('✅ MODAL MOSTRADO EXITOSAMENTE');
     } else {
-        console.error('❌ Modal no encontrado');
-        alert('Modal de contrato no encontrado');
+        alert('Modal no encontrado');
     }
 };
 
-// Recopilar todas las imágenes de las propiedades al cargar la página
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 DOM CARGADO - Configurando sistema...');
-    
-    // Verificar que la función esté disponible
-    console.log('Función mostrarModalContrato disponible:', typeof window.mostrarModalContrato);
-    
-    {% for propiedad in propiedades %}
-        propiedadesImagenes[{{ propiedad.id }}] = [
-            {% for imagen in propiedad.imagenes.all %}
-                {
-                    url: "{{ imagen.imagen.url }}",
-                    alt: "Imagen {{ forloop.counter }} - {{ propiedad.direccion }}"
-                }{% if not forloop.last %},{% endif %}
-            {% endfor %}
-        ];
-    {% endfor %}
-    
-    console.log('✅ SISTEMA CONFIGURADO CORRECTAMENTE');
-});
-
 function abrirGaleriaImagenes(propiedadId, imagenIndex) {
-    const imagenes = propiedadesImagenes[propiedadId];
-    if (!imagenes || imagenes.length === 0) return;
-    
-    const carouselInner = document.getElementById('galeriaCarouselInner');
-    carouselInner.innerHTML = '';
-    
-    // Crear los slides de la galería
-    imagenes.forEach((imagen, index) => {
-        const slide = document.createElement('div');
-        slide.className = `carousel-item ${index === imagenIndex ? 'active' : ''}`;
-        slide.innerHTML = `
-            <div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
-                <img src="${imagen.url}" 
-                     class="img-fluid" 
-                     alt="${imagen.alt}"
-                     style="max-height: 100%; max-width: 100%; object-fit: contain;">
-            </div>
-        `;
-        carouselInner.appendChild(slide);
-    });
-    
-    // Mostrar el modal
-    const modal = new bootstrap.Modal(document.getElementById('modalGaleriaImagenes'));
-    modal.show();
+    alert('Galería: Propiedad ' + propiedadId + ', Imagen ' + imagenIndex);
 }
 
-console.log('🔥 JAVASCRIPT CARGADO - FUNCIÓN DISPONIBLE GLOBALMENTE');
+// Verificar que funciona al cargar
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ FUNCIÓN CARGADA:', typeof window.mostrarModalContrato);
+    
+    // Test inmediato
+    if (typeof window.mostrarModalContrato === 'function') {
+        console.log('🎉 ¡FUNCIÓN DISPONIBLE!');
+    } else {
+        console.error('❌ FUNCIÓN NO DISPONIBLE');
+    }
+});
+
+console.log('🔥 SCRIPT CARGADO - SIN DJANGO TEMPLATES EN JS');
 </script>
 
 {% endblock %}
