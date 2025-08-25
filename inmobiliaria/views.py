@@ -4613,9 +4613,16 @@ def crear_contrato_alquiler(request):
     propiedad_selected = None
     if propiedad_id:
         try:
-            propiedad_selected = Propiedad.objects.get(id=propiedad_id, sucursal=request.user.sucursal)
+            propiedad_selected = Propiedad.objects.get(id=propiedad_id)
+            print(f"DEBUG: Propiedad encontrada: {propiedad_selected.direccion}")
         except Propiedad.DoesNotExist:
-            pass
+            print(f"DEBUG: Propiedad {propiedad_id} no existe o no pertenece a sucursal {request.user.sucursal}")
+            # Buscar sin filtro de sucursal para debug
+            try:
+                prop_any = Propiedad.objects.get(id=propiedad_id)
+                print(f"DEBUG: Propiedad existe pero en sucursal: {prop_any.sucursal}")
+            except Propiedad.DoesNotExist:
+                print(f"DEBUG: Propiedad {propiedad_id} no existe en absoluto")
     
     context = {
         'propiedades': propiedades,
