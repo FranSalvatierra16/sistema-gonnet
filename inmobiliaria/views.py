@@ -4598,7 +4598,25 @@ def crear_contrato_alquiler(request):
         except Exception as e:
             return JsonResponse({'error': f'Error al crear el contrato: {str(e)}'}, status=400)
 
-    return render(request, 'inmobiliaria/contratos/crear.html')
+    # GET request - mostrar formulario
+    from .models import Propiedad, Inquilino, Vendedor
+    
+    # Obtener parámetros de la URL
+    propiedad_id = request.GET.get('propiedad_id')
+    
+    # Obtener listas para los selects
+    propiedades = Propiedad.objects.filter(sucursal=request.user.sucursal)
+    inquilinos = Inquilino.objects.filter(sucursal=request.user.sucursal)
+    vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal)
+    
+    context = {
+        'propiedades': propiedades,
+        'inquilinos': inquilinos,
+        'vendedores': vendedores,
+        'propiedad_id_selected': propiedad_id,
+    }
+    
+    return render(request, 'inmobiliaria/contratos/crear.html', context)
 
 @login_required
 def lista_contratos(request):

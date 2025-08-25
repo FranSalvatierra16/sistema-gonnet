@@ -1,0 +1,251 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<div class="container-fluid mt-4 fade-in-up">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="text-gradient">
+            <i class="fas fa-file-contract"></i> <strong>Crear Contrato de Alquiler</strong>
+        </h1>
+        <div class="d-flex gap-2">
+            <a href="{% url 'inmobiliaria:alquileres_24_meses' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- Formulario -->
+    <div class="card shadow-modern border-radius-modern">
+        <div class="card-body">
+            <form method="post" id="formCrearContrato">
+                {% csrf_token %}
+                
+                <!-- Información de la Propiedad -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5 class="text-primary mb-3">
+                            <i class="fas fa-home"></i> Información de la Propiedad
+                        </h5>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Propiedad</label>
+                        <select name="propiedad_id" id="propiedad_id" class="form-select" required>
+                            <option value="">Seleccionar propiedad...</option>
+                            {% for propiedad in propiedades %}
+                            <option value="{{ propiedad.id }}" 
+                                    data-precio="{{ propiedad.info_meses.precio_mensual|default:0 }}"
+                                    {% if propiedad.id|stringformat:"s" == propiedad_id_selected %}selected{% endif %}>
+                                {{ propiedad.direccion }} - ${{ propiedad.info_meses.precio_mensual|format_price }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Precio Mensual</label>
+                        <input type="text" name="precio_mensual" id="precio_mensual" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Depósito de Garantía</label>
+                        <input type="text" name="deposito_garantia" id="deposito_garantia" class="form-control" required readonly>
+                        <small class="text-muted">Se calcula automáticamente (1 mes de alquiler)</small>
+                    </div>
+                </div>
+
+                <!-- Información del Inquilino -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5 class="text-primary mb-3">
+                            <i class="fas fa-user"></i> Información del Inquilino
+                        </h5>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Inquilino</label>
+                        <select name="inquilino_id" id="inquilino_id" class="form-select" required>
+                            <option value="">Seleccionar inquilino...</option>
+                            {% for inquilino in inquilinos %}
+                            <option value="{{ inquilino.id }}">
+                                {{ inquilino.nombre }} {{ inquilino.apellido }} - {{ inquilino.dni }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Vendedor</label>
+                        <select name="vendedor_id" id="vendedor_id" class="form-select" required>
+                            <option value="">Seleccionar vendedor...</option>
+                            {% for vendedor in vendedores %}
+                            <option value="{{ vendedor.id }}">
+                                {{ vendedor.nombre }} {{ vendedor.apellido }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Fechas del Contrato -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5 class="text-primary mb-3">
+                            <i class="fas fa-calendar"></i> Fechas del Contrato
+                        </h5>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Fecha de Operación</label>
+                        <input type="date" name="fecha_operacion" id="fecha_operacion" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Fecha de Inicio</label>
+                        <input type="date" name="fecha_inicio" id="fecha_inicio" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Fecha de Fin</label>
+                        <input type="date" name="fecha_fin" id="fecha_fin" class="form-control" required readonly>
+                        <small class="text-muted">Se calcula automáticamente (24 meses)</small>
+                    </div>
+                </div>
+
+                <!-- Duración -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <label class="form-label">Duración (meses)</label>
+                        <input type="number" name="duracion_meses" id="duracion_meses" class="form-control" value="24" readonly>
+                    </div>
+                </div>
+
+                <!-- Botones -->
+                <div class="d-flex gap-2 justify-content-end">
+                    <a href="{% url 'inmobiliaria:alquileres_24_meses' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Crear Contrato
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.shadow-modern {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.border-radius-modern {
+    border-radius: 0.5rem;
+}
+
+.text-gradient {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Calcular depósito automáticamente cuando cambie el precio
+    const precioMensual = document.getElementById('precio_mensual');
+    const depositoGarantia = document.getElementById('deposito_garantia');
+    
+    function calcularDeposito() {
+        const precio = precioMensual.value.replace(/[^0-9,]/g, '');
+        if (precio) {
+            depositoGarantia.value = precio; // Depósito = 1 mes de alquiler
+        }
+    }
+    
+    precioMensual.addEventListener('input', calcularDeposito);
+    
+    // Calcular fecha fin cuando cambie fecha inicio
+    const fechaInicio = document.getElementById('fecha_inicio');
+    const fechaFin = document.getElementById('fecha_fin');
+    
+    function calcularFechaFin() {
+        if (fechaInicio.value) {
+            const inicio = new Date(fechaInicio.value);
+            inicio.setMonth(inicio.getMonth() + 24); // 24 meses
+            fechaFin.value = inicio.toISOString().split('T')[0];
+        }
+    }
+    
+    fechaInicio.addEventListener('change', calcularFechaFin);
+    
+    // Formatear números
+    function formatearNumero(input) {
+        input.addEventListener('input', function() {
+            let valor = this.value.replace(/[^0-9]/g, '');
+            if (valor) {
+                valor = parseInt(valor).toLocaleString('es-AR');
+            }
+            this.value = valor;
+        });
+    }
+    
+    formatearNumero(precioMensual);
+    
+    // Cuando cambie la propiedad seleccionada, actualizar precio
+    const propiedadSelect = document.getElementById('propiedad_id');
+    propiedadSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const precio = selectedOption.getAttribute('data-precio');
+        if (precio && precio !== '0') {
+            precioMensual.value = parseInt(precio).toLocaleString('es-AR');
+            calcularDeposito();
+        }
+    });
+    
+    // Obtener parámetros de la URL para precargar
+    const urlParams = new URLSearchParams(window.location.search);
+    const propiedadId = urlParams.get('propiedad_id');
+    const direccion = urlParams.get('direccion');
+    const precioMensualUrl = urlParams.get('precio_mensual');
+    
+    if (precioMensualUrl) {
+        precioMensual.value = parseInt(precioMensualUrl).toLocaleString('es-AR');
+        calcularDeposito();
+    }
+    
+    // Si hay propiedad preseleccionada, cargar su precio
+    if (propiedadId && propiedadSelect.value === propiedadId) {
+        const selectedOption = propiedadSelect.options[propiedadSelect.selectedIndex];
+        const precio = selectedOption.getAttribute('data-precio');
+        if (precio && precio !== '0') {
+            precioMensual.value = parseInt(precio).toLocaleString('es-AR');
+            calcularDeposito();
+        }
+    }
+    
+    // Envío del formulario
+    document.getElementById('formCrearContrato').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        fetch('{% url "inmobiliaria:crear_contrato_alquiler" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = data.redirect_url;
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al crear el contrato');
+        });
+    });
+});
+</script>
+
+{% endblock %} 

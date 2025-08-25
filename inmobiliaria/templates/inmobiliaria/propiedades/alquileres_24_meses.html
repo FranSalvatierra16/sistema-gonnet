@@ -130,10 +130,10 @@
 
                     <!-- Botones de Acción -->
                     <div class="d-grid gap-2">
-                        <button type="button" class="btn btn-primary" 
-                                onclick="mostrarModalContrato({{ propiedad.id }}, '{{ propiedad.direccion|escapejs }}', '{{ propiedad.sucursal.nombre|escapejs }}', {{ propiedad.info_meses.precio_mensual|default:0 }}, {{ propiedad.info_meses.precio_expensas|default:0 }})">
+                        <a href="{% url 'inmobiliaria:crear_contrato_alquiler' %}?propiedad_id={{ propiedad.id }}&direccion={{ propiedad.direccion|urlencode }}&sucursal={{ propiedad.sucursal.nombre|urlencode }}&precio_mensual={{ propiedad.info_meses.precio_mensual|default:0 }}&precio_expensas={{ propiedad.info_meses.precio_expensas|default:0 }}" 
+                           class="btn btn-primary">
                             <i class="fas fa-file-contract"></i> Crear Contrato
-                        </button>
+                        </a>
                         <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-outline-secondary">
                             <i class="fas fa-info-circle"></i> Ver Detalles
                         </a>
@@ -184,7 +184,7 @@
 }
 </style>
 
-{% include 'inmobiliaria/propiedades/modal_crear_contrato.html' %}
+
 
 <!-- Modal de Galería de Imágenes -->
 <div class="modal fade" id="modalGaleriaImagenes" tabindex="-1" aria-labelledby="modalGaleriaImagenesLabel" aria-hidden="true">
@@ -257,18 +257,7 @@ function abrirGaleriaImagenes(propiedadId, imagenIndex) {
     modal.show();
 }
 
-window.mostrarModalContrato = function(propiedadId, direccion, sucursal, precioMensual, expensas) {
-    var modal = document.getElementById('modalContrato');
-    if (!modal) {
-        alert('No se encontró el modal de contrato');
-        return;
-    }
-    // Puedes autocompletar campos aquí si lo deseas
-    // document.getElementById('propiedad_id').value = propiedadId;
-    // document.getElementById('modal_direccion').textContent = direccion;
-    var bootstrapModal = new bootstrap.Modal(modal);
-    bootstrapModal.show();
-};
+
 </script>
 
 {% endblock %}
