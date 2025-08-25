@@ -34,26 +34,19 @@
                         <!-- DEBUG: propiedad_id_selected = "{{ propiedad_id_selected }}" -->
                         <!-- DEBUG: propiedad_selected = {{ propiedad_selected }} -->
                         <!-- DEBUG: request.GET = {{ request.GET }} -->
-                        {% if propiedad_selected %}
-                            <input type="hidden" name="propiedad_id" value="{{ propiedad_selected.id }}">
-                            <input type="hidden" id="precio_propiedad" value="{{ propiedad_selected.info_meses.precio_mensual|default:0 }}">
-                            <div class="form-control bg-light" style="border: 1px solid #ced4da;">
-                                <strong>{{ propiedad_selected.direccion }}</strong>
-                                <small class="text-muted d-block">Ficha #{{ propiedad_selected.id }} - ${{ propiedad_selected.info_meses.precio_mensual|format_price }}</small>
-                            </div>
-                        {% else %}
-
+                        <!-- Siempre mostrar como campo fijo si viene propiedad_id en URL -->
+                        <div id="propiedad_container">
                             <select name="propiedad_id" id="propiedad_id" class="form-select" required>
                                 <option value="">Seleccionar propiedad...</option>
                                 {% for propiedad in propiedades %}
                                 <option value="{{ propiedad.id }}" 
                                         data-precio="{{ propiedad.info_meses.precio_mensual|default:0 }}"
-                                        {% if propiedad.id|stringformat:"s" == propiedad_id_selected %}selected{% endif %}>
+                                        data-direccion="{{ propiedad.direccion }}">
                                     {{ propiedad.direccion }} - ${{ propiedad.info_meses.precio_mensual|format_price }}
                                 </option>
                                 {% endfor %}
                             </select>
-                        {% endif %}
+                        </div>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Precio Mensual</label>
@@ -201,47 +194,55 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Obtener parámetros de la URL para precargar
+    // CONFIGURACIÓN INICIAL SIMPLE
     const urlParams = new URLSearchParams(window.location.search);
     const propiedadIdUrl = urlParams.get('propiedad_id');
-    const direccionUrl = urlParams.get('direccion');
     const precioMensualUrl = urlParams.get('precio_mensual');
     
-    // Si hay propiedad_id en la URL, mostrar la información de la propiedad
-    if (propiedadIdUrl && direccionUrl) {
-        // Ocultar el select si existe
-        const propiedadSelect = document.getElementById('propiedad_id');
-        if (propiedadSelect) {
-            propiedadSelect.style.display = 'none';
-        }
+    console.log('URL params:', { propiedadIdUrl, precioMensualUrl });
+    
+    // Si hay propiedad_id en URL, seleccionarla automáticamente
+    const propiedadSelect = document.getElementById('propiedad_id');
+    if (propiedadIdUrl && propiedadSelect) {
+        // Seleccionar la propiedad
+        propiedadSelect.value = propiedadIdUrl;
         
-        // Crear y mostrar la información de la propiedad
-        const propiedadLabel = document.querySelector('label[for="propiedad_id"]') || 
-                              document.querySelector('.form-label:contains("Propiedad")') ||
-                              propiedadSelect?.previousElementSibling;
-        
-        if (propiedadLabel && propiedadLabel.nextElementSibling === propiedadSelect) {
+        // Convertir a campo fijo
+        const selectedOption = propiedadSelect.options[propiedadSelect.selectedIndex];
+        if (selectedOption) {
+            const direccion = selectedOption.getAttribute('data-direccion');
+            const precio = selectedOption.getAttribute('data-precio');
+            
+            // Reemplazar select con div fijo
+            const fixedDiv = document.createElement('div');
+            fixedDiv.className = 'form-control bg-light';
+            fixedDiv.style.border = '1px solid #ced4da';
+            fixedDiv.innerHTML = `
+                <strong>${direccion}</strong>
+                <small class="text-muted d-block">Ficha #${propiedadIdUrl} - $${precio ? parseInt(precio).toLocaleString('es-AR') : '0'}</small>
+            `;
+            
             // Crear campo hidden
             const hiddenInput = document.createElement('input');
             hiddenInput.type = 'hidden';
             hiddenInput.name = 'propiedad_id';
             hiddenInput.value = propiedadIdUrl;
             
-            // Crear div de información
-            const propiedadInfo = document.createElement('div');
-            propiedadInfo.className = 'form-control bg-light';
-            propiedadInfo.style.border = '1px solid #ced4da';
-            propiedadInfo.innerHTML = `
-                <strong>${decodeURIComponent(direccionUrl)}</strong>
-                <small class="text-muted d-block">Ficha #${propiedadIdUrl} - $${precioMensualUrl ? parseInt(precioMensualUrl).toLocaleString('es-AR') : '0'}</small>
-            `;
+            // Reemplazar
+            const container = propiedadSelect.parentElement;
+            container.innerHTML = '';
+            container.appendChild(hiddenInput);
+            container.appendChild(fixedDiv);
             
-            // Insertar después del label
-            propiedadLabel.insertAdjacentElement('afterend', hiddenInput);
-            propiedadLabel.insertAdjacentElement('afterend', propiedadInfo);
+            // Precargar precio
+            if (precio) {
+                precioMensual.value = parseInt(precio).toLocaleString('es-AR');
+                calcularDeposito();
+            }
         }
     }
     
+    // Precargar precio desde URL si está disponible
     if (precioMensualUrl) {
         precioMensual.value = parseInt(precioMensualUrl).toLocaleString('es-AR');
         calcularDeposito();
@@ -292,39 +293,59 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // FUNCIONALIDAD INQUILINO - Búsqueda
+    // BÚSQUEDA DE INQUILINOS SIMPLIFICADA
     const inquilinoSearch = document.getElementById('inquilino_search');
     const inquilinoId = document.getElementById('inquilino_id');
     const inquilinoResults = document.getElementById('inquilino_results');
     
-    if (inquilinoSearch) {
+    console.log('Elementos inquilino:', {
+        search: inquilinoSearch,
+        id: inquilinoId,
+        results: inquilinoResults
+    });
+    
+    if (inquilinoSearch && inquilinoId && inquilinoResults) {
+        console.log('Configurando búsqueda de inquilinos...');
+        
         let searchTimeout;
         
         inquilinoSearch.addEventListener('input', function() {
             const query = this.value.trim();
-            console.log('Búsqueda inquilino:', query);
+            console.log('🔍 Búsqueda inquilino:', query);
             
             clearTimeout(searchTimeout);
             
             if (query.length < 2) {
                 inquilinoResults.style.display = 'none';
+                inquilinoResults.innerHTML = '';
                 return;
             }
             
+            // Mostrar "buscando..."
+            inquilinoResults.innerHTML = '<div class="list-group-item">Buscando...</div>';
+            inquilinoResults.style.display = 'block';
+            
             searchTimeout = setTimeout(() => {
-                console.log('Enviando petición AJAX...');
-                fetch(`{% url 'inmobiliaria:search_inquilinos' %}?q=${encodeURIComponent(query)}`)
+                console.log('📡 Enviando petición AJAX para:', query);
+                
+                const url = '{% url "inmobiliaria:search_inquilinos" %}?q=' + encodeURIComponent(query);
+                console.log('URL:', url);
+                
+                fetch(url)
                     .then(response => {
-                        console.log('Respuesta recibida:', response);
+                        console.log('✅ Respuesta status:', response.status);
+                        if (!response.ok) {
+                            throw new Error('HTTP ' + response.status);
+                        }
                         return response.json();
                     })
                     .then(data => {
-                        console.log('Datos recibidos:', data);
+                        console.log('📄 Datos recibidos:', data);
                         inquilinoResults.innerHTML = '';
                         
-                        if (data.inquilinos && data.inquilinos.length === 0) {
+                        if (!data.inquilinos || data.inquilinos.length === 0) {
                             inquilinoResults.innerHTML = '<div class="list-group-item">No se encontraron inquilinos</div>';
-                        } else if (data.inquilinos) {
+                        } else {
                             data.inquilinos.forEach(inquilino => {
                                 const item = document.createElement('div');
                                 item.className = 'list-group-item list-group-item-action';
@@ -332,6 +353,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 item.innerHTML = `<strong>${inquilino.nombre_completo}</strong>`;
                                 
                                 item.addEventListener('click', function() {
+                                    console.log('✅ Seleccionado inquilino:', inquilino);
                                     inquilinoSearch.value = inquilino.nombre_completo;
                                     inquilinoId.value = inquilino.id;
                                     inquilinoResults.style.display = 'none';
@@ -344,19 +366,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         inquilinoResults.style.display = 'block';
                     })
                     .catch(error => {
-                        console.error('Error en búsqueda de inquilinos:', error);
-                        inquilinoResults.innerHTML = '<div class="list-group-item text-danger">Error en la búsqueda</div>';
+                        console.error('❌ Error en búsqueda:', error);
+                        inquilinoResults.innerHTML = '<div class="list-group-item text-danger">Error: ' + error.message + '</div>';
                         inquilinoResults.style.display = 'block';
                     });
-            }, 300);
+            }, 500);
         });
         
-        // Ocultar resultados al hacer clic fuera
+        // Ocultar al hacer clic fuera
         document.addEventListener('click', function(e) {
             if (!inquilinoSearch.contains(e.target) && !inquilinoResults.contains(e.target)) {
                 inquilinoResults.style.display = 'none';
             }
         });
+        
+        console.log('✅ Búsqueda de inquilinos configurada');
+    } else {
+        console.error('❌ No se encontraron elementos para búsqueda de inquilinos');
     }
     
     // Envío del formulario
