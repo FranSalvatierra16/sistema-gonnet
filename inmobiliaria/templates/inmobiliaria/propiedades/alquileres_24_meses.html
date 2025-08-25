@@ -256,6 +256,19 @@ function abrirGaleriaImagenes(propiedadId, imagenIndex) {
     const modal = new bootstrap.Modal(document.getElementById('modalGaleriaImagenes'));
     modal.show();
 }
+
+window.mostrarModalContrato = function(propiedadId, direccion, sucursal, precioMensual, expensas) {
+    var modal = document.getElementById('modalContrato');
+    if (!modal) {
+        alert('No se encontró el modal de contrato');
+        return;
+    }
+    // Puedes autocompletar campos aquí si lo deseas
+    // document.getElementById('propiedad_id').value = propiedadId;
+    // document.getElementById('modal_direccion').textContent = direccion;
+    var bootstrapModal = new bootstrap.Modal(modal);
+    bootstrapModal.show();
+};
 </script>
 
 {% endblock %}
