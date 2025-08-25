@@ -32,9 +32,12 @@
                     <div class="col-md-6">
                         <label class="form-label">Propiedad</label>
                         <!-- DEBUG: propiedad_id_selected = "{{ propiedad_id_selected }}" -->
+                        <!-- DEBUG: total propiedades = {{ propiedades|length }} -->
                         {% if propiedad_id_selected %}
                             {% for propiedad in propiedades %}
+                                <!-- DEBUG: Comparando {{ propiedad.id }} con {{ propiedad_id_selected }} -->
                                 {% if propiedad.id|stringformat:"s" == propiedad_id_selected %}
+                                    <!-- DEBUG: ENCONTRADA! -->
                                     <input type="hidden" name="propiedad_id" value="{{ propiedad.id }}">
                                     <input type="hidden" id="precio_propiedad" value="{{ propiedad.info_meses.precio_mensual|default:0 }}">
                                     <div class="form-control bg-light" style="border: 1px solid #ced4da;">
