@@ -159,6 +159,8 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 DOM cargado - iniciando configuración...');
+    
     // Calcular depósito automáticamente cuando cambie el precio
     const precioMensual = document.getElementById('precio_mensual');
     const depositoGarantia = document.getElementById('deposito_garantia');
@@ -225,11 +227,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // FUNCIONALIDAD VENDEDOR - Buscar por ID
+    console.log('🔍 Configurando vendedor...');
     const vendedorIdInput = document.getElementById('vendedor_id');
     const vendedorInfo = document.getElementById('vendedor_info');
     const vendedorNombre = document.getElementById('vendedor_nombre');
     
-    vendedorIdInput.addEventListener('blur', function() {
+    console.log('Elementos vendedor:', {
+        input: vendedorIdInput,
+        info: vendedorInfo,
+        nombre: vendedorNombre
+    });
+    
+    if (vendedorIdInput && vendedorInfo && vendedorNombre) {
+        vendedorIdInput.addEventListener('blur', function() {
         const vendedorId = this.value;
         if (vendedorId) {
             fetch(`{% url 'inmobiliaria:get_vendedor_info' %}?vendedor_id=${vendedorId}`)
@@ -250,15 +260,25 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             vendedorInfo.style.display = 'none';
         }
-    });
+        });
+    }
     
     // FUNCIONALIDAD INQUILINO - Búsqueda
+    console.log('🔍 Configurando inquilino...');
     const inquilinoSearch = document.getElementById('inquilino_search');
     const inquilinoId = document.getElementById('inquilino_id');
     const inquilinoResults = document.getElementById('inquilino_results');
-    let searchTimeout;
     
-    inquilinoSearch.addEventListener('input', function() {
+    console.log('Elementos inquilino:', {
+        search: inquilinoSearch,
+        id: inquilinoId,
+        results: inquilinoResults
+    });
+    
+    if (inquilinoSearch && inquilinoId && inquilinoResults) {
+        let searchTimeout;
+        
+        inquilinoSearch.addEventListener('input', function() {
         const query = this.value.trim();
         
         clearTimeout(searchTimeout);
