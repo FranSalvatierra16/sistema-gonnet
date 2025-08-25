@@ -32,20 +32,15 @@
                     <div class="col-md-6">
                         <label class="form-label">Propiedad</label>
                         <!-- DEBUG: propiedad_id_selected = "{{ propiedad_id_selected }}" -->
-                        <!-- DEBUG: total propiedades = {{ propiedades|length }} -->
-                        {% if propiedad_id_selected %}
-                            {% for propiedad in propiedades %}
-                                <!-- DEBUG: Comparando {{ propiedad.id }} con {{ propiedad_id_selected }} -->
-                                {% if propiedad.id|stringformat:"s" == propiedad_id_selected %}
-                                    <!-- DEBUG: ENCONTRADA! -->
-                                    <input type="hidden" name="propiedad_id" value="{{ propiedad.id }}">
-                                    <input type="hidden" id="precio_propiedad" value="{{ propiedad.info_meses.precio_mensual|default:0 }}">
-                                    <div class="form-control bg-light" style="border: 1px solid #ced4da;">
-                                        <strong>{{ propiedad.direccion }}</strong>
-                                        <small class="text-muted d-block">Ficha #{{ propiedad.id }} - ${{ propiedad.info_meses.precio_mensual|format_price }}</small>
-                                    </div>
-                                {% endif %}
-                            {% endfor %}
+                        <!-- DEBUG: propiedad_selected = {{ propiedad_selected }} -->
+                        <!-- DEBUG: request.GET = {{ request.GET }} -->
+                        {% if propiedad_selected %}
+                            <input type="hidden" name="propiedad_id" value="{{ propiedad_selected.id }}">
+                            <input type="hidden" id="precio_propiedad" value="{{ propiedad_selected.info_meses.precio_mensual|default:0 }}">
+                            <div class="form-control bg-light" style="border: 1px solid #ced4da;">
+                                <strong>{{ propiedad_selected.direccion }}</strong>
+                                <small class="text-muted d-block">Ficha #{{ propiedad_selected.id }} - ${{ propiedad_selected.info_meses.precio_mensual|format_price }}</small>
+                            </div>
                         {% else %}
 
                             <select name="propiedad_id" id="propiedad_id" class="form-select" required>
@@ -208,7 +203,44 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Obtener parámetros de la URL para precargar
     const urlParams = new URLSearchParams(window.location.search);
+    const propiedadIdUrl = urlParams.get('propiedad_id');
+    const direccionUrl = urlParams.get('direccion');
     const precioMensualUrl = urlParams.get('precio_mensual');
+    
+    // Si hay propiedad_id en la URL, mostrar la información de la propiedad
+    if (propiedadIdUrl && direccionUrl) {
+        // Ocultar el select si existe
+        const propiedadSelect = document.getElementById('propiedad_id');
+        if (propiedadSelect) {
+            propiedadSelect.style.display = 'none';
+        }
+        
+        // Crear y mostrar la información de la propiedad
+        const propiedadLabel = document.querySelector('label[for="propiedad_id"]') || 
+                              document.querySelector('.form-label:contains("Propiedad")') ||
+                              propiedadSelect?.previousElementSibling;
+        
+        if (propiedadLabel && propiedadLabel.nextElementSibling === propiedadSelect) {
+            // Crear campo hidden
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'propiedad_id';
+            hiddenInput.value = propiedadIdUrl;
+            
+            // Crear div de información
+            const propiedadInfo = document.createElement('div');
+            propiedadInfo.className = 'form-control bg-light';
+            propiedadInfo.style.border = '1px solid #ced4da';
+            propiedadInfo.innerHTML = `
+                <strong>${decodeURIComponent(direccionUrl)}</strong>
+                <small class="text-muted d-block">Ficha #${propiedadIdUrl} - $${precioMensualUrl ? parseInt(precioMensualUrl).toLocaleString('es-AR') : '0'}</small>
+            `;
+            
+            // Insertar después del label
+            propiedadLabel.insertAdjacentElement('afterend', hiddenInput);
+            propiedadLabel.insertAdjacentElement('afterend', propiedadInfo);
+        }
+    }
     
     if (precioMensualUrl) {
         precioMensual.value = parseInt(precioMensualUrl).toLocaleString('es-AR');
@@ -264,58 +296,68 @@ document.addEventListener('DOMContentLoaded', function() {
     const inquilinoSearch = document.getElementById('inquilino_search');
     const inquilinoId = document.getElementById('inquilino_id');
     const inquilinoResults = document.getElementById('inquilino_results');
-    let searchTimeout;
     
-    inquilinoSearch.addEventListener('input', function() {
-        const query = this.value.trim();
+    if (inquilinoSearch) {
+        let searchTimeout;
         
-        clearTimeout(searchTimeout);
-        
-        if (query.length < 2) {
-            inquilinoResults.style.display = 'none';
-            return;
-        }
-        
-        searchTimeout = setTimeout(() => {
-            fetch(`{% url 'inmobiliaria:search_inquilinos' %}?q=${encodeURIComponent(query)}`)
-                .then(response => response.json())
-                .then(data => {
-                    inquilinoResults.innerHTML = '';
-                    
-                    if (data.inquilinos.length === 0) {
-                        inquilinoResults.innerHTML = '<div class="list-group-item">No se encontraron inquilinos</div>';
-                    } else {
-                        data.inquilinos.forEach(inquilino => {
-                            const item = document.createElement('div');
-                            item.className = 'list-group-item list-group-item-action';
-                            item.style.cursor = 'pointer';
-                            item.innerHTML = `<strong>${inquilino.nombre_completo}</strong>`;
-                            
-                            item.addEventListener('click', function() {
-                                inquilinoSearch.value = inquilino.nombre_completo;
-                                inquilinoId.value = inquilino.id;
-                                inquilinoResults.style.display = 'none';
+        inquilinoSearch.addEventListener('input', function() {
+            const query = this.value.trim();
+            console.log('Búsqueda inquilino:', query);
+            
+            clearTimeout(searchTimeout);
+            
+            if (query.length < 2) {
+                inquilinoResults.style.display = 'none';
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => {
+                console.log('Enviando petición AJAX...');
+                fetch(`{% url 'inmobiliaria:search_inquilinos' %}?q=${encodeURIComponent(query)}`)
+                    .then(response => {
+                        console.log('Respuesta recibida:', response);
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Datos recibidos:', data);
+                        inquilinoResults.innerHTML = '';
+                        
+                        if (data.inquilinos && data.inquilinos.length === 0) {
+                            inquilinoResults.innerHTML = '<div class="list-group-item">No se encontraron inquilinos</div>';
+                        } else if (data.inquilinos) {
+                            data.inquilinos.forEach(inquilino => {
+                                const item = document.createElement('div');
+                                item.className = 'list-group-item list-group-item-action';
+                                item.style.cursor = 'pointer';
+                                item.innerHTML = `<strong>${inquilino.nombre_completo}</strong>`;
+                                
+                                item.addEventListener('click', function() {
+                                    inquilinoSearch.value = inquilino.nombre_completo;
+                                    inquilinoId.value = inquilino.id;
+                                    inquilinoResults.style.display = 'none';
+                                });
+                                
+                                inquilinoResults.appendChild(item);
                             });
-                            
-                            inquilinoResults.appendChild(item);
-                        });
-                    }
-                    
-                    inquilinoResults.style.display = 'block';
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    inquilinoResults.style.display = 'none';
-                });
-        }, 300);
-    });
-    
-    // Ocultar resultados al hacer clic fuera
-    document.addEventListener('click', function(e) {
-        if (!inquilinoSearch.contains(e.target) && !inquilinoResults.contains(e.target)) {
-            inquilinoResults.style.display = 'none';
-        }
-    });
+                        }
+                        
+                        inquilinoResults.style.display = 'block';
+                    })
+                    .catch(error => {
+                        console.error('Error en búsqueda de inquilinos:', error);
+                        inquilinoResults.innerHTML = '<div class="list-group-item text-danger">Error en la búsqueda</div>';
+                        inquilinoResults.style.display = 'block';
+                    });
+            }, 300);
+        });
+        
+        // Ocultar resultados al hacer clic fuera
+        document.addEventListener('click', function(e) {
+            if (!inquilinoSearch.contains(e.target) && !inquilinoResults.contains(e.target)) {
+                inquilinoResults.style.display = 'none';
+            }
+        });
+    }
     
     // Envío del formulario
     document.getElementById('formCrearContrato').addEventListener('submit', function(e) {
