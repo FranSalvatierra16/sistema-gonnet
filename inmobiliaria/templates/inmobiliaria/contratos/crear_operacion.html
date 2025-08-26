@@ -256,24 +256,78 @@
     margin: 1.75rem auto !important;
 }
 </style>
-<!-- CSS específico para arreglar modal superpuesto -->
+<!-- CSS CRÍTICO para desbloquear modales de base.html -->
 <style>
-#modalConcepto {
-    z-index: 1060 !important;
-}
-#modalConcepto .modal-backdrop {
+/* Forzar visibilidad de modales - sobrescribir base.html */
+.modal {
+    display: none !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
     z-index: 1055 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    outline: 0 !important;
+    pointer-events: auto !important;
 }
-#modalConcepto .modal-dialog {
-    margin: 1.75rem auto !important;
-    position: relative !important;
+
+.modal.show {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
 }
-#modalConcepto .modal-content {
+
+.modal-backdrop {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 1050 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background-color: rgba(0,0,0,0.5) !important;
+}
+
+.modal-backdrop.show {
+    opacity: 0.5 !important;
+}
+
+.modal-dialog {
     position: relative !important;
+    width: auto !important;
+    margin: 0.5rem !important;
+    pointer-events: none !important;
+}
+
+.modal-content {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    pointer-events: auto !important;
     background-color: #fff !important;
+    background-clip: padding-box !important;
     border: 1px solid rgba(0,0,0,.2) !important;
     border-radius: 0.375rem !important;
-    box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15) !important;
+    outline: 0 !important;
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075) !important;
+}
+
+/* Específico para modalConcepto */
+#modalConcepto {
+    z-index: 9999 !important;
+}
+
+#modalConcepto .modal-dialog {
+    max-width: 500px !important;
+    margin: 1.75rem auto !important;
+}
+
+/* Asegurar que otros modales también funcionen */
+#modalBuscarConcepto,
+#modalNuevoConcepto {
+    z-index: 9998 !important;
 }
 </style>
 
@@ -448,13 +502,21 @@ function formatearNumeroEnTiempoReal(input) {
 
 // Función para mostrar el modal de concepto
 function mostrarModalConcepto() {
-    console.log('mostrarModalConcepto llamada');
+    console.log('🔍 mostrarModalConcepto llamada');
     const modalElement = document.getElementById('modalConcepto');
     if (!modalElement) {
-        console.error('Modal element not found');
+        console.error('❌ Modal element not found');
         alert('Error: No se encontró el modal de concepto');
         return;
     }
+    
+    // FORZAR VISIBILIDAD - Sobrescribir cualquier CSS de base.html
+    modalElement.style.display = 'block';
+    modalElement.style.visibility = 'visible';
+    modalElement.style.opacity = '1';
+    modalElement.style.zIndex = '9999';
+    modalElement.style.position = 'fixed';
+    console.log('✅ Forzando visibilidad del modal');
 
     // Resetear el formulario
     const formElement = document.getElementById('formConcepto');
