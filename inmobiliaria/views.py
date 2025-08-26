@@ -4545,6 +4545,8 @@ def api_vendedor_detalle(request, vendedor_id):
 @login_required
 @require_http_methods(['GET', 'POST'])
 def crear_contrato_alquiler(request):
+
+    
     if request.method == 'POST':
         try:
             # Obtener datos del formulario
@@ -4567,7 +4569,7 @@ def crear_contrato_alquiler(request):
                 propiedad = Propiedad.objects.get(id=propiedad_id)
                 inquilino = Inquilino.objects.get(id=inquilino_id)
                 vendedor = Vendedor.objects.get(id=vendedor_id)
-            except (Propiedad.DoesNotExist, Inquilino.DoesNotExist, Vendedor.DoesNotExist) as e:
+            except Exception as e:
                 return JsonResponse({'error': f'Error al obtener datos: {str(e)}'}, status=400)
 
             # Crear el contrato (sin total fijo - precios pueden cambiar)
@@ -4599,7 +4601,6 @@ def crear_contrato_alquiler(request):
             return JsonResponse({'error': f'Error al crear el contrato: {str(e)}'}, status=400)
 
     # GET request - mostrar formulario
-    from .models import Propiedad, Inquilino, Vendedor
     
     # Obtener parámetros de la URL
     propiedad_id = request.GET.get('propiedad_id')
