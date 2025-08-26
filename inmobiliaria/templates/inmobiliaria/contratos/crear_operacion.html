@@ -513,21 +513,24 @@ function mostrarModalConceptoUltraAgresivo() {
         return;
     }
     
-    // Limpiar formulario
-    const form = modal.querySelector('#formConcepto');
-    if (form) form.reset();
+    // Solo limpiar formulario si NO estamos editando
+    if (!conceptoEditando) {
+        const form = modal.querySelector('#formConcepto');
+        if (form) form.reset();
+        
+        // Resetear estado solo si no estamos editando
+        conceptoSeleccionadoActual = null;
+        
+        // Ocultar info de concepto seleccionado solo si no estamos editando
+        const infoDiv = document.getElementById('infoConceptoSeleccionado');
+        if (infoDiv) infoDiv.style.display = 'none';
+    }
     
-    // Resetear estado
-    conceptoEditando = null;
-    conceptoSeleccionadoActual = null;
-    
-    // Ocultar info de concepto seleccionado
-    const infoDiv = document.getElementById('infoConceptoSeleccionado');
-    if (infoDiv) infoDiv.style.display = 'none';
-    
-    // Configurar título
-    const title = document.getElementById('modalConceptoLabel');
-    if (title) title.textContent = '➕ Agregar Concepto';
+    // Configurar título solo si no estamos editando
+    if (!conceptoEditando) {
+        const title = document.getElementById('modalConceptoLabel');
+        if (title) title.textContent = '➕ Agregar Concepto';
+    }
     
     // MOSTRAR MODAL MANUALMENTE - SIN BOOTSTRAP
     modal.style.cssText = `
@@ -615,6 +618,16 @@ function cerrarModalConceptoManual() {
         // Ocultar info de concepto seleccionado
         const infoDiv = document.getElementById('infoConceptoSeleccionado');
         if (infoDiv) infoDiv.style.display = 'none';
+        
+        // Resetear título y botón
+        const title = document.getElementById('modalConceptoLabel');
+        if (title) title.textContent = '➕ Agregar Concepto';
+        
+        const btnAgregar = modal.querySelector('.btn-success');
+        if (btnAgregar) {
+            btnAgregar.textContent = '✅ Agregar';
+            btnAgregar.setAttribute('onclick', 'agregarConcepto()');
+        }
         
         console.log('✅ Modal cerrado');
     }
@@ -753,8 +766,8 @@ function agregarConcepto() {
     actualizarTablaConceptos();
     calcularTotales();
     
-    var modalConcepto = bootstrap.Modal.getInstance(document.getElementById('modalConcepto'));
-    modalConcepto.hide();
+    // Cerrar modal manualmente
+    cerrarModalConceptoManual();
 }
 
 // Función para actualizar la tabla de conceptos
@@ -798,29 +811,63 @@ function eliminarConcepto(conceptoId) {
 function editarConcepto(conceptoId) {
     const concepto = conceptosAgregados.find(c => c.id === conceptoId);
     if (concepto) {
+        // Configurar estado de edición ANTES de abrir el modal
         conceptoEditando = concepto;
-        document.getElementById('conceptoId').value = concepto.conceptoId;
         
-        const infoDiv = document.getElementById('infoConceptoSeleccionado');
-        const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
-        nombreSpan.textContent = `ID: ${concepto.conceptoId} - ${concepto.nombre}`;
-        infoDiv.style.display = 'block';
+        // Abrir el modal primero
+        mostrarModalConceptoUltraAgresivo();
         
-        conceptoSeleccionadoActual = {
-            id: concepto.conceptoId,
-            nombre: concepto.nombre
-        };
-        
-        document.getElementById('observaciones').value = concepto.observaciones === 'Sin observaciones' ? '' : concepto.observaciones;
-        document.getElementById('importe').value = concepto.importe;
-        
-        document.getElementById('modalConceptoLabel').textContent = '✏️ Editar Concepto';
-        const btnAgregar = document.querySelector('#modalConcepto .btn-success');
-        btnAgregar.textContent = '✅ Actualizar';
-        btnAgregar.setAttribute('onclick', 'actualizarConcepto()');
-        
-        var modalConcepto = new bootstrap.Modal(document.getElementById('modalConcepto'));
-        modalConcepto.show();
+        // Configurar los datos DESPUÉS de abrir el modal con un pequeño delay
+        setTimeout(() => {
+            // Configurar el campo de ID
+            const conceptoIdInput = document.getElementById('conceptoId');
+            if (conceptoIdInput) {
+                conceptoIdInput.value = concepto.conceptoId;
+            }
+            
+            // Mostrar info del concepto seleccionado
+            const infoDiv = document.getElementById('infoConceptoSeleccionado');
+            const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
+            if (nombreSpan) {
+                nombreSpan.textContent = `ID: ${concepto.conceptoId} - ${concepto.nombre}`;
+            }
+            if (infoDiv) {
+                infoDiv.style.display = 'block';
+            }
+            
+            // Configurar concepto seleccionado actual
+            conceptoSeleccionadoActual = {
+                id: concepto.conceptoId,
+                nombre: concepto.nombre
+            };
+            
+            // Configurar observaciones
+            const observacionesInput = document.getElementById('observaciones');
+            if (observacionesInput) {
+                observacionesInput.value = concepto.observaciones === 'Sin observaciones' ? '' : concepto.observaciones;
+            }
+            
+            // Configurar importe
+            const importeInput = document.getElementById('importe');
+            if (importeInput) {
+                importeInput.value = concepto.importe;
+            }
+            
+            // Configurar título del modal
+            const modalLabel = document.getElementById('modalConceptoLabel');
+            if (modalLabel) {
+                modalLabel.textContent = '✏️ Editar Concepto';
+            }
+            
+            // Configurar botón para actualizar
+            const btnAgregar = document.querySelector('#modalConcepto .btn-success');
+            if (btnAgregar) {
+                btnAgregar.textContent = '✅ Actualizar';
+                btnAgregar.setAttribute('onclick', 'actualizarConcepto()');
+            }
+            
+            console.log('✅ Modal configurado para edición');
+        }, 100);
     }
 }
 
@@ -847,8 +894,8 @@ function actualizarConcepto() {
     actualizarTablaConceptos();
     calcularTotales();
     
-    var modalConcepto = bootstrap.Modal.getInstance(document.getElementById('modalConcepto'));
-    modalConcepto.hide();
+    // Cerrar modal manualmente
+    cerrarModalConceptoManual();
     
     conceptoEditando = null;
 }
