@@ -158,26 +158,27 @@
 </style>
 
 <script>
+console.log('🚀 Iniciando configuración del formulario...');
+
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 DOM cargado - iniciando configuración...');
+    console.log('✅ DOM cargado');
     
-    // Calcular depósito automáticamente cuando cambie el precio
+    // ===== CONFIGURACIÓN DE PRECIO Y DEPÓSITO =====
     const precioMensual = document.getElementById('precio_mensual');
     const depositoGarantia = document.getElementById('deposito_garantia');
     
     function calcularDeposito() {
+        if (!precioMensual || !depositoGarantia) return;
+        
         const precio = precioMensual.value.replace(/[^0-9,]/g, '');
         if (precio) {
             depositoGarantia.value = precio; // Depósito = 1 mes de alquiler
+            console.log('💰 Depósito calculado:', precio);
         }
     }
     
-    precioMensual.addEventListener('input', calcularDeposito);
-    
-    // Las fechas ahora son manuales - no hay cálculo automático
-    
-    // Formatear números
     function formatearNumero(input) {
+        if (!input) return;
         input.addEventListener('input', function() {
             let valor = this.value.replace(/[^0-9]/g, '');
             if (valor) {
@@ -187,174 +188,193 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    formatearNumero(precioMensual);
+    if (precioMensual) {
+        formatearNumero(precioMensual);
+        precioMensual.addEventListener('input', calcularDeposito);
+        console.log('✅ Precio mensual configurado');
+    }
     
-    // Cuando cambie la propiedad seleccionada, actualizar precio
-    const propiedadSelect = document.getElementById('propiedad_id');
-    propiedadSelect.addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-        const precio = selectedOption.getAttribute('data-precio');
-        if (precio && precio !== '0') {
-            precioMensual.value = parseInt(precio).toLocaleString('es-AR');
-            calcularDeposito();
-        }
-    });
-    
-    // Obtener parámetros de la URL para precargar
+    // ===== CONFIGURACIÓN DE PROPIEDAD =====
     const urlParams = new URLSearchParams(window.location.search);
     const precioMensualUrl = urlParams.get('precio_mensual');
     
-    if (precioMensualUrl) {
-        precioMensual.value = parseInt(precioMensualUrl).toLocaleString('es-AR');
+    if (precioMensualUrl && precioMensual) {
+        const precioFormateado = parseInt(precioMensualUrl.replace(/[^0-9]/g, '')).toLocaleString('es-AR');
+        precioMensual.value = precioFormateado;
         calcularDeposito();
+        console.log('✅ Precio precargado desde URL:', precioFormateado);
     }
     
-    // Si hay precio de propiedad hidden, usarlo
-    const precioPropiedad = document.getElementById('precio_propiedad');
-    if (precioPropiedad && precioPropiedad.value && precioPropiedad.value !== '0') {
-        precioMensual.value = parseInt(precioPropiedad.value).toLocaleString('es-AR');
-        calcularDeposito();
-    }
-    
-    // Si hay propiedad preseleccionada y select disponible, cargar su precio
-    if (propiedadSelect && propiedadSelect.selectedIndex > 0) {
-        const selectedOption = propiedadSelect.options[propiedadSelect.selectedIndex];
-        const precio = selectedOption.getAttribute('data-precio');
-        if (precio && precio !== '0') {
-            precioMensual.value = parseInt(precio).toLocaleString('es-AR');
-            calcularDeposito();
-        }
-    }
-    
-    // FUNCIONALIDAD VENDEDOR - Buscar por ID
-    console.log('🔍 Configurando vendedor...');
+    // ===== CONFIGURACIÓN DE VENDEDOR =====
     const vendedorIdInput = document.getElementById('vendedor_id');
     const vendedorInfo = document.getElementById('vendedor_info');
     const vendedorNombre = document.getElementById('vendedor_nombre');
     
-    console.log('Elementos vendedor:', {
-        input: vendedorIdInput,
-        info: vendedorInfo,
-        nombre: vendedorNombre
+    console.log('🔍 Elementos vendedor:', {
+        input: !!vendedorIdInput,
+        info: !!vendedorInfo,
+        nombre: !!vendedorNombre
     });
     
     if (vendedorIdInput && vendedorInfo && vendedorNombre) {
         vendedorIdInput.addEventListener('blur', function() {
-        const vendedorId = this.value;
-        if (vendedorId) {
-            fetch(`{% url 'inmobiliaria:get_vendedor_info' %}?vendedor_id=${vendedorId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
+            const vendedorId = this.value.trim();
+            console.log('🔍 Buscando vendedor ID:', vendedorId);
+            
+            if (vendedorId) {
+                fetch(`{% url 'inmobiliaria:get_vendedor_info' %}?vendedor_id=${vendedorId}`)
+                    .then(response => {
+                        console.log('📡 Respuesta vendedor:', response.status);
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('📄 Datos vendedor:', data);
+                        if (data.error) {
+                            vendedorInfo.style.display = 'none';
+                            alert('Vendedor no encontrado: ' + data.error);
+                        } else {
+                            vendedorNombre.textContent = data.nombre_completo;
+                            vendedorInfo.style.display = 'block';
+                            console.log('✅ Vendedor encontrado:', data.nombre_completo);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('❌ Error vendedor:', error);
                         vendedorInfo.style.display = 'none';
-                        alert('Vendedor no encontrado');
-                    } else {
-                        vendedorNombre.textContent = data.nombre_completo;
-                        vendedorInfo.style.display = 'block';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    vendedorInfo.style.display = 'none';
-                });
-        } else {
-            vendedorInfo.style.display = 'none';
-        }
+                        alert('Error al buscar vendedor');
+                    });
+            } else {
+                vendedorInfo.style.display = 'none';
+            }
         });
+        console.log('✅ Vendedor configurado');
+    } else {
+        console.error('❌ Elementos de vendedor no encontrados');
     }
     
-    // FUNCIONALIDAD INQUILINO - Búsqueda
-    console.log('🔍 Configurando inquilino...');
+    // ===== CONFIGURACIÓN DE INQUILINO =====
     const inquilinoSearch = document.getElementById('inquilino_search');
     const inquilinoId = document.getElementById('inquilino_id');
     const inquilinoResults = document.getElementById('inquilino_results');
     
-    console.log('Elementos inquilino:', {
-        search: inquilinoSearch,
-        id: inquilinoId,
-        results: inquilinoResults
+    console.log('🔍 Elementos inquilino:', {
+        search: !!inquilinoSearch,
+        id: !!inquilinoId,
+        results: !!inquilinoResults
     });
     
     if (inquilinoSearch && inquilinoId && inquilinoResults) {
         let searchTimeout;
         
         inquilinoSearch.addEventListener('input', function() {
-        const query = this.value.trim();
-        
-        clearTimeout(searchTimeout);
-        
-        if (query.length < 2) {
-            inquilinoResults.style.display = 'none';
-            return;
-        }
-        
-        searchTimeout = setTimeout(() => {
-            fetch(`{% url 'inmobiliaria:search_inquilinos' %}?q=${encodeURIComponent(query)}`)
-                .then(response => response.json())
-                .then(data => {
-                    inquilinoResults.innerHTML = '';
-                    
-                    if (data.inquilinos.length === 0) {
-                        inquilinoResults.innerHTML = '<div class="list-group-item">No se encontraron inquilinos</div>';
-                    } else {
-                        data.inquilinos.forEach(inquilino => {
-                            const item = document.createElement('div');
-                            item.className = 'list-group-item list-group-item-action';
-                            item.style.cursor = 'pointer';
-                            item.innerHTML = `<strong>${inquilino.nombre_completo}</strong>`;
-                            
-                            item.addEventListener('click', function() {
-                                inquilinoSearch.value = inquilino.nombre_completo;
-                                inquilinoId.value = inquilino.id;
-                                inquilinoResults.style.display = 'none';
-                            });
-                            
-                            inquilinoResults.appendChild(item);
-                        });
-                    }
-                    
-                    inquilinoResults.style.display = 'block';
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    inquilinoResults.style.display = 'none';
-                });
-        }, 300);
-    });
-    
-    // Ocultar resultados al hacer clic fuera
-    document.addEventListener('click', function(e) {
-        if (!inquilinoSearch.contains(e.target) && !inquilinoResults.contains(e.target)) {
-            inquilinoResults.style.display = 'none';
-        }
-    });
-    
-    // Envío del formulario
-    document.getElementById('formCrearContrato').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(this);
-        
-        fetch('{% url "inmobiliaria:crear_contrato_alquiler" %}', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-            },
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                window.location.href = data.redirect_url;
-            } else {
-                alert('Error: ' + data.error);
+            const query = this.value.trim();
+            console.log('🔍 Búsqueda inquilino:', query);
+            
+            clearTimeout(searchTimeout);
+            
+            if (query.length < 2) {
+                inquilinoResults.style.display = 'none';
+                inquilinoResults.innerHTML = '';
+                return;
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error al crear el contrato');
+            
+            // Mostrar indicador de búsqueda
+            inquilinoResults.innerHTML = '<div class="list-group-item text-muted">Buscando...</div>';
+            inquilinoResults.style.display = 'block';
+            
+            searchTimeout = setTimeout(() => {
+                const url = `{% url 'inmobiliaria:search_inquilinos' %}?q=${encodeURIComponent(query)}`;
+                console.log('📡 URL búsqueda:', url);
+                
+                fetch(url)
+                    .then(response => {
+                        console.log('📡 Respuesta inquilino:', response.status);
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('📄 Datos inquilino:', data);
+                        inquilinoResults.innerHTML = '';
+                        
+                        if (!data.inquilinos || data.inquilinos.length === 0) {
+                            inquilinoResults.innerHTML = '<div class="list-group-item">No se encontraron inquilinos</div>';
+                        } else {
+                            data.inquilinos.forEach(inquilino => {
+                                const item = document.createElement('div');
+                                item.className = 'list-group-item list-group-item-action';
+                                item.style.cursor = 'pointer';
+                                item.innerHTML = `<strong>${inquilino.nombre_completo}</strong>`;
+                                
+                                item.addEventListener('click', function() {
+                                    console.log('✅ Inquilino seleccionado:', inquilino);
+                                    inquilinoSearch.value = inquilino.nombre_completo;
+                                    inquilinoId.value = inquilino.id;
+                                    inquilinoResults.style.display = 'none';
+                                });
+                                
+                                inquilinoResults.appendChild(item);
+                            });
+                        }
+                        
+                        inquilinoResults.style.display = 'block';
+                    })
+                    .catch(error => {
+                        console.error('❌ Error búsqueda inquilino:', error);
+                        inquilinoResults.innerHTML = `<div class="list-group-item text-danger">Error: ${error.message}</div>`;
+                        inquilinoResults.style.display = 'block';
+                    });
+            }, 500);
         });
-    });
+        
+        // Ocultar resultados al hacer clic fuera
+        document.addEventListener('click', function(e) {
+            if (!inquilinoSearch.contains(e.target) && !inquilinoResults.contains(e.target)) {
+                inquilinoResults.style.display = 'none';
+            }
+        });
+        
+        console.log('✅ Inquilino configurado');
+    } else {
+        console.error('❌ Elementos de inquilino no encontrados');
+    }
+    
+    // ===== ENVÍO DEL FORMULARIO =====
+    const formCrearContrato = document.getElementById('formCrearContrato');
+    if (formCrearContrato) {
+        formCrearContrato.addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('📤 Enviando formulario...');
+            
+            const formData = new FormData(this);
+            
+            fetch('{% url "inmobiliaria:crear_contrato_alquiler" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('✅ Contrato creado exitosamente');
+                    window.location.href = data.redirect_url;
+                } else {
+                    console.error('❌ Error al crear contrato:', data.error);
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error de red:', error);
+                alert('Error al crear el contrato');
+            });
+        });
+        console.log('✅ Formulario configurado');
+    }
+    
+    console.log('🎉 Configuración completa');
 });
 </script>
 
