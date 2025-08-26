@@ -180,11 +180,21 @@ document.addEventListener('DOMContentLoaded', function() {
     function formatearNumero(input) {
         if (!input) return;
         input.addEventListener('input', function() {
+            // Guardar posición del cursor
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            
             let valor = this.value.replace(/[^0-9]/g, '');
             if (valor) {
-                valor = parseInt(valor).toLocaleString('es-AR');
+                const valorFormateado = parseInt(valor).toLocaleString('es-AR');
+                if (this.value !== valorFormateado) {
+                    this.value = valorFormateado;
+                    
+                    // Restaurar posición del cursor aproximadamente
+                    const newPos = Math.min(start, this.value.length);
+                    this.setSelectionRange(newPos, newPos);
+                }
             }
-            this.value = valor;
         });
     }
     
@@ -199,10 +209,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const precioMensualUrl = urlParams.get('precio_mensual');
     
     if (precioMensualUrl && precioMensual) {
-        const precioFormateado = parseInt(precioMensualUrl.replace(/[^0-9]/g, '')).toLocaleString('es-AR');
+        // El precio viene como "350000,00" - quitar decimales y formatear
+        let precioLimpio = precioMensualUrl.replace(/,00$/, '').replace(/[^0-9]/g, '');
+        const precioFormateado = parseInt(precioLimpio).toLocaleString('es-AR');
         precioMensual.value = precioFormateado;
         calcularDeposito();
-        console.log('✅ Precio precargado desde URL:', precioFormateado);
+        console.log('✅ Precio precargado desde URL:', precioMensualUrl, '→', precioFormateado);
+        console.log('🔍 Debug precio:', {
+            original: precioMensualUrl,
+            limpio: precioLimpio,
+            parseado: parseInt(precioLimpio),
+            formateado: precioFormateado
+        });
     }
     
     // ===== CONFIGURACIÓN DE VENDEDOR =====
