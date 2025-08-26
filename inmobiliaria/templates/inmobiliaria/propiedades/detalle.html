@@ -317,7 +317,13 @@
                                                             {% empty %}
                                                                 <tr>
                                                                     <td colspan="3" class="text-center">
-                                                                        <em>No hay precios configurados para esta propiedad</em>
+                                                                        <div class="alert alert-warning">
+                                                                            <h5>⚠️ No hay precios configurados</h5>
+                                                                            <p>Esta propiedad no tiene precios configurados para las temporadas.</p>
+                                                                            <a href="{% url 'inmobiliaria:gestionar_precios' propiedad_id=propiedad.id %}" class="btn btn-primary btn-sm">
+                                                                                <i class="fas fa-dollar-sign"></i> Configurar Precios
+                                                                            </a>
+                                                                        </div>
                                                                     </td>
                                                                 </tr>
                                                             {% endfor %}
@@ -365,7 +371,15 @@
                                                             </tr>
                                                         {% empty %}
                                                             <tr>
-                                                                <td colspan="3" class="text-center">No hay disponibilidades registradas</td>
+                                                                <td colspan="3" class="text-center">
+                                                                    <div class="alert alert-info">
+                                                                        <h5>📅 No hay disponibilidades registradas</h5>
+                                                                        <p>Esta propiedad no tiene disponibilidades configuradas.</p>
+                                                                        <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-success btn-sm">
+                                                                            <i class="fas fa-calendar-plus"></i> Agregar Disponibilidad
+                                                                        </a>
+                                                                    </div>
+                                                                </td>
                                                             </tr>
                                                         {% endfor %}
                                                     </tbody>

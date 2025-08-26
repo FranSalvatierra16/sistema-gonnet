@@ -351,6 +351,26 @@ def propiedad_detalle(request, propiedad_id):
         orden_tipo_precio=orden_tipo_precio
     ).order_by('orden_tipo_precio')
 
+    # Debug de precios y disponibilidades
+    print(f"🏠 PROPIEDAD {propiedad_id} DEBUG:")
+    print(f"   - Dirección: {propiedad.direccion}")
+    print(f"   - Sucursal: {propiedad.sucursal}")
+    print(f"   - Usuario sucursal: {request.user.sucursal}")
+    print(f"   - Número de precios: {precios.count()}")
+    print(f"   - Número de disponibilidades: {disponibilidades.count()}")
+    
+    if precios.exists():
+        for precio in precios:
+            print(f"     Precio: {precio.get_tipo_precio_display()} - ${precio.precio_total}")
+    else:
+        print("     ⚠️ NO HAY PRECIOS CONFIGURADOS")
+        
+    if disponibilidades.exists():
+        for disp in disponibilidades:
+            print(f"     Disponibilidad: {disp.fecha_inicio} - {disp.fecha_fin}")
+    else:
+        print("     ⚠️ NO HAY DISPONIBILIDADES CONFIGURADAS")
+
     # Debug de imágenes
     try:
         print("Imágenes de la propiedad:", [imagen.imagen.url for imagen in imagenes])
@@ -4545,6 +4565,7 @@ def api_vendedor_detalle(request, vendedor_id):
 @login_required
 @require_http_methods(['GET', 'POST'])
 def crear_contrato_alquiler(request):
+
 
     
     if request.method == 'POST':

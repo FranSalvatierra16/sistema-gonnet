@@ -81,9 +81,6 @@
                     <hr>
                     <p><strong>Total Pagado:</strong></p>
                     <h4 class="text-success">${{ total_pagado|format_price }}</h4>
-                    
-                    <p><strong>Pendiente de Pago:</strong></p>
-                    <h4 class="text-warning">${{ contrato.precio_mensual|mul:contrato.duracion_meses|sub:total_pagado|format_price }}</h4>
                 </div>
             </div>
         </div>
