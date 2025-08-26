@@ -117,7 +117,7 @@
                 <div class="card mb-4">
                     <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">📝 Conceptos</h5>
-                        <button type="button" class="btn btn-primary btn-sm" onclick="mostrarModalConceptoUltraAgresivo()">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="mostrarModalConceptoUltraAgresivo()"
                             ➕ Agregar Concepto
                         </button>
                     </div>
@@ -483,6 +483,73 @@ let contadorConceptos = 0;
 let conceptoEditando = null;
 let conceptoSeleccionadoActual = null;
 
+// ===== FUNCIÓN ULTRA AGRESIVA PARA MODAL =====
+function mostrarModalConceptoUltraAgresivo() {
+    console.log('🚀 FUNCIÓN ULTRA AGRESIVA ACTIVADA');
+    
+    // Limpiar cualquier modal existente
+    document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+    });
+    
+    const modal = document.getElementById('modalConcepto');
+    if (!modal) {
+        alert('Modal no encontrado');
+        return;
+    }
+    
+    // ESTILOS BRUTALES - NO SE PUEDE SOBRESCRIBIR
+    modal.style.cssText = `
+        display: block !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 999999 !important;
+        background: rgba(0,0,0,0.7) !important;
+        overflow-y: auto !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    `;
+    
+    // Centrar el contenido
+    const dialog = modal.querySelector('.modal-dialog');
+    if (dialog) {
+        dialog.style.cssText = `
+            position: relative !important;
+            width: 90% !important;
+            max-width: 500px !important;
+            margin: 50px auto !important;
+            transform: none !important;
+        `;
+    }
+    
+    const content = modal.querySelector('.modal-content');
+    if (content) {
+        content.style.cssText = `
+            background: white !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+            position: relative !important;
+        `;
+    }
+    
+    // Limpiar formulario y configurar
+    const form = modal.querySelector('#formConcepto');
+    if (form) form.reset();
+    
+    const title = document.getElementById('modalConceptoLabel');
+    if (title) title.textContent = '➕ Agregar Concepto';
+    
+    // Prevenir scroll del body
+    document.body.style.overflow = 'hidden';
+    
+    console.log('✅ Modal forzado exitosamente');
+}
+
 // Función para parsear valores formateados
 function parsearValorFormateado(valor) {
     if (!valor || valor === '') return 0;
@@ -500,26 +567,25 @@ function formatearNumeroEnTiempoReal(input) {
     input.value = numero.toLocaleString('es-AR');
 }
 
-// Función ULTRA AGRESIVA para mostrar modal - Ignora todo Bootstrap y CSS conflictivo
+// Función para mostrar modal de concepto
 function mostrarModalConcepto() {
-    console.log('🚀 FUNCIÓN ULTRA AGRESIVA PARA MODAL');
+    console.log('🚀 Mostrando modal de concepto');
     
-    // ELIMINAR TODOS LOS MODALES EXISTENTES
+    // Limpiar cualquier modal existente
     document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
     document.querySelectorAll('.modal.show').forEach(modal => {
         modal.style.display = 'none';
         modal.classList.remove('show');
     });
     
-    // OBTENER MODAL
-    const modalElement = document.getElementById('modalConcepto');
-    if (!modalElement) {
+    const modal = document.getElementById('modalConcepto');
+    if (!modal) {
         alert('Error: Modal no encontrado');
         return;
     }
     
-    // APLICAR ESTILOS ULTRA AGRESIVOS
-    modalElement.style.cssText = `
+    // Aplicar estilos forzados para asegurar visibilidad
+    modal.style.cssText = `
         display: block !important;
         position: fixed !important;
         top: 0 !important;
@@ -534,10 +600,10 @@ function mostrarModalConcepto() {
         padding: 20px !important;
     `;
     
-    // CENTRAR MODAL-DIALOG
-    const modalDialog = modalElement.querySelector('.modal-dialog');
-    if (modalDialog) {
-        modalDialog.style.cssText = `
+    // Centrar modal-dialog
+    const dialog = modal.querySelector('.modal-dialog');
+    if (dialog) {
+        dialog.style.cssText = `
             position: relative !important;
             width: 90% !important;
             max-width: 500px !important;
@@ -546,10 +612,10 @@ function mostrarModalConcepto() {
         `;
     }
     
-    // ESTILIZAR MODAL-CONTENT
-    const modalContent = modalElement.querySelector('.modal-content');
-    if (modalContent) {
-        modalContent.style.cssText = `
+    // Estilizar modal-content
+    const content = modal.querySelector('.modal-content');
+    if (content) {
+        content.style.cssText = `
             background-color: white !important;
             border-radius: 8px !important;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
@@ -559,95 +625,10 @@ function mostrarModalConcepto() {
         `;
     }
     
-    // CONFIGURAR COMO VISIBLE
-    modalElement.classList.add('show');
-    modalElement.setAttribute('aria-hidden', 'false');
+    // Configurar como visible
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
-    
-    console.log('✅ Modal mostrado con estilos ultra agresivos');
-    
-    // FUNCIÓN ORIGINAL CONTINÚA AQUÍ:
-    console.log('🚀 FUNCIÓN ULTRA AGRESIVA PARA MODAL');
-    
-    // PASO 1: Ocultar cualquier modal existente
-    document.querySelectorAll('.modal').forEach(modal => {
-        modal.style.display = 'none';
-        modal.classList.remove('show');
-    });
-    
-    // PASO 2: Obtener el modal
-    const modalElement = document.getElementById('modalConcepto');
-    if (!modalElement) {
-        alert('Error: Modal no encontrado');
-        return;
-    }
-    
-    // PASO 3: FORZAR ESTILO MANUALMENTE - MUY AGRESIVO
-    modalElement.style.cssText = `
-        display: block !important;
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        z-index: 999999 !important;
-        background-color: rgba(0,0,0,0.5) !important;
-        overflow-y: auto !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-    `;
-    
-    // PASO 4: Centrar el modal-dialog manualmente
-    const modalDialog = modalElement.querySelector('.modal-dialog');
-    if (modalDialog) {
-        modalDialog.style.cssText = `
-            position: relative !important;
-            width: 90% !important;
-            max-width: 500px !important;
-            margin: 50px auto !important;
-            transform: none !important;
-            display: block !important;
-        `;
-    }
-    
-    // PASO 5: Asegurar modal-content
-    const modalContent = modalElement.querySelector('.modal-content');
-    if (modalContent) {
-        modalContent.style.cssText = `
-            background-color: white !important;
-            border-radius: 8px !important;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
-            position: relative !important;
-            display: block !important;
-            width: 100% !important;
-        `;
-    }
-    
-    // PASO 6: Agregar clase show y atributos
-    modalElement.classList.add('show');
-    modalElement.setAttribute('aria-hidden', 'false');
-    modalElement.setAttribute('tabindex', '-1');
-    
-    // PASO 7: Forzar scroll al top
-    modalElement.scrollTop = 0;
-    document.body.style.overflow = 'hidden';
-    
-    console.log('✅ Modal forzado manualmente - debería estar visible');
-    console.log('🔍 mostrarModalConcepto llamada');
-    const modalElement = document.getElementById('modalConcepto');
-    if (!modalElement) {
-        console.error('❌ Modal element not found');
-        alert('Error: No se encontró el modal de concepto');
-        return;
-    }
-    
-    // FORZAR VISIBILIDAD - Sobrescribir cualquier CSS de base.html
-    modalElement.style.display = 'block';
-    modalElement.style.visibility = 'visible';
-    modalElement.style.opacity = '1';
-    modalElement.style.zIndex = '9999';
-    modalElement.style.position = 'fixed';
-    console.log('✅ Forzando visibilidad del modal');
 
     // Resetear el formulario
     const formElement = document.getElementById('formConcepto');
@@ -1178,75 +1159,7 @@ document.addEventListener('DOMContentLoaded', function() {
     calcularTotales();
 });
 
-// ===== FUNCIÓN ULTRA AGRESIVA PARA MODAL =====
-function mostrarModalConceptoUltraAgresivo() {
-    console.log('🚀 FUNCIÓN ULTRA AGRESIVA ACTIVADA');
-    
-    // Limpiar cualquier modal existente
-    document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-    document.querySelectorAll('.modal').forEach(modal => {
-        modal.style.display = 'none';
-        modal.classList.remove('show');
-    });
-    
-    const modal = document.getElementById('modalConcepto');
-    if (!modal) {
-        alert('Modal no encontrado');
-        return;
-    }
-    
-    // ESTILOS BRUTALES - NO SE PUEDE SOBRESCRIBIR
-    modal.style.cssText = `
-        display: block !important;
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        z-index: 999999 !important;
-        background: rgba(0,0,0,0.7) !important;
-        overflow-y: auto !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-    `;
-    
-    // Centrar el contenido
-    const dialog = modal.querySelector('.modal-dialog');
-    if (dialog) {
-        dialog.style.cssText = `
-            position: relative !important;
-            width: 90% !important;
-            max-width: 500px !important;
-            margin: 50px auto !important;
-            transform: none !important;
-        `;
-    }
-    
-    const content = modal.querySelector('.modal-content');
-    if (content) {
-        content.style.cssText = `
-            background: white !important;
-            border-radius: 8px !important;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
-            position: relative !important;
-        `;
-    }
-    
-    // Limpiar formulario y configurar
-    const form = modal.querySelector('#formConcepto');
-    if (form) form.reset();
-    
-    const title = document.getElementById('modalConceptoLabel');
-    if (title) title.textContent = '➕ Agregar Concepto';
-    
-    // Prevenir scroll del body
-    document.body.style.overflow = 'hidden';
-    
-    console.log('✅ Modal forzado exitosamente');
-}
 
-// Cambiar la función original para usar la ultra agresiva
-window.mostrarModalConcepto = mostrarModalConceptoUltraAgresivo;
 
 </script>
 
