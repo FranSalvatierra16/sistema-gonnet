@@ -4278,6 +4278,17 @@ def buscar_propiedades(request):
     origen = None
     destino = None
 
+    # CARGAR PROPIEDADES POR DEFECTO AL INICIO
+    # Si no hay formulario enviado, mostrar todas las propiedades
+    if not request.POST:
+        propiedades_todas = Propiedad.objects.filter(sucursal=sucursal_vendedor)
+        propiedades_todas = propiedades_todas.prefetch_related(
+            Prefetch('precios', queryset=Precio.objects.all(), to_attr='todos_precios')
+        ).select_related('sucursal')[:20]  # Limitar a 20 para mejor performance inicial
+        
+        for propiedad in propiedades_todas:
+            propiedades_disponibles.append(propiedad)
+
     if form.is_valid():
         fecha_inicio = form.cleaned_data['fecha_inicio']
         fecha_fin = form.cleaned_data['fecha_fin']
@@ -4534,6 +4545,8 @@ def api_vendedor_detalle(request, vendedor_id):
 @login_required
 @require_http_methods(['GET', 'POST'])
 def crear_contrato_alquiler(request):
+
+    
     if request.method == 'POST':
         try:
             # Obtener datos del formulario
@@ -4556,10 +4569,10 @@ def crear_contrato_alquiler(request):
                 propiedad = Propiedad.objects.get(id=propiedad_id)
                 inquilino = Inquilino.objects.get(id=inquilino_id)
                 vendedor = Vendedor.objects.get(id=vendedor_id)
-            except (Propiedad.DoesNotExist, Inquilino.DoesNotExist, Vendedor.DoesNotExist) as e:
+            except Exception as e:
                 return JsonResponse({'error': f'Error al obtener datos: {str(e)}'}, status=400)
 
-            # Crear el contrato
+            # Crear el contrato (sin total fijo - precios pueden cambiar)
             contrato = ContratoAlquiler.objects.create(
                 propiedad=propiedad,
                 inquilino=inquilino,
@@ -4569,8 +4582,8 @@ def crear_contrato_alquiler(request):
                 fecha_inicio=fecha_inicio,
                 fecha_fin=fecha_fin,
                 duracion_meses=duracion_meses,
-                precio_mensual=precio_mensual,
-                deposito_garantia=deposito_garantia,
+                precio_mensual=precio_mensual,  # Precio inicial (puede modificarse)
+                deposito_garantia=deposito_garantia,  # Ahora = 1 mes de alquiler
                 estado='reservado'  # Iniciar en estado reservado
             )
 
@@ -4587,7 +4600,40 @@ def crear_contrato_alquiler(request):
         except Exception as e:
             return JsonResponse({'error': f'Error al crear el contrato: {str(e)}'}, status=400)
 
-    return render(request, 'inmobiliaria/contratos/crear.html')
+    # GET request - mostrar formulario
+    
+    # Obtener parámetros de la URL
+    propiedad_id = request.GET.get('propiedad_id')
+    
+    # Obtener listas para los selects
+    propiedades = Propiedad.objects.filter(sucursal=request.user.sucursal)
+    inquilinos = Inquilino.objects.filter(sucursal=request.user.sucursal)
+    vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal)
+    
+    # Si hay propiedad_id, obtener la propiedad específica
+    propiedad_selected = None
+    if propiedad_id:
+        try:
+            propiedad_selected = Propiedad.objects.get(id=propiedad_id)
+            print(f"DEBUG: Propiedad encontrada: {propiedad_selected.direccion}")
+        except Propiedad.DoesNotExist:
+            print(f"DEBUG: Propiedad {propiedad_id} no existe o no pertenece a sucursal {request.user.sucursal}")
+            # Buscar sin filtro de sucursal para debug
+            try:
+                prop_any = Propiedad.objects.get(id=propiedad_id)
+                print(f"DEBUG: Propiedad existe pero en sucursal: {prop_any.sucursal}")
+            except Propiedad.DoesNotExist:
+                print(f"DEBUG: Propiedad {propiedad_id} no existe en absoluto")
+    
+    context = {
+        'propiedades': propiedades,
+        'inquilinos': inquilinos,
+        'vendedores': vendedores,
+        'propiedad_id_selected': propiedad_id,
+        'propiedad_selected': propiedad_selected,
+    }
+    
+    return render(request, 'inmobiliaria/contratos/crear.html', context)
 
 @login_required
 def lista_contratos(request):
@@ -5170,49 +5216,3 @@ def guardar_precios_propiedad(request):
             return JsonResponse({
                 'success': False,
                 'error': 'No tienes permisos para modificar precios'
-            })
-        
-        import json
-        precios_data = json.loads(precios_json)
-        
-        # Actualizar cada precio
-        for precio_info in precios_data:
-            tipo_precio = precio_info.get('tipo_precio')
-            
-            # Buscar o crear el precio
-            precio, created = Precio.objects.get_or_create(
-                propiedad=propiedad,
-                tipo_precio=tipo_precio,
-                defaults={
-                    'precio_total': 0,
-                    'precio_por_dia': 0,
-                    'precio_toma': 0,
-                    'precio_dia_toma': 0,
-                    'ajuste_porcentaje': 0
-                }
-            )
-            
-            # Actualizar valores
-            precio.precio_toma = precio_info.get('precio_toma', 0)
-            precio.precio_dia_toma = precio_info.get('precio_dia_toma', 0)
-            precio.precio_por_dia = precio_info.get('precio_por_dia', 0)
-            precio.precio_total = precio_info.get('precio_total', 0)
-            precio.ajuste_porcentaje = precio_info.get('ajuste_porcentaje', 0)
-            
-            precio.save()
-            
-            print(f"✅ Actualizado precio {tipo_precio} para propiedad {propiedad_id}")
-        
-        return JsonResponse({
-            'success': True,
-            'message': 'Precios actualizados correctamente'
-        })
-        
-    except Exception as e:
-        print(f"Error en guardar_precios_propiedad: {e}")
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        })
