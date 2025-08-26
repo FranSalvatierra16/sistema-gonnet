@@ -530,7 +530,7 @@
                                             </div>
                                         {% endif %}
                                                 <div class="text-center mt-4">
-                                                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalMeses">
+                                                    <button type="button" class="btn btn-primary" onclick="mostrarModalMesesManual()">
                                                         <i class="fas fa-edit"></i> Editar información
                                                     </button>
                                                     {% if propiedad.info_meses.estado == 'disponible' %}
@@ -562,7 +562,7 @@
                                             <i class="fas fa-calendar-alt fa-3x mb-3 d-block"></i>
                                             <h4>¿Quieres activar el alquiler por 24 meses de esta propiedad?</h4>
                                             <p>Al activar esta opción, podrás establecer el precio mensual.</p>
-                                            <button type="button" class="btn btn-primary btn-lg mt-3" data-bs-toggle="modal" data-bs-target="#modalMeses">
+                                            <button type="button" class="btn btn-primary btn-lg mt-3" onclick="mostrarModalMesesManual()">
                                                 <i class="fas fa-check-circle"></i> Sí, activar alquiler por 24 meses
                                             </button>
                                         </div>
@@ -586,7 +586,7 @@
                                                 Activar alquiler por 24 meses
                                             {% endif %}
                                         </h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        <button type="button" class="btn-close" onclick="cerrarModalMesesManual()" aria-label="Close"></button>
                                     </div>
                                     <div class="modal-body">
                                         <div class="form-check mb-3">
@@ -1202,5 +1202,101 @@ document.addEventListener('DOMContentLoaded', function() {
     `;
     document.head.appendChild(style);
 });
+
+// Función manual para mostrar modal de 24 meses
+function mostrarModalMesesManual() {
+    console.log('🏠 Abriendo modal de 24 meses manualmente');
+    
+    // Eliminar TODOS los backdrops y modales existentes
+    document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+    document.querySelectorAll('.modal').forEach(m => {
+        m.style.display = 'none';
+        m.classList.remove('show');
+    });
+    
+    const modal = document.getElementById('modalMeses');
+    if (!modal) {
+        alert('Modal de 24 meses no encontrado');
+        return;
+    }
+    
+    // MOSTRAR MODAL MANUALMENTE - SIN BOOTSTRAP
+    modal.style.cssText = `
+        display: block !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 10050 !important;
+        background: rgba(0,0,0,0.5) !important;
+        overflow-y: auto !important;
+        pointer-events: auto !important;
+    `;
+    
+    // Configurar modal-dialog
+    const dialog = modal.querySelector('.modal-dialog');
+    if (dialog) {
+        dialog.style.cssText = `
+            position: relative !important;
+            width: 90% !important;
+            max-width: 800px !important;
+            margin: 50px auto !important;
+            pointer-events: auto !important;
+            z-index: 10051 !important;
+        `;
+    }
+    
+    // Configurar modal-content
+    const content = modal.querySelector('.modal-content');
+    if (content) {
+        content.style.cssText = `
+            background: white !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+            pointer-events: auto !important;
+            z-index: 10052 !important;
+        `;
+    }
+    
+    // Configurar TODOS los inputs para que sean interactivos
+    const inputs = modal.querySelectorAll('input, textarea, button, select');
+    inputs.forEach(input => {
+        input.style.cssText += `
+            pointer-events: auto !important;
+            z-index: 10053 !important;
+        `;
+    });
+    
+    modal.classList.add('show');
+    document.body.style.overflow = 'hidden';
+    
+    // Hacer foco después de un momento
+    setTimeout(() => {
+        const firstInput = modal.querySelector('input:not([type="hidden"])');
+        if (firstInput) {
+            firstInput.removeAttribute('readonly');
+            firstInput.removeAttribute('disabled');
+            firstInput.focus();
+            console.log('✅ Foco establecido en primer input');
+        }
+    }, 50);
+    
+    console.log('✅ Modal de 24 meses configurado manualmente');
+}
+
+// Función para cerrar modal de 24 meses manualmente
+function cerrarModalMesesManual() {
+    console.log('🚀 Cerrando modal de 24 meses manual');
+    
+    const modal = document.getElementById('modalMeses');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        document.body.style.overflow = 'auto';
+        
+        console.log('✅ Modal de 24 meses cerrado');
+    }
+}
 </script>
 {% endblock %}
