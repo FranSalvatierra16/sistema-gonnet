@@ -322,6 +322,19 @@
 #modalConcepto .modal-dialog {
     max-width: 500px !important;
     margin: 1.75rem auto !important;
+    pointer-events: auto !important;
+}
+
+#modalConcepto .modal-content {
+    pointer-events: auto !important;
+}
+
+#modalConcepto input,
+#modalConcepto textarea,
+#modalConcepto button,
+#modalConcepto select {
+    pointer-events: auto !important;
+    z-index: 10000 !important;
 }
 
 /* Asegurar que otros modales también funcionen */
@@ -520,33 +533,56 @@ function mostrarModalConceptoUltraAgresivo() {
     try {
         const bootstrapModal = new bootstrap.Modal(modal, {
             keyboard: true,
-            backdrop: true,
+            backdrop: 'static',
             focus: true
         });
         bootstrapModal.show();
         
-        // Después de un momento, hacer foco en el primer campo
+        // Asegurar que no hay overlays bloqueando
         setTimeout(() => {
+            // Eliminar cualquier backdrop duplicado
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            if (backdrops.length > 1) {
+                for (let i = 1; i < backdrops.length; i++) {
+                    backdrops[i].remove();
+                }
+            }
+            
+            // Asegurar que el modal tiene pointer-events
+            modal.style.pointerEvents = 'auto';
+            const modalContent = modal.querySelector('.modal-content');
+            if (modalContent) {
+                modalContent.style.pointerEvents = 'auto';
+            }
+            
+            // Hacer foco en el primer campo
             const conceptoIdInput = document.getElementById('conceptoId');
             if (conceptoIdInput) {
+                conceptoIdInput.style.pointerEvents = 'auto';
                 conceptoIdInput.focus();
+                conceptoIdInput.click(); // Forzar activación
             }
-        }, 300);
+            
+            console.log('✅ Modal configurado para interacción');
+        }, 100);
         
         console.log('✅ Modal abierto con Bootstrap');
     } catch (error) {
         console.error('Error con Bootstrap modal:', error);
         // Fallback manual si Bootstrap falla
         modal.style.display = 'block';
+        modal.style.pointerEvents = 'auto';
         modal.classList.add('show');
         document.body.style.overflow = 'hidden';
         
         setTimeout(() => {
             const conceptoIdInput = document.getElementById('conceptoId');
             if (conceptoIdInput) {
+                conceptoIdInput.style.pointerEvents = 'auto';
                 conceptoIdInput.focus();
+                conceptoIdInput.click();
             }
-        }, 300);
+        }, 100);
     }
 }
 
@@ -1156,15 +1192,38 @@ document.addEventListener('DOMContentLoaded', function() {
     if (modalConcepto) {
         // Cuando el modal se muestra
         modalConcepto.addEventListener('shown.bs.modal', function () {
-            const conceptoIdInput = document.getElementById('conceptoId');
-            if (conceptoIdInput) {
-                conceptoIdInput.focus();
-            }
+            console.log('Modal mostrado - configurando interacción');
+            
+            // Asegurar que todos los inputs son interactivos
+            const inputs = modalConcepto.querySelectorAll('input, textarea, button, select');
+            inputs.forEach(input => {
+                input.style.pointerEvents = 'auto';
+                input.style.zIndex = '10001';
+            });
+            
+            // Foco en el primer campo
+            setTimeout(() => {
+                const conceptoIdInput = document.getElementById('conceptoId');
+                if (conceptoIdInput) {
+                    conceptoIdInput.focus();
+                    conceptoIdInput.click();
+                    console.log('Foco establecido en conceptoId');
+                }
+            }, 50);
         });
         
         // Cuando el modal se oculta
         modalConcepto.addEventListener('hidden.bs.modal', function () {
             document.body.style.overflow = 'auto';
+        });
+        
+        // Debug: detectar clicks bloqueados
+        modalConcepto.addEventListener('click', function(e) {
+            console.log('Click en modal:', e.target);
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                console.log('Click en input/textarea:', e.target.id);
+                e.target.focus();
+            }
         });
     }
     
