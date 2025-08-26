@@ -245,6 +245,38 @@
 </div>
 
 <!-- Modal para Agregar Concepto -->
+<style>
+.modal {
+    z-index: 1055 !important;
+}
+.modal-backdrop {
+    z-index: 1050 !important;
+}
+.modal-dialog {
+    margin: 1.75rem auto !important;
+}
+</style>
+<!-- CSS específico para arreglar modal superpuesto -->
+<style>
+#modalConcepto {
+    z-index: 1060 !important;
+}
+#modalConcepto .modal-backdrop {
+    z-index: 1055 !important;
+}
+#modalConcepto .modal-dialog {
+    margin: 1.75rem auto !important;
+    position: relative !important;
+}
+#modalConcepto .modal-content {
+    position: relative !important;
+    background-color: #fff !important;
+    border: 1px solid rgba(0,0,0,.2) !important;
+    border-radius: 0.375rem !important;
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15) !important;
+}
+</style>
+
 <div class="modal fade" id="modalConcepto" tabindex="-1" aria-labelledby="modalConceptoLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
