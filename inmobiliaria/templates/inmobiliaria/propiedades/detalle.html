@@ -1233,8 +1233,9 @@ function mostrarModalMesesManual() {
         overflow-y: auto !important;
         pointer-events: auto !important;
         justify-content: center !important;
-        align-items: center !important;
-        padding: 20px !important;
+        align-items: flex-start !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
     `;
     
     // Configurar modal-dialog
@@ -1243,11 +1244,12 @@ function mostrarModalMesesManual() {
         dialog.style.cssText = `
             position: relative !important;
             width: 100% !important;
-            max-width: 900px !important;
-            margin: 0 !important;
+            max-width: 600px !important;
+            margin: 20px auto !important;
             pointer-events: auto !important;
             z-index: 10051 !important;
             display: block !important;
+            box-sizing: border-box !important;
         `;
     }
     
@@ -1261,9 +1263,9 @@ function mostrarModalMesesManual() {
             pointer-events: auto !important;
             z-index: 10052 !important;
             width: 100% !important;
-            min-height: 500px !important;
-            max-height: 90vh !important;
+            max-height: 80vh !important;
             overflow-y: auto !important;
+            box-sizing: border-box !important;
         `;
     }
     
