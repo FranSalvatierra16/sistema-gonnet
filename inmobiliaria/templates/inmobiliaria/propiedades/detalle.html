@@ -273,19 +273,20 @@
                             <!-- Sección de precios por día -->
                             <div class="mt-4">
                                 <div class="accordion" id="accordionPrecios">
-                                    <div class="card">
-                                        <div class="card-header" id="headingPrecios">
+                                    <div class="card border-success">
+                                        <div class="card-header bg-success text-white" id="headingPrecios">
                                             <h2 class="mb-0">
-                                                <button class="btn btn-link btn-block text-left collapsed" type="button" 
+                                                <button class="btn btn-link btn-block text-left text-white" type="button" 
                                                         data-bs-toggle="collapse" data-bs-target="#collapsePrecios" 
-                                                        aria-expanded="false" aria-controls="collapsePrecios">
+                                                        aria-expanded="true" aria-controls="collapsePrecios" 
+                                                        style="text-decoration: none;">
                                                     <i class="fas fa-dollar-sign"></i> Precios por Día
-                                                    <i class="fas fa-chevron-down float-right"></i>
+                                                    <i class="fas fa-chevron-up float-right"></i>
                                                 </button>
                                             </h2>
                                         </div>
 
-                                        <div id="collapsePrecios" class="collapse" aria-labelledby="headingPrecios" 
+                                        <div id="collapsePrecios" class="collapse show" aria-labelledby="headingPrecios" 
                                              data-bs-parent="#accordionPrecios">
                                             <div class="card-body">
                                                 <div class="table-responsive">
@@ -339,19 +340,20 @@
                     <!-- Sección de disponibilidades -->
                     <div class="mt-4">
                         <div class="accordion" id="accordionDisponibilidades">
-                            <div class="card">
-                                <div class="card-header" id="headingDisponibilidades">
+                            <div class="card border-success">
+                                <div class="card-header bg-success text-white" id="headingDisponibilidades">
                                     <h2 class="mb-0">
-                                        <button class="btn btn-link btn-block text-left collapsed" type="button" 
+                                        <button class="btn btn-link btn-block text-left text-white" type="button" 
                                                 data-bs-toggle="collapse" data-bs-target="#collapseDisponibilidades" 
-                                                aria-expanded="false" aria-controls="collapseDisponibilidades">
+                                                aria-expanded="true" aria-controls="collapseDisponibilidades"
+                                                style="text-decoration: none;">
                                             <i class="fas fa-calendar"></i> Disponibilidades
-                                            <i class="fas fa-chevron-down float-right"></i>
+                                            <i class="fas fa-chevron-up float-right"></i>
                                         </button>
                                     </h2>
                                 </div>
 
-                                        <div id="collapseDisponibilidades" class="collapse" aria-labelledby="headingDisponibilidades" 
+                                        <div id="collapseDisponibilidades" class="collapse show" aria-labelledby="headingDisponibilidades" 
                                              data-bs-parent="#accordionDisponibilidades">
                                             <div class="card-body">
                                                 <table class="table">
