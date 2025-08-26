@@ -349,7 +349,7 @@
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="modalConceptoLabel">➕ Agregar Concepto</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" onclick="cerrarModalConceptoManual()" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="formConcepto">
@@ -390,7 +390,7 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
+                <button type="button" class="btn btn-secondary" onclick="cerrarModalConceptoManual()">❌ Cancelar</button>
                 <button type="button" class="btn btn-success" onclick="agregarConcepto()">✅ Agregar</button>
             </div>
         </div>
@@ -496,15 +496,15 @@ let contadorConceptos = 0;
 let conceptoEditando = null;
 let conceptoSeleccionadoActual = null;
 
-// Función para mostrar modal de concepto
+// Función para mostrar modal de concepto - VERSIÓN MANUAL SIN BOOTSTRAP
 function mostrarModalConceptoUltraAgresivo() {
-    console.log('🚀 Abriendo modal de concepto');
+    console.log('🚀 Abriendo modal manual');
     
-    // Limpiar estado anterior
+    // Eliminar TODOS los backdrops y modales existentes
     document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-    document.querySelectorAll('.modal.show').forEach(modal => {
-        modal.style.display = 'none';
-        modal.classList.remove('show');
+    document.querySelectorAll('.modal').forEach(m => {
+        m.style.display = 'none';
+        m.classList.remove('show');
     });
     
     const modal = document.getElementById('modalConcepto');
@@ -517,7 +517,7 @@ function mostrarModalConceptoUltraAgresivo() {
     const form = modal.querySelector('#formConcepto');
     if (form) form.reset();
     
-    // Resetear estado de concepto
+    // Resetear estado
     conceptoEditando = null;
     conceptoSeleccionadoActual = null;
     
@@ -529,60 +529,94 @@ function mostrarModalConceptoUltraAgresivo() {
     const title = document.getElementById('modalConceptoLabel');
     if (title) title.textContent = '➕ Agregar Concepto';
     
-    // Usar Bootstrap para mostrar el modal
-    try {
-        const bootstrapModal = new bootstrap.Modal(modal, {
-            keyboard: true,
-            backdrop: 'static',
-            focus: true
-        });
-        bootstrapModal.show();
+    // MOSTRAR MODAL MANUALMENTE - SIN BOOTSTRAP
+    modal.style.cssText = `
+        display: block !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 10050 !important;
+        background: rgba(0,0,0,0.5) !important;
+        overflow-y: auto !important;
+        pointer-events: auto !important;
+    `;
+    
+    // Configurar modal-dialog
+    const dialog = modal.querySelector('.modal-dialog');
+    if (dialog) {
+        dialog.style.cssText = `
+            position: relative !important;
+            width: 90% !important;
+            max-width: 500px !important;
+            margin: 50px auto !important;
+            pointer-events: auto !important;
+            z-index: 10051 !important;
+        `;
+    }
+    
+    // Configurar modal-content
+    const content = modal.querySelector('.modal-content');
+    if (content) {
+        content.style.cssText = `
+            background: white !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+            pointer-events: auto !important;
+            z-index: 10052 !important;
+        `;
+    }
+    
+    // Configurar TODOS los inputs para que sean interactivos
+    const inputs = modal.querySelectorAll('input, textarea, button, select');
+    inputs.forEach(input => {
+        input.style.cssText += `
+            pointer-events: auto !important;
+            z-index: 10053 !important;
+        `;
+    });
+    
+    modal.classList.add('show');
+    document.body.style.overflow = 'hidden';
+    
+    // Hacer foco después de un momento
+    setTimeout(() => {
+        const conceptoIdInput = document.getElementById('conceptoId');
+        if (conceptoIdInput) {
+            conceptoIdInput.removeAttribute('readonly');
+            conceptoIdInput.removeAttribute('disabled');
+            conceptoIdInput.focus();
+            console.log('✅ Foco establecido en input ID');
+        }
+    }, 50);
+    
+    console.log('✅ Modal manual configurado');
+}
+
+// Función para cerrar modal manualmente
+function cerrarModalConceptoManual() {
+    console.log('🚀 Cerrando modal manual');
+    
+    const modal = document.getElementById('modalConcepto');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        document.body.style.overflow = 'auto';
         
-        // Asegurar que no hay overlays bloqueando
-        setTimeout(() => {
-            // Eliminar cualquier backdrop duplicado
-            const backdrops = document.querySelectorAll('.modal-backdrop');
-            if (backdrops.length > 1) {
-                for (let i = 1; i < backdrops.length; i++) {
-                    backdrops[i].remove();
-                }
-            }
-            
-            // Asegurar que el modal tiene pointer-events
-            modal.style.pointerEvents = 'auto';
-            const modalContent = modal.querySelector('.modal-content');
-            if (modalContent) {
-                modalContent.style.pointerEvents = 'auto';
-            }
-            
-            // Hacer foco en el primer campo
-            const conceptoIdInput = document.getElementById('conceptoId');
-            if (conceptoIdInput) {
-                conceptoIdInput.style.pointerEvents = 'auto';
-                conceptoIdInput.focus();
-                conceptoIdInput.click(); // Forzar activación
-            }
-            
-            console.log('✅ Modal configurado para interacción');
-        }, 100);
+        // Limpiar formulario
+        const form = modal.querySelector('#formConcepto');
+        if (form) form.reset();
         
-        console.log('✅ Modal abierto con Bootstrap');
-    } catch (error) {
-        console.error('Error con Bootstrap modal:', error);
-        // Fallback manual si Bootstrap falla
-        modal.style.display = 'block';
-        modal.style.pointerEvents = 'auto';
-        modal.classList.add('show');
-        document.body.style.overflow = 'hidden';
+        // Resetear estado
+        conceptoEditando = null;
+        conceptoSeleccionadoActual = null;
         
-        setTimeout(() => {
-            const conceptoIdInput = document.getElementById('conceptoId');
-            if (conceptoIdInput) {
-                conceptoIdInput.style.pointerEvents = 'auto';
-                conceptoIdInput.focus();
-                conceptoIdInput.click();
-            }
-        }, 100);
+        // Ocultar info de concepto seleccionado
+        const infoDiv = document.getElementById('infoConceptoSeleccionado');
+        if (infoDiv) infoDiv.style.display = 'none';
+        
+        console.log('✅ Modal cerrado');
     }
 }
 
