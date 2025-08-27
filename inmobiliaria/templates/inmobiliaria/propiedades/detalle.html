@@ -1229,12 +1229,12 @@ function mostrarModalMesesManual() {
         width: 100vw !important;
         height: 100vh !important;
         z-index: 10050 !important;
-        background: rgba(0,0,0,0.7) !important;
+        background: rgba(0,0,0,0.6) !important;
         overflow-y: auto !important;
         pointer-events: auto !important;
         justify-content: center !important;
-        align-items: center !important;
-        padding: 20px !important;
+        align-items: flex-start !important;
+        padding: 10px !important;
         box-sizing: border-box !important;
     `;
     
@@ -1244,8 +1244,8 @@ function mostrarModalMesesManual() {
         dialog.style.cssText = `
             position: relative !important;
             width: 100% !important;
-            max-width: 500px !important;
-            margin: 0 !important;
+            max-width: 450px !important;
+            margin: 10px auto !important;
             pointer-events: auto !important;
             z-index: 10051 !important;
             display: block !important;
@@ -1258,15 +1258,15 @@ function mostrarModalMesesManual() {
     if (content) {
         content.style.cssText = `
             background: white !important;
-            border-radius: 12px !important;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.4) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
             pointer-events: auto !important;
             z-index: 10052 !important;
             width: 100% !important;
-            max-height: 85vh !important;
+            max-height: calc(100vh - 40px) !important;
             overflow-y: auto !important;
             box-sizing: border-box !important;
-            padding: 0 !important;
+            margin: 0 !important;
         `;
     }
     
