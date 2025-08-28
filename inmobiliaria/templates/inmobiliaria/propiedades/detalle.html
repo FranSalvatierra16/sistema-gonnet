@@ -1232,22 +1232,23 @@ function mostrarModalMesesManual() {
         background: rgba(0,0,0,0.6) !important;
         overflow-y: auto !important;
         pointer-events: auto !important;
-        padding: 15px !important;
+        padding: 5px !important;
     `;
     
-    // Configurar modal-dialog - MÁS SIMPLE
+    // Configurar modal-dialog - MÁS GRANDE
     const dialog = modal.querySelector('.modal-dialog');
     if (dialog) {
         dialog.style.cssText = `
-            width: 90% !important;
-            max-width: 500px !important;
-            margin: 15px auto !important;
+            width: 95% !important;
+            max-width: 700px !important;
+            margin: 10px auto !important;
             position: relative !important;
             z-index: 10051 !important;
+            min-height: 600px !important;
         `;
     }
     
-    // Configurar modal-content - SIN COMPLICACIONES
+    // Configurar modal-content - MÁS ESPACIOSO
     const content = modal.querySelector('.modal-content');
     if (content) {
         content.style.cssText = `
@@ -1257,6 +1258,8 @@ function mostrarModalMesesManual() {
             width: 100% !important;
             position: relative !important;
             z-index: 10052 !important;
+            min-height: 550px !important;
+            padding-bottom: 20px !important;
         `;
     }
     
