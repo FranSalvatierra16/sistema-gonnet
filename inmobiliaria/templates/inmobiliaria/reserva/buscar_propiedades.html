@@ -4358,42 +4358,7 @@ let searchTimeout;
 let isSearching = false;
 
 function initLiveSearch() {
-    // Agregar campo de búsqueda rápida
-    const formContainer = document.querySelector('.container-fluid .card-body');
-    if (formContainer && !document.getElementById('liveSearchContainer')) {
-        const searchHtml = `
-            <div id="liveSearchContainer" class="mb-4 p-3" style="background: rgba(34, 197, 94, 0.1); border-radius: 12px; border: 2px solid rgba(34, 197, 94, 0.3);">
-                <div class="d-flex align-items-center">
-                    <i class="fas fa-search text-success me-2"></i>
-                    <input type="text" 
-                           id="liveSearchInput" 
-                           class="form-control" 
-                           placeholder="🔍 Buscar propiedades en tiempo real... (dirección, ubicación, tipo)"
-                           style="border: 2px solid rgba(34, 197, 94, 0.3); border-radius: 8px;">
-                    <div id="searchLoader" class="ms-2" style="display: none;">
-                        <div class="spinner-border spinner-border-sm text-success" role="status">
-                            <span class="visually-hidden">Buscando...</span>
-                        </div>
-                    </div>
-                </div>
-                <small class="text-muted mt-1 d-block">
-                    <i class="fas fa-lightbulb me-1"></i>
-                    Escribe para buscar automáticamente por dirección, ubicación o tipo de propiedad
-                </small>
-            </div>
-        `;
-        formContainer.insertAdjacentHTML('afterbegin', searchHtml);
-        
-        // Configurar event listeners
-        const searchInput = document.getElementById('liveSearchInput');
-        searchInput.addEventListener('input', handleLiveSearch);
-        searchInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                performLiveSearch(this.value);
-            }
-        });
-    }
+    // ELIMINADO: Segundo buscador automático duplicado
 }
 
 function handleLiveSearch(event) {
@@ -4574,52 +4539,7 @@ function loadInitialProperties() {
 // BÚSQUEDA EN TIEMPO REAL SIMPLIFICADA
 // =============================================
 
-// Agregar campo de búsqueda en tiempo real
-document.addEventListener('DOMContentLoaded', function() {
-    // Crear el campo de búsqueda
-    const searchHtml = `
-        <div class="mb-3 p-3" style="background: rgba(34, 197, 94, 0.1); border-radius: 12px; border: 2px solid rgba(34, 197, 94, 0.3);">
-            <div class="d-flex align-items-center">
-                <i class="fas fa-search text-success me-2"></i>
-                <input type="text" 
-                       id="quickSearch" 
-                       class="form-control" 
-                       placeholder="🔍 Buscar propiedades mientras escribes... (dirección, ubicación)"
-                       style="border: 2px solid rgba(34, 197, 94, 0.3); border-radius: 8px;">
-            </div>
-            <small class="text-muted mt-1 d-block">
-                <i class="fas fa-lightbulb me-1"></i>
-                Busca por dirección, ubicación o tipo de propiedad
-            </small>
-        </div>
-    `;
-    
-    // Insertar antes del primer card
-    const firstCard = document.querySelector('.card');
-    if (firstCard) {
-        firstCard.insertAdjacentHTML('beforebegin', searchHtml);
-    }
-    
-    // Configurar event listener
-    const searchInput = document.getElementById('quickSearch');
-    if (searchInput) {
-        let searchTimeout;
-        
-        searchInput.addEventListener('input', function(e) {
-            const query = e.target.value.trim();
-            
-            // Limpiar timeout anterior
-            if (searchTimeout) {
-                clearTimeout(searchTimeout);
-            }
-            
-            // Buscar después de 300ms de pausa
-            searchTimeout = setTimeout(() => {
-                filterPropertiesInRealTime(query);
-            }, 300);
-        });
-    }
-});
+// ELIMINADO: Primer buscador automático duplicado
 
 function filterPropertiesInRealTime(query) {
     // Mostrar loader
