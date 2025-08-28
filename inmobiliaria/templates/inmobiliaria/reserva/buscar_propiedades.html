@@ -3479,9 +3479,9 @@ function cargarPreciosCompletos(propiedadId) {
 
 // Función para generar la tabla de gestión de precios
 function generarTablaGestionPrecios(precios, propiedadId) {
-    // Variable global para permisos de admin
-    const esAdmin = {{ user.nivel|default:0 }} >= 3;
-    console.log('👤 Usuario es admin:', esAdmin);
+    // Permitir guardar cambios para todos los usuarios
+    const esAdmin = true;
+    console.log('👤 Usuario puede editar precios:', esAdmin);
     
     let tablaHTML = `
         <div class="table-responsive">
@@ -3733,9 +3733,9 @@ function guardarCambiosPrecios() {
 <script>
 // Función para generar la tabla de gestión de precios
 function generarTablaGestionPrecios(precios, propiedadId) {
-    // Variable global para permisos de admin
-    const esAdmin = djConfig.esAdmin;
-    console.log('👤 Usuario es admin:', esAdmin);
+    // Permitir guardar cambios para todos los usuarios
+    const esAdmin = true;
+    console.log('👤 Usuario puede editar precios:', esAdmin);
     
     let tablaHTML = `
         <div class="table-responsive">
