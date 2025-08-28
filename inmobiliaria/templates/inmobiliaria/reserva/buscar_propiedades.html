@@ -3322,7 +3322,7 @@ function actualizarTablaPrecios(precios) {
                     <i class="fas fa-dollar-sign me-2"></i>
                     Gestionar Precios para <span id="propiedadNombreModal">Propiedad</span>
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" onclick="cerrarModalGestionPreciosManual()" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div id="tablaPreciosCompleta">
@@ -3330,7 +3330,7 @@ function actualizarTablaPrecios(precios) {
                 </div>
             </div>
             <div class="modal-footer" id="modalFooterPrecios">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                <button type="button" class="btn btn-secondary" onclick="cerrarModalGestionPreciosManual()">
                     <i class="fas fa-times me-2"></i>Cerrar
                 </button>
                 <button type="button" class="btn btn-success" id="guardarPreciosBtn" style="display: none;">
@@ -3342,7 +3342,7 @@ function actualizarTablaPrecios(precios) {
 </div>
 
 <script>
-// Función para abrir el modal de gestión de precios
+// Función para abrir el modal de gestión de precios - VERSIÓN MANUAL
 function abrirModalGestionPrecios() {
     if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
         alert('Por favor, selecciona una propiedad primero.');
@@ -3351,15 +3351,105 @@ function abrirModalGestionPrecios() {
     
     console.log('🏠 Abriendo modal de gestión de precios para propiedad:', propiedadSeleccionada.id);
     
+    // Eliminar TODOS los backdrops y modales existentes
+    document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+    document.querySelectorAll('.modal').forEach(m => {
+        m.style.display = 'none';
+        m.classList.remove('show');
+    });
+    
+    const modal = document.getElementById('modalGestionPrecios');
+    if (!modal) {
+        alert('Modal de gestión de precios no encontrado');
+        return;
+    }
+    
     // Actualizar título del modal
     document.getElementById('propiedadNombreModal').textContent = propiedadSeleccionada.direccion || `ID: ${propiedadSeleccionada.id}`;
     
-    // Mostrar el modal
-    const modal = new bootstrap.Modal(document.getElementById('modalGestionPrecios'));
-    modal.show();
+    // MOSTRAR MODAL MANUALMENTE - MISMO ESTILO QUE OTROS MODALES
+    modal.style.cssText = `
+        display: block !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 10050 !important;
+        background: rgba(0,0,0,0.6) !important;
+        overflow-y: auto !important;
+        pointer-events: auto !important;
+        padding: 5px !important;
+    `;
+    
+    // Configurar modal-dialog
+    const dialog = modal.querySelector('.modal-dialog');
+    if (dialog) {
+        dialog.style.cssText = `
+            width: 95% !important;
+            max-width: 1200px !important;
+            margin: 10px auto !important;
+            position: relative !important;
+            z-index: 10051 !important;
+            min-height: 800px !important;
+        `;
+    }
+    
+    // Configurar modal-content
+    const content = modal.querySelector('.modal-content');
+    if (content) {
+        content.style.cssText = `
+            background: white !important;
+            border-radius: 8px !important;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.3) !important;
+            width: 100% !important;
+            position: relative !important;
+            z-index: 10052 !important;
+            min-height: 700px !important;
+            padding-bottom: 20px !important;
+        `;
+    }
+    
+    // Asegurar que todos los elementos del modal sean visibles y funcionales
+    const modalElements = modal.querySelectorAll('.modal-header, .modal-body, .modal-footer');
+    modalElements.forEach(element => {
+        element.style.cssText += `
+            position: relative !important;
+            z-index: 10053 !important;
+            pointer-events: auto !important;
+        `;
+    });
+    
+    // Configurar TODOS los inputs para que sean interactivos
+    const inputs = modal.querySelectorAll('input, textarea, button, select, table');
+    inputs.forEach(input => {
+        input.style.cssText += `
+            pointer-events: auto !important;
+            z-index: 10053 !important;
+        `;
+    });
+    
+    modal.classList.add('show');
+    document.body.style.overflow = 'hidden';
     
     // Cargar los precios completos
     cargarPreciosCompletos(propiedadSeleccionada.id);
+    
+    console.log('✅ Modal de gestión de precios configurado manualmente');
+}
+
+// Función para cerrar modal de gestión de precios manualmente
+function cerrarModalGestionPreciosManual() {
+    console.log('🚀 Cerrando modal de gestión de precios manual');
+    
+    const modal = document.getElementById('modalGestionPrecios');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        document.body.style.overflow = 'auto';
+        
+        console.log('✅ Modal de gestión de precios cerrado');
+    }
 }
 
 // Función para cargar precios completos en el modal
