@@ -628,6 +628,15 @@
         </div>
     </div>
 
+    <!-- Mensaje de error para fechas requeridas -->
+    {% if error_fechas %}
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Fechas requeridas:</strong> {{ error_fechas }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
     <!-- Contenedor de filtros adicionales -->
     <div id="filtrosAdicionales" class="mt-3" style="display: none;">
         <div class="card shadow-modern border-radius-modern">

@@ -4298,16 +4298,7 @@ def buscar_propiedades(request):
     origen = None
     destino = None
 
-    # CARGAR PROPIEDADES POR DEFECTO AL INICIO
-    # Si no hay formulario enviado, mostrar todas las propiedades
-    if not request.POST:
-        propiedades_todas = Propiedad.objects.filter(sucursal=sucursal_vendedor)
-        propiedades_todas = propiedades_todas.prefetch_related(
-            Prefetch('precios', queryset=Precio.objects.all(), to_attr='todos_precios')
-        ).select_related('sucursal')[:20]  # Limitar a 20 para mejor performance inicial
-        
-        for propiedad in propiedades_todas:
-            propiedades_disponibles.append(propiedad)
+    # NO CARGAR PROPIEDADES POR DEFECTO - Solo mostrar después de búsqueda con fechas
 
     if form.is_valid():
         fecha_inicio = form.cleaned_data['fecha_inicio']
@@ -4315,6 +4306,23 @@ def buscar_propiedades(request):
         origen = form.cleaned_data['origen']
         destino = form.cleaned_data['destino']
         ver_todas = form.cleaned_data.get('ver_todas', False)
+
+        # VALIDACIÓN: Requerir fechas para buscar propiedades
+        if not fecha_inicio or not fecha_fin:
+            # Si no hay fechas, no mostrar propiedades y agregar mensaje
+            context = {
+                'form': form,
+                'inquilino_form': inquilino_form,
+                'propiedades_disponibles': [],
+                'propiedades_sin_precio': [],
+                'inquilinos': inquilinos,
+                'vendedores': vendedores,
+                'total_dias_reserva': 0,
+                'fecha_inicio': fecha_inicio,
+                'fecha_fin': fecha_fin,
+                'error_fechas': 'Por favor selecciona las fechas de inicio y fin para buscar propiedades.'
+            }
+            return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', context)
 
         # Filtrar propiedades según la opción seleccionada
         if ver_todas:
