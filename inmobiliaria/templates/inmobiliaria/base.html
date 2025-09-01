@@ -1683,21 +1683,25 @@
         }
         
         /* SOLUCIÓN ESPECÍFICA - OCULTAR SOLO ENLACES DE NAVEGACIÓN, NO BOTONES */
-        /* Solo ocultar enlaces que están en el navbar principal */
+        /* Solo ocultar enlaces que están en el navbar principal, EXCEPTO buscar_propiedades */
         .navbar nav a[href*="vendedores"]:not(.sidebar-item):not(.btn),
         .navbar nav a[href*="inquilinos"]:not(.sidebar-item):not(.btn),
         .navbar nav a[href*="propietarios"]:not(.sidebar-item):not(.btn),
         .navbar nav a[href*="propiedades/"]:not(.sidebar-item):not(.btn),
-        .navbar nav a[href*="reservas"]:not(.sidebar-item):not(.btn),
         .navbar nav a[href*="operaciones"]:not(.sidebar-item):not(.btn),
         .navbar .nav-link[href*="vendedores"]:not(.sidebar-item):not(.btn),
         .navbar .nav-link[href*="inquilinos"]:not(.sidebar-item):not(.btn),
         .navbar .nav-link[href*="propietarios"]:not(.sidebar-item):not(.btn),
         .navbar .nav-link[href*="propiedades/"]:not(.sidebar-item):not(.btn),
-        .navbar .nav-link[href*="reservas"]:not(.sidebar-item):not(.btn),
         .navbar .nav-link[href*="operaciones"]:not(.sidebar-item):not(.btn) {
             display: none !important;
             visibility: hidden !important;
+        }
+        
+        /* EXCEPCIÓN: Mantener visible el enlace de buscar propiedades (Reservas) */
+        .navbar .nav-link[href*="buscar_propiedades"] {
+            display: block !important;
+            visibility: visible !important;
         }
         
         /* EXCEPCIÓN IMPORTANTE: Los botones SIEMPRE deben ser visibles */
