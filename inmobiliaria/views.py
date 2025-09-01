@@ -726,10 +726,48 @@ def confirmar_reserva(request):
                     })
 
                 # Verificar disponibilidad usando el método del modelo
-                if not propiedad.esta_disponible_en_fecha(fecha_inicio, fecha_fin):
+                print(f"🔍 DEBUG: Verificando disponibilidad para propiedad {propiedad.id}")
+                print(f"📅 Fechas: {fecha_inicio} a {fecha_fin}")
+                
+                # Verificar si hay disponibilidades que cubran el período
+                disponibilidades = propiedad.disponibilidades.filter(
+                    fecha_inicio__lte=fecha_inicio,
+                    fecha_fin__gte=fecha_fin
+                )
+                print(f"📋 Disponibilidades encontradas: {disponibilidades.count()}")
+                for disp in disponibilidades:
+                    print(f"  - {disp.fecha_inicio} a {disp.fecha_fin}")
+                
+                # Verificar reservas superpuestas
+                reservas_superpuestas = propiedad.reservas.filter(
+                    fecha_inicio__lt=fecha_fin,
+                    fecha_fin__gt=fecha_inicio,
+                    estado__in=['confirmada', 'confirmada_no_pagada']
+                )
+                print(f"🚫 Reservas superpuestas: {reservas_superpuestas.count()}")
+                for reserva in reservas_superpuestas:
+                    print(f"  - {reserva.fecha_inicio} a {reserva.fecha_fin} (estado: {reserva.estado})")
+                
+                # Si no hay disponibilidades configuradas, asumir que está disponible
+                if not propiedad.disponibilidades.exists():
+                    print("⚠️ No hay disponibilidades configuradas, asumiendo disponible")
+                    esta_disponible = not reservas_superpuestas.exists()
+                else:
+                    esta_disponible = disponibilidades.exists() and not reservas_superpuestas.exists()
+                
+                print(f"✅ Resultado disponibilidad: {esta_disponible}")
+                
+                if not esta_disponible:
+                    if not disponibilidades.exists() and propiedad.disponibilidades.exists():
+                        error_msg = 'La propiedad no tiene disponibilidad configurada para las fechas seleccionadas.'
+                    elif reservas_superpuestas.exists():
+                        error_msg = 'La propiedad ya tiene una reserva para las fechas seleccionadas.'
+                    else:
+                        error_msg = 'La propiedad no está disponible para las fechas seleccionadas.'
+                    
                     return JsonResponse({
                         'success': False,
-                        'error': 'La propiedad no está disponible para las fechas seleccionadas.'
+                        'error': error_msg
                     })
 
                 # Verificar que no haya reservas en el período

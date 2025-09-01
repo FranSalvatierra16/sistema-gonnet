@@ -3728,6 +3728,7 @@ function guardarCambiosPrecios() {
     const djConfig = {
         esAdmin: {% if user.nivel >= 3 %}true{% else %}false{% endif %}
     };
+    console.log('djConfig loaded:', djConfig);
 </script>
 
 <script>
