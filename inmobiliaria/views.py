@@ -895,8 +895,8 @@ def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_in
         ultima_disponibilidad = disponibilidades_validas.order_by('-fecha_fin').first()
         
         return {
-            'inicio': max(primera_disponibilidad.fecha_inicio, fecha_inicio) if primera_disponibilidad else fecha_inicio,
-            'fin': min(ultima_disponibilidad.fecha_fin, fecha_fin) if ultima_disponibilidad else fecha_fin
+            'inicio': primera_disponibilidad.fecha_inicio if primera_disponibilidad else fecha_inicio,
+            'fin': ultima_disponibilidad.fecha_fin if ultima_disponibilidad else fecha_fin
         }
     
     # Buscar períodos libres entre las reservas
@@ -915,12 +915,12 @@ def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_in
         
         if not reservas_en_periodo.exists():
             # No hay reservas en este período, verificar que cubra completamente las fechas solicitadas
-            dias_disponibles = (fin_disp - inicio_disp).days + 1
-            if inicio_disp <= fecha_inicio and fin_disp >= fecha_fin and dias_disponibles >= dias_solicitados:
+            if disponibilidad.fecha_inicio <= fecha_inicio and disponibilidad.fecha_fin >= fecha_fin:
+                # La disponibilidad completa cubre las fechas solicitadas, mostrar todo el período disponible
                 periodos_libres.append({
-                    'inicio': fecha_inicio,  # Usar las fechas exactas solicitadas
-                    'fin': fecha_fin,
-                    'dias': dias_solicitados
+                    'inicio': disponibilidad.fecha_inicio,  # Mostrar desde el inicio real de la disponibilidad
+                    'fin': disponibilidad.fecha_fin,        # Hasta el fin real de la disponibilidad
+                    'dias': (disponibilidad.fecha_fin - disponibilidad.fecha_inicio).days + 1
                 })
         else:
             # Hay reservas, encontrar los huecos
@@ -929,29 +929,27 @@ def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_in
             for reserva in reservas_en_periodo:
                 if fecha_actual < reserva.fecha_inicio:
                     # Hay un período libre antes de esta reserva
-                    fin_periodo = min(reserva.fecha_inicio - timedelta(days=1), fin_disp)
+                    fin_periodo = reserva.fecha_inicio - timedelta(days=1)
                     if fecha_actual <= fin_periodo:
                         # Verificar que este período libre cubra completamente las fechas solicitadas
-                        dias_libres = (fin_periodo - fecha_actual).days + 1
-                        if fecha_actual <= fecha_inicio and fin_periodo >= fecha_fin and dias_libres >= dias_solicitados:
+                        if fecha_actual <= fecha_inicio and fin_periodo >= fecha_fin:
                             periodos_libres.append({
-                                'inicio': fecha_inicio,  # Usar las fechas exactas solicitadas
-                                'fin': fecha_fin,
-                                'dias': dias_solicitados
+                                'inicio': fecha_actual,      # Mostrar desde el inicio real del período libre
+                                'fin': fin_periodo,          # Hasta el fin real del período libre
+                                'dias': (fin_periodo - fecha_actual).days + 1
                             })
                 
                 # Mover la fecha actual al final de la reserva
                 fecha_actual = max(fecha_actual, reserva.fecha_fin + timedelta(days=1))
             
             # Verificar si hay un período libre después de la última reserva
-            if fecha_actual <= fin_disp:
+            if fecha_actual <= disponibilidad.fecha_fin:
                 # Verificar que este período libre cubra completamente las fechas solicitadas
-                dias_libres = (fin_disp - fecha_actual).days + 1
-                if fecha_actual <= fecha_inicio and fin_disp >= fecha_fin and dias_libres >= dias_solicitados:
+                if fecha_actual <= fecha_inicio and disponibilidad.fecha_fin >= fecha_fin:
                     periodos_libres.append({
-                        'inicio': fecha_inicio,  # Usar las fechas exactas solicitadas
-                        'fin': fecha_fin,
-                        'dias': dias_solicitados
+                        'inicio': fecha_actual,                    # Desde donde queda libre después de la reserva
+                        'fin': disponibilidad.fecha_fin,          # Hasta el fin real de la disponibilidad
+                        'dias': (disponibilidad.fecha_fin - fecha_actual).days + 1
                     })
     
     if not periodos_libres:
