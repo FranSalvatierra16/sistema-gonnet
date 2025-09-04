@@ -865,16 +865,21 @@ def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_in
     """
     Calcula la disponibilidad real de una propiedad considerando las reservas existentes.
     Retorna el período disponible más cercano a las fechas solicitadas.
+    Solo devuelve períodos que cubran COMPLETAMENTE las fechas solicitadas.
     """
     from datetime import timedelta
     
-    # Obtener todas las disponibilidades que se superponen con el período solicitado
+    # Calcular la duración del período solicitado
+    dias_solicitados = (fecha_fin - fecha_inicio).days + 1
+    
+    # Obtener todas las disponibilidades que CONTIENEN completamente el período solicitado
     disponibilidades_validas = disponibilidades.filter(
-        fecha_inicio__lte=fecha_fin,
-        fecha_fin__gte=fecha_inicio
+        fecha_inicio__lte=fecha_inicio,  # La disponibilidad debe empezar antes o en la fecha de inicio
+        fecha_fin__gte=fecha_fin         # La disponibilidad debe terminar después o en la fecha de fin
     )
     
     if not disponibilidades_validas.exists():
+        print(f"🚫 No hay disponibilidades que cubran completamente el período {fecha_inicio} a {fecha_fin}")
         return None
     
     # Obtener todas las reservas confirmadas o pagadas que se superponen
@@ -909,12 +914,14 @@ def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_in
         ).order_by('fecha_inicio')
         
         if not reservas_en_periodo.exists():
-            # No hay reservas en este período
-            periodos_libres.append({
-                'inicio': inicio_disp,
-                'fin': fin_disp,
-                'dias': (fin_disp - inicio_disp).days + 1
-            })
+            # No hay reservas en este período, verificar que cubra completamente las fechas solicitadas
+            dias_disponibles = (fin_disp - inicio_disp).days + 1
+            if inicio_disp <= fecha_inicio and fin_disp >= fecha_fin and dias_disponibles >= dias_solicitados:
+                periodos_libres.append({
+                    'inicio': fecha_inicio,  # Usar las fechas exactas solicitadas
+                    'fin': fecha_fin,
+                    'dias': dias_solicitados
+                })
         else:
             # Hay reservas, encontrar los huecos
             fecha_actual = inicio_disp
@@ -924,71 +931,43 @@ def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_in
                     # Hay un período libre antes de esta reserva
                     fin_periodo = min(reserva.fecha_inicio - timedelta(days=1), fin_disp)
                     if fecha_actual <= fin_periodo:
-                        periodos_libres.append({
-                            'inicio': fecha_actual,
-                            'fin': fin_periodo,
-                            'dias': (fin_periodo - fecha_actual).days + 1
-                        })
+                        # Verificar que este período libre cubra completamente las fechas solicitadas
+                        dias_libres = (fin_periodo - fecha_actual).days + 1
+                        if fecha_actual <= fecha_inicio and fin_periodo >= fecha_fin and dias_libres >= dias_solicitados:
+                            periodos_libres.append({
+                                'inicio': fecha_inicio,  # Usar las fechas exactas solicitadas
+                                'fin': fecha_fin,
+                                'dias': dias_solicitados
+                            })
                 
                 # Mover la fecha actual al final de la reserva
                 fecha_actual = max(fecha_actual, reserva.fecha_fin + timedelta(days=1))
             
             # Verificar si hay un período libre después de la última reserva
             if fecha_actual <= fin_disp:
-                periodos_libres.append({
-                    'inicio': fecha_actual,
-                    'fin': fin_disp,
-                    'dias': (fin_disp - fecha_actual).days + 1
-                })
+                # Verificar que este período libre cubra completamente las fechas solicitadas
+                dias_libres = (fin_disp - fecha_actual).days + 1
+                if fecha_actual <= fecha_inicio and fin_disp >= fecha_fin and dias_libres >= dias_solicitados:
+                    periodos_libres.append({
+                        'inicio': fecha_inicio,  # Usar las fechas exactas solicitadas
+                        'fin': fecha_fin,
+                        'dias': dias_solicitados
+                    })
     
     if not periodos_libres:
         return None
     
-    # Encontrar el período libre que mejor se ajuste a las fechas solicitadas
-    # Priorizar el que contenga o esté más cerca de fecha_inicio
-    mejor_periodo = None
-    mejor_puntuacion = -1
-    
-    for periodo in periodos_libres:
-        # Calcular puntuación basada en:
-        # 1. Si contiene la fecha de inicio solicitada
-        # 2. Si contiene todo el período solicitado
-        # 3. Proximidad a la fecha de inicio
-        # 4. Duración del período
-        
-        puntuacion = 0
-        
-        # Si contiene la fecha de inicio, alta prioridad
-        if periodo['inicio'] <= fecha_inicio <= periodo['fin']:
-            puntuacion += 1000
-            
-            # Si también contiene la fecha de fin, aún mejor
-            if fecha_fin <= periodo['fin']:
-                puntuacion += 500
-        
-        # Si no contiene fecha_inicio, penalizar por distancia
-        elif periodo['fin'] < fecha_inicio:
-            # Período antes del solicitado
-            dias_distancia = (fecha_inicio - periodo['fin']).days
-            puntuacion -= dias_distancia * 10
-        else:
-            # Período después del solicitado
-            dias_distancia = (periodo['inicio'] - fecha_inicio).days
-            puntuacion -= dias_distancia * 5
-        
-        # Bonificar por duración del período
-        puntuacion += periodo['dias']
-        
-        if puntuacion > mejor_puntuacion:
-            mejor_puntuacion = puntuacion
-            mejor_periodo = periodo
-    
-    if mejor_periodo:
+    # Si llegamos aquí, todos los períodos en periodos_libres ya cubren completamente las fechas solicitadas
+    if periodos_libres:
+        # Tomar el primer período válido (todos son igualmente válidos ahora)
+        primer_periodo = periodos_libres[0]
+        print(f"✅ Período válido encontrado: {primer_periodo['inicio']} a {primer_periodo['fin']}")
         return {
-            'inicio': mejor_periodo['inicio'],
-            'fin': mejor_periodo['fin']
+            'inicio': primer_periodo['inicio'],
+            'fin': primer_periodo['fin']
         }
     
+    print(f"🚫 No se encontraron períodos libres que cubran completamente {fecha_inicio} a {fecha_fin}")
     return None
 
 
