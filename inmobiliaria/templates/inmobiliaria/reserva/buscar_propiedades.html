@@ -17,7 +17,7 @@
         margin: 0 !important;
         padding: 20px !important;
     }
-
+    
     .container-fluid {
         background: rgba(255, 255, 255, 0.95) !important;
         border-radius: 15px !important;
@@ -358,7 +358,7 @@
         border: 3px solid #007bff !important;
         opacity: 1 !important;
     }
-
+    
     .thumbnail-nav {
         opacity: 0.7;
         transition: all 0.3s ease;
@@ -906,10 +906,10 @@
 {% block content %}
 <div class="container-fluid">
     <h1 class="text-center mb-4">Buscar Propiedades</h1>
-    
+
     <!-- Cuadro principal de búsqueda -->
     <div class="main-search-box">
-        <form method="post" id="buscar-propiedades-form-dia" class="m-0">
+            <form method="post" id="buscar-propiedades-form-dia" class="m-0">
             {% csrf_token %}
             <div class="row">
                 <div class="col-12">
