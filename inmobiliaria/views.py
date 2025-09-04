@@ -4481,13 +4481,12 @@ def buscar_propiedades(request):
 
                 # Calcular el precio total de la reserva según las fechas seleccionadas
                 precio_total = 0
-                precio_mas_caro = 0
-                primer_dia = True
                 print('fecha de inicio',fecha_inicio)
                 print('fecha de fin',fecha_fin)
                 dias_reserva = (fecha_fin - fecha_inicio).days + 1
-                total_dias_reserva = dias_reserva - 1
+                total_dias_reserva = dias_reserva
 
+                # ✅ CORREGIDO: Sumar TODOS los días (Opción A - Lógica Corregida)
                 for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
                     # Determinar el tipo de precio según la fecha
                     tipo_precio = None
@@ -4511,15 +4510,11 @@ def buscar_propiedades(request):
                     except Precio.DoesNotExist:
                         precio_dia = 0
 
-                    if precio_dia > precio_mas_caro:
-                        precio_mas_caro = precio_dia
+                    # ✅ Sumar TODOS los días - lógica simple y correcta
+                    precio_total += precio_dia
+                    print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
 
-                    if not primer_dia:
-                        precio_total += precio_dia
-                    else:
-                        primer_dia = False
-
-                propiedad.precio_total_reserva = precio_total + precio_mas_caro
+                propiedad.precio_total_reserva = precio_total
 
                 if not reservas.exists():
                     primera_disponibilidad = disponibilidades.order_by('fecha_inicio').first()
