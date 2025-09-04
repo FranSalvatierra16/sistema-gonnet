@@ -971,6 +971,7 @@ def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_in
 
 @login_required
 def buscar_propiedades_reserva(request):
+    # FUNCIÓN: buscar_propiedades_reserva - cálculo día por día con temporadas ✅
     # Obtener la sucursal del vendedor logueado
     sucursal_vendedor = request.user.sucursal
     
