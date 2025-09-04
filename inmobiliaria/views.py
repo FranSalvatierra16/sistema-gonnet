@@ -861,6 +861,137 @@ def formato_fecha(fecha):
     return fecha.strftime('%d/%m/%Y') if fecha else ''
 
 
+def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_inicio, fecha_fin):
+    """
+    Calcula la disponibilidad real de una propiedad considerando las reservas existentes.
+    Retorna el período disponible más cercano a las fechas solicitadas.
+    """
+    from datetime import timedelta
+    
+    # Obtener todas las disponibilidades que se superponen con el período solicitado
+    disponibilidades_validas = disponibilidades.filter(
+        fecha_inicio__lte=fecha_fin,
+        fecha_fin__gte=fecha_inicio
+    )
+    
+    if not disponibilidades_validas.exists():
+        return None
+    
+    # Obtener todas las reservas confirmadas o pagadas que se superponen
+    reservas_confirmadas = reservas.filter(
+        Q(estado='confirmada') | Q(estado='pagada') | Q(estado='confirmada_no_pagada'),
+        fecha_inicio__lt=fecha_fin,
+        fecha_fin__gt=fecha_inicio
+    )
+    
+    # Si no hay reservas, usar el rango completo de disponibilidad
+    if not reservas_confirmadas.exists():
+        primera_disponibilidad = disponibilidades_validas.order_by('fecha_inicio').first()
+        ultima_disponibilidad = disponibilidades_validas.order_by('-fecha_fin').first()
+        
+        return {
+            'inicio': max(primera_disponibilidad.fecha_inicio, fecha_inicio) if primera_disponibilidad else fecha_inicio,
+            'fin': min(ultima_disponibilidad.fecha_fin, fecha_fin) if ultima_disponibilidad else fecha_fin
+        }
+    
+    # Buscar períodos libres entre las reservas
+    periodos_libres = []
+    
+    # Para cada disponibilidad, encontrar los períodos no reservados
+    for disponibilidad in disponibilidades_validas:
+        inicio_disp = max(disponibilidad.fecha_inicio, fecha_inicio)
+        fin_disp = min(disponibilidad.fecha_fin, fecha_fin)
+        
+        # Dividir este período según las reservas existentes
+        reservas_en_periodo = reservas_confirmadas.filter(
+            fecha_inicio__lt=fin_disp,
+            fecha_fin__gt=inicio_disp
+        ).order_by('fecha_inicio')
+        
+        if not reservas_en_periodo.exists():
+            # No hay reservas en este período
+            periodos_libres.append({
+                'inicio': inicio_disp,
+                'fin': fin_disp,
+                'dias': (fin_disp - inicio_disp).days + 1
+            })
+        else:
+            # Hay reservas, encontrar los huecos
+            fecha_actual = inicio_disp
+            
+            for reserva in reservas_en_periodo:
+                if fecha_actual < reserva.fecha_inicio:
+                    # Hay un período libre antes de esta reserva
+                    fin_periodo = min(reserva.fecha_inicio - timedelta(days=1), fin_disp)
+                    if fecha_actual <= fin_periodo:
+                        periodos_libres.append({
+                            'inicio': fecha_actual,
+                            'fin': fin_periodo,
+                            'dias': (fin_periodo - fecha_actual).days + 1
+                        })
+                
+                # Mover la fecha actual al final de la reserva
+                fecha_actual = max(fecha_actual, reserva.fecha_fin + timedelta(days=1))
+            
+            # Verificar si hay un período libre después de la última reserva
+            if fecha_actual <= fin_disp:
+                periodos_libres.append({
+                    'inicio': fecha_actual,
+                    'fin': fin_disp,
+                    'dias': (fin_disp - fecha_actual).days + 1
+                })
+    
+    if not periodos_libres:
+        return None
+    
+    # Encontrar el período libre que mejor se ajuste a las fechas solicitadas
+    # Priorizar el que contenga o esté más cerca de fecha_inicio
+    mejor_periodo = None
+    mejor_puntuacion = -1
+    
+    for periodo in periodos_libres:
+        # Calcular puntuación basada en:
+        # 1. Si contiene la fecha de inicio solicitada
+        # 2. Si contiene todo el período solicitado
+        # 3. Proximidad a la fecha de inicio
+        # 4. Duración del período
+        
+        puntuacion = 0
+        
+        # Si contiene la fecha de inicio, alta prioridad
+        if periodo['inicio'] <= fecha_inicio <= periodo['fin']:
+            puntuacion += 1000
+            
+            # Si también contiene la fecha de fin, aún mejor
+            if fecha_fin <= periodo['fin']:
+                puntuacion += 500
+        
+        # Si no contiene fecha_inicio, penalizar por distancia
+        elif periodo['fin'] < fecha_inicio:
+            # Período antes del solicitado
+            dias_distancia = (fecha_inicio - periodo['fin']).days
+            puntuacion -= dias_distancia * 10
+        else:
+            # Período después del solicitado
+            dias_distancia = (periodo['inicio'] - fecha_inicio).days
+            puntuacion -= dias_distancia * 5
+        
+        # Bonificar por duración del período
+        puntuacion += periodo['dias']
+        
+        if puntuacion > mejor_puntuacion:
+            mejor_puntuacion = puntuacion
+            mejor_periodo = periodo
+    
+    if mejor_periodo:
+        return {
+            'inicio': mejor_periodo['inicio'],
+            'fin': mejor_periodo['fin']
+        }
+    
+    return None
+
+
 @login_required
 def buscar_propiedades_reserva(request):
     # Obtener la sucursal del vendedor logueado
@@ -1008,24 +1139,34 @@ def buscar_propiedades_reserva(request):
 
                 propiedad.precio_total_reserva = precio_total + precio_mas_caro
 
-                if not reservas.exists():
-                    primera_disponibilidad = disponibilidades.order_by('fecha_inicio').first()
-                    ultima_disponibilidad = disponibilidades.order_by('-fecha_fin').first()
+                # Calcular la disponibilidad real considerando las reservas existentes
+                disponibilidad_calculada = calcular_disponibilidad_real(
+                    propiedad, disponibilidades, reservas, fecha_inicio, fecha_fin
+                )
+                
+                if disponibilidad_calculada:
+                    propiedad.disponibilidad_inicio = disponibilidad_calculada['inicio']
+                    propiedad.disponibilidad_fin = disponibilidad_calculada['fin']
+                else:
+                    # Si no hay disponibilidad, usar la lógica original como fallback
+                    if not reservas.exists():
+                        primera_disponibilidad = disponibilidades.order_by('fecha_inicio').first()
+                        ultima_disponibilidad = disponibilidades.order_by('-fecha_fin').first()
 
-                    if primera_disponibilidad:
-                        propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
-                    if ultima_disponibilidad:
-                        propiedad.disponibilidad_fin = ultima_disponibilidad.fecha_fin
+                        if primera_disponibilidad:
+                            propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
+                        if ultima_disponibilidad:
+                            propiedad.disponibilidad_fin = ultima_disponibilidad.fecha_fin
 
-                # Obtener la reserva más cercana antes de la fecha de inicio
-                reserva_cercana = propiedad.reservas.filter(fecha_fin__lte=fecha_inicio).order_by('-fecha_fin').first()
-                reserva_cercana_fin = propiedad.reservas.filter(fecha_inicio__gte=fecha_fin).order_by('fecha_inicio').first()
+                    # Obtener la reserva más cercana antes de la fecha de inicio
+                    reserva_cercana = propiedad.reservas.filter(fecha_fin__lte=fecha_inicio).order_by('-fecha_fin').first()
+                    reserva_cercana_fin = propiedad.reservas.filter(fecha_inicio__gte=fecha_fin).order_by('fecha_inicio').first()
 
-                if reserva_cercana:
-                    propiedad.disponibilidad_inicio = reserva_cercana.fecha_fin
+                    if reserva_cercana:
+                        propiedad.disponibilidad_inicio = reserva_cercana.fecha_fin
 
-                if reserva_cercana_fin:
-                    propiedad.disponibilidad_fin = reserva_cercana_fin.fecha_inicio
+                    if reserva_cercana_fin:
+                        propiedad.disponibilidad_fin = reserva_cercana_fin.fecha_inicio
 
                 if reserva_confirmada_no_pagada:
                     propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio 
@@ -4416,15 +4557,34 @@ def buscar_propiedades(request):
                     if ultima_disponibilidad:
                         propiedad.disponibilidad_fin = ultima_disponibilidad.fecha_fin
 
-                # Obtener la reserva más cercana antes de la fecha de inicio
-                reserva_cercana = propiedad.reservas.filter(fecha_fin__lte=fecha_inicio).order_by('-fecha_fin').first()
-                reserva_cercana_fin = propiedad.reservas.filter(fecha_inicio__gte=fecha_fin).order_by('fecha_inicio').first()
+                # Calcular la disponibilidad real considerando las reservas existentes
+                disponibilidad_calculada = calcular_disponibilidad_real(
+                    propiedad, disponibilidades, reservas, fecha_inicio, fecha_fin
+                )
+                
+                if disponibilidad_calculada:
+                    propiedad.disponibilidad_inicio = disponibilidad_calculada['inicio']
+                    propiedad.disponibilidad_fin = disponibilidad_calculada['fin']
+                else:
+                    # Si no hay disponibilidad calculada, usar la lógica original como fallback
+                    if not reservas.exists():
+                        primera_disponibilidad = disponibilidades.order_by('fecha_inicio').first()
+                        ultima_disponibilidad = disponibilidades.order_by('-fecha_fin').first()
 
-                if reserva_cercana:
-                    propiedad.disponibilidad_inicio = reserva_cercana.fecha_fin
+                        if primera_disponibilidad:
+                            propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
+                        if ultima_disponibilidad:
+                            propiedad.disponibilidad_fin = ultima_disponibilidad.fecha_fin
 
-                if reserva_cercana_fin:
-                    propiedad.disponibilidad_fin = reserva_cercana_fin.fecha_inicio
+                    # Obtener la reserva más cercana antes de la fecha de inicio
+                    reserva_cercana = propiedad.reservas.filter(fecha_fin__lte=fecha_inicio).order_by('-fecha_fin').first()
+                    reserva_cercana_fin = propiedad.reservas.filter(fecha_inicio__gte=fecha_fin).order_by('fecha_inicio').first()
+
+                    if reserva_cercana:
+                        propiedad.disponibilidad_inicio = reserva_cercana.fecha_fin
+
+                    if reserva_cercana_fin:
+                        propiedad.disponibilidad_fin = reserva_cercana_fin.fecha_inicio
 
                 if reserva_confirmada_no_pagada:
                     propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio 
