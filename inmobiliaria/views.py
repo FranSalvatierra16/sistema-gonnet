@@ -4376,6 +4376,7 @@ def buscar_propiedades_caja(request):
 
 @login_required
 def buscar_propiedades(request):
+    # FUNCIÓN: buscar_propiedades - función que está siendo usada en producción ✅
     # Obtener la sucursal del vendedor logueado
     sucursal_vendedor = request.user.sucursal
     
@@ -4386,6 +4387,9 @@ def buscar_propiedades(request):
     propiedades_sin_precio = []
     vendedores = Vendedor.objects.filter(sucursal=sucursal_vendedor)
     total_dias_reserva = 0
+    
+    # FLAG: Para identificar específicamente esta función en los edits siguientes
+    FUNCION_PRINCIPAL_EN_USO = True
 
     fecha_inicio = None
     fecha_fin = None
