@@ -264,10 +264,17 @@
                 <span class="info-value">${{ reserva.precio_total|format_price }}</span>
             </div>
             
-            {% if reserva.senia > 0 %}
+            {% if total_senia_pagada > 0 %}
             <div class="info-row">
                 <span class="info-label">Seña Pagada:</span>
-                <span class="info-value">${{ reserva.senia|format_price }}</span>
+                <span class="info-value">${{ total_senia_pagada|format_price }}</span>
+            </div>
+            {% endif %}
+            
+            {% if total_deposito_pagado > 0 %}
+            <div class="info-row">
+                <span class="info-label">🛡️ Depósito de Garantía Pagado:</span>
+                <span class="info-value">${{ total_deposito_pagado|format_price }}</span>
             </div>
             {% endif %}
             

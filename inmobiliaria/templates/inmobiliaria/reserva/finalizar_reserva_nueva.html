@@ -124,7 +124,10 @@
                                     <small class="text-primary">
                                         <strong>📊 RESUMEN:</strong><br>
                                         💰 Precio Total: ${{ reserva.precio_total|format_price }}<br>
-                                        ✅ Ya Pagado: ${{ total_pagado_anterior|format_price }}<br>
+                                        ✅ Seña Pagada: ${{ total_senia_pagada|format_price }}<br>
+                                        {% if total_deposito_pagado > 0 %}
+                                        🛡️ Depósito Pagado: ${{ total_deposito_pagado|format_price }}<br>
+                                        {% endif %}
                                         ⏳ Pendiente: ${{ saldo_a_ocupar|format_price }}
                                     </small>
                                 </div>
@@ -552,6 +555,8 @@ let conceptosOriginales = [];
 
 // Función para mostrar el modal de concepto
 function mostrarModalConcepto() {
+    console.log('🔧 MOSTRAR MODAL CONCEPTO - Solo para agregar nuevo concepto');
+    
     // Limpiar el formulario
     document.getElementById('formConcepto').reset();
     
@@ -565,16 +570,35 @@ function mostrarModalConcepto() {
 
 // Función para agregar concepto a la tabla
 function agregarConcepto() {
+    console.log('➕ EJECUTANDO AGREGAR CONCEPTO');
+    console.log('📋 Estado al agregar - conceptoEditando:', conceptoEditando);
+    
+    // ⚠️ VERIFICACIÓN: Si hay un concepto editando, significa que esto es un error
+    if (conceptoEditando !== null) {
+        console.error('🚨 ERROR: Se está ejecutando agregarConcepto() pero hay un conceptoEditando activo!');
+        console.error('📋 Concepto que se está editando:', conceptoEditando);
+        alert('ERROR: Se detectó que está intentando agregar un concepto cuando debería estar editando. Por favor, use el botón "Actualizar" en lugar de "Agregar".');
+        return;
+    }
+    
     const observaciones = document.getElementById('observaciones').value;
     const importe = parseFloat(document.getElementById('importe').value);
     
+    console.log('📝 Datos para nuevo concepto:', {
+        conceptoSeleccionadoActual: conceptoSeleccionadoActual,
+        observaciones: observaciones,
+        importe: importe
+    });
+    
     // Validaciones
     if (!conceptoSeleccionadoActual) {
+        console.error('❌ Validación falló: No hay concepto seleccionado');
         alert('Por favor selecciona un concepto escribiendo su ID o usando el botón Buscar');
         return;
     }
     
     if (!importe || importe <= 0) {
+        console.error('❌ Validación falló: Importe inválido=', importe);
         alert('Por favor ingresa un importe válido');
         return;
     }
@@ -591,8 +615,12 @@ function agregarConcepto() {
         fecha: fechaActual
     };
     
+    console.log('✅ Nuevo concepto creado:', nuevoConcepto);
+    
     // Agregar a la lista
     conceptosAgregados.push(nuevoConcepto);
+    
+    console.log('📋 Array después de agregar:', JSON.parse(JSON.stringify(conceptosAgregados)));
     
     // Actualizar tabla
     actualizarTablaConceptos();
@@ -604,40 +632,59 @@ function agregarConcepto() {
     var modalConcepto = bootstrap.Modal.getInstance(document.getElementById('modalConcepto'));
     modalConcepto.hide();
     
-    console.log('Concepto agregado:', nuevoConcepto);
+    console.log('✅ Concepto agregado exitosamente');
 }
 
 // Función para actualizar concepto existente
 function actualizarConcepto() {
+    console.log('🔄 INICIANDO ACTUALIZACIÓN DE CONCEPTO');
+    console.log('📋 Estado inicial - conceptoEditando:', conceptoEditando);
+    console.log('📋 Estado inicial - conceptoSeleccionadoActual:', conceptoSeleccionadoActual);
+    
     const conceptoIdInput = document.getElementById('conceptoId');
     const observaciones = document.getElementById('observaciones').value;
     const importe = parseFloat(document.getElementById('importe').value);
     
+    console.log('📝 Datos del formulario:', {
+        conceptoIdInput: conceptoIdInput.value,
+        observaciones: observaciones,
+        importe: importe
+    });
+    
     // Validaciones
     if (!conceptoIdInput.value || !conceptoSeleccionadoActual) {
+        console.error('❌ Validación falló: conceptoIdInput.value=', conceptoIdInput.value, 'conceptoSeleccionadoActual=', conceptoSeleccionadoActual);
         alert('Por favor selecciona un concepto válido');
         return;
     }
     
     if (!importe || importe <= 0) {
+        console.error('❌ Validación falló: importe inválido=', importe);
         alert('Por favor ingresa un importe válido');
         return;
     }
     
     if (!conceptoEditando) {
+        console.error('❌ Validación falló: conceptoEditando es null o undefined');
         alert('Error: No se encontró el concepto a editar');
         return;
     }
+    
+    console.log('✅ Todas las validaciones pasaron');
     
     // Obtener datos del concepto seleccionado desde conceptoSeleccionadoActual
     const conceptoId = conceptoSeleccionadoActual.id;
     const conceptoNombre = conceptoSeleccionadoActual.nombre;
     
     console.log('🔄 Actualizando concepto:', {
-        original: conceptoEditando,
-        nuevoConceptoId: conceptoId,
-        nuevoNombre: conceptoNombre,
-        nuevoImporte: importe
+        'ID del concepto editando': conceptoEditando.id,
+        'Concepto antes de actualizar': JSON.parse(JSON.stringify(conceptoEditando)),
+        'Nuevos valores': {
+            conceptoId: conceptoId,
+            nombre: conceptoNombre,
+            observaciones: observaciones || 'Sin observaciones',
+            importe: importe
+        }
     });
     
     // Actualizar el concepto existente
@@ -646,7 +693,8 @@ function actualizarConcepto() {
     conceptoEditando.observaciones = observaciones || 'Sin observaciones';
     conceptoEditando.importe = importe;
     
-    console.log('✅ Concepto después de actualizar:', conceptoEditando);
+    console.log('✅ Concepto después de actualizar:', JSON.parse(JSON.stringify(conceptoEditando)));
+    console.log('📋 Array completo después de actualizar:', JSON.parse(JSON.stringify(conceptosAgregados)));
     
     // Actualizar tabla
     actualizarTablaConceptos();
@@ -661,12 +709,19 @@ function actualizarConcepto() {
     // Limpiar variable de edición
     conceptoEditando = null;
     
+    console.log('✅ Concepto actualizado exitosamente');
+    
     // Resetear estado del modal para próximas operaciones
     resetearModalConcepto();
 }
 
 // Función para resetear el modal de concepto
 function resetearModalConcepto() {
+    console.log('🔄 RESETEANDO MODAL - Estado antes del reset:', {
+        conceptoEditando: conceptoEditando,
+        conceptoSeleccionadoActual: conceptoSeleccionadoActual
+    });
+    
     // Limpiar campos
     document.getElementById('conceptoId').value = '';
     document.getElementById('observaciones').value = '';
@@ -685,7 +740,7 @@ function resetearModalConcepto() {
     btnAgregar.textContent = '✅ Agregar';
     btnAgregar.setAttribute('onclick', 'agregarConcepto()');
     
-    console.log('🔄 Modal reseteado para nueva operación');
+    console.log('✅ Modal reseteado para nueva operación');
 }
 
 // Variables para conceptos
@@ -926,10 +981,16 @@ function eliminarConcepto(conceptoId) {
 
 // Función para editar concepto
 function editarConcepto(conceptoId) {
+    console.log('🔧 INICIANDO EDICIÓN - Concepto ID:', conceptoId);
+    
     const concepto = conceptosAgregados.find(c => c.id === conceptoId);
     if (concepto) {
+        console.log('✅ Concepto encontrado para editar:', concepto);
+        
         // Guardar el concepto que se está editando
         conceptoEditando = concepto;
+        
+        console.log('📝 Variable conceptoEditando asignada:', conceptoEditando);
         
         // Rellenar el modal con los datos del concepto
         document.getElementById('conceptoId').value = concepto.conceptoId;
@@ -945,6 +1006,8 @@ function editarConcepto(conceptoId) {
             nombre: concepto.nombre
         };
         
+        console.log('🎯 conceptoSeleccionadoActual asignado:', conceptoSeleccionadoActual);
+        
         document.getElementById('observaciones').value = concepto.observaciones === 'Sin observaciones' ? '' : concepto.observaciones;
         document.getElementById('importe').value = concepto.importe;
         
@@ -956,9 +1019,14 @@ function editarConcepto(conceptoId) {
         btnAgregar.textContent = '✅ Actualizar';
         btnAgregar.setAttribute('onclick', 'actualizarConcepto()');
         
+        console.log('🔄 Modal configurado para edición, abriendo...');
+        
         // Mostrar el modal
         var modalConcepto = new bootstrap.Modal(document.getElementById('modalConcepto'));
         modalConcepto.show();
+    } else {
+        console.error('❌ Concepto no encontrado con ID:', conceptoId);
+        console.error('📋 Conceptos disponibles:', conceptosAgregados);
     }
 }
 

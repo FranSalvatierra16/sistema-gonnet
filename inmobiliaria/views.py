@@ -1286,7 +1286,7 @@ def finalizar_reserva_nueva(request, reserva_id):
         # Obtener conceptos de caja disponibles
         conceptos_caja = Concepto.objects.all()
         
-        # ✅ CALCULAR SALDO PENDIENTE CONSIDERANDO PAGOS ANTERIORES
+        # ✅ CALCULAR SALDO PENDIENTE CONSIDERANDO SOLO LA SEÑA (NO EL DEPÓSITO)
         # Buscar todos los movimientos de caja pagados para esta reserva
         pagos_anteriores = MovimientoCaja.objects.filter(
             propiedad=reserva.propiedad,
@@ -1294,16 +1294,32 @@ def finalizar_reserva_nueva(request, reserva_id):
             concepto__icontains=f"Reserva {reserva.id}"
         )
         
-        # Calcular total pagado hasta ahora
-        total_pagado_anterior = sum(
-            pago.monto_efectivo + pago.monto_cheque + pago.monto_tarjeta + pago.monto_deposito
-            for pago in pagos_anteriores
-        )
+        # Separar seña de depósito de garantía en los pagos anteriores
+        total_senia_pagada = 0
+        total_deposito_pagado = 0
+        total_pagado_anterior = 0
         
-        # Saldo pendiente = Precio total - Total pagado hasta ahora
-        saldo_a_ocupar = reserva.precio_total - total_pagado_anterior
+        for pago in pagos_anteriores:
+            monto_pago = pago.monto_efectivo + pago.monto_cheque + pago.monto_tarjeta + pago.monto_deposito
+            total_pagado_anterior += monto_pago
+            
+            # Identificar si es depósito de garantía por el concepto
+            if 'depósito' in pago.concepto.lower() or 'deposito' in pago.concepto.lower() or 'garantía' in pago.concepto.lower() or 'garantia' in pago.concepto.lower():
+                total_deposito_pagado += monto_pago
+                print(f"💳 DEPÓSITO IDENTIFICADO - Concepto: '{pago.concepto}', Monto: {monto_pago}")
+            else:
+                total_senia_pagada += monto_pago
+                print(f"💰 SEÑA IDENTIFICADA - Concepto: '{pago.concepto}', Monto: {monto_pago}")
         
-        print(f"💰 CÁLCULO SALDO - Precio Total: {reserva.precio_total}, Total Pagado: {total_pagado_anterior}, Saldo Pendiente: {saldo_a_ocupar}")
+        # ✅ NUEVO CÁLCULO: Saldo pendiente = Precio total - SOLO la seña pagada (NO el depósito)
+        saldo_a_ocupar = reserva.precio_total - total_senia_pagada
+        
+        print(f"💰 NUEVO CÁLCULO SALDO:")
+        print(f"   - Precio Total: {reserva.precio_total}")
+        print(f"   - Seña Pagada: {total_senia_pagada}")
+        print(f"   - Depósito Pagado: {total_deposito_pagado}")
+        print(f"   - Total Pagado (ambos): {total_pagado_anterior}")
+        print(f"   - Saldo Pendiente (solo descontando seña): {saldo_a_ocupar}")
         
         # Datos para el formulario (solo lectura)
         context = {
@@ -1321,6 +1337,8 @@ def finalizar_reserva_nueva(request, reserva_id):
             'conceptos_caja': conceptos_caja,
             'saldo_a_ocupar': saldo_a_ocupar,
             'total_pagado_anterior': total_pagado_anterior,
+            'total_senia_pagada': total_senia_pagada,  # ✅ NUEVO: Solo la seña pagada
+            'total_deposito_pagado': total_deposito_pagado,  # ✅ NUEVO: Solo el depósito pagado
             'deposito_garantia': reserva.deposito_garantia,
             'fecha_desde': reserva.fecha_inicio.strftime('%d/%m/%Y'),
             'fecha_hasta': reserva.fecha_fin.strftime('%d/%m/%Y'),
@@ -2228,15 +2246,27 @@ def ver_recibo_movimiento(request, movimiento_id):
             for mov in todos_movimientos:
                 print(f"🔍 Movimiento ID: {mov.id}, Concepto: '{mov.concepto}', Total: {mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito}")
             
-            total_pagado_reserva = sum(
-                m.monto_efectivo + m.monto_cheque + m.monto_tarjeta + m.monto_deposito
-                for m in todos_movimientos
-            )
+            # ✅ SEPARAR SEÑA DE DEPÓSITO PARA CÁLCULO CORRECTO
+            total_senia_pagada_recibo = 0
+            total_deposito_pagado_recibo = 0
             
-            # ✅ CORRECCIÓN: El saldo pendiente es precio total - TODOS LOS PAGOS
-            saldo_pendiente = reserva.precio_total - total_pagado_reserva
+            for mov in todos_movimientos:
+                monto_mov = mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito
+                
+                # Identificar si es depósito de garantía por el concepto
+                if 'depósito' in mov.concepto.lower() or 'deposito' in mov.concepto.lower() or 'garantía' in mov.concepto.lower() or 'garantia' in mov.concepto.lower():
+                    total_deposito_pagado_recibo += monto_mov
+                    print(f"💳 DEPÓSITO RECIBO - Concepto: '{mov.concepto}', Monto: {monto_mov}")
+                else:
+                    total_senia_pagada_recibo += monto_mov
+                    print(f"💰 SEÑA RECIBO - Concepto: '{mov.concepto}', Monto: {monto_mov}")
             
-            print(f"💰 SALDO CÁLCULO - Precio Total: {reserva.precio_total}, Total Pagado: {total_pagado_reserva}, Saldo Pendiente: {saldo_pendiente}")
+            total_pagado_reserva = total_senia_pagada_recibo + total_deposito_pagado_recibo
+            
+            # ✅ NUEVO CÁLCULO: El saldo pendiente es precio total - SOLO LA SEÑA (NO EL DEPÓSITO)
+            saldo_pendiente = reserva.precio_total - total_senia_pagada_recibo
+            
+            print(f"💰 SALDO RECIBO - Precio Total: {reserva.precio_total}, Seña Pagada: {total_senia_pagada_recibo}, Depósito: {total_deposito_pagado_recibo}, Saldo Pendiente: {saldo_pendiente}")
         else:
             total_pagado_reserva = total_movimiento
         
@@ -2252,6 +2282,8 @@ def ver_recibo_movimiento(request, movimiento_id):
             'total_deposito_mp': total_deposito_mp,
             'saldo_pendiente': saldo_pendiente,
             'total_pagado_acumulado': total_pagado_reserva if reserva else total_movimiento,
+            'total_senia_pagada': total_senia_pagada_recibo if reserva else 0,  # ✅ NUEVO: Solo seña
+            'total_deposito_pagado': total_deposito_pagado_recibo if reserva else 0,  # ✅ NUEVO: Solo depósito
             'movimientos_relacionados': movimientos_relacionados,
             'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
             'caja': movimiento.caja,
