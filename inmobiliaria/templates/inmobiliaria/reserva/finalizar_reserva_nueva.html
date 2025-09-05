@@ -555,13 +555,8 @@ function mostrarModalConcepto() {
     // Limpiar el formulario
     document.getElementById('formConcepto').reset();
     
-    // Resetear el modal para modo "agregar"
-    conceptoEditando = null;
-    document.getElementById('modalConceptoLabel').textContent = '➕ Agregar Concepto';
-    
-    const btnAgregar = document.querySelector('#modalConcepto .btn-success');
-    btnAgregar.textContent = '✅ Agregar';
-    btnAgregar.setAttribute('onclick', 'agregarConcepto()');
+    // Resetear completamente el modal para modo "agregar"
+    resetearModalConcepto();
     
     // Mostrar el modal
     var modalConcepto = new bootstrap.Modal(document.getElementById('modalConcepto'));
@@ -614,13 +609,13 @@ function agregarConcepto() {
 
 // Función para actualizar concepto existente
 function actualizarConcepto() {
-    const conceptoSelect = document.getElementById('conceptoSelect');
+    const conceptoIdInput = document.getElementById('conceptoId');
     const observaciones = document.getElementById('observaciones').value;
     const importe = parseFloat(document.getElementById('importe').value);
     
     // Validaciones
-    if (!conceptoSelect.value) {
-        alert('Por favor selecciona un concepto');
+    if (!conceptoIdInput.value || !conceptoSeleccionadoActual) {
+        alert('Por favor selecciona un concepto válido');
         return;
     }
     
@@ -634,15 +629,24 @@ function actualizarConcepto() {
         return;
     }
     
-    // Obtener datos del concepto seleccionado
-    const conceptoId = conceptoSelect.value;
-    const conceptoNombre = conceptoSelect.options[conceptoSelect.selectedIndex].dataset.nombre;
+    // Obtener datos del concepto seleccionado desde conceptoSeleccionadoActual
+    const conceptoId = conceptoSeleccionadoActual.id;
+    const conceptoNombre = conceptoSeleccionadoActual.nombre;
+    
+    console.log('🔄 Actualizando concepto:', {
+        original: conceptoEditando,
+        nuevoConceptoId: conceptoId,
+        nuevoNombre: conceptoNombre,
+        nuevoImporte: importe
+    });
     
     // Actualizar el concepto existente
     conceptoEditando.conceptoId = conceptoId;
     conceptoEditando.nombre = conceptoNombre;
     conceptoEditando.observaciones = observaciones || 'Sin observaciones';
     conceptoEditando.importe = importe;
+    
+    console.log('✅ Concepto después de actualizar:', conceptoEditando);
     
     // Actualizar tabla
     actualizarTablaConceptos();
@@ -657,7 +661,31 @@ function actualizarConcepto() {
     // Limpiar variable de edición
     conceptoEditando = null;
     
-    console.log('Concepto actualizado:', conceptoEditando);
+    // Resetear estado del modal para próximas operaciones
+    resetearModalConcepto();
+}
+
+// Función para resetear el modal de concepto
+function resetearModalConcepto() {
+    // Limpiar campos
+    document.getElementById('conceptoId').value = '';
+    document.getElementById('observaciones').value = '';
+    document.getElementById('importe').value = '';
+    
+    // Ocultar información del concepto
+    document.getElementById('infoConceptoSeleccionado').style.display = 'none';
+    
+    // Limpiar variables globales
+    conceptoSeleccionadoActual = null;
+    conceptoEditando = null;
+    
+    // Restaurar título y botón del modal
+    document.getElementById('modalConceptoLabel').textContent = '➕ Agregar Concepto';
+    const btnAgregar = document.querySelector('#modalConcepto .btn-success');
+    btnAgregar.textContent = '✅ Agregar';
+    btnAgregar.setAttribute('onclick', 'agregarConcepto()');
+    
+    console.log('🔄 Modal reseteado para nueva operación');
 }
 
 // Variables para conceptos
@@ -952,30 +980,41 @@ function calcularTotales() {
     document.getElementById('totalRecibo').value = totalRecibo;
     document.getElementById('totalReciboDisplay').textContent = totalRecibo.toLocaleString('es-ES');
     
-    // ✅ NUEVA VALIDACIÓN: El total del recibo debe coincidir con el total de pagos (no con la seña)
-    // La seña es solo informativa, la validación real es pagos vs recibo
+    // ✅ VALIDACIÓN: Mostrar información sobre seña + depósito de garantía vs total del recibo
+    const depositoGarantia = parsearValorFormateado(document.querySelector('input[name="deposito_garantia"]')?.value || 0);
+    const totalEsperado = senia + depositoGarantia;
     const validacionElement = document.getElementById('validacionSeña');
     
     // Calcular total de pagos actual
     const totalPagos = calcularTotalPagos();
     const diferenciaPagos = totalPagos - totalRecibo;
+    const diferenciaEsperada = totalRecibo - totalEsperado;
     
-    if (diferenciaPagos === 0 && totalRecibo > 0) {
-        validacionElement.innerHTML = '<span style="color: green;">✅ Los pagos coinciden con el total del recibo</span>';
-        validacionElement.style.display = 'block';
-    } else if (totalRecibo === 0) {
+    if (totalRecibo === 0) {
         validacionElement.innerHTML = '<span style="color: gray;">ℹ️ Agregue conceptos para continuar</span>';
         validacionElement.style.display = 'block';
-    } else if (diferenciaPagos > 0) {
-        validacionElement.innerHTML = `<span style="color: orange;">⚠️ Los pagos superan el recibo en $${diferenciaPagos.toLocaleString('es-ES')}</span>`;
+    } else if (Math.abs(diferenciaEsperada) <= 0.01) {
+        if (diferenciaPagos === 0) {
+            validacionElement.innerHTML = '<span style="color: green;">✅ Todo correcto: Recibo = Seña + Depósito, y los pagos coinciden</span>';
+        } else if (diferenciaPagos > 0) {
+            validacionElement.innerHTML = `<span style="color: orange;">⚠️ Recibo correcto (Seña + Depósito), pero sobran $${Math.abs(diferenciaPagos).toLocaleString('es-ES')} en pagos</span>`;
+        } else {
+            validacionElement.innerHTML = `<span style="color: red;">❌ Recibo correcto (Seña + Depósito), pero faltan $${Math.abs(diferenciaPagos).toLocaleString('es-ES')} en pagos</span>`;
+        }
         validacionElement.style.display = 'block';
     } else {
-        validacionElement.innerHTML = `<span style="color: red;">❌ Faltan $${Math.abs(diferenciaPagos).toLocaleString('es-ES')} en pagos</span>`;
+        if (diferenciaEsperada > 0) {
+            validacionElement.innerHTML = `<span style="color: orange;">⚠️ El recibo ($${totalRecibo.toLocaleString('es-ES')}) es mayor que Seña + Depósito ($${totalEsperado.toLocaleString('es-ES')}). Diferencia: $${Math.abs(diferenciaEsperada).toLocaleString('es-ES')}</span>`;
+        } else {
+            validacionElement.innerHTML = `<span style="color: red;">❌ El recibo ($${totalRecibo.toLocaleString('es-ES')}) es menor que Seña + Depósito ($${totalEsperado.toLocaleString('es-ES')}). Faltan: $${Math.abs(diferenciaEsperada).toLocaleString('es-ES')}</span>`;
+        }
         validacionElement.style.display = 'block';
     }
     
-    // ✅ Evaluar estado del botón: debe haber conceptos Y pagos deben coincidir
-    habilitarBotonProcesar(diferenciaPagos === 0 && totalRecibo > 0);
+    // ✅ Evaluar estado del botón: debe haber conceptos, recibo = seña+depósito Y pagos deben coincidir
+    const reciboEsCorrecto = Math.abs(diferenciaEsperada) <= 0.01;
+    const pagosCoinciden = diferenciaPagos === 0;
+    habilitarBotonProcesar(reciboEsCorrecto && pagosCoinciden && totalRecibo > 0);
 }
 
 // Función para calcular total de transferencias
@@ -1104,7 +1143,7 @@ function procesarMovimiento() {
         return;
     }
     
-    // ✅ VALIDACIÓN: Verificar que el total del recibo coincida con la seña
+    // ✅ VALIDACIÓN: Verificar que el total del recibo coincida con la suma de seña + depósito de garantía
     // Función auxiliar para parsear valores formateados
     const parsearValorFormateado = (valor) => {
         if (!valor) return 0;
@@ -1113,11 +1152,13 @@ function procesarMovimiento() {
     
     const totalRecibo = parseFloat(document.getElementById('totalRecibo').value) || 0;
     const senia = parsearValorFormateado(document.getElementById('senia').value);
+    const depositoGarantia = parsearValorFormateado(document.querySelector('input[name="deposito_garantia"]').value);
+    const totalEsperado = senia + depositoGarantia;
     
-    console.log(`🔍 VALIDACIÓN PROCESAMIENTO - Total Recibo: ${totalRecibo}, Seña: ${senia}`);
+    console.log(`🔍 VALIDACIÓN PROCESAMIENTO - Total Recibo: ${totalRecibo}, Seña: ${senia}, Depósito: ${depositoGarantia}, Total Esperado: ${totalEsperado}`);
     
-    if (Math.abs(totalRecibo - senia) > 0.01) {
-        alert(`⚠️ El total del recibo ($${totalRecibo.toLocaleString('es-ES')}) debe coincidir exactamente con la seña ($${senia.toLocaleString('es-ES')})`);
+    if (Math.abs(totalRecibo - totalEsperado) > 0.01) {
+        alert(`⚠️ El total del recibo ($${totalRecibo.toLocaleString('es-ES')}) debe coincidir exactamente con la suma de seña + depósito de garantía ($${totalEsperado.toLocaleString('es-ES')})\n\nSeña: $${senia.toLocaleString('es-ES')}\nDepósito de Garantía: $${depositoGarantia.toLocaleString('es-ES')}`);
         return;
     }
     
@@ -1262,6 +1303,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Calcular saldo a ocupar cuando cambian los valores
     const seniaInput = document.querySelector('input[name="senia"]');
     const importeLocacionInput = document.querySelector('input[name="importe_locacion"]');
+    const depositoGarantiaInput = document.querySelector('input[name="deposito_garantia"]');
+    
+    // ✅ Event listener para el depósito de garantía
+    if (depositoGarantiaInput) {
+        depositoGarantiaInput.addEventListener('input', function() {
+            calcularTotales();
+            calcularSaldoOcupar();
+            habilitarBotonProcesar();
+        });
+    }
     
     // Actualizar eventos para recalcular el saldo cuando cambien los pagos
     ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito_galicia', 'monto_deposito_mp'].forEach(function(id) {
