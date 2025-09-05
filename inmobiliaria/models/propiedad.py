@@ -223,10 +223,10 @@ class Propiedad(models.Model):
         if not fecha_inicio or not fecha_fin:
             return False
 
-        # Verificar si hay disponibilidades que cubran el período
+        # ✅ CORREGIDO: Verificar si hay disponibilidades que se superpongan (no necesariamente cobertura completa)
         disponibilidades = self.disponibilidades.filter(
-            fecha_inicio__lte=fecha_inicio,
-            fecha_fin__gte=fecha_fin
+            fecha_inicio__lt=fecha_fin,     # La disponibilidad empieza ANTES del fin solicitado
+            fecha_fin__gt=fecha_inicio      # La disponibilidad termina DESPUÉS del inicio solicitado
         ).exists()
 
         # Verificar si hay reservas que se superpongan
@@ -237,7 +237,7 @@ class Propiedad(models.Model):
         ).exists()
 
         # La propiedad está disponible si:
-        # 1. Hay una disponibilidad que cubre el período
+        # 1. Hay una disponibilidad que se superpone con el período
         # 2. Y no hay reservas que se superpongan
         return disponibilidades and not reservas_superpuestas
 
