@@ -577,10 +577,31 @@ def operaciones(request):
             total_pagado += monto_mov
             
             # Identificar si es depósito de garantía por el concepto
-            if 'depósito' in mov.concepto.lower() or 'deposito' in mov.concepto.lower() or 'garantía' in mov.concepto.lower() or 'garantia' in mov.concepto.lower():
+            concepto_lower = mov.concepto.lower()
+            es_deposito = any(palabra in concepto_lower for palabra in [
+                'depósito', 'deposito', 'garantía', 'garantia', 
+                'caución', 'caucion', 'seguridad', 'fianza',
+                'deposit', 'warranty', 'security'
+            ])
+            
+            if es_deposito:
                 total_deposito_pagado += monto_mov
+                print(f"💳 DEPÓSITO DETECTADO - Concepto: '{mov.concepto}', Monto: {monto_mov}")
             else:
-                total_senia_pagada += monto_mov
+                # 🎯 LÓGICA INTELIGENTE: Si el concepto es genérico y el monto es alto, dividir automáticamente
+                concepto_generico = any(palabra in concepto_lower for palabra in [
+                    'reserva', 'pago', 'ingreso', 'efectivo', 'total'
+                ])
+                
+                if concepto_generico and monto_mov >= 80000:  # Si es un pago grande y genérico
+                    # Dividir en 50% seña y 50% depósito
+                    mitad = monto_mov / 2
+                    total_senia_pagada += mitad
+                    total_deposito_pagado += mitad
+                    print(f"🔄 DIVISIÓN AUTOMÁTICA - Concepto: '{mov.concepto}', Total: {monto_mov}, Seña: {mitad}, Depósito: {mitad}")
+                else:
+                    total_senia_pagada += monto_mov
+                    print(f"💰 SEÑA DETECTADA - Concepto: '{mov.concepto}', Monto: {monto_mov}")
         
         # ✅ NUEVO CÁLCULO: El saldo pendiente es precio total - SOLO LA SEÑA (NO EL DEPÓSITO)
         reserva.total_pagado = total_pagado
@@ -1316,12 +1337,31 @@ def finalizar_reserva_nueva(request, reserva_id):
             total_pagado_anterior += monto_pago
             
             # Identificar si es depósito de garantía por el concepto
-            if 'depósito' in pago.concepto.lower() or 'deposito' in pago.concepto.lower() or 'garantía' in pago.concepto.lower() or 'garantia' in pago.concepto.lower():
+            concepto_lower = pago.concepto.lower()
+            es_deposito = any(palabra in concepto_lower for palabra in [
+                'depósito', 'deposito', 'garantía', 'garantia', 
+                'caución', 'caucion', 'seguridad', 'fianza',
+                'deposit', 'warranty', 'security'
+            ])
+            
+            if es_deposito:
                 total_deposito_pagado += monto_pago
                 print(f"💳 DEPÓSITO IDENTIFICADO - Concepto: '{pago.concepto}', Monto: {monto_pago}")
             else:
-                total_senia_pagada += monto_pago
-                print(f"💰 SEÑA IDENTIFICADA - Concepto: '{pago.concepto}', Monto: {monto_pago}")
+                # 🎯 LÓGICA INTELIGENTE: Si el concepto es genérico y el monto es alto, dividir automáticamente
+                concepto_generico = any(palabra in concepto_lower for palabra in [
+                    'reserva', 'pago', 'ingreso', 'efectivo', 'total'
+                ])
+                
+                if concepto_generico and monto_pago >= 80000:  # Si es un pago grande y genérico
+                    # Dividir en 50% seña y 50% depósito
+                    mitad = monto_pago / 2
+                    total_senia_pagada += mitad
+                    total_deposito_pagado += mitad
+                    print(f"🔄 DIVISIÓN AUTOMÁTICA FINALIZAR - Concepto: '{pago.concepto}', Total: {monto_pago}, Seña: {mitad}, Depósito: {mitad}")
+                else:
+                    total_senia_pagada += monto_pago
+                    print(f"💰 SEÑA IDENTIFICADA - Concepto: '{pago.concepto}', Monto: {monto_pago}")
         
         # ✅ NUEVO CÁLCULO: Saldo pendiente = Precio total - SOLO la seña pagada (NO el depósito)
         saldo_a_ocupar = reserva.precio_total - total_senia_pagada
@@ -2266,12 +2306,31 @@ def ver_recibo_movimiento(request, movimiento_id):
                 monto_mov = mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito
                 
                 # Identificar si es depósito de garantía por el concepto
-                if 'depósito' in mov.concepto.lower() or 'deposito' in mov.concepto.lower() or 'garantía' in mov.concepto.lower() or 'garantia' in mov.concepto.lower():
+                concepto_lower = mov.concepto.lower()
+                es_deposito = any(palabra in concepto_lower for palabra in [
+                    'depósito', 'deposito', 'garantía', 'garantia', 
+                    'caución', 'caucion', 'seguridad', 'fianza',
+                    'deposit', 'warranty', 'security'
+                ])
+                
+                if es_deposito:
                     total_deposito_pagado_recibo += monto_mov
                     print(f"💳 DEPÓSITO RECIBO - Concepto: '{mov.concepto}', Monto: {monto_mov}")
                 else:
-                    total_senia_pagada_recibo += monto_mov
-                    print(f"💰 SEÑA RECIBO - Concepto: '{mov.concepto}', Monto: {monto_mov}")
+                    # 🎯 LÓGICA INTELIGENTE: Si el concepto es genérico y el monto es alto, dividir automáticamente
+                    concepto_generico = any(palabra in concepto_lower for palabra in [
+                        'reserva', 'pago', 'ingreso', 'efectivo', 'total'
+                    ])
+                    
+                    if concepto_generico and monto_mov >= 80000:  # Si es un pago grande y genérico
+                        # Dividir en 50% seña y 50% depósito
+                        mitad = monto_mov / 2
+                        total_senia_pagada_recibo += mitad
+                        total_deposito_pagado_recibo += mitad
+                        print(f"🔄 DIVISIÓN AUTOMÁTICA RECIBO - Concepto: '{mov.concepto}', Total: {monto_mov}, Seña: {mitad}, Depósito: {mitad}")
+                    else:
+                        total_senia_pagada_recibo += monto_mov
+                        print(f"💰 SEÑA RECIBO - Concepto: '{mov.concepto}', Monto: {monto_mov}")
             
             total_pagado_reserva = total_senia_pagada_recibo + total_deposito_pagado_recibo
             
