@@ -4397,6 +4397,20 @@ def buscar_propiedades(request):
     if form.is_valid():
         fecha_inicio = form.cleaned_data['fecha_inicio']
         fecha_fin = form.cleaned_data['fecha_fin']
+        
+        # VALIDACIÓN: Verificar que las fechas son válidas
+        if not fecha_inicio or not fecha_fin:
+            print("❌ Error: Fechas de inicio o fin faltantes")
+            return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
+                'form': form,
+                'error_fechas': 'Por favor, ingresa fechas de inicio y fin válidas.',
+                'inquilinos': inquilinos,
+                'vendedores': vendedores,
+                'propiedades_disponibles': [],
+                'total_dias_reserva': 0,
+                'fecha_inicio': fecha_inicio,
+                'fecha_fin': fecha_fin,
+            })
         origen = form.cleaned_data['origen']
         destino = form.cleaned_data['destino']
         ver_todas = form.cleaned_data.get('ver_todas', False)
@@ -4406,6 +4420,9 @@ def buscar_propiedades(request):
             propiedades = Propiedad.objects.all()
         else:
             propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor)
+        
+        # AGREGAR FLAG: Para editar específicamente el filtro de esta función
+        ES_BUSCAR_PROPIEDADES_PRINCIPAL = True
 
         # Prefetch los precios para cada propiedad
         propiedades = propiedades.prefetch_related(
