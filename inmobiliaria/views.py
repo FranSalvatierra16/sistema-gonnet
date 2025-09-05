@@ -871,11 +871,11 @@ def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_in
     # Calcular la duración del período solicitado
     dias_solicitados = (fecha_fin - fecha_inicio).days + 1
     
-    # Obtener todas las disponibilidades que se superponen con el período solicitado
-    # (más flexible - no requiere cobertura completa)
+    # Obtener todas las disponibilidades que tienen superposición REAL con el período solicitado
+    # Evitar casos donde solo se "tocan" en un día
     disponibilidades_validas = disponibilidades.filter(
-        fecha_inicio__lte=fecha_fin,    # La disponibilidad empieza antes del fin solicitado
-        fecha_fin__gte=fecha_inicio     # La disponibilidad termina después del inicio solicitado
+        fecha_inicio__lt=fecha_fin,     # La disponibilidad empieza ANTES del fin solicitado (no en el mismo día)
+        fecha_fin__gt=fecha_inicio      # La disponibilidad termina DESPUÉS del inicio solicitado (no en el mismo día)
     )
     
     if not disponibilidades_validas.exists():
