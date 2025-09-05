@@ -567,16 +567,28 @@ def operaciones(request):
             concepto__icontains=f"Reserva {reserva.id}"
         )
         
-        # Calcular total pagado desde movimientos de caja
-        total_pagado = sum(
-            mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito
-            for mov in movimientos
-        )
+        # ✅ NUEVO: Separar seña de depósito para cálculo correcto
+        total_senia_pagada = 0
+        total_deposito_pagado = 0
+        total_pagado = 0
         
-        # ✅ CORRECCIÓN: Calcular saldo pendiente correctamente:
-        # El saldo pendiente es: precio_total - TODOS LOS PAGOS realizados
+        for mov in movimientos:
+            monto_mov = mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito
+            total_pagado += monto_mov
+            
+            # Identificar si es depósito de garantía por el concepto
+            if 'depósito' in mov.concepto.lower() or 'deposito' in mov.concepto.lower() or 'garantía' in mov.concepto.lower() or 'garantia' in mov.concepto.lower():
+                total_deposito_pagado += monto_mov
+            else:
+                total_senia_pagada += monto_mov
+        
+        # ✅ NUEVO CÁLCULO: El saldo pendiente es precio total - SOLO LA SEÑA (NO EL DEPÓSITO)
         reserva.total_pagado = total_pagado
-        reserva.saldo_pendiente = reserva.precio_total - total_pagado
+        reserva.saldo_pendiente = reserva.precio_total - total_senia_pagada  # ✅ Solo seña
+        reserva.total_senia_pagada = total_senia_pagada
+        reserva.total_deposito_pagado = total_deposito_pagado
+        
+        print(f"💰 OPERACIONES - Reserva {reserva.id}: Precio Total: {reserva.precio_total}, Seña: {total_senia_pagada}, Depósito: {total_deposito_pagado}, Saldo: {reserva.saldo_pendiente}")
         
         # Obtener el movimiento más reciente para el enlace del recibo
         reserva.movimiento_reciente = movimientos.first() if movimientos.exists() else None
