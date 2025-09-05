@@ -864,22 +864,22 @@ def formato_fecha(fecha):
 def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_inicio, fecha_fin):
     """
     Calcula la disponibilidad real de una propiedad considerando las reservas existentes.
-    Retorna el período disponible más cercano a las fechas solicitadas.
-    Solo devuelve períodos que cubran COMPLETAMENTE las fechas solicitadas.
+    Retorna el período disponible más amplio que incluya o se superponga con las fechas solicitadas.
     """
     from datetime import timedelta
     
     # Calcular la duración del período solicitado
     dias_solicitados = (fecha_fin - fecha_inicio).days + 1
     
-    # Obtener todas las disponibilidades que CONTIENEN completamente el período solicitado
+    # Obtener todas las disponibilidades que se superponen con el período solicitado
+    # (más flexible - no requiere cobertura completa)
     disponibilidades_validas = disponibilidades.filter(
-        fecha_inicio__lte=fecha_inicio,  # La disponibilidad debe empezar antes o en la fecha de inicio
-        fecha_fin__gte=fecha_fin         # La disponibilidad debe terminar después o en la fecha de fin
+        fecha_inicio__lte=fecha_fin,    # La disponibilidad empieza antes del fin solicitado
+        fecha_fin__gte=fecha_inicio     # La disponibilidad termina después del inicio solicitado
     )
     
     if not disponibilidades_validas.exists():
-        print(f"🚫 No hay disponibilidades que cubran completamente el período {fecha_inicio} a {fecha_fin}")
+        print(f"🚫 No hay disponibilidades que se superpongan con el período {fecha_inicio} a {fecha_fin}")
         return None
     
     # Obtener todas las reservas confirmadas o pagadas que se superponen
@@ -931,41 +931,39 @@ def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_in
                     # Hay un período libre antes de esta reserva
                     fin_periodo = reserva.fecha_inicio - timedelta(days=1)
                     if fecha_actual <= fin_periodo:
-                        # Verificar que este período libre cubra completamente las fechas solicitadas
-                        if fecha_actual <= fecha_inicio and fin_periodo >= fecha_fin:
-                            periodos_libres.append({
-                                'inicio': fecha_actual,      # Mostrar desde el inicio real del período libre
-                                'fin': fin_periodo,          # Hasta el fin real del período libre
-                                'dias': (fin_periodo - fecha_actual).days + 1
-                            })
+                        # Agregar cualquier período libre válido (sin exigir cobertura completa)
+                        periodos_libres.append({
+                            'inicio': fecha_actual,      # Mostrar desde el inicio real del período libre
+                            'fin': fin_periodo,          # Hasta el fin real del período libre
+                            'dias': (fin_periodo - fecha_actual).days + 1
+                        })
                 
                 # Mover la fecha actual al final de la reserva
                 fecha_actual = max(fecha_actual, reserva.fecha_fin + timedelta(days=1))
             
             # Verificar si hay un período libre después de la última reserva
             if fecha_actual <= disponibilidad.fecha_fin:
-                # Verificar que este período libre cubra completamente las fechas solicitadas
-                if fecha_actual <= fecha_inicio and disponibilidad.fecha_fin >= fecha_fin:
-                    periodos_libres.append({
-                        'inicio': fecha_actual,                    # Desde donde queda libre después de la reserva
-                        'fin': disponibilidad.fecha_fin,          # Hasta el fin real de la disponibilidad
-                        'dias': (disponibilidad.fecha_fin - fecha_actual).days + 1
-                    })
+                # Agregar cualquier período libre válido (sin exigir cobertura completa)
+                periodos_libres.append({
+                    'inicio': fecha_actual,                    # Desde donde queda libre después de la reserva
+                    'fin': disponibilidad.fecha_fin,          # Hasta el fin real de la disponibilidad
+                    'dias': (disponibilidad.fecha_fin - fecha_actual).days + 1
+                })
     
     if not periodos_libres:
         return None
     
-    # Si llegamos aquí, todos los períodos en periodos_libres ya cubren completamente las fechas solicitadas
+    # Si hay períodos libres, devolver el más amplio o conveniente
     if periodos_libres:
-        # Tomar el primer período válido (todos son igualmente válidos ahora)
-        primer_periodo = periodos_libres[0]
-        print(f"✅ Período válido encontrado: {primer_periodo['inicio']} a {primer_periodo['fin']}")
+        # Buscar el período que mejor cubra las fechas solicitadas o el más amplio
+        mejor_periodo = max(periodos_libres, key=lambda p: p['dias'])
+        print(f"✅ Período disponible encontrado: {mejor_periodo['inicio']} a {mejor_periodo['fin']} ({mejor_periodo['dias']} días)")
         return {
-            'inicio': primer_periodo['inicio'],
-            'fin': primer_periodo['fin']
+            'inicio': mejor_periodo['inicio'],
+            'fin': mejor_periodo['fin']
         }
     
-    print(f"🚫 No se encontraron períodos libres que cubran completamente {fecha_inicio} a {fecha_fin}")
+    print(f"🚫 No se encontraron períodos libres para {fecha_inicio} a {fecha_fin}")
     return None
 
 
@@ -4538,10 +4536,26 @@ def buscar_propiedades(request):
                     propiedad.disponibilidad_inicio = disponibilidad_calculada['inicio']
                     propiedad.disponibilidad_fin = disponibilidad_calculada['fin']
                 else:
-                    # ✅ CORREGIDO: Si no hay disponibilidad que cubra completamente el período, 
-                    # saltar esta propiedad en lugar de mostrarla con disponibilidad parcial
-                    print(f"🚫 Propiedad {propiedad.id} descartada: no tiene disponibilidad completa para {fecha_inicio} a {fecha_fin}")
-                    continue  # Saltar esta propiedad
+                    # Si no hay disponibilidad calculada, usar la lógica original como fallback
+                    # pero validar que al menos tenga alguna disponibilidad en el período
+                    if not reservas.exists():
+                        primera_disponibilidad = disponibilidades.order_by('fecha_inicio').first()
+                        ultima_disponibilidad = disponibilidades.order_by('-fecha_fin').first()
+
+                        if primera_disponibilidad:
+                            propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
+                        if ultima_disponibilidad:
+                            propiedad.disponibilidad_fin = ultima_disponibilidad.fecha_fin
+
+                    # Obtener la reserva más cercana antes de la fecha de inicio
+                    reserva_cercana = propiedad.reservas.filter(fecha_fin__lte=fecha_inicio).order_by('-fecha_fin').first()
+                    reserva_cercana_fin = propiedad.reservas.filter(fecha_inicio__gte=fecha_fin).order_by('fecha_inicio').first()
+
+                    if reserva_cercana:
+                        propiedad.disponibilidad_inicio = reserva_cercana.fecha_fin
+
+                    if reserva_cercana_fin:
+                        propiedad.disponibilidad_fin = reserva_cercana_fin.fecha_inicio
 
                 if reserva_confirmada_no_pagada:
                     propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio 
