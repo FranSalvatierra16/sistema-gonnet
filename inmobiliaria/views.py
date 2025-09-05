@@ -4538,25 +4538,10 @@ def buscar_propiedades(request):
                     propiedad.disponibilidad_inicio = disponibilidad_calculada['inicio']
                     propiedad.disponibilidad_fin = disponibilidad_calculada['fin']
                 else:
-                    # Si no hay disponibilidad calculada, usar la lógica original como fallback
-                    if not reservas.exists():
-                        primera_disponibilidad = disponibilidades.order_by('fecha_inicio').first()
-                        ultima_disponibilidad = disponibilidades.order_by('-fecha_fin').first()
-
-                        if primera_disponibilidad:
-                            propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
-                        if ultima_disponibilidad:
-                            propiedad.disponibilidad_fin = ultima_disponibilidad.fecha_fin
-
-                    # Obtener la reserva más cercana antes de la fecha de inicio
-                    reserva_cercana = propiedad.reservas.filter(fecha_fin__lte=fecha_inicio).order_by('-fecha_fin').first()
-                    reserva_cercana_fin = propiedad.reservas.filter(fecha_inicio__gte=fecha_fin).order_by('fecha_inicio').first()
-
-                    if reserva_cercana:
-                        propiedad.disponibilidad_inicio = reserva_cercana.fecha_fin
-
-                    if reserva_cercana_fin:
-                        propiedad.disponibilidad_fin = reserva_cercana_fin.fecha_inicio
+                    # ✅ CORREGIDO: Si no hay disponibilidad que cubra completamente el período, 
+                    # saltar esta propiedad en lugar de mostrarla con disponibilidad parcial
+                    print(f"🚫 Propiedad {propiedad.id} descartada: no tiene disponibilidad completa para {fecha_inicio} a {fecha_fin}")
+                    continue  # Saltar esta propiedad
 
                 if reserva_confirmada_no_pagada:
                     propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio 
