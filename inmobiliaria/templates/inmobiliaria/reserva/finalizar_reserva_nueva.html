@@ -438,7 +438,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="agregarConcepto()">✅ Agregar</button>
+                <button type="button" class="btn btn-success" id="btnAgregarConcepto" onclick="agregarConcepto()">✅ Agregar</button>
             </div>
         </div>
     </div>
@@ -736,9 +736,14 @@ function resetearModalConcepto() {
     
     // Restaurar título y botón del modal
     document.getElementById('modalConceptoLabel').textContent = '➕ Agregar Concepto';
-    const btnAgregar = document.querySelector('#modalConcepto .btn-success');
-    btnAgregar.textContent = '✅ Agregar';
-    btnAgregar.setAttribute('onclick', 'agregarConcepto()');
+    const btnAgregar = document.getElementById('btnAgregarConcepto');
+    if (btnAgregar) {
+        btnAgregar.textContent = '✅ Agregar';
+        btnAgregar.setAttribute('onclick', 'agregarConcepto()');
+        console.log('✅ Botón restaurado a "Agregar"');
+    } else {
+        console.error('❌ No se encontró el botón #btnAgregarConcepto para restaurar');
+    }
     
     console.log('✅ Modal reseteado para nueva operación');
 }
@@ -1014,10 +1019,15 @@ function editarConcepto(conceptoId) {
         // Cambiar el título del modal
         document.getElementById('modalConceptoLabel').textContent = '✏️ Editar Concepto';
         
-        // Cambiar el texto del botón
-        const btnAgregar = document.querySelector('#modalConcepto .btn-success');
-        btnAgregar.textContent = '✅ Actualizar';
-        btnAgregar.setAttribute('onclick', 'actualizarConcepto()');
+        // Cambiar el texto del botón usando ID específico
+        const btnAgregar = document.getElementById('btnAgregarConcepto');
+        if (btnAgregar) {
+            btnAgregar.textContent = '✅ Actualizar';
+            btnAgregar.setAttribute('onclick', 'actualizarConcepto()');
+            console.log('✅ Botón cambiado a "Actualizar"');
+        } else {
+            console.error('❌ No se encontró el botón #btnAgregarConcepto');
+        }
         
         console.log('🔄 Modal configurado para edición, abriendo...');
         
