@@ -4748,11 +4748,16 @@ def buscar_propiedades(request):
                     else:
                         tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
 
-                    # Usar TU FUNCIÓN calcular_precio_total del modelo
+                    # Obtener el precio por día para esta temporada
                     try:
                         precio_obj = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
-                        # Solo contar 1 día para esta temporada específica
-                        precio_dia = precio_obj.calcular_precio_total(single_date, single_date) or 0
+                        # Usar precio_por_dia directamente (ya incluye ajustes)
+                        precio_dia = precio_obj.precio_por_dia or 0
+                        
+                        # Aplicar ajuste porcentual si existe
+                        if precio_obj.ajuste_porcentaje != 0:
+                            precio_dia *= (1 - precio_obj.ajuste_porcentaje / 100)
+                        
                         precio_total += precio_dia
                         print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
                     except Precio.DoesNotExist:
