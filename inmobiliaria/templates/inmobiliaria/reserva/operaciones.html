@@ -79,22 +79,23 @@
         align-items: center;
     }
 
-    .operaciones-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
-        gap: 1.5rem;
+    .operaciones-lista {
         margin-top: 2rem;
     }
 
     .operacion-card {
         background: rgba(255, 255, 255, 0.95);
-        border-radius: 20px;
+        border-radius: 12px;
         padding: 1.5rem;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         backdrop-filter: blur(10px);
         transition: all 0.3s ease;
         position: relative;
         overflow: hidden;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
 
     .operacion-card::before {
@@ -421,9 +422,9 @@
             </div>
         </div>
 
-        <!-- Operaciones Grid -->
+        <!-- Operaciones Lista -->
         {% if reservas %}
-            <div class="operaciones-grid">
+            <div class="operaciones-lista">
                 {% for reserva in reservas %}
                     <div class="operacion-card fade-in 
                         {% if reserva.estado == 'pagada' and reserva.saldo_pendiente == 0 %}pagada-completa
@@ -431,113 +432,70 @@
                         {% else %}pendiente{% endif %}" 
                          style="animation-delay: {{ forloop.counter0|add:1|floatformat:1 }}s;">
                         
-                        <!-- Property Header -->
-                        <div class="property-header">
-                            <div class="property-icon">
+                        <!-- Información Principal -->
+                        <div style="flex: 1; display: flex; align-items: center; gap: 1rem;">
+                            <div class="property-icon" style="width: 50px; height: 50px; position: relative;">
                                 <i class="fas fa-home"></i>
                                 {% if reserva.estado == 'pagada' and reserva.saldo_pendiente == 0 %}
-                                    <div style="position: absolute; top: -5px; right: -5px; background: #28a745; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">
-                                        <i class="fas fa-check" style="font-size: 0.7rem;"></i>
+                                    <div style="position: absolute; top: -3px; right: -3px; background: #28a745; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-check" style="font-size: 0.6rem; color: white;"></i>
                                     </div>
                                 {% elif reserva.estado == 'pagada' and reserva.saldo_pendiente > 0 %}
-                                    <div style="position: absolute; top: -5px; right: -5px; background: #ffc107; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">
-                                        <i class="fas fa-exclamation" style="font-size: 0.7rem; color: #212529;"></i>
+                                    <div style="position: absolute; top: -3px; right: -3px; background: #ffc107; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-exclamation" style="font-size: 0.6rem; color: #212529;"></i>
                                     </div>
                                 {% endif %}
                             </div>
+                            
                             <div style="flex: 1;">
-                                <h3 class="property-title">{{ reserva.propiedad }}</h3>
-                                <span class="status-badge 
-                                    {% if reserva.estado == 'pagada' and reserva.saldo_pendiente == 0 %}status-pagada
-                                    {% elif reserva.estado == 'pagada' and reserva.saldo_pendiente > 0 %}status-parcial
-                                    {% else %}status-pendiente{% endif %}">
-                                    {% if reserva.estado == 'pagada' and reserva.saldo_pendiente == 0 %}
-                                        ✅ Pagada Completa
-                                    {% elif reserva.estado == 'pagada' and reserva.saldo_pendiente > 0 %}
-                                        ⏳ Pendiente - Seña Pagada
-                                    {% elif reserva.estado == 'confirmada_no_pagada' %}
-                                        📋 Sin Pagos
-                                    {% else %}
-                                        {{ reserva.estado }}
-                                    {% endif %}
-                                </span>
+                                <h5 style="margin: 0; font-size: 1.1rem; color: #2c3e50; font-weight: 600;">
+                                    Reserva #{{ reserva.id }} - {{ reserva.propiedad.direccion|truncatechars:35 }}
+                                </h5>
+                                <div style="display: flex; align-items: center; gap: 1rem; margin-top: 0.3rem;">
+                                    <span class="status-badge 
+                                        {% if reserva.estado == 'pagada' and reserva.saldo_pendiente == 0 %}status-pagada
+                                        {% elif reserva.estado == 'pagada' and reserva.saldo_pendiente > 0 %}status-parcial
+                                        {% else %}status-pendiente{% endif %}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">
+                                        {% if reserva.estado == 'pagada' and reserva.saldo_pendiente == 0 %}
+                                            ✅ Pagada Completa
+                                        {% elif reserva.estado == 'pagada' and reserva.saldo_pendiente > 0 %}
+                                            ⏳ Pendiente - Seña Pagada
+                                        {% elif reserva.estado == 'confirmada_no_pagada' %}
+                                            📋 Sin Pagos
+                                        {% else %}
+                                            {{ reserva.estado }}
+                                        {% endif %}
+                                    </span>
+                                    <small class="text-muted" style="font-size: 0.8rem;">
+                                        📅 {{ reserva.fecha_inicio|date:"d/m/Y" }} → {{ reserva.fecha_fin|date:"d/m/Y" }}
+                                    </small>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Operacion Details -->
-                        <div class="operacion-details">
-                            <div class="detail-row">
-                                <span class="detail-label">
-                                    <i class="fas fa-calendar-check"></i>
-                                    Fecha Inicio
-                                </span>
-                                <span class="detail-value">{{ reserva.fecha_inicio }}</span>
-                            </div>
-
-                            <div class="detail-row">
-                                <span class="detail-label">
-                                    <i class="fas fa-calendar-times"></i>
-                                    Fecha Fin
-                                </span>
-                                <span class="detail-value">{{ reserva.fecha_fin }}</span>
-                            </div>
-                        </div>
-
-                        <!-- Price Section -->
-                        <div class="price-section">
-                            <div class="price-row">
-                                <span class="detail-label">
-                                    <i class="fas fa-dollar-sign"></i>
-                                    Precio Total
-                                </span>
-                                <span class="price-total">${{ reserva.precio_total|format_price }}</span>
-                            </div>
-
-                            <div class="price-row">
-                                <span class="detail-label">
-                                    <i class="fas fa-credit-card"></i>
-                                    Total Pagado
-                                </span>
-                                <span class="price-pagado">${{ reserva.total_pagado|format_price }}</span>
-                            </div>
-
-                            {% if reserva.total_senia_pagada or reserva.total_deposito_pagado %}
-                                <div class="price-row" style="font-size: 0.9em; color: #6c757d;">
-                                    <span class="detail-label">
-                                        <i class="fas fa-hand-holding-usd"></i>
-                                        Seña Pagada
-                                    </span>
-                                    <span>${{ reserva.total_senia_pagada|format_price|default:"$0" }}</span>
+                        <!-- Información de Precios -->
+                        <div style="display: flex; flex-direction: column; align-items: end; text-align: right; min-width: 250px;">
+                            <div style="margin-bottom: 0.5rem;">
+                                <div style="font-size: 1.2rem; font-weight: bold; color: #2c3e50;">
+                                    💰 ${{ reserva.precio_total|format_price }}
                                 </div>
-                                {% if reserva.total_deposito_pagado > 0 %}
-                                <div class="price-row" style="font-size: 0.9em; color: #6c757d;">
-                                    <span class="detail-label">
-                                        <i class="fas fa-shield-alt"></i>
-                                        Depósito Pagado
-                                    </span>
-                                    <span>${{ reserva.total_deposito_pagado|format_price }}</span>
-                                </div>
-                                {% endif %}
-                            {% endif %}
-
-                            <div class="price-row">
-                                <span class="detail-label">
-                                    <i class="fas fa-clock"></i>
-                                    Saldo Pendiente
-                                </span>
-                                <span class="price-pendiente {% if reserva.saldo_pendiente == 0 %}zero{% endif %}">
-                                    ${{ reserva.saldo_pendiente|format_price }}
-                                </span>
+                                <small class="text-muted">Precio Total</small>
                             </div>
-
-                            <!-- Progress Bar -->
-                            {% if reserva.precio_total > 0 %}
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: {% widthratio reserva.total_pagado reserva.precio_total 100 %}%;"></div>
+                            
+                            <div style="margin-bottom: 0.5rem;">
+                                <div style="font-size: 1rem; color: #28a745; font-weight: 600;">
+                                    ✅ ${{ reserva.total_pagado|format_price }}
                                 </div>
-                                <small class="text-muted">
-                                    {% widthratio reserva.total_pagado reserva.precio_total 100 %}% completado
-                                </small>
+                                <small class="text-muted">Pagado</small>
+                            </div>
+                            
+                            {% if reserva.saldo_pendiente > 0 %}
+                            <div style="margin-bottom: 0.5rem;">
+                                <div style="font-size: 1.1rem; color: #dc3545; font-weight: 600;">
+                                    ⏰ ${{ reserva.saldo_pendiente|format_price }}
+                                </div>
+                                <small class="text-muted">Saldo Pendiente</small>
+                            </div>
                             {% endif %}
                         </div>
 

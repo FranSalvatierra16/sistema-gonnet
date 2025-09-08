@@ -552,11 +552,11 @@ def reservas(request):
     reservas = Reserva.objects.filter(sucursal=request.user.sucursal)
     return render(request, 'inmobiliaria/reserva/lista.html', {'reservas': reservas})
 def operaciones(request):
-    # Obtener solo reservas pagadas (completas o con saldo pendiente)
+    # Obtener solo reservas pagadas (completas o con saldo pendiente) ordenadas por fecha más reciente
     reservas = Reserva.objects.filter(
         sucursal=request.user.sucursal,
         estado__in=['pagada', 'confirmada_no_pagada']
-    ).prefetch_related('pagos')
+    ).prefetch_related('pagos').order_by('-id')
     
     # Calcular totales pagados para cada reserva
     for reserva in reservas:
