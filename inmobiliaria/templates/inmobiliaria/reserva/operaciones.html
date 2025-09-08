@@ -452,9 +452,11 @@
                                     {% elif reserva.estado == 'pagada' and reserva.saldo_pendiente > 0 %}status-parcial
                                     {% else %}status-pendiente{% endif %}">
                                     {% if reserva.estado == 'pagada' and reserva.saldo_pendiente == 0 %}
-                                        Pagada Completa
+                                        ✅ Pagada Completa
                                     {% elif reserva.estado == 'pagada' and reserva.saldo_pendiente > 0 %}
-                                        Pago Parcial
+                                        ⏳ Pendiente - Seña Pagada
+                                    {% elif reserva.estado == 'confirmada_no_pagada' %}
+                                        📋 Sin Pagos
                                     {% else %}
                                         {{ reserva.estado }}
                                     {% endif %}
@@ -499,6 +501,25 @@
                                 <span class="price-pagado">${{ reserva.total_pagado|format_price }}</span>
                             </div>
 
+                            {% if reserva.total_senia_pagada or reserva.total_deposito_pagado %}
+                                <div class="price-row" style="font-size: 0.9em; color: #6c757d;">
+                                    <span class="detail-label">
+                                        <i class="fas fa-hand-holding-usd"></i>
+                                        Seña Pagada
+                                    </span>
+                                    <span>${{ reserva.total_senia_pagada|format_price|default:"$0" }}</span>
+                                </div>
+                                {% if reserva.total_deposito_pagado > 0 %}
+                                <div class="price-row" style="font-size: 0.9em; color: #6c757d;">
+                                    <span class="detail-label">
+                                        <i class="fas fa-shield-alt"></i>
+                                        Depósito Pagado
+                                    </span>
+                                    <span>${{ reserva.total_deposito_pagado|format_price }}</span>
+                                </div>
+                                {% endif %}
+                            {% endif %}
+
                             <div class="price-row">
                                 <span class="detail-label">
                                     <i class="fas fa-clock"></i>
@@ -536,9 +557,10 @@
                                 </a>
                             {% endif %}
                             
-                            {% if reserva.estado == 'confirmada_no_pagada' %}
+                            {% if reserva.estado == 'confirmada_no_pagada' or reserva.saldo_pendiente > 0 %}
                                 <a href="{% url 'inmobiliaria:finalizar_reserva_nueva' reserva.id %}" class="btn-action btn-finalizar">
-                                    <i class="fas fa-check"></i>Finalizar
+                                    <i class="fas fa-check"></i>
+                                    {% if reserva.saldo_pendiente > 0 %}Completar Pago{% else %}Finalizar{% endif %}
                                 </a>
                             {% endif %}
                             
