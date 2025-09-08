@@ -2134,19 +2134,41 @@ def procesar_movimiento_reserva(request):
                 'empleado': request.user
             }
             
-            # Crear movimiento principal (sin transferencias)
+            # ✅ PROCESAR CONCEPTOS INDIVIDUALES DEL FRONTEND
+            conceptos_count = int(request.POST.get('conceptos_count', 0))
+            conceptos_detalle = []
+            
+            for i in range(conceptos_count):
+                concepto_id = request.POST.get(f'concepto_{i}_id')
+                concepto_nombre = request.POST.get(f'concepto_{i}_nombre')
+                concepto_observaciones = request.POST.get(f'concepto_{i}_observaciones')
+                concepto_importe = request.POST.get(f'concepto_{i}_importe')
+                
+                if concepto_nombre:
+                    conceptos_detalle.append(f"{concepto_nombre}")
+                    print(f"💰 CONCEPTO {i}: {concepto_nombre} - ${concepto_importe}")
+            
+            # Construir concepto detallado con los conceptos individuales
+            if conceptos_detalle:
+                concepto_detallado = f"Reserva {reserva.id} - " + " + ".join(conceptos_detalle)
+            else:
+                concepto_detallado = f"Reserva {reserva.id} - {reserva.propiedad.direccion}"
+            
+            print(f"📝 CONCEPTO FINAL: {concepto_detallado}")
+            
+            # Crear movimiento principal con concepto detallado
             movimiento_principal = MovimientoCaja.objects.create(
                 caja=caja_actual,
                 sucursal=request.user.sucursal,
                 tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto=f"Reserva {reserva.id} - {reserva.propiedad.direccion}",
+                concepto=concepto_detallado,  # ✅ Usar concepto con detalles
                 propiedad=reserva.propiedad,
                 fecha_desde=reserva.fecha_inicio,
                 fecha_hasta=reserva.fecha_fin,
                 monto_efectivo=monto_efectivo,
                 monto_cheque=monto_cheque,
                 monto_tarjeta=monto_tarjeta,
-                monto_deposito=monto_deposito,  # ✅ Incluir total de transferencias
+                monto_deposito=monto_deposito,
                 numero_liquidacion=numero_recibo,
                 empleado=request.user
             )
