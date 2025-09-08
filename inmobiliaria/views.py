@@ -4728,7 +4728,10 @@ def buscar_propiedades(request):
                 dias_reserva = (fecha_fin - fecha_inicio).days + 1
                 total_dias_reserva = dias_reserva
 
-                # ✅ CORREGIDO: Sumar TODOS los días (Opción A - Lógica Corregida)
+                # ✅ USAR TU FUNCIÓN ORIGINAL calcular_precio_total del modelo
+                precio_total = 0
+                
+                # Calcular día por día usando tu función para determinar temporadas
                 for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
                     # Determinar el tipo de precio según la fecha
                     tipo_precio = None
@@ -4745,17 +4748,17 @@ def buscar_propiedades(request):
                     else:
                         tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
 
-                    # Obtener el precio para la propiedad y la quincena correspondiente
+                    # Usar TU FUNCIÓN calcular_precio_total del modelo
                     try:
-                        precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
-                        precio_dia = precio.precio_por_dia or 0
+                        precio_obj = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
+                        # Solo contar 1 día para esta temporada específica
+                        precio_dia = precio_obj.calcular_precio_total(single_date, single_date) or 0
+                        precio_total += precio_dia
+                        print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
                     except Precio.DoesNotExist:
-                        precio_dia = 0
+                        print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = $0 (sin precio configurado)")
 
-                    # ✅ Sumar TODOS los días - lógica simple y correcta
-                    precio_total += precio_dia
-                    print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
-
+                # ✅ ASIGNAR EL PRECIO CALCULADO CON TU FUNCIÓN
                 propiedad.precio_total_reserva = precio_total
 
                 if not reservas.exists():
