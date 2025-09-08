@@ -3205,10 +3205,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const switchFiltros = document.getElementById('switchFiltros');
     const filtrosAdicionales = document.getElementById('filtrosAdicionales');
 
-    if (!switchFiltros || !filtrosAdicionales) {
-        console.error('No se encontraron elementos necesarios:',
-            !switchFiltros ? 'Falta switchFiltros' : '',
-            !filtrosAdicionales ? 'Falta filtrosAdicionales' : '');
+    if (!switchFiltros) {
+        console.log('⚠️ switchFiltros no encontrado - funcionalidad de filtros deshabilitada');
+        return;
+    }
+    
+    if (!filtrosAdicionales) {
+        console.log('⚠️ filtrosAdicionales no encontrado - funcionalidad de filtros deshabilitada');
         return;
     }
 

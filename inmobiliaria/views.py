@@ -4730,6 +4730,8 @@ def buscar_propiedades(request):
 
                 # ✅ USAR TU FUNCIÓN ORIGINAL calcular_precio_total del modelo
                 precio_total = 0
+                print(f"🔥 INICIANDO CÁLCULO para propiedad {propiedad.id} del {fecha_inicio} al {fecha_fin}")
+                print(f"🔥 Días a calcular: {dias_reserva}")
                 
                 # Calcular día por día usando tu función para determinar temporadas
                 for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
@@ -4764,6 +4766,7 @@ def buscar_propiedades(request):
                         print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = $0 (sin precio configurado)")
 
                 # ✅ ASIGNAR EL PRECIO CALCULADO CON TU FUNCIÓN
+                print(f"🔥 PRECIO FINAL CALCULADO para propiedad {propiedad.id}: ${precio_total}")
                 propiedad.precio_total_reserva = precio_total
 
                 if not reservas.exists():
