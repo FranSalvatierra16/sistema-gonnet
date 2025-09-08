@@ -558,7 +558,10 @@ def operaciones(request):
         estado__in=['pagada', 'confirmada_no_pagada']
     ).prefetch_related('pagos').order_by('-id')
     
-    # Calcular totales pagados para cada reserva
+    # Lista para almacenar solo las reservas con pagos
+    reservas_con_pagos = []
+    
+    # Calcular totales pagados para cada reserva y filtrar las que tienen pagos
     for reserva in reservas:
         # Buscar movimientos de caja relacionados con esta reserva
         movimientos = MovimientoCaja.objects.filter(
@@ -566,6 +569,11 @@ def operaciones(request):
             tipo=TipoMovimientoCajaEnum.INGRESO,
             concepto__icontains=f"Reserva {reserva.id}"
         )
+        
+        # ❌ FILTRO: Si no hay movimientos de pago, no incluir en operaciones
+        if not movimientos.exists():
+            print(f"⚠️ OPERACIONES - Reserva {reserva.id} SIN PAGOS - No se incluye en operaciones")
+            continue
         
         # ✅ NUEVO: Separar seña de depósito para cálculo correcto
         total_senia_pagada = 0
@@ -603,18 +611,25 @@ def operaciones(request):
                     total_senia_pagada += monto_mov
                     print(f"💰 SEÑA DETECTADA - Concepto: '{mov.concepto}', Monto: {monto_mov}")
         
-        # ✅ NUEVO CÁLCULO: El saldo pendiente es precio total - SOLO LA SEÑA (NO EL DEPÓSITO)
-        reserva.total_pagado = total_pagado
-        reserva.saldo_pendiente = reserva.precio_total - total_senia_pagada  # ✅ Solo seña
-        reserva.total_senia_pagada = total_senia_pagada
-        reserva.total_deposito_pagado = total_deposito_pagado
-        
-        print(f"💰 OPERACIONES - Reserva {reserva.id}: Precio Total: {reserva.precio_total}, Seña: {total_senia_pagada}, Depósito: {total_deposito_pagado}, Saldo: {reserva.saldo_pendiente}")
-        
-        # Obtener el movimiento más reciente para el enlace del recibo
-        reserva.movimiento_reciente = movimientos.first() if movimientos.exists() else None
+        # ✅ VERIFICAR QUE HAYA AL MENOS ALGÚN PAGO REAL
+        if total_pagado > 0:
+            # ✅ NUEVO CÁLCULO: El saldo pendiente es precio total - SOLO LA SEÑA (NO EL DEPÓSITO)
+            reserva.total_pagado = total_pagado
+            reserva.saldo_pendiente = reserva.precio_total - total_senia_pagada  # ✅ Solo seña
+            reserva.total_senia_pagada = total_senia_pagada
+            reserva.total_deposito_pagado = total_deposito_pagado
+            
+            print(f"✅ OPERACIONES - Reserva {reserva.id}: Precio Total: {reserva.precio_total}, Seña: {total_senia_pagada}, Depósito: {total_deposito_pagado}, Saldo: {reserva.saldo_pendiente}")
+            
+            # Obtener el movimiento más reciente para el enlace del recibo
+            reserva.movimiento_reciente = movimientos.first() if movimientos.exists() else None
+            
+            # Agregar a la lista de reservas con pagos
+            reservas_con_pagos.append(reserva)
+        else:
+            print(f"❌ OPERACIONES - Reserva {reserva.id} SIN PAGOS REALES - No se incluye en operaciones")
     
-    return render(request, 'inmobiliaria/reserva/operaciones.html', {'reservas': reservas})
+    return render(request, 'inmobiliaria/reserva/operaciones.html', {'reservas': reservas_con_pagos})
 def crear_reserva(request):
 
     if request.method == 'POST':
