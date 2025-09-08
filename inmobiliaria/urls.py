@@ -84,6 +84,7 @@ urlpatterns = [
     path('buscar-inquilinos/', views.buscar_inquilinos, name='buscar_inquilinos'),
     path('reserva/eliminar/<int:reserva_id>/', views.reserva_eliminar, name='reserva_eliminar'),
     path('autenticacion-vendedor/', views.autenticacion_vendedor, name='autenticacion_vendedor'),
+    path('autenticar-seguridad/', views.autenticar_seguridad, name='autenticar_seguridad'),
     path('obtener_precios_propiedad/', views.obtener_precios_propiedad, name='obtener_precios_propiedad'),
     path('obtener_vendedor/<int:vendedor_id>/', views.obtener_vendedor, name='obtener_vendedor'),
     path('obtener-inquilino/<int:inquilino_id>/', views.obtener_inquilino, name='obtener_inquilino'),

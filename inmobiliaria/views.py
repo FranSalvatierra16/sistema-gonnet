@@ -1890,6 +1890,70 @@ def autenticacion_vendedor(request):
             return JsonResponse({'success': False})
     return JsonResponse({'error': 'Método no permitido'}, status=405)
 
+@login_required
+def autenticar_seguridad(request):
+    """
+    Vista para autenticación de seguridad antes de operaciones sensibles
+    """
+    if request.method == 'POST':
+        usuario = request.POST.get('usuario', '').strip()
+        contrasena = request.POST.get('contrasena', '')
+        
+        print(f"🔐 AUTENTICACIÓN SEGURIDAD - Usuario: {usuario}")
+        
+        if not usuario or not contrasena:
+            return JsonResponse({
+                'success': False, 
+                'error': 'Por favor completa todos los campos'
+            })
+        
+        # Autenticar al usuario
+        user = authenticate(request, username=usuario, password=contrasena)
+        
+        if user is not None:
+            # Verificar que el usuario esté activo
+            if not user.is_active:
+                print(f"❌ Usuario {usuario} no está activo")
+                return JsonResponse({
+                    'success': False, 
+                    'error': 'Tu cuenta no está activa. Contacta al administrador.'
+                })
+            
+            # Verificar que sea un vendedor con permisos adecuados
+            try:
+                vendedor = user  # El user ya es un Vendedor debido al modelo personalizado
+                
+                # Verificar nivel mínimo (por ejemplo, nivel 2 o superior para operaciones sensibles)
+                if vendedor.nivel < 2:
+                    print(f"❌ Usuario {usuario} sin permisos suficientes (nivel: {vendedor.nivel})")
+                    return JsonResponse({
+                        'success': False, 
+                        'error': 'No tienes permisos suficientes para esta operación'
+                    })
+                
+                print(f"✅ Autenticación exitosa - Usuario: {usuario}, Nivel: {vendedor.nivel}")
+                return JsonResponse({
+                    'success': True,
+                    'usuario': vendedor.nombre_completo_vendedor(),
+                    'nivel': vendedor.nivel
+                })
+                
+            except Exception as e:
+                print(f"❌ Error verificando vendedor: {e}")
+                return JsonResponse({
+                    'success': False, 
+                    'error': 'Error interno. Contacta al administrador.'
+                })
+            
+        else:
+            print(f"❌ Credenciales incorrectas para usuario: {usuario}")
+            return JsonResponse({
+                'success': False, 
+                'error': 'Usuario o contraseña incorrectos'
+            })
+    
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+
 def buscar_clientes(request):
     term = request.GET.get('term', '')
     clientes = Inquilino.objects.filter(

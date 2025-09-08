@@ -4690,5 +4690,214 @@ function resetearFiltros() {
         console.error('Error reseteando filtros:', error);
     }
 }
+
+// Función global para mostrar modal de autenticación (llamada desde botones de finalizar)
+window.mostrarModalAutenticacion = function(reservaId) {
+    console.log('🔐 Solicitando autenticación para finalizar reserva:', reservaId);
+    
+    // Construir URL de finalización
+    const url = `{% url 'inmobiliaria:finalizar_reserva_nueva' 0 %}`.replace('0', reservaId);
+    
+    // Llamar a la función del modal de autenticación
+    mostrarAutenticacionSeguridad(url, 'Finalizar Operación');
+};
+</script>
+
+<!-- Modal de Autenticación de Seguridad -->
+<div class="modal fade" id="modalAutenticacionSeguridad" tabindex="-1" aria-labelledby="modalAutenticacionSeguridadLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="modalAutenticacionSeguridadLabel">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    🔐 Autenticación de Seguridad
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Área protegida:</strong> Esta acción requiere autenticación adicional por seguridad.
+                </div>
+                
+                <form id="formAutenticacionSeguridad">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="usuarioSeguridad" class="form-label">
+                            <i class="fas fa-user me-1"></i>Usuario
+                        </label>
+                        <input type="text" class="form-control" id="usuarioSeguridad" name="usuario" required autocomplete="username">
+                        <div class="form-text">Ingresa tu nombre de usuario</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="contrasenaSeguridad" class="form-label">
+                            <i class="fas fa-lock me-1"></i>Contraseña
+                        </label>
+                        <input type="password" class="form-control" id="contrasenaSeguridad" name="contrasena" required autocomplete="current-password">
+                        <div class="form-text">Ingresa tu contraseña actual</div>
+                    </div>
+                    
+                    <div id="errorAutenticacion" class="alert alert-danger d-none" role="alert">
+                        <i class="fas fa-times-circle me-2"></i>
+                        <span id="mensajeError">Credenciales incorrectas. Intenta de nuevo.</span>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-success" id="btnAutenticarSeguridad">
+                    <i class="fas fa-check-circle me-1"></i>Autenticar y Continuar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Variables globales para el modal de autenticación
+let accionPendiente = null;
+let urlDestino = null;
+
+// Función para mostrar modal de autenticación antes de finalizar
+function mostrarAutenticacionSeguridad(url, accion = 'Finalizar Operación') {
+    console.log('🔐 Solicitando autenticación para:', accion);
+    
+    // Guardar la URL destino y acción pendiente
+    urlDestino = url;
+    accionPendiente = accion;
+    
+    // Limpiar campos del formulario
+    document.getElementById('usuarioSeguridad').value = '';
+    document.getElementById('contrasenaSeguridad').value = '';
+    document.getElementById('errorAutenticacion').classList.add('d-none');
+    
+    // Actualizar el título del modal según la acción
+    document.getElementById('modalAutenticacionSeguridadLabel').innerHTML = 
+        `<i class="fas fa-shield-alt me-2"></i>🔐 Autenticación - ${accion}`;
+    
+    // Mostrar el modal
+    const modal = new bootstrap.Modal(document.getElementById('modalAutenticacionSeguridad'));
+    modal.show();
+    
+    // Enfocar el campo de usuario
+    setTimeout(() => {
+        document.getElementById('usuarioSeguridad').focus();
+    }, 500);
+}
+
+// Función para procesar la autenticación
+function procesarAutenticacionSeguridad() {
+    const usuario = document.getElementById('usuarioSeguridad').value.trim();
+    const contrasena = document.getElementById('contrasenaSeguridad').value;
+    const errorDiv = document.getElementById('errorAutenticacion');
+    const btnAutenticar = document.getElementById('btnAutenticarSeguridad');
+    
+    if (!usuario || !contrasena) {
+        mostrarErrorAutenticacion('Por favor completa todos los campos');
+        return;
+    }
+    
+    // Mostrar loading
+    const textoOriginal = btnAutenticar.innerHTML;
+    btnAutenticar.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Autenticando...';
+    btnAutenticar.disabled = true;
+    
+    // Enviar credenciales al servidor
+    const formData = new FormData();
+    formData.append('usuario', usuario);
+    formData.append('contrasena', contrasena);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch('{% url "inmobiliaria:autenticar_seguridad" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('✅ Autenticación exitosa');
+            
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalAutenticacionSeguridad'));
+            modal.hide();
+            
+            // Mostrar mensaje de éxito y redirigir
+            Swal.fire({
+                icon: 'success',
+                title: '🔐 Autenticación Exitosa',
+                text: `Acceso autorizado para ${accionPendiente}`,
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => {
+                // Redirigir a la URL destino
+                if (urlDestino) {
+                    window.location.href = urlDestino;
+                }
+            });
+            
+        } else {
+            console.error('❌ Error de autenticación:', data.error);
+            mostrarErrorAutenticacion(data.error || 'Credenciales incorrectas');
+        }
+    })
+    .catch(error => {
+        console.error('💥 Error en autenticación:', error);
+        mostrarErrorAutenticacion('Error de conexión. Intenta de nuevo.');
+    })
+    .finally(() => {
+        // Restaurar botón
+        btnAutenticar.innerHTML = textoOriginal;
+        btnAutenticar.disabled = false;
+    });
+}
+
+// Función para mostrar errores de autenticación
+function mostrarErrorAutenticacion(mensaje) {
+    const errorDiv = document.getElementById('errorAutenticacion');
+    const mensajeSpan = document.getElementById('mensajeError');
+    
+    mensajeSpan.textContent = mensaje;
+    errorDiv.classList.remove('d-none');
+    
+    // Ocultar error después de 5 segundos
+    setTimeout(() => {
+        errorDiv.classList.add('d-none');
+    }, 5000);
+}
+
+// Event listeners para el modal de autenticación
+document.addEventListener('DOMContentLoaded', function() {
+    // Verificar si los elementos existen antes de agregar listeners
+    const btnAutenticar = document.getElementById('btnAutenticarSeguridad');
+    const usuarioInput = document.getElementById('usuarioSeguridad');
+    const contrasenaInput = document.getElementById('contrasenaSeguridad');
+    
+    if (btnAutenticar) {
+        btnAutenticar.addEventListener('click', procesarAutenticacionSeguridad);
+    }
+    
+    if (usuarioInput) {
+        usuarioInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (contrasenaInput) {
+                    contrasenaInput.focus();
+                }
+            }
+        });
+    }
+    
+    if (contrasenaInput) {
+        contrasenaInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                procesarAutenticacionSeguridad();
+            }
+        });
+    }
+});
 </script>
 {% endblock extra_js %}
