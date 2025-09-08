@@ -1206,7 +1206,7 @@ def buscar_propiedades_reserva(request):
                 # Buscar el precio correspondiente según el período
                 for precio in precios:
                     if precio.precio_por_dia:
-                        # precio_total = float(precio.precio_por_dia) * dias_totales  # ❌ COMENTADO - Usar cálculo por temporadas
+                        precio_total = float(precio.precio_por_dia) * dias_totales
                         break
             
             propiedad.precio_total_reserva = precio_total
@@ -4839,7 +4839,7 @@ def buscar_propiedades(request):
                 # Buscar el precio correspondiente según el período
                 for precio in precios:
                     if precio.precio_por_dia:
-                        # precio_total = float(precio.precio_por_dia) * dias_totales  # ❌ COMENTADO - Usar cálculo por temporadas
+                        precio_total = float(precio.precio_por_dia) * dias_totales
                         break
             
             propiedad.precio_total_reserva = precio_total
