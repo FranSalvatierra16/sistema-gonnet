@@ -575,30 +575,20 @@ def operaciones(request):
             print(f"⚠️ OPERACIONES - Reserva {reserva.id} SIN PAGOS - No se incluye en operaciones")
             continue
         
-        # ✅ NUEVO: Separar seña de depósito para cálculo correcto
-        total_senia_pagada = 0
-        total_deposito_pagado = 0
-        total_pagado = 0
+        # ✅ USAR VALORES DIRECTOS DE LA RESERVA (MÁS CONFIABLE)
+        total_senia_pagada = reserva.senia or 0
+        total_deposito_pagado = reserva.deposito_garantia or 0
         
-        for mov in movimientos:
-            monto_mov = mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito
-            total_pagado += monto_mov
-            
-            # Identificar si es depósito de garantía por el concepto
-            concepto_lower = mov.concepto.lower()
-            es_deposito = any(palabra in concepto_lower for palabra in [
-                'depósito', 'deposito', 'garantía', 'garantia', 
-                'caución', 'caucion', 'seguridad', 'fianza',
-                'deposit', 'warranty', 'security'
-            ])
-            
-            if es_deposito:
-                total_deposito_pagado += monto_mov
-                print(f"💳 DEPÓSITO DETECTADO - Concepto: '{mov.concepto}', Monto: {monto_mov}")
-            else:
-                # 💰 TODOS LOS PAGOS NO ESPECÍFICOS SE CONSIDERAN SEÑA
-                total_senia_pagada += monto_mov
-                print(f"💰 SEÑA DETECTADA - Concepto: '{mov.concepto}', Monto: {monto_mov}")
+        # Calcular total pagado desde movimientos para validar
+        total_pagado = sum(
+            mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito
+            for mov in movimientos
+        )
+        
+        print(f"💰 OPERACIONES - Usando valores directos de reserva:")
+        print(f"   - Seña (campo reserva): ${total_senia_pagada}")
+        print(f"   - Depósito (campo reserva): ${total_deposito_pagado}")
+        print(f"   - Total movimientos: ${total_pagado}")
         
         # ✅ VERIFICAR QUE HAYA AL MENOS ALGÚN PAGO REAL
         if total_pagado > 0:
@@ -1331,30 +1321,15 @@ def finalizar_reserva_nueva(request, reserva_id):
             concepto__icontains=f"Reserva {reserva.id}"
         )
         
-        # Separar seña de depósito de garantía en los pagos anteriores
-        total_senia_pagada = 0
-        total_deposito_pagado = 0
-        total_pagado_anterior = 0
+        # ✅ USAR VALORES DIRECTOS DE LA RESERVA (SEÑA Y DEPÓSITO SEPARADOS)
+        total_senia_pagada = reserva.senia or 0
+        total_deposito_pagado = reserva.deposito_garantia or 0
+        total_pagado_anterior = total_senia_pagada + total_deposito_pagado
         
-        for pago in pagos_anteriores:
-            monto_pago = pago.monto_efectivo + pago.monto_cheque + pago.monto_tarjeta + pago.monto_deposito
-            total_pagado_anterior += monto_pago
-            
-            # Identificar si es depósito de garantía por el concepto
-            concepto_lower = pago.concepto.lower()
-            es_deposito = any(palabra in concepto_lower for palabra in [
-                'depósito', 'deposito', 'garantía', 'garantia', 
-                'caución', 'caucion', 'seguridad', 'fianza',
-                'deposit', 'warranty', 'security'
-            ])
-            
-            if es_deposito:
-                total_deposito_pagado += monto_pago
-                print(f"💳 DEPÓSITO IDENTIFICADO - Concepto: '{pago.concepto}', Monto: {monto_pago}")
-            else:
-                # 💰 TODOS LOS PAGOS NO ESPECÍFICOS SE CONSIDERAN SEÑA
-                total_senia_pagada += monto_pago
-                print(f"💰 SEÑA IDENTIFICADA - Concepto: '{pago.concepto}', Monto: {monto_pago}")
+        print(f"✅ USANDO VALORES DIRECTOS DE LA RESERVA:")
+        print(f"   - Seña pagada: ${total_senia_pagada}")
+        print(f"   - Depósito pagado: ${total_deposito_pagado}")
+        print(f"   - Total pagado: ${total_pagado_anterior}")
         
         # ✅ NUEVO CÁLCULO: Saldo pendiente = Precio total - SOLO la seña pagada (NO el depósito)
         saldo_a_ocupar = reserva.precio_total - total_senia_pagada
@@ -2196,22 +2171,32 @@ def procesar_movimiento_reserva(request):
             # Usar el movimiento principal para la respuesta
             movimiento = movimiento_principal
             
-            # Obtener datos de pago de la reserva original (limpiados)
+            # ✅ OBTENER VALORES DIRECTOS DEL FORMULARIO (SEÑA Y DEPÓSITO)
             senia_input = limpiar_valor_monetario(request.POST.get('senia', '0'))
+            deposito_garantia_input = limpiar_valor_monetario(request.POST.get('deposito_garantia', '0'))
             importe_locacion_input = limpiar_valor_monetario(request.POST.get('importe_locacion', '0'))
             
             try:
                 senia = Decimal(senia_input) if senia_input else Decimal('0')
+                deposito_garantia = Decimal(deposito_garantia_input) if deposito_garantia_input else Decimal('0')
                 importe_locacion = Decimal(importe_locacion_input) if importe_locacion_input else Decimal('0')
                 
+                print(f"✅ VALORES DIRECTOS DEL FORMULARIO:")
+                print(f"   - Seña: ${senia}")
+                print(f"   - Depósito Garantía: ${deposito_garantia}")
+                print(f"   - Importe Locación: ${importe_locacion}")
+                
                 # Actualizar reserva con información de pagos
-                reserva.senia = senia
+                reserva.senia = senia  # ✅ Solo seña
+                reserva.deposito_garantia = deposito_garantia  # ✅ Solo depósito
                 # Si tienes un campo precio_locacion en el modelo, úsalo
                 # reserva.precio_locacion = importe_locacion
                 
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as e:
+                print(f"❌ Error al convertir valores: {e}")
                 # Si hay error en la conversión, usar valores por defecto
                 reserva.senia = Decimal('0')
+                deposito_garantia = Decimal('0')
                 
             # Cambiar estado de la reserva
             reserva.estado = 'pagada'
