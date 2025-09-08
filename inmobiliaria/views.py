@@ -1528,9 +1528,33 @@ def terminar_reserva(request, reserva_id):
                     'message': str(e)
                 })
         
-        # Calcular saldo pendiente actual para el contexto
-        total_pagado = sum(pago.monto for pago in pagos_previos)
-        saldo_pendiente = reserva.precio_total - total_pagado
+        # ✅ CALCULAR SALDO SEPARANDO SEÑA DE DEPÓSITO
+        total_senia_pagada = 0
+        total_deposito_pagado = 0
+        total_pagado = 0
+        
+        for pago in pagos_previos:
+            total_pagado += pago.monto
+            
+            # Identificar si es depósito por el concepto
+            concepto_lower = pago.concepto.concepto.lower() if pago.concepto else ''
+            es_deposito = any(palabra in concepto_lower for palabra in [
+                'depósito', 'deposito', 'garantía', 'garantia', 
+                'caución', 'caucion', 'seguridad', 'fianza',
+                'deposit', 'warranty', 'security'
+            ])
+            
+            if es_deposito:
+                total_deposito_pagado += pago.monto
+                print(f"💳 DEPÓSITO TERMINAR - Concepto: '{concepto_lower}', Monto: {pago.monto}")
+            else:
+                total_senia_pagada += pago.monto
+                print(f"💰 SEÑA TERMINAR - Concepto: '{concepto_lower}', Monto: {pago.monto}")
+        
+        # ✅ SALDO PENDIENTE = Precio total - SOLO LA SEÑA (NO EL DEPÓSITO)
+        saldo_pendiente = reserva.precio_total - total_senia_pagada
+        
+        print(f"💰 TERMINAR RESERVA - Precio Total: {reserva.precio_total}, Seña: {total_senia_pagada}, Depósito: {total_deposito_pagado}, Saldo: {saldo_pendiente}")
         
         context = {
             'reserva': reserva,
@@ -1538,7 +1562,9 @@ def terminar_reserva(request, reserva_id):
             'pagos_previos': pagos_previos,
             'formas_pago': Pago.FORMA_PAGO_CHOICES,
             'total_pagado': total_pagado,
-            'saldo_pendiente': reserva.cuota_pendiente,
+            'saldo_pendiente': saldo_pendiente,  # ✅ Usar el saldo correcto calculado
+            'total_senia_pagada': total_senia_pagada,  # ✅ NUEVO: Solo seña
+            'total_deposito_pagado': total_deposito_pagado,  # ✅ NUEVO: Solo depósito
             'deposito': reserva.deposito_garantia or 0
         }
         
