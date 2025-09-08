@@ -1187,7 +1187,7 @@
                                 <button type="button" class="btn btn-primary" disabled>
                                     <i class="fas fa-calendar-check"></i> Reservado
                                 </button>
-                                <button type="button" class="btn btn-success" onclick="window.mostrarModalAutenticacion('${reserva_id}')">
+                                <button type="button" class="btn btn-success btn-finalizar" data-url="{% url 'inmobiliaria:finalizar_reserva_nueva' 0 %}" data-reserva-id="${reserva_id}">
                                     <i class="fas fa-check-circle"></i> Finalizar Operación
                                 </button>
                                 <button type="button" class="btn btn-info" onclick="window.verPrecios()">
@@ -2236,7 +2236,7 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
                 <button type="button" class="btn btn-primary" disabled>
                     <i class="fas fa-calendar-check"></i> Reservado
                 </button>
-                <button type="button" class="btn btn-success" onclick="window.mostrarModalAutenticacion('${reserva_id}')">
+                <button type="button" class="btn btn-success btn-finalizar" data-url="{% url 'inmobiliaria:finalizar_reserva_nueva' 0 %}" data-reserva-id="${reserva_id}">
                     <i class="fas fa-check-circle"></i> Finalizar Operación
                 </button>
                 <button type="button" class="btn btn-info" onclick="window.verPrecios()">
@@ -4691,16 +4691,7 @@ function resetearFiltros() {
     }
 }
 
-// Función global para mostrar modal de autenticación (llamada desde botones de finalizar)
-window.mostrarModalAutenticacion = function(reservaId) {
-    console.log('🔐 Solicitando autenticación para finalizar reserva:', reservaId);
-    
-    // Construir URL de finalización
-    const url = `{% url 'inmobiliaria:finalizar_reserva_nueva' 0 %}`.replace('0', reservaId);
-    
-    // Llamar a la función del modal de autenticación
-    mostrarAutenticacionSeguridad(url, 'Finalizar Operación');
-};
+// Los botones de finalizar ahora usan event delegation y data attributes
 </script>
 
 <!-- Modal de Autenticación de Seguridad -->
@@ -4818,25 +4809,16 @@ function procesarAutenticacionSeguridad() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            console.log('✅ Autenticación exitosa');
+            console.log('✅ Autenticación exitosa, redirigiendo a:', urlDestino);
             
             // Cerrar modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('modalAutenticacionSeguridad'));
             modal.hide();
             
-            // Mostrar mensaje de éxito y redirigir
-            Swal.fire({
-                icon: 'success',
-                title: '🔐 Autenticación Exitosa',
-                text: `Acceso autorizado para ${accionPendiente}`,
-                timer: 1500,
-                showConfirmButton: false
-            }).then(() => {
-                // Redirigir a la URL destino
-                if (urlDestino) {
-                    window.location.href = urlDestino;
-                }
-            });
+            // Redirigir a la URL destino
+            setTimeout(() => {
+                window.location.href = urlDestino;
+            }, 300);
             
         } else {
             console.error('❌ Error de autenticación:', data.error);
@@ -4898,6 +4880,26 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Interceptar clicks en botones de finalizar dinámicos
+    document.addEventListener('click', function(e) {
+        const btnFinalizar = e.target.closest('.btn-finalizar');
+        if (btnFinalizar) {
+            e.preventDefault();
+            
+            let url = btnFinalizar.href || btnFinalizar.dataset.url;
+            const reservaId = btnFinalizar.dataset.reservaId;
+            
+            // Si es un botón dinámico con data-reserva-id, construir la URL
+            if (reservaId && !btnFinalizar.href) {
+                url = btnFinalizar.dataset.url.replace('0', reservaId);
+            }
+            
+            const texto = btnFinalizar.textContent.trim();
+            
+            mostrarAutenticacionSeguridad(url, texto);
+        }
+    });
 });
 </script>
 {% endblock extra_js %}

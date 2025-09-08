@@ -690,25 +690,16 @@ function procesarAutenticacionSeguridad() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            console.log('✅ Autenticación exitosa');
+            console.log('✅ Autenticación exitosa, redirigiendo a:', urlDestino);
             
             // Cerrar modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('modalAutenticacionSeguridad'));
             modal.hide();
             
-            // Mostrar mensaje de éxito y redirigir
-            Swal.fire({
-                icon: 'success',
-                title: '🔐 Autenticación Exitosa',
-                text: `Acceso autorizado para ${accionPendiente}`,
-                timer: 1500,
-                showConfirmButton: false
-            }).then(() => {
-                // Redirigir a la URL destino
-                if (urlDestino) {
-                    window.location.href = urlDestino;
-                }
-            });
+            // Redirigir a la URL destino
+            setTimeout(() => {
+                window.location.href = urlDestino;
+            }, 300);
             
         } else {
             console.error('❌ Error de autenticación:', data.error);
