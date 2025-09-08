@@ -575,30 +575,28 @@ def operaciones(request):
             print(f"⚠️ OPERACIONES - Reserva {reserva.id} SIN PAGOS - No se incluye en operaciones")
             continue
         
-        # ✅ USAR VALORES DIRECTOS DE LA RESERVA (MÁS CONFIABLE)
-        total_senia_pagada = reserva.senia or 0
-        total_deposito_pagado = reserva.deposito_garantia or 0
+        # ✅ LÓGICA SIMPLE: SALDO = PRECIO TOTAL - SEÑA DEL CASILLERO
+        saldo_pendiente = reserva.precio_total - (reserva.senia or 0)
         
-        # Calcular total pagado desde movimientos para validar
+        print(f"💰 OPERACIONES - CÁLCULO DIRECTO:")
+        print(f"   - Precio Total: ${reserva.precio_total}")
+        print(f"   - Seña: ${reserva.senia or 0}")
+        print(f"   - Saldo Pendiente: ${saldo_pendiente}")
+        
+        # ✅ VERIFICAR QUE HAYA AL MENOS ALGÚN PAGO REAL
         total_pagado = sum(
             mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito
             for mov in movimientos
         )
         
-        print(f"💰 OPERACIONES - Usando valores directos de reserva:")
-        print(f"   - Seña (campo reserva): ${total_senia_pagada}")
-        print(f"   - Depósito (campo reserva): ${total_deposito_pagado}")
-        print(f"   - Total movimientos: ${total_pagado}")
-        
-        # ✅ VERIFICAR QUE HAYA AL MENOS ALGÚN PAGO REAL
         if total_pagado > 0:
-            # ✅ NUEVO CÁLCULO: El saldo pendiente es precio total - SOLO LA SEÑA (NO EL DEPÓSITO)
+            # ✅ SIMPLE: Solo usar la seña del casillero
             reserva.total_pagado = total_pagado
-            reserva.saldo_pendiente = reserva.precio_total - total_senia_pagada  # ✅ Solo seña
-            reserva.total_senia_pagada = total_senia_pagada
-            reserva.total_deposito_pagado = total_deposito_pagado
+            reserva.saldo_pendiente = saldo_pendiente
+            reserva.total_senia_pagada = reserva.senia or 0
+            reserva.total_deposito_pagado = reserva.deposito_garantia or 0
             
-            print(f"✅ OPERACIONES - Reserva {reserva.id}: Precio Total: {reserva.precio_total}, Seña: {total_senia_pagada}, Depósito: {total_deposito_pagado}, Saldo: {reserva.saldo_pendiente}")
+            print(f"✅ OPERACIONES - Reserva {reserva.id}: Precio Total: {reserva.precio_total}, Seña: {reserva.senia or 0}, Depósito: {reserva.deposito_garantia or 0}, Saldo: {reserva.saldo_pendiente}")
             
             # Obtener el movimiento más reciente para el enlace del recibo
             reserva.movimiento_reciente = movimientos.first() if movimientos.exists() else None
@@ -1321,25 +1319,16 @@ def finalizar_reserva_nueva(request, reserva_id):
             concepto__icontains=f"Reserva {reserva.id}"
         )
         
-        # ✅ USAR VALORES DIRECTOS DE LA RESERVA (SEÑA Y DEPÓSITO SEPARADOS)
-        total_senia_pagada = reserva.senia or 0
-        total_deposito_pagado = reserva.deposito_garantia or 0
-        total_pagado_anterior = total_senia_pagada + total_deposito_pagado
+        # ✅ LÓGICA SIMPLE: SALDO = PRECIO TOTAL - SEÑA (EL DEPÓSITO NO AFECTA)
+        saldo_a_ocupar = reserva.precio_total - (reserva.senia or 0)
         
-        print(f"✅ USANDO VALORES DIRECTOS DE LA RESERVA:")
-        print(f"   - Seña pagada: ${total_senia_pagada}")
-        print(f"   - Depósito pagado: ${total_deposito_pagado}")
-        print(f"   - Total pagado: ${total_pagado_anterior}")
+        print(f"✅ CÁLCULO SIMPLE:")
+        print(f"   - Precio Total: ${reserva.precio_total}")
+        print(f"   - Seña: ${reserva.senia or 0}")
+        print(f"   - Saldo Pendiente: ${saldo_a_ocupar}")
+        print(f"   - Depósito (NO afecta saldo): ${reserva.deposito_garantia or 0}")
         
-        # ✅ NUEVO CÁLCULO: Saldo pendiente = Precio total - SOLO la seña pagada (NO el depósito)
-        saldo_a_ocupar = reserva.precio_total - total_senia_pagada
-        
-        print(f"💰 NUEVO CÁLCULO SALDO:")
-        print(f"   - Precio Total: {reserva.precio_total}")
-        print(f"   - Seña Pagada: {total_senia_pagada}")
-        print(f"   - Depósito Pagado: {total_deposito_pagado}")
-        print(f"   - Total Pagado (ambos): {total_pagado_anterior}")
-        print(f"   - Saldo Pendiente (solo descontando seña): {saldo_a_ocupar}")
+
         
         # Datos para el formulario (solo lectura)
         context = {
@@ -1356,9 +1345,8 @@ def finalizar_reserva_nueva(request, reserva_id):
             'productor_nombre': f"{request.user.nombre} {request.user.apellido}",
             'conceptos_caja': conceptos_caja,
             'saldo_a_ocupar': saldo_a_ocupar,
-            'total_pagado_anterior': total_pagado_anterior,
-            'total_senia_pagada': total_senia_pagada,  # ✅ NUEVO: Solo la seña pagada
-            'total_deposito_pagado': total_deposito_pagado,  # ✅ NUEVO: Solo el depósito pagado
+            'total_senia_pagada': reserva.senia or 0,  # ✅ SIMPLE: Del casillero
+            'total_deposito_pagado': reserva.deposito_garantia or 0,  # ✅ SIMPLE: Del casillero
             'deposito_garantia': reserva.deposito_garantia,
             'fecha_desde': reserva.fecha_inicio.strftime('%d/%m/%Y'),
             'fecha_hasta': reserva.fecha_fin.strftime('%d/%m/%Y'),
