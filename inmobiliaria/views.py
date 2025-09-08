@@ -1455,10 +1455,29 @@ def terminar_reserva(request, reserva_id):
                     total_pagado = Pago.objects.filter(reserva=reserva).aggregate(
                         total=models.Sum('monto'))['total'] or Decimal('0')
                     
-                    # Actualizar la reserva
-                    reserva.senia = total_pagado
+                    # ✅ ACTUALIZAR RESERVA CON LÓGICA CORRECTA: SEPARAR SEÑA DE DEPÓSITO
+                    # Calcular solo la seña (excluyendo depósitos)
+                    pagos_reserva = Pago.objects.filter(reserva=reserva)
+                    total_senia_only = 0
+                    total_deposito_only = 0
+                    
+                    for pago in pagos_reserva:
+                        concepto_lower = pago.concepto.concepto.lower() if pago.concepto else ''
+                        es_deposito = any(palabra in concepto_lower for palabra in [
+                            'depósito', 'deposito', 'garantía', 'garantia', 
+                            'caución', 'caucion', 'seguridad', 'fianza',
+                            'deposit', 'warranty', 'security'
+                        ])
+                        
+                        if es_deposito:
+                            total_deposito_only += pago.monto
+                        else:
+                            total_senia_only += pago.monto
+                    
+                    # Actualizar reserva solo con la seña
+                    reserva.senia = total_senia_only  # ✅ Solo seña
                     reserva.deposito = deposito
-                    reserva.cuota_pendiente = reserva.precio_total - total_pagado
+                    reserva.cuota_pendiente = reserva.precio_total - total_senia_only  # ✅ Solo descontar seña
                     
                     # Si la cuota pendiente es 0 o menor, finalizar la reserva y crear movimiento de caja
                     if reserva.cuota_pendiente <= 0:
@@ -2902,12 +2921,35 @@ def agregar_pago(request, reserva_id):
                     destino_deposito=destino_deposito
                 )
                 
-                # Actualizar saldos de la reserva
-                total_pagado = Pago.objects.filter(reserva=reserva).aggregate(
-                    total=models.Sum('monto'))['total'] or Decimal('0')
+                # ✅ ACTUALIZAR SALDOS SEPARANDO SEÑA DE DEPÓSITO
+                pagos_reserva = Pago.objects.filter(reserva=reserva)
+                total_senia_only = 0
+                total_deposito_only = 0
+                total_pagado = 0
                 
-                reserva.senia = total_pagado
-                reserva.cuota_pendiente = reserva.precio_total - total_pagado
+                for pago_item in pagos_reserva:
+                    total_pagado += pago_item.monto
+                    
+                    # Identificar si es depósito por el concepto
+                    concepto_lower = pago_item.concepto.concepto.lower() if pago_item.concepto else ''
+                    es_deposito = any(palabra in concepto_lower for palabra in [
+                        'depósito', 'deposito', 'garantía', 'garantia', 
+                        'caución', 'caucion', 'seguridad', 'fianza',
+                        'deposit', 'warranty', 'security'
+                    ])
+                    
+                    if es_deposito:
+                        total_deposito_only += pago_item.monto
+                        print(f"💳 DEPÓSITO AGREGAR_PAGO - Concepto: '{concepto_lower}', Monto: {pago_item.monto}")
+                    else:
+                        total_senia_only += pago_item.monto
+                        print(f"💰 SEÑA AGREGAR_PAGO - Concepto: '{concepto_lower}', Monto: {pago_item.monto}")
+                
+                # Actualizar reserva solo con la seña
+                reserva.senia = total_senia_only  # ✅ Solo seña
+                reserva.cuota_pendiente = reserva.precio_total - total_senia_only  # ✅ Solo descontar seña
+                
+                print(f"💰 AGREGAR_PAGO - Precio Total: {reserva.precio_total}, Seña: {total_senia_only}, Depósito: {total_deposito_only}, Saldo: {reserva.cuota_pendiente}")
                 
                 # Si se completó el pago, finalizar la reserva
                 if reserva.cuota_pendiente <= 0:
