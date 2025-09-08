@@ -4717,7 +4717,8 @@ def buscar_propiedades(request):
                 if reserva_confirmada_no_pagada:
                     propiedad.reserva = reserva_confirmada_no_pagada
                     propiedad.estado_reserva = 'confirmada_no_pagada'
-                    propiedad.precio_total_reserva = reserva_confirmada_no_pagada.precio_total
+                    # NO asignar precio aquí - se calculará día por día más abajo
+                    pass
                 else:
                     propiedad.estado_reserva = 'disponible'
 
