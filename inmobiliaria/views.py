@@ -2180,6 +2180,17 @@ def procesar_movimiento_reserva(request):
                 # Si tienes un campo precio_locacion en el modelo, úsalo
                 # reserva.precio_locacion = importe_locacion
                 
+                # ✅ DEBUGGING CRÍTICO - VERIFICAR QUE SE GUARDE BIEN
+                print(f"🔥 ANTES DE GUARDAR:")
+                print(f"   - reserva.senia = {reserva.senia}")
+                print(f"   - reserva.deposito_garantia = {reserva.deposito_garantia}")
+                
+                reserva.save()
+                
+                print(f"🔥 DESPUÉS DE GUARDAR:")
+                print(f"   - reserva.senia = {reserva.senia}")
+                print(f"   - reserva.deposito_garantia = {reserva.deposito_garantia}")
+                
             except (ValueError, TypeError) as e:
                 print(f"❌ Error al convertir valores: {e}")
                 # Si hay error en la conversión, usar valores por defecto
