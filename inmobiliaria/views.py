@@ -1087,7 +1087,7 @@ def buscar_propiedades_reserva(request):
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
 
             # Verificar si existe una reserva en estado 'en espera' (confirmada no pagada)
-            reserva_confirmada_no_pagada = reservas.filter(estado='en_espera').first()
+            reserva_confirmada_no_pagada = reservas.filter(estado='confirmada_no_pagada').first()
 
             # Evaluar la disponibilidad y las reservas de la propiedad
             if disponibilidades.exists() and not reservas.filter(estado='confirmada').exists():
