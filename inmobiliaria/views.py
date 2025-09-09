@@ -1086,15 +1086,15 @@ def buscar_propiedades_reserva(request):
             if reservas.filter(estado='pagada').exists():
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
 
-            # Verificar si existe una reserva en estado 'en espera' (confirmada no pagada)
-            reserva_confirmada_no_pagada = reservas.filter(estado='en_espera').first()
+            # Verificar si existe una reserva que debe mostrarse en rojo
+            reserva_roja = reservas.filter(Q(estado='confirmada_no_pagada') | Q(estado='confirmada') | Q(estado='en_espera')).first()
 
             # Evaluar la disponibilidad y las reservas de la propiedad
             if disponibilidades.exists() and not reservas.filter(estado='confirmada').exists():
-                if reserva_confirmada_no_pagada:
-                    propiedad.reserva = reserva_confirmada_no_pagada
-                    propiedad.estado_reserva = 'confirmada_no_pagada'
-                    propiedad.precio_total_reserva = reserva_confirmada_no_pagada.precio_total
+                if reserva_roja:
+                    propiedad.reserva = reserva_roja
+                    propiedad.estado_reserva = 'confirmada_no_pagada'  # Siempre mostrar como confirmada_no_pagada en frontend
+                    propiedad.precio_total_reserva = reserva_roja.precio_total
                 else:
                     propiedad.estado_reserva = 'disponible'
 
@@ -1164,9 +1164,9 @@ def buscar_propiedades_reserva(request):
                     if reserva_cercana_fin:
                         propiedad.disponibilidad_fin = reserva_cercana_fin.fecha_inicio
 
-                if reserva_confirmada_no_pagada:
-                    propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio 
-                    propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
+                if reserva_roja:
+                    propiedad.disponibilidad_inicio = reserva_roja.fecha_inicio 
+                    propiedad.disponibilidad_fin = reserva_roja.fecha_fin
 
                 # Añadir la propiedad disponible a la lista
                 dias_disponibles = (fecha_inicio - propiedad.disponibilidad_inicio).days
@@ -4825,9 +4825,9 @@ def buscar_propiedades(request):
                     if reserva_cercana_fin:
                         propiedad.disponibilidad_fin = reserva_cercana_fin.fecha_inicio
 
-                if reserva_confirmada_no_pagada:
-                    propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio 
-                    propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
+                if reserva_roja:
+                    propiedad.disponibilidad_inicio = reserva_roja.fecha_inicio 
+                    propiedad.disponibilidad_fin = reserva_roja.fecha_fin
 
                 # Añadir la propiedad disponible a la lista
                 dias_disponibles = (fecha_inicio - propiedad.disponibilidad_inicio).days
