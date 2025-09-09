@@ -4741,7 +4741,7 @@ def buscar_propiedades(request):
                     if single_date.month == 1:  # Enero
                         tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
                     elif single_date.month == 2:  # Febrero
-                        tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day <= 15 else 'QUINCENA_2_FEBRERO'
+                        tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day < 15 else 'QUINCENA_2_FEBRERO'
                     elif single_date.month == 3:  # Marzo
                         tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
                     elif single_date.month == 7:  # Julio (Vacaciones de Invierno)

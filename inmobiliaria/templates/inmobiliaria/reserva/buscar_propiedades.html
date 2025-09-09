@@ -2118,8 +2118,9 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
             console.log('🔄 Precio convertido:', precioStr, '→', precioCorregido);
         }
         
-        // Ya no necesitamos dividir por 10 si manejamos la coma correctamente
-        console.log('✅ Precio procesado correctamente:', precioCorregido);
+        // ✅ CORREGIR: Dividir por 10 para corregir el cero extra
+        precioCorregido = precioCorregido / 10;
+        console.log('✅ Precio procesado y corregido (÷10):', precioCorregido);
         
     } catch (error) {
         console.error('❌ Error procesando precio:', error);
