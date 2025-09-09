@@ -4712,9 +4712,17 @@ def buscar_propiedades(request):
             # Verificar si existe una reserva en estado 'confirmada_no_pagada'
             reserva_confirmada_no_pagada = reservas.filter(estado='confirmada_no_pagada').first()
 
+            # ✅ CORREGIDO: Mostrar propiedades con reservas confirmada_no_pagada en las fechas buscadas
             # Evaluar la disponibilidad y las reservas de la propiedad
-            if disponibilidades.exists() and not reservas.filter(estado='confirmada').exists():
-                if reserva_confirmada_no_pagada:
+            if disponibilidades.exists():
+                # Verificar reservas pagadas o confirmadas que se superponen con las fechas buscadas
+                reservas_conflictivas = reservas.filter(
+                    Q(estado='pagada') | Q(estado='confirmada')
+                )
+                
+                if reservas_conflictivas.exists():
+                    continue  # Saltar si hay reservas pagadas o confirmadas en estas fechas
+                elif reserva_confirmada_no_pagada:
                     propiedad.reserva = reserva_confirmada_no_pagada
                     propiedad.estado_reserva = 'confirmada_no_pagada'
                     # NO asignar precio aquí - se calculará día por día más abajo
