@@ -4709,38 +4709,28 @@ def buscar_propiedades(request):
             if reservas.filter(estado='pagada').exists():
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
 
-            # 🔍 DEBUGGING: Ver estados de reservas
-            print(f"🏠 Propiedad {propiedad.id}:")
-            print(f"   - Disponibilidades: {disponibilidades.count()}")
-            print(f"   - Reservas en fechas: {reservas.count()}")
-            
-            if reservas.exists():
-                for reserva in reservas:
-                    print(f"     * Reserva {reserva.id}: estado='{reserva.estado}' | fechas={reserva.fecha_inicio} a {reserva.fecha_fin}")
-            else:
-                print(f"     * No hay reservas en estas fechas")
-
             # Verificar si existe una reserva en estado 'confirmada_no_pagada'
             reserva_confirmada_no_pagada = reservas.filter(estado='confirmada_no_pagada').first()
 
-            # 🎯 LÓGICA ARREGLADA: MOSTRAR TODAS CON DISPONIBILIDAD
-            if disponibilidades.exists():
-                # Solo saltar si hay reservas PAGADAS (no las confirmada_no_pagada)
+            # 🎯 LÓGICA SÚPER SIMPLE: 
+            # 1. Si tiene reserva confirmada_no_pagada → MOSTRAR EN ROJO
+            # 2. Si tiene disponibilidad y no está pagada → MOSTRAR NORMAL
+            
+            if reserva_confirmada_no_pagada:
+                # ✅ SIEMPRE mostrar las reservadas EN ROJO (con o sin disponibilidades)
+                propiedad.reserva = reserva_confirmada_no_pagada
+                propiedad.estado_reserva = 'confirmada_no_pagada'
+                propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio
+                propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
+            elif disponibilidades.exists():
+                # Solo saltar si hay reservas PAGADAS
                 if reservas.filter(estado='pagada').exists():
                     continue
-                
-                if reserva_confirmada_no_pagada:
-                    # ✅ MOSTRAR EN ROJO
-                    propiedad.reserva = reserva_confirmada_no_pagada
-                    propiedad.estado_reserva = 'confirmada_no_pagada'
-                    print(f"🔴 DECISIÓN: Mostrar EN ROJO (confirmada_no_pagada)")
                 else:
                     # ✅ MOSTRAR NORMAL  
                     propiedad.estado_reserva = 'disponible'
-                    print(f"✅ DECISIÓN: Mostrar NORMAL (disponible)")
             else:
-                print(f"❌ DECISIÓN: NO mostrar (sin disponibilidades)")
-                continue
+                continue  # No tiene disponibilidades ni reservas
 
                 # Calcular el precio total de la reserva según las fechas seleccionadas
                 precio_total = 0
