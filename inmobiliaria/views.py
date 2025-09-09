@@ -1087,7 +1087,7 @@ def buscar_propiedades_reserva(request):
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
 
             # Verificar si existe una reserva en estado 'en espera' (confirmada no pagada)
-            reserva_confirmada_no_pagada = reservas.filter(estado='confirmada_no_pagada').first()
+            reserva_confirmada_no_pagada = reservas.filter(estado='en_espera').first()
 
             # Evaluar la disponibilidad y las reservas de la propiedad
             if disponibilidades.exists() and not reservas.filter(estado='confirmada').exists():
@@ -4709,8 +4709,14 @@ def buscar_propiedades(request):
             if reservas.filter(estado='pagada').exists():
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
 
+            # 🔍 DEBUGGING: Ver qué estados tienen las reservas
+            print(f"🏠 Propiedad {propiedad.id} - Reservas:")
+            for reserva in reservas:
+                print(f"   Reserva {reserva.id}: estado = '{reserva.estado}'")
+            
             # Verificar si existe una reserva en estado 'confirmada_no_pagada'
             reserva_confirmada_no_pagada = reservas.filter(estado='confirmada_no_pagada').first()
+            print(f"   ¿Tiene confirmada_no_pagada? {bool(reserva_confirmada_no_pagada)}")
 
             # ✅ CORREGIDO: Mostrar propiedades con reservas confirmada_no_pagada en las fechas buscadas
             # Evaluar la disponibilidad y las reservas de la propiedad
