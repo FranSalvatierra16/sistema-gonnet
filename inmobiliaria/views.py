@@ -4711,15 +4711,6 @@ def buscar_propiedades(request):
 
             # Verificar si existe una reserva en estado 'confirmada_no_pagada'
             reserva_confirmada_no_pagada = reservas.filter(estado='confirmada_no_pagada').first()
-            
-            print(f"🔍 DEBUGGING PROPIEDAD {propiedad.id}:")
-            print(f"   - Disponibilidades: {disponibilidades.count()}")
-            print(f"   - Reservas totales: {reservas.count()}")
-            print(f"   - Reserva confirmada_no_pagada: {'SÍ' if reserva_confirmada_no_pagada else 'NO'}")
-            if reserva_confirmada_no_pagada:
-                print(f"   - ID reserva: {reserva_confirmada_no_pagada.id}")
-                print(f"   - Estado reserva: {reserva_confirmada_no_pagada.estado}")
-                print(f"   - Fechas reserva: {reserva_confirmada_no_pagada.fecha_inicio} - {reserva_confirmada_no_pagada.fecha_fin}")
 
             # ✅ CORREGIDO: Mostrar propiedades con reservas confirmada_no_pagada en las fechas buscadas
             # Evaluar la disponibilidad y las reservas de la propiedad
@@ -4734,7 +4725,6 @@ def buscar_propiedades(request):
                 elif reserva_confirmada_no_pagada:
                     propiedad.reserva = reserva_confirmada_no_pagada
                     propiedad.estado_reserva = 'confirmada_no_pagada'
-                    print(f"🔴 PROPIEDAD {propiedad.id} MARCADA COMO CONFIRMADA_NO_PAGADA - Debería aparecer en ROJO")
                     # NO asignar precio aquí - se calculará día por día más abajo
                     pass
                 else:
@@ -4878,15 +4868,6 @@ def buscar_propiedades(request):
             print(f"Error calculando precio para propiedad {propiedad.id}: {str(e)}")
             propiedad.precio_total_reserva = 0
 
-    # 🔍 DEBUGGING FINAL: Mostrar todas las propiedades que se envían al template
-    print(f"
-📋 RESUMEN FINAL - Propiedades enviadas al template:")
-    for prop in propiedades_disponibles:
-        estado = getattr(prop, "estado_reserva", "sin_estado")
-        print(f"   - Propiedad {prop.id}: Estado = {estado}")
-    print(f"📊 Total propiedades: {len(propiedades_disponibles)}
-")
-    
     # Obtener conceptos para el template
     conceptos = Concepto.objects.filter(
         Q(sucursal=sucursal_vendedor) | Q(sucursal__isnull=True)
