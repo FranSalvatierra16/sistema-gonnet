@@ -4724,7 +4724,9 @@ def buscar_propiedades(request):
                     propiedad.estado_reserva = 'disponible'
                 
                 # CONTINUAR con el resto del código (cálculo de precios, etc.)
+                print(f"✅ Propiedad {propiedad.id} PASA FILTROS - Estado: {propiedad.estado_reserva}")
             else:
+                print(f"❌ Propiedad {propiedad.id} SIN disponibilidades")
                 continue  # No tiene disponibilidad, no la mostramos
 
                 # Calcular el precio total de la reserva según las fechas seleccionadas
