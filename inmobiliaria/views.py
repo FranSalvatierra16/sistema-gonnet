@@ -4854,7 +4854,7 @@ def buscar_propiedades(request):
                         # # precio_total = float(precio.precio_por_dia) * dias_totales  # ❌ COMENTADO - Usar cálculo por temporadas  # ❌ COMENTADO - Usar cálculo por temporadas
                         break
             
-            propiedad.precio_total_reserva = precio_total
+            # ❌ COMENTADO: propiedad.precio_total_reserva = precio_total  # Ya se calculó arriba
             
         except Exception as e:
             print(f"Error calculando precio para propiedad {propiedad.id}: {str(e)}")
