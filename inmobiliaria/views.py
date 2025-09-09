@@ -4646,6 +4646,9 @@ def buscar_propiedades(request):
         
         # AGREGAR FLAG: Para editar específicamente el filtro de esta función
         ES_BUSCAR_PROPIEDADES_PRINCIPAL = True
+        
+        # 🎯 DEBUGGING: Verificar fechas de búsqueda
+        print(f"🎯 BUSCAR_PROPIEDADES_PRINCIPAL: Buscando desde {fecha_inicio} hasta {fecha_fin}")
 
         # Prefetch los precios para cada propiedad
         propiedades = propiedades.prefetch_related(
@@ -4892,6 +4895,14 @@ def buscar_propiedades(request):
         'tipos_precio': TipoPrecio,
         'conceptos': conceptos
     })
+
+# 🎯 DEBUGGING FINAL: Ver estado de todas las propiedades (FUNCIÓN PRINCIPAL)
+print(f"📋 RESULTADO FINAL FUNCIÓN PRINCIPAL: {len(propiedades_disponibles)} propiedades encontradas")
+for prop in propiedades_disponibles:
+    estado = getattr(prop, "estado_reserva", "sin_estado")
+    reserva = getattr(prop, "reserva", None)
+    reserva_info = f"reserva_id={reserva.id if reserva else 'None'}"
+    print(f"   - Propiedad {prop.id}: estado='{estado}', {reserva_info}")
 
 # ============================
 # VISTAS API PARA CONTRATOS 24 MESES
