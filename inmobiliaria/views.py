@@ -4708,12 +4708,12 @@ def buscar_propiedades(request):
             
             # 🎯 LÓGICA SIMPLE: Si tiene disponibilidad, la mostramos
             if disponibilidades.exists():
-                # Verificar si hay reserva confirmada_no_pagada en estas fechas
-                reserva_confirmada_no_pagada = reservas.filter(estado='confirmada_no_pagada').first()
-                
-                # Saltar solo si hay reservas PAGADAS (las otras las mostramos)
+                # Saltar solo si hay reservas PAGADAS
                 if reservas.filter(estado='pagada').exists():
                     continue
+                
+                # Verificar si hay reserva confirmada_no_pagada en estas fechas
+                reserva_confirmada_no_pagada = reservas.filter(estado='confirmada_no_pagada').first()
                 
                 if reserva_confirmada_no_pagada:
                     # ✅ MOSTRAR EN ROJO
@@ -4722,6 +4722,8 @@ def buscar_propiedades(request):
                 else:
                     # ✅ MOSTRAR NORMAL
                     propiedad.estado_reserva = 'disponible'
+                
+                # CONTINUAR con el resto del código (cálculo de precios, etc.)
             else:
                 continue  # No tiene disponibilidad, no la mostramos
 
