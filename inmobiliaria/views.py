@@ -4721,7 +4721,7 @@ def buscar_propiedades(request):
                 print(f"   Reserva {reserva.id}: estado = '{reserva.estado}'")
             
             # Verificar si existe una reserva que debe mostrarse en rojo
-            reserva_roja = reservas.filter(Q(estado='confirmada_no_pagada') | Q(estado='confirmada')).first()
+            reserva_roja = reservas.filter(Q(estado='confirmada_no_pagada') | Q(estado='confirmada') | Q(estado='en_espera')).first()
             print(f"   ¿Tiene reserva para mostrar en rojo? {bool(reserva_roja)}")
             if reserva_roja:
                 print(f"   Estado de la reserva: '{reserva_roja.estado}'")
