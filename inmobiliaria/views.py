@@ -4706,42 +4706,24 @@ def buscar_propiedades(request):
                 Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
             )
             
-            print(f"🏠 Propiedad {propiedad.id}:")
-            print(f"   - Disponibilidades: {disponibilidades.count()}")
-            print(f"   - Reservas en fechas: {reservas.count()}")
-            for reserva in reservas:
-                print(f"     * Reserva {reserva.id}: {reserva.estado} ({reserva.fecha_inicio} - {reserva.fecha_fin})")
-            
-            if reservas.filter(estado='pagada').exists():
-                print(f"   ❌ SALTADA por reserva pagada")
-                continue  # Saltar esta propiedad si ya tiene una reserva pagada
-
-            # Verificar si existe una reserva en estado 'confirmada_no_pagada'
-            reserva_confirmada_no_pagada = reservas.filter(estado='confirmada_no_pagada').first()
-
-            # ✅ CORREGIDO: Mostrar propiedades con reservas confirmada_no_pagada en las fechas buscadas
-            # Evaluar la disponibilidad y las reservas de la propiedad
+            # 🎯 LÓGICA SIMPLE: Si tiene disponibilidad, la mostramos
             if disponibilidades.exists():
+                # Verificar si hay reserva confirmada_no_pagada en estas fechas
+                reserva_confirmada_no_pagada = reservas.filter(estado='confirmada_no_pagada').first()
+                
+                # Saltar solo si hay reservas PAGADAS (las otras las mostramos)
+                if reservas.filter(estado='pagada').exists():
+                    continue
+                
                 if reserva_confirmada_no_pagada:
-                    # ✅ MOSTRAR propiedades con reserva confirmada_no_pagada EN ROJO
+                    # ✅ MOSTRAR EN ROJO
                     propiedad.reserva = reserva_confirmada_no_pagada
                     propiedad.estado_reserva = 'confirmada_no_pagada'
-                    print(f"🔴 PROPIEDAD {propiedad.id} EN ROJO - Estado: confirmada_no_pagada")
                 else:
-                    # Verificar reservas pagadas o confirmadas que se superponen con las fechas buscadas
-                    reservas_conflictivas = reservas.filter(
-                        Q(estado='pagada') | Q(estado='confirmada')
-                    )
-                    
-                    if reservas_conflictivas.exists():
-                        print(f"   ❌ SALTADA por reserva conflictiva")
-                        continue  # Saltar si hay reservas pagadas o confirmadas en estas fechas
-                    else:
-                        propiedad.estado_reserva = 'disponible'
-                        print(f"   ✅ DISPONIBLE")
+                    # ✅ MOSTRAR NORMAL
+                    propiedad.estado_reserva = 'disponible'
             else:
-                print(f"   ❌ SALTADA - No tiene disponibilidades en las fechas buscadas")
-                continue
+                continue  # No tiene disponibilidad, no la mostramos
 
                 # Calcular el precio total de la reserva según las fechas seleccionadas
                 precio_total = 0
