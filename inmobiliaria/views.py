@@ -4725,6 +4725,7 @@ def buscar_propiedades(request):
                 elif reserva_confirmada_no_pagada:
                     propiedad.reserva = reserva_confirmada_no_pagada
                     propiedad.estado_reserva = 'confirmada_no_pagada'
+                    print(f"🔴 PROPIEDAD {propiedad.id} MARCADA COMO CONFIRMADA_NO_PAGADA - Debería aparecer en ROJO")
                     # NO asignar precio aquí - se calculará día por día más abajo
                     pass
                 else:

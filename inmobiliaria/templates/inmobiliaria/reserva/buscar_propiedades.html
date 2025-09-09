@@ -1080,7 +1080,7 @@
                     <tbody>
                         {% for propiedad in propiedades_disponibles %}
                         {% if propiedad.estado_reserva == 'confirmada_no_pagada' %}
-                        <tr style="background-color: #ffebee; border-left: 4px solid #f44336;" 
+                        <tr style="background-color: #ffebee !important; border-left: 4px solid #f44336 !important;" 
                             class="propiedad-row"
                             data-index="{{ forloop.counter0 }}"
                             data-propiedad-id="{{ propiedad.id }}"
