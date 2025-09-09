@@ -4706,7 +4706,14 @@ def buscar_propiedades(request):
                 Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
             )
             
+            print(f"🏠 Propiedad {propiedad.id}:")
+            print(f"   - Disponibilidades: {disponibilidades.count()}")
+            print(f"   - Reservas en fechas: {reservas.count()}")
+            for reserva in reservas:
+                print(f"     * Reserva {reserva.id}: {reserva.estado} ({reserva.fecha_inicio} - {reserva.fecha_fin})")
+            
             if reservas.filter(estado='pagada').exists():
+                print(f"   ❌ SALTADA por reserva pagada")
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
 
             # Verificar si existe una reserva en estado 'confirmada_no_pagada'
@@ -4727,9 +4734,14 @@ def buscar_propiedades(request):
                     )
                     
                     if reservas_conflictivas.exists():
+                        print(f"   ❌ SALTADA por reserva conflictiva")
                         continue  # Saltar si hay reservas pagadas o confirmadas en estas fechas
                     else:
                         propiedad.estado_reserva = 'disponible'
+                        print(f"   ✅ DISPONIBLE")
+            else:
+                print(f"   ❌ SALTADA - No tiene disponibilidades en las fechas buscadas")
+                continue
 
                 # Calcular el precio total de la reserva según las fechas seleccionadas
                 precio_total = 0
