@@ -4598,8 +4598,11 @@ def buscar_propiedades_caja(request):
 @login_required
 def buscar_propiedades(request):
     # FUNCIÓN: buscar_propiedades - función que está siendo usada en producción ✅
+    print("🚀 INICIO DE BUSCAR_PROPIEDADES - FUNCIÓN EJECUTÁNDOSE")
+    
     # Obtener la sucursal del vendedor logueado
     sucursal_vendedor = request.user.sucursal
+    print(f"👤 Usuario: {request.user}, Sucursal: {sucursal_vendedor}")
     
     inquilinos = Inquilino.objects.filter(sucursal=sucursal_vendedor)
     form = BuscarPropiedadesForm(request.POST or None)
@@ -4905,7 +4908,8 @@ def buscar_propiedades(request):
         'inquilinos': Inquilino.objects.all().order_by('apellido', 'nombre'),
         'vendedores': vendedores,
         'tipos_precio': TipoPrecio,
-        'conceptos': conceptos
+        'conceptos': conceptos,
+        'debugging_info': f"🔍 DEBUGGING: Se encontraron {len(propiedades_disponibles)} propiedades. Función ejecutada correctamente."
     })
 
 # ============================

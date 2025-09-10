@@ -1063,6 +1063,12 @@
         <div class="col-md-8">
             {% if propiedades_disponibles %}
             <h3 class="text-center mt-4">Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h3>
+        
+        {% if debugging_info %}
+        <div class="alert alert-info text-center mt-2">
+            {{ debugging_info }}
+        </div>
+        {% endif %}
             <div class="table-wrapper">
                 <table id="propiedadesTable" class="table table-hover">
                     <thead>
