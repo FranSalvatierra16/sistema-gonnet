@@ -4650,6 +4650,16 @@ def buscar_propiedades(request):
         # 🎯 DEBUGGING: Verificar fechas de búsqueda
         print(f"🎯 BUSCAR_PROPIEDADES_PRINCIPAL: Buscando desde {fecha_inicio} hasta {fecha_fin}")
         
+        # 🎯 DEBUGGING: Ver qué propiedades tienen reservas en estas fechas
+        from inmobiliaria.models import Reserva
+        reservas_en_fechas = Reserva.objects.filter(
+            Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
+        )
+        print(f"🔍 RESERVAS EN ESTAS FECHAS: {reservas_en_fechas.count()} encontradas")
+        for r in reservas_en_fechas:
+            print(f"   - Reserva {r.id}: Propiedad {r.propiedad.id} ({r.propiedad.ubicacion})")
+            print(f"     Fechas: {r.fecha_inicio} al {r.fecha_fin}, Estado: '{r.estado}'")
+        
         # FLAG para identificar esta función específica para debugging posterior
         DEBUGGING_FUNCION_PRINCIPAL = True
 
