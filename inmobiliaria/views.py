@@ -2443,7 +2443,8 @@ def ver_recibo_movimiento(request, movimiento_id):
                     total_senia_pagada_recibo += monto_mov
                     print(f"💰 SEÑA RECIBO - Concepto: '{mov.concepto}', Monto: {monto_mov}")
             
-            total_pagado_reserva = total_senia_pagada_recibo + total_deposito_pagado_recibo
+            # ✅ CORREGIDO: Solo la seña cuenta para el total pagado (el depósito es aparte)
+            total_pagado_reserva = total_senia_pagada_recibo
             
             # ✅ NUEVO CÁLCULO: El saldo pendiente es precio total - SOLO LA SEÑA (NO EL DEPÓSITO)
             saldo_pendiente = reserva.precio_total - total_senia_pagada_recibo
