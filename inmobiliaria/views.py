@@ -4787,6 +4787,8 @@ def buscar_propiedades(request):
                 propiedad.disponibilidad_inicio = fecha_inicio
                 propiedad.disponibilidad_fin = fecha_fin
             
+            # 🎯 CALCULAR PRECIOS Y AGREGAR PROPIEDAD (CON O SIN RESERVAS)
+            
             # Si hay una reserva, sobreescribir con las fechas de la reserva
             if reserva_confirmada_no_pagada:
                 propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio 
@@ -4902,7 +4904,18 @@ def buscar_propiedades(request):
                     # En caso de error, no ordenar los precios
                     pass
 
-    # Alerta si hay propiedades sin precio
+            else:
+                # 🎯 PROPIEDADES SIN RESERVAS - También deben mostrarse
+                print(f"   ✅ PROPIEDAD SIN RESERVAS: {propiedad.id}")
+                
+                # Calcular precios para propiedades disponibles (lógica simplificada)
+                propiedad.precio_total_reserva = 0  # Se calculará después si es necesario
+                
+                # Agregar la propiedad disponible a la lista
+                dias_disponibles = (fecha_inicio - propiedad.disponibilidad_inicio).days
+                propiedad.dias_disponibles = max(dias_disponibles, 0)
+                propiedades_disponibles.append(propiedad)
+                propiedades_disponibles.sort(key=lambda x: x.dias_disponibles)    # Alerta si hay propiedades sin precio
     alerta_sin_precio = len(propiedades_sin_precio) > 0
     print("las fechas de inicio y fin son ",fecha_inicio,fecha_fin)
     print("los dias de reserva son ",total_dias_reserva)
