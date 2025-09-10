@@ -2705,6 +2705,11 @@ function confirmarReservaFinal() {
         if (data.success) {
             console.log('✅ Reserva creada exitosamente, redirigiendo...');
             
+            // Mostrar el estado asignado
+            if (data.mensaje_estado) {
+                alert(`✅ ${data.mensaje_estado}`);
+            }
+            
             // Cerrar el modal primero
             window.cerrarModal();
             

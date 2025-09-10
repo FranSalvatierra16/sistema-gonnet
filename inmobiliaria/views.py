@@ -834,9 +834,16 @@ def confirmar_reserva(request):
                         reserva=reserva
                     )
 
+                # Determinar el estado asignado
+                estado_asignado = 'confirmada' if es_operacion_directa else 'confirmada_no_pagada'
+                tipo_operacion = 'Operación Directa' if es_operacion_directa else 'Reserva'
+                
                 return JsonResponse({
                     'success': True,
                     'reserva_id': reserva.id,
+                    'estado_asignado': estado_asignado,
+                    'tipo_operacion': tipo_operacion,
+                    'mensaje_estado': f'{tipo_operacion} creada con estado: {estado_asignado}',
                     'redirect_url': reverse('inmobiliaria:ver_recibo', args=[reserva.id]) if es_operacion_directa else reverse('inmobiliaria:reserva_exitosa', args=[reserva.id])
                 })
 
