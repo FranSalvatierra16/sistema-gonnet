@@ -4774,12 +4774,23 @@ def buscar_propiedades(request):
                 propiedad.estado_reserva = 'disponible'
                 print(f"   ✅ DISPONIBLE: Sin reservas para mostrar en rojo")
             
-            # Solo verificar disponibilidades si existen
+            # 🎯 ASIGNAR VALORES POR DEFECTO PARA DISPONIBILIDAD
+            # Si tiene disponibilidades, usar la primera
             if disponibilidades.exists():
                 print(f"   📋 Tiene disponibilidades, procesando...")
-                pass  # El resto de la lógica de disponibilidades sigue igual
+                primera_disponibilidad = disponibilidades.first()
+                propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
+                propiedad.disponibilidad_fin = primera_disponibilidad.fecha_fin
             else:
-                print(f"   📋 SIN disponibilidades definidas, pero se procesa igual")
+                print(f"   📋 SIN disponibilidades definidas, usando fechas de búsqueda")
+                # Si no tiene disponibilidades, usar las fechas de búsqueda
+                propiedad.disponibilidad_inicio = fecha_inicio
+                propiedad.disponibilidad_fin = fecha_fin
+            
+            # Si hay una reserva, sobreescribir con las fechas de la reserva
+            if reserva_confirmada_no_pagada:
+                propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio 
+                propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
 
                 # Calcular el precio total de la reserva según las fechas seleccionadas
                 precio_total = 0
@@ -4868,9 +4879,6 @@ def buscar_propiedades(request):
                     if reserva_cercana_fin:
                         propiedad.disponibilidad_fin = reserva_cercana_fin.fecha_inicio
 
-                if reserva_confirmada_no_pagada:
-                    propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio 
-                    propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
 
                 # Añadir la propiedad disponible a la lista
                 dias_disponibles = (fecha_inicio - propiedad.disponibilidad_inicio).days
