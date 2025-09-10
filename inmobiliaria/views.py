@@ -1446,7 +1446,7 @@ def terminar_reserva(request, reserva_id):
                     
                     # Actualizar reserva solo con la seña
                     reserva.senia = total_senia_only  # ✅ Solo seña
-                    reserva.deposito = deposito
+                    reserva.deposito_garantia = deposito  # ✅ CORREGIDO: usar el campo correcto
                     reserva.cuota_pendiente = reserva.precio_total - total_senia_only  # ✅ Solo descontar seña
                     
                     # Si la cuota pendiente es 0 o menor, finalizar la reserva y crear movimiento de caja
