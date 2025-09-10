@@ -2171,6 +2171,13 @@ def procesar_movimiento_reserva(request):
             deposito_garantia_input = limpiar_valor_monetario(request.POST.get('deposito_garantia', '0'))
             importe_locacion_input = limpiar_valor_monetario(request.POST.get('importe_locacion', '0'))
             
+            # 🔍 DEBUGGING CRÍTICO: Ver qué llega del formulario
+            print(f"🔥 VALORES CRUDOS DEL FORMULARIO:")
+            print(f"   - request.POST.get('senia'): '{request.POST.get('senia', 'NO_ENVIADO')}'")
+            print(f"   - request.POST.get('deposito_garantia'): '{request.POST.get('deposito_garantia', 'NO_ENVIADO')}'")
+            print(f"   - senia_input (limpiado): '{senia_input}'")
+            print(f"   - deposito_garantia_input (limpiado): '{deposito_garantia_input}'")
+            
             try:
                 senia = Decimal(senia_input) if senia_input else Decimal('0')
                 deposito_garantia = Decimal(deposito_garantia_input) if deposito_garantia_input else Decimal('0')
