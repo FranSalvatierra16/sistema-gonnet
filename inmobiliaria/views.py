@@ -2175,8 +2175,14 @@ def procesar_movimiento_reserva(request):
             print(f"🔥 VALORES CRUDOS DEL FORMULARIO:")
             print(f"   - request.POST.get('senia'): '{request.POST.get('senia', 'NO_ENVIADO')}'")
             print(f"   - request.POST.get('deposito_garantia'): '{request.POST.get('deposito_garantia', 'NO_ENVIADO')}'")
+            print(f"   - request.POST.get('importe_locacion'): '{request.POST.get('importe_locacion', 'NO_ENVIADO')}'")
             print(f"   - senia_input (limpiado): '{senia_input}'")
             print(f"   - deposito_garantia_input (limpiado): '{deposito_garantia_input}'")
+            print(f"   - importe_locacion_input (limpiado): '{importe_locacion_input}'")
+            print(f"🔥 TODOS LOS CAMPOS DEL POST:")
+            for key, value in request.POST.items():
+                if 'csrf' not in key.lower():
+                    print(f"   - {key}: '{value}'")
             
             try:
                 senia = Decimal(senia_input) if senia_input else Decimal('0')
@@ -2204,6 +2210,14 @@ def procesar_movimiento_reserva(request):
                 print(f"🔥 DESPUÉS DE GUARDAR:")
                 print(f"   - reserva.senia = {reserva.senia}")
                 print(f"   - reserva.deposito_garantia = {reserva.deposito_garantia}")
+                
+                # 🔍 VERIFICAR EN LA BD
+                reserva.refresh_from_db()
+                print(f"🔥 DESPUÉS DE REFRESH DESDE BD:")
+                print(f"   - reserva.senia = {reserva.senia}")
+                print(f"   - reserva.deposito_garantia = {reserva.deposito_garantia}")
+                print(f"   - reserva.precio_total = {reserva.precio_total}")
+                print(f"   - SALDO CALCULADO = {reserva.precio_total - reserva.senia}")
                 
             except (ValueError, TypeError) as e:
                 print(f"❌ Error al convertir valores: {e}")
