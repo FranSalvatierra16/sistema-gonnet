@@ -489,6 +489,15 @@
                                 <small class="text-muted">Pagado</small>
                             </div>
                             
+                            {% if reserva.total_deposito_pagado > 0 %}
+                            <div style="margin-bottom: 0.5rem;">
+                                <div style="font-size: 0.9rem; color: #17a2b8; font-weight: 600;">
+                                    🛡️ ${{ reserva.total_deposito_pagado|format_price }}
+                                </div>
+                                <small class="text-muted">Depósito Garantía</small>
+                            </div>
+                            {% endif %}
+                            
                             {% if reserva.saldo_pendiente > 0 %}
                             <div style="margin-bottom: 0.5rem;">
                                 <div style="font-size: 1.1rem; color: #dc3545; font-weight: 600;">

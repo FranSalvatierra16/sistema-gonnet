@@ -590,9 +590,9 @@ def operaciones(request):
         )
         
         if total_pagado > 0:
-            # ✅ SIMPLE: Solo usar la seña del casillero
-            reserva.total_pagado = total_pagado
-            reserva.saldo_pendiente = saldo_pendiente
+            # ✅ CORREGIDO: total_pagado debe ser solo la seña (sin depósito)
+            reserva.total_pagado = reserva.senia or 0  # Solo la seña
+            reserva.saldo_pendiente = saldo_pendiente  # Ya está calculado correctamente
             reserva.total_senia_pagada = reserva.senia or 0
             reserva.total_deposito_pagado = reserva.deposito_garantia or 0
             
