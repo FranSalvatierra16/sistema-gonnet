@@ -751,11 +751,19 @@ def confirmar_reserva(request):
                         'error': 'El período seleccionado ya tiene una reserva'
                     })
 
+                # 🔍 DEBUG: Ver qué precio llega del frontend
+                print(f"🔍 PRECIO RECIBIDO DEL FRONTEND:")
+                print(f"   - precio original: '{precio}' (tipo: {type(precio)})")
+                
                 # Limpiar el precio y convertirlo a float
                 precio_limpio = precio.replace('$', '').replace(',', '').replace('.', '').strip()
+                print(f"   - precio limpio: '{precio_limpio}'")
+                
                 try:
                     precio_float = float(precio_limpio)  # Ya no dividir por 100
+                    print(f"   - precio float: {precio_float}")
                 except ValueError:
+                    print(f"   - ERROR: No se pudo convertir '{precio_limpio}' a float")
                     return JsonResponse({
                         'success': False,
                         'error': 'El precio no tiene un formato válido'
@@ -1140,14 +1148,17 @@ def buscar_propiedades_reserva(request):
                     try:
                         precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
                         precio_dia = precio.precio_por_dia or 0
+                        print(f"   ✅ Precio encontrado para {tipo_precio}: ${precio_dia:,.0f}")
                     except Precio.DoesNotExist:
                         precio_dia = 0
+                        print(f"   ❌ NO HAY PRECIO configurado para {tipo_precio} en propiedad {propiedad.id}")
 
                     # ✅ Sumar TODOS los días - lógica simple y correcta
                     precio_total += precio_dia
                     print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
 
                 propiedad.precio_total_reserva = precio_total
+                print(f"💰 PRECIO TOTAL FINAL para propiedad {propiedad.id}: ${precio_total:,.0f}")
 
                 # Calcular la disponibilidad real considerando las reservas existentes
                 disponibilidad_calculada = calcular_disponibilidad_real(
