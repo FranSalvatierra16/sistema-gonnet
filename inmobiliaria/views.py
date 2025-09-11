@@ -1344,6 +1344,13 @@ def finalizar_reserva_nueva(request, reserva_id):
         # Obtener la reserva
         reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
         
+        # 🚀 SOLUCIÓN: Si la reserva tiene precio 0, recalcularlo
+        if reserva.precio_total == 0:
+            print(f"⚠️ Reserva {reserva.id} tiene precio 0, recalculando...")
+            recalcular_precio_reserva(reserva)
+            # Refrescar desde la base de datos
+            reserva.refresh_from_db()
+        
         # Obtener la caja actual de la sucursal
         caja_actual = Caja.objects.filter(
             sucursal=request.user.sucursal,
@@ -5800,4 +5807,138 @@ El equipo de Sistema Gonnet
             messages.error(request, 'Por favor, ingresa un correo electrónico válido.')
     
     return render(request, 'inmobiliaria/autenticacion/password_reset_form.html', {'form': form})
+
+# Función temporal para recalcular precios de reservas con precio 0
+def recalcular_precio_reserva(reserva):
+    """
+    Recalcula el precio de una reserva usando la misma lógica que buscar_propiedades_reserva
+    """
+    print(f"🔄 RECALCULANDO PRECIO para reserva {reserva.id}")
+    
+    try:
+        fecha_inicio = reserva.fecha_inicio
+        fecha_fin = reserva.fecha_fin
+        propiedad = reserva.propiedad
+        
+        # Calcular días de reserva
+        dias_reserva = (fecha_fin - fecha_inicio).days + 1
+        print(f"   📅 Fechas: {fecha_inicio} al {fecha_fin} ({dias_reserva} días)")
+        
+        # Calcular precio día por día usando la misma lógica
+        precio_total = 0
+        
+        for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
+            # Determinar el tipo de precio según la fecha
+            tipo_precio = None
+            if single_date.month == 1:  # Enero
+                tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
+            elif single_date.month == 2:  # Febrero
+                tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day <= 15 else 'QUINCENA_2_FEBRERO'
+            elif single_date.month == 3:  # Marzo
+                tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
+            elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
+                tipo_precio = 'VACACIONES_INVIERNO'
+            elif single_date.month == 12:  # Diciembre
+                tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
+            else:
+                tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
+
+            # Obtener el precio para la propiedad y la quincena correspondiente
+            try:
+                precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
+                precio_dia = precio.precio_por_dia or 0
+                print(f"   ✅ {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f}")
+            except Precio.DoesNotExist:
+                precio_dia = 0
+                print(f"   ❌ {single_date.strftime('%d/%m')}: {tipo_precio} = SIN PRECIO")
+
+            precio_total += precio_dia
+        
+        print(f"   💰 PRECIO TOTAL RECALCULADO: ${precio_total:,.0f}")
+        
+        # Actualizar la reserva si el precio es diferente
+        if precio_total != reserva.precio_total:
+            reserva.precio_total = precio_total
+            reserva.save()
+            print(f"   ✅ RESERVA ACTUALIZADA con nuevo precio: ${precio_total:,.0f}")
+        else:
+            print(f"   ℹ️ El precio ya era correcto: ${precio_total:,.0f}")
+            
+        return precio_total
+        
+    except Exception as e:
+        print(f"   ❌ ERROR recalculando precio: {str(e)}")
+        return 0
+
+@login_required
+def finalizar_reserva_nueva(request, reserva_id):
+    """
+    Nueva vista para finalizar reserva basada en la carga de recibo
+    """
+    try:
+        # Obtener la reserva
+        reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
+        
+        # Obtener la caja actual de la sucursal
+        caja_actual = Caja.objects.filter(
+            sucursal=request.user.sucursal,
+            fecha_cierre__isnull=True
+        ).first()
+        
+        if not caja_actual:
+            messages.error(request, 'No hay una caja abierta. Debe abrir una caja primero.')
+            return redirect('inmobiliaria:reservas')
+        
+        # Calcular información del próximo movimiento
+        cantidad_movimientos = MovimientoCaja.objects.filter(caja=caja_actual).count()
+        proximo_numero_movimiento = cantidad_movimientos + 1
+        
+        # Obtener conceptos de caja disponibles
+        conceptos_caja = Concepto.objects.all()
+        
+        # ✅ CALCULAR SALDO PENDIENTE CONSIDERANDO SOLO LA SEÑA (NO EL DEPÓSITO)
+        # Buscar todos los movimientos de caja pagados para esta reserva
+        pagos_anteriores = MovimientoCaja.objects.filter(
+            propiedad=reserva.propiedad,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+            concepto__icontains=f"Reserva {reserva.id}"
+        )
+        
+        # ✅ LÓGICA SIMPLE: SALDO = PRECIO TOTAL - SEÑA (EL DEPÓSITO NO AFECTA)
+        saldo_a_ocupar = reserva.precio_total - (reserva.senia or 0)
+        
+        print(f"✅ CÁLCULO FINALIZAR RESERVA:")
+        print(f"   - Precio Total: ${reserva.precio_total}")
+        print(f"   - Seña: ${reserva.senia or 0}")
+        print(f"   - Saldo Pendiente: ${saldo_a_ocupar}")
+        print(f"   - Depósito: ${reserva.deposito_garantia or 0}")
+
+        
+        # Datos para el formulario (solo lectura)
+        context = {
+            'reserva': reserva,
+            'cliente_id': reserva.cliente.id,
+            'cliente_nombre': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
+            'interno_caja': caja_actual.numero,
+            'propiedad_id': reserva.propiedad.id,
+            'propiedad_direccion': reserva.propiedad.direccion,
+            'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
+            'numero_movimiento': proximo_numero_movimiento,
+            'numero_recibo': '0000-00000000',  # Para completar
+            'productor_id': request.user.id,
+            'productor_nombre': f"{request.user.nombre} {request.user.apellido}",
+            'conceptos_caja': conceptos_caja,
+            'saldo_a_ocupar': saldo_a_ocupar,
+            'total_senia_pagada': reserva.senia or 0,  # ✅ SIMPLE: Del casillero
+            'total_deposito_pagado': reserva.deposito_garantia or 0,  # ✅ SIMPLE: Del casillero
+            'deposito_garantia': reserva.deposito_garantia,
+            'fecha_desde': reserva.fecha_inicio.strftime('%d/%m/%Y'),
+            'fecha_hasta': reserva.fecha_fin.strftime('%d/%m/%Y'),
+        }
+        
+        return render(request, 'inmobiliaria/reserva/finalizar_reserva_nueva.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Error al cargar la reserva: {str(e)}')
+        return redirect('inmobiliaria:reservas')
 
