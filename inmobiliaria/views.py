@@ -1112,6 +1112,13 @@ def buscar_propiedades_reserva(request):
                 dias_reserva = (fecha_fin - fecha_inicio).days + 1
                 total_dias_reserva = dias_reserva
 
+                # 🔍 DEBUGGING CRÍTICO: Ver todos los precios de esta propiedad
+                print(f"🔍 DEBUGGING PRECIOS - Propiedad {propiedad.id}:")
+                todos_precios = Precio.objects.filter(propiedad=propiedad)
+                print(f"   Total precios configurados: {todos_precios.count()}")
+                for precio in todos_precios:
+                    print(f"   - {precio.tipo_precio}: ${precio.precio_por_dia}")
+                
                 # ✅ NUEVA LÓGICA: Sumar TODOS los días (Opción A - Lógica Corregida)
                 for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
                     # Determinar el tipo de precio según la fecha
@@ -1204,17 +1211,42 @@ def buscar_propiedades_reserva(request):
 
     for propiedad in propiedades_disponibles:
         try:
-            # Obtener los precios para la propiedad
-            precios = propiedad.precios.all()
+            # ✅ USAR EL MISMO CÁLCULO POR TEMPORADAS QUE EN buscar_propiedades
             precio_total = 0
             
             if fecha_inicio and fecha_fin:
-                dias_totales = (fecha_fin - fecha_inicio).days + 1
-                # Buscar el precio correspondiente según el período
-                for precio in precios:
-                    if precio.precio_por_dia:
-                        # # precio_total = float(precio.precio_por_dia) * dias_totales  # ❌ COMENTADO - Usar cálculo por temporadas  # ❌ COMENTADO - Usar cálculo por temporadas
-                        break
+                dias_reserva = (fecha_fin - fecha_inicio).days
+                
+                # Calcular precio día por día según temporada
+                for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
+                    # Determinar el tipo de precio según la fecha
+                    tipo_precio = None
+                    if single_date.month == 1:  # Enero
+                        tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
+                    elif single_date.month == 2:  # Febrero
+                        tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day <= 15 else 'QUINCENA_2_FEBRERO'
+                    elif single_date.month == 3:  # Marzo
+                        tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
+                    elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
+                        tipo_precio = 'VACACIONES_INVIERNO'
+                    elif single_date.month == 12:  # Diciembre
+                        tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
+                    else:
+                        tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
+
+                    # Obtener el precio para la propiedad y la quincena correspondiente
+                    try:
+                        precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
+                        precio_dia = precio.precio_por_dia or 0
+                        
+                        # Aplicar ajuste porcentual si existe
+                        if precio.ajuste_porcentaje != 0:
+                            precio_dia *= (1 - precio.ajuste_porcentaje / 100)
+                            
+                        precio_total += precio_dia
+                    except Precio.DoesNotExist:
+                        # Si no hay precio para esta temporada, usar 0
+                        pass
             
             propiedad.precio_total_reserva = precio_total
             
@@ -4844,6 +4876,12 @@ def buscar_propiedades(request):
                         print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
                     except Precio.DoesNotExist:
                         print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = $0 (sin precio configurado)")
+                        print(f"🚨 PRECIO FALTANTE - Propiedad {propiedad.id} NO tiene precio para {tipo_precio}")
+                        # Mostrar qué precios SÍ tiene esta propiedad
+                        precios_existentes = Precio.objects.filter(propiedad=propiedad)
+                        print(f"🔍 Precios configurados para esta propiedad: {precios_existentes.count()}")
+                        for p in precios_existentes:
+                            print(f"   - {p.tipo_precio}: ${p.precio_por_dia}")
 
                 # ✅ ASIGNAR EL PRECIO CALCULADO CON TU FUNCIÓN
                 print(f"🔥 PRECIO FINAL CALCULADO para propiedad {propiedad.id}: ${precio_total}")
