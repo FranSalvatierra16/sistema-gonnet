@@ -2124,9 +2124,9 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
             console.log('🔄 Precio convertido:', precioStr, '→', precioCorregido);
         }
         
-        // ✅ CORREGIR: Dividir por 10 para corregir el cero extra
-        precioCorregido = precioCorregido / 10;
-        console.log('✅ Precio procesado y corregido (÷10):', precioCorregido);
+        // ✅ NO DIVIDIR: El precio ya viene correcto desde el backend
+        // precioCorregido = precioCorregido / 10;  // ❌ Esta línea causaba precios incorrectos
+        console.log('✅ Precio procesado (sin división):', precioCorregido);
         
     } catch (error) {
         console.error('❌ Error procesando precio:', error);

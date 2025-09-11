@@ -1361,25 +1361,11 @@ def finalizar_reserva_nueva(request, reserva_id):
         # ✅ LÓGICA SIMPLE: SALDO = PRECIO TOTAL - SEÑA (EL DEPÓSITO NO AFECTA)
         saldo_a_ocupar = reserva.precio_total - (reserva.senia or 0)
         
-        print(f"✅ CÁLCULO SIMPLE:")
+        print(f"✅ CÁLCULO FINALIZAR RESERVA:")
         print(f"   - Precio Total: ${reserva.precio_total}")
         print(f"   - Seña: ${reserva.senia or 0}")
         print(f"   - Saldo Pendiente: ${saldo_a_ocupar}")
-        print(f"   - Depósito (NO afecta saldo): ${reserva.deposito_garantia or 0}")
-        
-        # 🔍 DEBUG: Imprimir todos los valores que se pasan al template
-        valores_debug = {
-            'reserva.precio_total': reserva.precio_total,
-            'reserva.senia': reserva.senia,
-            'reserva.deposito_garantia': reserva.deposito_garantia,
-            'saldo_a_ocupar': saldo_a_ocupar,
-            'total_senia_pagada': reserva.senia or 0,
-            'total_deposito_pagado': reserva.deposito_garantia or 0,
-        }
-        
-        print(f"🔍 DEBUG - Valores que se envían al template:")
-        for key, value in valores_debug.items():
-            print(f"   - {key}: {value} (tipo: {type(value)})")
+        print(f"   - Depósito: ${reserva.deposito_garantia or 0}")
 
         
         # Datos para el formulario (solo lectura)
