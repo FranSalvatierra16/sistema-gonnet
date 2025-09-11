@@ -374,28 +374,9 @@ class Reserva(models.Model):
         if is_new:
             # Si no hay disponibilidades definidas, asumimos que está disponible
             if not self.propiedad.disponibilidades.exists():
-                print(f"🔍 RESERVA NUEVA - Propiedad {self.propiedad.id} SIN disponibilidades configuradas - Permitiendo")
                 disponible = True
             else:
-                print(f"🔍 RESERVA NUEVA - Verificando disponibilidad para propiedad {self.propiedad.id}")
-                print(f"   - Fechas solicitadas: {self.fecha_inicio} al {self.fecha_fin}")
-                
-                # Mostrar disponibilidades existentes
-                disponibilidades = self.propiedad.disponibilidades.all()
-                print(f"   - Disponibilidades configuradas: {disponibilidades.count()}")
-                for disp in disponibilidades:
-                    print(f"     * {disp.fecha_inicio} al {disp.fecha_fin}")
-                
-                # Mostrar reservas existentes
-                reservas_existentes = self.propiedad.reservas.filter(
-                    estado__in=['confirmada', 'confirmada_no_pagada']
-                )
-                print(f"   - Reservas confirmadas existentes: {reservas_existentes.count()}")
-                for res in reservas_existentes:
-                    print(f"     * Reserva {res.id}: {res.fecha_inicio} al {res.fecha_fin} - {res.estado}")
-                
                 disponible = self.propiedad.esta_disponible_en_fecha(self.fecha_inicio, self.fecha_fin)
-                print(f"   - ¿Disponible? {disponible}")
                 
             if not disponible:
                 raise ValidationError('La propiedad no está disponible para las fechas seleccionadas.')
