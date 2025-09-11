@@ -136,7 +136,13 @@
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Depósito Garantía:</strong></label>
                                 <input type="number" class="form-control form-control-sm" name="deposito_garantia" 
-                                       value="{{ deposito_garantia }}" step="0.01" placeholder="0.00">
+                                       value="{{ deposito_garantia }}" step="0.01" placeholder="0.00"
+                                       {% if reserva.deposito_garantia > 0 %}readonly style="background-color: #f8f9fa; color: #6c757d;"{% endif %}>
+                                {% if reserva.deposito_garantia > 0 %}
+                                <small class="text-muted">🔒 Depósito ya registrado - No se puede modificar</small>
+                                {% else %}
+                                <small class="text-muted">💡 Depósito de garantía (opcional)</small>
+                                {% endif %}
                             </div>
                         </div>
                         
