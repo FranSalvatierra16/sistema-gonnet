@@ -2434,28 +2434,13 @@ def ver_recibo_movimiento(request, movimiento_id):
             for mov in todos_movimientos:
                 print(f"🔍 Movimiento ID: {mov.id}, Concepto: '{mov.concepto}', Total: {mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito}")
             
-            # ✅ SEPARAR SEÑA DE DEPÓSITO PARA CÁLCULO CORRECTO
-            total_senia_pagada_recibo = 0
-            total_deposito_pagado_recibo = 0
+            # ✅ USAR VALORES DIRECTOS DE LA RESERVA (MÁS CONFIABLE)
+            total_senia_pagada_recibo = reserva.senia or 0
+            total_deposito_pagado_recibo = reserva.deposito_garantia or 0
             
-            for mov in todos_movimientos:
-                monto_mov = mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito
-                
-                # Identificar si es depósito de garantía por el concepto
-                concepto_lower = mov.concepto.lower()
-                es_deposito = any(palabra in concepto_lower for palabra in [
-                    'depósito', 'deposito', 'garantía', 'garantia', 
-                    'caución', 'caucion', 'seguridad', 'fianza',
-                    'deposit', 'warranty', 'security'
-                ])
-                
-                if es_deposito:
-                    total_deposito_pagado_recibo += monto_mov
-                    print(f"💳 DEPÓSITO RECIBO - Concepto: '{mov.concepto}', Monto: {monto_mov}")
-                else:
-                    # 💰 TODOS LOS PAGOS NO ESPECÍFICOS SE CONSIDERAN SEÑA
-                    total_senia_pagada_recibo += monto_mov
-                    print(f"💰 SEÑA RECIBO - Concepto: '{mov.concepto}', Monto: {monto_mov}")
+            print(f"✅ USANDO VALORES DIRECTOS DE LA RESERVA:")
+            print(f"   - Seña (reserva.senia): ${total_senia_pagada_recibo}")
+            print(f"   - Depósito (reserva.deposito_garantia): ${total_deposito_pagado_recibo}")
             
             # ✅ CORREGIDO: Solo la seña cuenta para el total pagado (el depósito es aparte)
             total_pagado_reserva = total_senia_pagada_recibo
