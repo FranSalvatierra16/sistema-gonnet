@@ -5,6 +5,18 @@
 {% block title %}Finalizar Reserva - Recibo{% endblock %}
 
 {% block content %}
+
+<!-- 🔍 DEBUG TEMPORAL: Mostrar valores en bruto para diagnosticar problema -->
+<div class="alert alert-warning" style="font-family: monospace; font-size: 12px;">
+    <strong>🔍 DEBUG - Valores en bruto:</strong><br>
+    reserva.precio_total = "{{ reserva.precio_total }}" (crudo) | "{{ reserva.precio_total|format_price }}" (formateado)<br>
+    reserva.senia = "{{ reserva.senia }}" (crudo) | "{{ reserva.senia|format_price }}" (formateado)<br>
+    reserva.deposito_garantia = "{{ reserva.deposito_garantia }}" (crudo) | "{{ reserva.deposito_garantia|format_price }}" (formateado)<br>
+    saldo_a_ocupar = "{{ saldo_a_ocupar }}" (crudo) | "{{ saldo_a_ocupar|format_price }}" (formateado)<br>
+    total_senia_pagada = "{{ total_senia_pagada }}" (crudo) | "{{ total_senia_pagada|format_price }}" (formateado)<br>
+    total_deposito_pagado = "{{ total_deposito_pagado }}" (crudo) | "{{ total_deposito_pagado|format_price }}" (formateado)
+</div>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-12">
