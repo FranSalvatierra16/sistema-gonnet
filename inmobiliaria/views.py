@@ -3112,10 +3112,17 @@ def limpiar_historial_disponibilidad(request):
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 def reconstruir_historial_propiedad(propiedad):
-    """Función auxiliar para reconstruir el historial de una propiedad"""
+    """
+    Función auxiliar para reconstruir el historial de una propiedad
+    
+    ✅ LÓGICA CORREGIDA: 
+    - Las disponibilidades YA están fragmentadas correctamente
+    - Solo necesitamos crear entradas del historial para disponibilidades + reservas
+    - SIN duplicar períodos
+    """
     print(f"🔄 Reconstruyendo historial para propiedad {propiedad.id}")
     
-    # Obtener todas las disponibilidades (períodos libres)
+    # Obtener todas las disponibilidades (períodos libres ya fragmentados)
     disponibilidades = propiedad.disponibilidades.all().order_by('fecha_inicio')
     for disp in disponibilidades:
         HistorialDisponibilidad.objects.create(

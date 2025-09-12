@@ -455,8 +455,26 @@ class Reserva(models.Model):
                     )
                     print(f"   ✅ Creada disponibilidad DESPUÉS: {nueva_disponibilidad_despues.fecha_inicio} al {nueva_disponibilidad_despues.fecha_fin}")
             
-            # 5️⃣ RECONSTRUIR TODO EL HISTORIAL desde cero basado en disponibilidades y reservas actuales
-            self.reconstruir_historial_completo()
+            # 5️⃣ CREAR SOLO las entradas de historial para las nuevas disponibilidades
+            disponibilidades_actuales = self.propiedad.disponibilidades.all().order_by('fecha_inicio')
+            for disp in disponibilidades_actuales:
+                HistorialDisponibilidad.objects.create(
+                    propiedad=self.propiedad,
+                    fecha_inicio=disp.fecha_inicio,
+                    fecha_fin=disp.fecha_fin,
+                    estado='libre'
+                )
+                print(f"   📅 Historial LIBRE: {disp.fecha_inicio} al {disp.fecha_fin}")
+            
+            # 6️⃣ CREAR entrada de historial para ESTA reserva
+            HistorialDisponibilidad.objects.create(
+                propiedad=self.propiedad,
+                fecha_inicio=self.fecha_inicio,
+                fecha_fin=self.fecha_fin,
+                estado='reservado',
+                reserva=self
+            )
+            print(f"   🎯 Historial RESERVADO: {self.fecha_inicio} al {self.fecha_fin} (Reserva #{self.id})")
             
             print(f"✅ Fragmentación y historial completados para reserva {self.id}")
     
