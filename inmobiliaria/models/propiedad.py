@@ -83,7 +83,7 @@ class HistorialDisponibilidad(models.Model):
     class Meta:
         verbose_name = _("Historial de Disponibilidad")
         verbose_name_plural = _("Historial de Disponibilidades")
-        ordering = ['-fecha_actualizacion']
+        ordering = ['fecha_inicio', 'fecha_fin']  # ✅ ORDENAR POR FECHA CRONOLÓGICA
 
     def __str__(self):
         return f"{self.propiedad} - {self.estado} - {self.fecha_inicio} al {self.fecha_fin}"
@@ -396,46 +396,82 @@ class Reserva(models.Model):
 
     def actualizar_historial_disponibilidad(self):
         """
-        Actualiza el historial de disponibilidad cuando se crea o modifica una reserva.
-        Divide los períodos de disponibilidad según corresponda.
+        ✅ NUEVA LÓGICA: Fragmenta automáticamente las disponibilidades al hacer reservas
+        
+        Ejemplo: Disponibilidad 01-31 dic + Reserva 10-12 dic = 
+        - Elimina: 01-31 dic
+        - Crea: 01-10 libre, 10-12 reservado, 12-31 libre
         """
+        from datetime import timedelta
+        
         with transaction.atomic():
-            # Obtener todas las disponibilidades que se solapan con la reserva
+            print(f"🔄 Procesando reserva {self.fecha_inicio} al {self.fecha_fin}")
+            
+            # 1️⃣ BUSCAR disponibilidades que cubren el período de la reserva
             disponibilidades_afectadas = Disponibilidad.objects.filter(
                 propiedad=self.propiedad,
-                fecha_inicio__lte=self.fecha_fin,
-                fecha_fin__gte=self.fecha_inicio
+                fecha_inicio__lte=self.fecha_inicio,  # Disponibilidad empieza antes o igual
+                fecha_fin__gte=self.fecha_fin         # Disponibilidad termina después o igual
             ).order_by('fecha_inicio')
-
+            
+            print(f"📋 Disponibilidades afectadas: {disponibilidades_afectadas.count()}")
+            
             for disponibilidad in disponibilidades_afectadas:
-                # Si la disponibilidad empieza antes que la reserva
-                if disponibilidad.fecha_inicio < self.fecha_inicio:
-                    # Crear período "libre" antes de la reserva
+                print(f"   🗓️ Procesando disponibilidad: {disponibilidad.fecha_inicio} al {disponibilidad.fecha_fin}")
+                
+                # Guardar fechas originales antes de eliminar
+                fecha_inicio_original = disponibilidad.fecha_inicio
+                fecha_fin_original = disponibilidad.fecha_fin
+                
+                # 2️⃣ ELIMINAR la disponibilidad original
+                disponibilidad.delete()
+                print(f"   ❌ Eliminada disponibilidad original")
+                
+                # 3️⃣ CREAR período libre ANTES de la reserva (si existe)
+                if fecha_inicio_original < self.fecha_inicio:
+                    nueva_disponibilidad_antes = Disponibilidad.objects.create(
+                        propiedad=self.propiedad,
+                        fecha_inicio=fecha_inicio_original,
+                        fecha_fin=self.fecha_inicio
+                    )
+                    print(f"   ✅ Creada disponibilidad ANTES: {nueva_disponibilidad_antes.fecha_inicio} al {nueva_disponibilidad_antes.fecha_fin}")
+                    
+                    # Agregar al historial
                     HistorialDisponibilidad.objects.create(
                         propiedad=self.propiedad,
-                        fecha_inicio=disponibilidad.fecha_inicio,
+                        fecha_inicio=fecha_inicio_original,
                         fecha_fin=self.fecha_inicio,
                         estado='libre'
                     )
-
-                # Crear período "reservado" durante la reserva
-                HistorialDisponibilidad.objects.create(
-                    propiedad=self.propiedad,
-                    fecha_inicio=self.fecha_inicio,
-                    fecha_fin=self.fecha_fin,
-                    estado='reservado',
-                    reserva=self
-                )
-
-                # Si la disponibilidad termina después que la reserva
-                if disponibilidad.fecha_fin > self.fecha_fin:
-                    # Crear período "libre" después de la reserva
+                
+                # 4️⃣ CREAR período libre DESPUÉS de la reserva (si existe)
+                if fecha_fin_original > self.fecha_fin:
+                    nueva_disponibilidad_despues = Disponibilidad.objects.create(
+                        propiedad=self.propiedad,
+                        fecha_inicio=self.fecha_fin,
+                        fecha_fin=fecha_fin_original
+                    )
+                    print(f"   ✅ Creada disponibilidad DESPUÉS: {nueva_disponibilidad_despues.fecha_inicio} al {nueva_disponibilidad_despues.fecha_fin}")
+                    
+                    # Agregar al historial
                     HistorialDisponibilidad.objects.create(
                         propiedad=self.propiedad,
                         fecha_inicio=self.fecha_fin,
-                        fecha_fin=disponibilidad.fecha_fin,
+                        fecha_fin=fecha_fin_original,
                         estado='libre'
                     )
+            
+            # 5️⃣ CREAR el período reservado en el historial
+            HistorialDisponibilidad.objects.create(
+                propiedad=self.propiedad,
+                fecha_inicio=self.fecha_inicio,
+                fecha_fin=self.fecha_fin,
+                estado='reservado',
+                reserva=self
+            )
+            print(f"   🎯 Creado período RESERVADO: {self.fecha_inicio} al {self.fecha_fin}")
+            
+            print(f"✅ Fragmentación completada para reserva {self.id}")
 
     def actualizar_saldos(self):
         """Actualiza los saldos basados en los pagos realizados"""

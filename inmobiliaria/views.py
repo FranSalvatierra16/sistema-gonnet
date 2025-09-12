@@ -781,43 +781,12 @@ def confirmar_reserva(request):
                     sucursal=request.user.sucursal  # Asignar la sucursal del usuario
                 )
 
-                # Buscar la disponibilidad que cubre el período de la reserva
-                disponibilidad = Disponibilidad.objects.filter(
-                    propiedad=propiedad,
-                    fecha_inicio__lte=fecha_inicio,
-                    fecha_fin__gte=fecha_fin
-                ).first()
-
-                if disponibilidad:
-                    # Eliminar la disponibilidad actual
-                    disponibilidad_inicio = disponibilidad.fecha_inicio
-                    disponibilidad_fin = disponibilidad.fecha_fin
-                    disponibilidad.delete()
-
-                    # Crear disponibilidad antes de la reserva si es necesario
-                    if disponibilidad_inicio < fecha_inicio:
-                        Disponibilidad.objects.create(
-                            propiedad=propiedad,
-                            fecha_inicio=disponibilidad_inicio,
-                            fecha_fin=fecha_inicio
-                        )
-
-                    # Crear disponibilidad después de la reserva si es necesario
-                    if disponibilidad_fin > fecha_fin:
-                        Disponibilidad.objects.create(
-                            propiedad=propiedad,
-                            fecha_inicio=fecha_fin,
-                            fecha_fin=disponibilidad_fin
-                        )
-
-                # Crear historial de disponibilidad
-                HistorialDisponibilidad.objects.create(
-                    propiedad=propiedad,
-                    fecha_inicio=fecha_inicio,
-                    fecha_fin=fecha_fin,
-                    estado='ocupado' if es_operacion_directa else 'reservado',
-                    reserva=reserva
-                )
+                # ✅ LÓGICA SIMPLIFICADA: El método del modelo se encarga de toda la fragmentación
+                # Ya no necesitamos manejar disponibilidades manualmente aquí
+                # El método actualizar_historial_disponibilidad() en el modelo hace todo automáticamente
+                
+                print(f"✅ Reserva creada correctamente. ID: {reserva.id}")
+                print(f"📋 La fragmentación de disponibilidades se maneja automáticamente en el modelo")
 
                 # Si es operación directa, crear el movimiento de caja
                 if es_operacion_directa:
@@ -3072,9 +3041,10 @@ def logout_view(request):
 
 def ver_historial_disponibilidad(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    # ✅ ORDENAMIENTO CRONOLÓGICO: primero por fecha_inicio, luego por fecha_fin
     historial = HistorialDisponibilidad.objects.filter(
         propiedad=propiedad
-    ).order_by('fecha_inicio')
+    ).order_by('fecha_inicio', 'fecha_fin')
 
     return JsonResponse({
         'success': True,
