@@ -1121,11 +1121,25 @@ def buscar_propiedades_reserva(request):
                 total_dias_reserva = dias_reserva
 
                 # 🔍 DEBUGGING CRÍTICO: Ver todos los precios de esta propiedad
-                print(f"🔍 DEBUGGING PRECIOS - Propiedad {propiedad.id}:")
+                print(f"🔍 DEBUGGING PRECIOS - Propiedad {propiedad.id} (fechas: {fecha_inicio} al {fecha_fin}):")
                 todos_precios = Precio.objects.filter(propiedad=propiedad)
                 print(f"   Total precios configurados: {todos_precios.count()}")
                 for precio in todos_precios:
                     print(f"   - {precio.tipo_precio}: ${precio.precio_por_dia}")
+                
+                # 🔍 DEBUG ADICIONAL: Verificar qué tipos de precio necesitamos para estas fechas
+                print(f"🔍 ANÁLISIS DE FECHAS NECESARIAS:")
+                for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
+                    if single_date.month == 1:  # Enero
+                        tipo_necesario = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
+                        print(f"   - {single_date.strftime('%d/%m/%Y')}: necesita {tipo_necesario}")
+                        # Verificar si existe
+                        try:
+                            precio_obj = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_necesario)
+                            print(f"     ✅ EXISTE: ${precio_obj.precio_por_dia}")
+                        except Precio.DoesNotExist:
+                            print(f"     ❌ NO EXISTE")
+                print(f"=" * 50)
                 
                 # ✅ LÓGICA CORRECTA: todos_los_días + 1_día_extra_del_más_caro
                 precio_mas_caro = 0
@@ -1168,6 +1182,10 @@ def buscar_propiedades_reserva(request):
                 precio_final = precio_total + precio_mas_caro
                 print(f"💰 CÁLCULO FINAL para propiedad {propiedad.id}: ${precio_total:,.0f} (todos los días) + ${precio_mas_caro:,.0f} (1 día extra) = ${precio_final:,.0f}")
                 propiedad.precio_total_reserva = precio_final
+                
+                # 🔍 DEBUG CRÍTICO: Verificar que el precio se asignó correctamente
+                print(f"🔍 VERIFICACIÓN - propiedad.precio_total_reserva = {propiedad.precio_total_reserva}")
+                print(f"🔍 VERIFICACIÓN - tipo: {type(propiedad.precio_total_reserva)}")
 
                 # Calcular la disponibilidad real considerando las reservas existentes
                 disponibilidad_calculada = calcular_disponibilidad_real(
