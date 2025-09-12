@@ -1226,50 +1226,8 @@ def buscar_propiedades_reserva(request):
     print("las fechas de inicio y fin son ",fecha_inicio,fecha_fin)
     print("los dias de reserva son ",total_dias_reserva)
 
-    for propiedad in propiedades_disponibles:
-        try:
-            # ✅ USAR EL MISMO CÁLCULO POR TEMPORADAS QUE EN buscar_propiedades
-            precio_total = 0
-            
-            if fecha_inicio and fecha_fin:
-                dias_reserva = (fecha_fin - fecha_inicio).days
-                
-                # Calcular precio día por día según temporada
-                for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
-                    # Determinar el tipo de precio según la fecha
-                    tipo_precio = None
-                    if single_date.month == 1:  # Enero
-                        tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
-                    elif single_date.month == 2:  # Febrero
-                        tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day <= 15 else 'QUINCENA_2_FEBRERO'
-                    elif single_date.month == 3:  # Marzo
-                        tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
-                    elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
-                        tipo_precio = 'VACACIONES_INVIERNO'
-                    elif single_date.month == 12:  # Diciembre
-                        tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
-                    else:
-                        tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
-
-                    # Obtener el precio para la propiedad y la quincena correspondiente
-                    try:
-                        precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
-                        precio_dia = precio.precio_por_dia or 0
-                        
-                        # Aplicar ajuste porcentual si existe
-                        if precio.ajuste_porcentaje != 0:
-                            precio_dia *= (1 - precio.ajuste_porcentaje / 100)
-                            
-                        precio_total += precio_dia
-                    except Precio.DoesNotExist:
-                        # Si no hay precio para esta temporada, usar 0
-                        pass
-            
-            propiedad.precio_total_reserva = precio_total
-            
-        except Exception as e:
-            print(f"Error calculando precio para propiedad {propiedad.id}: {str(e)}")
-            propiedad.precio_total_reserva = 0
+    # ❌ ELIMINADO: El cálculo duplicado que estaba sobrescribiendo el precio correcto
+    # El precio ya se calculó correctamente arriba en las líneas 1132-1167
 
     # Obtener conceptos para el template
     conceptos = Concepto.objects.filter(
