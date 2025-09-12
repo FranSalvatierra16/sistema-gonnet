@@ -4,6 +4,90 @@
 
 {% block title %}Finalizar Reserva - Recibo{% endblock %}
 
+{% block extra_js %}
+<script>
+// Función para buscar vendedores
+function buscarVendedores() {
+    const nombreInput = document.getElementById('productor_nombre');
+    const nombre = nombreInput.value.trim();
+    
+    if (nombre.length < 2) {
+        alert('Ingresa al menos 2 caracteres para buscar');
+        return;
+    }
+    
+    // Realizar búsqueda AJAX
+    fetch(`{% url 'inmobiliaria:buscar_vendedores' %}?nombre=${encodeURIComponent(nombre)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.vendedores && data.vendedores.length > 0) {
+                mostrarResultadosVendedores(data.vendedores);
+            } else {
+                alert('No se encontraron vendedores con ese nombre');
+            }
+        })
+        .catch(error => {
+            console.error('Error buscando vendedores:', error);
+            alert('Error al buscar vendedores');
+        });
+}
+
+// Función para mostrar resultados de vendedores
+function mostrarResultadosVendedores(vendedores) {
+    let opciones = 'Selecciona un vendedor:\n\n';
+    vendedores.forEach((vendedor, index) => {
+        opciones += `${index + 1}. ${vendedor.nombre} ${vendedor.apellido} (ID: ${vendedor.id})\n`;
+    });
+    
+    const seleccion = prompt(opciones + '\nIngresa el número del vendedor:');
+    
+    if (seleccion && !isNaN(seleccion)) {
+        const indice = parseInt(seleccion) - 1;
+        if (indice >= 0 && indice < vendedores.length) {
+            const vendedorSeleccionado = vendedores[indice];
+            seleccionarVendedor(vendedorSeleccionado);
+        } else {
+            alert('Selección inválida');
+        }
+    }
+}
+
+// Función para seleccionar un vendedor
+function seleccionarVendedor(vendedor) {
+    document.getElementById('productor_id').value = vendedor.id;
+    document.getElementById('productor_nombre').value = `${vendedor.nombre} ${vendedor.apellido}`;
+    document.getElementById('productor_info').textContent = `ID: ${vendedor.id}`;
+    
+    console.log('✅ Vendedor seleccionado:', vendedor);
+}
+
+// Autocompletar vendedor mientras escribe
+document.addEventListener('DOMContentLoaded', function() {
+    const productorNombre = document.getElementById('productor_nombre');
+    
+    if (productorNombre) {
+        productorNombre.addEventListener('input', function() {
+            const nombre = this.value.trim();
+            
+            // Limpiar ID si se borra el nombre
+            if (nombre === '') {
+                document.getElementById('productor_id').value = '';
+                document.getElementById('productor_info').textContent = 'Selecciona un vendedor';
+            }
+        });
+        
+        // Buscar al presionar Enter
+        productorNombre.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                buscarVendedores();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     <div class="row">
@@ -69,9 +153,18 @@
                             
                             <div class="col-md-3">
                                 <label class="form-label"><strong>7. Productor:</strong></label>
-                                <input type="text" class="form-control form-control-sm" 
-                                       value="{{ productor_id }}" readonly style="background-color: #f8f9fa;">
-                                <small class="text-muted">{{ productor_nombre }}</small>
+                                <div class="input-group">
+                                    <input type="text" class="form-control form-control-sm" 
+                                           id="productor_nombre" name="productor_nombre" 
+                                           value="{{ productor_nombre }}" 
+                                           placeholder="Buscar vendedor..." autocomplete="off">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                            onclick="buscarVendedores()">
+                                        <i class="fas fa-search"></i>
+                                    </button>
+                                </div>
+                                <input type="hidden" id="productor_id" name="productor_id" value="{{ productor_id }}">
+                                <small class="text-muted" id="productor_info">ID: {{ productor_id }}</small>
                             </div>
                         </div>
                         
@@ -388,7 +481,7 @@
                         <input type="hidden" name="interno_caja" value="{{ interno_caja }}">
                         <input type="hidden" name="propiedad_id" value="{{ propiedad_id }}">
                         <input type="hidden" name="numero_movimiento" value="{{ numero_movimiento }}">
-                        <input type="hidden" name="productor_id" value="{{ productor_id }}">
+                        <!-- El productor_id ya está definido arriba como input visible -->
                     </form>
                 </div>
             </div>

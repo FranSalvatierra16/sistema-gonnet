@@ -2458,14 +2458,40 @@ function verPrecios() {
         console.log('=== CONFIRMAR RESERVA ===');
         console.log('Propiedad seleccionada:', propiedadSeleccionada);
         
-    // Verificar que tengamos una propiedad seleccionada
-    if (!propiedadSeleccionada) {
+        // Verificar que tengamos una propiedad seleccionada
+        if (!propiedadSeleccionada) {
             alert('Por favor, selecciona una propiedad primero.');
-        return;
-    }
+            return;
+        }
 
-        // Mostrar directamente el modal de reserva
-        window.mostrarModalReserva(false); // false = reserva normal
+        // ✅ NUEVA FUNCIONALIDAD: Mostrar modal de autenticación primero
+        mostrarAutenticacionParaReserva();
+    }
+    
+    // Nueva función para mostrar autenticación antes de reservar
+    function mostrarAutenticacionParaReserva() {
+        console.log('🔐 Solicitando autenticación para reservar...');
+        
+        // Guardar la acción pendiente
+        window.accionPendienteReserva = 'reservar';
+        
+        // Limpiar campos del formulario de autenticación
+        document.getElementById('usuarioSeguridad').value = '';
+        document.getElementById('contrasenaSeguridad').value = '';
+        document.getElementById('errorAutenticacion').classList.add('d-none');
+        
+        // Actualizar el título del modal
+        document.getElementById('modalAutenticacionSeguridadLabel').innerHTML = 
+            `<i class="fas fa-shield-alt me-2"></i>🔐 Autenticación - Crear Reserva`;
+        
+        // Mostrar el modal
+        const modal = new bootstrap.Modal(document.getElementById('modalAutenticacionSeguridad'));
+        modal.show();
+        
+        // Enfocar el campo de usuario
+        setTimeout(() => {
+            document.getElementById('usuarioSeguridad').focus();
+        }, 500);
     }
 // Función para formatear precios disponible globalmente
 window.formatearPrecio = function(precio) {
@@ -4824,16 +4850,30 @@ function procesarAutenticacionSeguridad() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            console.log('✅ Autenticación exitosa, redirigiendo a:', urlDestino);
+            console.log('✅ Autenticación exitosa');
             
             // Cerrar modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('modalAutenticacionSeguridad'));
             modal.hide();
             
-            // Redirigir a la URL destino
-            setTimeout(() => {
-                window.location.href = urlDestino;
-            }, 300);
+            // Verificar si es una acción de reserva
+            if (window.accionPendienteReserva === 'reservar') {
+                console.log('✅ Procediendo con la reserva después de autenticación');
+                
+                // Limpiar la acción pendiente
+                window.accionPendienteReserva = null;
+                
+                // Mostrar el modal de reserva después de un breve delay
+                setTimeout(() => {
+                    window.mostrarModalReserva(false); // false = reserva normal
+                }, 300);
+                
+            } else if (urlDestino) {
+                // Redirigir a la URL destino (comportamiento original)
+                setTimeout(() => {
+                    window.location.href = urlDestino;
+                }, 300);
+            }
             
         } else {
             console.error('❌ Error de autenticación:', data.error);

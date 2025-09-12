@@ -4562,10 +4562,14 @@ def buscar_vendedor(request):
 
 @login_required
 def buscar_vendedores(request):
-    if request.method != 'POST':
+    # Aceptar tanto GET como POST para mayor flexibilidad
+    if request.method == 'GET':
+        termino = request.GET.get('nombre', '')
+    elif request.method == 'POST':
+        termino = request.POST.get('termino', '')
+    else:
         return JsonResponse({'success': False, 'error': 'Método no permitido'})
     
-    termino = request.POST.get('termino', '')
     sucursal = request.user.sucursal
     
     try:
