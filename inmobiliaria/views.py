@@ -3041,10 +3041,10 @@ def logout_view(request):
 
 def ver_historial_disponibilidad(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
-    # ✅ ORDENAMIENTO CRONOLÓGICO: primero por fecha_inicio, luego por fecha_fin
+    # ✅ ORDENAMIENTO CRONOLÓGICO ESTRICTO: primero por fecha_inicio, luego por fecha_fin, luego por ID
     historial = HistorialDisponibilidad.objects.filter(
         propiedad=propiedad
-    ).order_by('fecha_inicio', 'fecha_fin')
+    ).order_by('fecha_inicio', 'fecha_fin', 'id')
 
     return JsonResponse({
         'success': True,
