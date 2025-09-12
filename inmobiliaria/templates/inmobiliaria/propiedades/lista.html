@@ -33,8 +33,11 @@
                     <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}" class="btn btn-info shadow-modern me-3">
                         <i class="fas fa-calendar-plus me-2"></i>Disponibilidad Masiva
                     </a>
-                    <button onclick="limpiarHistorialDisponibilidad()" class="btn btn-warning shadow-modern">
+                    <button onclick="limpiarHistorialDisponibilidad()" class="btn btn-warning shadow-modern me-2">
                         <i class="fas fa-broom me-2"></i>Limpiar Historial
+                    </button>
+                    <button onclick="limpiezaBrutal()" class="btn btn-danger shadow-modern">
+                        <i class="fas fa-fire me-2"></i>Limpieza BRUTAL
                     </button>
                 </div>
                 <div class="alert alert-info border-radius-modern mb-0">
@@ -308,6 +311,44 @@ function limpiarHistorialDisponibilidad() {
         .then(data => {
             if (data.success) {
                 alert(`✅ ${data.message}\n\n📊 Entradas eliminadas: ${data.eliminados}\n🏠 Propiedades procesadas: ${data.propiedades_procesadas}`);
+                location.reload(); // Recargar la página
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            alert(`❌ Error de conexión: ${error}`);
+        })
+        .finally(() => {
+            // Restaurar botón
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        });
+    }
+}
+
+function limpiezaBrutal() {
+    if (confirm('🔥💀 LIMPIEZA BRUTAL 💀🔥\n\n⚠️ ESTO VA A ELIMINAR:\n• TODO el historial de disponibilidad\n• TODAS las disponibilidades\n• Y reconstruir TODO desde cero basándose solo en las reservas\n\n¿Estás COMPLETAMENTE seguro?')) {
+        
+        // Mostrar indicador de carga
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-fire fa-spin me-2"></i>🔥 DESTRUYENDO...';
+        btn.disabled = true;
+        
+        // Hacer la petición
+        fetch('{% url "inmobiliaria:limpieza_brutal" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: '' // Limpieza brutal de todo
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`🔥 ${data.message}\n\n💀 Historial eliminado: ${data.historial_eliminado}\n💀 Disponibilidades eliminadas: ${data.disponibilidades_eliminadas}\n✅ Propiedades reconstruidas: ${data.propiedades_procesadas}`);
                 location.reload(); // Recargar la página
             } else {
                 alert(`❌ Error: ${data.error}`);

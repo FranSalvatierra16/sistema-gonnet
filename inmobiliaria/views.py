@@ -3103,10 +3103,118 @@ def limpiar_historial_disponibilidad(request):
                     'propiedades_procesadas': propiedades_con_reservas.count()
                 })
                 
-        except Exception as e:
+                 except Exception as e:
             return JsonResponse({
                 'success': False,
                 'error': f'Error al limpiar historial: {str(e)}'
+            })
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required
+def limpieza_brutal(request):
+    """
+    🔥 LIMPIEZA BRUTAL: Elimina TODO y reconstruye desde cero
+    """
+    if request.method == 'POST':
+        try:
+            from datetime import timedelta
+            from dateutil.relativedelta import relativedelta
+            
+            # 1. ELIMINAR absolutamente TODO
+            count_historial = HistorialDisponibilidad.objects.count()
+            count_disponibilidades = Disponibilidad.objects.count()
+            
+            HistorialDisponibilidad.objects.all().delete()
+            Disponibilidad.objects.all().delete()
+            
+            # 2. Reconstruir SOLO propiedades con reservas
+            propiedades_con_reservas = Propiedad.objects.filter(
+                reservas__estado__in=['confirmada', 'confirmada_no_pagada']
+            ).distinct()
+            
+            for propiedad in propiedades_con_reservas:
+                # Obtener reservas de esta propiedad
+                reservas = propiedad.reservas.filter(
+                    estado__in=['confirmada', 'confirmada_no_pagada']
+                ).order_by('fecha_inicio')
+                
+                if not reservas.exists():
+                    continue
+                
+                # Definir rango total (6 meses antes de la primera, 6 meses después de la última)
+                primera_reserva = reservas.first()
+                ultima_reserva = reservas.last()
+                
+                fecha_inicio_total = primera_reserva.fecha_inicio - relativedelta(months=6)
+                fecha_fin_total = ultima_reserva.fecha_fin + relativedelta(months=6)
+                
+                # Crear disponibilidades y historial fragmentados
+                fecha_actual = fecha_inicio_total
+                
+                for reserva in reservas:
+                    # Crear disponibilidad ANTES de la reserva (si hay espacio)
+                    # 🏨 LÓGICA HOTELERA: El día de inicio de reserva está disponible hasta la tarde
+                    if fecha_actual < reserva.fecha_inicio:
+                        fecha_fin_libre = reserva.fecha_inicio  # SIN restar días
+                        
+                        # Crear disponibilidad
+                        Disponibilidad.objects.create(
+                            propiedad=propiedad,
+                            fecha_inicio=fecha_actual,
+                            fecha_fin=fecha_fin_libre
+                        )
+                        
+                        # Crear historial
+                        HistorialDisponibilidad.objects.create(
+                            propiedad=propiedad,
+                            fecha_inicio=fecha_actual,
+                            fecha_fin=fecha_fin_libre,
+                            estado='libre'
+                        )
+                    
+                    # Crear historial para la RESERVA (fechas exactas)
+                    HistorialDisponibilidad.objects.create(
+                        propiedad=propiedad,
+                        fecha_inicio=reserva.fecha_inicio,
+                        fecha_fin=reserva.fecha_fin,
+                        estado='reservado',
+                        reserva=reserva
+                    )
+                    
+                    # Mover fecha actual al día de fin de reserva
+                    # 🏨 LÓGICA HOTELERA: El día de checkout está disponible desde la mañana
+                    fecha_actual = reserva.fecha_fin  # SIN sumar días
+                
+                # Crear disponibilidad final
+                if fecha_actual <= fecha_fin_total:
+                    # Crear disponibilidad
+                    Disponibilidad.objects.create(
+                        propiedad=propiedad,
+                        fecha_inicio=fecha_actual,
+                        fecha_fin=fecha_fin_total
+                    )
+                    
+                    # Crear historial
+                    HistorialDisponibilidad.objects.create(
+                        propiedad=propiedad,
+                        fecha_inicio=fecha_actual,
+                        fecha_fin=fecha_fin_total,
+                        estado='libre'
+                    )
+            
+            return JsonResponse({
+                'success': True,
+                'message': '🔥 LIMPIEZA BRUTAL completada. TODO reconstruido desde cero.',
+                'historial_eliminado': count_historial,
+                'disponibilidades_eliminadas': count_disponibilidades,
+                'propiedades_procesadas': propiedades_con_reservas.count()
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error en limpieza brutal: {str(e)}'
             })
     
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
