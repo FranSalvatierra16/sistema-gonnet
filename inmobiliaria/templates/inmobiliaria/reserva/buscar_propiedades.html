@@ -1093,7 +1093,7 @@
                             data-direccion="{{ propiedad.direccion|escapejs }}"
                             data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
                             data-disponibilidad="{{ propiedad.disponibilidad }}"
-                            data-precio-total="{{ propiedad.precio_total_reserva }}"
+                            data-precio-total="{{ propiedad.precio_total_reserva|floatformat:0 }}"
                             data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
                             data-estado-reserva="{{ propiedad.estado_reserva }}"
                             data-precio-dia="{{ propiedad.precio_por_dia }}"
@@ -1119,7 +1119,7 @@
                             data-direccion="{{ propiedad.direccion|escapejs }}"
                             data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
                             data-disponibilidad="{{ propiedad.disponibilidad }}"
-                            data-precio-total="{{ propiedad.precio_total_reserva }}"
+                            data-precio-total="{{ propiedad.precio_total_reserva|floatformat:0 }}"
                             data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
                             data-estado-reserva="{{ propiedad.estado_reserva }}"
                             data-precio-dia="{{ propiedad.precio_por_dia }}"
@@ -2473,8 +2473,8 @@ window.formatearPrecio = function(precio) {
     
     let numero;
     if (typeof precio === 'string') {
-        // Si es string, remover puntos (separadores de miles) y luego parsear
-        numero = parseFloat(precio.replace(/\./g, '').replace(/[^\d.-]/g, ''));
+        // Limpiar completamente el string: remover puntos, comas, espacios y caracteres no numéricos excepto el signo menos
+        numero = parseFloat(precio.replace(/[^\d.-]/g, ''));
     } else {
         numero = precio;
     }
