@@ -4945,8 +4945,14 @@ def buscar_propiedades(request):
                 dias_disponibles = (fecha_inicio - propiedad.disponibilidad_inicio).days
                 propiedad.dias_disponibles = max(dias_disponibles, 0)
                 propiedades_disponibles.append(propiedad)
-                propiedades_disponibles.sort(key=lambda x: x.dias_disponibles)    # Alerta si hay propiedades sin precio
+                propiedades_disponibles.sort(key=lambda x: x.dias_disponibles)    
+    # Alerta si hay propiedades sin precio
     alerta_sin_precio = len(propiedades_sin_precio) > 0
+    
+    # CALCULAR DÍAS CORRECTAMENTE AQUÍ (después de validar fechas)
+    if fecha_inicio and fecha_fin:
+        total_dias_reserva = (fecha_fin - fecha_inicio).days + 1
+    
     print("las fechas de inicio y fin son ",fecha_inicio,fecha_fin)
     print("los dias de reserva son ",total_dias_reserva)
 
