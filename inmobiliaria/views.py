@@ -2219,13 +2219,15 @@ def procesar_movimiento_reserva(request):
                 importe_locacion = Decimal(importe_locacion_input) if importe_locacion_input else Decimal('0')
                 
                 print(f"✅ VALORES DIRECTOS DEL FORMULARIO:")
-                print(f"   - Seña: ${senia}")
-                print(f"   - Depósito Garantía: ${deposito_garantia}")
+                print(f"   - Seña nueva a agregar: ${senia}")
+                print(f"   - Depósito nuevo a agregar: ${deposito_garantia}")
                 print(f"   - Importe Locación: ${importe_locacion}")
+                print(f"   - Seña anterior en reserva: ${reserva.senia or 0}")
+                print(f"   - Depósito anterior en reserva: ${reserva.deposito_garantia or 0}")
                 
-                # Actualizar reserva con información de pagos
-                reserva.senia = senia  # ✅ Solo seña
-                reserva.deposito_garantia = deposito_garantia  # ✅ Solo depósito
+                # Actualizar reserva con información de pagos - SUMAR a lo anterior
+                reserva.senia += senia  # ✅ SUMAR seña nueva a la anterior
+                reserva.deposito_garantia += deposito_garantia  # ✅ SUMAR depósito nuevo al anterior
                 # Si tienes un campo precio_locacion en el modelo, úsalo
                 # reserva.precio_locacion = importe_locacion
                 
