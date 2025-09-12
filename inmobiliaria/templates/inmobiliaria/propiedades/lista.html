@@ -30,9 +30,12 @@
                     <a href="{% url 'inmobiliaria:propiedad_nuevo' %}" class="btn btn-success shadow-modern me-3">
                         <i class="fas fa-plus me-2"></i>Nueva Propiedad
                     </a>
-                    <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}" class="btn btn-info shadow-modern">
+                    <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}" class="btn btn-info shadow-modern me-3">
                         <i class="fas fa-calendar-plus me-2"></i>Disponibilidad Masiva
                     </a>
+                    <button onclick="limpiarHistorialDisponibilidad()" class="btn btn-warning shadow-modern">
+                        <i class="fas fa-broom me-2"></i>Limpiar Historial
+                    </button>
                 </div>
                 <div class="alert alert-info border-radius-modern mb-0">
                     <i class="fas fa-info-circle me-2"></i>
@@ -282,5 +285,43 @@ document.addEventListener('DOMContentLoaded', function() {
         return new bootstrap.Tooltip(tooltipTriggerEl)
     });
 });
+
+function limpiarHistorialDisponibilidad() {
+    if (confirm('🚨 ¿Estás seguro? Esto va a limpiar TODO el historial de disponibilidad y reconstruirlo desde cero.\n\nEsto solucionará los problemas de duplicados y fechas superpuestas.')) {
+        
+        // Mostrar indicador de carga
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Limpiando...';
+        btn.disabled = true;
+        
+        // Hacer la petición
+        fetch('{% url "inmobiliaria:limpiar_historial_disponibilidad" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: '' // Sin propiedad_id = limpiar todas
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`✅ ${data.message}\n\n📊 Entradas eliminadas: ${data.eliminados}\n🏠 Propiedades procesadas: ${data.propiedades_procesadas}`);
+                location.reload(); // Recargar la página
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            alert(`❌ Error de conexión: ${error}`);
+        })
+        .finally(() => {
+            // Restaurar botón
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        });
+    }
+}
 </script>
 {% endblock %}

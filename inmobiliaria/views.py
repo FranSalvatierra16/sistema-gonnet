@@ -3059,6 +3059,89 @@ def ver_historial_disponibilidad(request, propiedad_id):
     })
 
 @login_required
+def limpiar_historial_disponibilidad(request):
+    """
+    Vista para limpiar y reconstruir el historial de disponibilidad
+    """
+    if request.method == 'POST':
+        propiedad_id = request.POST.get('propiedad_id')
+        
+        try:
+            if propiedad_id:
+                # Limpiar una propiedad específica
+                propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+                
+                # Eliminar historial de esta propiedad
+                count_eliminados = HistorialDisponibilidad.objects.filter(propiedad=propiedad).count()
+                HistorialDisponibilidad.objects.filter(propiedad=propiedad).delete()
+                
+                # Reconstruir historial
+                reconstruir_historial_propiedad(propiedad)
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': f'✅ Historial limpiado y reconstruido para propiedad {propiedad_id}',
+                    'eliminados': count_eliminados
+                })
+            else:
+                # Limpiar TODAS las propiedades
+                count_total = HistorialDisponibilidad.objects.count()
+                HistorialDisponibilidad.objects.all().delete()
+                
+                # Reconstruir para todas las propiedades con reservas
+                propiedades_con_reservas = Propiedad.objects.filter(
+                    reservas__estado__in=['confirmada', 'confirmada_no_pagada']
+                ).distinct()
+                
+                for propiedad in propiedades_con_reservas:
+                    reconstruir_historial_propiedad(propiedad)
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': f'✅ Historial completamente limpiado y reconstruido',
+                    'eliminados': count_total,
+                    'propiedades_procesadas': propiedades_con_reservas.count()
+                })
+                
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error al limpiar historial: {str(e)}'
+            })
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+def reconstruir_historial_propiedad(propiedad):
+    """Función auxiliar para reconstruir el historial de una propiedad"""
+    print(f"🔄 Reconstruyendo historial para propiedad {propiedad.id}")
+    
+    # Obtener todas las disponibilidades (períodos libres)
+    disponibilidades = propiedad.disponibilidades.all().order_by('fecha_inicio')
+    for disp in disponibilidades:
+        HistorialDisponibilidad.objects.create(
+            propiedad=propiedad,
+            fecha_inicio=disp.fecha_inicio,
+            fecha_fin=disp.fecha_fin,
+            estado='libre'
+        )
+        print(f"   📅 Agregado período LIBRE: {disp.fecha_inicio} al {disp.fecha_fin}")
+    
+    # Obtener todas las reservas (períodos reservados)
+    reservas = propiedad.reservas.filter(
+        estado__in=['confirmada', 'confirmada_no_pagada']
+    ).order_by('fecha_inicio')
+    
+    for reserva in reservas:
+        HistorialDisponibilidad.objects.create(
+            propiedad=propiedad,
+            fecha_inicio=reserva.fecha_inicio,
+            fecha_fin=reserva.fecha_fin,
+            estado='reservado',
+            reserva=reserva
+        )
+        print(f"   🎯 Agregado período RESERVADO: {reserva.fecha_inicio} al {reserva.fecha_fin} (Reserva #{reserva.id})")
+
+@login_required
 def editar_info_venta(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, id=propiedad_id)
     info_venta, created = VentaPropiedad.objects.get_or_create(propiedad=propiedad)
