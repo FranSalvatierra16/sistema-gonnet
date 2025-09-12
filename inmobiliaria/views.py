@@ -2605,39 +2605,90 @@ def agregar_disponibilidad_masiva(request):
         fecha_fin = request.POST.get('fecha_fin')
         
         propiedades_actualizadas = 0
-        errores = []
+        propiedades_exitosas = []
+        errores_detallados = []
         
         try:
-            # Verificar que las propiedades pertenezcan a la sucursal del usuario
+            # Procesar cada propiedad individualmente y reportar resultados detallados
             for propiedad_id in propiedad_ids:
                 try:
                     propiedad = Propiedad.objects.get(
                         id=propiedad_id,
                         sucursal=sucursal  # Usar la sucursal del usuario
                     )
-                    Disponibilidad.objects.create(
+                    
+                    # Verificar solapamientos antes de crear
+                    solapamiento = Disponibilidad.objects.filter(
                         propiedad=propiedad,
-                        fecha_inicio=fecha_inicio,
-                        fecha_fin=fecha_fin
-                    )
-                    propiedades_actualizadas += 1
+                        fecha_fin__gte=fecha_inicio,
+                        fecha_inicio__lte=fecha_fin
+                    ).exists()
+                    
+                    if solapamiento:
+                        errores_detallados.append({
+                            'propiedad_id': propiedad_id,
+                            'direccion': f"{propiedad.direccion}",
+                            'error': 'Ya existe disponibilidad para estas fechas (solapamiento)',
+                            'tipo': 'solapamiento'
+                        })
+                    else:
+                        Disponibilidad.objects.create(
+                            propiedad=propiedad,
+                            fecha_inicio=fecha_inicio,
+                            fecha_fin=fecha_fin
+                        )
+                        propiedades_actualizadas += 1
+                        propiedades_exitosas.append({
+                            'propiedad_id': propiedad_id,
+                            'direccion': f"{propiedad.direccion}"
+                        })
+                        
                 except Propiedad.DoesNotExist:
-                    errores.append(f"Propiedad {propiedad_id} no pertenece a su sucursal")
+                    errores_detallados.append({
+                        'propiedad_id': propiedad_id,
+                        'direccion': 'Desconocida',
+                        'error': 'No pertenece a su sucursal o no existe',
+                        'tipo': 'no_existe'
+                    })
                 except Exception as e:
-                    errores.append(f"Error en propiedad {propiedad_id}: {str(e)}")
+                    # Intentar obtener la dirección para mejor reporte
+                    try:
+                        propiedad = Propiedad.objects.get(id=propiedad_id)
+                        direccion = f"{propiedad.direccion}"
+                    except:
+                        direccion = 'Desconocida'
+                    
+                    errores_detallados.append({
+                        'propiedad_id': propiedad_id,
+                        'direccion': direccion,
+                        'error': str(e),
+                        'tipo': 'error_general'
+                    })
+            
+            # Preparar respuesta detallada
+            respuesta = {
+                'propiedades_procesadas': len(propiedad_ids),
+                'propiedades_exitosas': propiedades_actualizadas,
+                'propiedades_con_errores': len(errores_detallados),
+                'detalles_exitosas': propiedades_exitosas,
+                'detalles_errores': errores_detallados
+            }
             
             if propiedades_actualizadas > 0:
-                mensaje = f'Se actualizó la disponibilidad de {propiedades_actualizadas} propiedades'
-                if errores:
-                    mensaje += f'\nPero hubo {len(errores)} errores'
+                mensaje = f'✅ {propiedades_actualizadas} propiedades actualizadas correctamente'
+                if errores_detallados:
+                    mensaje += f'\n⚠️ {len(errores_detallados)} propiedades con errores'
+                
                 return JsonResponse({
                     'success': True,
-                    'message': mensaje
+                    'message': mensaje,
+                    'detalles': respuesta
                 })
             else:
                 return JsonResponse({
                     'success': False,
-                    'message': f'No se pudo actualizar ninguna propiedad.\nErrores: {", ".join(errores)}'
+                    'message': f'❌ No se pudo actualizar ninguna propiedad ({len(errores_detallados)} errores)',
+                    'detalles': respuesta
                 })
                 
         except Exception as e:

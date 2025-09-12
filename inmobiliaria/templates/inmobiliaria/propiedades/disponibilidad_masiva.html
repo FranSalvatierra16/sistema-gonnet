@@ -152,22 +152,48 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                // Preparar mensaje de éxito con detalles
+                let mensaje = data.message;
+                
+                if (data.detalles && data.detalles.detalles_errores.length > 0) {
+                    // Si hay errores, mostrar detalles
+                    mensaje += '\n\n📋 DETALLES DE ERRORES:';
+                    data.detalles.detalles_errores.forEach((error, index) => {
+                        mensaje += `\n${index + 1}. ${error.direccion} (ID: ${error.propiedad_id}): ${error.error}`;
+                    });
+                }
+                
                 Swal.fire({
-                    icon: 'success',
-                    title: '¡Éxito!',
-                    text: data.message,
+                    icon: data.detalles && data.detalles.detalles_errores.length > 0 ? 'warning' : 'success',
+                    title: data.detalles && data.detalles.detalles_errores.length > 0 ? '¡Completado con errores!' : '¡Éxito!',
+                    text: mensaje,
                     showConfirmButton: true,
-                    timer: 3000
+                    confirmButtonText: 'Entendido',
+                    timer: data.detalles && data.detalles.detalles_errores.length > 0 ? null : 3000,
+                    width: '600px'
                 }).then(() => {
-                    // Opcional: recargar la página después de guardar
+                    // Recargar la página después de guardar
                     window.location.reload();
                 });
+                
             } else {
+                // Preparar mensaje de error con detalles
+                let mensaje = data.message;
+                
+                if (data.detalles && data.detalles.detalles_errores.length > 0) {
+                    mensaje += '\n\n📋 DETALLES DE ERRORES:';
+                    data.detalles.detalles_errores.forEach((error, index) => {
+                        mensaje += `\n${index + 1}. ${error.direccion} (ID: ${error.propiedad_id}): ${error.error}`;
+                    });
+                }
+                
                 Swal.fire({
                     icon: 'error',
-                    title: 'Error',
-                    text: data.message,
-                    showConfirmButton: true
+                    title: 'Error en Disponibilidad Masiva',
+                    text: mensaje,
+                    showConfirmButton: true,
+                    confirmButtonText: 'Entendido',
+                    width: '600px'
                 });
             }
         })
