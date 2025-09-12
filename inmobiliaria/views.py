@@ -1153,8 +1153,10 @@ def buscar_propiedades_reserva(request):
                     try:
                         precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
                         precio_dia = precio.precio_por_dia or 0
+                        print(f"✅ {single_date}: {tipo_precio} = ${precio_dia}")
                     except Precio.DoesNotExist:
                         precio_dia = 0
+                        print(f"❌ {single_date}: {tipo_precio} = NO EXISTE")
 
                     if precio_dia > precio_mas_caro:
                         precio_mas_caro = precio_dia
@@ -1164,7 +1166,9 @@ def buscar_propiedades_reserva(request):
                     else:
                         primer_dia = False
 
-                propiedad.precio_total_reserva = precio_total + precio_mas_caro
+                precio_final_calculado = precio_total + precio_mas_caro
+                propiedad.precio_total_reserva = precio_final_calculado
+                print(f"🔥 PROPIEDAD {propiedad.id}: precio_total={precio_total}, precio_mas_caro={precio_mas_caro}, FINAL={precio_final_calculado}")
 
                 # Calcular la disponibilidad real considerando las reservas existentes
                 disponibilidad_calculada = calcular_disponibilidad_real(
