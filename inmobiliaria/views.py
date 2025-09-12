@@ -3103,7 +3103,7 @@ def limpiar_historial_disponibilidad(request):
                     'propiedades_procesadas': propiedades_con_reservas.count()
                 })
                 
-                 except Exception as e:
+        except Exception as e:
             return JsonResponse({
                 'success': False,
                 'error': f'Error al limpiar historial: {str(e)}'
