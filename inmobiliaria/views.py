@@ -1127,7 +1127,9 @@ def buscar_propiedades_reserva(request):
                 for precio in todos_precios:
                     print(f"   - {precio.tipo_precio}: ${precio.precio_por_dia}")
                 
-                # ✅ NUEVA LÓGICA: Sumar TODOS los días (Opción A - Lógica Corregida)
+                # ✅ LÓGICA CORRECTA: todos_los_días + 1_día_extra_del_más_caro
+                precio_mas_caro = 0
+                
                 for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
                     # Determinar el tipo de precio según la fecha
                     tipo_precio = None
@@ -1153,12 +1155,19 @@ def buscar_propiedades_reserva(request):
                         precio_dia = 0
                         print(f"   ❌ NO HAY PRECIO configurado para {tipo_precio} en propiedad {propiedad.id}")
 
-                    # ✅ Sumar TODOS los días - lógica simple y correcta
+                    # ✅ LÓGICA CORRECTA: Sumar TODOS los días
                     precio_total += precio_dia
+                    
+                    # ✅ LÓGICA CORRECTA: Buscar el precio más caro de todos los días
+                    if precio_dia > precio_mas_caro:
+                        precio_mas_caro = precio_dia
+
                     print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
 
-                propiedad.precio_total_reserva = precio_total
-                print(f"💰 PRECIO TOTAL FINAL para propiedad {propiedad.id}: ${precio_total:,.0f}")
+                # ✅ LÓGICA CORRECTA: Precio final = todos_los_días + 1_día_extra_del_más_caro
+                precio_final = precio_total + precio_mas_caro
+                print(f"💰 CÁLCULO FINAL para propiedad {propiedad.id}: ${precio_total:,.0f} (todos los días) + ${precio_mas_caro:,.0f} (1 día extra) = ${precio_final:,.0f}")
+                propiedad.precio_total_reserva = precio_final
 
                 # Calcular la disponibilidad real considerando las reservas existentes
                 disponibilidad_calculada = calcular_disponibilidad_real(
@@ -5824,8 +5833,11 @@ def recalcular_precio_reserva(reserva):
         dias_reserva = (fecha_fin - fecha_inicio).days + 1
         print(f"   📅 Fechas: {fecha_inicio} al {fecha_fin} ({dias_reserva} días)")
         
-        # Calcular precio día por día usando la misma lógica
+        # ✅ LÓGICA CORRECTA: Sumar TODOS los días + UN DÍA EXTRA del precio más caro
         precio_total = 0
+        precio_mas_caro = 0
+        
+        print(f"   🧮 APLICANDO LÓGICA CORRECTA: todos_los_días + 1_día_extra_del_más_caro")
         
         for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
             # Determinar el tipo de precio según la fecha
@@ -5852,7 +5864,20 @@ def recalcular_precio_reserva(reserva):
                 precio_dia = 0
                 print(f"   ❌ {single_date.strftime('%d/%m')}: {tipo_precio} = SIN PRECIO")
 
+            # ✅ LÓGICA CORRECTA: Sumar TODOS los días
             precio_total += precio_dia
+            print(f"   ➕ Sumando día {single_date.strftime('%d/%m')}: ${precio_dia:,.0f} (total: ${precio_total:,.0f})")
+            
+            # ✅ LÓGICA CORRECTA: Buscar el precio más caro de todos los días
+            if precio_dia > precio_mas_caro:
+                precio_mas_caro = precio_dia
+                print(f"   🔥 NUEVO PRECIO MÁS CARO: ${precio_mas_caro:,.0f}")
+        
+        # ✅ LÓGICA CORRECTA: Precio final = todos_los_días + 1_día_extra_del_más_caro
+        precio_final = precio_total + precio_mas_caro
+        print(f"   🧮 CÁLCULO FINAL: ${precio_total:,.0f} (todos los días) + ${precio_mas_caro:,.0f} (1 día extra del más caro) = ${precio_final:,.0f}")
+        
+        precio_total = precio_final
         
         print(f"   💰 PRECIO TOTAL RECALCULADO: ${precio_total:,.0f}")
         
