@@ -2617,31 +2617,20 @@ def agregar_disponibilidad_masiva(request):
                         sucursal=sucursal  # Usar la sucursal del usuario
                     )
                     
-                    # Verificar solapamientos antes de crear
-                    solapamiento = Disponibilidad.objects.filter(
+                    # 🎯 INTENTAR CREAR DISPONIBILIDAD (como antes)
+                    # Si falla por cualquier razón, capturar el error pero continuar con las demás
+                    Disponibilidad.objects.create(
                         propiedad=propiedad,
-                        fecha_fin__gte=fecha_inicio,
-                        fecha_inicio__lte=fecha_fin
-                    ).exists()
+                        fecha_inicio=fecha_inicio,
+                        fecha_fin=fecha_fin
+                    )
                     
-                    if solapamiento:
-                        errores_detallados.append({
-                            'propiedad_id': propiedad_id,
-                            'direccion': f"{propiedad.direccion}",
-                            'error': 'Ya existe disponibilidad para estas fechas (solapamiento)',
-                            'tipo': 'solapamiento'
-                        })
-                    else:
-                        Disponibilidad.objects.create(
-                            propiedad=propiedad,
-                            fecha_inicio=fecha_inicio,
-                            fecha_fin=fecha_fin
-                        )
-                        propiedades_actualizadas += 1
-                        propiedades_exitosas.append({
-                            'propiedad_id': propiedad_id,
-                            'direccion': f"{propiedad.direccion}"
-                        })
+                    # ✅ Si llegamos aquí, fue exitoso
+                    propiedades_actualizadas += 1
+                    propiedades_exitosas.append({
+                        'propiedad_id': propiedad_id,
+                        'direccion': f"{propiedad.direccion}"
+                    })
                         
                 except Propiedad.DoesNotExist:
                     errores_detallados.append({
@@ -2658,11 +2647,26 @@ def agregar_disponibilidad_masiva(request):
                     except:
                         direccion = 'Desconocida'
                     
+                    # 🔍 Clasificar el tipo de error para mayor claridad
+                    error_msg = str(e)
+                    tipo_error = 'error_general'
+                    
+                    if 'UNIQUE constraint failed' in error_msg or 'duplicate' in error_msg.lower():
+                        error_msg = 'Ya existe disponibilidad para estas fechas'
+                        tipo_error = 'solapamiento'
+                    elif 'date' in error_msg.lower():
+                        error_msg = 'Error en las fechas proporcionadas'
+                        tipo_error = 'fecha_invalida'
+                    elif 'foreign key' in error_msg.lower():
+                        error_msg = 'Problema de referencia en la base de datos'
+                        tipo_error = 'referencia'
+                    
                     errores_detallados.append({
                         'propiedad_id': propiedad_id,
                         'direccion': direccion,
-                        'error': str(e),
-                        'tipo': 'error_general'
+                        'error': error_msg,
+                        'tipo': tipo_error,
+                        'error_original': str(e)  # Para debugging si es necesario
                     })
             
             # Preparar respuesta detallada
