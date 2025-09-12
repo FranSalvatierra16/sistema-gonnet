@@ -1108,7 +1108,7 @@
                             <td style="color: red;">{{ propiedad.piso }}</td>
                             <td style="color: red;">{{ propiedad.departamento }}</td>
                             <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
-                            <td style="color: red;">{{ propiedad.precio_total_reserva|format_price }}</td>
+                            <td style="color: red;">{{ propiedad.precio_total_reserva|format_price }} <small style="color:blue;">[RAW:{{ propiedad.precio_total_reserva }}]</small></td>
                             <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
                         </tr>
                         {% else %}
@@ -1134,7 +1134,7 @@
                             <td>{{ propiedad.piso }}</td>
                             <td>{{ propiedad.departamento }}</td>
                             <td>{{ propiedad.propietario.apellido }}</td>
-                            <td>{{ propiedad.precio_total_reserva|format_price }}</td>
+                            <td>{{ propiedad.precio_total_reserva|format_price }} <small style="color:red;">[RAW:{{ propiedad.precio_total_reserva }}]</small></td>
                             <td>{{ propiedad.sucursal.nombre }}</td>
                         </tr>
                         {% endif %}
@@ -2105,6 +2105,10 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
     // Corregir el precio removiendo el cero extra de forma más robusta
     let precioCorregido = 0;
     console.log('🔍 Precio original recibido:', precio, 'Tipo:', typeof precio);
+    
+    // 🚨 DEBUG CRÍTICO: Ver el valor directo del HTML
+    const precioDelHTML = filaClickeada?.getAttribute('data-precio-total');
+    console.log('🚨 PRECIO DIRECTO DEL HTML (data-precio-total):', precioDelHTML, 'Tipo:', typeof precioDelHTML);
     
     try {
         if (precio === null || precio === undefined || precio === '') {
