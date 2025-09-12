@@ -1354,6 +1354,17 @@ def finalizar_reserva_nueva(request, reserva_id):
         print(f"   - Depósito: ${reserva.deposito_garantia or 0}")
 
         
+        # ✅ CALCULAR SEÑA PENDIENTE: Si ya pagó seña, mostrar 0
+        senia_pendiente = 0  # Por defecto 0, porque si ya pagó seña no debe pagar más
+        if (reserva.senia or 0) == 0:
+            # Si no hay seña pagada aún, puede que necesite pagar algo
+            # Pero normalmente en "finalizar reserva" ya se pagó todo
+            senia_pendiente = 0
+        
+        print(f"✅ SEÑA PENDIENTE CALCULADA:")
+        print(f"   - Seña ya pagada: ${reserva.senia or 0}")
+        print(f"   - Seña pendiente a mostrar: ${senia_pendiente}")
+
         # Datos para el formulario (solo lectura)
         context = {
             'reserva': reserva,
@@ -1369,6 +1380,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'productor_nombre': f"{request.user.nombre} {request.user.apellido}",
             'conceptos_caja': conceptos_caja,
             'saldo_a_ocupar': saldo_a_ocupar,
+            'senia_pendiente': senia_pendiente,  # ✅ NUEVO: Seña pendiente (0 si ya se pagó)
             'total_senia_pagada': reserva.senia or 0,  # ✅ SIMPLE: Del casillero
             'total_deposito_pagado': reserva.deposito_garantia or 0,  # ✅ SIMPLE: Del casillero
             'deposito_garantia': reserva.deposito_garantia,

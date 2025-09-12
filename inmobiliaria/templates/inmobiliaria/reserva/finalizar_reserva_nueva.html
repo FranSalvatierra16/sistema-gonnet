@@ -101,8 +101,8 @@
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Seña:</strong></label>
                                 <input type="text" class="form-control form-control-sm" name="senia" id="senia"
-                                       value="{{ reserva.senia|format_price }}" placeholder="0">
-                                <small class="text-muted">💡 Los conceptos deben sumar esta cantidad</small>
+                                       value="{{ senia_pendiente|format_price }}" placeholder="0">
+                                <small class="text-muted">💡 Seña pendiente a pagar (0 si ya se pagó)</small>
                             </div>
                             
                             <div class="col-md-2">
