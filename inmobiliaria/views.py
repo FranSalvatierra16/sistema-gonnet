@@ -4938,8 +4938,54 @@ def buscar_propiedades(request):
                 # 🎯 PROPIEDADES SIN RESERVAS - También deben mostrarse
                 print(f"   ✅ PROPIEDAD SIN RESERVAS: {propiedad.id}")
                 
-                # Calcular precios para propiedades disponibles (lógica simplificada)
-                propiedad.precio_total_reserva = 0  # Se calculará después si es necesario
+                # Calcular precio total para la reserva usando el mismo método que para propiedades con reservas
+                precio_total = 0
+                print(f"🔥 INICIANDO CÁLCULO para propiedad SIN RESERVAS {propiedad.id} del {fecha_inicio} al {fecha_fin}")
+                
+                if fecha_inicio and fecha_fin:
+                    dias_reserva = (fecha_fin - fecha_inicio).days + 1
+                    print(f"🔥 Días a calcular: {dias_reserva}")
+                    
+                    # Calcular día por día usando la misma lógica de temporadas
+                    for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
+                        # Determinar el tipo de precio según la fecha
+                        tipo_precio = None
+                        if single_date.month == 1:  # Enero
+                            tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
+                        elif single_date.month == 2:  # Febrero
+                            tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day < 15 else 'QUINCENA_2_FEBRERO'
+                        elif single_date.month == 3:  # Marzo
+                            tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
+                        elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
+                            tipo_precio = 'VACACIONES_INVIERNO'
+                        elif single_date.month == 12:  # Diciembre
+                            tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
+                        else:
+                            tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
+
+                        # Obtener el precio por día para esta temporada
+                        try:
+                            precio_obj = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
+                            # Usar precio_por_dia directamente (ya incluye ajustes)
+                            precio_dia = precio_obj.precio_por_dia or 0
+                            
+                            # Aplicar ajuste porcentual si existe
+                            if precio_obj.ajuste_porcentaje != 0:
+                                precio_dia *= (1 - precio_obj.ajuste_porcentaje / 100)
+                            
+                            precio_total += precio_dia
+                            print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
+                        except Precio.DoesNotExist:
+                            print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = $0 (sin precio configurado)")
+                            print(f"🚨 PRECIO FALTANTE - Propiedad {propiedad.id} NO tiene precio para {tipo_precio}")
+                            # Mostrar qué precios SÍ tiene esta propiedad
+                            precios_existentes = Precio.objects.filter(propiedad=propiedad)
+                            print(f"🔍 Precios configurados para esta propiedad: {precios_existentes.count()}")
+                            for p in precios_existentes:
+                                print(f"   - {p.tipo_precio}: ${p.precio_por_dia}")
+
+                print(f"🔥 PRECIO FINAL CALCULADO para propiedad SIN RESERVAS {propiedad.id}: ${precio_total}")
+                propiedad.precio_total_reserva = precio_total
                 
                 # Agregar la propiedad disponible a la lista
                 dias_disponibles = (fecha_inicio - propiedad.disponibilidad_inicio).days
@@ -4956,25 +5002,8 @@ def buscar_propiedades(request):
     print("las fechas de inicio y fin son ",fecha_inicio,fecha_fin)
     print("los dias de reserva son ",total_dias_reserva)
 
-    for propiedad in propiedades_disponibles:
-        try:
-            # Obtener los precios para la propiedad
-            precios = propiedad.precios.all()
-            precio_total = 0
-            
-            if fecha_inicio and fecha_fin:
-                dias_totales = (fecha_fin - fecha_inicio).days + 1
-                # Buscar el precio correspondiente según el período
-                for precio in precios:
-                    if precio.precio_por_dia:
-                        # # precio_total = float(precio.precio_por_dia) * dias_totales  # ❌ COMENTADO - Usar cálculo por temporadas  # ❌ COMENTADO - Usar cálculo por temporadas
-                        break
-            
-            # ❌ COMENTADO: propiedad.precio_total_reserva = precio_total  # Ya se calculó arriba
-            
-        except Exception as e:
-            print(f"Error calculando precio para propiedad {propiedad.id}: {str(e)}")
-            propiedad.precio_total_reserva = 0
+    # Los precios ya fueron calculados correctamente arriba para cada propiedad
+    # No es necesario recalcular aquí
 
     # Obtener conceptos para el template
     conceptos = Concepto.objects.filter(
