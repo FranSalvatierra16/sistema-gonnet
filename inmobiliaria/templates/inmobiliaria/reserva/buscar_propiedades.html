@@ -4258,6 +4258,21 @@ function guardarCambiosPrecios() {
         guardarBtn.disabled = false;
     });
 }
+
+// ✅ SOLUCIÓN: Conectar el botón guardar precios (event listener faltaba)
+document.addEventListener('DOMContentLoaded', function() {
+    // Conectar el botón guardar precios con su función
+    const guardarPreciosBtn = document.getElementById('guardarPreciosBtn');
+    if (guardarPreciosBtn) {
+        guardarPreciosBtn.addEventListener('click', function() {
+            console.log('🔄 Botón guardar precios clickeado');
+            guardarCambiosPrecios();
+        });
+        console.log('✅ Event listener para guardar precios agregado correctamente');
+    } else {
+        console.warn('⚠️ Botón guardarPreciosBtn no encontrado');
+    }
+});
 </script>
 
         </form>
