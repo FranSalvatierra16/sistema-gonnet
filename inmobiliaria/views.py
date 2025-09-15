@@ -1719,9 +1719,30 @@ def ver_recibo(request, reserva_id):
                 else:
                     palabras_resto = numero_a_palabras(resto).replace("PESOS ", "").replace(" CON 00/100", "")
                     return f"PESOS {centenas[cent].upper()} {palabras_resto} CON 00/100"
+            elif numero < 10000:
+                # Para miles
+                miles = numero // 1000
+                resto = numero % 1000
+                if resto == 0:
+                    if miles == 1:
+                        return "PESOS MIL CON 00/100"
+                    else:
+                        palabras_miles = numero_a_palabras(miles).replace("PESOS ", "").replace(" CON 00/100", "")
+                        return f"PESOS {palabras_miles} MIL CON 00/100"
+                else:
+                    if miles == 1:
+                        palabras_resto = numero_a_palabras(resto).replace("PESOS ", "").replace(" CON 00/100", "")
+                        return f"PESOS MIL {palabras_resto} CON 00/100"
+                    else:
+                        palabras_miles = numero_a_palabras(miles).replace("PESOS ", "").replace(" CON 00/100", "")
+                        palabras_resto = numero_a_palabras(resto).replace("PESOS ", "").replace(" CON 00/100", "")
+                        return f"PESOS {palabras_miles} MIL {palabras_resto} CON 00/100"
             else:
-                # Para números mayores, usar formato simple
-                return f"PESOS {numero:,} CON 00/100".replace(',', '.')
+                # Para números mayores a 10,000, usar formato simple pero más legible
+                if numero >= 1000000:
+                    return f"PESOS {numero//1000000} MILLONES {(numero%1000000)//1000} MIL {numero%1000} CON 00/100"
+                else:
+                    return f"PESOS {numero//1000} MIL {numero%1000} CON 00/100"
         
         # Preparar datos del cliente con campos adicionales
         cliente_data = reserva.cliente
@@ -2779,8 +2800,21 @@ def ver_recibo_movimiento(request, movimiento_id):
                 interno_caja=movimiento.numero_liquidacion
             ).order_by('fecha')
             
-            print(f"🔍 BÚSQUEDA CONCEPTOS - Número liquidación: {movimiento.numero_liquidacion}")
+            print(f"🔍 BÚSQUEDA CONCEPTOS - Número liquidación: '{movimiento.numero_liquidacion}'")
             print(f"🔍 CONCEPTOS ENCONTRADOS: {conceptos_operacion.count()}")
+            
+            # DEBUG: Mostrar todos los registros para debug
+            todos_registros = Registro.objects.all()[:10]
+            print(f"🔍 TOTAL REGISTROS EN BD: {Registro.objects.count()}")
+            print("🔍 ALGUNOS REGISTROS EXISTENTES:")
+            for reg in todos_registros:
+                print(f"   - interno_caja: '{reg.interno_caja}' | concepto: {reg.concepto} | liquidacion: {reg.liquidacion}")
+            
+            # También buscar por otros criterios
+            conceptos_alt = Registro.objects.filter(
+                propiedad=movimiento.propiedad
+            ).order_by('fecha')
+            print(f"🔍 CONCEPTOS POR PROPIEDAD: {conceptos_alt.count()}")
             
             if conceptos_operacion.exists():
                 # Usar los conceptos de la operación
@@ -2801,25 +2835,59 @@ def ver_recibo_movimiento(request, movimiento_id):
                     })
                     total_pagado += registro.liquidacion
             else:
-                # Fallback: usar los pagos de la reserva como antes
-                print("📋 FALLBACK: Usando pagos de reserva")
-                for pago in reserva.pagos.all():
-                    # Obtener el concepto correcto del pago
-                    concepto_desc = ''
-                    if hasattr(pago, 'concepto') and pago.concepto:
-                        concepto_desc = f'{pago.concepto.codigo} - {pago.concepto.nombre}'
-                    else:
-                        concepto_desc = f'Pago reserva {reserva.id}'
-                    
+                # Fallback: generar conceptos sintéticos basados en el movimiento
+                print("📋 FALLBACK: Generando conceptos sintéticos del movimiento")
+                
+                # Agregar conceptos sintéticos basados en los montos del movimiento
+                fecha_mov = movimiento.fecha.strftime('%d/%m/%Y')
+                codigo_mov = movimiento.numero_liquidacion or f'M{movimiento.id:04d}'
+                
+                if movimiento.monto_efectivo > 0:
                     pagos.append({
-                        'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
-                        'codigo': pago.codigo if hasattr(pago, 'codigo') and pago.codigo else f'P{pago.id:04d}',
-                        'concepto': concepto_desc,
-                        'monto': f'${pago.monto:,.0f}'
+                        'fecha': fecha_mov,
+                        'codigo': codigo_mov,
+                        'concepto': 'EFE - Pago en efectivo',
+                        'monto': f'${movimiento.monto_efectivo:,.0f}'
                     })
-                    total_pagado += pago.monto
-                    if pago.forma_pago not in formas_de_pago:
-                        formas_de_pago.append(pago.forma_pago.title())
+                    total_pagado += movimiento.monto_efectivo
+                
+                if movimiento.monto_tarjeta > 0:
+                    pagos.append({
+                        'fecha': fecha_mov,
+                        'codigo': codigo_mov,
+                        'concepto': 'TAR - Pago con tarjeta',
+                        'monto': f'${movimiento.monto_tarjeta:,.0f}'
+                    })
+                    total_pagado += movimiento.monto_tarjeta
+                
+                if movimiento.monto_cheque > 0:
+                    pagos.append({
+                        'fecha': fecha_mov,
+                        'codigo': codigo_mov,
+                        'concepto': 'CHE - Pago con cheque',
+                        'monto': f'${movimiento.monto_cheque:,.0f}'
+                    })
+                    total_pagado += movimiento.monto_cheque
+                
+                if movimiento.monto_deposito > 0:
+                    destino = 'Galicia' if movimiento.destino_deposito == 'galicia' else 'Mercado Pago' if movimiento.destino_deposito == 'mp' else 'Transferencia'
+                    pagos.append({
+                        'fecha': fecha_mov,
+                        'codigo': codigo_mov,
+                        'concepto': f'TRA - {destino}',
+                        'monto': f'${movimiento.monto_deposito:,.0f}'
+                    })
+                    total_pagado += movimiento.monto_deposito
+                
+                # Si no hay nada específico, agregar concepto genérico
+                if not pagos:
+                    pagos.append({
+                        'fecha': fecha_mov,
+                        'codigo': codigo_mov,
+                        'concepto': 'ALQ - Alquiler temporario',
+                        'monto': f'${movimiento.monto_total:,.0f}'
+                    })
+                    total_pagado += movimiento.monto_total
             
             # Obtener formas de pago del movimiento
             if movimiento.monto_efectivo > 0:
@@ -2913,6 +2981,12 @@ def ver_recibo_movimiento(request, movimiento_id):
             print(f"🧾 TOTAL PAGADO: {f'${total_pagado:,.0f}'}")
             print(f"🧾 FORMAS DE PAGO: {', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO'}")
             print(f"🧾 PAGOS COUNT: {len(pagos)}")
+            print(f"🧾 MONTO MOVIMIENTO: ${movimiento.monto_total:,.0f}")
+            
+            # Si no hay pagos específicos, usar el total del movimiento
+            if total_pagado == 0:
+                print("⚠️ TOTAL PAGADO ES 0 - USANDO MONTO DEL MOVIMIENTO")
+                total_pagado = movimiento.monto_total
             
             # Usar el nuevo template de recibo
             return render(request, 'inmobiliaria/reserva/recibo.html', {
