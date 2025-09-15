@@ -5020,7 +5020,12 @@ def buscar_propiedades(request):
             # Evaluar la disponibilidad y las reservas de la propiedad
             # 🎯 CORREGIDO: Manejar propiedades CON O SIN disponibilidades
             
-            # Verificar reservas conflictivas PRIMERO
+            # 🎯 VERIFICAR SI LA PROPIEDAD TIENE DISPONIBILIDADES VÁLIDAS PRIMERO
+            if not disponibilidades.exists():
+                print(f"   ❌ SALTANDO: Sin disponibilidades que se superpongan con {fecha_inicio} al {fecha_fin}")
+                continue  # Saltar propiedades sin disponibilidades en las fechas solicitadas
+            
+            # Verificar reservas conflictivas DESPUÉS de confirmar disponibilidades
             reservas_conflictivas = reservas.filter(
                 Q(estado='pagada') | Q(estado='confirmada')
             )
@@ -5029,7 +5034,7 @@ def buscar_propiedades(request):
                 print(f"   ❌ Saltando por reservas conflictivas: {reservas_conflictivas.count()}")
                 continue  # Saltar si hay reservas pagadas o confirmadas en estas fechas
             
-            # Si hay una reserva para mostrar en rojo, mostrarla SIEMPRE (con o sin disponibilidades)
+            # Si hay una reserva para mostrar en rojo, mostrarla solo si tiene disponibilidades
             if reserva_confirmada_no_pagada:
                 print(f"   ✅ MOSTRANDO EN ROJO: Reserva {reserva_confirmada_no_pagada.id}")
                 propiedad.reserva = reserva_confirmada_no_pagada
@@ -5039,18 +5044,11 @@ def buscar_propiedades(request):
                 propiedad.estado_reserva = 'disponible'
                 print(f"   ✅ DISPONIBLE: Sin reservas para mostrar en rojo")
             
-            # 🎯 ASIGNAR VALORES POR DEFECTO PARA DISPONIBILIDAD
             # Si tiene disponibilidades, usar la primera
-            if disponibilidades.exists():
-                print(f"   📋 Tiene disponibilidades, procesando...")
-                primera_disponibilidad = disponibilidades.first()
-                propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
-                propiedad.disponibilidad_fin = primera_disponibilidad.fecha_fin
-            else:
-                print(f"   📋 SIN disponibilidades definidas, usando fechas de búsqueda")
-                # Si no tiene disponibilidades, usar las fechas de búsqueda
-                propiedad.disponibilidad_inicio = fecha_inicio
-                propiedad.disponibilidad_fin = fecha_fin
+            print(f"   📋 Tiene disponibilidades, procesando...")
+            primera_disponibilidad = disponibilidades.first()
+            propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
+            propiedad.disponibilidad_fin = primera_disponibilidad.fecha_fin
             
             # 🎯 CALCULAR PRECIOS Y AGREGAR PROPIEDAD (CON O SIN RESERVAS)
             
