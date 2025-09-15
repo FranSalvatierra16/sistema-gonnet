@@ -1617,23 +1617,55 @@ def ver_recibo(request, reserva_id):
         total_pagado = 0
         formas_de_pago = []
         
-        for pago in reserva.pagos.all():
-            # Obtener el concepto correcto del pago
-            concepto_desc = ''
-            if hasattr(pago, 'concepto') and pago.concepto:
-                concepto_desc = f'{pago.concepto.codigo} - {pago.concepto.nombre}'
-            else:
-                concepto_desc = f'Pago reserva {reserva.id}'
-            
-            pagos.append({
-                'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
-                'codigo': pago.codigo if hasattr(pago, 'codigo') and pago.codigo else f'P{pago.id:04d}',
-                'concepto': concepto_desc,
-                'monto': f'${pago.monto:,.0f}'  # Formatear como moneda
-            })
-            total_pagado += pago.monto
-            if pago.forma_pago not in formas_de_pago:
-                formas_de_pago.append(pago.forma_pago.title())
+        # Buscar si hay conceptos detallados de la operación
+        from .models import Registro
+        conceptos_operacion = None
+        
+        # Intentar encontrar registros relacionados usando número de recibo o ID de reserva
+        try:
+            # Buscar por número de recibo si existe un movimiento reciente
+            if hasattr(reserva, 'movimiento_reciente') and reserva.movimiento_reciente:
+                conceptos_operacion = Registro.objects.filter(
+                    interno_caja=reserva.movimiento_reciente.numero_liquidacion
+                ).order_by('fecha')
+        except:
+            pass
+        
+        if conceptos_operacion and conceptos_operacion.exists():
+            # Usar los conceptos de la operación
+            for registro in conceptos_operacion:
+                concepto_desc = ''
+                if registro.concepto:
+                    concepto_desc = f'{registro.concepto.id} - {registro.concepto.nombre}'
+                else:
+                    concepto_desc = 'Concepto no especificado'
+                
+                pagos.append({
+                    'fecha': registro.fecha_comprobante.strftime('%d/%m/%Y'),
+                    'codigo': registro.interno_caja or f'R{registro.id:04d}',
+                    'concepto': concepto_desc,
+                    'monto': f'${registro.liquidacion:,.0f}'
+                })
+                total_pagado += registro.liquidacion
+        else:
+            # Fallback: usar los pagos de la reserva como antes
+            for pago in reserva.pagos.all():
+                # Obtener el concepto correcto del pago
+                concepto_desc = ''
+                if hasattr(pago, 'concepto') and pago.concepto:
+                    concepto_desc = f'{pago.concepto.codigo} - {pago.concepto.nombre}'
+                else:
+                    concepto_desc = f'Pago reserva {reserva.id}'
+                
+                pagos.append({
+                    'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
+                    'codigo': pago.codigo if hasattr(pago, 'codigo') and pago.codigo else f'P{pago.id:04d}',
+                    'concepto': concepto_desc,
+                    'monto': f'${pago.monto:,.0f}'  # Formatear como moneda
+                })
+                total_pagado += pago.monto
+                if pago.forma_pago not in formas_de_pago:
+                    formas_de_pago.append(pago.forma_pago.title())
         
         # Función para convertir número a palabras (simplificada)
         def numero_a_palabras(numero):
@@ -1706,23 +1738,55 @@ def generar_recibo_pdf(reserva, pago_senia):
     total_pagado = 0
     formas_de_pago = []
     
-    for pago in reserva.pagos.all():
-        # Obtener el concepto correcto del pago
-        concepto_desc = ''
-        if hasattr(pago, 'concepto') and pago.concepto:
-            concepto_desc = f'{pago.concepto.codigo} - {pago.concepto.nombre}'
-        else:
-            concepto_desc = f'Pago reserva {reserva.id}'
-        
-        pagos.append({
-            'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
-            'codigo': pago.codigo if hasattr(pago, 'codigo') and pago.codigo else f'P{pago.id:04d}',
-            'concepto': concepto_desc,
-            'monto': f'${pago.monto:,.0f}'  # Formatear como moneda
-        })
-        total_pagado += pago.monto
-        if pago.forma_pago not in formas_de_pago:
-            formas_de_pago.append(pago.forma_pago.title())
+    # Buscar si hay conceptos detallados de la operación
+    from .models import Registro
+    conceptos_operacion = None
+    
+    # Intentar encontrar registros relacionados usando número de recibo o ID de reserva
+    try:
+        # Buscar por número de recibo si existe un movimiento reciente
+        if hasattr(reserva, 'movimiento_reciente') and reserva.movimiento_reciente:
+            conceptos_operacion = Registro.objects.filter(
+                interno_caja=reserva.movimiento_reciente.numero_liquidacion
+            ).order_by('fecha')
+    except:
+        pass
+    
+    if conceptos_operacion and conceptos_operacion.exists():
+        # Usar los conceptos de la operación
+        for registro in conceptos_operacion:
+            concepto_desc = ''
+            if registro.concepto:
+                concepto_desc = f'{registro.concepto.id} - {registro.concepto.nombre}'
+            else:
+                concepto_desc = 'Concepto no especificado'
+            
+            pagos.append({
+                'fecha': registro.fecha_comprobante.strftime('%d/%m/%Y'),
+                'codigo': registro.interno_caja or f'R{registro.id:04d}',
+                'concepto': concepto_desc,
+                'monto': f'${registro.liquidacion:,.0f}'
+            })
+            total_pagado += registro.liquidacion
+    else:
+        # Fallback: usar los pagos de la reserva como antes
+        for pago in reserva.pagos.all():
+            # Obtener el concepto correcto del pago
+            concepto_desc = ''
+            if hasattr(pago, 'concepto') and pago.concepto:
+                concepto_desc = f'{pago.concepto.codigo} - {pago.concepto.nombre}'
+            else:
+                concepto_desc = f'Pago reserva {reserva.id}'
+            
+            pagos.append({
+                'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
+                'codigo': pago.codigo if hasattr(pago, 'codigo') and pago.codigo else f'P{pago.id:04d}',
+                'concepto': concepto_desc,
+                'monto': f'${pago.monto:,.0f}'  # Formatear como moneda
+            })
+            total_pagado += pago.monto
+            if pago.forma_pago not in formas_de_pago:
+                formas_de_pago.append(pago.forma_pago.title())
     
     # Función para convertir número a palabras (simplificada)
     def numero_a_palabras(numero):
@@ -2613,23 +2677,47 @@ def ver_recibo_movimiento(request, movimiento_id):
             total_pagado = 0
             formas_de_pago = []
             
-            for pago in reserva.pagos.all():
-                # Obtener el concepto correcto del pago
-                concepto_desc = ''
-                if hasattr(pago, 'concepto') and pago.concepto:
-                    concepto_desc = f'{pago.concepto.codigo} - {pago.concepto.nombre}'
-                else:
-                    concepto_desc = f'Pago reserva {reserva.id}'
-                
-                pagos.append({
-                    'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
-                    'codigo': pago.codigo if hasattr(pago, 'codigo') and pago.codigo else f'P{pago.id:04d}',
-                    'concepto': concepto_desc,
-                    'monto': f'${pago.monto:,.0f}'  # Formatear como moneda
-                })
-                total_pagado += pago.monto
-                if pago.forma_pago not in formas_de_pago:
-                    formas_de_pago.append(pago.forma_pago.title())
+            # Obtener los conceptos detallados de la operación usando numero_liquidacion
+            from .models import Registro
+            conceptos_operacion = Registro.objects.filter(
+                interno_caja=movimiento.numero_liquidacion
+            ).order_by('fecha')
+            
+            if conceptos_operacion.exists():
+                # Usar los conceptos de la operación
+                for registro in conceptos_operacion:
+                    concepto_desc = ''
+                    if registro.concepto:
+                        concepto_desc = f'{registro.concepto.id} - {registro.concepto.nombre}'
+                    else:
+                        concepto_desc = 'Concepto no especificado'
+                    
+                    pagos.append({
+                        'fecha': registro.fecha_comprobante.strftime('%d/%m/%Y'),
+                        'codigo': registro.interno_caja or f'R{registro.id:04d}',
+                        'concepto': concepto_desc,
+                        'monto': f'${registro.liquidacion:,.0f}'
+                    })
+                    total_pagado += registro.liquidacion
+            else:
+                # Fallback: usar los pagos de la reserva como antes
+                for pago in reserva.pagos.all():
+                    # Obtener el concepto correcto del pago
+                    concepto_desc = ''
+                    if hasattr(pago, 'concepto') and pago.concepto:
+                        concepto_desc = f'{pago.concepto.codigo} - {pago.concepto.nombre}'
+                    else:
+                        concepto_desc = f'Pago reserva {reserva.id}'
+                    
+                    pagos.append({
+                        'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
+                        'codigo': pago.codigo if hasattr(pago, 'codigo') and pago.codigo else f'P{pago.id:04d}',
+                        'concepto': concepto_desc,
+                        'monto': f'${pago.monto:,.0f}'
+                    })
+                    total_pagado += pago.monto
+                    if pago.forma_pago not in formas_de_pago:
+                        formas_de_pago.append(pago.forma_pago.title())
             
             # Función para convertir número a palabras (simplificada)
             def numero_a_palabras(numero):
