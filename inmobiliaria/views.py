@@ -1621,8 +1621,8 @@ def ver_recibo(request, reserva_id):
             pagos.append({
                 'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
                 'codigo': f'P{pago.id:04d}',
-                'concepto': f'Pago reserva {reserva.id}',
-                'monto': pago.monto
+                'concepto': f'Pago reserva {reserva.id} - {pago.forma_pago.title()}',
+                'monto': f'${pago.monto:,.0f}'  # Formatear como moneda
             })
             total_pagado += pago.monto
             if pago.forma_pago not in formas_de_pago:
@@ -1636,25 +1636,48 @@ def ver_recibo(request, reserva_id):
         cliente_data = reserva.cliente
         cliente_completo = {
             'nombre_completo': f"{cliente_data.nombre} {cliente_data.apellido}",
-            'domicilio': cliente_data.domicilio,
-            'localidad': cliente_data.localidad,
-            'provincia': cliente_data.provincia,
-            'dni': cliente_data.dni,
-            'telefono': cliente_data.celular,  # Mapear celular a telefono
-            'cuit': getattr(cliente_data, 'cuit', ''),  # CUIT puede no existir
+            'domicilio': cliente_data.domicilio or '',
+            'localidad': cliente_data.localidad or '',
+            'provincia': cliente_data.provincia or '',
+            'dni': cliente_data.dni or '',
+            'telefono': cliente_data.celular or '',  # Mapear celular a telefono
+            'cuit': getattr(cliente_data, 'cuit', '') or '',  # CUIT puede no existir
+        }
+        
+        # Preparar datos de la propiedad con formato correcto
+        propiedad_data = reserva.propiedad
+        propiedad_completa = {
+            'direccion': propiedad_data.direccion or '',
+            'id': propiedad_data.id,
+            'llave': propiedad_data.llave or 'N/A',
+            'piso': propiedad_data.piso or '',
+            'departamento': propiedad_data.departamento or '',
+            'ambientes': f"{propiedad_data.ambientes} personas" if propiedad_data.ambientes else 'N/A',
+            'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
+            'cochera': 'SÍ' if propiedad_data.cochera else 'NO',
+        }
+        
+        # Preparar datos de la reserva con formato de moneda
+        reserva_formateada = {
+            'id': reserva.id,
+            'precio_total': f'${reserva.precio_total:,.0f}',
+            'senia': f'${reserva.senia:,.0f}',
+            'cuota_pendiente': f'${reserva.cuota_pendiente:,.0f}',
+            'deposito_garantia': f'${reserva.deposito_garantia:,.0f}',
+            'propiedad': propiedad_completa,
         }
         
         # Continuar con la generación del recibo usando el template correcto
         return render(request, 'inmobiliaria/reserva/recibo.html', {
-            'reserva': reserva,
+            'reserva': reserva_formateada,
             'cliente': cliente_completo,
-            'propiedad': reserva.propiedad,
+            'propiedad': propiedad_completa,
             'numero_recibo': f'R{reserva.id:06d}',
             'fecha': fecha_actual.strftime('%d/%m/%Y'),
             'hora': fecha_actual.strftime('%H:%M'),
             'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
             'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
-            'descripcion': 'Alquiler temporario',
+            'descripcion': 'Alquiler temporario por días',
             'pagos': pagos,
             'total_pagado': f'${total_pagado:,.0f}',
             'monto_en_palabras': numero_a_palabras(total_pagado),
@@ -1680,8 +1703,8 @@ def generar_recibo_pdf(reserva, pago_senia):
         pagos.append({
             'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
             'codigo': f'P{pago.id:04d}',
-            'concepto': f'Pago reserva {reserva.id}',
-            'monto': pago.monto
+            'concepto': f'Pago reserva {reserva.id} - {pago.forma_pago.title()}',
+            'monto': f'${pago.monto:,.0f}'  # Formatear como moneda
         })
         total_pagado += pago.monto
         if pago.forma_pago not in formas_de_pago:
@@ -1695,25 +1718,48 @@ def generar_recibo_pdf(reserva, pago_senia):
     cliente_data = reserva.cliente
     cliente_completo = {
         'nombre_completo': f"{cliente_data.nombre} {cliente_data.apellido}",
-        'domicilio': cliente_data.domicilio,
-        'localidad': cliente_data.localidad,
-        'provincia': cliente_data.provincia,
-        'dni': cliente_data.dni,
-        'telefono': cliente_data.celular,  # Mapear celular a telefono
-        'cuit': getattr(cliente_data, 'cuit', ''),  # CUIT puede no existir
+        'domicilio': cliente_data.domicilio or '',
+        'localidad': cliente_data.localidad or '',
+        'provincia': cliente_data.provincia or '',
+        'dni': cliente_data.dni or '',
+        'telefono': cliente_data.celular or '',  # Mapear celular a telefono
+        'cuit': getattr(cliente_data, 'cuit', '') or '',  # CUIT puede no existir
+    }
+    
+    # Preparar datos de la propiedad con formato correcto
+    propiedad_data = reserva.propiedad
+    propiedad_completa = {
+        'direccion': propiedad_data.direccion or '',
+        'id': propiedad_data.id,
+        'llave': propiedad_data.llave or 'N/A',
+        'piso': propiedad_data.piso or '',
+        'departamento': propiedad_data.departamento or '',
+        'ambientes': f"{propiedad_data.ambientes} personas" if propiedad_data.ambientes else 'N/A',
+        'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
+        'cochera': 'SÍ' if propiedad_data.cochera else 'NO',
+    }
+    
+    # Preparar datos de la reserva con formato de moneda
+    reserva_formateada = {
+        'id': reserva.id,
+        'precio_total': f'${reserva.precio_total:,.0f}',
+        'senia': f'${reserva.senia:,.0f}',
+        'cuota_pendiente': f'${reserva.cuota_pendiente:,.0f}',
+        'deposito_garantia': f'${reserva.deposito_garantia:,.0f}',
+        'propiedad': propiedad_completa,
     }
     
     template_name = 'inmobiliaria/reserva/recibo.html'
     context = {
-        'reserva': reserva,
+        'reserva': reserva_formateada,
         'cliente': cliente_completo,
-        'propiedad': reserva.propiedad,
+        'propiedad': propiedad_completa,
         'numero_recibo': f'R{reserva.id:06d}',
         'fecha': fecha_actual.strftime('%d/%m/%Y'),
         'hora': fecha_actual.strftime('%H:%M'),
         'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
         'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
-        'descripcion': 'Alquiler temporario',
+        'descripcion': 'Alquiler temporario por días',
         'pagos': pagos,
         'total_pagado': f'${total_pagado:,.0f}',
         'monto_en_palabras': numero_a_palabras(total_pagado),

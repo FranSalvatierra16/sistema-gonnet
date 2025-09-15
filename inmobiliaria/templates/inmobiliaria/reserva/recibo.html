@@ -246,7 +246,7 @@
                 <div style="display: flex; flex-direction: column; width: 20%; border-left: 1px solid #2d8524;">
                     {% for pago in pagos %}
                     <div style="display: flex; justify-content: center; padding: 3px; font-size: 9px;">
-                        <div style="width: 15%;">{{ pago.monto|format_price }}</div>
+                        <div style="width: 15%;">{{ pago.monto }}</div>
                     </div>
                     {% endfor %}
                 </div>
