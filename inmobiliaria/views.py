@@ -1565,6 +1565,9 @@ def terminar_reserva(request, reserva_id):
 
 @login_required
 def ver_recibo(request, reserva_id):
+    # DEBUG: Confirmar que estamos en la función correcta
+    print("🧾 EJECUTANDO ver_recibo desde views.py (FUNCIÓN ACTUALIZADA)")
+    print(f"🧾 Reserva ID: {reserva_id}")
     try:
         reserva = get_object_or_404(Reserva, id=reserva_id)
         
@@ -1754,6 +1757,12 @@ def ver_recibo(request, reserva_id):
             'deposito_garantia': f'${reserva.deposito_garantia:,.0f}',
             'propiedad': propiedad_completa,
         }
+        
+        # DEBUG: Confirmar template y datos
+        print("🧾 TEMPLATE USADO: inmobiliaria/reserva/recibo.html")
+        print(f"🧾 TOTAL PAGADO: {f'${total_pagado:,.0f}'}")
+        print(f"🧾 FORMAS DE PAGO: {', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO'}")
+        print(f"🧾 PAGOS COUNT: {len(pagos)}")
         
         # Continuar con la generación del recibo usando el template correcto
         return render(request, 'inmobiliaria/reserva/recibo.html', {
@@ -2647,6 +2656,11 @@ def ver_recibo_movimiento(request, movimiento_id):
     """
     Vista para mostrar el recibo basado en un MovimientoCaja
     """
+    print("🧾 EJECUTANDO ver_recibo_movimiento desde views.py (FUNCIÓN ACTUALIZADA)")
+    print(f"🧾 Movimiento ID: {movimiento_id}")
+    print("="*50)
+    print("🔧 VERSIÓN ACTUALIZADA DE LA FUNCIÓN - DICIEMBRE 2024")
+    print("="*50)
     try:
         # Obtener el movimiento de caja principal
         movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
@@ -2893,6 +2907,12 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'deposito_garantia': f'${reserva.deposito_garantia:,.0f}',
                 'propiedad': propiedad_completa,
             }
+            
+            # DEBUG: Confirmar template y datos en ver_recibo_movimiento
+            print("🧾 TEMPLATE USADO en ver_recibo_movimiento: inmobiliaria/reserva/recibo.html") 
+            print(f"🧾 TOTAL PAGADO: {f'${total_pagado:,.0f}'}")
+            print(f"🧾 FORMAS DE PAGO: {', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO'}")
+            print(f"🧾 PAGOS COUNT: {len(pagos)}")
             
             # Usar el nuevo template de recibo
             return render(request, 'inmobiliaria/reserva/recibo.html', {
