@@ -1618,10 +1618,17 @@ def ver_recibo(request, reserva_id):
         formas_de_pago = []
         
         for pago in reserva.pagos.all():
+            # Obtener el concepto correcto del pago
+            concepto_desc = ''
+            if hasattr(pago, 'concepto') and pago.concepto:
+                concepto_desc = f'{pago.concepto.codigo} - {pago.concepto.nombre}'
+            else:
+                concepto_desc = f'Pago reserva {reserva.id}'
+            
             pagos.append({
                 'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
-                'codigo': f'P{pago.id:04d}',
-                'concepto': f'Pago reserva {reserva.id} - {pago.forma_pago.title()}',
+                'codigo': pago.codigo if hasattr(pago, 'codigo') and pago.codigo else f'P{pago.id:04d}',
+                'concepto': concepto_desc,
                 'monto': f'${pago.monto:,.0f}'  # Formatear como moneda
             })
             total_pagado += pago.monto
@@ -1700,10 +1707,17 @@ def generar_recibo_pdf(reserva, pago_senia):
     formas_de_pago = []
     
     for pago in reserva.pagos.all():
+        # Obtener el concepto correcto del pago
+        concepto_desc = ''
+        if hasattr(pago, 'concepto') and pago.concepto:
+            concepto_desc = f'{pago.concepto.codigo} - {pago.concepto.nombre}'
+        else:
+            concepto_desc = f'Pago reserva {reserva.id}'
+        
         pagos.append({
             'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
-            'codigo': f'P{pago.id:04d}',
-            'concepto': f'Pago reserva {reserva.id} - {pago.forma_pago.title()}',
+            'codigo': pago.codigo if hasattr(pago, 'codigo') and pago.codigo else f'P{pago.id:04d}',
+            'concepto': concepto_desc,
             'monto': f'${pago.monto:,.0f}'  # Formatear como moneda
         })
         total_pagado += pago.monto
@@ -2600,10 +2614,17 @@ def ver_recibo_movimiento(request, movimiento_id):
             formas_de_pago = []
             
             for pago in reserva.pagos.all():
+                # Obtener el concepto correcto del pago
+                concepto_desc = ''
+                if hasattr(pago, 'concepto') and pago.concepto:
+                    concepto_desc = f'{pago.concepto.codigo} - {pago.concepto.nombre}'
+                else:
+                    concepto_desc = f'Pago reserva {reserva.id}'
+                
                 pagos.append({
                     'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
-                    'codigo': f'P{pago.id:04d}',
-                    'concepto': f'Pago reserva {reserva.id} - {pago.forma_pago.title()}',
+                    'codigo': pago.codigo if hasattr(pago, 'codigo') and pago.codigo else f'P{pago.id:04d}',
+                    'concepto': concepto_desc,
                     'monto': f'${pago.monto:,.0f}'  # Formatear como moneda
                 })
                 total_pagado += pago.monto
