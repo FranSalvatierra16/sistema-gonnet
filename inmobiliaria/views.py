@@ -1606,31 +1606,119 @@ def ver_recibo(request, reserva_id):
         else:
             messages.warning(request, 'No hay una caja abierta para registrar el movimiento')
         
-        # Continuar con la generación del recibo
-        template = get_template('inmobiliaria/html.recibo/recibo.html')
-        context = {
-            'reserva': reserva,
-            'fecha_actual': timezone.now(),
+        # Preparar datos para el recibo
+        from datetime import datetime
+        from django.utils.dateformat import format
+        
+        fecha_actual = timezone.now()
+        
+        # Obtener los pagos de la reserva
+        pagos = []
+        total_pagado = 0
+        formas_de_pago = []
+        
+        for pago in reserva.pagos.all():
+            pagos.append({
+                'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
+                'codigo': f'P{pago.id:04d}',
+                'concepto': f'Pago reserva {reserva.id}',
+                'monto': pago.monto
+            })
+            total_pagado += pago.monto
+            if pago.forma_pago not in formas_de_pago:
+                formas_de_pago.append(pago.forma_pago.title())
+        
+        # Función para convertir número a palabras (simplificada)
+        def numero_a_palabras(numero):
+            return f"PESOS {numero:.0f}/100"
+        
+        # Preparar datos del cliente con campos adicionales
+        cliente_data = reserva.cliente
+        cliente_completo = {
+            'nombre_completo': f"{cliente_data.nombre} {cliente_data.apellido}",
+            'domicilio': cliente_data.domicilio,
+            'localidad': cliente_data.localidad,
+            'provincia': cliente_data.provincia,
+            'dni': cliente_data.dni,
+            'telefono': cliente_data.celular,  # Mapear celular a telefono
+            'cuit': getattr(cliente_data, 'cuit', ''),  # CUIT puede no existir
         }
-        html = template.render(context)
         
-        # Crear el PDF
-        response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = f'filename=recibo_{reserva.id}.pdf'
-        
-        pisa_status = pisa.CreatePDF(html, dest=response)
-        if pisa_status.err:
-            return HttpResponse('Error al generar el PDF', status=500)
-        
-        return response
+        # Continuar con la generación del recibo usando el template correcto
+        return render(request, 'inmobiliaria/reserva/recibo.html', {
+            'reserva': reserva,
+            'cliente': cliente_completo,
+            'propiedad': reserva.propiedad,
+            'numero_recibo': f'R{reserva.id:06d}',
+            'fecha': fecha_actual.strftime('%d/%m/%Y'),
+            'hora': fecha_actual.strftime('%H:%M'),
+            'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
+            'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
+            'descripcion': 'Alquiler temporario',
+            'pagos': pagos,
+            'total_pagado': f'${total_pagado:,.0f}',
+            'monto_en_palabras': numero_a_palabras(total_pagado),
+            'formas_de_pago': ', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO',
+        })
         
     except Exception as e:
         messages.error(request, f'Error al generar el recibo: {str(e)}')
         return redirect('inmobiliaria:finalizar_reserva', reserva_id=reserva_id)
 
 def generar_recibo_pdf(reserva, pago_senia):
+    from datetime import datetime
+    
+    # Preparar datos para el recibo (similar a ver_recibo)
+    fecha_actual = timezone.now()
+    
+    # Obtener los pagos de la reserva
+    pagos = []
+    total_pagado = 0
+    formas_de_pago = []
+    
+    for pago in reserva.pagos.all():
+        pagos.append({
+            'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
+            'codigo': f'P{pago.id:04d}',
+            'concepto': f'Pago reserva {reserva.id}',
+            'monto': pago.monto
+        })
+        total_pagado += pago.monto
+        if pago.forma_pago not in formas_de_pago:
+            formas_de_pago.append(pago.forma_pago.title())
+    
+    # Función para convertir número a palabras (simplificada)
+    def numero_a_palabras(numero):
+        return f"PESOS {numero:.0f}/100"
+    
+    # Preparar datos del cliente con campos adicionales
+    cliente_data = reserva.cliente
+    cliente_completo = {
+        'nombre_completo': f"{cliente_data.nombre} {cliente_data.apellido}",
+        'domicilio': cliente_data.domicilio,
+        'localidad': cliente_data.localidad,
+        'provincia': cliente_data.provincia,
+        'dni': cliente_data.dni,
+        'telefono': cliente_data.celular,  # Mapear celular a telefono
+        'cuit': getattr(cliente_data, 'cuit', ''),  # CUIT puede no existir
+    }
+    
     template_name = 'inmobiliaria/reserva/recibo.html'
-    context = {'reserva': reserva, 'pago_senia': pago_senia}
+    context = {
+        'reserva': reserva,
+        'cliente': cliente_completo,
+        'propiedad': reserva.propiedad,
+        'numero_recibo': f'R{reserva.id:06d}',
+        'fecha': fecha_actual.strftime('%d/%m/%Y'),
+        'hora': fecha_actual.strftime('%H:%M'),
+        'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
+        'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
+        'descripcion': 'Alquiler temporario',
+        'pagos': pagos,
+        'total_pagado': f'${total_pagado:,.0f}',
+        'monto_en_palabras': numero_a_palabras(total_pagado),
+        'formas_de_pago': ', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO',
+    }
     
     # Renderizar HTML a string
     html = render_to_string(template_name, context)
