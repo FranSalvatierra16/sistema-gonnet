@@ -2816,6 +2816,40 @@ def ver_recibo_movimiento(request, movimiento_id):
             ).order_by('fecha')
             print(f"🔍 CONCEPTOS POR PROPIEDAD: {conceptos_alt.count()}")
             
+            # Buscar por fecha aproximada
+            from datetime import timedelta
+            fecha_mov = movimiento.fecha.date()
+            conceptos_fecha = Registro.objects.filter(
+                fecha_comprobante__gte=fecha_mov - timedelta(days=1),
+                fecha_comprobante__lte=fecha_mov + timedelta(days=1)
+            ).order_by('fecha')
+            print(f"🔍 CONCEPTOS POR FECHA (±1 día): {conceptos_fecha.count()}")
+            
+            # Buscar cualquier registro con el ID de la reserva en el concepto
+            if reserva:
+                conceptos_reserva = Registro.objects.filter(
+                    interno_caja__icontains=str(reserva.id)
+                ).order_by('fecha')
+                print(f"🔍 CONCEPTOS POR ID RESERVA: {conceptos_reserva.count()}")
+                
+                # También buscar en el concepto del movimiento
+                if f"Reserva {reserva.id}" in movimiento.concepto:
+                    print(f"🔍 CONCEPTO DEL MOVIMIENTO CONTIENE: 'Reserva {reserva.id}'")
+                    
+                    # Buscar registros que puedan estar relacionados por ID diferente
+                    posibles_registros = Registro.objects.filter(
+                        propiedad=movimiento.propiedad,
+                        fecha_comprobante=fecha_mov
+                    ).order_by('fecha')
+                    print(f"🔍 REGISTROS MISMO DÍA Y PROPIEDAD: {posibles_registros.count()}")
+                    if posibles_registros.exists():
+                        print("🔍 REGISTROS ENCONTRADOS POR FECHA/PROPIEDAD:")
+                        for reg in posibles_registros:
+                            print(f"   - interno_caja: '{reg.interno_caja}' | concepto: {reg.concepto} | liquidacion: {reg.liquidacion}")
+                            
+                        # Usar estos registros si existen
+                        conceptos_operacion = posibles_registros
+            
             if conceptos_operacion.exists():
                 # Usar los conceptos de la operación
                 for registro in conceptos_operacion:
@@ -2835,52 +2869,49 @@ def ver_recibo_movimiento(request, movimiento_id):
                     })
                     total_pagado += registro.liquidacion
             else:
-                # Fallback: generar conceptos sintéticos basados en el movimiento
-                print("📋 FALLBACK: Generando conceptos sintéticos del movimiento")
+                # Fallback: generar conceptos de alquiler genéricos
+                print("📋 FALLBACK: Generando conceptos de alquiler genéricos")
                 
-                # Agregar conceptos sintéticos basados en los montos del movimiento
                 fecha_mov = movimiento.fecha.strftime('%d/%m/%Y')
                 codigo_mov = movimiento.numero_liquidacion or f'M{movimiento.id:04d}'
                 
-                if movimiento.monto_efectivo > 0:
-                    pagos.append({
-                        'fecha': fecha_mov,
-                        'codigo': codigo_mov,
-                        'concepto': 'EFE - Pago en efectivo',
-                        'monto': f'${movimiento.monto_efectivo:,.0f}'
-                    })
-                    total_pagado += movimiento.monto_efectivo
-                
-                if movimiento.monto_tarjeta > 0:
-                    pagos.append({
-                        'fecha': fecha_mov,
-                        'codigo': codigo_mov,
-                        'concepto': 'TAR - Pago con tarjeta',
-                        'monto': f'${movimiento.monto_tarjeta:,.0f}'
-                    })
-                    total_pagado += movimiento.monto_tarjeta
-                
-                if movimiento.monto_cheque > 0:
-                    pagos.append({
-                        'fecha': fecha_mov,
-                        'codigo': codigo_mov,
-                        'concepto': 'CHE - Pago con cheque',
-                        'monto': f'${movimiento.monto_cheque:,.0f}'
-                    })
-                    total_pagado += movimiento.monto_cheque
-                
-                if movimiento.monto_deposito > 0:
-                    destino = 'Galicia' if movimiento.destino_deposito == 'galicia' else 'Mercado Pago' if movimiento.destino_deposito == 'mp' else 'Transferencia'
-                    pagos.append({
-                        'fecha': fecha_mov,
-                        'codigo': codigo_mov,
-                        'concepto': f'TRA - {destino}',
-                        'monto': f'${movimiento.monto_deposito:,.0f}'
-                    })
-                    total_pagado += movimiento.monto_deposito
-                
-                # Si no hay nada específico, agregar concepto genérico
-                if not pagos:
+                # Generar conceptos típicos de alquiler basados en la reserva
+                if reserva:
+                    # Calcular distribución típica
+                    precio_total = float(reserva.precio_total)
+                    senia = float(reserva.senia) if reserva.senia else 0
+                    deposito = float(reserva.deposito_garantia) if reserva.deposito_garantia else 0
+                    saldo = precio_total - senia
+                    
+                    # Agregar conceptos según lo que se haya pagado
+                    if senia > 0:
+                        pagos.append({
+                            'fecha': fecha_mov,
+                            'codigo': codigo_mov,
+                            'concepto': 'SEÑ - Seña',
+                            'monto': f'${senia:,.0f}'
+                        })
+                        total_pagado += senia
+                    
+                    if deposito > 0:
+                        pagos.append({
+                            'fecha': fecha_mov,
+                            'codigo': codigo_mov,
+                            'concepto': 'DEP - Depósito garantía',
+                            'monto': f'${deposito:,.0f}'
+                        })
+                        total_pagado += deposito
+                    
+                    if saldo > 0:
+                        pagos.append({
+                            'fecha': fecha_mov,
+                            'codigo': codigo_mov,
+                            'concepto': 'ALQ - Alquiler temporario',
+                            'monto': f'${saldo:,.0f}'
+                        })
+                        total_pagado += saldo
+                else:
+                    # Si no hay reserva, concepto genérico
                     pagos.append({
                         'fecha': fecha_mov,
                         'codigo': codigo_mov,
