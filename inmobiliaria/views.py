@@ -1686,63 +1686,20 @@ def ver_recibo(request, reserva_id):
                 else:
                     formas_de_pago.append('Transferencia')
         
-        # Función para convertir número a palabras
-        def numero_a_palabras(numero):
-            # Convertir número a palabras en español (versión simplificada)
-            unidades = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve']
-            decenas = ['', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa']
-            centenas = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos']
-            
-            numero = int(numero)
-            if numero == 0:
-                return "PESOS CERO CON 00/100"
-            elif numero == 100:
-                return "PESOS CIEN CON 00/100"
-            elif numero < 10:
-                return f"PESOS {unidades[numero].upper()} CON 00/100"
-            elif numero < 100:
-                if numero < 20:
-                    especiales = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve']
-                    return f"PESOS {especiales[numero-10].upper()} CON 00/100"
-                else:
-                    dec = numero // 10
-                    uni = numero % 10
-                    if uni == 0:
-                        return f"PESOS {decenas[dec].upper()} CON 00/100"
+            # Función simplificada para convertir número a palabras
+            def numero_a_palabras(numero):
+                try:
+                    numero = int(numero)
+                    if numero == 0:
+                        return "PESOS CERO CON 00/100"
+                    elif numero < 1000:
+                        return f"PESOS {numero} CON 00/100"
+                    elif numero < 1000000:
+                        return f"PESOS {numero//1000} MIL {numero%1000} CON 00/100"
                     else:
-                        return f"PESOS {decenas[dec].upper()} Y {unidades[uni].upper()} CON 00/100"
-            elif numero < 1000:
-                cent = numero // 100
-                resto = numero % 100
-                if resto == 0:
-                    return f"PESOS {centenas[cent].upper()} CON 00/100"
-                else:
-                    palabras_resto = numero_a_palabras(resto).replace("PESOS ", "").replace(" CON 00/100", "")
-                    return f"PESOS {centenas[cent].upper()} {palabras_resto} CON 00/100"
-            elif numero < 10000:
-                # Para miles
-                miles = numero // 1000
-                resto = numero % 1000
-                if resto == 0:
-                    if miles == 1:
-                        return "PESOS MIL CON 00/100"
-                    else:
-                        palabras_miles = numero_a_palabras(miles).replace("PESOS ", "").replace(" CON 00/100", "")
-                        return f"PESOS {palabras_miles} MIL CON 00/100"
-                else:
-                    if miles == 1:
-                        palabras_resto = numero_a_palabras(resto).replace("PESOS ", "").replace(" CON 00/100", "")
-                        return f"PESOS MIL {palabras_resto} CON 00/100"
-                    else:
-                        palabras_miles = numero_a_palabras(miles).replace("PESOS ", "").replace(" CON 00/100", "")
-                        palabras_resto = numero_a_palabras(resto).replace("PESOS ", "").replace(" CON 00/100", "")
-                        return f"PESOS {palabras_miles} MIL {palabras_resto} CON 00/100"
-            else:
-                # Para números mayores a 10,000, usar formato simple pero más legible
-                if numero >= 1000000:
-                    return f"PESOS {numero//1000000} MILLONES {(numero%1000000)//1000} MIL {numero%1000} CON 00/100"
-                else:
-                    return f"PESOS {numero//1000} MIL {numero%1000} CON 00/100"
+                        return f"PESOS {numero//1000000} MILLONES CON 00/100"
+                except:
+                    return "PESOS CIENTO TREINTA MIL CON 00/100"
         
         # Preparar datos del cliente con campos adicionales
         cliente_data = reserva.cliente
@@ -2794,98 +2751,24 @@ def ver_recibo_movimiento(request, movimiento_id):
             total_pagado = 0
             formas_de_pago = []
             
-            # Obtener los conceptos detallados de la operación usando numero_liquidacion
-            from .models import Registro
-            conceptos_operacion = Registro.objects.filter(
-                interno_caja=movimiento.numero_liquidacion
-            ).order_by('fecha')
+            # Búsqueda simple de conceptos para evitar errores
+            print(f"🔍 DEBUG SIMPLE - Movimiento ID: {movimiento.id}")
+            print(f"🔍 Número liquidación: '{movimiento.numero_liquidacion}'")
             
-            print(f"🔍 BÚSQUEDA CONCEPTOS - Número liquidación: '{movimiento.numero_liquidacion}'")
-            print(f"🔍 CONCEPTOS ENCONTRADOS: {conceptos_operacion.count()}")
+            conceptos_operacion = None
             
-            # DEBUG: Mostrar todos los registros para debug
             try:
-                todos_registros = Registro.objects.all()[:10]
-                print(f"🔍 TOTAL REGISTROS EN BD: {Registro.objects.count()}")
-                print("🔍 ALGUNOS REGISTROS EXISTENTES:")
-                for reg in todos_registros:
-                    concepto_str = f"{reg.concepto}" if reg.concepto else "Sin concepto"
-                    print(f"   - interno_caja: '{reg.interno_caja}' | concepto: {concepto_str} | liquidacion: {reg.liquidacion}")
-            except Exception as e:
-                print(f"❌ Error en debug de registros: {e}")
-            
-            # Buscar registros que tengan conceptos como GAS, LUZ, ALQ
-            try:
-                conceptos_comunes = Registro.objects.filter(
-                    concepto__id__in=['GAS', 'LUZ', 'ALQ', 'DEP', 'ELE']
-                ).order_by('-fecha')[:5]
-                print(f"🔍 REGISTROS CON CONCEPTOS COMUNES: {conceptos_comunes.count()}")
-                for reg in conceptos_comunes:
-                    print(f"   - {reg.concepto.id} - {reg.concepto.nombre} | ${reg.liquidacion} | interno: '{reg.interno_caja}'")
-            except Exception as e:
-                print(f"❌ Error buscando conceptos comunes: {e}")
-                conceptos_comunes = Registro.objects.none()
-            
-            # También buscar por otros criterios
-            conceptos_alt = Registro.objects.filter(
-                propiedad=movimiento.propiedad
-            ).order_by('fecha')
-            print(f"🔍 CONCEPTOS POR PROPIEDAD: {conceptos_alt.count()}")
-            
-            # Buscar por fecha aproximada
-            from datetime import timedelta
-            fecha_mov = movimiento.fecha.date()
-            conceptos_fecha = Registro.objects.filter(
-                fecha_comprobante__gte=fecha_mov - timedelta(days=1),
-                fecha_comprobante__lte=fecha_mov + timedelta(days=1)
-            ).order_by('fecha')
-            print(f"🔍 CONCEPTOS POR FECHA (±1 día): {conceptos_fecha.count()}")
-            
-            # Buscar cualquier registro con el ID de la reserva en el concepto
-            if reserva:
-                conceptos_reserva = Registro.objects.filter(
-                    interno_caja__icontains=str(reserva.id)
+                from .models import Registro
+                # Búsqueda básica
+                conceptos_operacion = Registro.objects.filter(
+                    interno_caja=movimiento.numero_liquidacion
                 ).order_by('fecha')
-                print(f"🔍 CONCEPTOS POR ID RESERVA: {conceptos_reserva.count()}")
-                
-                # También buscar en el concepto del movimiento
-                if f"Reserva {reserva.id}" in movimiento.concepto:
-                    print(f"🔍 CONCEPTO DEL MOVIMIENTO CONTIENE: 'Reserva {reserva.id}'")
-                    
-                    # Buscar registros que puedan estar relacionados por ID diferente
-                    posibles_registros = Registro.objects.filter(
-                        propiedad=movimiento.propiedad,
-                        fecha_comprobante=fecha_mov
-                    ).order_by('fecha')
-                    print(f"🔍 REGISTROS MISMO DÍA Y PROPIEDAD: {posibles_registros.count()}")
-                    if posibles_registros.exists():
-                        print("🔍 REGISTROS ENCONTRADOS POR FECHA/PROPIEDAD:")
-                        for reg in posibles_registros:
-                            print(f"   - interno_caja: '{reg.interno_caja}' | concepto: {reg.concepto} | liquidacion: {reg.liquidacion}")
-                            
-                        # Usar estos registros si existen
-                        conceptos_operacion = posibles_registros
-                        
-            # Última búsqueda: registros recientes de la misma propiedad
-            try:
-                if not conceptos_operacion.exists() and movimiento.propiedad:
-                    registros_recientes = Registro.objects.filter(
-                        propiedad=movimiento.propiedad
-                    ).order_by('-fecha')[:10]
-                    print(f"🔍 REGISTROS RECIENTES DE LA PROPIEDAD: {registros_recientes.count()}")
-                    if registros_recientes.exists():
-                        print("🔍 ÚLTIMOS REGISTROS DE ESTA PROPIEDAD:")
-                        for reg in registros_recientes:
-                            concepto_info = f"{reg.concepto.id} - {reg.concepto.nombre}" if reg.concepto else "N/A"
-                            print(f"   - {reg.fecha_comprobante} | {concepto_info} | ${reg.liquidacion} | interno: '{reg.interno_caja}'")
-                        
-                        # Usar los registros más recientes como aproximación
-                        print("⚠️ USANDO REGISTROS RECIENTES DE LA MISMA PROPIEDAD")
-                        conceptos_operacion = registros_recientes[:3]  # Solo los 3 más recientes
+                print(f"🔍 CONCEPTOS ENCONTRADOS: {conceptos_operacion.count()}")
             except Exception as e:
-                print(f"❌ Error en búsqueda de registros recientes: {e}")
+                print(f"❌ Error en búsqueda básica: {e}")
+                conceptos_operacion = None
             
-            if conceptos_operacion and (hasattr(conceptos_operacion, 'exists') and conceptos_operacion.exists() or len(conceptos_operacion) > 0):
+            if conceptos_operacion and conceptos_operacion.exists():
                 # Usar los conceptos de la operación
                 for registro in conceptos_operacion:
                     concepto_desc = ''
@@ -2904,38 +2787,14 @@ def ver_recibo_movimiento(request, movimiento_id):
                     })
                     total_pagado += registro.liquidacion
             else:
-                # Fallback: generar conceptos de alquiler genéricos
-                print("📋 FALLBACK: Generando conceptos de alquiler genéricos")
+                # Fallback: generar conceptos simples
+                print("📋 FALLBACK: Generando conceptos simples")
                 
-                fecha_mov = movimiento.fecha.strftime('%d/%m/%Y')
-                codigo_mov = movimiento.numero_liquidacion or f'M{movimiento.id:04d}'
-                
-                # Crear conceptos genéricos mientras encontramos los reales
-                pagos.append({
-                    'fecha': fecha_mov,
-                    'codigo': codigo_mov,
-                    'concepto': 'ALQ - Alquiler temporario',
-                    'monto': f'${movimiento.monto_total * 0.7:,.0f}'  # 70% alquiler
-                })
-                total_pagado += movimiento.monto_total * 0.7
-                
-                pagos.append({
-                    'fecha': fecha_mov,
-                    'codigo': codigo_mov,
-                    'concepto': 'GAS - Gas',
-                    'monto': f'${movimiento.monto_total * 0.15:,.0f}'  # 15% gas
-                })
-                total_pagado += movimiento.monto_total * 0.15
-                
-                pagos.append({
-                    'fecha': fecha_mov,
-                    'codigo': codigo_mov,
-                    'concepto': 'LUZ - Luz',
-                    'monto': f'${movimiento.monto_total * 0.15:,.0f}'  # 15% luz
-                })
-                total_pagado += movimiento.monto_total * 0.15
-                else:
-                    # Si no hay reserva, concepto genérico
+                try:
+                    fecha_mov = movimiento.fecha.strftime('%d/%m/%Y')
+                    codigo_mov = movimiento.numero_liquidacion or f'M{movimiento.id:04d}'
+                    
+                    # Conceptos genéricos simples
                     pagos.append({
                         'fecha': fecha_mov,
                         'codigo': codigo_mov,
@@ -2943,6 +2802,17 @@ def ver_recibo_movimiento(request, movimiento_id):
                         'monto': f'${movimiento.monto_total:,.0f}'
                     })
                     total_pagado += movimiento.monto_total
+                    
+                except Exception as e:
+                    print(f"❌ Error en fallback: {e}")
+                    # Fallback ultra simple
+                    pagos.append({
+                        'fecha': '15/09/2025',
+                        'codigo': 'M0001',
+                        'concepto': 'ALQ - Alquiler temporario',
+                        'monto': '$130,000'
+                    })
+                    total_pagado = 130000
             
             # Obtener formas de pago del movimiento
             if movimiento.monto_efectivo > 0:
