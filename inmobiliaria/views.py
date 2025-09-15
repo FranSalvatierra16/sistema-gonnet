@@ -5020,12 +5020,7 @@ def buscar_propiedades(request):
             # Evaluar la disponibilidad y las reservas de la propiedad
             # 🎯 CORREGIDO: Manejar propiedades CON O SIN disponibilidades
             
-            # 🎯 VERIFICAR SI LA PROPIEDAD TIENE DISPONIBILIDADES VÁLIDAS PRIMERO
-            if not disponibilidades.exists():
-                print(f"   ❌ SALTANDO: Sin disponibilidades que se superpongan con {fecha_inicio} al {fecha_fin}")
-                continue  # Saltar propiedades sin disponibilidades en las fechas solicitadas
-            
-            # Verificar reservas conflictivas DESPUÉS de confirmar disponibilidades
+            # Verificar reservas conflictivas PRIMERO
             reservas_conflictivas = reservas.filter(
                 Q(estado='pagada') | Q(estado='confirmada')
             )
@@ -5034,21 +5029,32 @@ def buscar_propiedades(request):
                 print(f"   ❌ Saltando por reservas conflictivas: {reservas_conflictivas.count()}")
                 continue  # Saltar si hay reservas pagadas o confirmadas en estas fechas
             
-            # Si hay una reserva para mostrar en rojo, mostrarla solo si tiene disponibilidades
+            # Si hay una reserva para mostrar en rojo, mostrarla SIEMPRE (es información importante)
             if reserva_confirmada_no_pagada:
                 print(f"   ✅ MOSTRANDO EN ROJO: Reserva {reserva_confirmada_no_pagada.id}")
                 propiedad.reserva = reserva_confirmada_no_pagada
                 propiedad.estado_reserva = 'confirmada_no_pagada'
                 # NO asignar precio aquí - se calculará día por día más abajo
             else:
+                # Solo para propiedades SIN reservas, verificar disponibilidades
+                if not disponibilidades.exists():
+                    print(f"   ❌ SALTANDO: Sin disponibilidades que se superpongan con {fecha_inicio} al {fecha_fin}")
+                    continue  # Saltar propiedades sin disponibilidades y sin reservas
+                
                 propiedad.estado_reserva = 'disponible'
                 print(f"   ✅ DISPONIBLE: Sin reservas para mostrar en rojo")
             
-            # Si tiene disponibilidades, usar la primera
-            print(f"   📋 Tiene disponibilidades, procesando...")
-            primera_disponibilidad = disponibilidades.first()
-            propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
-            propiedad.disponibilidad_fin = primera_disponibilidad.fecha_fin
+            # Asignar fechas de disponibilidad
+            if disponibilidades.exists():
+                print(f"   📋 Tiene disponibilidades, procesando...")
+                primera_disponibilidad = disponibilidades.first()
+                propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
+                propiedad.disponibilidad_fin = primera_disponibilidad.fecha_fin
+            elif reserva_confirmada_no_pagada:
+                # Si tiene reserva pero no disponibilidades, usar las fechas de la reserva
+                print(f"   📋 Sin disponibilidades, usando fechas de reserva...")
+                propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio
+                propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
             
             # 🎯 CALCULAR PRECIOS Y AGREGAR PROPIEDAD (CON O SIN RESERVAS)
             
