@@ -988,7 +988,7 @@ def buscar_propiedades_reserva(request):
     propiedades_disponibles = []
     propiedades_sin_precio = []
     vendedores = Vendedor.objects.filter(sucursal=sucursal_vendedor)
-    total_noches_reserva = 0
+    total_dias_reserva = 0
 
     fecha_inicio = None
     fecha_fin = None
@@ -1088,7 +1088,7 @@ def buscar_propiedades_reserva(request):
                 print('fecha de fin',fecha_fin)
                 # Calcular noches, no días (del 13 al 15 = 2 noches)
                 noches_reserva = (fecha_fin - fecha_inicio).days
-                total_noches_reserva = noches_reserva
+                total_dias_reserva = noches_reserva
 
                 # 🔍 DEBUGGING CRÍTICO: Ver todos los precios de esta propiedad
                 print(f"🔍 DEBUGGING PRECIOS - Propiedad {propiedad.id} (fechas: {fecha_inicio} al {fecha_fin}):")
@@ -1198,7 +1198,7 @@ def buscar_propiedades_reserva(request):
     # Alerta si hay propiedades sin precio
     alerta_sin_precio = len(propiedades_sin_precio) > 0
     print("las fechas de inicio y fin son ",fecha_inicio,fecha_fin)
-    print("los dias de reserva son ",total_noches_reserva)
+    print("los dias de reserva son ",total_dias_reserva)
 
     # ❌ ELIMINADO: El cálculo duplicado que estaba sobrescribiendo el precio correcto
     # El precio ya se calculó correctamente arriba en las líneas 1132-1167
@@ -1214,7 +1214,7 @@ def buscar_propiedades_reserva(request):
         'alerta_sin_precio': alerta_sin_precio,
         'fecha_inicio': fecha_inicio.strftime('%d/%m/%Y') if fecha_inicio else '',
         'fecha_fin': fecha_fin.strftime('%d/%m/%Y') if fecha_fin else '',
-        'total_dias': total_noches_reserva,
+        'total_dias': total_dias_reserva,
         'inquilinos': Inquilino.objects.all().order_by('apellido', 'nombre'),
         'vendedores': vendedores,
         'tipos_precio': TipoPrecio,
@@ -4884,7 +4884,7 @@ def buscar_propiedades(request):
     propiedades_disponibles = []
     propiedades_sin_precio = []
     vendedores = Vendedor.objects.filter(sucursal=sucursal_vendedor)
-    total_noches_reserva = 0
+    total_dias_reserva = 0
     
     # FLAG: Para identificar específicamente esta función en los edits siguientes
     FUNCION_PRINCIPAL_EN_USO = True
@@ -4907,7 +4907,7 @@ def buscar_propiedades(request):
                 'inquilinos': inquilinos,
                 'vendedores': vendedores,
                 'propiedades_disponibles': [],
-                'total_noches_reserva': 0,
+                'total_dias_reserva': 0,
                 'fecha_inicio': fecha_inicio,
                 'fecha_fin': fecha_fin,
             })
@@ -5036,7 +5036,17 @@ def buscar_propiedades(request):
                 print(f"   ✅ MOSTRANDO EN ROJO: Reserva {reserva_confirmada_no_pagada.id}")
                 propiedad.reserva = reserva_confirmada_no_pagada
                 propiedad.estado_reserva = 'confirmada_no_pagada'
-                # NO asignar precio aquí - se calculará día por día más abajo
+                # ✅ USAR PRECIO DE LA RESERVA EXISTENTE, NO RECALCULAR
+                propiedad.precio_total_reserva = reserva_confirmada_no_pagada.precio_total
+                print(f"   💰 Precio de reserva existente: ${reserva_confirmada_no_pagada.precio_total}")
+                
+                # Asignar fechas de la reserva
+                propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio
+                propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
+                
+                # Agregar a la lista y continuar sin recalcular precios
+                propiedades_disponibles.append(propiedad)
+                continue
             else:
                 # Solo para propiedades SIN reservas, verificar disponibilidades
                 if not disponibilidades.exists():
@@ -5046,210 +5056,78 @@ def buscar_propiedades(request):
                 propiedad.estado_reserva = 'disponible'
                 print(f"   ✅ DISPONIBLE: Sin reservas para mostrar en rojo")
             
+            # 🎯 CALCULAR PRECIOS SOLO PARA PROPIEDADES DISPONIBLES (SIN RESERVAS)
+            
             # Asignar fechas de disponibilidad
-            if disponibilidades.exists():
-                print(f"   📋 Tiene disponibilidades, procesando...")
-                primera_disponibilidad = disponibilidades.first()
-                propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
-                propiedad.disponibilidad_fin = primera_disponibilidad.fecha_fin
-            elif reserva_confirmada_no_pagada:
-                # Si tiene reserva pero no disponibilidades, usar las fechas de la reserva
-                print(f"   📋 Sin disponibilidades, usando fechas de reserva...")
-                propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio
-                propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
+            print(f"   📋 Tiene disponibilidades, procesando...")
+            primera_disponibilidad = disponibilidades.first()
+            propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
+            propiedad.disponibilidad_fin = primera_disponibilidad.fecha_fin
+
+            # Calcular el precio total según las fechas seleccionadas
+            precio_total = 0
+            print('fecha de inicio',fecha_inicio)
+            print('fecha de fin',fecha_fin)
+            # Para cálculos de precio: usar días completos (lógica original)
+            dias_reserva = (fecha_fin - fecha_inicio).days + 1
             
-            # 🎯 CALCULAR PRECIOS Y AGREGAR PROPIEDAD (CON O SIN RESERVAS)
+            print(f"🔥 INICIANDO CÁLCULO para propiedad {propiedad.id} del {fecha_inicio} al {fecha_fin}")
+            print(f"🔥 Días a calcular: {dias_reserva}")
             
-            # Si hay una reserva, sobreescribir con las fechas de la reserva
-            if reserva_confirmada_no_pagada:
-                propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio 
-                propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
-
-                # Calcular el precio total de la reserva según las fechas seleccionadas
-                precio_total = 0
-                print('fecha de inicio',fecha_inicio)
-                print('fecha de fin',fecha_fin)
-                # Calcular noches, no días (del 13 al 15 = 2 noches)
-                noches_reserva = (fecha_fin - fecha_inicio).days
-                total_noches_reserva = noches_reserva
-
-                # ✅ USAR TU FUNCIÓN ORIGINAL calcular_precio_total del modelo
-                precio_total = 0
-                print(f"🔥 INICIANDO CÁLCULO para propiedad {propiedad.id} del {fecha_inicio} al {fecha_fin}")
-                print(f"🔥 Días a calcular: {noches_reserva}")
-                
-                # Calcular día por día usando tu función para determinar temporadas
-                for single_date in (fecha_inicio + timedelta(n) for n in range(noches_reserva)):
-                    # Determinar el tipo de precio según la fecha
-                    tipo_precio = None
-                    if single_date.month == 1:  # Enero
-                        tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
-                    elif single_date.month == 2:  # Febrero
-                        tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day < 15 else 'QUINCENA_2_FEBRERO'
-                    elif single_date.month == 3:  # Marzo
-                        tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
-                    elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
-                        tipo_precio = 'VACACIONES_INVIERNO'
-                    elif single_date.month == 12:  # Diciembre
-                        tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
-                    else:
-                        tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
-
-                    # Obtener el precio por día para esta temporada
-                    try:
-                        precio_obj = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
-                        # Usar precio_por_dia directamente (ya incluye ajustes)
-                        precio_dia = precio_obj.precio_por_dia or 0
-                        
-                        # Aplicar ajuste porcentual si existe
-                        if precio_obj.ajuste_porcentaje != 0:
-                            precio_dia *= (1 - precio_obj.ajuste_porcentaje / 100)
-                        
-                        precio_total += precio_dia
-                        print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
-                    except Precio.DoesNotExist:
-                        print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = $0 (sin precio configurado)")
-                        print(f"🚨 PRECIO FALTANTE - Propiedad {propiedad.id} NO tiene precio para {tipo_precio}")
-                        # Mostrar qué precios SÍ tiene esta propiedad
-                        precios_existentes = Precio.objects.filter(propiedad=propiedad)
-                        print(f"🔍 Precios configurados para esta propiedad: {precios_existentes.count()}")
-                        for p in precios_existentes:
-                            print(f"   - {p.tipo_precio}: ${p.precio_por_dia}")
-
-                # ✅ ASIGNAR EL PRECIO CALCULADO CON TU FUNCIÓN
-                print(f"🔥 PRECIO FINAL CALCULADO para propiedad {propiedad.id}: ${precio_total}")
-                propiedad.precio_total_reserva = precio_total
-
-                if not reservas.exists():
-                    primera_disponibilidad = disponibilidades.order_by('fecha_inicio').first()
-                    ultima_disponibilidad = disponibilidades.order_by('-fecha_fin').first()
-
-                    if primera_disponibilidad:
-                        propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
-                    if ultima_disponibilidad:
-                        propiedad.disponibilidad_fin = ultima_disponibilidad.fecha_fin
-
-                # Calcular la disponibilidad real considerando las reservas existentes
-                disponibilidad_calculada = calcular_disponibilidad_real(
-                    propiedad, disponibilidades, reservas, fecha_inicio, fecha_fin
-                )
-                
-                if disponibilidad_calculada:
-                    propiedad.disponibilidad_inicio = disponibilidad_calculada['inicio']
-                    propiedad.disponibilidad_fin = disponibilidad_calculada['fin']
+            # Calcular día por día usando tu función para determinar temporadas
+            for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
+                # Determinar el tipo de precio según la fecha
+                tipo_precio = None
+                if single_date.month == 1:  # Enero
+                    tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
+                elif single_date.month == 2:  # Febrero
+                    tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day < 15 else 'QUINCENA_2_FEBRERO'
+                elif single_date.month == 3:  # Marzo
+                    tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
+                elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
+                    tipo_precio = 'VACACIONES_INVIERNO'
+                elif single_date.month == 12:  # Diciembre
+                    tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
                 else:
-                    # Si no hay disponibilidad calculada, usar la lógica original como fallback
-                    # pero validar que al menos tenga alguna disponibilidad en el período
-                    if not reservas.exists():
-                        primera_disponibilidad = disponibilidades.order_by('fecha_inicio').first()
-                        ultima_disponibilidad = disponibilidades.order_by('-fecha_fin').first()
+                    tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
 
-                        if primera_disponibilidad:
-                            propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
-                        if ultima_disponibilidad:
-                            propiedad.disponibilidad_fin = ultima_disponibilidad.fecha_fin
-
-                    # Obtener la reserva más cercana antes de la fecha de inicio
-                    reserva_cercana = propiedad.reservas.filter(fecha_fin__lte=fecha_inicio).order_by('-fecha_fin').first()
-                    reserva_cercana_fin = propiedad.reservas.filter(fecha_inicio__gte=fecha_fin).order_by('fecha_inicio').first()
-
-                    if reserva_cercana:
-                        propiedad.disponibilidad_inicio = reserva_cercana.fecha_fin
-
-                    if reserva_cercana_fin:
-                        propiedad.disponibilidad_fin = reserva_cercana_fin.fecha_inicio
-
-
-                # Añadir la propiedad disponible a la lista
-                dias_disponibles = (fecha_inicio - propiedad.disponibilidad_inicio).days
-                propiedad.dias_disponibles = max(dias_disponibles, 0)
-                propiedades_disponibles.append(propiedad)
-                propiedades_disponibles.sort(key=lambda x: x.dias_disponibles)
-
-                # Asegúrate de que todos los precios estén disponibles
+                # Obtener el precio por día para esta temporada
                 try:
-                    # Función auxiliar para manejar tipos de precio no válidos
-                    def get_precio_order(precio):
-                        try:
-                            return TipoPrecio[precio.tipo_precio].value
-                        except KeyError:
-                            # Si el tipo no existe en el enum, ponerlo al final
-                            return 999
-                        
-                    propiedad.todos_precios = sorted(propiedad.todos_precios, key=get_precio_order)
-                except Exception as e:
-                    print(f"Error ordenando precios para propiedad {propiedad.id}: {e}")
-                    # En caso de error, no ordenar los precios
-                    pass
-
-            else:
-                # 🎯 PROPIEDADES SIN RESERVAS - También deben mostrarse
-                print(f"   ✅ PROPIEDAD SIN RESERVAS: {propiedad.id}")
-                
-                # Calcular precio total para la reserva usando el mismo método que para propiedades con reservas
-                precio_total = 0
-                print(f"🔥 INICIANDO CÁLCULO para propiedad SIN RESERVAS {propiedad.id} del {fecha_inicio} al {fecha_fin}")
-                
-                if fecha_inicio and fecha_fin:
-                    # Calcular noches, no días (del 13 al 15 = 2 noches)
-                    noches_reserva = (fecha_fin - fecha_inicio).days
-                    print(f"🔥 Noches a calcular: {noches_reserva}")
+                    precio_obj = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
+                    # Usar precio_por_dia directamente (ya incluye ajustes)
+                    precio_dia = precio_obj.precio_por_dia or 0
                     
-                    # Calcular día por día usando la misma lógica de temporadas
-                    for single_date in (fecha_inicio + timedelta(n) for n in range(noches_reserva)):
-                        # Determinar el tipo de precio según la fecha
-                        tipo_precio = None
-                        if single_date.month == 1:  # Enero
-                            tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
-                        elif single_date.month == 2:  # Febrero
-                            tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day < 15 else 'QUINCENA_2_FEBRERO'
-                        elif single_date.month == 3:  # Marzo
-                            tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
-                        elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
-                            tipo_precio = 'VACACIONES_INVIERNO'
-                        elif single_date.month == 12:  # Diciembre
-                            tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
-                        else:
-                            tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
+                    # Aplicar ajuste porcentual si existe
+                    if precio_obj.ajuste_porcentaje != 0:
+                        precio_dia *= (1 - precio_obj.ajuste_porcentaje / 100)
+                    
+                    precio_total += precio_dia
+                    print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
+                except Precio.DoesNotExist:
+                    print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = $0 (sin precio configurado)")
+                    print(f"🚨 PRECIO FALTANTE - Propiedad {propiedad.id} NO tiene precio para {tipo_precio}")
+                    # Mostrar qué precios SÍ tiene esta propiedad
+                    precios_existentes = Precio.objects.filter(propiedad=propiedad)
+                    print(f"🔍 Precios configurados para esta propiedad: {precios_existentes.count()}")
+                    for p in precios_existentes:
+                        print(f"   - {p.tipo_precio}: ${p.precio_por_dia}")
 
-                        # Obtener el precio por día para esta temporada
-                        try:
-                            precio_obj = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
-                            # Usar precio_por_dia directamente (ya incluye ajustes)
-                            precio_dia = precio_obj.precio_por_dia or 0
-                            
-                            # Aplicar ajuste porcentual si existe
-                            if precio_obj.ajuste_porcentaje != 0:
-                                precio_dia *= (1 - precio_obj.ajuste_porcentaje / 100)
-                            
-                            precio_total += precio_dia
-                            print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
-                        except Precio.DoesNotExist:
-                            print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = $0 (sin precio configurado)")
-                            print(f"🚨 PRECIO FALTANTE - Propiedad {propiedad.id} NO tiene precio para {tipo_precio}")
-                            # Mostrar qué precios SÍ tiene esta propiedad
-                            precios_existentes = Precio.objects.filter(propiedad=propiedad)
-                            print(f"🔍 Precios configurados para esta propiedad: {precios_existentes.count()}")
-                            for p in precios_existentes:
-                                print(f"   - {p.tipo_precio}: ${p.precio_por_dia}")
-
-                print(f"🔥 PRECIO FINAL CALCULADO para propiedad SIN RESERVAS {propiedad.id}: ${precio_total}")
-                propiedad.precio_total_reserva = precio_total
-                
-                # Agregar la propiedad disponible a la lista
-                dias_disponibles = (fecha_inicio - propiedad.disponibilidad_inicio).days
-                propiedad.dias_disponibles = max(dias_disponibles, 0)
-                propiedades_disponibles.append(propiedad)
-                propiedades_disponibles.sort(key=lambda x: x.dias_disponibles)    
+            # ✅ ASIGNAR EL PRECIO CALCULADO CON TU FUNCIÓN
+            print(f"🔥 PRECIO FINAL CALCULADO para propiedad {propiedad.id}: ${precio_total}")
+            propiedad.precio_total_reserva = precio_total
+            
+            # Agregar la propiedad disponible a la lista
+            propiedades_disponibles.append(propiedad)
+    
     # Alerta si hay propiedades sin precio
     alerta_sin_precio = len(propiedades_sin_precio) > 0
     
     # CALCULAR NOCHES CORRECTAMENTE AQUÍ (después de validar fechas)
     if fecha_inicio and fecha_fin:
-        total_noches_reserva = (fecha_fin - fecha_inicio).days
+        total_dias_reserva = (fecha_fin - fecha_inicio).days
     
     print("las fechas de inicio y fin son ",fecha_inicio,fecha_fin)
-    print("los dias de reserva son ",total_noches_reserva)
+    print("los dias de reserva son ",total_dias_reserva)
 
     # Los precios ya fueron calculados correctamente arriba para cada propiedad
     # No es necesario recalcular aquí
@@ -5265,7 +5143,7 @@ def buscar_propiedades(request):
         'alerta_sin_precio': alerta_sin_precio,
         'fecha_inicio': fecha_inicio.strftime('%d/%m/%Y') if fecha_inicio else '',
         'fecha_fin': fecha_fin.strftime('%d/%m/%Y') if fecha_fin else '',
-        'total_dias': total_noches_reserva,
+        'total_dias': total_dias_reserva,
         'inquilinos': Inquilino.objects.all().order_by('apellido', 'nombre'),
         'vendedores': vendedores,
         'tipos_precio': TipoPrecio,
