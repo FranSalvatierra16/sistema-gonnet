@@ -1667,9 +1667,58 @@ def ver_recibo(request, reserva_id):
                 if pago.forma_pago not in formas_de_pago:
                     formas_de_pago.append(pago.forma_pago.title())
         
-        # Función para convertir número a palabras (simplificada)
+        # Si no hay formas de pago desde pagos, intentar obtener del movimiento creado
+        if not formas_de_pago and 'movimiento' in locals():
+            if movimiento.monto_efectivo > 0:
+                formas_de_pago.append('Efectivo')
+            if movimiento.monto_tarjeta > 0:
+                formas_de_pago.append('Tarjeta')
+            if movimiento.monto_cheque > 0:
+                formas_de_pago.append('Cheque')
+            if movimiento.monto_deposito > 0:
+                if movimiento.destino_deposito == 'galicia':
+                    formas_de_pago.append('Galicia')
+                elif movimiento.destino_deposito == 'mp':
+                    formas_de_pago.append('Mercado Pago')
+                else:
+                    formas_de_pago.append('Transferencia')
+        
+        # Función para convertir número a palabras
         def numero_a_palabras(numero):
-            return f"PESOS {numero:.0f}/100"
+            # Convertir número a palabras en español (versión simplificada)
+            unidades = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve']
+            decenas = ['', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa']
+            centenas = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos']
+            
+            numero = int(numero)
+            if numero == 0:
+                return "PESOS CERO CON 00/100"
+            elif numero == 100:
+                return "PESOS CIEN CON 00/100"
+            elif numero < 10:
+                return f"PESOS {unidades[numero].upper()} CON 00/100"
+            elif numero < 100:
+                if numero < 20:
+                    especiales = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve']
+                    return f"PESOS {especiales[numero-10].upper()} CON 00/100"
+                else:
+                    dec = numero // 10
+                    uni = numero % 10
+                    if uni == 0:
+                        return f"PESOS {decenas[dec].upper()} CON 00/100"
+                    else:
+                        return f"PESOS {decenas[dec].upper()} Y {unidades[uni].upper()} CON 00/100"
+            elif numero < 1000:
+                cent = numero // 100
+                resto = numero % 100
+                if resto == 0:
+                    return f"PESOS {centenas[cent].upper()} CON 00/100"
+                else:
+                    palabras_resto = numero_a_palabras(resto).replace("PESOS ", "").replace(" CON 00/100", "")
+                    return f"PESOS {centenas[cent].upper()} {palabras_resto} CON 00/100"
+            else:
+                # Para números mayores, usar formato simple
+                return f"PESOS {numero:,} CON 00/100".replace(',', '.')
         
         # Preparar datos del cliente con campos adicionales
         cliente_data = reserva.cliente
@@ -1788,9 +1837,42 @@ def generar_recibo_pdf(reserva, pago_senia):
             if pago.forma_pago not in formas_de_pago:
                 formas_de_pago.append(pago.forma_pago.title())
     
-    # Función para convertir número a palabras (simplificada)
+    # Función para convertir número a palabras
     def numero_a_palabras(numero):
-        return f"PESOS {numero:.0f}/100"
+        # Convertir número a palabras en español (versión simplificada)
+        unidades = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve']
+        decenas = ['', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa']
+        centenas = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos']
+        
+        numero = int(numero)
+        if numero == 0:
+            return "PESOS CERO CON 00/100"
+        elif numero == 100:
+            return "PESOS CIEN CON 00/100"
+        elif numero < 10:
+            return f"PESOS {unidades[numero].upper()} CON 00/100"
+        elif numero < 100:
+            if numero < 20:
+                especiales = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve']
+                return f"PESOS {especiales[numero-10].upper()} CON 00/100"
+            else:
+                dec = numero // 10
+                uni = numero % 10
+                if uni == 0:
+                    return f"PESOS {decenas[dec].upper()} CON 00/100"
+                else:
+                    return f"PESOS {decenas[dec].upper()} Y {unidades[uni].upper()} CON 00/100"
+        elif numero < 1000:
+            cent = numero // 100
+            resto = numero % 100
+            if resto == 0:
+                return f"PESOS {centenas[cent].upper()} CON 00/100"
+            else:
+                palabras_resto = numero_a_palabras(resto).replace("PESOS ", "").replace(" CON 00/100", "")
+                return f"PESOS {centenas[cent].upper()} {palabras_resto} CON 00/100"
+        else:
+            # Para números mayores, usar formato simple
+            return f"PESOS {numero:,} CON 00/100".replace(',', '.')
     
     # Preparar datos del cliente con campos adicionales
     cliente_data = reserva.cliente
@@ -2683,6 +2765,9 @@ def ver_recibo_movimiento(request, movimiento_id):
                 interno_caja=movimiento.numero_liquidacion
             ).order_by('fecha')
             
+            print(f"🔍 BÚSQUEDA CONCEPTOS - Número liquidación: {movimiento.numero_liquidacion}")
+            print(f"🔍 CONCEPTOS ENCONTRADOS: {conceptos_operacion.count()}")
+            
             if conceptos_operacion.exists():
                 # Usar los conceptos de la operación
                 for registro in conceptos_operacion:
@@ -2691,6 +2776,8 @@ def ver_recibo_movimiento(request, movimiento_id):
                         concepto_desc = f'{registro.concepto.id} - {registro.concepto.nombre}'
                     else:
                         concepto_desc = 'Concepto no especificado'
+                    
+                    print(f"💰 CONCEPTO: {concepto_desc} - ${registro.liquidacion}")
                     
                     pagos.append({
                         'fecha': registro.fecha_comprobante.strftime('%d/%m/%Y'),
@@ -2701,6 +2788,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                     total_pagado += registro.liquidacion
             else:
                 # Fallback: usar los pagos de la reserva como antes
+                print("📋 FALLBACK: Usando pagos de reserva")
                 for pago in reserva.pagos.all():
                     # Obtener el concepto correcto del pago
                     concepto_desc = ''
@@ -2719,9 +2807,57 @@ def ver_recibo_movimiento(request, movimiento_id):
                     if pago.forma_pago not in formas_de_pago:
                         formas_de_pago.append(pago.forma_pago.title())
             
-            # Función para convertir número a palabras (simplificada)
+            # Obtener formas de pago del movimiento
+            if movimiento.monto_efectivo > 0:
+                formas_de_pago.append('Efectivo')
+            if movimiento.monto_tarjeta > 0:
+                formas_de_pago.append('Tarjeta')
+            if movimiento.monto_cheque > 0:
+                formas_de_pago.append('Cheque')
+            if movimiento.monto_deposito > 0:
+                if movimiento.destino_deposito == 'galicia':
+                    formas_de_pago.append('Galicia')
+                elif movimiento.destino_deposito == 'mp':
+                    formas_de_pago.append('Mercado Pago')
+                else:
+                    formas_de_pago.append('Transferencia')
+            
+            # Función para convertir número a palabras
             def numero_a_palabras(numero):
-                return f"PESOS {numero:.0f}/100"
+                # Convertir número a palabras en español (versión simplificada)
+                unidades = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve']
+                decenas = ['', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa']
+                centenas = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos']
+                
+                numero = int(numero)
+                if numero == 0:
+                    return "PESOS CERO CON 00/100"
+                elif numero == 100:
+                    return "PESOS CIEN CON 00/100"
+                elif numero < 10:
+                    return f"PESOS {unidades[numero].upper()} CON 00/100"
+                elif numero < 100:
+                    if numero < 20:
+                        especiales = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve']
+                        return f"PESOS {especiales[numero-10].upper()} CON 00/100"
+                    else:
+                        dec = numero // 10
+                        uni = numero % 10
+                        if uni == 0:
+                            return f"PESOS {decenas[dec].upper()} CON 00/100"
+                        else:
+                            return f"PESOS {decenas[dec].upper()} Y {unidades[uni].upper()} CON 00/100"
+                elif numero < 1000:
+                    cent = numero // 100
+                    resto = numero % 100
+                    if resto == 0:
+                        return f"PESOS {centenas[cent].upper()} CON 00/100"
+                    else:
+                        palabras_resto = numero_a_palabras(resto).replace("PESOS ", "").replace(" CON 00/100", "")
+                        return f"PESOS {centenas[cent].upper()} {palabras_resto} CON 00/100"
+                else:
+                    # Para números mayores, usar formato simple
+                    return f"PESOS {numero:,} CON 00/100".replace(',', '.')
             
             # Preparar datos del cliente con campos adicionales
             cliente_data = reserva.cliente
@@ -5389,65 +5525,65 @@ def buscar_propiedades(request):
             # 🎯 CALCULAR PRECIOS SOLO PARA PROPIEDADES DISPONIBLES (SIN RESERVAS)
             
             # Asignar fechas de disponibilidad
-            print(f"   📋 Tiene disponibilidades, procesando...")
-            primera_disponibilidad = disponibilidades.first()
-            propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
-            propiedad.disponibilidad_fin = primera_disponibilidad.fecha_fin
+                print(f"   📋 Tiene disponibilidades, procesando...")
+                primera_disponibilidad = disponibilidades.first()
+                propiedad.disponibilidad_inicio = primera_disponibilidad.fecha_inicio
+                propiedad.disponibilidad_fin = primera_disponibilidad.fecha_fin
 
             # Calcular el precio total según las fechas seleccionadas
-            precio_total = 0
-            print('fecha de inicio',fecha_inicio)
-            print('fecha de fin',fecha_fin)
+                precio_total = 0
+                print('fecha de inicio',fecha_inicio)
+                print('fecha de fin',fecha_fin)
             # Para cálculos de precio: usar días completos (lógica original)
-            dias_reserva = (fecha_fin - fecha_inicio).days + 1
-            
-            print(f"🔥 INICIANDO CÁLCULO para propiedad {propiedad.id} del {fecha_inicio} al {fecha_fin}")
-            print(f"🔥 Días a calcular: {dias_reserva}")
-            
-            # Calcular día por día usando tu función para determinar temporadas
-            for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
-                # Determinar el tipo de precio según la fecha
-                tipo_precio = None
-                if single_date.month == 1:  # Enero
-                    tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
-                elif single_date.month == 2:  # Febrero
-                    tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day < 15 else 'QUINCENA_2_FEBRERO'
-                elif single_date.month == 3:  # Marzo
-                    tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
-                elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
-                    tipo_precio = 'VACACIONES_INVIERNO'
-                elif single_date.month == 12:  # Diciembre
-                    tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
-                else:
-                    tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
+                dias_reserva = (fecha_fin - fecha_inicio).days + 1
 
-                # Obtener el precio por día para esta temporada
-                try:
-                    precio_obj = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
-                    # Usar precio_por_dia directamente (ya incluye ajustes)
-                    precio_dia = precio_obj.precio_por_dia or 0
-                    
-                    # Aplicar ajuste porcentual si existe
-                    if precio_obj.ajuste_porcentaje != 0:
-                        precio_dia *= (1 - precio_obj.ajuste_porcentaje / 100)
-                    
-                    precio_total += precio_dia
-                    print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
-                except Precio.DoesNotExist:
-                    print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = $0 (sin precio configurado)")
-                    print(f"🚨 PRECIO FALTANTE - Propiedad {propiedad.id} NO tiene precio para {tipo_precio}")
-                    # Mostrar qué precios SÍ tiene esta propiedad
-                    precios_existentes = Precio.objects.filter(propiedad=propiedad)
-                    print(f"🔍 Precios configurados para esta propiedad: {precios_existentes.count()}")
-                    for p in precios_existentes:
-                        print(f"   - {p.tipo_precio}: ${p.precio_por_dia}")
+                print(f"🔥 INICIANDO CÁLCULO para propiedad {propiedad.id} del {fecha_inicio} al {fecha_fin}")
+                print(f"🔥 Días a calcular: {dias_reserva}")
+                
+                # Calcular día por día usando tu función para determinar temporadas
+                for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
+                    # Determinar el tipo de precio según la fecha
+                    tipo_precio = None
+                    if single_date.month == 1:  # Enero
+                        tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
+                    elif single_date.month == 2:  # Febrero
+                        tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day < 15 else 'QUINCENA_2_FEBRERO'
+                    elif single_date.month == 3:  # Marzo
+                        tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
+                    elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
+                        tipo_precio = 'VACACIONES_INVIERNO'
+                    elif single_date.month == 12:  # Diciembre
+                        tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
+                    else:
+                        tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
 
-            # ✅ ASIGNAR EL PRECIO CALCULADO CON TU FUNCIÓN
-            print(f"🔥 PRECIO FINAL CALCULADO para propiedad {propiedad.id}: ${precio_total}")
-            propiedad.precio_total_reserva = precio_total
-            
-            # Agregar la propiedad disponible a la lista
-            propiedades_disponibles.append(propiedad)
+                    # Obtener el precio por día para esta temporada
+                    try:
+                        precio_obj = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
+                        # Usar precio_por_dia directamente (ya incluye ajustes)
+                        precio_dia = precio_obj.precio_por_dia or 0
+                        
+                        # Aplicar ajuste porcentual si existe
+                        if precio_obj.ajuste_porcentaje != 0:
+                            precio_dia *= (1 - precio_obj.ajuste_porcentaje / 100)
+                        
+                        precio_total += precio_dia
+                        print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
+                    except Precio.DoesNotExist:
+                        print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = $0 (sin precio configurado)")
+                        print(f"🚨 PRECIO FALTANTE - Propiedad {propiedad.id} NO tiene precio para {tipo_precio}")
+                        # Mostrar qué precios SÍ tiene esta propiedad
+                        precios_existentes = Precio.objects.filter(propiedad=propiedad)
+                        print(f"🔍 Precios configurados para esta propiedad: {precios_existentes.count()}")
+                        for p in precios_existentes:
+                            print(f"   - {p.tipo_precio}: ${p.precio_por_dia}")
+
+                # ✅ ASIGNAR EL PRECIO CALCULADO CON TU FUNCIÓN
+                print(f"🔥 PRECIO FINAL CALCULADO para propiedad {propiedad.id}: ${precio_total}")
+                propiedad.precio_total_reserva = precio_total
+                
+                # Agregar la propiedad disponible a la lista
+                propiedades_disponibles.append(propiedad)
     
     # Alerta si hay propiedades sin precio
     alerta_sin_precio = len(propiedades_sin_precio) > 0
