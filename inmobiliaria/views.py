@@ -5011,6 +5011,12 @@ def buscar_propiedades(request):
             # Verificar si existe una reserva confirmada no pagada, confirmada o en espera
             reserva_confirmada_no_pagada = reservas.filter(Q(estado='confirmada_no_pagada') | Q(estado='confirmada') | Q(estado='en_espera')).first()
             print(f"   ¿Reserva para mostrar en rojo? {bool(reserva_confirmada_no_pagada)}")
+            if reserva_confirmada_no_pagada:
+                print(f"     → Estado: {reserva_confirmada_no_pagada.estado}")
+                print(f"     → Fechas: {reserva_confirmada_no_pagada.fecha_inicio} al {reserva_confirmada_no_pagada.fecha_fin}")
+                print(f"     → Precio: ${reserva_confirmada_no_pagada.precio_total}")
+            else:
+                print(f"     → No hay reservas confirmada_no_pagada/confirmada/en_espera en estas fechas")
 
             # ✅ CORREGIDO: Mostrar propiedades con reservas confirmada_no_pagada en las fechas buscadas
             # 🔍 DEBUGGING: Ver si la propiedad tiene disponibilidades
@@ -5022,9 +5028,9 @@ def buscar_propiedades(request):
             # Evaluar la disponibilidad y las reservas de la propiedad
             # 🎯 CORREGIDO: Manejar propiedades CON O SIN disponibilidades
             
-            # Verificar reservas conflictivas PRIMERO
+            # Verificar reservas conflictivas PRIMERO (solo las pagadas)
             reservas_conflictivas = reservas.filter(
-                Q(estado='pagada') | Q(estado='confirmada')
+                Q(estado='pagada')
             )
             
             if reservas_conflictivas.exists():
@@ -5033,12 +5039,13 @@ def buscar_propiedades(request):
             
             # Si hay una reserva para mostrar en rojo, mostrarla SIEMPRE (es información importante)
             if reserva_confirmada_no_pagada:
-                print(f"   ✅ MOSTRANDO EN ROJO: Reserva {reserva_confirmada_no_pagada.id}")
+                print(f"   ✅ MOSTRANDO EN ROJO: Reserva {reserva_confirmada_no_pagada.id} con estado '{reserva_confirmada_no_pagada.estado}'")
                 propiedad.reserva = reserva_confirmada_no_pagada
-                propiedad.estado_reserva = 'confirmada_no_pagada'
+                propiedad.estado_reserva = 'confirmada_no_pagada'  # Siempre mostrar como confirmada_no_pagada en frontend
                 # ✅ USAR PRECIO DE LA RESERVA EXISTENTE, NO RECALCULAR
                 propiedad.precio_total_reserva = reserva_confirmada_no_pagada.precio_total
                 print(f"   💰 Precio de reserva existente: ${reserva_confirmada_no_pagada.precio_total}")
+                print(f"   🔴 Estado asignado para mostrar: {propiedad.estado_reserva}")
                 
                 # Asignar fechas de la reserva
                 propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio
@@ -5046,6 +5053,7 @@ def buscar_propiedades(request):
                 
                 # Agregar a la lista y continuar sin recalcular precios
                 propiedades_disponibles.append(propiedad)
+                print(f"   ✅ Propiedad {propiedad.id} agregada a la lista con reserva en rojo")
                 continue
             else:
                 # Solo para propiedades SIN reservas, verificar disponibilidades
