@@ -2804,19 +2804,27 @@ def ver_recibo_movimiento(request, movimiento_id):
             print(f"🔍 CONCEPTOS ENCONTRADOS: {conceptos_operacion.count()}")
             
             # DEBUG: Mostrar todos los registros para debug
-            todos_registros = Registro.objects.all()[:10]
-            print(f"🔍 TOTAL REGISTROS EN BD: {Registro.objects.count()}")
-            print("🔍 ALGUNOS REGISTROS EXISTENTES:")
-            for reg in todos_registros:
-                print(f"   - interno_caja: '{reg.interno_caja}' | concepto: {reg.concepto} | liquidacion: {reg.liquidacion}")
+            try:
+                todos_registros = Registro.objects.all()[:10]
+                print(f"🔍 TOTAL REGISTROS EN BD: {Registro.objects.count()}")
+                print("🔍 ALGUNOS REGISTROS EXISTENTES:")
+                for reg in todos_registros:
+                    concepto_str = f"{reg.concepto}" if reg.concepto else "Sin concepto"
+                    print(f"   - interno_caja: '{reg.interno_caja}' | concepto: {concepto_str} | liquidacion: {reg.liquidacion}")
+            except Exception as e:
+                print(f"❌ Error en debug de registros: {e}")
             
             # Buscar registros que tengan conceptos como GAS, LUZ, ALQ
-            conceptos_comunes = Registro.objects.filter(
-                concepto__id__in=['GAS', 'LUZ', 'ALQ', 'DEP', 'ELE']
-            ).order_by('-fecha')[:5]
-            print(f"🔍 REGISTROS CON CONCEPTOS COMUNES: {conceptos_comunes.count()}")
-            for reg in conceptos_comunes:
-                print(f"   - {reg.concepto.id} - {reg.concepto.nombre} | ${reg.liquidacion} | interno: '{reg.interno_caja}'")
+            try:
+                conceptos_comunes = Registro.objects.filter(
+                    concepto__id__in=['GAS', 'LUZ', 'ALQ', 'DEP', 'ELE']
+                ).order_by('-fecha')[:5]
+                print(f"🔍 REGISTROS CON CONCEPTOS COMUNES: {conceptos_comunes.count()}")
+                for reg in conceptos_comunes:
+                    print(f"   - {reg.concepto.id} - {reg.concepto.nombre} | ${reg.liquidacion} | interno: '{reg.interno_caja}'")
+            except Exception as e:
+                print(f"❌ Error buscando conceptos comunes: {e}")
+                conceptos_comunes = Registro.objects.none()
             
             # También buscar por otros criterios
             conceptos_alt = Registro.objects.filter(
@@ -2859,21 +2867,25 @@ def ver_recibo_movimiento(request, movimiento_id):
                         conceptos_operacion = posibles_registros
                         
             # Última búsqueda: registros recientes de la misma propiedad
-            if not conceptos_operacion.exists() and movimiento.propiedad:
-                registros_recientes = Registro.objects.filter(
-                    propiedad=movimiento.propiedad
-                ).order_by('-fecha')[:10]
-                print(f"🔍 REGISTROS RECIENTES DE LA PROPIEDAD: {registros_recientes.count()}")
-                if registros_recientes.exists():
-                    print("🔍 ÚLTIMOS REGISTROS DE ESTA PROPIEDAD:")
-                    for reg in registros_recientes:
-                        print(f"   - {reg.fecha_comprobante} | {reg.concepto.id if reg.concepto else 'N/A'} - {reg.concepto.nombre if reg.concepto else 'N/A'} | ${reg.liquidacion} | interno: '{reg.interno_caja}'")
-                    
-                    # Usar los registros más recientes como aproximación
-                    print("⚠️ USANDO REGISTROS RECIENTES DE LA MISMA PROPIEDAD")
-                    conceptos_operacion = registros_recientes[:3]  # Solo los 3 más recientes
+            try:
+                if not conceptos_operacion.exists() and movimiento.propiedad:
+                    registros_recientes = Registro.objects.filter(
+                        propiedad=movimiento.propiedad
+                    ).order_by('-fecha')[:10]
+                    print(f"🔍 REGISTROS RECIENTES DE LA PROPIEDAD: {registros_recientes.count()}")
+                    if registros_recientes.exists():
+                        print("🔍 ÚLTIMOS REGISTROS DE ESTA PROPIEDAD:")
+                        for reg in registros_recientes:
+                            concepto_info = f"{reg.concepto.id} - {reg.concepto.nombre}" if reg.concepto else "N/A"
+                            print(f"   - {reg.fecha_comprobante} | {concepto_info} | ${reg.liquidacion} | interno: '{reg.interno_caja}'")
+                        
+                        # Usar los registros más recientes como aproximación
+                        print("⚠️ USANDO REGISTROS RECIENTES DE LA MISMA PROPIEDAD")
+                        conceptos_operacion = registros_recientes[:3]  # Solo los 3 más recientes
+            except Exception as e:
+                print(f"❌ Error en búsqueda de registros recientes: {e}")
             
-            if conceptos_operacion.exists():
+            if conceptos_operacion and (hasattr(conceptos_operacion, 'exists') and conceptos_operacion.exists() or len(conceptos_operacion) > 0):
                 # Usar los conceptos de la operación
                 for registro in conceptos_operacion:
                     concepto_desc = ''
