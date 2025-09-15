@@ -1058,8 +1058,8 @@ def buscar_propiedades_reserva(request):
         for propiedad in propiedades:
             disponibilidades = Disponibilidad.objects.filter(
                 propiedad=propiedad,
-                fecha_inicio__lt=fecha_fin,     # ✅ CORREGIDO: Superposición real, no "toques"
-                fecha_fin__gt=fecha_inicio,      # ✅ CORREGIDO: Superposición real, no "toques"
+                fecha_inicio__lte=fecha_inicio,  # Disponibilidad empieza antes o igual al inicio solicitado
+                fecha_fin__gte=fecha_fin,        # Disponibilidad termina después o igual al fin solicitado
             )
 
             # Obtener las reservas asociadas a la propiedad
@@ -4990,8 +4990,8 @@ def buscar_propiedades(request):
         for propiedad in propiedades:
             disponibilidades = Disponibilidad.objects.filter(
                 propiedad=propiedad,
-                fecha_inicio__lt=fecha_fin,     # ✅ CORREGIDO: Superposición real, no "toques"
-                fecha_fin__gt=fecha_inicio,      # ✅ CORREGIDO: Superposición real, no "toques"
+                fecha_inicio__lte=fecha_inicio,  # Disponibilidad empieza antes o igual al inicio solicitado
+                fecha_fin__gte=fecha_fin,        # Disponibilidad termina después o igual al fin solicitado
             )
 
             # Obtener las reservas asociadas a la propiedad
