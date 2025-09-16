@@ -3011,6 +3011,21 @@ def ver_recibo_movimiento(request, movimiento_id):
                 print("⚠️ TOTAL PAGADO ES 0 - USANDO MONTO DEL MOVIMIENTO")
                 total_pagado = movimiento.monto_total
             
+            # Generar logo en base64 para evitar problemas de carga
+            import base64
+            import os
+            from django.conf import settings
+            
+            logo_base64 = None
+            try:
+                logo_path = os.path.join(settings.BASE_DIR, 'inmobiliaria', 'static', 'images', 'logo.png')
+                with open(logo_path, 'rb') as logo_file:
+                    logo_data = base64.b64encode(logo_file.read()).decode()
+                    logo_base64 = f'data:image/png;base64,{logo_data}'
+            except Exception as e:
+                print(f"⚠️ Error al cargar logo: {e}")
+                logo_base64 = None
+            
             # Usar el nuevo template de recibo
             return render(request, 'inmobiliaria/reserva/recibo.html', {
                 'reserva': reserva_formateada,
@@ -3026,6 +3041,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'total_pagado': f'${total_pagado:,.0f}',
                 'monto_en_palabras': numero_a_palabras(total_pagado),
                 'formas_de_pago': ', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO',
+                'logo_base64': logo_base64,
             })
         
         # Si no hay reserva, usar el template original
