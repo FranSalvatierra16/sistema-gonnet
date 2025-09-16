@@ -1185,9 +1185,13 @@ function calcularTotales() {
     document.getElementById('totalRecibo').value = totalRecibo;
     document.getElementById('totalReciboDisplay').textContent = totalRecibo.toLocaleString('es-ES');
     
-    // ✅ VALIDACIÓN: Mostrar información sobre seña + depósito de garantía vs total del recibo
+    // ✅ VALIDACIÓN: Mostrar información sobre seña + depósito (solo si hay concepto 10) vs total del recibo
     const depositoGarantia = parsearValorFormateado(document.querySelector('input[name="deposito_garantia"]')?.value || 0);
-    const totalEsperado = senia + depositoGarantia;
+    
+    // ✅ NUEVA LÓGICA: Solo incluir depósito si hay concepto 10
+    const concepto10Presente = verificarConcepto10();
+    const depositoAPagar = concepto10Presente ? depositoGarantia : 0;
+    const totalEsperado = senia + depositoAPagar;
     const validacionElement = document.getElementById('validacionSeña');
     
     // Calcular total de pagos actual
@@ -1200,18 +1204,22 @@ function calcularTotales() {
         validacionElement.style.display = 'block';
     } else if (Math.abs(diferenciaEsperada) <= 0.01) {
         if (diferenciaPagos === 0) {
-            validacionElement.innerHTML = '<span style="color: green;">✅ Todo correcto: Recibo = Seña + Depósito, y los pagos coinciden</span>';
+            const depositoTexto = concepto10Presente ? ' + Depósito (concepto 10)' : '';
+            validacionElement.innerHTML = `<span style="color: green;">✅ Todo correcto: Recibo = Seña${depositoTexto}, y los pagos coinciden</span>`;
         } else if (diferenciaPagos > 0) {
-            validacionElement.innerHTML = `<span style="color: orange;">⚠️ Recibo correcto (Seña + Depósito), pero sobran $${Math.abs(diferenciaPagos).toLocaleString('es-ES')} en pagos</span>`;
+            const depositoTexto = concepto10Presente ? ' + Depósito' : '';
+            validacionElement.innerHTML = `<span style="color: orange;">⚠️ Recibo correcto (Seña${depositoTexto}), pero sobran $${Math.abs(diferenciaPagos).toLocaleString('es-ES')} en pagos</span>`;
         } else {
-            validacionElement.innerHTML = `<span style="color: red;">❌ Recibo correcto (Seña + Depósito), pero faltan $${Math.abs(diferenciaPagos).toLocaleString('es-ES')} en pagos</span>`;
+            const depositoTexto = concepto10Presente ? ' + Depósito' : '';
+            validacionElement.innerHTML = `<span style="color: red;">❌ Recibo correcto (Seña${depositoTexto}), pero faltan $${Math.abs(diferenciaPagos).toLocaleString('es-ES')} en pagos</span>`;
         }
         validacionElement.style.display = 'block';
     } else {
+        const depositoInfo = concepto10Presente ? ` + Depósito (${depositoGarantia.toLocaleString('es-ES')})` : ` (Depósito pendiente: ${depositoGarantia.toLocaleString('es-ES')} - falta concepto 10)`;
         if (diferenciaEsperada > 0) {
-            validacionElement.innerHTML = `<span style="color: orange;">⚠️ El recibo ($${totalRecibo.toLocaleString('es-ES')}) es mayor que Seña + Depósito ($${totalEsperado.toLocaleString('es-ES')}). Diferencia: $${Math.abs(diferenciaEsperada).toLocaleString('es-ES')}</span>`;
+            validacionElement.innerHTML = `<span style="color: orange;">⚠️ El recibo ($${totalRecibo.toLocaleString('es-ES')}) es mayor que Seña${depositoInfo} = $${totalEsperado.toLocaleString('es-ES')}. Diferencia: $${Math.abs(diferenciaEsperada).toLocaleString('es-ES')}</span>`;
         } else {
-            validacionElement.innerHTML = `<span style="color: red;">❌ El recibo ($${totalRecibo.toLocaleString('es-ES')}) es menor que Seña + Depósito ($${totalEsperado.toLocaleString('es-ES')}). Faltan: $${Math.abs(diferenciaEsperada).toLocaleString('es-ES')}</span>`;
+            validacionElement.innerHTML = `<span style="color: red;">❌ El recibo ($${totalRecibo.toLocaleString('es-ES')}) es menor que Seña${depositoInfo} = $${totalEsperado.toLocaleString('es-ES')}. Faltan: $${Math.abs(diferenciaEsperada).toLocaleString('es-ES')}</span>`;
         }
         validacionElement.style.display = 'block';
     }
@@ -1220,6 +1228,12 @@ function calcularTotales() {
     const reciboEsCorrecto = Math.abs(diferenciaEsperada) <= 0.01;
     const pagosCoinciden = diferenciaPagos === 0;
     habilitarBotonProcesar(reciboEsCorrecto && pagosCoinciden && totalRecibo > 0);
+}
+
+// ✅ Función para verificar si hay concepto 10 cargado
+function verificarConcepto10() {
+    // Buscar en los conceptos agregados si existe el concepto con ID '10'
+    return conceptosAgregados.some(concepto => concepto.id === '10');
 }
 
 // Función para calcular total de transferencias
@@ -1358,12 +1372,20 @@ function procesarMovimiento() {
     const totalRecibo = parseFloat(document.getElementById('totalRecibo').value) || 0;
     const senia = parsearValorFormateado(document.getElementById('senia').value);
     const depositoGarantia = parsearValorFormateado(document.querySelector('input[name="deposito_garantia"]').value);
-    const totalEsperado = senia + depositoGarantia;
     
-    console.log(`🔍 VALIDACIÓN PROCESAMIENTO - Total Recibo: ${totalRecibo}, Seña: ${senia}, Depósito: ${depositoGarantia}, Total Esperado: ${totalEsperado}`);
+    // ✅ NUEVA LÓGICA: Solo incluir depósito si hay concepto 10
+    const concepto10Presente = verificarConcepto10();
+    const depositoAPagar = concepto10Presente ? depositoGarantia : 0;
+    const totalEsperado = senia + depositoAPagar;
+    
+    console.log(`🔍 VALIDACIÓN PROCESAMIENTO - Total Recibo: ${totalRecibo}, Seña: ${senia}, Depósito: ${depositoGarantia}, Concepto 10: ${concepto10Presente}, Total Esperado: ${totalEsperado}`);
     
     if (Math.abs(totalRecibo - totalEsperado) > 0.01) {
-        alert(`⚠️ El total del recibo ($${totalRecibo.toLocaleString('es-ES')}) debe coincidir exactamente con la suma de seña + depósito de garantía ($${totalEsperado.toLocaleString('es-ES')})\n\nSeña: $${senia.toLocaleString('es-ES')}\nDepósito de Garantía: $${depositoGarantia.toLocaleString('es-ES')}`);
+        const depositoTexto = concepto10Presente ? 
+            `\nDepósito de Garantía: $${depositoGarantia.toLocaleString('es-ES')} (concepto 10 cargado)` : 
+            `\nDepósito de Garantía: $${depositoGarantia.toLocaleString('es-ES')} (pendiente - falta concepto 10)`;
+        
+        alert(`⚠️ El total del recibo ($${totalRecibo.toLocaleString('es-ES')}) debe coincidir exactamente con la suma esperada ($${totalEsperado.toLocaleString('es-ES')})\n\nSeña: $${senia.toLocaleString('es-ES')}${depositoTexto}\n\n${concepto10Presente ? 'Total a pagar = Seña + Depósito' : 'Total a pagar = Solo Seña (el depósito queda pendiente)'}`);
         return;
     }
     
