@@ -596,7 +596,22 @@ def operaciones(request):
             reserva.total_senia_pagada = reserva.senia or 0
             reserva.total_deposito_pagado = reserva.deposito_garantia or 0
             
-            print(f"✅ OPERACIONES - Reserva {reserva.id}: Precio Total: {reserva.precio_total}, Seña: {reserva.senia or 0}, Depósito: {reserva.deposito_garantia or 0}, Saldo: {reserva.saldo_pendiente}")
+            # ✅ DETECTAR SI EL DEPÓSITO FUE PAGADO (concepto 10)
+            deposito_pagado = False
+            for movimiento in movimientos:
+                if movimiento.concepto and "|CONCEPTOS:" in movimiento.concepto:
+                    # Buscar concepto 10 en la estructura
+                    concepto_parts = movimiento.concepto.split("|CONCEPTOS:", 1)
+                    if len(concepto_parts) > 1:
+                        conceptos_data = concepto_parts[1]
+                        if "|10:" in conceptos_data:  # Concepto 10 presente
+                            deposito_pagado = True
+                            break
+            
+            # Agregar estado del depósito
+            reserva.deposito_estado = 'pagado' if deposito_pagado else 'pendiente'
+            
+            print(f"✅ OPERACIONES - Reserva {reserva.id}: Precio Total: {reserva.precio_total}, Seña: {reserva.senia or 0}, Depósito: {reserva.deposito_garantia or 0} ({reserva.deposito_estado}), Saldo: {reserva.saldo_pendiente}")
             
             # Obtener el movimiento más reciente para el enlace del recibo
             reserva.movimiento_reciente = movimientos.first() if movimientos.exists() else None
@@ -2529,14 +2544,24 @@ def procesar_movimiento_reserva(request):
                     print(f"⚠️  ADVERTENCIA: Los conceptos suman ${total_conceptos} pero se esperaba ${total_esperado}")
                     print(f"   Seña: ${senia} + Depósito pagado (concepto 10): ${concepto_10_importe if concepto_10_presente else 0}")
                 
-                # ✅ MONTO DE ESTE PAGO (sin incluir depósito en el cálculo de saldo)
-                monto_este_pago = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
+                # ✅ MONTO DE ESTE PAGO (separar seña del depósito)
+                monto_total_pagado = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
+                
+                # Si hay concepto 10, el depósito no va a la seña
+                if concepto_10_presente:
+                    monto_este_pago = monto_total_pagado - concepto_10_importe  # Solo la parte que no es depósito
+                    monto_seña_este_pago = monto_este_pago
+                else:
+                    # Si no hay concepto 10, todo va a seña (el depósito queda pendiente)
+                    monto_este_pago = monto_total_pagado
+                    monto_seña_este_pago = monto_total_pagado
                 
                 print(f"✅ VALORES DIRECTOS DEL FORMULARIO:")
                 print(f"   - Seña nueva a agregar: ${senia}")
                 print(f"   - Depósito nuevo a agregar: ${deposito_garantia}")
                 print(f"   - Importe Locación TOTAL: ${importe_locacion}")
-                print(f"   - Monto este pago: ${monto_este_pago}")
+                print(f"   - Monto total pagado: ${monto_total_pagado}")
+                print(f"   - Monto para seña: ${monto_seña_este_pago}")
                 print(f"   - Total pagado anteriormente: ${total_pagado_anteriormente}")
                 print(f"   - Seña anterior en reserva: ${reserva.senia or 0}")
                 print(f"   - Depósito anterior en reserva: ${reserva.deposito_garantia or 0}")
@@ -2546,9 +2571,8 @@ def procesar_movimiento_reserva(request):
                     print(f"🔄 ACTUALIZANDO PRECIO TOTAL: ${reserva.precio_total} -> ${importe_locacion}")
                     reserva.precio_total = importe_locacion
                 
-                # ✅ ACTUALIZAR SEÑA (acumulativa de todos los pagos, sin depósito)
-                # Solo actualizar seña con pagos que no sean depósito
-                nuevo_total_pagado = total_pagado_anteriormente + monto_este_pago
+                # ✅ ACTUALIZAR SEÑA (acumulativa, sin incluir depósito si se pagó con concepto 10)
+                nuevo_total_pagado = total_pagado_anteriormente + monto_seña_este_pago
                 reserva.senia = nuevo_total_pagado
                 
                 # ✅ ACTUALIZAR DEPÓSITO (siempre se guarda, pero solo se marca como pagado con concepto 10)

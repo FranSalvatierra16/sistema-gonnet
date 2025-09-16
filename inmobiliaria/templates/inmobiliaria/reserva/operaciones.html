@@ -491,10 +491,12 @@
                             
                             {% if reserva.total_deposito_pagado > 0 %}
                             <div style="margin-bottom: 0.5rem;">
-                                <div style="font-size: 0.9rem; color: #17a2b8; font-weight: 600;">
-                                    🛡️ ${{ reserva.total_deposito_pagado|format_price }}
+                                <div style="font-size: 0.9rem; {% if reserva.deposito_estado == 'pagado' %}color: #28a745;{% else %}color: #dc3545;{% endif %} font-weight: 600;">
+                                    {% if reserva.deposito_estado == 'pagado' %}✅{% else %}⏳{% endif %} ${{ reserva.total_deposito_pagado|format_price }}
                                 </div>
-                                <small class="text-muted">Depósito Garantía</small>
+                                <small class="{% if reserva.deposito_estado == 'pagado' %}text-success{% else %}text-danger{% endif %}">
+                                    Depósito {% if reserva.deposito_estado == 'pagado' %}Pagado{% else %}Pendiente{% endif %}
+                                </small>
                             </div>
                             {% endif %}
                             
