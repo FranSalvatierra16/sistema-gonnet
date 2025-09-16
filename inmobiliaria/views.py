@@ -2467,6 +2467,18 @@ def procesar_movimiento_reserva(request):
             deposito_garantia_input = limpiar_valor_monetario(request.POST.get('deposito_garantia', '0'))
             importe_locacion_input = limpiar_valor_monetario(request.POST.get('importe_locacion', '0'))
             
+            # ✅ CALCULAR TOTALES PAGADOS ANTES DE ESTE PAGO
+            pagos_anteriores = MovimientoCaja.objects.filter(
+                propiedad=reserva.propiedad,
+                tipo=TipoMovimientoCajaEnum.INGRESO,
+                concepto__icontains=f"Reserva {reserva.id}"
+            )
+            
+            total_pagado_anteriormente = sum(
+                mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito
+                for mov in pagos_anteriores
+            )
+            
             # 🔍 DEBUGGING CRÍTICO: Ver qué llega del formulario
             print(f"🔥 VALORES CRUDOS DEL FORMULARIO:")
             print(f"   - request.POST.get('senia'): '{request.POST.get('senia', 'NO_ENVIADO')}'")
@@ -2485,37 +2497,69 @@ def procesar_movimiento_reserva(request):
                 deposito_garantia = Decimal(deposito_garantia_input) if deposito_garantia_input else Decimal('0')
                 importe_locacion = Decimal(importe_locacion_input) if importe_locacion_input else Decimal('0')
                 
+                # ✅ MONTO DE ESTE PAGO (sin incluir depósito en el cálculo de saldo)
+                monto_este_pago = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
+                
                 print(f"✅ VALORES DIRECTOS DEL FORMULARIO:")
                 print(f"   - Seña nueva a agregar: ${senia}")
                 print(f"   - Depósito nuevo a agregar: ${deposito_garantia}")
-                print(f"   - Importe Locación: ${importe_locacion}")
+                print(f"   - Importe Locación TOTAL: ${importe_locacion}")
+                print(f"   - Monto este pago: ${monto_este_pago}")
+                print(f"   - Total pagado anteriormente: ${total_pagado_anteriormente}")
                 print(f"   - Seña anterior en reserva: ${reserva.senia or 0}")
                 print(f"   - Depósito anterior en reserva: ${reserva.deposito_garantia or 0}")
                 
-                # Actualizar reserva con información de pagos - SUMAR a lo anterior
-                reserva.senia += senia  # ✅ SUMAR seña nueva a la anterior
-                reserva.deposito_garantia += deposito_garantia  # ✅ SUMAR depósito nuevo al anterior
-                # Si tienes un campo precio_locacion en el modelo, úsalo
-                # reserva.precio_locacion = importe_locacion
+                # ✅ ACTUALIZAR PRECIO TOTAL SI SE PROPORCIONA IMPORTE LOCACIÓN
+                if importe_locacion > 0 and importe_locacion != reserva.precio_total:
+                    print(f"🔄 ACTUALIZANDO PRECIO TOTAL: ${reserva.precio_total} -> ${importe_locacion}")
+                    reserva.precio_total = importe_locacion
                 
-                # ✅ DEBUGGING CRÍTICO - VERIFICAR QUE SE GUARDE BIEN
-                print(f"🔥 ANTES DE GUARDAR:")
-                print(f"   - reserva.senia = {reserva.senia}")
-                print(f"   - reserva.deposito_garantia = {reserva.deposito_garantia}")
+                # ✅ ACTUALIZAR SEÑA (acumulativa de todos los pagos, sin depósito)
+                # Solo actualizar seña con pagos que no sean depósito
+                nuevo_total_pagado = total_pagado_anteriormente + monto_este_pago
+                reserva.senia = nuevo_total_pagado
+                
+                # ✅ ACTUALIZAR DEPÓSITO (separado del saldo principal)
+                reserva.deposito_garantia += deposito_garantia
+                
+                # ✅ CALCULAR SALDO PENDIENTE (precio total - solo seña)
+                saldo_pendiente = reserva.precio_total - reserva.senia
+                
+                print(f"🔥 CÁLCULOS FINALES:")
+                print(f"   - Precio Total: ${reserva.precio_total}")
+                print(f"   - Total Pagado (seña): ${reserva.senia}")
+                print(f"   - Depósito: ${reserva.deposito_garantia}")
+                print(f"   - Saldo Pendiente: ${saldo_pendiente}")
                 
                 reserva.save()
                 
-                print(f"🔥 DESPUÉS DE GUARDAR:")
-                print(f"   - reserva.senia = {reserva.senia}")
-                print(f"   - reserva.deposito_garantia = {reserva.deposito_garantia}")
+                # ✅ CREAR RECIBO PARA ESTE PAGO
+                from .models.caja import Recibo
+                numero_recibo = f"R{reserva.id:06d}-{len(pagos_anteriores) + 1:02d}"
                 
-                # 🔍 VERIFICAR EN LA BD
-                reserva.refresh_from_db()
-                print(f"🔥 DESPUÉS DE REFRESH DESDE BD:")
-                print(f"   - reserva.senia = {reserva.senia}")
-                print(f"   - reserva.deposito_garantia = {reserva.deposito_garantia}")
-                print(f"   - reserva.precio_total = {reserva.precio_total}")
-                print(f"   - SALDO CALCULADO = {reserva.precio_total - reserva.senia}")
+                recibo = Recibo.objects.create(
+                    numero_recibo=numero_recibo,
+                    movimiento_caja=movimiento,
+                    reserva=reserva,
+                    propiedad=reserva.propiedad,
+                    empleado=request.user,
+                    precio_total_operacion=reserva.precio_total,
+                    monto_este_pago=monto_este_pago,
+                    total_pagado_antes=total_pagado_anteriormente,
+                    saldo_pendiente=saldo_pendiente,
+                    conceptos_detalle={
+                        'conceptos': conceptos_completos,
+                        'fecha_pago': timezone.now().strftime('%Y-%m-%d'),
+                        'formas_pago': {
+                            'efectivo': float(monto_efectivo),
+                            'cheque': float(monto_cheque),
+                            'tarjeta': float(monto_tarjeta),
+                            'deposito': float(monto_deposito)
+                        }
+                    }
+                )
+                
+                print(f"✅ RECIBO CREADO: {numero_recibo}")
                 
             except (ValueError, TypeError) as e:
                 print(f"❌ Error al convertir valores: {e}")
@@ -2737,19 +2781,43 @@ def ver_recibo_movimiento(request, movimiento_id):
             for mov in todos_movimientos:
                 print(f"🔍 Movimiento ID: {mov.id}, Concepto: '{mov.concepto}', Total: {mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito}")
             
-            # ✅ USAR VALORES DIRECTOS DE LA RESERVA (MÁS CONFIABLE)
-            total_senia_pagada_recibo = reserva.senia or 0
-            total_deposito_pagado_recibo = reserva.deposito_garantia or 0
+            # ✅ INTENTAR OBTENER EL RECIBO ASOCIADO A ESTE MOVIMIENTO
+            recibo_obj = None
+            try:
+                from .models.caja import Recibo
+                recibo_obj = Recibo.objects.get(movimiento_caja=movimiento)
+                print(f"🧾 RECIBO ENCONTRADO: {recibo_obj.numero_recibo}")
+            except Recibo.DoesNotExist:
+                print("⚠️ No se encontró recibo asociado a este movimiento")
             
-            print(f"✅ USANDO VALORES DIRECTOS DE LA RESERVA:")
-            print(f"   - Seña (reserva.senia): ${total_senia_pagada_recibo}")
-            print(f"   - Depósito (reserva.deposito_garantia): ${total_deposito_pagado_recibo}")
-            
-            # ✅ CORREGIDO: Solo la seña cuenta para el total pagado (el depósito es aparte)
-            total_pagado_reserva = total_senia_pagada_recibo
-            
-            # ✅ NUEVO CÁLCULO: El saldo pendiente es precio total - SOLO LA SEÑA (NO EL DEPÓSITO)
-            saldo_pendiente = reserva.precio_total - total_senia_pagada_recibo
+            if recibo_obj:
+                # ✅ USAR DATOS DEL RECIBO (MÁS PRECISOS)
+                total_pagado_reserva = recibo_obj.total_pagado_antes + recibo_obj.monto_este_pago
+                saldo_pendiente = recibo_obj.saldo_pendiente
+                precio_total_operacion = recibo_obj.precio_total_operacion
+                
+                print(f"✅ USANDO DATOS DEL RECIBO:")
+                print(f"   - Precio Total Operación: ${precio_total_operacion}")
+                print(f"   - Monto Este Pago: ${recibo_obj.monto_este_pago}")
+                print(f"   - Total Pagado Antes: ${recibo_obj.total_pagado_antes}")
+                print(f"   - Total Pagado Ahora: ${total_pagado_reserva}")
+                print(f"   - Saldo Pendiente: ${saldo_pendiente}")
+                
+            else:
+                # ✅ FALLBACK: USAR VALORES DIRECTOS DE LA RESERVA
+                total_senia_pagada_recibo = reserva.senia or 0
+                total_deposito_pagado_recibo = reserva.deposito_garantia or 0
+                precio_total_operacion = reserva.precio_total
+                
+                print(f"✅ FALLBACK - USANDO VALORES DIRECTOS DE LA RESERVA:")
+                print(f"   - Seña (reserva.senia): ${total_senia_pagada_recibo}")
+                print(f"   - Depósito (reserva.deposito_garantia): ${total_deposito_pagado_recibo}")
+                
+                # ✅ CORREGIDO: Solo la seña cuenta para el total pagado (el depósito es aparte)
+                total_pagado_reserva = total_senia_pagada_recibo
+                
+                # ✅ NUEVO CÁLCULO: El saldo pendiente es precio total - SOLO LA SEÑA (NO EL DEPÓSITO)
+                saldo_pendiente = reserva.precio_total - total_senia_pagada_recibo
             
             print(f"💰 SALDO RECIBO - Precio Total: {reserva.precio_total}, Seña Pagada: {total_senia_pagada_recibo}, Depósito: {total_deposito_pagado_recibo}, Saldo Pendiente: {saldo_pendiente}")
         else:
@@ -3026,12 +3094,24 @@ def ver_recibo_movimiento(request, movimiento_id):
                 print(f"⚠️ Error al cargar logo: {e}")
                 logo_base64 = None
             
+            # ✅ PREPARAR DATOS CORREGIDOS PARA EL RECIBO
+            if recibo_obj:
+                numero_recibo_mostrar = recibo_obj.numero_recibo
+                precio_total_mostrar = recibo_obj.precio_total_operacion
+                saldo_pendiente_mostrar = recibo_obj.saldo_pendiente
+                monto_este_pago_mostrar = recibo_obj.monto_este_pago
+            else:
+                numero_recibo_mostrar = f'R{reserva.id:06d}'
+                precio_total_mostrar = reserva.precio_total
+                saldo_pendiente_mostrar = saldo_pendiente
+                monto_este_pago_mostrar = total_movimiento
+            
             # Usar el nuevo template de recibo
             return render(request, 'inmobiliaria/reserva/recibo.html', {
                 'reserva': reserva_formateada,
                 'cliente': cliente_completo,
                 'propiedad': propiedad_completa,
-                'numero_recibo': f'R{reserva.id:06d}',
+                'numero_recibo': numero_recibo_mostrar,
                 'fecha': fecha_actual.strftime('%d/%m/%Y'),
                 'hora': fecha_actual.strftime('%H:%M'),
                 'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
@@ -3042,6 +3122,11 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'monto_en_palabras': numero_a_palabras(total_pagado),
                 'formas_de_pago': ', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO',
                 'logo_base64': logo_base64,
+                # ✅ DATOS CORREGIDOS PARA MOSTRAR EN RECIBO
+                'precio_total_operacion': f'${precio_total_mostrar:,.0f}',
+                'saldo_pendiente': f'${saldo_pendiente_mostrar:,.0f}',
+                'monto_este_pago': f'${monto_este_pago_mostrar:,.0f}',
+                'deposito_garantia': f'${reserva.deposito_garantia:,.0f}',
             })
         
         # Si no hay reserva, usar el template original
