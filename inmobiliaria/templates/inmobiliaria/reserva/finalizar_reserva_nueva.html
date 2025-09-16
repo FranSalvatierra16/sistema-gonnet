@@ -1240,13 +1240,23 @@ function calcularTotales() {
 
 // ✅ Función para verificar si hay concepto 10 cargado
 function verificarConcepto10() {
-    // Buscar en los conceptos agregados si existe el concepto con ID '10'
+    // Buscar en los conceptos agregados si existe el concepto con conceptoId '10'
     console.log('🔍 VERIFICANDO CONCEPTO 10 - Conceptos agregados:', conceptosAgregados);
     
-    const concepto10 = conceptosAgregados.find(concepto => concepto.id === '10');
+    // Buscar por conceptoId (no por id que es solo un contador)
+    const concepto10 = conceptosAgregados.find(concepto => {
+        const conceptoId = String(concepto.conceptoId || concepto.id).trim();
+        console.log(`🔍 Comparando conceptoId: "${conceptoId}" === "10"`, conceptoId === '10');
+        return conceptoId === '10';
+    });
+    
     console.log('🔍 CONCEPTO 10 ENCONTRADO:', concepto10);
     
-    const tieneConcepto10 = conceptosAgregados.some(concepto => concepto.id === '10');
+    const tieneConcepto10 = conceptosAgregados.some(concepto => {
+        const conceptoId = String(concepto.conceptoId || concepto.id).trim();
+        return conceptoId === '10';
+    });
+    
     console.log('🔍 TIENE CONCEPTO 10:', tieneConcepto10);
     
     return tieneConcepto10;
