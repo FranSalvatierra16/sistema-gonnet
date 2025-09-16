@@ -2,7 +2,7 @@
 {% load bootstrap4 %}
 {% load custom_filters %}
 
-{% block title %}Finalizar Reserva - Recibo{% endblock %}
+{% block title %}Finalizar Operación - Recibo{% endblock %}
 
 {% block extra_js %}
 <script>
@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-12">
-            <h2 class="mb-4">📝 Finalizar Reserva - Carga de Recibo</h2>
+            <h2 class="mb-4">📝 Finalizar Operación - Carga de Recibo</h2>
             
             <!-- Formulario estilo recibo -->
             <div class="card">
@@ -492,6 +492,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="col-md-12 text-end">
                                 <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-secondary me-2">
                                     ❌ Cancelar
+                                </a>
+                                <a href="{% url 'inmobiliaria:ver_recibo' reserva.id %}" class="btn btn-info me-2">
+                                    🧾 Ver Recibo de la Operación
                                 </a>
                                 <button type="button" class="btn btn-success btn-lg" id="btnProcesarMovimiento" disabled onclick="procesarMovimiento()">
                                     ✅ Procesar Movimiento
