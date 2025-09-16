@@ -2787,21 +2787,61 @@ def ver_recibo_movimiento(request, movimiento_id):
                     })
                     total_pagado += registro.liquidacion
             else:
-                # Fallback: generar conceptos simples
-                print("📋 FALLBACK: Generando conceptos simples")
+                # Fallback: extraer conceptos individuales del campo concepto del movimiento
+                print("📋 FALLBACK: Extrayendo conceptos individuales desde movimiento.concepto")
                 
                 try:
                     fecha_mov = movimiento.fecha.strftime('%d/%m/%Y')
                     codigo_mov = movimiento.numero_liquidacion or f'M{movimiento.id:04d}'
                     
-                    # Conceptos genéricos simples
-                    pagos.append({
-                        'fecha': fecha_mov,
-                        'codigo': codigo_mov,
-                        'concepto': 'ALQ - Alquiler temporario',
-                        'monto': f'${movimiento.monto_total:,.0f}'
-                    })
-                    total_pagado += movimiento.monto_total
+                    # Intentar extraer conceptos individuales del campo concepto
+                    # Formato esperado: "Reserva 85 - limpieza + alquiler + deposito"
+                    concepto_texto = movimiento.concepto or ""
+                    print(f"📝 CONCEPTO COMPLETO: {concepto_texto}")
+                    
+                    # Buscar conceptos separados por "+"
+                    if " + " in concepto_texto:
+                        # Extraer la parte después del número de reserva
+                        parts = concepto_texto.split(" - ", 1)
+                        if len(parts) > 1:
+                            conceptos_parte = parts[1]  # "limpieza + alquiler + deposito"
+                            conceptos_individuales = [c.strip() for c in conceptos_parte.split(" + ")]
+                            print(f"🔍 CONCEPTOS ENCONTRADOS: {conceptos_individuales}")
+                            
+                            # Crear una entrada por cada concepto individual
+                            for i, concepto_nombre in enumerate(conceptos_individuales):
+                                # Distribuir el monto total entre los conceptos
+                                monto_por_concepto = movimiento.monto_total / len(conceptos_individuales)
+                                
+                                pagos.append({
+                                    'fecha': fecha_mov,
+                                    'codigo': f'{codigo_mov}_{i+1}' if len(conceptos_individuales) > 1 else codigo_mov,
+                                    'concepto': concepto_nombre,
+                                    'monto': f'${monto_por_concepto:,.0f}'
+                                })
+                                print(f"💰 CONCEPTO {i+1}: {concepto_nombre} - ${monto_por_concepto:,.0f}")
+                            
+                            total_pagado += movimiento.monto_total
+                        else:
+                            # No se pudo parsear, usar concepto único
+                            print("⚠️ No se pudieron extraer conceptos individuales, usando concepto único")
+                            pagos.append({
+                                'fecha': fecha_mov,
+                                'codigo': codigo_mov,
+                                'concepto': concepto_texto or 'ALQ - Alquiler temporario',
+                                'monto': f'${movimiento.monto_total:,.0f}'
+                            })
+                            total_pagado += movimiento.monto_total
+                    else:
+                        # No hay conceptos separados, usar el concepto completo
+                        print("⚠️ No hay conceptos separados con '+', usando concepto completo")
+                        pagos.append({
+                            'fecha': fecha_mov,
+                            'codigo': codigo_mov,
+                            'concepto': concepto_texto or 'ALQ - Alquiler temporario',
+                            'monto': f'${movimiento.monto_total:,.0f}'
+                        })
+                        total_pagado += movimiento.monto_total
                     
                 except Exception as e:
                     print(f"❌ Error en fallback: {e}")
