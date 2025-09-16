@@ -214,13 +214,16 @@
                         <div style="width: 18%; text-align: center;">
                             <h3 style="margin: 0; font-size: 8px;">DEPOSITO GARANTIA</h3>
                             <div style="border-bottom: 1px solid #2d8524;"></div>
-                            <h3 style="margin: 0; font-size: 9px; {% if deposito_estado == 'pendiente' %}color: #ff6b6b;{% endif %}">{{ deposito_garantia }}</h3>
+                            <h3 style="margin: 0; font-size: 9px; {% if deposito_estado == 'pendiente' %}color: #ff6b6b;{% elif deposito_estado == 'pagado' %}color: #2d8524;{% endif %}">{{ deposito_garantia }}</h3>
                             {% if deposito_estado == 'pendiente' %}
                                 <p style="margin: 0; font-size: 6px; color: #ff6b6b;">PENDIENTE</p>
                                 <p style="margin: 0; font-size: 5px; color: #666;">Falta concepto 10</p>
                             {% elif deposito_estado == 'pagado' %}
                                 <p style="margin: 0; font-size: 6px; color: #2d8524;">PAGADO</p>
                                 <p style="margin: 0; font-size: 5px; color: #2d8524;">Concepto 10 ✓</p>
+                            {% elif deposito_estado == 'no_aplica' %}
+                                <p style="margin: 0; font-size: 6px; color: #666;">N/A</p>
+                                <p style="margin: 0; font-size: 5px; color: #666;">Sin depósito</p>
                             {% else %}
                                 <p style="margin: 0; font-size: 6px; color: #666;">Sin depósito</p>
                             {% endif %}

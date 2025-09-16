@@ -2779,6 +2779,34 @@ def api_propiedad_detalle(request, propiedad_id):
             'info_meses': None
         }, status=500)
 
+def determinar_estado_deposito_completo(reserva):
+    """
+    Determina si el depósito fue pagado en CUALQUIER movimiento de la reserva.
+    Revisa todos los movimientos de caja de la reserva para ver si alguno tiene concepto 10.
+    """
+    if not reserva or not reserva.deposito_garantia:
+        return 'no_aplica'  # No hay depósito
+    
+    # Buscar todos los movimientos de esta reserva
+    todos_movimientos = MovimientoCaja.objects.filter(
+        propiedad=reserva.propiedad,
+        tipo=TipoMovimientoCajaEnum.INGRESO,
+        concepto__icontains=f"Reserva {reserva.id}"
+    )
+    
+    # Verificar si algún movimiento tiene concepto 10
+    for movimiento in todos_movimientos:
+        if movimiento.concepto and "|CONCEPTOS:" in movimiento.concepto:
+            concepto_parts = movimiento.concepto.split("|CONCEPTOS:", 1)
+            if len(concepto_parts) > 1:
+                conceptos_data = concepto_parts[1]
+                if "|10:" in conceptos_data:  # Concepto 10 presente
+                    print(f"💳 DEPÓSITO GLOBAL PAGADO: Encontrado concepto 10 en movimiento {movimiento.id}")
+                    return 'pagado'
+    
+    print(f"⏳ DEPÓSITO GLOBAL PENDIENTE: No se encontró concepto 10 en ningún movimiento")
+    return 'pendiente'
+
 @login_required
 def ver_recibo_movimiento(request, movimiento_id):
     """
@@ -3253,8 +3281,8 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'saldo_pendiente': f'${saldo_pendiente_mostrar:,.0f}',
                 'monto_este_pago': f'${monto_este_pago_mostrar:,.0f}',
                 'deposito_garantia': f'${reserva.deposito_garantia:,.0f}',
-                # ✅ ESTADO DEL DEPÓSITO BASADO EN CONCEPTO 10
-                'deposito_estado': 'pagado' if concepto_10_en_recibo else 'pendiente',
+                # ✅ ESTADO DEL DEPÓSITO: Verificar si fue pagado en CUALQUIER movimiento de la reserva
+                'deposito_estado': determinar_estado_deposito_completo(reserva),
             })
         
         # Si no hay reserva, usar el template original

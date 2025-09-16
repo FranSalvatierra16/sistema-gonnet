@@ -554,9 +554,6 @@
                             </a>
                             
                             {% if reserva.todos_recibos %}
-                                <!-- 🔍 DEBUG: Mostrar información de recibos -->
-                                <small class="text-info d-block">DEBUG: {{ reserva.todos_recibos.count }} recibos encontrados</small>
-                                
                                 {% if reserva.todos_recibos.count == 1 %}
                                     <!-- Si hay solo un recibo, mostrar botón simple -->
                                     <a href="{% url 'inmobiliaria:ver_recibo_movimiento' reserva.todos_recibos.first.movimiento_caja.id %}" class="btn-action btn-recibo">
