@@ -1192,6 +1192,14 @@ function calcularTotales() {
     const concepto10Presente = verificarConcepto10();
     const depositoAPagar = concepto10Presente ? depositoGarantia : 0;
     const totalEsperado = senia + depositoAPagar;
+    
+    console.log('🔍 DEBUG VALIDACIÓN TIEMPO REAL:');
+    console.log('  - Seña:', senia);
+    console.log('  - Depósito Garantía:', depositoGarantia);
+    console.log('  - Concepto 10 Presente:', concepto10Presente);
+    console.log('  - Depósito a Pagar:', depositoAPagar);
+    console.log('  - Total Esperado:', totalEsperado);
+    
     const validacionElement = document.getElementById('validacionSeña');
     
     // Calcular total de pagos actual
@@ -1233,7 +1241,15 @@ function calcularTotales() {
 // ✅ Función para verificar si hay concepto 10 cargado
 function verificarConcepto10() {
     // Buscar en los conceptos agregados si existe el concepto con ID '10'
-    return conceptosAgregados.some(concepto => concepto.id === '10');
+    console.log('🔍 VERIFICANDO CONCEPTO 10 - Conceptos agregados:', conceptosAgregados);
+    
+    const concepto10 = conceptosAgregados.find(concepto => concepto.id === '10');
+    console.log('🔍 CONCEPTO 10 ENCONTRADO:', concepto10);
+    
+    const tieneConcepto10 = conceptosAgregados.some(concepto => concepto.id === '10');
+    console.log('🔍 TIENE CONCEPTO 10:', tieneConcepto10);
+    
+    return tieneConcepto10;
 }
 
 // Función para calcular total de transferencias
