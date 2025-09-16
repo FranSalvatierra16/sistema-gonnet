@@ -54,12 +54,15 @@
                             <td class="text-right">{{ movimiento.monto_deposito|default_if_none:""|floatformat:2 }}</td>
                             <td class="text-right">{{ movimiento.monto_transferencia|default_if_none:""|floatformat:2 }}</td>
                             <td class="text-center">
-                                <a href="{% url 'inmobiliaria:ver_recibo_movimiento' movimiento.id %}" class="btn btn-sm btn-success me-1" title="Ver Recibo" style="text-decoration: none;">
-                                    <i class="fas fa-receipt"></i>
+                                <a href="{% url 'inmobiliaria:ver_recibo_movimiento' movimiento.id %}" class="btn btn-sm btn-success me-1" title="Ver Recibo">
+                                    📄 Recibo
                                 </a>
-                                <a href="{% url 'inmobiliaria:ver_recibo_movimiento' movimiento.id %}" class="btn btn-sm btn-primary" title="Ver Detalles">
-                                    <i class="fas fa-eye"></i>
+                                <a href="{% url 'inmobiliaria:ver_recibo_movimiento' movimiento.id %}" class="btn btn-sm btn-primary me-1" title="Ver Detalles">
+                                    👁️ Ver
                                 </a>
+                                <button class="btn btn-sm btn-danger" title="Eliminar">
+                                    🗑️
+                                </button>
                             </td>
                         </tr>
                         {% endfor %}
