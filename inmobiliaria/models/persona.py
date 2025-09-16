@@ -31,7 +31,7 @@ class Persona(models.Model):
    
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
-    fecha_nacimiento = models.DateField()
+    fecha_nacimiento = models.DateField(null=True, blank=True)
     email = models.EmailField()
     celular = models.CharField(max_length=20)
     observaciones = models.TextField(blank=True)
@@ -45,7 +45,7 @@ class Persona(models.Model):
         blank=True,  # Permitir que el campo esté vacío en formularios
         null=True    # Permitir que el campo sea nulo en la base de datos
     )
-    tipo_ins = models.CharField(max_length=4, choices=TIPOS_INS, default='otro')  # Campo para tipo de inscripción
+    tipo_ins = models.CharField(max_length=4, choices=TIPOS_INS, default='otro', null=True, blank=True)  # Campo para tipo de inscripción
     tipo_doc = models.CharField(max_length=4, choices=TIPOS_DOC, default='otro')
     sucursal = models.ForeignKey(
         'Sucursal', 
