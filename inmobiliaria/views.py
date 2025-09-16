@@ -2874,19 +2874,19 @@ def ver_recibo_movimiento(request, movimiento_id):
                 
             else:
                 # ✅ FALLBACK: USAR VALORES DIRECTOS DE LA RESERVA
-                total_senia_pagada_recibo = reserva.senia or 0
-                total_deposito_pagado_recibo = reserva.deposito_garantia or 0
+            total_senia_pagada_recibo = reserva.senia or 0
+            total_deposito_pagado_recibo = reserva.deposito_garantia or 0
                 precio_total_operacion = reserva.precio_total
-                
+            
                 print(f"✅ FALLBACK - USANDO VALORES DIRECTOS DE LA RESERVA:")
-                print(f"   - Seña (reserva.senia): ${total_senia_pagada_recibo}")
-                print(f"   - Depósito (reserva.deposito_garantia): ${total_deposito_pagado_recibo}")
-                
-                # ✅ CORREGIDO: Solo la seña cuenta para el total pagado (el depósito es aparte)
-                total_pagado_reserva = total_senia_pagada_recibo
-                
-                # ✅ NUEVO CÁLCULO: El saldo pendiente es precio total - SOLO LA SEÑA (NO EL DEPÓSITO)
-                saldo_pendiente = reserva.precio_total - total_senia_pagada_recibo
+            print(f"   - Seña (reserva.senia): ${total_senia_pagada_recibo}")
+            print(f"   - Depósito (reserva.deposito_garantia): ${total_deposito_pagado_recibo}")
+            
+            # ✅ CORREGIDO: Solo la seña cuenta para el total pagado (el depósito es aparte)
+            total_pagado_reserva = total_senia_pagada_recibo
+            
+            # ✅ NUEVO CÁLCULO: El saldo pendiente es precio total - SOLO LA SEÑA (NO EL DEPÓSITO)
+            saldo_pendiente = reserva.precio_total - total_senia_pagada_recibo
             
             print(f"💰 SALDO RECIBO - Precio Total: {reserva.precio_total}, Seña Pagada: {total_senia_pagada_recibo}, Depósito: {total_deposito_pagado_recibo}, Saldo Pendiente: {saldo_pendiente}")
         else:
@@ -3038,9 +3038,9 @@ def ver_recibo_movimiento(request, movimiento_id):
                         else:
                             # No se pudo parsear, usar concepto único
                             print("⚠️ No se pudieron extraer conceptos individuales, usando concepto único")
-                            pagos.append({
-                                'fecha': fecha_mov,
-                                'codigo': codigo_mov,
+                    pagos.append({
+                        'fecha': fecha_mov,
+                        'codigo': codigo_mov,
                                 'concepto': concepto_texto or 'ALQ - Alquiler temporario',
                                 'monto': f'${movimiento.monto_total:,.0f}'
                             })
@@ -3052,9 +3052,9 @@ def ver_recibo_movimiento(request, movimiento_id):
                             'fecha': fecha_mov,
                             'codigo': codigo_mov,
                             'concepto': concepto_texto or 'ALQ - Alquiler temporario',
-                            'monto': f'${movimiento.monto_total:,.0f}'
-                        })
-                        total_pagado += movimiento.monto_total
+                        'monto': f'${movimiento.monto_total:,.0f}'
+                    })
+                    total_pagado += movimiento.monto_total
                     
                 except Exception as e:
                     print(f"❌ Error en fallback: {e}")
@@ -6855,17 +6855,22 @@ def finalizar_reserva_nueva(request, reserva_id):
             concepto__icontains=f"Reserva {reserva.id}"
         )
         
-        # ✅ LÓGICA SIMPLE: SALDO = PRECIO TOTAL - SEÑA (EL DEPÓSITO NO AFECTA)
-        saldo_a_ocupar = reserva.precio_total - (reserva.senia or 0)
+        # ✅ LÓGICA CORREGIDA: Separar conceptos
+        saldo_a_ocupar = reserva.precio_total - (reserva.senia or 0)  # Lo que falta por pagar
+        
+        # ✅ SEÑA PENDIENTE: Solo lo que falta por pagar (puede ser 0 si quiere pagar todo)
+        # El usuario decide cuánto de la seña pagar en este momento
+        senia_pendiente = saldo_a_ocupar  # Por defecto el saldo pendiente, pero el usuario puede cambiarlo
         
         print(f"✅ CÁLCULO FINALIZAR RESERVA:")
-        print(f"   - Precio Total: ${reserva.precio_total}")
-        print(f"   - Seña: ${reserva.senia or 0}")
+        print(f"   - Precio Total (Importe Locación): ${reserva.precio_total}")
+        print(f"   - Seña ya pagada: ${reserva.senia or 0}")
         print(f"   - Saldo Pendiente: ${saldo_a_ocupar}")
+        print(f"   - Seña sugerida para este pago: ${senia_pendiente}")
         print(f"   - Depósito: ${reserva.deposito_garantia or 0}")
 
         
-        # Datos para el formulario (solo lectura)
+        # Datos para el formulario 
         context = {
             'reserva': reserva,
             'cliente_id': reserva.cliente.id,
@@ -6879,9 +6884,10 @@ def finalizar_reserva_nueva(request, reserva_id):
             'productor_id': request.user.id,
             'productor_nombre': f"{request.user.nombre} {request.user.apellido}",
             'conceptos_caja': conceptos_caja,
-            'saldo_a_ocupar': saldo_a_ocupar,
-            'total_senia_pagada': reserva.senia or 0,  # ✅ SIMPLE: Del casillero
-            'total_deposito_pagado': reserva.deposito_garantia or 0,  # ✅ SIMPLE: Del casillero
+            'saldo_a_ocupar': saldo_a_ocupar,  # Para mostrar en resumen
+            'senia_pendiente': senia_pendiente,  # Para prellenar el campo seña
+            'total_senia_pagada': reserva.senia or 0,  # Lo que ya se pagó
+            'total_deposito_pagado': reserva.deposito_garantia or 0,  
             'deposito_garantia': reserva.deposito_garantia,
             'fecha_desde': reserva.fecha_inicio.strftime('%d/%m/%Y'),
             'fecha_hasta': reserva.fecha_fin.strftime('%d/%m/%Y'),

@@ -223,14 +223,14 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <label class="form-label"><strong>Seña:</strong></label>
                                 <input type="text" class="form-control form-control-sm" name="senia" id="senia"
                                        value="{{ senia_pendiente|format_price }}" placeholder="0">
-                                <small class="text-muted">💡 Seña pendiente a pagar (0 si ya se pagó)</small>
+                                <small class="text-muted">💡 Monto a pagar en este momento</small>
                             </div>
                             
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Importe Locación:</strong></label>
                                 <input type="text" class="form-control form-control-sm" name="importe_locacion" 
-                                       value="{{ saldo_a_ocupar|format_price }}" required>
-                                <small class="text-muted">💡 Saldo pendiente a pagar</small>
+                                       value="{{ reserva.precio_total|format_price }}" readonly style="background-color: #f8f9fa;">
+                                <small class="text-muted">💡 Precio total de la operación (fijo)</small>
                             </div>
                             
                             <div class="col-md-2">
