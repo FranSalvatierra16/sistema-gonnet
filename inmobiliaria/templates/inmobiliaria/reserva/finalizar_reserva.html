@@ -366,6 +366,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
+                        // Cerrar el modal primero
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('agregarPagoModal'));
+                        if (modal) {
+                            modal.hide();
+                        }
+                        
                         // Mostrar mensaje de éxito
                         Swal.fire({
                             icon: 'success',
@@ -425,6 +431,19 @@ document.addEventListener('DOMContentLoaded', function() {
             camposTransferencia.style.display = 'block';
             destinoDeposito.required = true;
         }
+    });
+
+    // Limpiar formulario cuando se abre el modal
+    document.getElementById('agregarPagoModal').addEventListener('show.bs.modal', function () {
+        // Resetear formulario
+        document.getElementById('formPago').reset();
+        // Limpiar campos ocultos y de búsqueda
+        document.getElementById('concepto_id').value = '';
+        document.getElementById('codigo_concepto').value = '';
+        document.getElementById('concepto_input').value = '';
+        // Ocultar campos adicionales
+        document.getElementById('campos_tarjeta').style.display = 'none';
+        document.getElementById('campos_transferencia').style.display = 'none';
     });
 });
 </script>

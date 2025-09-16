@@ -1172,8 +1172,7 @@ function calcularTotales() {
     };
     
     const totalConceptos = conceptosAgregados.reduce((sum, concepto) => sum + concepto.importe, 0);
-    const honorarios = parsearValorFormateado(document.getElementById('honorarios').value);
-    const totalRecibo = totalConceptos + honorarios; // ✅ Total = conceptos + honorarios
+    const totalRecibo = totalConceptos; // ✅ Total = conceptos únicamente
     const senia = parsearValorFormateado(document.getElementById('senia').value);
     
     // ✅ Formatear valores en displays
@@ -1445,7 +1444,6 @@ function procesarMovimiento() {
     // ✅ TAMBIÉN LIMPIAR SEÑA E IMPORTE LOCACIÓN
     const seniaLimpia = limpiarValorMonetario(document.querySelector('input[name="senia"]').value);
     const importeLocacionLimpia = limpiarValorMonetario(document.querySelector('input[name="importe_locacion"]').value);
-    const honorariosLimpios = limpiarValorMonetario(document.querySelector('input[name="honorarios"]').value);
     
     // Reemplazar valores en el FormData
     formData.set('monto_efectivo', montoEfectivo);
@@ -1455,7 +1453,6 @@ function procesarMovimiento() {
     formData.set('monto_deposito_mp', montoMP);
     formData.set('senia', seniaLimpia);
     formData.set('importe_locacion', importeLocacionLimpia);
-    formData.set('honorarios', honorariosLimpios);
     
     console.log('=== VALORES LIMPIADOS ANTES DE ENVIAR ===');
     console.log(`Efectivo: ${montoEfectivo}, Galicia: ${montoGalicia}, MP: ${montoMP}`);
@@ -1545,9 +1542,8 @@ function habilitarBotonProcesar(habilitar) {
     }
 }
 
-// Event listener para honorarios
+// Event listeners para campos
 document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('honorarios').addEventListener('input', calcularTotales);
     
     // Calcular saldo a ocupar cuando cambian los valores
     const seniaInput = document.querySelector('input[name="senia"]');
@@ -1626,16 +1622,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // ✅ Aplicar formato también a seña, importe locación y honorarios
-    const camposMonetarios = document.querySelectorAll('input[name="senia"], input[name="importe_locacion"], input[name="honorarios"]');
+    // ✅ Aplicar formato también a seña e importe locación
+    const camposMonetarios = document.querySelectorAll('input[name="senia"], input[name="importe_locacion"]');
     camposMonetarios.forEach(input => {
         input.addEventListener('input', function() {
             formatearNumeroEnTiempoReal(this);
             if (this.name === 'senia' || this.name === 'importe_locacion') {
                 calcularSaldoOcupar();
-            }
-            if (this.name === 'honorarios') {
-                calcularTotales();
             }
         });
     });
