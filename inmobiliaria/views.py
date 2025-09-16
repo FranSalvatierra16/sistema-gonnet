@@ -2422,22 +2422,6 @@ def procesar_movimiento_reserva(request):
                     })
                     print(f"💰 CONCEPTO {i}: ID={concepto_id}, {concepto_nombre} - ${concepto_importe}")
             
-            # ✅ VALIDACIÓN CONCEPTO 10 vs DEPÓSITO DE GARANTÍA
-            if deposito_garantia > 0 and not concepto_10_presente:
-                print(f"⚠️  ADVERTENCIA: Se indicó depósito de ${deposito_garantia} pero no se cargó el concepto 10")
-                print(f"   El depósito NO será considerado como pagado hasta que se cargue el concepto 10")
-            elif concepto_10_presente and concepto_10_importe != deposito_garantia:
-                print(f"⚠️  ADVERTENCIA: Concepto 10 (${concepto_10_importe}) no coincide con depósito de garantía (${deposito_garantia})")
-                print(f"   Se usará el monto del concepto 10 como depósito realmente pagado")
-                # Actualizar el depósito para que coincida con el concepto 10
-                deposito_garantia = concepto_10_importe
-            
-            # ✅ VALIDACIÓN: CONCEPTOS DEBEN SUMAR SEÑA + DEPÓSITO (si concepto 10 presente)
-            total_esperado = senia + (concepto_10_importe if concepto_10_presente else Decimal('0'))
-            if conceptos_completos and total_conceptos != total_esperado:
-                print(f"⚠️  ADVERTENCIA: Los conceptos suman ${total_conceptos} pero se esperaba ${total_esperado}")
-                print(f"   Seña: ${senia} + Depósito pagado (concepto 10): ${concepto_10_importe if concepto_10_presente else 0}")
-            
             # Construir concepto detallado con los conceptos individuales
             if conceptos_detalle:
                 concepto_detallado = f"Reserva {reserva.id} - " + " + ".join(conceptos_detalle)
@@ -2529,6 +2513,22 @@ def procesar_movimiento_reserva(request):
                 deposito_garantia = Decimal(deposito_garantia_input) if deposito_garantia_input else Decimal('0')
                 importe_locacion = Decimal(importe_locacion_input) if importe_locacion_input else Decimal('0')
                 
+                # ✅ VALIDACIÓN CONCEPTO 10 vs DEPÓSITO DE GARANTÍA (después de definir variables)
+                if deposito_garantia > 0 and not concepto_10_presente:
+                    print(f"⚠️  ADVERTENCIA: Se indicó depósito de ${deposito_garantia} pero no se cargó el concepto 10")
+                    print(f"   El depósito NO será considerado como pagado hasta que se cargue el concepto 10")
+                elif concepto_10_presente and concepto_10_importe != deposito_garantia:
+                    print(f"⚠️  ADVERTENCIA: Concepto 10 (${concepto_10_importe}) no coincide con depósito de garantía (${deposito_garantia})")
+                    print(f"   Se usará el monto del concepto 10 como depósito realmente pagado")
+                    # Actualizar el depósito para que coincida con el concepto 10
+                    deposito_garantia = concepto_10_importe
+                
+                # ✅ VALIDACIÓN: CONCEPTOS DEBEN SUMAR SEÑA + DEPÓSITO (si concepto 10 presente)
+                total_esperado = senia + (concepto_10_importe if concepto_10_presente else Decimal('0'))
+                if conceptos_completos and total_conceptos != total_esperado:
+                    print(f"⚠️  ADVERTENCIA: Los conceptos suman ${total_conceptos} pero se esperaba ${total_esperado}")
+                    print(f"   Seña: ${senia} + Depósito pagado (concepto 10): ${concepto_10_importe if concepto_10_presente else 0}")
+                
                 # ✅ MONTO DE ESTE PAGO (sin incluir depósito en el cálculo de saldo)
                 monto_este_pago = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
                 
@@ -2551,13 +2551,17 @@ def procesar_movimiento_reserva(request):
                 nuevo_total_pagado = total_pagado_anteriormente + monto_este_pago
                 reserva.senia = nuevo_total_pagado
                 
-                # ✅ ACTUALIZAR DEPÓSITO (solo si hay concepto 10)
-                if concepto_10_presente:
-                    reserva.deposito_garantia += concepto_10_importe
-                    print(f"💳 DEPÓSITO PAGADO: ${concepto_10_importe} (confirmado por concepto 10)")
+                # ✅ ACTUALIZAR DEPÓSITO (siempre se guarda, pero solo se marca como pagado con concepto 10)
+                if deposito_garantia > 0:
+                    # Siempre guardar el depósito que se indica en el casillero
+                    reserva.deposito_garantia = deposito_garantia
+                    
+                    if concepto_10_presente:
+                        print(f"💳 DEPÓSITO PAGADO: ${deposito_garantia} (confirmado por concepto 10)")
+                    else:
+                        print(f"💰 DEPÓSITO REGISTRADO: ${deposito_garantia} (PENDIENTE - falta concepto 10 para pagar)")
                 else:
-                    # Si no hay concepto 10, el depósito no se considera pagado
-                    print(f"⚠️  DEPÓSITO NO PAGADO: Falta concepto 10 para confirmar pago")
+                    print(f"ℹ️  Sin depósito en este pago")
                 
                 # ✅ CALCULAR SALDO PENDIENTE (precio total - solo seña)
                 saldo_pendiente = reserva.precio_total - reserva.senia
@@ -2808,6 +2812,7 @@ def ver_recibo_movimiento(request, movimiento_id):
         total_senia_pagada_recibo = 0  # ✅ Inicializar para evitar errores
         total_deposito_pagado_recibo = 0  # ✅ Inicializar para evitar errores
         precio_total_operacion = 0  # ✅ Inicializar para evitar errores
+        concepto_10_en_recibo = False  # ✅ Inicializar estado del concepto 10
         if reserva:
             # Buscar todos los movimientos de esta reserva para calcular total pagado
             todos_movimientos = MovimientoCaja.objects.filter(
@@ -3185,6 +3190,8 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'saldo_pendiente': f'${saldo_pendiente_mostrar:,.0f}',
                 'monto_este_pago': f'${monto_este_pago_mostrar:,.0f}',
                 'deposito_garantia': f'${reserva.deposito_garantia:,.0f}',
+                # ✅ ESTADO DEL DEPÓSITO BASADO EN CONCEPTO 10
+                'deposito_estado': 'pagado' if concepto_10_en_recibo else 'pendiente',
             })
         
         # Si no hay reserva, usar el template original
