@@ -2784,7 +2784,10 @@ def determinar_estado_deposito_completo(reserva):
     Determina si el depósito fue pagado en CUALQUIER movimiento de la reserva.
     Revisa todos los movimientos de caja de la reserva para ver si alguno tiene concepto 10.
     """
+    print(f"🔍 VERIFICANDO ESTADO DEPÓSITO GLOBAL - Reserva {reserva.id}")
+    
     if not reserva or not reserva.deposito_garantia:
+        print(f"❌ No hay depósito para verificar: reserva={reserva}, deposito={reserva.deposito_garantia if reserva else 'N/A'}")
         return 'no_aplica'  # No hay depósito
     
     # Buscar todos los movimientos de esta reserva
@@ -2794,15 +2797,27 @@ def determinar_estado_deposito_completo(reserva):
         concepto__icontains=f"Reserva {reserva.id}"
     )
     
+    print(f"📋 MOVIMIENTOS ENCONTRADOS: {todos_movimientos.count()}")
+    
     # Verificar si algún movimiento tiene concepto 10
-    for movimiento in todos_movimientos:
+    for i, movimiento in enumerate(todos_movimientos):
+        print(f"🔍 Movimiento {i+1} (ID: {movimiento.id}): {movimiento.concepto[:100]}...")
+        
         if movimiento.concepto and "|CONCEPTOS:" in movimiento.concepto:
             concepto_parts = movimiento.concepto.split("|CONCEPTOS:", 1)
             if len(concepto_parts) > 1:
                 conceptos_data = concepto_parts[1]
+                print(f"   📝 Conceptos data: {conceptos_data}")
+                
                 if "|10:" in conceptos_data:  # Concepto 10 presente
                     print(f"💳 DEPÓSITO GLOBAL PAGADO: Encontrado concepto 10 en movimiento {movimiento.id}")
                     return 'pagado'
+                else:
+                    print(f"   ❌ No encontrado concepto 10 en: {conceptos_data}")
+            else:
+                print(f"   ❌ No se pudo parsear conceptos estructurados")
+        else:
+            print(f"   ❌ Sin estructura |CONCEPTOS: o concepto vacío")
     
     print(f"⏳ DEPÓSITO GLOBAL PENDIENTE: No se encontró concepto 10 en ningún movimiento")
     return 'pendiente'
