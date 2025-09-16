@@ -621,9 +621,20 @@ def operaciones(request):
             recibos_reserva = Recibo.objects.filter(reserva=reserva).order_by('-fecha_emision')
             reserva.todos_recibos = recibos_reserva
             
-            print(f"📄 RECIBOS ENCONTRADOS para Reserva {reserva.id}: {recibos_reserva.count()}")
-            for recibo in recibos_reserva:
-                print(f"   - {recibo.numero_recibo}: ${recibo.monto_este_pago:,.0f} (Movimiento {recibo.movimiento_caja.id})")
+            print(f"🔍 DEBUG RECIBOS - Reserva {reserva.id}:")
+            print(f"   - Cantidad de recibos: {recibos_reserva.count()}")
+            print(f"   - QuerySet evaluado: {list(recibos_reserva.values('id', 'numero_recibo', 'monto_este_pago'))}")
+            
+            # ✅ VERIFICAR SI HAY MÚLTIPLES RECIBOS
+            if recibos_reserva.count() > 1:
+                print(f"🎯 MÚLTIPLES RECIBOS DETECTADOS: {recibos_reserva.count()} recibos")
+                for i, recibo in enumerate(recibos_reserva):
+                    print(f"   [{i+1}] {recibo.numero_recibo}: ${recibo.monto_este_pago:,.0f} (Movimiento {recibo.movimiento_caja.id})")
+            elif recibos_reserva.count() == 1:
+                recibo = recibos_reserva.first()
+                print(f"📋 UN SOLO RECIBO: {recibo.numero_recibo}: ${recibo.monto_este_pago:,.0f}")
+            else:
+                print(f"❌ NO HAY RECIBOS para esta reserva")
             
             # Agregar a la lista de reservas con pagos
             reservas_con_pagos.append(reserva)
@@ -3022,12 +3033,16 @@ def ver_recibo_movimiento(request, movimiento_id):
                             
                             # Si se procesaron conceptos estructurados, no procesar más
                             if pagos:
-                                pass  # Ya se procesaron los conceptos
+                                print(f"✅ CONCEPTOS ESTRUCTURADOS PROCESADOS: {len(pagos)} conceptos")
+                                # SALIR: Ya se procesaron los conceptos estructurados
+                                break  # Salir del bucle for de movimientos
+                            else:
+                                print("⚠️ No se encontraron conceptos estructurados válidos")
                         else:
                             # Fallback al método anterior
                             print("⚠️ No se pudo parsear información estructurada, usando método anterior")
                     
-                    # Si no hay información estructurada o falló el parsing, usar método anterior
+                    # ✅ SOLO EJECUTAR FALLBACK SI NO HAY CONCEPTOS PROCESADOS
                     if not pagos and " + " in concepto_texto:
                         # Extraer la parte después del número de reserva
                         parts = concepto_texto.split(" - ", 1)
