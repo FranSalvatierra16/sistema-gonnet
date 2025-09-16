@@ -6862,12 +6862,27 @@ def finalizar_reserva_nueva(request, reserva_id):
         # El usuario decide cuánto de la seña pagar en este momento
         senia_pendiente = saldo_a_ocupar  # Por defecto el saldo pendiente, pero el usuario puede cambiarlo
         
+        # ✅ DETECTAR SI EL DEPÓSITO YA FUE PAGADO (concepto 10)
+        deposito_pagado = False
+        if reserva.deposito_garantia > 0:
+            # Buscar movimientos con concepto 10
+            for movimiento in pagos_anteriores:
+                if movimiento.concepto and "|CONCEPTOS:" in movimiento.concepto:
+                    concepto_parts = movimiento.concepto.split("|CONCEPTOS:", 1)
+                    if len(concepto_parts) > 1:
+                        conceptos_data = concepto_parts[1]
+                        if "|10:" in conceptos_data:  # Concepto 10 presente
+                            deposito_pagado = True
+                            break
+        
+        deposito_estado = 'pagado' if deposito_pagado else 'pendiente'
+        
         print(f"✅ CÁLCULO FINALIZAR RESERVA:")
         print(f"   - Precio Total (Importe Locación): ${reserva.precio_total}")
         print(f"   - Seña ya pagada: ${reserva.senia or 0}")
         print(f"   - Saldo Pendiente: ${saldo_a_ocupar}")
         print(f"   - Seña sugerida para este pago: ${senia_pendiente}")
-        print(f"   - Depósito: ${reserva.deposito_garantia or 0}")
+        print(f"   - Depósito: ${reserva.deposito_garantia or 0} ({deposito_estado})")
 
         
         # Datos para el formulario 
@@ -6889,6 +6904,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'total_senia_pagada': reserva.senia or 0,  # Lo que ya se pagó
             'total_deposito_pagado': reserva.deposito_garantia or 0,  
             'deposito_garantia': reserva.deposito_garantia,
+            'deposito_estado': deposito_estado,  # ✅ Estado del depósito (pagado/pendiente)
             'fecha_desde': reserva.fecha_inicio.strftime('%d/%m/%Y'),
             'fecha_hasta': reserva.fecha_fin.strftime('%d/%m/%Y'),
         }

@@ -258,9 +258,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <label class="form-label"><strong>Depósito Garantía:</strong></label>
                                 <input type="number" class="form-control form-control-sm" name="deposito_garantia" 
                                        value="{{ deposito_garantia }}" step="0.01" placeholder="0.00"
-                                       {% if reserva.deposito_garantia > 0 %}readonly style="background-color: #f8f9fa; color: #6c757d;"{% endif %}>
-                                {% if reserva.deposito_garantia > 0 %}
-                                <small class="text-muted">🔒 Depósito ya registrado - No se puede modificar</small>
+                                       {% if deposito_estado == 'pagado' %}readonly style="background-color: #d4edda; color: #155724;"{% endif %}>
+                                {% if deposito_estado == 'pagado' %}
+                                <small class="text-success">✅ Depósito ya pagado - No se puede modificar</small>
+                                {% elif deposito_garantia > 0 %}
+                                <small class="text-warning">⏳ Depósito pendiente - Cargar concepto 10 para pagarlo</small>
                                 {% else %}
                                 <small class="text-muted">💡 Depósito de garantía (opcional)</small>
                                 {% endif %}
