@@ -516,7 +516,31 @@
                                 <i class="fas fa-eye"></i>Ver
                             </a>
                             
-                            {% if reserva.movimiento_reciente %}
+                            {% if reserva.todos_recibos %}
+                                {% if reserva.todos_recibos.count == 1 %}
+                                    <!-- Si hay solo un recibo, mostrar botón simple -->
+                                    <a href="{% url 'inmobiliaria:ver_recibo_movimiento' reserva.todos_recibos.first.movimiento_caja.id %}" class="btn-action btn-recibo">
+                                        <i class="fas fa-receipt"></i>Recibo
+                                    </a>
+                                {% else %}
+                                    <!-- Si hay múltiples recibos, mostrar dropdown -->
+                                    <div class="dropdown">
+                                        <button class="btn-action btn-recibo dropdown-toggle" type="button" id="dropdownRecibos{{ reserva.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fas fa-receipt"></i>Recibos ({{ reserva.todos_recibos.count }})
+                                        </button>
+                                        <ul class="dropdown-menu" aria-labelledby="dropdownRecibos{{ reserva.id }}">
+                                            {% for recibo in reserva.todos_recibos %}
+                                                <li>
+                                                    <a class="dropdown-item" href="{% url 'inmobiliaria:ver_recibo_movimiento' recibo.movimiento_caja.id %}">
+                                                        <i class="fas fa-receipt me-2"></i>{{ recibo.numero_recibo }}
+                                                        <small class="text-muted d-block">${{ recibo.monto_este_pago|floatformat:0 }} - {{ recibo.fecha_emision|date:"d/m/Y" }}</small>
+                                                    </a>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                {% endif %}
+                            {% elif reserva.movimiento_reciente %}
                                 <a href="{% url 'inmobiliaria:ver_recibo_movimiento' reserva.movimiento_reciente.id %}" class="btn-action btn-recibo">
                                     <i class="fas fa-receipt"></i>Recibo
                                 </a>

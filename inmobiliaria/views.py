@@ -616,6 +616,15 @@ def operaciones(request):
             # Obtener el movimiento más reciente para el enlace del recibo
             reserva.movimiento_reciente = movimientos.first() if movimientos.exists() else None
             
+            # ✅ OBTENER TODOS LOS RECIBOS DE ESTA RESERVA
+            from .models.recibo import Recibo
+            recibos_reserva = Recibo.objects.filter(reserva=reserva).order_by('-fecha_emision')
+            reserva.todos_recibos = recibos_reserva
+            
+            print(f"📄 RECIBOS ENCONTRADOS para Reserva {reserva.id}: {recibos_reserva.count()}")
+            for recibo in recibos_reserva:
+                print(f"   - {recibo.numero_recibo}: ${recibo.monto_este_pago:,.0f} (Movimiento {recibo.movimiento_caja.id})")
+            
             # Agregar a la lista de reservas con pagos
             reservas_con_pagos.append(reserva)
         else:
@@ -2572,8 +2581,14 @@ def procesar_movimiento_reserva(request):
                     reserva.precio_total = importe_locacion
                 
                 # ✅ ACTUALIZAR SEÑA (acumulativa, sin incluir depósito si se pagó con concepto 10)
-                nuevo_total_pagado = total_pagado_anteriormente + monto_seña_este_pago
-                reserva.senia = nuevo_total_pagado
+                # CORREGIDO: Solo sumar el pago actual a la seña existente, no duplicar pagos anteriores
+                senia_anterior = reserva.senia or 0
+                reserva.senia = senia_anterior + monto_seña_este_pago
+                
+                print(f"🔧 CORRECCIÓN SEÑA:")
+                print(f"   - Seña anterior: ${senia_anterior}")
+                print(f"   - Pago actual (seña): ${monto_seña_este_pago}")
+                print(f"   - Nueva seña total: ${reserva.senia}")
                 
                 # ✅ ACTUALIZAR DEPÓSITO (siempre se guarda, pero solo se marca como pagado con concepto 10)
                 if deposito_garantia > 0:
@@ -2610,7 +2625,7 @@ def procesar_movimiento_reserva(request):
                     empleado=request.user,
                     precio_total_operacion=reserva.precio_total,
                     monto_este_pago=monto_este_pago,
-                    total_pagado_antes=total_pagado_anteriormente,
+                    total_pagado_antes=senia_anterior,  # ✅ CORREGIDO: usar seña anterior, no total calculado mal
                     saldo_pendiente=saldo_pendiente,
                     conceptos_detalle={
                         'conceptos': conceptos_completos,
