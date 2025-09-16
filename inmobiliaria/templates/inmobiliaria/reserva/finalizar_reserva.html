@@ -2,16 +2,16 @@
 {% load bootstrap4 %}
 {% load custom_filters %}
 
-{% block title %}Finalizar Reserva{% endblock %}
+{% block title %}Finalizar Operación{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Confirmar Pago - Reserva #{{ reserva.id }}</h2>
+    <h2>Confirmar Pago - Operación #{{ reserva.id }}</h2>
     
     <!-- Información de la reserva -->
     <div class="card mb-4">
         <div class="card-body">
-            <h5 class="card-title">Detalles de la Reserva</h5>
+            <h5 class="card-title">Detalles de la Operación</h5>
             <p><strong>Cliente:</strong> {{ reserva.inquilino.nombre }} {{ reserva.inquilino.apellido }}</p>
             <p><strong>Propiedad:</strong> {{ reserva.propiedad.direccion }}</p>
             <p><strong>Precio Total:</strong> ${{ reserva.precio_total|floatformat:2 }}</p>
@@ -78,6 +78,11 @@
 
     <!-- Botones -->
     <div class="mt-3">
+        <!-- Botón para ver recibo -->
+        <a href="{% url 'inmobiliaria:ver_recibo' reserva.id %}" class="btn btn-success mb-3">
+            <i class="fas fa-receipt"></i> Ver Recibo de la Operación
+        </a>
+        
         <!-- Botón para agregar pago -->
         <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#agregarPagoModal">
             <i class="fas fa-plus"></i> Agregar Nuevo Pago
