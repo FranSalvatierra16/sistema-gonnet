@@ -2388,6 +2388,7 @@ def procesar_movimiento_reserva(request):
             # ✅ PROCESAR CONCEPTOS INDIVIDUALES DEL FRONTEND
             conceptos_count = int(request.POST.get('conceptos_count', 0))
             conceptos_detalle = []
+            conceptos_completos = []  # Para guardar información completa
             
             for i in range(conceptos_count):
                 concepto_id = request.POST.get(f'concepto_{i}_id')
@@ -2397,11 +2398,25 @@ def procesar_movimiento_reserva(request):
                 
                 if concepto_nombre:
                     conceptos_detalle.append(f"{concepto_nombre}")
-                    print(f"💰 CONCEPTO {i}: {concepto_nombre} - ${concepto_importe}")
+                    # Guardar información completa del concepto
+                    conceptos_completos.append({
+                        'id': concepto_id or f'C{i+1:02d}',
+                        'nombre': concepto_nombre,
+                        'importe': concepto_importe or '0'
+                    })
+                    print(f"💰 CONCEPTO {i}: ID={concepto_id}, {concepto_nombre} - ${concepto_importe}")
             
             # Construir concepto detallado con los conceptos individuales
             if conceptos_detalle:
                 concepto_detallado = f"Reserva {reserva.id} - " + " + ".join(conceptos_detalle)
+                
+                # Agregar información estructurada al final para parsing posterior
+                # Formato: |CONCEPTOS:id1:nombre1:importe1|id2:nombre2:importe2|
+                if conceptos_completos:
+                    conceptos_info = "|CONCEPTOS:"
+                    for concepto in conceptos_completos:
+                        conceptos_info += f"{concepto['id']}:{concepto['nombre']}:{concepto['importe']}|"
+                    concepto_detallado += conceptos_info
             else:
                 concepto_detallado = f"Reserva {reserva.id} - {reserva.propiedad.direccion}"
             
@@ -2795,18 +2810,61 @@ def ver_recibo_movimiento(request, movimiento_id):
                     codigo_mov = movimiento.numero_liquidacion or f'M{movimiento.id:04d}'
                     
                     # Intentar extraer conceptos individuales del campo concepto
-                    # Formato esperado: "Reserva 85 - limpieza + alquiler + deposito"
+                    # Nuevo formato esperado: "Reserva 85 - limpieza + alquiler + deposito|CONCEPTOS:11:limpieza:35000|1:alquiler:35000|10:deposito:20000|"
                     concepto_texto = movimiento.concepto or ""
                     print(f"📝 CONCEPTO COMPLETO: {concepto_texto}")
                     
-                    # Buscar conceptos separados por "+"
-                    if " + " in concepto_texto:
+                    # Buscar información estructurada de conceptos
+                    if "|CONCEPTOS:" in concepto_texto:
+                        # Extraer la parte estructurada
+                        concepto_parts = concepto_texto.split("|CONCEPTOS:", 1)
+                        if len(concepto_parts) > 1:
+                            conceptos_data = concepto_parts[1]  # "11:limpieza:35000|1:alquiler:35000|10:deposito:20000|"
+                            conceptos_items = [item for item in conceptos_data.split("|") if item.strip()]
+                            print(f"🔍 CONCEPTOS ESTRUCTURADOS ENCONTRADOS: {conceptos_items}")
+                            
+                            # Crear una entrada por cada concepto individual
+                            for i, concepto_item in enumerate(conceptos_items):
+                                parts = concepto_item.split(":")
+                                if len(parts) >= 3:
+                                    concepto_id = parts[0]
+                                    concepto_nombre = parts[1]
+                                    concepto_importe = parts[2]
+                                    
+                                    # Limpiar y convertir el importe
+                                    try:
+                                        importe_num = float(concepto_importe.replace(',', '').replace('.', ''))
+                                        if importe_num > 1000:  # Si es mayor a 1000, probablemente no tiene decimales
+                                            importe_num = importe_num
+                                        else:
+                                            importe_num = importe_num * 100  # Convertir si está en formato decimal
+                                    except:
+                                        importe_num = 0
+                                    
+                                    pagos.append({
+                                        'fecha': fecha_mov,
+                                        'codigo': concepto_id,
+                                        'concepto': concepto_nombre,
+                                        'monto': f'${importe_num:,.0f}'
+                                    })
+                                    total_pagado += importe_num
+                                    print(f"💰 CONCEPTO {i+1}: ID={concepto_id}, {concepto_nombre} - ${importe_num:,.0f}")
+                            
+                            # Si se procesaron conceptos estructurados, no procesar más
+                            if pagos:
+                                pass  # Ya se procesaron los conceptos
+                        else:
+                            # Fallback al método anterior
+                            print("⚠️ No se pudo parsear información estructurada, usando método anterior")
+                    
+                    # Si no hay información estructurada o falló el parsing, usar método anterior
+                    if not pagos and " + " in concepto_texto:
                         # Extraer la parte después del número de reserva
                         parts = concepto_texto.split(" - ", 1)
                         if len(parts) > 1:
-                            conceptos_parte = parts[1]  # "limpieza + alquiler + deposito"
+                            conceptos_parte = parts[1].split("|")[0]  # Tomar solo la parte antes de |CONCEPTOS si existe
                             conceptos_individuales = [c.strip() for c in conceptos_parte.split(" + ")]
-                            print(f"🔍 CONCEPTOS ENCONTRADOS: {conceptos_individuales}")
+                            print(f"🔍 CONCEPTOS ENCONTRADOS (método anterior): {conceptos_individuales}")
                             
                             # Crear una entrada por cada concepto individual
                             for i, concepto_nombre in enumerate(conceptos_individuales):
@@ -2832,7 +2890,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                                 'monto': f'${movimiento.monto_total:,.0f}'
                             })
                             total_pagado += movimiento.monto_total
-                    else:
+                    elif not pagos:
                         # No hay conceptos separados, usar el concepto completo
                         print("⚠️ No hay conceptos separados con '+', usando concepto completo")
                         pagos.append({
