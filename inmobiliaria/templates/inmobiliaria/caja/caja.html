@@ -35,6 +35,7 @@
                             <th>Tarjeta</th>
                             <th>Depósito</th>
                             <th>Transferencia</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -52,6 +53,11 @@
                             <td class="text-right">{{ movimiento.monto_tarjeta|default_if_none:""|floatformat:2 }}</td>
                             <td class="text-right">{{ movimiento.monto_deposito|default_if_none:""|floatformat:2 }}</td>
                             <td class="text-right">{{ movimiento.monto_transferencia|default_if_none:""|floatformat:2 }}</td>
+                            <td class="text-center">
+                                <a href="{% url 'inmobiliaria:ver_recibo_movimiento' movimiento.id %}" class="btn btn-sm btn-info" title="Ver Recibo">
+                                    🧾
+                                </a>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>

@@ -567,7 +567,7 @@ def operaciones(request):
         movimientos = MovimientoCaja.objects.filter(
             propiedad=reserva.propiedad,
             tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains=f"Reserva {reserva.id}"
+            concepto__icontains=f"Operaci\u00f3n {reserva.id}"
         )
         
         # ❌ FILTRO: Si no hay movimientos de pago, no incluir en operaciones
@@ -1347,7 +1347,7 @@ def finalizar_reserva_nueva(request, reserva_id):
         pagos_anteriores = MovimientoCaja.objects.filter(
             propiedad=reserva.propiedad,
             tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains=f"Reserva {reserva.id}"
+            concepto__icontains=f"Operaci\u00f3n {reserva.id}"
         )
         
         # ✅ LÓGICA SIMPLE: SALDO = PRECIO TOTAL - SEÑA (EL DEPÓSITO NO AFECTA)
@@ -1501,7 +1501,7 @@ def terminar_reserva(request, reserva_id):
                             caja=caja_actual,
                             tipo=TipoMovimientoCajaEnum.INGRESO,
                             tipo_comprobante=TipoComprobanteEnum.RECIBO,
-                            concepto=f"Reserva #{reserva.id} - {reserva.propiedad.direccion}",
+                            concepto=f"Operaci\u00f3n #{reserva.id} - {reserva.propiedad.direccion}",
                             fecha_desde=reserva.fecha_inicio,
                             fecha_hasta=reserva.fecha_fin,
                             propiedad=reserva.propiedad,
@@ -1617,7 +1617,7 @@ def ver_recibo(request, reserva_id):
             movimiento = MovimientoCaja(
                 caja=caja_actual,
                 tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto=f"Reserva #{reserva.id} - {reserva.propiedad.direccion}",
+                concepto=f"Operaci\u00f3n #{reserva.id} - {reserva.propiedad.direccion}",
                 fecha_desde=reserva.fecha_inicio,
                 fecha_hasta=reserva.fecha_fin,
                 propiedad=reserva.propiedad,
@@ -2408,7 +2408,7 @@ def procesar_movimiento_reserva(request):
                 'caja': caja_actual,
                 'sucursal': request.user.sucursal,
                 'tipo': TipoMovimientoCajaEnum.INGRESO,
-                'concepto': f"Reserva {reserva.id} - {reserva.propiedad.direccion}",
+                'concepto': f"Operaci\u00f3n {reserva.id} - {reserva.propiedad.direccion}",
                 'propiedad': reserva.propiedad,
                 'fecha_desde': reserva.fecha_inicio,
                 'fecha_hasta': reserva.fecha_fin,
@@ -2459,7 +2459,7 @@ def procesar_movimiento_reserva(request):
             
             # Construir concepto detallado con los conceptos individuales
             if conceptos_detalle:
-                concepto_detallado = f"Reserva {reserva.id} - " + " + ".join(conceptos_detalle)
+                concepto_detallado = f"Operaci\u00f3n {reserva.id} - " + " + ".join(conceptos_detalle)
                 
                 # Agregar información estructurada al final para parsing posterior
                 # Formato: |CONCEPTOS:id1:nombre1:importe1|id2:nombre2:importe2|
@@ -2469,7 +2469,7 @@ def procesar_movimiento_reserva(request):
                         conceptos_info += f"{concepto['id']}:{concepto['nombre']}:{concepto['importe']}|"
                     concepto_detallado += conceptos_info
             else:
-                concepto_detallado = f"Reserva {reserva.id} - {reserva.propiedad.direccion}"
+                concepto_detallado = f"Operaci\u00f3n {reserva.id} - {reserva.propiedad.direccion}"
             
             print(f"📝 CONCEPTO FINAL: {concepto_detallado}")
             
@@ -2504,7 +2504,7 @@ def procesar_movimiento_reserva(request):
                 movimiento_principal.save()
             elif monto_deposito_galicia > 0 and monto_deposito_mp > 0:
                 # Ambos: dejar como "mixto" o crear nota en concepto
-                concepto_actualizado = f"Reserva {reserva.id} - Galicia: ${monto_deposito_galicia}, MP: ${monto_deposito_mp}"
+                concepto_actualizado = f"Operaci\u00f3n {reserva.id} - Galicia: ${monto_deposito_galicia}, MP: ${monto_deposito_mp}"
                 movimiento_principal.concepto = concepto_actualizado
                 movimiento_principal.save()
             
@@ -2522,7 +2522,7 @@ def procesar_movimiento_reserva(request):
             pagos_anteriores = MovimientoCaja.objects.filter(
                 propiedad=reserva.propiedad,
                 tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto__icontains=f"Reserva {reserva.id}"
+                concepto__icontains=f"Operaci\u00f3n {reserva.id}"
             )
             
             total_pagado_anteriormente = sum(
@@ -2794,7 +2794,7 @@ def determinar_estado_deposito_completo(reserva):
     todos_movimientos = MovimientoCaja.objects.filter(
         propiedad=reserva.propiedad,
         tipo=TipoMovimientoCajaEnum.INGRESO,
-        concepto__icontains=f"Reserva {reserva.id}"
+        concepto__icontains=f"Operaci\u00f3n {reserva.id}"
     )
     
     print(f"📋 MOVIMIENTOS ENCONTRADOS: {todos_movimientos.count()}")
@@ -2838,11 +2838,11 @@ def ver_recibo_movimiento(request, movimiento_id):
         
         # Obtener la reserva relacionada desde el concepto del movimiento
         reserva = None
-        if movimiento.concepto and "Reserva" in movimiento.concepto:
+        if movimiento.concepto and "Operaci\u00f3n" in movimiento.concepto:
             try:
-                # Extraer el ID de la reserva del concepto (formato: "Reserva 123 - Dirección")
+                # Extraer el ID de la reserva del concepto (formato: "Operaci\u00f3n 123 - Dirección")
                 import re
-                match = re.search(r'Reserva (\d+)', movimiento.concepto)
+                match = re.search(r'Operaci\u00f3n (\d+)', movimiento.concepto)
                 if match:
                     reserva_id = int(match.group(1))
                     reserva = Reserva.objects.filter(id=reserva_id).first()
@@ -2911,10 +2911,10 @@ def ver_recibo_movimiento(request, movimiento_id):
             todos_movimientos = MovimientoCaja.objects.filter(
                 propiedad=reserva.propiedad,
                 tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto__icontains=f"Reserva {reserva.id}"
+                concepto__icontains=f"Operaci\u00f3n {reserva.id}"
             )
             
-            print(f"🔍 BÚSQUEDA MOVIMIENTOS - Buscando concepto: 'Reserva {reserva.id}'")
+            print(f"🔍 BÚSQUEDA MOVIMIENTOS - Buscando concepto: 'Operaci\u00f3n {reserva.id}'")
             print(f"🔍 MOVIMIENTOS ENCONTRADOS: {todos_movimientos.count()}")
             for mov in todos_movimientos:
                 print(f"🔍 Movimiento ID: {mov.id}, Concepto: '{mov.concepto}', Total: {mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito}")
@@ -6934,7 +6934,7 @@ def finalizar_reserva_nueva(request, reserva_id):
         pagos_anteriores = MovimientoCaja.objects.filter(
             propiedad=reserva.propiedad,
             tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains=f"Reserva {reserva.id}"
+            concepto__icontains=f"Operaci\u00f3n {reserva.id}"
         )
         
         # ✅ LÓGICA CORREGIDA: Separar conceptos
