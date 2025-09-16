@@ -75,12 +75,11 @@ class VendedorChangeForm(UserChangeForm):
 class InquilinoForm(forms.ModelForm):
     class Meta:
         model = Inquilino
-        fields = ['nombre', 'apellido', 'fecha_nacimiento', 'email', 'celular', 'tipo_doc', 'dni', 'tipo_ins', 'cuit', 'localidad', 'provincia', 'domicilio', 'codigo_postal', 'observaciones', 'garantia']
+        fields = ['nombre', 'apellido', 'email', 'celular', 'tipo_doc', 'dni', 'tipo_ins', 'localidad', 'provincia', 'domicilio', 'codigo_postal', 'observaciones', 'garantia']
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super(InquilinoForm, self).__init__(*args, **kwargs)
-        self.fields['cuit'].required = False
 
     def save(self, commit=True):
         inquilino = super(InquilinoForm, self).save(commit=False)
