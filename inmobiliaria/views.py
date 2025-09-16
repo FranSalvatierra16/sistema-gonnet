@@ -2768,6 +2768,9 @@ def ver_recibo_movimiento(request, movimiento_id):
         # Calcular saldo pendiente si hay reserva
         saldo_pendiente = 0
         total_pagado_reserva = 0
+        total_senia_pagada_recibo = 0  # ✅ Inicializar para evitar errores
+        total_deposito_pagado_recibo = 0  # ✅ Inicializar para evitar errores
+        precio_total_operacion = 0  # ✅ Inicializar para evitar errores
         if reserva:
             # Buscar todos los movimientos de esta reserva para calcular total pagado
             todos_movimientos = MovimientoCaja.objects.filter(
