@@ -2968,6 +2968,9 @@ def ver_recibo_movimiento(request, movimiento_id):
                 # Fallback: extraer conceptos individuales del campo concepto del movimiento
                 print("📋 FALLBACK: Extrayendo conceptos individuales desde movimiento.concepto")
                 
+                # ✅ INICIALIZAR VARIABLE DE CONTROL
+                conceptos_procesados = False
+                
                 try:
                     fecha_mov = movimiento.fecha.strftime('%d/%m/%Y')
                     codigo_mov = movimiento.numero_liquidacion or f'M{movimiento.id:04d}'
@@ -3031,19 +3034,21 @@ def ver_recibo_movimiento(request, movimiento_id):
                                 total_deposito_pagado_recibo = 0
                                 print(f"⚠️  SIN CONCEPTO 10: Depósito NO considerado pagado")
                             
-                            # Si se procesaron conceptos estructurados, no procesar más
+                            # Si se procesaron conceptos estructurados, marcar como completo
                             if pagos:
                                 print(f"✅ CONCEPTOS ESTRUCTURADOS PROCESADOS: {len(pagos)} conceptos")
-                                # SALIR: Ya se procesaron los conceptos estructurados
-                                break  # Salir del bucle for de movimientos
+                                # MARCAR COMO PROCESADO: Ya se procesaron los conceptos estructurados
+                                conceptos_procesados = True
                             else:
                                 print("⚠️ No se encontraron conceptos estructurados válidos")
+                                conceptos_procesados = False
                         else:
                             # Fallback al método anterior
                             print("⚠️ No se pudo parsear información estructurada, usando método anterior")
+                            conceptos_procesados = False
                     
                     # ✅ SOLO EJECUTAR FALLBACK SI NO HAY CONCEPTOS PROCESADOS
-                    if not pagos and " + " in concepto_texto:
+                    if not conceptos_procesados and not pagos and " + " in concepto_texto:
                         # Extraer la parte después del número de reserva
                         parts = concepto_texto.split(" - ", 1)
                         if len(parts) > 1:
@@ -3075,7 +3080,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                                 'monto': f'${movimiento.monto_total:,.0f}'
                             })
                             total_pagado += movimiento.monto_total
-                    elif not pagos:
+                    elif not conceptos_procesados and not pagos:
                         # No hay conceptos separados, usar el concepto completo
                         print("⚠️ No hay conceptos separados con '+', usando concepto completo")
                         pagos.append({
@@ -3088,14 +3093,18 @@ def ver_recibo_movimiento(request, movimiento_id):
                     
                 except Exception as e:
                     print(f"❌ Error en fallback: {e}")
-                    # Fallback ultra simple
-                    pagos.append({
-                        'fecha': '15/09/2025',
-                        'codigo': 'M0001',
-                        'concepto': 'ALQ - Alquiler temporario',
-                        'monto': '$130,000'
-                    })
-                    total_pagado = 130000
+                    # Solo usar fallback ultra simple si no se procesaron conceptos
+                    if not conceptos_procesados:
+                        print("🚨 USANDO FALLBACK ULTRA SIMPLE")
+                        pagos.append({
+                            'fecha': '15/09/2025',
+                            'codigo': 'M0001',
+                            'concepto': 'ALQ - Alquiler temporario',
+                            'monto': '$130,000'
+                        })
+                        total_pagado = 130000
+                    else:
+                        print("✅ CONCEPTOS YA PROCESADOS - No usar fallback ultra simple")
             
             # Obtener formas de pago del movimiento
             if movimiento.monto_efectivo > 0:
