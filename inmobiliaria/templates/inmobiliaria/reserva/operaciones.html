@@ -400,6 +400,43 @@
             text-align: center;
         }
     }
+
+    /* ✅ CSS PARA DROPDOWN DE RECIBOS */
+    .dropdown-recibos {
+        position: static; /* Permitir que se extienda fuera del contenedor */
+    }
+
+    .dropdown-menu-recibos {
+        z-index: 9999 !important; /* Alto z-index para estar encima de todo */
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+        border: 1px solid #dee2e6 !important;
+        border-radius: 8px !important;
+        overflow: visible !important;
+        min-width: 280px !important; /* Ancho mínimo para mostrar bien la info */
+    }
+
+    .dropdown-menu-recibos .dropdown-item {
+        padding: 0.75rem 1rem !important;
+        border-bottom: 1px solid #f8f9fa;
+    }
+
+    .dropdown-menu-recibos .dropdown-item:last-child {
+        border-bottom: none;
+    }
+
+    .dropdown-menu-recibos .dropdown-item:hover {
+        background-color: #f8f9fa !important;
+    }
+
+    /* ✅ OVERRIDE PARA PERMITIR QUE EL DROPDOWN SE VEA */
+    .operacion-card {
+        overflow: visible !important; /* Cambiar overflow hidden */
+    }
+
+    .actions-section {
+        overflow: visible !important; /* Asegurar que las acciones no corten */
+        position: relative !important;
+    }
 </style>
 {% endblock %}
 
@@ -524,11 +561,11 @@
                                     </a>
                                 {% else %}
                                     <!-- Si hay múltiples recibos, mostrar dropdown -->
-                                    <div class="dropdown">
+                                    <div class="dropdown dropdown-recibos">
                                         <button class="btn-action btn-recibo dropdown-toggle" type="button" id="dropdownRecibos{{ reserva.id }}" data-bs-toggle="dropdown" aria-expanded="false">
                                             <i class="fas fa-receipt"></i>Recibos ({{ reserva.todos_recibos.count }})
                                         </button>
-                                        <ul class="dropdown-menu" aria-labelledby="dropdownRecibos{{ reserva.id }}">
+                                        <ul class="dropdown-menu dropdown-menu-recibos" aria-labelledby="dropdownRecibos{{ reserva.id }}">
                                             {% for recibo in reserva.todos_recibos %}
                                                 <li>
                                                     <a class="dropdown-item" href="{% url 'inmobiliaria:ver_recibo_movimiento' recibo.movimiento_caja.id %}">
