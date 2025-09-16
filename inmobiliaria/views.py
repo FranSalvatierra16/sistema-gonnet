@@ -2534,7 +2534,7 @@ def procesar_movimiento_reserva(request):
                 reserva.save()
                 
                 # ✅ CREAR RECIBO PARA ESTE PAGO
-                from .models.caja import Recibo
+                from .models.recibo import Recibo
                 numero_recibo = f"R{reserva.id:06d}-{len(pagos_anteriores) + 1:02d}"
                 
                 recibo = Recibo.objects.create(
@@ -2784,7 +2784,7 @@ def ver_recibo_movimiento(request, movimiento_id):
             # ✅ INTENTAR OBTENER EL RECIBO ASOCIADO A ESTE MOVIMIENTO
             recibo_obj = None
             try:
-                from .models.caja import Recibo
+                from .models.recibo import Recibo
                 recibo_obj = Recibo.objects.get(movimiento_caja=movimiento)
                 print(f"🧾 RECIBO ENCONTRADO: {recibo_obj.numero_recibo}")
             except Recibo.DoesNotExist:
@@ -3156,6 +3156,45 @@ def ver_recibo_movimiento(request, movimiento_id):
     except Exception as e:
         messages.error(request, f'Error al generar el recibo: {str(e)}')
         return redirect('inmobiliaria:lista_cajas')
+
+@login_required
+def listar_recibos_propiedad(request, propiedad_id):
+    """
+    Vista para listar todos los recibos de una propiedad específica
+    """
+    try:
+        from .models.recibo import Recibo
+        from .models.propiedad import Propiedad
+        
+        propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
+        
+        # Obtener todos los recibos de esta propiedad
+        recibos = Recibo.objects.filter(propiedad=propiedad).order_by('-fecha_emision')
+        
+        # Preparar datos para el template
+        recibos_data = []
+        for recibo in recibos:
+            recibos_data.append({
+                'numero_recibo': recibo.numero_recibo,
+                'fecha_emision': recibo.fecha_emision,
+                'reserva_id': recibo.reserva.id,
+                'monto_este_pago': recibo.monto_este_pago,
+                'precio_total_operacion': recibo.precio_total_operacion,
+                'saldo_pendiente': recibo.saldo_pendiente,
+                'movimiento_id': recibo.movimiento_caja.id,
+                'empleado': recibo.empleado.username if recibo.empleado else 'N/A',
+            })
+        
+        context = {
+            'propiedad': propiedad,
+            'recibos': recibos_data,
+        }
+        
+        return render(request, 'inmobiliaria/recibos/lista_recibos_propiedad.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Error al cargar recibos: {str(e)}')
+        return redirect('inmobiliaria:propiedades')
 
 @login_required
 def crear_inquilino_ajax(request):

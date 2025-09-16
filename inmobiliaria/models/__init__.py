@@ -3,6 +3,7 @@ from .propiedad import Propiedad,  Reserva, Disponibilidad, ImagenPropiedad,Prec
 from .sucursal import Sucursal, crear_caja_automatica
 from .caja import *
 from .contrato import TipoOperacion, ContratoAlquiler, CuotaMensual
+from .recibo import Recibo
 
 __all__ = [
     'Sucursal',
@@ -12,4 +13,5 @@ __all__ = [
     'TipoOperacion',
     'ContratoAlquiler',
     'CuotaMensual',
+    'Recibo',
 ]
