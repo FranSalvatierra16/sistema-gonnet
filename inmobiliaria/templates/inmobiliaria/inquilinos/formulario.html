@@ -56,21 +56,14 @@
                             </div>
                         </div>
                         <div class="row g-4 mt-3">
-                            <div class="col-md-4">
-                                <label for="id_fecha_nacimiento" class="form-label">
-                                    <i class="fas fa-birthday-cake me-1"></i>Fecha de Nacimiento
-                                </label>
-                                {{ form.fecha_nacimiento }}
-                                {{ form.fecha_nacimiento.errors }}
-                            </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label for="id_tipo_doc" class="form-label">
                                     <i class="fas fa-id-card me-1"></i>Tipo de Documento
                                 </label>
                                 {{ form.tipo_doc }}
                                 {{ form.tipo_doc.errors }}
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label for="id_dni" class="form-label">
                                     <i class="fas fa-id-badge me-1"></i>DNI
                                 </label>
@@ -103,33 +96,6 @@
                                 </label>
                                 {{ form.celular }}
                                 {{ form.celular.errors }}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Información Fiscal -->
-                <div class="card shadow-modern border-radius-modern mb-4">
-                    <div class="card-header" style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); color: #333;">
-                        <h4 class="mb-0">
-                            <i class="fas fa-file-invoice-dollar me-2"></i>💼 Información Fiscal
-                        </h4>
-                    </div>
-                    <div class="card-body">
-                        <div class="row g-4">
-                            <div class="col-md-6">
-                                <label for="id_tipo_ins" class="form-label">
-                                    <i class="fas fa-building me-1"></i>Tipo de Inscripción
-                                </label>
-                                {{ form.tipo_ins }}
-                                {{ form.tipo_ins.errors }}
-                            </div>
-                            <div class="col-md-6">
-                                <label for="id_cuit" class="form-label">
-                                    <i class="fas fa-hashtag me-1"></i>CUIT <small class="text-muted">(opcional)</small>
-                                </label>
-                                {{ form.cuit }}
-                                {{ form.cuit.errors }}
                             </div>
                         </div>
                     </div>

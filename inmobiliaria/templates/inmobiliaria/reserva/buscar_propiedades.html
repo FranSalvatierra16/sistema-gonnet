@@ -1100,6 +1100,7 @@
                             data-total-dias="{{ total_dias }}"
                             data-ambientes="{{ propiedad.ambientes|default:0 }}"
                             data-estado="{{ propiedad.estado|default:'Disponible' }}"
+                            data-llave="{{ propiedad.llave|default:'Sin asignar' }}"
                             data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
                             data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}">
                             <td style="color: red;">{{ propiedad.id }}</td>
@@ -1126,6 +1127,7 @@
                             data-total-dias="{{ total_dias }}"
                             data-ambientes="{{ propiedad.ambientes|default:0 }}"
                             data-estado="{{ propiedad.estado|default:'Disponible' }}"
+                            data-llave="{{ propiedad.llave|default:'Sin asignar' }}"
                             data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
                             data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}">
                             <td>{{ propiedad.id }}</td>
@@ -1162,6 +1164,7 @@
                             <div class="col-md-6">
                                 <p><strong>AMBIENTES:</strong> <span id="cardAmbiente"></span> </p>
                                 <p><strong>ESTADO:</strong> <span id="cardEstado"></span></p>
+                                <p><strong>LLAVE:</strong> <span id="cardLlave"></span></p>
                             </div>
                         </div>
 
@@ -2076,7 +2079,7 @@ function autenticarYReservar() {
 // Variables globales
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
-function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias, ambientes, estado, descripcion, caracteristicas) {
+function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias, ambientes, estado, llave, descripcion, caracteristicas) {
     console.log('🔄 =================== SELECCIONAR PROPIEDAD ===================');
     console.log('📋 Todos los parámetros recibidos:');
     console.log('   - ID:', id);
@@ -2195,6 +2198,7 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
         reservaId: reserva_id || null,            // ID de reserva si existe
         ambientes: ambientes,                     // Número de ambientes
         estado: estado,                           // Estado de la propiedad
+        llave: llave,                             // Número de llave
         descripcion: descripcion,                 // Descripción de la propiedad
         caracteristicas: caracteristicas          // Características de la propiedad
     };
@@ -2210,9 +2214,12 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
     // Actualizar estado inmediatamente
     document.getElementById("cardEstado").innerText = estadoReserva === 'confirmada_no_pagada' ? 'Reservado' : 'Disponible';
     
-    // Actualizar ambientes, descripción y características directamente
+    // Actualizar ambientes, llave, descripción y características directamente
     const cardAmbiente = document.getElementById("cardAmbiente");
     if (cardAmbiente) cardAmbiente.innerText = ambientes || 'No especificado';
+    
+    const cardLlave = document.getElementById("cardLlave");
+    if (cardLlave) cardLlave.innerText = llave || 'Sin asignar';
     
     const descripcionElement = document.getElementById("descripcionDetallada");
     if (descripcionElement) descripcionElement.innerText = descripcion || 'No hay descripción disponible';
@@ -3903,6 +3910,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 data.totalDias,
                 data.ambientes,
                 data.estado,
+                data.llave,
                 data.descripcion,
                 data.caracteristicas
             );
@@ -4157,6 +4165,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 data.totalDias,
                 data.ambientes,
                 data.estado,
+                data.llave,
                 data.descripcion,
                 data.caracteristicas
             );
