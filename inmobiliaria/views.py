@@ -3374,15 +3374,20 @@ def crear_inquilino_ajax(request):
             # Obtener la sucursal del usuario logueado
             sucursal = request.user.sucursal
             
+            # Campos opcionales que pueden no estar en el formulario
+            fecha_nacimiento = request.POST.get('fecha_nacimiento')
+            if fecha_nacimiento == '':
+                fecha_nacimiento = None
+                
             inquilino = Inquilino.objects.create(
                 nombre=request.POST['nombre'],
                 apellido=request.POST['apellido'],
-                fecha_nacimiento=request.POST['fecha_nacimiento'],
+                fecha_nacimiento=fecha_nacimiento,
                 email=request.POST['email'],
                 celular=request.POST['celular'],
                 tipo_doc=request.POST['tipo_doc'],
                 dni=request.POST['dni'],
-                tipo_ins=request.POST['tipo_ins'],
+                tipo_ins=request.POST.get('tipo_ins', 'otro'),  # Valor por defecto
                 cuit=request.POST.get('cuit', ''),
                 localidad=request.POST['localidad'],
                 provincia=request.POST['provincia'],
