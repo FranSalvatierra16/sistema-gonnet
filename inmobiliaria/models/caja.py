@@ -36,11 +36,6 @@ class Caja(models.Model):
     observaciones_apertura = models.TextField(blank=True)
     observaciones_cierre = models.TextField(blank=True)
     
-    class Meta:
-        unique_together = ('numero', 'sucursal')  # ✅ Número único por sucursal
-        verbose_name = 'Caja'
-        verbose_name_plural = 'Cajas'
-
     def get_saldo_actual(self):
         saldo = Decimal(str(self.saldo_inicial))
         movimientos = MovimientoCaja.objects.filter(caja=self)
@@ -63,6 +58,9 @@ class Caja(models.Model):
     
     class Meta:
         db_table = 'inmobiliaria_caja'
+        unique_together = ('numero', 'sucursal')
+        verbose_name = 'Caja'
+        verbose_name_plural = 'Cajas'
         ordering = ['-fecha_apertura']
 
 class MovimientoCaja(models.Model):
