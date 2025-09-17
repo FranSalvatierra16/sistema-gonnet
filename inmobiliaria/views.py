@@ -176,7 +176,7 @@ def inquilino_nuevo(request):
         if form.is_valid():
             inquilino = form.save()
             messages.success(request, 'Inquilino creado exitosamente.')
-            return redirect('inmobiliaria:inquilino_detalle', inquilino_id=inquilino.id)
+            return redirect('inmobiliaria:inquilinos')
     else:
         form = InquilinoForm(user=request.user)
     return render(request, 'inmobiliaria/inquilinos/formulario.html', {'form': form})
