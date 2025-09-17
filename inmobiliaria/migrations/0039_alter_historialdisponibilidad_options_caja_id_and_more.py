@@ -15,12 +15,6 @@ class Migration(migrations.Migration):
             options={'ordering': ['fecha_inicio', 'fecha_fin'], 'verbose_name': 'Historial de Disponibilidad', 'verbose_name_plural': 'Historial de Disponibilidades'},
         ),
         migrations.AddField(
-            model_name='caja',
-            name='id',
-            field=models.BigAutoField(auto_created=True, default=1, primary_key=True, serialize=False, verbose_name='ID'),
-            preserve_default=False,
-        ),
-        migrations.AddField(
             model_name='propiedad',
             name='titulo',
             field=models.CharField(blank=True, help_text='Nombre o título para identificar fácilmente la propiedad', max_length=255, null=True, verbose_name='Título descriptivo'),
