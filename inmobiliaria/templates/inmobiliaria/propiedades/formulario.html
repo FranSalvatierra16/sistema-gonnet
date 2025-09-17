@@ -982,6 +982,11 @@ $(document).ready(function() {
         btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
         
         console.log('💾 Guardando propietario...');
+        console.log('📋 URL:', '{% url "inmobiliaria:crear_propietario_ajax" %}');
+        console.log('📋 Datos a enviar:');
+        for (let [key, value] of formData.entries()) {
+            console.log(`  ${key}: ${value}`);
+        }
         
         fetch('{% url "inmobiliaria:crear_propietario_ajax" %}', {
             method: 'POST',
@@ -990,7 +995,15 @@ $(document).ready(function() {
                 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('🔄 Respuesta recibida:', response);
+            console.log('🔄 Status:', response.status);
+            console.log('🔄 OK:', response.ok);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 console.log('✅ Propietario creado:', data.propietario);
