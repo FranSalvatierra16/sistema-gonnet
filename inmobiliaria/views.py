@@ -6026,6 +6026,79 @@ def buscar_propiedades(request):
     # Los precios ya fueron calculados correctamente arriba para cada propiedad
     # No es necesario recalcular aquí
 
+    # ✅ ORDENAMIENTO PERSONALIZADO: Primero rojas, luego por días libres
+    def calcular_dias_libres(propiedad, fecha_inicio_busqueda, fecha_fin_busqueda):
+        """
+        Calcula cuántos días libres hay alrededor de las fechas de búsqueda.
+        Ejemplo: Si busco del 25-27 y hay reserva hasta 22 y próxima desde 29,
+        son 45 días libres (3 días buscados + reserva anterior + reserva siguiente)
+        """
+        if not hasattr(propiedad, 'estado_reserva'):
+            return 999999  # Sin estado definido, ponerla al final
+            
+        if propiedad.estado_reserva == 'confirmada_no_pagada':
+            return -1  # Rojas van primero (valor negativo)
+        
+        # Para propiedades disponibles, calcular días libres reales
+        try:
+            # Buscar la reserva más cercana ANTES de la fecha de búsqueda
+            reserva_anterior = Reserva.objects.filter(
+                propiedad=propiedad,
+                fecha_fin__lt=fecha_inicio_busqueda,
+                estado__in=['pagada', 'confirmada', 'confirmada_no_pagada']
+            ).order_by('-fecha_fin').first()
+            
+            # Buscar la reserva más cercana DESPUÉS de la fecha de búsqueda  
+            reserva_posterior = Reserva.objects.filter(
+                propiedad=propiedad,
+                fecha_inicio__gt=fecha_fin_busqueda,
+                estado__in=['pagada', 'confirmada', 'confirmada_no_pagada']
+            ).order_by('fecha_inicio').first()
+            
+            # Calcular días libres
+            dias_libres = 0
+            
+            if reserva_anterior:
+                # Días desde el fin de la reserva anterior hasta el inicio de búsqueda
+                dias_libres += (fecha_inicio_busqueda - reserva_anterior.fecha_fin).days - 1
+            else:
+                # Si no hay reserva anterior, asumir muchos días libres antes
+                dias_libres += 365
+                
+            # Días de la búsqueda
+            dias_libres += (fecha_fin_busqueda - fecha_inicio_busqueda).days + 1
+            
+            if reserva_posterior:
+                # Días desde el fin de búsqueda hasta el inicio de la próxima reserva
+                dias_libres += (reserva_posterior.fecha_inicio - fecha_fin_busqueda).days - 1
+            else:
+                # Si no hay reserva posterior, asumir muchos días libres después
+                dias_libres += 365
+                
+            return dias_libres
+            
+        except Exception as e:
+            print(f"Error calculando días libres para propiedad {propiedad.id}: {e}")
+            return 999999  # En caso de error, ponerla al final
+
+    # Aplicar ordenamiento si hay fechas válidas
+    if fecha_inicio and fecha_fin and propiedades_disponibles:
+        print("🔄 APLICANDO ORDENAMIENTO PERSONALIZADO...")
+        
+        # Agregar días libres a cada propiedad para debugging
+        for propiedad in propiedades_disponibles:
+            propiedad.dias_libres_calculados = calcular_dias_libres(propiedad, fecha_inicio, fecha_fin)
+            print(f"🏠 Propiedad {propiedad.id}: Estado={getattr(propiedad, 'estado_reserva', 'N/A')}, Días libres={propiedad.dias_libres_calculados}")
+        
+        # Ordenar: primero las rojas (días libres = -1), luego por menos días libres
+        propiedades_disponibles.sort(key=lambda p: p.dias_libres_calculados)
+        
+        print("📋 ORDEN FINAL:")
+        for i, propiedad in enumerate(propiedades_disponibles, 1):
+            estado = getattr(propiedad, 'estado_reserva', 'N/A')
+            dias = propiedad.dias_libres_calculados
+            print(f"  {i}. Propiedad {propiedad.id}: {estado} - {dias} días libres")
+
     # Obtener conceptos para el template
     conceptos = Concepto.objects.filter(
         Q(sucursal=sucursal_vendedor) | Q(sucursal__isnull=True)
