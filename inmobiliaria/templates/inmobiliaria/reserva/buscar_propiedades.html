@@ -3360,7 +3360,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <input type="text" id="apellido" name="apellido" required
                                    style="width: 100%; padding: 10px; border: 2px solid #4caf50; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
                         </div>
-                   
+                      
                         <div>
                             <label style="display: block; margin-bottom: 5px; color: #2e7d32; font-weight: 600;">Email *</label>
                             <input type="email" id="email" name="email" required
@@ -3381,7 +3381,28 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
 
-              
+                <!-- Documentación -->
+                <div style="background: linear-gradient(135deg, #fff3e0 0%, #fff8e1 100%); border: 2px solid #ff9800; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(255,152,0,0.2);">
+                    <h4 style="color: #ef6c00; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">📄 Documentación</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ef6c00; font-weight: 600;">Tipo de Documento *</label>
+                            <select id="tipo_doc" name="tipo_doc" required
+                                    style="width: 100%; padding: 10px; border: 2px solid #ff9800; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500; background: white;">
+                                <option value="dni">DNI</option>
+                                <option value="le">LE</option>
+                                <option value="ls">LS</option>
+                                <option value="cipf">CIPF</option>
+                                <option value="pas">Pasaporte</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #ef6c00; font-weight: 600;">Número de Documento *</label>
+                            <input type="text" id="dni" name="dni" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #ff9800; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Dirección -->
                 <div style="background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 100%); border: 2px solid #e91e63; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(233,30,99,0.2);">
