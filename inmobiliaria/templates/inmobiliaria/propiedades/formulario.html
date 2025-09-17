@@ -325,8 +325,123 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <!-- Aquí irá el formulario de propietario -->
-                <p>Formulario de nuevo propietario aquí...</p>
+                <form id="formNuevoPropietario">
+                    {% csrf_token %}
+                    
+                    <!-- Datos Personales -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label for="propietario_nombre" class="form-label">
+                                <i class="fas fa-user me-1"></i>Nombre *
+                            </label>
+                            <input type="text" class="form-control" id="propietario_nombre" name="nombre" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="propietario_apellido" class="form-label">
+                                <i class="fas fa-user me-1"></i>Apellido *
+                            </label>
+                            <input type="text" class="form-control" id="propietario_apellido" name="apellido" required>
+                        </div>
+                    </div>
+
+                    <!-- Contacto -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label for="propietario_email" class="form-label">
+                                <i class="fas fa-envelope me-1"></i>Email *
+                            </label>
+                            <input type="email" class="form-control" id="propietario_email" name="email" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="propietario_celular" class="form-label">
+                                <i class="fas fa-phone me-1"></i>Celular *
+                            </label>
+                            <input type="text" class="form-control" id="propietario_celular" name="celular" required>
+                        </div>
+                    </div>
+
+                    <!-- Documentación -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label for="propietario_tipo_doc" class="form-label">
+                                <i class="fas fa-id-card me-1"></i>Tipo de Documento *
+                            </label>
+                            <select class="form-select" id="propietario_tipo_doc" name="tipo_doc" required>
+                                <option value="dni">DNI</option>
+                                <option value="le">LE</option>
+                                <option value="ls">LS</option>
+                                <option value="cipf">CIPF</option>
+                                <option value="pas">Pasaporte</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="propietario_dni" class="form-label">
+                                <i class="fas fa-hashtag me-1"></i>Número de Documento *
+                            </label>
+                            <input type="text" class="form-control" id="propietario_dni" name="dni" required>
+                        </div>
+                    </div>
+
+                    <!-- Dirección -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label for="propietario_localidad" class="form-label">
+                                <i class="fas fa-map-marker-alt me-1"></i>Localidad *
+                            </label>
+                            <input type="text" class="form-control" id="propietario_localidad" name="localidad" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="propietario_provincia" class="form-label">
+                                <i class="fas fa-map me-1"></i>Provincia *
+                            </label>
+                            <input type="text" class="form-control" id="propietario_provincia" name="provincia" required>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-8">
+                            <label for="propietario_domicilio" class="form-label">
+                                <i class="fas fa-home me-1"></i>Domicilio *
+                            </label>
+                            <input type="text" class="form-control" id="propietario_domicilio" name="domicilio" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="propietario_codigo_postal" class="form-label">
+                                <i class="fas fa-mail-bulk me-1"></i>Código Postal *
+                            </label>
+                            <input type="text" class="form-control" id="propietario_codigo_postal" name="codigo_postal" required>
+                        </div>
+                    </div>
+
+                    <!-- Información Bancaria -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-12">
+                            <label for="propietario_cuenta_bancaria" class="form-label">
+                                <i class="fas fa-university me-1"></i>Cuenta Bancaria
+                            </label>
+                            <input type="text" class="form-control" id="propietario_cuenta_bancaria" name="cuenta_bancaria" 
+                                   placeholder="Número de cuenta para depósitos">
+                        </div>
+                    </div>
+
+                    <!-- Observaciones -->
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="propietario_observaciones" class="form-label">
+                                <i class="fas fa-sticky-note me-1"></i>Observaciones
+                            </label>
+                            <textarea class="form-control" id="propietario_observaciones" name="observaciones" rows="3"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-success" onclick="guardarPropietario()">
+                    <i class="fas fa-save me-1"></i>Guardar Propietario
+                </button>
             </div>
         </div>
     </div>
@@ -837,6 +952,89 @@ $(document).ready(function() {
     // Actualizar orden inicial
     actualizarOrdenes();
     {% endif %}
+
+    // Función para guardar nuevo propietario
+    window.guardarPropietario = function() {
+        const form = document.getElementById('formNuevoPropietario');
+        
+        // Validar campos requeridos
+        const camposRequeridos = ['nombre', 'apellido', 'email', 'celular', 'tipo_doc', 'dni', 'localidad', 'provincia', 'domicilio', 'codigo_postal'];
+        
+        let camposVacios = [];
+        camposRequeridos.forEach(campo => {
+            const input = form.querySelector(`[name="${campo}"]`);
+            if (!input || !input.value.trim()) {
+                camposVacios.push(campo);
+            }
+        });
+        
+        if (camposVacios.length > 0) {
+            alert('❌ Por favor completa los siguientes campos:\n• ' + camposVacios.join('\n• '));
+            return;
+        }
+        
+        const formData = new FormData(form);
+        
+        // Deshabilitar botón mientras se procesa
+        const btnGuardar = document.querySelector('#modal-propietario .btn-success');
+        const textoOriginal = btnGuardar.innerHTML;
+        btnGuardar.disabled = true;
+        btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
+        
+        console.log('💾 Guardando propietario...');
+        
+        fetch('{% url "inmobiliaria:crear_propietario_ajax" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('✅ Propietario creado:', data.propietario);
+                
+                // Agregar el nuevo propietario al select
+                const selectPropietario = document.getElementById('id_propietario');
+                if (selectPropietario) {
+                    const nuevaOpcion = new Option(
+                        `${data.propietario.nombre} ${data.propietario.apellido} (${data.propietario.dni})`,
+                        data.propietario.id,
+                        true,
+                        true
+                    );
+                    selectPropietario.add(nuevaOpcion);
+                    
+                    // Si es Select2, actualizar
+                    if ($(selectPropietario).hasClass('select2-hidden-accessible')) {
+                        $(selectPropietario).trigger('change');
+                    }
+                }
+                
+                // Cerrar modal y limpiar formulario
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modal-propietario'));
+                modal.hide();
+                form.reset();
+                
+                // Mostrar mensaje de éxito
+                showToast('✅ Propietario creado exitosamente', 'success');
+                
+            } else {
+                console.error('❌ Error:', data.error);
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error de conexión:', error);
+            alert('Error de conexión. Intenta nuevamente.');
+        })
+        .finally(() => {
+            // Restaurar botón
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = textoOriginal;
+        });
+    };
 
     // Validaciones del formulario
     $('form').on('submit', function(e) {
