@@ -3413,7 +3413,50 @@ def crear_inquilino_ajax(request):
             })
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
-
+def crear_propietario_ajax(request):
+    if request.method == 'POST':
+        try:
+            # Obtener la sucursal del usuario logueado
+            sucursal = request.user.sucursal
+            
+            # Campos opcionales que pueden no estar en el formulario
+            fecha_nacimiento = request.POST.get('fecha_nacimiento')
+            if fecha_nacimiento == '':
+                fecha_nacimiento = None
+                
+            propietario = Propietario.objects.create(
+                nombre=request.POST['nombre'],
+                apellido=request.POST['apellido'],
+                fecha_nacimiento=fecha_nacimiento,
+                email=request.POST['email'],
+                celular=request.POST['celular'],
+                tipo_doc=request.POST['tipo_doc'],
+                dni=request.POST['dni'],
+                tipo_ins=request.POST.get('tipo_ins', 'otro'),  # Valor por defecto
+                cuit=request.POST.get('cuit', ''),
+                localidad=request.POST['localidad'],
+                provincia=request.POST['provincia'],
+                domicilio=request.POST['domicilio'],
+                codigo_postal=request.POST['codigo_postal'],
+                observaciones=request.POST.get('observaciones', ''),
+                cuenta_bancaria=request.POST.get('cuenta_bancaria', ''),
+                sucursal=sucursal  # Agregar la sucursal
+            )
+            return JsonResponse({
+                'success': True,
+                'propietario': {
+                    'id': propietario.id,
+                    'nombre': propietario.nombre,
+                    'apellido': propietario.apellido,
+                    'dni': propietario.dni
+                }
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 def obtener_precios_propiedad(request):
     propiedad_id = request.GET.get('propiedad_id')
