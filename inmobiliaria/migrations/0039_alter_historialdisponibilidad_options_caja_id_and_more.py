@@ -14,11 +14,6 @@ class Migration(migrations.Migration):
             name='historialdisponibilidad',
             options={'ordering': ['fecha_inicio', 'fecha_fin'], 'verbose_name': 'Historial de Disponibilidad', 'verbose_name_plural': 'Historial de Disponibilidades'},
         ),
-        migrations.AddField(
-            model_name='propiedad',
-            name='titulo',
-            field=models.CharField(blank=True, help_text='Nombre o título para identificar fácilmente la propiedad', max_length=255, null=True, verbose_name='Título descriptivo'),
-        ),
         migrations.AlterField(
             model_name='caja',
             name='numero',
