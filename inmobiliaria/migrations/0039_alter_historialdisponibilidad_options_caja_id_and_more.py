@@ -15,11 +15,6 @@ class Migration(migrations.Migration):
             options={'ordering': ['fecha_inicio', 'fecha_fin'], 'verbose_name': 'Historial de Disponibilidad', 'verbose_name_plural': 'Historial de Disponibilidades'},
         ),
         migrations.AlterField(
-            model_name='caja',
-            name='numero',
-            field=models.PositiveIntegerField(),
-        ),
-        migrations.AlterField(
             model_name='inquilino',
             name='fecha_nacimiento',
             field=models.DateField(blank=True, null=True),
