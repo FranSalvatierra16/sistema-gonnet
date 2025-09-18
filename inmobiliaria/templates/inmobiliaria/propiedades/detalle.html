@@ -731,7 +731,7 @@
                                 <div class="modal-body">
                                     <div class="form-check mb-4">
                                         <input class="form-check-input" type="checkbox" name="en_venta" id="en_venta" 
-                                               {% if propiedad.info_venta.en_venta %}checked{% endif %}>
+                                               {% if propiedad.info_venta and propiedad.info_venta.en_venta %}checked{% endif %}>
                                         <label class="form-check-label" for="en_venta">
                                             Habilitar venta de propiedad
                                         </label>
@@ -742,12 +742,12 @@
                                             <div class="col-md-6 mb-3">
                                                 <label for="metros_cuadrados" class="form-label">Metros cuadrados *</label>
                                                 <input type="number" step="0.01" class="form-control" id="metros_cuadrados" name="metros_cuadrados"
-                                                       value="{{ propiedad.info_venta.metros_cuadrados|default:'' }}">
+                                                       value="{% if propiedad.info_venta %}{{ propiedad.info_venta.metros_cuadrados|default:'' }}{% endif %}">
                                             </div>
                                             <div class="col-md-6 mb-3">
                                                 <label for="precio_venta" class="form-label">Precio de venta *</label>
                                                 <input type="number" class="form-control" id="precio_venta" name="precio_venta" 
-                                                       value="{{ propiedad.info_venta.precio_venta|default:'' }}">
+                                                       value="{% if propiedad.info_venta %}{{ propiedad.info_venta.precio_venta|default:'' }}{% endif %}">
                                             </div>
                                         </div>
                                         
@@ -755,23 +755,35 @@
                                             <div class="col-md-6 mb-3">
                                                 <label for="precio_autorizacion" class="form-label">Precio de autorización *</label>
                                                 <input type="number" class="form-control" id="precio_autorizacion" name="precio_autorizacion"
-                                                       value="{{ propiedad.info_venta.precio_autorizacion|default:'' }}">
+                                                       value="{% if propiedad.info_venta %}{{ propiedad.info_venta.precio_autorizacion|default:'' }}{% endif %}">
                                             </div>
                                             <div class="col-md-6 mb-3">
-                                                <label for="precio_expensas" class="form-label">Precio de expensas</label>
-                                                <input type="number" class="form-control" id="precio_expensas" name="precio_expensas"
-                                                       value="{{ propiedad.info_venta.precio_expensas|default:'' }}">
+                                                <label for="precio_expensas_venta" class="form-label">Precio de expensas</label>
+                                                <input type="number" class="form-control" id="precio_expensas_venta" name="precio_expensas"
+                                                       value="{% if propiedad.info_venta %}{{ propiedad.info_venta.precio_expensas|default:'' }}{% endif %}">
                                             </div>
                                         </div>
 
                                         <div class="row">
                                             <div class="col-md-6 mb-3">
-                                                <label for="estado" class="form-label">Estado *</label>
-                                                <select class="form-select" id="estado" name="estado">
-                                                    <option value="disponible">Disponible</option>
-                                                    <option value="reservado">Reservado</option>
-                                                    <option value="vendido">Vendido</option>
+                                                <label for="estado_venta" class="form-label">Estado *</label>
+                                                <select class="form-select" id="estado_venta" name="estado">
+                                                    <option value="disponible" {% if propiedad.info_venta and propiedad.info_venta.estado == 'disponible' %}selected{% endif %}>Disponible</option>
+                                                    <option value="reservado" {% if propiedad.info_venta and propiedad.info_venta.estado == 'reservado' %}selected{% endif %}>Reservado</option>
+                                                    <option value="vendido" {% if propiedad.info_venta and propiedad.info_venta.estado == 'vendido' %}selected{% endif %}>Vendido</option>
                                                 </select>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label for="escribania" class="form-label">Escribanía</label>
+                                                <input type="text" class="form-control" id="escribania" name="escribania"
+                                                       value="{% if propiedad.info_venta %}{{ propiedad.info_venta.escribania|default:'' }}{% endif %}">
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="col-12 mb-3">
+                                                <label for="observaciones_venta" class="form-label">Observaciones</label>
+                                                <textarea class="form-control" id="observaciones_venta" name="observaciones" rows="3">{% if propiedad.info_venta %}{{ propiedad.info_venta.observaciones|default:'' }}{% endif %}</textarea>
                                             </div>
                                         </div>
                                     </div>
