@@ -1369,10 +1369,12 @@ function actualizarSaldoPorSenia() {
     try {
         console.log('🚀 INICIANDO actualizarSaldoPorSenia()');
         
-        // ✅ USAR EL SALDO PENDIENTE CALCULADO DEL BACKEND
-        const saldoPendiente = parseFloat('{{ saldo_a_ocupar }}') || 0;
+        // ✅ OBTENER TODOS LOS VALORES NECESARIOS
+        const precioTotal = parseFloat('{{ reserva.precio_total }}') || 0;
+        const seniaPagadaAntes = parseFloat('{{ total_senia_pagada }}') || 0;
+        const depositoPagadoAntes = parseFloat('{{ total_deposito_pagado }}') || 0;
         
-        // Obtener la seña que se está ingresando ahora (limpiar formato de miles)
+        // Obtener la seña que se está ingresando AHORA
         const seniaInput = document.getElementById('senia');
         if (!seniaInput) {
             console.error('❌ No se encontró el campo senia');
@@ -1384,8 +1386,9 @@ function actualizarSaldoPorSenia() {
         let seniaValue = seniaInput.value.replace(/[^\d]/g, ''); // Solo números
         const seniaActual = parseFloat(seniaValue) || 0;
         
-        // ✅ CÁLCULO SIMPLE: Saldo Pendiente - Seña Actual
-        const quedaPorPagar = Math.max(0, saldoPendiente - seniaActual);
+        // ✅ CÁLCULO CORRECTO: Precio Total - Todo lo pagado antes - Seña actual
+        const totalPagadoAntes = seniaPagadaAntes + depositoPagadoAntes;
+        const quedaPorPagar = Math.max(0, precioTotal - totalPagadoAntes - seniaActual);
         
         // Actualizar el campo "Queda por Pagar"
         const saldoOcuparElement = document.getElementById('saldo_ocupar');
@@ -1405,17 +1408,21 @@ function actualizarSaldoPorSenia() {
             }
             
             // Mostrar alerta de confirmación
-            console.log(`🎯 RESULTADO: Saldo actualizado de $${saldoPendiente.toLocaleString('es-ES')} a $${valorFormateado}`);
+            console.log(`🎯 RESULTADO: Queda por pagar actualizado a $${valorFormateado}`);
         } else {
             console.error('❌ No se encontró el campo saldo_ocupar');
             alert('❌ No se encontró el campo "Queda por Pagar"');
         }
         
         // Logging detallado para debug
-        console.log(`🔄 ACTUALIZACIÓN POR SEÑA:`);
-        console.log(`   ⏳ Saldo pendiente: $${saldoPendiente.toLocaleString('es-ES')}`);
+        console.log(`🔄 CÁLCULO COMPLETO:`);
+        console.log(`   💰 Precio Total: $${precioTotal.toLocaleString('es-ES')}`);
+        console.log(`   ✅ Seña pagada antes: $${seniaPagadaAntes.toLocaleString('es-ES')}`);
+        console.log(`   🛡️ Depósito pagado antes: $${depositoPagadoAntes.toLocaleString('es-ES')}`);
+        console.log(`   📊 Total pagado antes: $${totalPagadoAntes.toLocaleString('es-ES')}`);
         console.log(`   💵 Seña actual: $${seniaActual.toLocaleString('es-ES')}`);
-        console.log(`   ✅ Queda por pagar: $${quedaPorPagar.toLocaleString('es-ES')}`);
+        console.log(`   ⏳ Queda por pagar: $${quedaPorPagar.toLocaleString('es-ES')}`);
+        console.log(`   🧮 Fórmula: ${precioTotal} - ${totalPagadoAntes} - ${seniaActual} = ${quedaPorPagar}`);
         
     } catch (error) {
         console.error('❌ Error en actualizarSaldoPorSenia:', error);
