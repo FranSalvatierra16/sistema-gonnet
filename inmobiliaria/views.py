@@ -357,6 +357,18 @@ def propiedad_detalle(request, propiedad_id):
     except Exception as e:
         print("Error al acceder a las imágenes:", str(e))
 
+    # ✅ Obtener información de venta si existe
+    try:
+        info_venta = propiedad.info_venta
+    except:
+        info_venta = None
+
+    # ✅ Obtener información de 24 meses si existe  
+    try:
+        info_meses = propiedad.info_meses
+    except:
+        info_meses = None
+
     context = {
         'propiedad': propiedad,
         'disponibilidades': disponibilidades,
@@ -364,6 +376,8 @@ def propiedad_detalle(request, propiedad_id):
         'imagenes': imagenes,
         'historiales': historiales,  # Agregamos el historial al contexto
         'active_tab': request.GET.get('tab', 'alquiler'),  # default a 'alquiler'
+        'info_venta': info_venta,  # ✅ Agregamos info_venta al contexto
+        'info_meses': info_meses,  # ✅ Agregamos info_meses al contexto
     }
     
     return render(request, 'inmobiliaria/propiedades/detalle.html', context)
