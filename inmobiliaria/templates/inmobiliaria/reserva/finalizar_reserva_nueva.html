@@ -253,8 +253,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Queda por Pagar:</strong></label>
-                                <input type="text" class="form-control form-control-sm" id="saldo_ocupar"
-                                       value="0" readonly style="background-color: #f8f9fa;">
+                                <div class="input-group">
+                                    <input type="text" class="form-control form-control-sm" id="saldo_ocupar"
+                                           value="{{ saldo_a_ocupar|format_price }}" readonly style="background-color: #f8f9fa;">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="actualizarSaldoPorSenia()" title="Recalcular">
+                                        🔄
+                                    </button>
+                                </div>
                                 <small class="text-muted">💡 Después de esta operación</small>
                             </div>
                             
@@ -1379,8 +1384,19 @@ function actualizarSaldoPorSenia() {
         // Actualizar el campo "Queda por Pagar"
         const saldoOcuparElement = document.getElementById('saldo_ocupar');
         if (saldoOcuparElement) {
-            saldoOcuparElement.value = quedaPorPagar.toLocaleString('es-ES');
-            console.log(`✅ Campo actualizado: ${quedaPorPagar.toLocaleString('es-ES')}`);
+            // Formatear con puntos de miles como el resto de campos
+            const valorFormateado = quedaPorPagar.toLocaleString('es-ES', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+            saldoOcuparElement.value = valorFormateado;
+            console.log(`✅ Campo actualizado: ${valorFormateado}`);
+            
+            // Cambiar color si queda algo por pagar
+            if (quedaPorPagar > 0) {
+                saldoOcuparElement.style.color = '#dc3545'; // Rojo
+                saldoOcuparElement.style.fontWeight = 'bold';
+            } else {
+                saldoOcuparElement.style.color = '#28a745'; // Verde
+                saldoOcuparElement.style.fontWeight = 'bold';
+            }
         } else {
             console.error('❌ No se encontró el campo saldo_ocupar');
         }
