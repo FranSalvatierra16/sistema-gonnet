@@ -1361,16 +1361,21 @@ function actualizarSaldoPorSenia() {
         // Obtener precio total de la operación
         const precioTotal = parseFloat('{{ reserva.precio_total }}') || 0;
         
-        // Obtener la seña ingresada (limpiar formato de miles)
+        // ✅ OBTENER PAGOS ANTERIORES (lo que ya se pagó antes)
+        const totalSeniaPagada = parseFloat('{{ total_senia_pagada }}') || 0;
+        const totalDepositoPagado = parseFloat('{{ total_deposito_pagado }}') || 0;
+        const totalPagadoAntes = totalSeniaPagada + totalDepositoPagado;
+        
+        // Obtener la seña que se está ingresando ahora (limpiar formato de miles)
         const seniaInput = document.getElementById('senia');
         if (!seniaInput) return;
         
         // Limpiar el valor: quitar puntos, comas y espacios
         let seniaValue = seniaInput.value.replace(/[^\d]/g, ''); // Solo números
-        const senia = parseFloat(seniaValue) || 0;
+        const seniaActual = parseFloat(seniaValue) || 0;
         
-        // Calcular queda por pagar: Precio Total - Seña
-        const quedaPorPagar = Math.max(0, precioTotal - senia); // No puede ser negativo
+        // ✅ CÁLCULO CORRECTO: Precio Total - Pagos Anteriores - Seña Actual
+        const quedaPorPagar = Math.max(0, precioTotal - totalPagadoAntes - seniaActual);
         
         // Actualizar el campo "Queda por Pagar"
         const saldoOcuparElement = document.getElementById('saldo_ocupar');
@@ -1378,12 +1383,18 @@ function actualizarSaldoPorSenia() {
             saldoOcuparElement.value = quedaPorPagar.toLocaleString('es-ES');
         }
         
-        // Mostrar alerta si la seña es mayor al precio total
-        if (senia > precioTotal) {
-            console.warn(`⚠️ SEÑA MAYOR AL PRECIO: Seña: $${senia}, Precio Total: $${precioTotal}`);
-        }
+        // Logging detallado para debug
+        console.log(`🔄 ACTUALIZACIÓN POR SEÑA:`);
+        console.log(`   💰 Precio Total: $${precioTotal.toLocaleString('es-ES')}`);
+        console.log(`   ✅ Pagado antes: $${totalPagadoAntes.toLocaleString('es-ES')} (Seña: $${totalSeniaPagada.toLocaleString('es-ES')} + Depósito: $${totalDepositoPagado.toLocaleString('es-ES')})`);
+        console.log(`   💵 Seña actual: $${seniaActual.toLocaleString('es-ES')}`);
+        console.log(`   ⏳ Queda por pagar: $${quedaPorPagar.toLocaleString('es-ES')}`);
         
-        console.log(`🔄 ACTUALIZACIÓN POR SEÑA: Precio Total: $${precioTotal.toLocaleString('es-ES')}, Seña: $${senia.toLocaleString('es-ES')}, Queda por pagar: $${quedaPorPagar.toLocaleString('es-ES')}`);
+        // Mostrar alerta si el total supera el precio
+        const totalConSeñaActual = totalPagadoAntes + seniaActual;
+        if (totalConSeñaActual > precioTotal) {
+            console.warn(`⚠️ TOTAL SUPERA PRECIO: Total con seña actual: $${totalConSeñaActual.toLocaleString('es-ES')}, Precio: $${precioTotal.toLocaleString('es-ES')}`);
+        }
         
     } catch (error) {
         console.error('Error en actualizarSaldoPorSenia:', error);
