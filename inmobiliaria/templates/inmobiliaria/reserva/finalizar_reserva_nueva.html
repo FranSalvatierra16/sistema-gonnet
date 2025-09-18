@@ -240,7 +240,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Seña:</strong></label>
                                 <input type="text" class="form-control form-control-sm" name="senia" id="senia"
-                                       value="{{ senia_pendiente|format_price }}" placeholder="0">
+                                       value="{{ senia_pendiente|format_price }}" placeholder="0"
+                                       oninput="actualizarSaldoPorSenia()" onchange="actualizarSaldoPorSenia()">
                                 <small class="text-muted">💡 Monto a pagar en este momento</small>
                             </div>
                             
@@ -511,9 +512,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-secondary me-2">
                                     ❌ Cancelar
                                 </a>
-                                <a href="{% url 'inmobiliaria:ver_recibo' reserva.id %}" class="btn btn-info me-2">
-                                    🧾 Ver Recibo de la Operación
-                                </a>
+                               
                                 <button type="button" class="btn btn-success btn-lg" id="btnProcesarMovimiento" disabled onclick="procesarMovimiento()">
                                     ✅ Procesar Movimiento
                                 </button>
@@ -1356,7 +1355,42 @@ function calcularTotalPagos() {
     return totalPagos;
 }
 
-// Función para calcular saldo a ocupar
+// Función específica para actualizar saldo cuando cambia la seña
+function actualizarSaldoPorSenia() {
+    try {
+        // Obtener precio total de la operación
+        const precioTotal = parseFloat('{{ reserva.precio_total }}') || 0;
+        
+        // Obtener la seña ingresada (limpiar formato de miles)
+        const seniaInput = document.getElementById('senia');
+        if (!seniaInput) return;
+        
+        // Limpiar el valor: quitar puntos, comas y espacios
+        let seniaValue = seniaInput.value.replace(/[^\d]/g, ''); // Solo números
+        const senia = parseFloat(seniaValue) || 0;
+        
+        // Calcular queda por pagar: Precio Total - Seña
+        const quedaPorPagar = Math.max(0, precioTotal - senia); // No puede ser negativo
+        
+        // Actualizar el campo "Queda por Pagar"
+        const saldoOcuparElement = document.getElementById('saldo_ocupar');
+        if (saldoOcuparElement) {
+            saldoOcuparElement.value = quedaPorPagar.toLocaleString('es-ES');
+        }
+        
+        // Mostrar alerta si la seña es mayor al precio total
+        if (senia > precioTotal) {
+            console.warn(`⚠️ SEÑA MAYOR AL PRECIO: Seña: $${senia}, Precio Total: $${precioTotal}`);
+        }
+        
+        console.log(`🔄 ACTUALIZACIÓN POR SEÑA: Precio Total: $${precioTotal.toLocaleString('es-ES')}, Seña: $${senia.toLocaleString('es-ES')}, Queda por pagar: $${quedaPorPagar.toLocaleString('es-ES')}`);
+        
+    } catch (error) {
+        console.error('Error en actualizarSaldoPorSenia:', error);
+    }
+}
+
+// Función para calcular saldo a ocupar (versión original para otros cálculos)
 function calcularSaldoOcupar() {
     try {
         // Obtener el saldo pendiente actual (lo que se muestra en el resumen)
@@ -1648,13 +1682,17 @@ document.addEventListener('DOMContentLoaded', function() {
     camposMonetarios.forEach(input => {
         input.addEventListener('input', function() {
             formatearNumeroEnTiempoReal(this);
-            if (this.name === 'senia' || this.name === 'importe_locacion') {
+            if (this.name === 'senia') {
+                // ✅ Cuando cambia la seña, actualizar el saldo inmediatamente
+                actualizarSaldoPorSenia();
+            } else if (this.name === 'importe_locacion') {
                 calcularSaldoOcupar();
             }
         });
     });
     
     // Inicializar cálculos
+    actualizarSaldoPorSenia(); // ✅ Inicializar cálculo de saldo basado en seña
     calcularSaldoOcupar(); // ✅ Inicializar saldo a ocupar primero
     calcularTotales(); // ✅ Inicializar totales primero
     calcularTotalPagos();
