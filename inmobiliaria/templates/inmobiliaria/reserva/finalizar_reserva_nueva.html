@@ -240,8 +240,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Seña:</strong></label>
                                 <input type="text" class="form-control form-control-sm" name="senia" id="senia"
-                                       value="{{ senia_pendiente|format_price }}" placeholder="0">
+                                       value="{{ senia_pendiente|format_price }}" placeholder="0"
+                                       onkeyup="actualizarSaldoPorSenia()" onchange="actualizarSaldoPorSenia()" 
+                                       oninput="actualizarSaldoPorSenia()" onblur="actualizarSaldoPorSenia()">
                                 <small class="text-muted">💡 Monto a pagar en este momento</small>
+                                <button type="button" class="btn btn-warning btn-sm mt-1" onclick="testActualizarSaldo()" style="font-size: 10px;">
+                                    🧪 TEST SALDO
+                                </button>
                             </div>
                             
                             <div class="col-md-2">
@@ -1371,6 +1376,7 @@ function actualizarSaldoPorSenia() {
         const seniaInput = document.getElementById('senia');
         if (!seniaInput) {
             console.error('❌ No se encontró el campo senia');
+            alert('❌ No se encontró el campo seña');
             return;
         }
         
@@ -1397,8 +1403,12 @@ function actualizarSaldoPorSenia() {
                 saldoOcuparElement.style.color = '#28a745'; // Verde
                 saldoOcuparElement.style.fontWeight = 'bold';
             }
+            
+            // Mostrar alerta de confirmación
+            console.log(`🎯 RESULTADO: Saldo actualizado de $${saldoPendiente.toLocaleString('es-ES')} a $${valorFormateado}`);
         } else {
             console.error('❌ No se encontró el campo saldo_ocupar');
+            alert('❌ No se encontró el campo "Queda por Pagar"');
         }
         
         // Logging detallado para debug
@@ -1409,7 +1419,14 @@ function actualizarSaldoPorSenia() {
         
     } catch (error) {
         console.error('❌ Error en actualizarSaldoPorSenia:', error);
+        alert('❌ Error: ' + error.message);
     }
+}
+
+// 🧪 Función de test simple
+function testActualizarSaldo() {
+    console.log('🧪 EJECUTANDO TEST...');
+    actualizarSaldoPorSenia();
 }
 
 // Función para calcular saldo a ocupar (versión original para otros cálculos)
