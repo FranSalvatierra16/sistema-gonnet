@@ -425,29 +425,9 @@ class Reserva(models.Model):
                 fecha_inicio_original = disponibilidad.fecha_inicio
                 fecha_fin_original = disponibilidad.fecha_fin
                 
-                # 2️⃣ ELIMINAR la disponibilidad original
-                disponibilidad.delete()
-                print(f"   ❌ Eliminada disponibilidad original")
-                
-                # 3️⃣ CREAR período libre ANTES de la reserva (si existe)
-                # 🏨 LÓGICA HOTELERA: El día de inicio de reserva está disponible hasta la tarde
-                if fecha_inicio_original < self.fecha_inicio:
-                    nueva_disponibilidad_antes = Disponibilidad.objects.create(
-                        propiedad=self.propiedad,
-                        fecha_inicio=fecha_inicio_original,
-                        fecha_fin=self.fecha_inicio  # SIN restar días
-                    )
-                    print(f"   ✅ Creada disponibilidad ANTES: {nueva_disponibilidad_antes.fecha_inicio} al {nueva_disponibilidad_antes.fecha_fin}")
-                
-                # 4️⃣ CREAR período libre DESPUÉS de la reserva (si existe)
-                # 🏨 LÓGICA HOTELERA: El día de checkout está disponible desde la mañana
-                if fecha_fin_original > self.fecha_fin:
-                    nueva_disponibilidad_despues = Disponibilidad.objects.create(
-                        propiedad=self.propiedad,
-                        fecha_inicio=self.fecha_fin,  # SIN sumar días
-                        fecha_fin=fecha_fin_original
-                    )
-                    print(f"   ✅ Creada disponibilidad DESPUÉS: {nueva_disponibilidad_despues.fecha_inicio} al {nueva_disponibilidad_despues.fecha_fin}")
+                # 2️⃣ MANTENER disponibilidades originales FIJAS - NO eliminar ni fragmentar
+                print(f"   ✅ Disponibilidad original MANTENIDA como registro fijo: {fecha_inicio_original} al {fecha_fin_original}")
+                # Las disponibilidades NO se tocan, solo se actualiza el historial
             
             # 5️⃣ CREAR SOLO las entradas de historial para las nuevas disponibilidades
             disponibilidades_actuales = self.propiedad.disponibilidades.all().order_by('fecha_inicio')
