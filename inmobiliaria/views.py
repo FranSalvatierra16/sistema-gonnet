@@ -2232,8 +2232,8 @@ def autenticar_seguridad(request):
             try:
                 vendedor = user  # El user ya es un Vendedor debido al modelo personalizado
                 
-                # Verificar nivel mínimo (por ejemplo, nivel 2 o superior para operaciones sensibles)
-                if vendedor.nivel < 2:
+                # Verificar nivel mínimo (nivel 1 o superior para operaciones - permitir usuarios básicos)
+                if vendedor.nivel < 1:
                     print(f"❌ Usuario {usuario} sin permisos suficientes (nivel: {vendedor.nivel})")
                     return JsonResponse({
                         'success': False, 
