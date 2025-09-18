@@ -7148,12 +7148,24 @@ def eliminar_disponibilidad(request, disponibilidad_id):
                 })
             
             # Buscar reservas existentes en el rango de fechas de la disponibilidad
+            # Validación más estricta: cualquier reserva que toque el período de disponibilidad
             reservas_existentes = Reserva.objects.filter(
                 propiedad=disponibilidad.propiedad,
-                fecha_inicio__lt=disponibilidad.fecha_fin,
-                fecha_fin__gt=disponibilidad.fecha_inicio,
                 estado__in=['confirmada', 'pagada', 'confirmada_no_pagada']
+            ).filter(
+                # Reserva que empieza antes o en el mismo día que termina la disponibilidad
+                # Y termina después o en el mismo día que empieza la disponibilidad
+                fecha_inicio__lte=disponibilidad.fecha_fin,
+                fecha_fin__gte=disponibilidad.fecha_inicio
             ).order_by('fecha_inicio')
+            
+            print(f"🔍 VALIDANDO ELIMINACIÓN DE DISPONIBILIDAD {disponibilidad.id}")
+            print(f"📅 Disponibilidad: {disponibilidad.fecha_inicio} - {disponibilidad.fecha_fin}")
+            print(f"🏠 Propiedad: {disponibilidad.propiedad.id}")
+            print(f"📋 Reservas encontradas: {reservas_existentes.count()}")
+            
+            for reserva in reservas_existentes:
+                print(f"   - Reserva {reserva.id}: {reserva.fecha_inicio} - {reserva.fecha_fin} ({reserva.estado})")
             
             if reservas_existentes.exists():
                 # Si hay reservas, preparar la información para mostrar
