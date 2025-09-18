@@ -573,8 +573,15 @@ def operaciones(request):
     if search_id:
         reservas = reservas.filter(id__icontains=search_id)
     
+    # ✅ Filtro de pendientes de pago
+    solo_pendientes = request.GET.get('solo_pendientes', '') == 'true'
+    
     # Lista para almacenar solo las reservas con pagos
     reservas_con_pagos = []
+    
+    # ✅ Variables para estadísticas
+    total_operaciones = 0
+    operaciones_pendientes = 0
     
     # Calcular totales pagados para cada reserva y filtrar las que tienen pagos
     for reserva in reservas:
@@ -651,6 +658,16 @@ def operaciones(request):
             else:
                 print(f"❌ NO HAY RECIBOS para esta reserva")
             
+            # ✅ Contar estadísticas
+            total_operaciones += 1
+            if saldo_pendiente > 0:
+                operaciones_pendientes += 1
+            
+            # ✅ Aplicar filtro de pendientes si está activo
+            if solo_pendientes and saldo_pendiente == 0:
+                # Si solo queremos pendientes y esta está pagada completa, saltarla
+                continue
+            
             # Agregar a la lista de reservas con pagos
             reservas_con_pagos.append(reserva)
         else:
@@ -658,7 +675,11 @@ def operaciones(request):
     
     return render(request, 'inmobiliaria/reserva/operaciones.html', {
         'reservas': reservas_con_pagos,
-        'search_id': search_id
+        'search_id': search_id,
+        'solo_pendientes': solo_pendientes,
+        'total_operaciones': total_operaciones,
+        'operaciones_pendientes': operaciones_pendientes,
+        'operaciones_mostradas': len(reservas_con_pagos),
     })
 def crear_reserva(request):
 

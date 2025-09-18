@@ -452,15 +452,36 @@
                 <a href="{% url 'inmobiliaria:crear_reserva' %}" class="btn-nueva-operacion">
                     <i class="fas fa-plus me-2"></i>Nueva Reserva
                 </a>
-                <div class="info-badge">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Operaciones procesadas y pendientes de pago
+                
+                <!-- ✅ Botón de estadísticas y filtro de pendientes -->
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <div class="info-badge">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Total: {{ total_operaciones }} | Pendientes: {{ operaciones_pendientes }}
+                    </div>
+                    
+                    {% if solo_pendientes %}
+                        <a href="{% url 'inmobiliaria:operaciones' %}{% if search_id %}?search_id={{ search_id }}{% endif %}" 
+                           class="btn btn-success btn-sm" 
+                           style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: none; border-radius: 10px; padding: 0.5rem 1rem;">
+                            <i class="fas fa-list me-1"></i>Mostrar Todas ({{ operaciones_mostradas }})
+                        </a>
+                    {% else %}
+                        <a href="{% url 'inmobiliaria:operaciones' %}?solo_pendientes=true{% if search_id %}&search_id={{ search_id }}{% endif %}" 
+                           class="btn btn-warning btn-sm" 
+                           style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); border: none; border-radius: 10px; padding: 0.5rem 1rem; color: #212529;">
+                            <i class="fas fa-clock me-1"></i>Solo Pendientes ({{ operaciones_pendientes }})
+                        </a>
+                    {% endif %}
                 </div>
             </div>
             
             <!-- ✅ Filtro de búsqueda por ID -->
             <div style="margin-top: 1rem; display: flex; justify-content: center;">
                 <form method="GET" style="display: flex; align-items: center; gap: 0.5rem;">
+                    {% if solo_pendientes %}
+                        <input type="hidden" name="solo_pendientes" value="true">
+                    {% endif %}
                     <input type="text" name="search_id" value="{{ search_id }}" 
                            placeholder="Buscar operación por ID..." 
                            style="padding: 0.5rem; border: 2px solid #ddd; border-radius: 8px; width: 200px;">
@@ -468,13 +489,21 @@
                         <i class="fas fa-search"></i> Buscar
                     </button>
                     {% if search_id %}
-                    <a href="{% url 'inmobiliaria:operaciones' %}" class="btn btn-secondary btn-sm" title="Limpiar filtro">
+                    <a href="{% url 'inmobiliaria:operaciones' %}{% if solo_pendientes %}?solo_pendientes=true{% endif %}" class="btn btn-secondary btn-sm" title="Limpiar filtro">
                         <i class="fas fa-times"></i> Limpiar
                     </a>
                     {% endif %}
                 </form>
             </div>
         </div>
+
+        <!-- ✅ Mensaje de filtro activo -->
+        {% if solo_pendientes %}
+            <div class="alert alert-warning" style="margin-bottom: 1.5rem; border-radius: 15px;">
+                <i class="fas fa-filter me-2"></i>
+                <strong>Filtro activo:</strong> Mostrando solo operaciones pendientes de pago ({{ operaciones_mostradas }} de {{ total_operaciones }})
+            </div>
+        {% endif %}
 
         <!-- Operaciones Lista -->
         {% if reservas %}
