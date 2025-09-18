@@ -511,9 +511,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-secondary me-2">
                                     ❌ Cancelar
                                 </a>
-                                <a href="{% url 'inmobiliaria:ver_recibo' reserva.id %}" class="btn btn-info me-2">
-                                    🧾 Ver Recibo de la Operación
-                                </a>
+                              
                                 <button type="button" class="btn btn-success btn-lg" id="btnProcesarMovimiento" disabled onclick="procesarMovimiento()">
                                     ✅ Procesar Movimiento
                                 </button>
