@@ -457,6 +457,23 @@
                     Operaciones procesadas y pendientes de pago
                 </div>
             </div>
+            
+            <!-- ✅ Filtro de búsqueda por ID -->
+            <div style="margin-top: 1rem; display: flex; justify-content: center;">
+                <form method="GET" style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="text" name="search_id" value="{{ search_id }}" 
+                           placeholder="Buscar operación por ID..." 
+                           style="padding: 0.5rem; border: 2px solid #ddd; border-radius: 8px; width: 200px;">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
+                    {% if search_id %}
+                    <a href="{% url 'inmobiliaria:operaciones' %}" class="btn btn-secondary btn-sm" title="Limpiar filtro">
+                        <i class="fas fa-times"></i> Limpiar
+                    </a>
+                    {% endif %}
+                </form>
+            </div>
         </div>
 
         <!-- Operaciones Lista -->
@@ -486,7 +503,7 @@
                             
                             <div style="flex: 1;">
                                 <h5 style="margin: 0; font-size: 1.1rem; color: #2c3e50; font-weight: 600;">
-                                    Operaci\u00f3n #{{ reserva.id }} - {{ reserva.propiedad.direccion|truncatechars:35 }}
+                                    Operación #{{ reserva.id }} - {{ reserva.propiedad.direccion|truncatechars:35 }}
                                 </h5>
                                 <div style="display: flex; align-items: center; gap: 1rem; margin-top: 0.3rem;">
                                     <span class="status-badge 

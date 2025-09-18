@@ -568,6 +568,11 @@ def operaciones(request):
         estado__in=['pagada', 'confirmada_no_pagada']
     ).prefetch_related('pagos').order_by('-id')
     
+    # ✅ Filtro de búsqueda por ID
+    search_id = request.GET.get('search_id', '').strip()
+    if search_id:
+        reservas = reservas.filter(id__icontains=search_id)
+    
     # Lista para almacenar solo las reservas con pagos
     reservas_con_pagos = []
     
@@ -651,7 +656,10 @@ def operaciones(request):
         else:
             print(f"❌ OPERACIONES - Reserva {reserva.id} SIN PAGOS REALES - No se incluye en operaciones")
     
-    return render(request, 'inmobiliaria/reserva/operaciones.html', {'reservas': reservas_con_pagos})
+    return render(request, 'inmobiliaria/reserva/operaciones.html', {
+        'reservas': reservas_con_pagos,
+        'search_id': search_id
+    })
 def crear_reserva(request):
 
     if request.method == 'POST':
