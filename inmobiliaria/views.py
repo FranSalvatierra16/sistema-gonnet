@@ -816,12 +816,9 @@ def confirmar_reserva(request):
                     sucursal=request.user.sucursal  # Asignar la sucursal del usuario
                 )
 
-                # ✅ LÓGICA SIMPLIFICADA: El método del modelo se encarga de toda la fragmentación
-                # Ya no necesitamos manejar disponibilidades manualmente aquí
-                # El método actualizar_historial_disponibilidad() en el modelo hace todo automáticamente
-                
+                # ✅ MANTENER DISPONIBILIDADES FIJAS - Solo actualizar historial
                 print(f"✅ Reserva creada correctamente. ID: {reserva.id}")
-                print(f"📋 La fragmentación de disponibilidades se maneja automáticamente en el modelo")
+                print(f"📋 Las disponibilidades se mantienen fijas, solo se actualiza el historial")
 
                 # Si es operación directa, crear el movimiento de caja
                 if es_operacion_directa:
@@ -7147,30 +7144,37 @@ def eliminar_disponibilidad(request, disponibilidad_id):
                     'error': 'No tienes permisos para eliminar esta disponibilidad'
                 })
             
-            # Buscar reservas existentes en el rango de fechas de la disponibilidad
-            # Validación más estricta: cualquier reserva que toque el período de disponibilidad
+            # Buscar reservas ACTIVAS en el rango de fechas de la disponibilidad
+            # Solo impedir eliminar si hay reservas ACTIVAS (no canceladas)
             reservas_existentes = Reserva.objects.filter(
                 propiedad=disponibilidad.propiedad,
-                estado__in=['confirmada', 'pagada', 'confirmada_no_pagada']
+                estado__in=['confirmada', 'pagada', 'confirmada_no_pagada']  # Solo reservas activas
             ).filter(
-                # Reserva que empieza antes o en el mismo día que termina la disponibilidad
-                # Y termina después o en el mismo día que empieza la disponibilidad
+                # Reserva que se superpone con la disponibilidad
                 fecha_inicio__lte=disponibilidad.fecha_fin,
                 fecha_fin__gte=disponibilidad.fecha_inicio
             ).order_by('fecha_inicio')
+            
+            # Verificar también reservas futuras (para no eliminar disponibilidades que ya tienen reservas confirmadas)
+            from datetime import date
+            hoy = date.today()
+            
+            reservas_futuras = reservas_existentes.filter(fecha_fin__gte=hoy)  # Reservas que no han terminado
             
             print(f"🔍 VALIDANDO ELIMINACIÓN DE DISPONIBILIDAD {disponibilidad.id}")
             print(f"📅 Disponibilidad: {disponibilidad.fecha_inicio} - {disponibilidad.fecha_fin}")
             print(f"🏠 Propiedad: {disponibilidad.propiedad.id}")
             print(f"📋 Reservas encontradas: {reservas_existentes.count()}")
+            print(f"📋 Reservas futuras/activas: {reservas_futuras.count()}")
             
             for reserva in reservas_existentes:
-                print(f"   - Reserva {reserva.id}: {reserva.fecha_inicio} - {reserva.fecha_fin} ({reserva.estado})")
+                es_futura = reserva.fecha_fin >= hoy
+                print(f"   - Reserva {reserva.id}: {reserva.fecha_inicio} - {reserva.fecha_fin} ({reserva.estado}) {'[ACTIVA]' if es_futura else '[PASADA]'}")
             
-            if reservas_existentes.exists():
-                # Si hay reservas, preparar la información para mostrar
+            if reservas_futuras.exists():
+                # Si hay reservas futuras/activas, preparar la información para mostrar
                 reservas_info = []
-                for reserva in reservas_existentes:
+                for reserva in reservas_futuras:  # Solo mostrar las reservas activas
                     reservas_info.append({
                         'id': reserva.id,
                         'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
@@ -7183,9 +7187,10 @@ def eliminar_disponibilidad(request, disponibilidad_id):
                 return JsonResponse({
                     'success': False,
                     'error': 'No se puede eliminar la disponibilidad',
-                    'motivo': 'Existen reservas en este período',
+                    'motivo': 'Existen reservas activas/futuras en este período',
                     'reservas': reservas_info,
-                    'total_reservas': len(reservas_info)
+                    'total_reservas': len(reservas_info),
+                    'nota': 'Solo se pueden eliminar disponibilidades sin reservas activas o futuras'
                 })
             
             # Si no hay reservas, eliminar la disponibilidad
