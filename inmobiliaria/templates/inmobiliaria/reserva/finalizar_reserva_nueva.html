@@ -240,8 +240,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Seña:</strong></label>
                                 <input type="text" class="form-control form-control-sm" name="senia" id="senia"
-                                       value="{{ senia_pendiente|format_price }}" placeholder="0"
-                                       oninput="actualizarSaldoPorSenia()" onchange="actualizarSaldoPorSenia()">
+                                       value="{{ senia_pendiente|format_price }}" placeholder="0">
                                 <small class="text-muted">💡 Monto a pagar en este momento</small>
                             </div>
                             
@@ -1358,46 +1357,42 @@ function calcularTotalPagos() {
 // Función específica para actualizar saldo cuando cambia la seña
 function actualizarSaldoPorSenia() {
     try {
-        // Obtener precio total de la operación
-        const precioTotal = parseFloat('{{ reserva.precio_total }}') || 0;
+        console.log('🚀 INICIANDO actualizarSaldoPorSenia()');
         
-        // ✅ OBTENER PAGOS ANTERIORES (lo que ya se pagó antes)
-        const totalSeniaPagada = parseFloat('{{ total_senia_pagada }}') || 0;
-        const totalDepositoPagado = parseFloat('{{ total_deposito_pagado }}') || 0;
-        const totalPagadoAntes = totalSeniaPagada + totalDepositoPagado;
+        // ✅ USAR EL SALDO PENDIENTE CALCULADO DEL BACKEND
+        const saldoPendiente = parseFloat('{{ saldo_a_ocupar }}') || 0;
         
         // Obtener la seña que se está ingresando ahora (limpiar formato de miles)
         const seniaInput = document.getElementById('senia');
-        if (!seniaInput) return;
+        if (!seniaInput) {
+            console.error('❌ No se encontró el campo senia');
+            return;
+        }
         
         // Limpiar el valor: quitar puntos, comas y espacios
         let seniaValue = seniaInput.value.replace(/[^\d]/g, ''); // Solo números
         const seniaActual = parseFloat(seniaValue) || 0;
         
-        // ✅ CÁLCULO CORRECTO: Precio Total - Pagos Anteriores - Seña Actual
-        const quedaPorPagar = Math.max(0, precioTotal - totalPagadoAntes - seniaActual);
+        // ✅ CÁLCULO SIMPLE: Saldo Pendiente - Seña Actual
+        const quedaPorPagar = Math.max(0, saldoPendiente - seniaActual);
         
         // Actualizar el campo "Queda por Pagar"
         const saldoOcuparElement = document.getElementById('saldo_ocupar');
         if (saldoOcuparElement) {
             saldoOcuparElement.value = quedaPorPagar.toLocaleString('es-ES');
+            console.log(`✅ Campo actualizado: ${quedaPorPagar.toLocaleString('es-ES')}`);
+        } else {
+            console.error('❌ No se encontró el campo saldo_ocupar');
         }
         
         // Logging detallado para debug
         console.log(`🔄 ACTUALIZACIÓN POR SEÑA:`);
-        console.log(`   💰 Precio Total: $${precioTotal.toLocaleString('es-ES')}`);
-        console.log(`   ✅ Pagado antes: $${totalPagadoAntes.toLocaleString('es-ES')} (Seña: $${totalSeniaPagada.toLocaleString('es-ES')} + Depósito: $${totalDepositoPagado.toLocaleString('es-ES')})`);
+        console.log(`   ⏳ Saldo pendiente: $${saldoPendiente.toLocaleString('es-ES')}`);
         console.log(`   💵 Seña actual: $${seniaActual.toLocaleString('es-ES')}`);
-        console.log(`   ⏳ Queda por pagar: $${quedaPorPagar.toLocaleString('es-ES')}`);
-        
-        // Mostrar alerta si el total supera el precio
-        const totalConSeñaActual = totalPagadoAntes + seniaActual;
-        if (totalConSeñaActual > precioTotal) {
-            console.warn(`⚠️ TOTAL SUPERA PRECIO: Total con seña actual: $${totalConSeñaActual.toLocaleString('es-ES')}, Precio: $${precioTotal.toLocaleString('es-ES')}`);
-        }
+        console.log(`   ✅ Queda por pagar: $${quedaPorPagar.toLocaleString('es-ES')}`);
         
     } catch (error) {
-        console.error('Error en actualizarSaldoPorSenia:', error);
+        console.error('❌ Error en actualizarSaldoPorSenia:', error);
     }
 }
 
@@ -1695,6 +1690,7 @@ document.addEventListener('DOMContentLoaded', function() {
             formatearNumeroEnTiempoReal(this);
             if (this.name === 'senia') {
                 // ✅ Cuando cambia la seña, actualizar el saldo inmediatamente
+                console.log('📝 Campo seña cambió, ejecutando actualizarSaldoPorSenia()');
                 actualizarSaldoPorSenia();
             } else if (this.name === 'importe_locacion') {
                 calcularSaldoOcupar();
@@ -1702,7 +1698,31 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
+    // ✅ Event listener directo para el campo seña
+    const seniaInput = document.getElementById('senia');
+    if (seniaInput) {
+        console.log('📋 Agregando event listeners específicos para seña');
+        
+        seniaInput.addEventListener('input', function() {
+            console.log('🔥 EVENT INPUT en seña detectado');
+            actualizarSaldoPorSenia();
+        });
+        
+        seniaInput.addEventListener('change', function() {
+            console.log('🔥 EVENT CHANGE en seña detectado');
+            actualizarSaldoPorSenia();
+        });
+        
+        seniaInput.addEventListener('keyup', function() {
+            console.log('🔥 EVENT KEYUP en seña detectado');
+            actualizarSaldoPorSenia();
+        });
+    } else {
+        console.error('❌ No se encontró el campo senia para agregar event listeners');
+    }
+    
     // Inicializar cálculos
+    console.log('🚀 Inicializando cálculos...');
     actualizarSaldoPorSenia(); // ✅ Inicializar cálculo de saldo basado en seña
     calcularSaldoOcupar(); // ✅ Inicializar saldo a ocupar primero
     calcularTotales(); // ✅ Inicializar totales primero
