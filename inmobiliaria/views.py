@@ -7427,6 +7427,16 @@ def configurar_numeracion_recibos(request, sucursal_id):
                 prefijo = request.POST.get('prefijo_recibo', '').strip()
                 ultimo_numero = request.POST.get('ultimo_numero_recibo', '').strip()
                 
+                # Si es la primera configuración y están vacíos, usar valores por defecto
+                if not prefijo:
+                    prefijo = '0001'  # Valor por defecto
+                if not ultimo_numero:
+                    ultimo_numero = '40000000'  # Valor por defecto
+                
+                print(f"   📋 DATOS RECIBIDOS:")
+                print(f"      - Prefijo: '{prefijo}'")
+                print(f"      - Último número: '{ultimo_numero}'")
+                
                 # Validaciones
                 if not prefijo or len(prefijo) != 4 or not prefijo.isdigit():
                     messages.error(request, 'El prefijo debe ser exactamente 4 dígitos numéricos')

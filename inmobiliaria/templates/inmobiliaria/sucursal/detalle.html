@@ -198,9 +198,19 @@
 function toggleNumeracionConfig() {
     const checkbox = document.getElementById('usar_numeracion_automatica');
     const config = document.getElementById('configuracion-numeracion');
+    const prefijoInput = document.getElementById('prefijo_recibo');
+    const numeroInput = document.getElementById('ultimo_numero_recibo');
     
     if (checkbox.checked) {
         config.style.display = 'block';
+        
+        // Si los campos están vacíos, asignar valores por defecto
+        if (!prefijoInput.value) {
+            prefijoInput.value = '0001';
+        }
+        if (!numeroInput.value || numeroInput.value < 10000000) {
+            numeroInput.value = '40000000';
+        }
     } else {
         config.style.display = 'none';
     }
@@ -228,8 +238,21 @@ document.getElementById('formNumeracionRecibos').addEventListener('submit', func
     const checkbox = document.getElementById('usar_numeracion_automatica');
     
     if (checkbox.checked) {
-        const prefijo = document.getElementById('prefijo_recibo').value;
-        const numero = document.getElementById('ultimo_numero_recibo').value;
+        const prefijoInput = document.getElementById('prefijo_recibo');
+        const numeroInput = document.getElementById('ultimo_numero_recibo');
+        
+        // Asegurar valores por defecto antes de validar
+        if (!prefijoInput.value) {
+            prefijoInput.value = '0001';
+        }
+        if (!numeroInput.value || parseInt(numeroInput.value) < 10000000) {
+            numeroInput.value = '40000000';
+        }
+        
+        const prefijo = prefijoInput.value;
+        const numero = parseInt(numeroInput.value);
+        
+        console.log(`🔍 VALIDANDO ENVÍO:`, { prefijo, numero });
         
         if (!prefijo || prefijo.length !== 4 || !/^\d{4}$/.test(prefijo)) {
             e.preventDefault();
@@ -239,9 +262,11 @@ document.getElementById('formNumeracionRecibos').addEventListener('submit', func
         
         if (!numero || numero < 10000000 || numero > 99999999) {
             e.preventDefault();
-            alert('❌ El número inicial debe ser de 8 dígitos (entre 10000000 y 99999999)');
+            alert(`❌ El número inicial debe ser de 8 dígitos (entre 10000000 y 99999999). Valor actual: ${numero}`);
             return;
         }
+        
+        console.log('✅ Validación exitosa, enviando formulario');
     }
 });
 </script>
