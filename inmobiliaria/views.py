@@ -6089,6 +6089,19 @@ def buscar_propiedades(request):
         
         # Para propiedades disponibles, calcular días libres reales
         try:
+            # PRIMERO: Verificar si la búsqueda está dentro de una reserva existente
+            reserva_que_contiene = Reserva.objects.filter(
+                propiedad=propiedad,
+                fecha_inicio__lte=fecha_inicio_busqueda,
+                fecha_fin__gte=fecha_fin_busqueda,
+                estado__in=['pagada', 'confirmada', 'confirmada_no_pagada']
+            ).first()
+            
+            if reserva_que_contiene:
+                # Si la búsqueda está DENTRO de una reserva, calcular días hasta el final de esa reserva
+                dias_hasta_fin_reserva = (reserva_que_contiene.fecha_fin - fecha_fin_busqueda).days
+                return dias_hasta_fin_reserva  # Valor muy bajo, aparecerá primero
+            
             # Buscar la reserva más cercana ANTES de la fecha de búsqueda
             reserva_anterior = Reserva.objects.filter(
                 propiedad=propiedad,
@@ -6103,7 +6116,7 @@ def buscar_propiedades(request):
                 estado__in=['pagada', 'confirmada', 'confirmada_no_pagada']
             ).order_by('fecha_inicio').first()
             
-            # Calcular días libres
+            # Calcular días libres totales
             dias_libres = 0
             
             if reserva_anterior:
