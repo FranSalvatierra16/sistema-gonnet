@@ -50,9 +50,200 @@
                             </table>
                         </div>
                     </div>
+                    
+                    <!-- Sección de Numeración de Recibos -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">
+                                        <i class="fas fa-receipt"></i> Configuración de Numeración de Recibos
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    {% if sucursal.usar_numeracion_automatica %}
+                                        <div class="alert alert-success">
+                                            <h6><i class="fas fa-check-circle"></i> Numeración Automática Activa</h6>
+                                            <div class="row">
+                                                <div class="col-md-4">
+                                                    <strong>Prefijo:</strong> {{ sucursal.prefijo_recibo }}
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <strong>Último número:</strong> {{ sucursal.ultimo_numero_recibo|stringformat:"08d" }}
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <strong>Próximo recibo:</strong> 
+                                                    <span class="badge bg-primary">{{ sucursal.obtener_proximo_numero_recibo }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-warning">
+                                            <h6><i class="fas fa-exclamation-triangle"></i> Numeración Automática Desactivada</h6>
+                                            <p class="mb-0">Los números de recibo se ingresarán manualmente para cada operación.</p>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if user.nivel == 4 %}
+                                        <div class="text-center mt-3">
+                                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNumeracionRecibos">
+                                                <i class="fas fa-cog"></i> Configurar Numeración
+                                            </button>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Modal para configurar numeración de recibos -->
+<div class="modal fade" id="modalNumeracionRecibos" tabindex="-1" aria-labelledby="modalNumeracionRecibosLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalNumeracionRecibosLabel">
+                    <i class="fas fa-receipt"></i> Configurar Numeración de Recibos
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formNumeracionRecibos" method="post" action="{% url 'inmobiliaria:configurar_numeracion_recibos' sucursal.id %}">
+                    {% csrf_token %}
+                    
+                    <!-- Activar numeración automática -->
+                    <div class="form-check form-switch mb-4">
+                        <input class="form-check-input" type="checkbox" id="usar_numeracion_automatica" 
+                               name="usar_numeracion_automatica" {% if sucursal.usar_numeracion_automatica %}checked{% endif %}
+                               onchange="toggleNumeracionConfig()">
+                        <label class="form-check-label" for="usar_numeracion_automatica">
+                            <strong>Activar numeración automática de recibos</strong>
+                        </label>
+                    </div>
+                    
+                    <!-- Configuración de numeración -->
+                    <div id="configuracion-numeracion" {% if not sucursal.usar_numeracion_automatica %}style="display: none;"{% endif %}>
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle"></i> Formato de numeración</h6>
+                            <p class="mb-2">Los recibos seguirán el formato: <strong>XXXX-XXXXXXXX</strong></p>
+                            <p class="mb-0">Ejemplo: <strong>0004-40000001</strong></p>
+                        </div>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="prefijo_recibo" class="form-label">
+                                    <i class="fas fa-hashtag"></i> Prefijo (4 dígitos) *
+                                </label>
+                                <input type="text" class="form-control" id="prefijo_recibo" name="prefijo_recibo" 
+                                       value="{{ sucursal.prefijo_recibo|default:'' }}" 
+                                       pattern="[0-9]{4}" maxlength="4" placeholder="0004"
+                                       oninput="actualizarPreview()">
+                                <div class="form-text">Solo números, exactamente 4 dígitos</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="ultimo_numero_recibo" class="form-label">
+                                    <i class="fas fa-counter"></i> Número inicial (8 dígitos) *
+                                </label>
+                                <input type="number" class="form-control" id="ultimo_numero_recibo" name="ultimo_numero_recibo" 
+                                       value="{{ sucursal.ultimo_numero_recibo }}" 
+                                       min="10000000" max="99999999" placeholder="40000000"
+                                       oninput="actualizarPreview()">
+                                <div class="form-text">Número de 8 dígitos (ejemplo: 40000000)</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Preview del próximo número -->
+                        <div class="mt-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6>Vista previa del próximo número de recibo:</h6>
+                                    <span id="preview-numero" class="badge bg-primary fs-5">
+                                        {% if sucursal.usar_numeracion_automatica %}
+                                            {{ sucursal.obtener_proximo_numero_recibo|default:"0000-00000000" }}
+                                        {% else %}
+                                            0000-00000000
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Advertencia importante -->
+                        <div class="alert alert-warning mt-3">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Importante</h6>
+                            <ul class="mb-0">
+                                <li>Una vez activada la numeración automática, los números se asignan secuencialmente</li>
+                                <li>No se puede decrementar el contador una vez que se han generado recibos</li>
+                                <li>Asegúrate de que el prefijo y número inicial sean correctos</li>
+                            </ul>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="formNumeracionRecibos" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Guardar Configuración
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleNumeracionConfig() {
+    const checkbox = document.getElementById('usar_numeracion_automatica');
+    const config = document.getElementById('configuracion-numeracion');
+    
+    if (checkbox.checked) {
+        config.style.display = 'block';
+    } else {
+        config.style.display = 'none';
+    }
+    
+    actualizarPreview();
+}
+
+function actualizarPreview() {
+    const checkbox = document.getElementById('usar_numeracion_automatica');
+    const prefijo = document.getElementById('prefijo_recibo').value || '0000';
+    const numero = parseInt(document.getElementById('ultimo_numero_recibo').value) || 0;
+    const preview = document.getElementById('preview-numero');
+    
+    if (checkbox.checked && prefijo && numero > 0) {
+        const proximoNumero = numero + 1;
+        const numeroFormateado = proximoNumero.toString().padStart(8, '0');
+        preview.textContent = `${prefijo}-${numeroFormateado}`;
+    } else {
+        preview.textContent = '0000-00000000';
+    }
+}
+
+// Validación del formulario
+document.getElementById('formNumeracionRecibos').addEventListener('submit', function(e) {
+    const checkbox = document.getElementById('usar_numeracion_automatica');
+    
+    if (checkbox.checked) {
+        const prefijo = document.getElementById('prefijo_recibo').value;
+        const numero = document.getElementById('ultimo_numero_recibo').value;
+        
+        if (!prefijo || prefijo.length !== 4 || !/^\d{4}$/.test(prefijo)) {
+            e.preventDefault();
+            alert('❌ El prefijo debe ser exactamente 4 dígitos numéricos');
+            return;
+        }
+        
+        if (!numero || numero < 10000000 || numero > 99999999) {
+            e.preventDefault();
+            alert('❌ El número inicial debe ser de 8 dígitos (entre 10000000 y 99999999)');
+            return;
+        }
+    }
+});
+</script>
+
 {% endblock %}

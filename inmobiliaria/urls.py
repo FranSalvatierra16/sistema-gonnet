@@ -60,6 +60,7 @@ urlpatterns = [
     path('disponibilidad-masiva/', views.agregar_disponibilidad_masiva, name='agregar_disponibilidad_masiva'),
     path('disponibilidad/<int:disponibilidad_id>/eliminar/', views.eliminar_disponibilidad, name='eliminar_disponibilidad'),
     path('disponibilidad/<int:disponibilidad_id>/editar/', views.editar_disponibilidad, name='editar_disponibilidad'),
+    path('sucursal/<int:sucursal_id>/configurar-numeracion-recibos/', views.configurar_numeracion_recibos, name='configurar_numeracion_recibos'),
     path('propiedad/<int:propiedad_id>/historial-disponibilidad/', views.ver_historial_disponibilidad, name='historial_disponibilidad'),
     path('limpiar-historial-disponibilidad/', views.limpiar_historial_disponibilidad, name='limpiar_historial_disponibilidad'),
     path('limpieza-brutal/', views.limpieza_brutal, name='limpieza_brutal'),

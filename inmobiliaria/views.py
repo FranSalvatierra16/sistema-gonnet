@@ -2623,7 +2623,15 @@ def procesar_movimiento_reserva(request):
                 
                 # ✅ CREAR RECIBO PARA ESTE PAGO
                 from .models.recibo import Recibo
-                numero_recibo = f"R{reserva.id:06d}-{len(pagos_anteriores) + 1:02d}"
+                # ✅ NUMERACIÓN AUTOMÁTICA DE RECIBOS POR SUCURSAL
+                sucursal = request.user.sucursal
+                if sucursal.usar_numeracion_automatica and sucursal.prefijo_recibo:
+                    numero_recibo = sucursal.generar_numero_recibo()
+                    print(f"🧾 NÚMERO AUTOMÁTICO GENERADO: {numero_recibo}")
+                else:
+                    # Fallback al formato anterior si no hay numeración automática
+                    numero_recibo = f"R{reserva.id:06d}-{len(pagos_anteriores) + 1:02d}"
+                    print(f"🧾 NÚMERO MANUAL GENERADO: {numero_recibo}")
                 
                 recibo = Recibo.objects.create(
                     numero_recibo=numero_recibo,
@@ -7395,3 +7403,77 @@ def editar_disponibilidad(request, disponibilidad_id):
         'success': False,
         'error': 'Método no permitido'
     })
+
+@login_required
+def configurar_numeracion_recibos(request, sucursal_id):
+    """
+    Vista para configurar la numeración automática de recibos de una sucursal
+    """
+    if request.method == 'POST':
+        try:
+            sucursal = get_object_or_404(Sucursal, id=sucursal_id)
+            
+            # Verificar permisos (solo administradores nivel 4)
+            if request.user.nivel < 4:
+                messages.error(request, 'No tienes permisos para configurar la numeración de recibos')
+                return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+            
+            usar_numeracion = request.POST.get('usar_numeracion_automatica') == 'on'
+            
+            print(f"🔧 CONFIGURANDO NUMERACIÓN RECIBOS - Sucursal: {sucursal.nombre}")
+            print(f"   Usar numeración automática: {usar_numeracion}")
+            
+            if usar_numeracion:
+                prefijo = request.POST.get('prefijo_recibo', '').strip()
+                ultimo_numero = request.POST.get('ultimo_numero_recibo', '').strip()
+                
+                # Validaciones
+                if not prefijo or len(prefijo) != 4 or not prefijo.isdigit():
+                    messages.error(request, 'El prefijo debe ser exactamente 4 dígitos numéricos')
+                    return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+                
+                try:
+                    ultimo_numero_int = int(ultimo_numero)
+                    if ultimo_numero_int < 10000000 or ultimo_numero_int > 99999999:
+                        raise ValueError()
+                except (ValueError, TypeError):
+                    messages.error(request, 'El número inicial debe ser de 8 dígitos (entre 10000000 y 99999999)')
+                    return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+                
+                # Si ya tenía numeración automática y se está cambiando el prefijo/número
+                if sucursal.usar_numeracion_automatica:
+                    if sucursal.prefijo_recibo != prefijo:
+                        print(f"   📝 Cambiando prefijo: {sucursal.prefijo_recibo} → {prefijo}")
+                    if sucursal.ultimo_numero_recibo != ultimo_numero_int:
+                        # Solo permitir incrementar el número, no decrementar
+                        if ultimo_numero_int < sucursal.ultimo_numero_recibo:
+                            messages.warning(request, 
+                                f'No se puede decrementar el contador. Último número usado: {sucursal.ultimo_numero_recibo}')
+                            return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+                        print(f"   📈 Ajustando número: {sucursal.ultimo_numero_recibo} → {ultimo_numero_int}")
+                
+                # Actualizar configuración
+                sucursal.usar_numeracion_automatica = True
+                sucursal.prefijo_recibo = prefijo
+                sucursal.ultimo_numero_recibo = ultimo_numero_int
+                sucursal.save()
+                
+                proximo_numero = sucursal.obtener_proximo_numero_recibo()
+                messages.success(request, f'✅ Numeración automática configurada. Próximo recibo: {proximo_numero}')
+                print(f"   ✅ Configuración guardada. Próximo número: {proximo_numero}")
+                
+            else:
+                # Desactivar numeración automática
+                sucursal.usar_numeracion_automatica = False
+                sucursal.save()
+                messages.success(request, '✅ Numeración automática desactivada. Los recibos se ingresarán manualmente.')
+                print(f"   ✅ Numeración automática desactivada")
+            
+            return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+            
+        except Exception as e:
+            print(f"❌ Error al configurar numeración: {e}")
+            messages.error(request, f'Error al guardar configuración: {str(e)}')
+            return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+    
+    return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal_id)

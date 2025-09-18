@@ -172,9 +172,27 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="row mb-4">
                             <div class="col-md-3">
                                 <label class="form-label"><strong>6. Nro de Recibo:</strong></label>
-                                <input type="text" class="form-control" name="numero_recibo" 
-                                       value="{{ numero_recibo }}" placeholder="0000-00000000" required>
-                                <small class="text-muted">Completar manualmente</small>
+                                {% if user.sucursal.usar_numeracion_automatica and user.sucursal.prefijo_recibo %}
+                                    <!-- Numeración automática activada -->
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-success text-white">
+                                            <i class="fas fa-magic"></i>
+                                        </span>
+                                        <input type="text" class="form-control bg-light" 
+                                               value="{{ user.sucursal.obtener_proximo_numero_recibo }}" 
+                                               readonly style="font-weight: bold; color: #28a745;">
+                                    </div>
+                                    <small class="text-success">
+                                        <i class="fas fa-check-circle"></i> Numeración automática activa
+                                    </small>
+                                {% else %}
+                                    <!-- Numeración manual -->
+                                    <input type="text" class="form-control" name="numero_recibo" 
+                                           value="{{ numero_recibo }}" placeholder="0000-00000000" required>
+                                    <small class="text-warning">
+                                        <i class="fas fa-edit"></i> Completar manualmente
+                                    </small>
+                                {% endif %}
                             </div>
                             
                             <div class="col-md-3">
