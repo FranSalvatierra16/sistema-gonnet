@@ -12,15 +12,14 @@ class Sucursal(models.Model):
     email = models.EmailField()
     
     # Configuración de numeración de recibos
-    prefijo_recibo = models.CharField(
-        max_length=4, 
+    prefijo_recibo = models.PositiveIntegerField(
         blank=True, 
         null=True,
-        help_text="Prefijo de 4 dígitos para numeración de recibos (ej: 0004)"
+        help_text="Número identificador para numeración de recibos (ej: 1, 2, 100)"
     )
     ultimo_numero_recibo = models.PositiveIntegerField(
-        default=40000000,
-        help_text="Último número de recibo generado (8 dígitos)"
+        default=1,
+        help_text="Último número de recibo generado (contador secuencial)"
     )
     usar_numeracion_automatica = models.BooleanField(
         default=False,
@@ -33,31 +32,27 @@ class Sucursal(models.Model):
     def generar_numero_recibo(self):
         """
         Genera el próximo número de recibo automáticamente
-        Formato: XXXX-XXXXXXXX (ej: 0004-40000001)
+        Formato: X-XX (ej: 1-01, 1-1000)
         """
-        if not self.usar_numeracion_automatica or not self.prefijo_recibo:
+        if not self.usar_numeracion_automatica or self.prefijo_recibo is None:
             return None
             
         # Incrementar el contador
         self.ultimo_numero_recibo += 1
         self.save(update_fields=['ultimo_numero_recibo'])
         
-        # Formatear número: asegurar 8 dígitos
-        numero_formateado = f"{self.ultimo_numero_recibo:08d}"
-        
-        # Retornar formato completo: XXXX-XXXXXXXX
-        return f"{self.prefijo_recibo}-{numero_formateado}"
+        # Retornar formato simple: X-XX
+        return f"{self.prefijo_recibo}-{self.ultimo_numero_recibo:02d}"
     
     def obtener_proximo_numero_recibo(self):
         """
         Obtiene el próximo número sin incrementar el contador (para preview)
         """
-        if not self.usar_numeracion_automatica or not self.prefijo_recibo:
+        if not self.usar_numeracion_automatica or self.prefijo_recibo is None:
             return None
             
         proximo_numero = self.ultimo_numero_recibo + 1
-        numero_formateado = f"{proximo_numero:08d}"
-        return f"{self.prefijo_recibo}-{numero_formateado}"
+        return f"{self.prefijo_recibo}-{proximo_numero:02d}"
 
     def crear_caja_inicial(self, usuario):
         """Método para crear una caja inicial para la sucursal"""

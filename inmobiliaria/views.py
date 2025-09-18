@@ -7429,31 +7429,35 @@ def configurar_numeracion_recibos(request, sucursal_id):
                 
                 # Si es la primera configuración y están vacíos, usar valores por defecto
                 if not prefijo:
-                    prefijo = '0001'  # Valor por defecto
+                    prefijo = '1'  # Valor por defecto
                 if not ultimo_numero:
-                    ultimo_numero = '40000000'  # Valor por defecto
+                    ultimo_numero = '1'  # Valor por defecto
                 
                 print(f"   📋 DATOS RECIBIDOS:")
                 print(f"      - Prefijo: '{prefijo}'")
                 print(f"      - Último número: '{ultimo_numero}'")
                 
                 # Validaciones
-                if not prefijo or len(prefijo) != 4 or not prefijo.isdigit():
-                    messages.error(request, 'El prefijo debe ser exactamente 4 dígitos numéricos')
+                try:
+                    prefijo_int = int(prefijo)
+                    if prefijo_int < 1 or prefijo_int > 99999:
+                        raise ValueError()
+                except (ValueError, TypeError):
+                    messages.error(request, 'El número identificador debe ser entre 1 y 99999')
                     return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
                 
                 try:
                     ultimo_numero_int = int(ultimo_numero)
-                    if ultimo_numero_int < 10000000 or ultimo_numero_int > 99999999:
+                    if ultimo_numero_int < 1 or ultimo_numero_int > 99999:
                         raise ValueError()
                 except (ValueError, TypeError):
-                    messages.error(request, 'El número inicial debe ser de 8 dígitos (entre 10000000 y 99999999)')
+                    messages.error(request, 'El contador inicial debe ser entre 1 y 99999')
                     return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
                 
                 # Si ya tenía numeración automática y se está cambiando el prefijo/número
                 if sucursal.usar_numeracion_automatica:
-                    if sucursal.prefijo_recibo != prefijo:
-                        print(f"   📝 Cambiando prefijo: {sucursal.prefijo_recibo} → {prefijo}")
+                    if sucursal.prefijo_recibo != prefijo_int:
+                        print(f"   📝 Cambiando prefijo: {sucursal.prefijo_recibo} → {prefijo_int}")
                     if sucursal.ultimo_numero_recibo != ultimo_numero_int:
                         # Solo permitir incrementar el número, no decrementar
                         if ultimo_numero_int < sucursal.ultimo_numero_recibo:
@@ -7464,7 +7468,7 @@ def configurar_numeracion_recibos(request, sucursal_id):
                 
                 # Actualizar configuración
                 sucursal.usar_numeracion_automatica = True
-                sucursal.prefijo_recibo = prefijo
+                sucursal.prefijo_recibo = prefijo_int
                 sucursal.ultimo_numero_recibo = ultimo_numero_int
                 sucursal.save()
                 

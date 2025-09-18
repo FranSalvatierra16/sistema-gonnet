@@ -129,30 +129,30 @@
                     <div id="configuracion-numeracion" {% if not sucursal.usar_numeracion_automatica %}style="display: none;"{% endif %}>
                         <div class="alert alert-info">
                             <h6><i class="fas fa-info-circle"></i> Formato de numeración</h6>
-                            <p class="mb-2">Los recibos seguirán el formato: <strong>XXXX-XXXXXXXX</strong></p>
-                            <p class="mb-0">Ejemplo: <strong>0004-40000001</strong></p>
+                            <p class="mb-2">Los recibos seguirán el formato: <strong>X-XX</strong></p>
+                            <p class="mb-0">Ejemplo: <strong>1-01</strong>, <strong>1-1000</strong></p>
                         </div>
                         
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label for="prefijo_recibo" class="form-label">
-                                    <i class="fas fa-hashtag"></i> Prefijo (4 dígitos) *
+                                    <i class="fas fa-hashtag"></i> Número identificador *
                                 </label>
-                                <input type="text" class="form-control" id="prefijo_recibo" name="prefijo_recibo" 
+                                <input type="number" class="form-control" id="prefijo_recibo" name="prefijo_recibo" 
                                        value="{{ sucursal.prefijo_recibo|default:'' }}" 
-                                       pattern="[0-9]{4}" maxlength="4" placeholder="0004"
+                                       min="1" max="99999" placeholder="1"
                                        oninput="actualizarPreview()">
-                                <div class="form-text">Solo números, exactamente 4 dígitos</div>
+                                <div class="form-text">Número que aparecerá antes del guión (ej: 1, 2, 100)</div>
                             </div>
                             <div class="col-md-6">
                                 <label for="ultimo_numero_recibo" class="form-label">
-                                    <i class="fas fa-counter"></i> Número inicial (8 dígitos) *
+                                    <i class="fas fa-counter"></i> Contador inicial *
                                 </label>
                                 <input type="number" class="form-control" id="ultimo_numero_recibo" name="ultimo_numero_recibo" 
                                        value="{{ sucursal.ultimo_numero_recibo }}" 
-                                       min="10000000" max="99999999" placeholder="40000000"
+                                       min="1" max="99999" placeholder="1"
                                        oninput="actualizarPreview()">
-                                <div class="form-text">Número de 8 dígitos (ejemplo: 40000000)</div>
+                                <div class="form-text">Número del primer recibo (ej: 1 → 1-01)</div>
                             </div>
                         </div>
                         
@@ -163,9 +163,9 @@
                                     <h6>Vista previa del próximo número de recibo:</h6>
                                     <span id="preview-numero" class="badge bg-primary fs-5">
                                         {% if sucursal.usar_numeracion_automatica %}
-                                            {{ sucursal.obtener_proximo_numero_recibo|default:"0000-00000000" }}
+                                            {{ sucursal.obtener_proximo_numero_recibo|default:"1-01" }}
                                         {% else %}
-                                            0000-00000000
+                                            1-01
                                         {% endif %}
                                     </span>
                                 </div>
@@ -206,10 +206,10 @@ function toggleNumeracionConfig() {
         
         // Si los campos están vacíos, asignar valores por defecto
         if (!prefijoInput.value) {
-            prefijoInput.value = '0001';
+            prefijoInput.value = '1';
         }
-        if (!numeroInput.value || numeroInput.value < 10000000) {
-            numeroInput.value = '40000000';
+        if (!numeroInput.value || numeroInput.value < 1) {
+            numeroInput.value = '1';
         }
     } else {
         config.style.display = 'none';
@@ -220,16 +220,16 @@ function toggleNumeracionConfig() {
 
 function actualizarPreview() {
     const checkbox = document.getElementById('usar_numeracion_automatica');
-    const prefijo = document.getElementById('prefijo_recibo').value || '0000';
+    const prefijo = document.getElementById('prefijo_recibo').value || '1';
     const numero = parseInt(document.getElementById('ultimo_numero_recibo').value) || 0;
     const preview = document.getElementById('preview-numero');
     
     if (checkbox.checked && prefijo && numero > 0) {
         const proximoNumero = numero + 1;
-        const numeroFormateado = proximoNumero.toString().padStart(8, '0');
+        const numeroFormateado = proximoNumero.toString().padStart(2, '0');
         preview.textContent = `${prefijo}-${numeroFormateado}`;
     } else {
-        preview.textContent = '0000-00000000';
+        preview.textContent = '1-01';
     }
 }
 
@@ -243,26 +243,26 @@ document.getElementById('formNumeracionRecibos').addEventListener('submit', func
         
         // Asegurar valores por defecto antes de validar
         if (!prefijoInput.value) {
-            prefijoInput.value = '0001';
+            prefijoInput.value = '1';
         }
-        if (!numeroInput.value || parseInt(numeroInput.value) < 10000000) {
-            numeroInput.value = '40000000';
+        if (!numeroInput.value || parseInt(numeroInput.value) < 1) {
+            numeroInput.value = '1';
         }
         
-        const prefijo = prefijoInput.value;
+        const prefijo = parseInt(prefijoInput.value);
         const numero = parseInt(numeroInput.value);
         
         console.log(`🔍 VALIDANDO ENVÍO:`, { prefijo, numero });
         
-        if (!prefijo || prefijo.length !== 4 || !/^\d{4}$/.test(prefijo)) {
+        if (!prefijo || prefijo < 1 || prefijo > 99999) {
             e.preventDefault();
-            alert('❌ El prefijo debe ser exactamente 4 dígitos numéricos');
+            alert('❌ El número identificador debe ser entre 1 y 99999');
             return;
         }
         
-        if (!numero || numero < 10000000 || numero > 99999999) {
+        if (!numero || numero < 1 || numero > 99999) {
             e.preventDefault();
-            alert(`❌ El número inicial debe ser de 8 dígitos (entre 10000000 y 99999999). Valor actual: ${numero}`);
+            alert(`❌ El contador inicial debe ser entre 1 y 99999. Valor actual: ${numero}`);
             return;
         }
         
