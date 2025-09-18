@@ -7215,3 +7215,183 @@ def eliminar_disponibilidad(request, disponibilidad_id):
         'success': False,
         'error': 'Método no permitido'
     })
+
+@login_required
+def editar_disponibilidad(request, disponibilidad_id):
+    """
+    Vista para editar una disponibilidad con validaciones inteligentes basadas en reservas
+    """
+    if request.method == 'POST':
+        try:
+            disponibilidad = get_object_or_404(Disponibilidad, id=disponibilidad_id)
+            
+            # Verificar permisos
+            if disponibilidad.propiedad.sucursal != request.user.sucursal:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No tienes permisos para editar esta disponibilidad'
+                })
+            
+            nueva_fecha_inicio = datetime.strptime(request.POST.get('fecha_inicio'), '%Y-%m-%d').date()
+            nueva_fecha_fin = datetime.strptime(request.POST.get('fecha_fin'), '%Y-%m-%d').date()
+            
+            # Validaciones básicas
+            if nueva_fecha_inicio >= nueva_fecha_fin:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'La fecha de inicio debe ser anterior a la fecha de fin'
+                })
+            
+            # Buscar reservas existentes en la disponibilidad actual
+            reservas_en_disponibilidad = Reserva.objects.filter(
+                propiedad=disponibilidad.propiedad,
+                fecha_inicio__lt=disponibilidad.fecha_fin,
+                fecha_fin__gt=disponibilidad.fecha_inicio,
+                estado__in=['confirmada', 'pagada', 'confirmada_no_pagada']
+            ).order_by('fecha_inicio')
+            
+            print(f"🔍 EDITANDO DISPONIBILIDAD {disponibilidad.id}")
+            print(f"📅 Original: {disponibilidad.fecha_inicio} - {disponibilidad.fecha_fin}")
+            print(f"📅 Nueva: {nueva_fecha_inicio} - {nueva_fecha_fin}")
+            print(f"📋 Reservas en disponibilidad: {reservas_en_disponibilidad.count()}")
+            
+            if reservas_en_disponibilidad.exists():
+                # HAY RESERVAS: Calcular límites permitidos
+                primera_reserva = reservas_en_disponibilidad.first()
+                ultima_reserva = reservas_en_disponibilidad.last()
+                
+                # Límites para fecha de inicio
+                limite_inicio_maximo = primera_reserva.fecha_inicio  # No puede pasar la primera reserva
+                
+                # Límites para fecha de fin
+                limite_fin_minimo = ultima_reserva.fecha_fin  # No puede ser antes de la última reserva
+                
+                print(f"🚧 LÍMITES CALCULADOS:")
+                print(f"   Fecha inicio: puede ir hasta {limite_inicio_maximo} (primera reserva)")
+                print(f"   Fecha fin: debe ser desde {limite_fin_minimo} (última reserva) en adelante")
+                
+                # Validar que las nuevas fechas respeten los límites
+                if nueva_fecha_inicio > limite_inicio_maximo:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'La fecha de inicio no puede ser posterior al {limite_inicio_maximo.strftime("%d/%m/%Y")}',
+                        'motivo': f'Hay una reserva que inicia el {primera_reserva.fecha_inicio.strftime("%d/%m/%Y")}',
+                        'limite_inicio_maximo': limite_inicio_maximo.strftime('%Y-%m-%d')
+                    })
+                
+                if nueva_fecha_fin < limite_fin_minimo:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'La fecha de fin no puede ser anterior al {limite_fin_minimo.strftime("%d/%m/%Y")}',
+                        'motivo': f'Hay una reserva que termina el {ultima_reserva.fecha_fin.strftime("%d/%m/%Y")}',
+                        'limite_fin_minimo': limite_fin_minimo.strftime('%Y-%m-%d')
+                    })
+                
+            # Verificar solapamiento con otras disponibilidades
+            otras_disponibilidades = Disponibilidad.objects.filter(
+                propiedad=disponibilidad.propiedad
+            ).exclude(id=disponibilidad.id).filter(
+                fecha_inicio__lt=nueva_fecha_fin,
+                fecha_fin__gt=nueva_fecha_inicio
+            )
+            
+            if otras_disponibilidades.exists():
+                conflictos = []
+                for otra in otras_disponibilidades:
+                    conflictos.append({
+                        'id': otra.id,
+                        'fecha_inicio': otra.fecha_inicio.strftime('%d/%m/%Y'),
+                        'fecha_fin': otra.fecha_fin.strftime('%d/%m/%Y')
+                    })
+                
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Las nuevas fechas se superponen con otras disponibilidades',
+                    'conflictos': conflictos
+                })
+            
+            # Si todas las validaciones pasan, actualizar la disponibilidad
+            fecha_inicio_anterior = disponibilidad.fecha_inicio.strftime('%d/%m/%Y')
+            fecha_fin_anterior = disponibilidad.fecha_fin.strftime('%d/%m/%Y')
+            
+            disponibilidad.fecha_inicio = nueva_fecha_inicio
+            disponibilidad.fecha_fin = nueva_fecha_fin
+            disponibilidad.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Disponibilidad actualizada correctamente',
+                'cambios': {
+                    'anterior': f'{fecha_inicio_anterior} - {fecha_fin_anterior}',
+                    'nueva': f'{nueva_fecha_inicio.strftime("%d/%m/%Y")} - {nueva_fecha_fin.strftime("%d/%m/%Y")}'
+                }
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error interno: {str(e)}'
+            })
+    
+    elif request.method == 'GET':
+        # Obtener información para edición (límites, etc.)
+        try:
+            disponibilidad = get_object_or_404(Disponibilidad, id=disponibilidad_id)
+            
+            # Buscar reservas en esta disponibilidad
+            reservas_en_disponibilidad = Reserva.objects.filter(
+                propiedad=disponibilidad.propiedad,
+                fecha_inicio__lt=disponibilidad.fecha_fin,
+                fecha_fin__gt=disponibilidad.fecha_inicio,
+                estado__in=['confirmada', 'pagada', 'confirmada_no_pagada']
+            ).order_by('fecha_inicio')
+            
+            limites = {
+                'fecha_inicio_actual': disponibilidad.fecha_inicio.strftime('%Y-%m-%d'),
+                'fecha_fin_actual': disponibilidad.fecha_fin.strftime('%Y-%m-%d'),
+                'tiene_reservas': reservas_en_disponibilidad.exists(),
+                'reservas_info': []
+            }
+            
+            if reservas_en_disponibilidad.exists():
+                primera_reserva = reservas_en_disponibilidad.first()
+                ultima_reserva = reservas_en_disponibilidad.last()
+                
+                limites.update({
+                    'limite_inicio_maximo': primera_reserva.fecha_inicio.strftime('%Y-%m-%d'),
+                    'limite_fin_minimo': ultima_reserva.fecha_fin.strftime('%Y-%m-%d'),
+                    'primera_reserva': {
+                        'fecha_inicio': primera_reserva.fecha_inicio.strftime('%d/%m/%Y'),
+                        'fecha_fin': primera_reserva.fecha_fin.strftime('%d/%m/%Y')
+                    },
+                    'ultima_reserva': {
+                        'fecha_inicio': ultima_reserva.fecha_inicio.strftime('%d/%m/%Y'),
+                        'fecha_fin': ultima_reserva.fecha_fin.strftime('%d/%m/%Y')
+                    }
+                })
+                
+                # Información de todas las reservas para mostrar al usuario
+                for reserva in reservas_en_disponibilidad:
+                    limites['reservas_info'].append({
+                        'id': reserva.id,
+                        'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
+                        'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
+                        'cliente': f"{reserva.cliente.nombre} {reserva.cliente.apellido}" if reserva.cliente else 'Sin cliente',
+                        'estado': reserva.get_estado_display()
+                    })
+            
+            return JsonResponse({
+                'success': True,
+                'disponibilidad': limites
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error interno: {str(e)}'
+            })
+    
+    return JsonResponse({
+        'success': False,
+        'error': 'Método no permitido'
+    })
