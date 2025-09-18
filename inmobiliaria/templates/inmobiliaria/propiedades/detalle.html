@@ -366,15 +366,24 @@
                                                         <tr>
                                                             <th>Fecha Inicio</th>
                                                             <th>Fecha Fin</th>
-                                                            
+                                                            <th>Acciones</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         {% for disponibilidad in disponibilidades %}
                                                             <tr>
-                                                                <td>{{ disponibilidad.fecha_inicio }}</td>
-                                                                <td>{{ disponibilidad.fecha_fin }}</td>
-                                                               
+                                                                <td>{{ disponibilidad.fecha_inicio|date:"d/m/Y" }}</td>
+                                                                <td>{{ disponibilidad.fecha_fin|date:"d/m/Y" }}</td>
+                                                                <td>
+                                                                    <button type="button" 
+                                                                            class="btn btn-danger btn-sm eliminar-disponibilidad"
+                                                                            data-disponibilidad-id="{{ disponibilidad.id }}"
+                                                                            data-fecha-inicio="{{ disponibilidad.fecha_inicio|date:'d/m/Y' }}"
+                                                                            data-fecha-fin="{{ disponibilidad.fecha_fin|date:'d/m/Y' }}"
+                                                                            title="Eliminar disponibilidad">
+                                                                        <i class="fas fa-trash"></i> Eliminar
+                                                                    </button>
+                                                                </td>
                                                             </tr>
                                                         {% empty %}
                                                             <tr>
@@ -1198,6 +1207,64 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     `;
     document.head.appendChild(style);
+    
+    // Manejar eliminación de disponibilidades
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.eliminar-disponibilidad')) {
+            const btn = e.target.closest('.eliminar-disponibilidad');
+            const disponibilidadId = btn.dataset.disponibilidadId;
+            const fechaInicio = btn.dataset.fechaInicio;
+            const fechaFin = btn.dataset.fechaFin;
+            
+            if (confirm(`¿Estás seguro que deseas eliminar la disponibilidad del ${fechaInicio} al ${fechaFin}?`)) {
+                // Deshabilitar el botón
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Eliminando...';
+                
+                const formData = new FormData();
+                formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+                
+                fetch(`{% url 'inmobiliaria:eliminar_disponibilidad' 0 %}`.replace('0', disponibilidadId), {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('✅ ' + data.message);
+                        location.reload();
+                    } else {
+                        // Si hay reservas existentes, mostrar información detallada
+                        if (data.reservas && data.reservas.length > 0) {
+                            let mensaje = `❌ ${data.error}\n\n${data.motivo}\n\n📋 RESERVAS EXISTENTES (${data.total_reservas}):\n`;
+                            data.reservas.forEach((reserva, index) => {
+                                mensaje += `\n${index + 1}. ID: ${reserva.id}`;
+                                mensaje += `\n   📅 ${reserva.fecha_inicio} - ${reserva.fecha_fin}`;
+                                mensaje += `\n   👤 ${reserva.cliente}`;
+                                mensaje += `\n   💰 $${reserva.precio}`;
+                                mensaje += `\n   📊 ${reserva.estado}\n`;
+                            });
+                            alert(mensaje);
+                        } else {
+                            alert('❌ ' + data.error);
+                        }
+                        
+                        // Restaurar el botón
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-trash"></i> Eliminar';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('❌ Error de conexión. Intenta nuevamente.');
+                    
+                    // Restaurar el botón
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-trash"></i> Eliminar';
+                });
+            }
+        }
+    });
 });
 </script>
 {% endblock %}

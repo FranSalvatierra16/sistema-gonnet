@@ -58,6 +58,7 @@ urlpatterns = [
     path('api/propiedad/<int:propiedad_id>/', views.api_propiedad_detalle, name='api_propiedad_detalle'),
     path('recibo-movimiento/<int:movimiento_id>/', views.ver_recibo_movimiento, name='ver_recibo_movimiento'),
     path('disponibilidad-masiva/', views.agregar_disponibilidad_masiva, name='agregar_disponibilidad_masiva'),
+    path('disponibilidad/<int:disponibilidad_id>/eliminar/', views.eliminar_disponibilidad, name='eliminar_disponibilidad'),
     path('propiedad/<int:propiedad_id>/historial-disponibilidad/', views.ver_historial_disponibilidad, name='historial_disponibilidad'),
     path('limpiar-historial-disponibilidad/', views.limpiar_historial_disponibilidad, name='limpiar_historial_disponibilidad'),
     path('limpieza-brutal/', views.limpieza_brutal, name='limpieza_brutal'),

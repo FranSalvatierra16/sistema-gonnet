@@ -7129,3 +7129,72 @@ def finalizar_reserva_nueva(request, reserva_id):
         messages.error(request, f'Error al cargar la reserva: {str(e)}')
         return redirect('inmobiliaria:reservas')
 
+
+
+@login_required
+def eliminar_disponibilidad(request, disponibilidad_id):
+    """
+    Vista para eliminar una disponibilidad validando que no tenga reservas existentes
+    """
+    if request.method == 'POST':
+        try:
+            disponibilidad = get_object_or_404(Disponibilidad, id=disponibilidad_id)
+            
+            # Verificar que la disponibilidad pertenezca a la sucursal del usuario
+            if disponibilidad.propiedad.sucursal != request.user.sucursal:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No tienes permisos para eliminar esta disponibilidad'
+                })
+            
+            # Buscar reservas existentes en el rango de fechas de la disponibilidad
+            reservas_existentes = Reserva.objects.filter(
+                propiedad=disponibilidad.propiedad,
+                fecha_inicio__lt=disponibilidad.fecha_fin,
+                fecha_fin__gt=disponibilidad.fecha_inicio,
+                estado__in=['confirmada', 'pagada', 'confirmada_no_pagada']
+            ).order_by('fecha_inicio')
+            
+            if reservas_existentes.exists():
+                # Si hay reservas, preparar la información para mostrar
+                reservas_info = []
+                for reserva in reservas_existentes:
+                    reservas_info.append({
+                        'id': reserva.id,
+                        'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
+                        'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
+                        'cliente': f"{reserva.cliente.nombre} {reserva.cliente.apellido}" if reserva.cliente else 'Sin cliente',
+                        'estado': reserva.get_estado_display(),
+                        'precio': str(reserva.precio_total)
+                    })
+                
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No se puede eliminar la disponibilidad',
+                    'motivo': 'Existen reservas en este período',
+                    'reservas': reservas_info,
+                    'total_reservas': len(reservas_info)
+                })
+            
+            # Si no hay reservas, eliminar la disponibilidad
+            propiedad_direccion = disponibilidad.propiedad.direccion
+            fecha_inicio = disponibilidad.fecha_inicio.strftime('%d/%m/%Y')
+            fecha_fin = disponibilidad.fecha_fin.strftime('%d/%m/%Y')
+            
+            disponibilidad.delete()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Disponibilidad eliminada correctamente del {fecha_inicio} al {fecha_fin} para {propiedad_direccion}'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error interno: {str(e)}'
+            })
+    
+    return JsonResponse({
+        'success': False,
+        'error': 'Método no permitido'
+    })
