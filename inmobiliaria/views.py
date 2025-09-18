@@ -6097,10 +6097,12 @@ def buscar_propiedades(request):
             ).first()
             
             if disponibilidad_que_contiene:
-                # Si está dentro de una disponibilidad, calcular días hasta el FINAL de esa disponibilidad
-                # Esto da prioridad a disponibilidades más largas (menos días libres = más arriba)
-                dias_hasta_fin = (disponibilidad_que_contiene.fecha_fin - fecha_fin_busqueda).days
-                return dias_hasta_fin
+                # Si está dentro de una disponibilidad, calcular días libres ANTES y DESPUÉS
+                # de la búsqueda dentro de esa misma disponibilidad
+                dias_antes_busqueda = (fecha_inicio_busqueda - disponibilidad_que_contiene.fecha_inicio).days
+                dias_despues_busqueda = (disponibilidad_que_contiene.fecha_fin - fecha_fin_busqueda).days
+                total_dias_libres = dias_antes_busqueda + dias_despues_busqueda
+                return total_dias_libres
             
             # Si NO está dentro de una disponibilidad, buscar la más cercana antes y después
             disponibilidad_anterior = Disponibilidad.objects.filter(
