@@ -6087,53 +6087,37 @@ def buscar_propiedades(request):
         if propiedad.estado_reserva == 'confirmada_no_pagada':
             return -1  # Rojas van primero (valor negativo)
         
-        # Para propiedades disponibles, calcular días libres reales
+        # Para propiedades disponibles, calcular días libres basado en DISPONIBILIDADES
         try:
-            # PRIMERO: Verificar si la búsqueda está dentro de una reserva existente
-            reserva_que_contiene = Reserva.objects.filter(
+            # Buscar la última disponibilidad ANTES de la fecha de búsqueda
+            disponibilidad_anterior = Disponibilidad.objects.filter(
                 propiedad=propiedad,
-                fecha_inicio__lte=fecha_inicio_busqueda,
-                fecha_fin__gte=fecha_fin_busqueda,
-                estado__in=['pagada', 'confirmada', 'confirmada_no_pagada']
-            ).first()
-            
-            if reserva_que_contiene:
-                # Si la búsqueda está DENTRO de una reserva, calcular días hasta el final de esa reserva
-                dias_hasta_fin_reserva = (reserva_que_contiene.fecha_fin - fecha_fin_busqueda).days
-                return dias_hasta_fin_reserva  # Valor muy bajo, aparecerá primero
-            
-            # Buscar la reserva más cercana ANTES de la fecha de búsqueda
-            reserva_anterior = Reserva.objects.filter(
-                propiedad=propiedad,
-                fecha_fin__lt=fecha_inicio_busqueda,
-                estado__in=['pagada', 'confirmada', 'confirmada_no_pagada']
+                fecha_fin__lt=fecha_inicio_busqueda
             ).order_by('-fecha_fin').first()
             
-            # Buscar la reserva más cercana DESPUÉS de la fecha de búsqueda  
-            reserva_posterior = Reserva.objects.filter(
+            # Buscar la próxima disponibilidad DESPUÉS de la fecha de búsqueda  
+            disponibilidad_posterior = Disponibilidad.objects.filter(
                 propiedad=propiedad,
-                fecha_inicio__gt=fecha_fin_busqueda,
-                estado__in=['pagada', 'confirmada', 'confirmada_no_pagada']
+                fecha_inicio__gt=fecha_fin_busqueda
             ).order_by('fecha_inicio').first()
             
             # Calcular días libres totales
             dias_libres = 0
             
-            if reserva_anterior:
-                # Días desde el fin de la reserva anterior hasta el inicio de búsqueda
-                dias_libres += (fecha_inicio_busqueda - reserva_anterior.fecha_fin).days - 1
+            if disponibilidad_anterior:
+                # Días entre el fin de la última disponibilidad y el inicio de búsqueda
+                dias_antes = (fecha_inicio_busqueda - disponibilidad_anterior.fecha_fin).days
+                dias_libres += max(dias_antes, 0)  # No puede ser negativo
             else:
-                # Si no hay reserva anterior, asumir muchos días libres antes
+                # Si no hay disponibilidad anterior, asumir muchos días libres antes
                 dias_libres += 365
-                
-            # Días de la búsqueda
-            dias_libres += (fecha_fin_busqueda - fecha_inicio_busqueda).days + 1
             
-            if reserva_posterior:
-                # Días desde el fin de búsqueda hasta el inicio de la próxima reserva
-                dias_libres += (reserva_posterior.fecha_inicio - fecha_fin_busqueda).days - 1
+            if disponibilidad_posterior:
+                # Días entre el fin de búsqueda y el inicio de la próxima disponibilidad
+                dias_despues = (disponibilidad_posterior.fecha_inicio - fecha_fin_busqueda).days
+                dias_libres += max(dias_despues, 0)  # No puede ser negativo
             else:
-                # Si no hay reserva posterior, asumir muchos días libres después
+                # Si no hay disponibilidad posterior, asumir muchos días libres después
                 dias_libres += 365
                 
             return dias_libres
