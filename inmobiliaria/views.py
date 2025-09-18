@@ -6089,13 +6089,25 @@ def buscar_propiedades(request):
         
         # Para propiedades disponibles, calcular días libres basado en DISPONIBILIDADES
         try:
-            # Buscar la última disponibilidad ANTES de la fecha de búsqueda
+            # PRIMERO: Verificar si hay una disponibilidad que CONTIENE el período de búsqueda
+            disponibilidad_que_contiene = Disponibilidad.objects.filter(
+                propiedad=propiedad,
+                fecha_inicio__lte=fecha_inicio_busqueda,
+                fecha_fin__gte=fecha_fin_busqueda
+            ).first()
+            
+            if disponibilidad_que_contiene:
+                # Si está dentro de una disponibilidad, calcular días hasta el FINAL de esa disponibilidad
+                # Esto da prioridad a disponibilidades más largas (menos días libres = más arriba)
+                dias_hasta_fin = (disponibilidad_que_contiene.fecha_fin - fecha_fin_busqueda).days
+                return dias_hasta_fin
+            
+            # Si NO está dentro de una disponibilidad, buscar la más cercana antes y después
             disponibilidad_anterior = Disponibilidad.objects.filter(
                 propiedad=propiedad,
                 fecha_fin__lt=fecha_inicio_busqueda
             ).order_by('-fecha_fin').first()
             
-            # Buscar la próxima disponibilidad DESPUÉS de la fecha de búsqueda  
             disponibilidad_posterior = Disponibilidad.objects.filter(
                 propiedad=propiedad,
                 fecha_inicio__gt=fecha_fin_busqueda
@@ -6107,7 +6119,7 @@ def buscar_propiedades(request):
             if disponibilidad_anterior:
                 # Días entre el fin de la última disponibilidad y el inicio de búsqueda
                 dias_antes = (fecha_inicio_busqueda - disponibilidad_anterior.fecha_fin).days
-                dias_libres += max(dias_antes, 0)  # No puede ser negativo
+                dias_libres += max(dias_antes, 0)
             else:
                 # Si no hay disponibilidad anterior, asumir muchos días libres antes
                 dias_libres += 365
@@ -6115,7 +6127,7 @@ def buscar_propiedades(request):
             if disponibilidad_posterior:
                 # Días entre el fin de búsqueda y el inicio de la próxima disponibilidad
                 dias_despues = (disponibilidad_posterior.fecha_inicio - fecha_fin_busqueda).days
-                dias_libres += max(dias_despues, 0)  # No puede ser negativo
+                dias_libres += max(dias_despues, 0)
             else:
                 # Si no hay disponibilidad posterior, asumir muchos días libres después
                 dias_libres += 365
