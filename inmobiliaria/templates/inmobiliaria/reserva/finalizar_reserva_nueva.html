@@ -240,11 +240,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Seña:</strong></label>
                                 <input type="text" class="form-control form-control-sm" name="senia" id="senia"
-                                       value="{{ senia_pendiente|format_price }}" placeholder="0"
-                                       onkeyup="actualizarSaldoPorSenia()" onchange="actualizarSaldoPorSenia()" 
-                                       oninput="actualizarSaldoPorSenia()" onblur="actualizarSaldoPorSenia()">
+                                       value="{{ senia_pendiente|format_price }}" placeholder="0">
                                 <small class="text-muted">💡 Monto a pagar en este momento</small>
-                                <button type="button" class="btn btn-warning btn-sm mt-1" onclick="testActualizarSaldo()" style="font-size: 10px;">
+                                <button type="button" class="btn btn-warning btn-sm mt-1" id="testSaldoBtn" style="font-size: 10px;">
                                     🧪 TEST SALDO
                                 </button>
                             </div>
@@ -261,7 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="input-group">
                                     <input type="text" class="form-control form-control-sm" id="saldo_ocupar"
                                            value="{{ saldo_a_ocupar|format_price }}" readonly style="background-color: #f8f9fa;">
-                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="actualizarSaldoPorSenia()" title="Recalcular">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="recalcularBtn" title="Recalcular">
                                         🔄
                                     </button>
                                 </div>
@@ -1430,11 +1428,7 @@ function actualizarSaldoPorSenia() {
     }
 }
 
-// 🧪 Función de test simple
-function testActualizarSaldo() {
-    console.log('🧪 EJECUTANDO TEST...');
-    actualizarSaldoPorSenia();
-}
+// 🧪 Función de test eliminada - ahora se usa event listener
 
 // Función para calcular saldo a ocupar (versión original para otros cálculos)
 function calcularSaldoOcupar() {
@@ -1643,34 +1637,7 @@ function habilitarBotonProcesar(habilitar) {
     }
 }
 
-// Event listeners para campos
-document.addEventListener('DOMContentLoaded', function() {
-    
-    // Calcular saldo a ocupar cuando cambian los valores
-    const seniaInput = document.querySelector('input[name="senia"]');
-    const importeLocacionInput = document.querySelector('input[name="importe_locacion"]');
-    const depositoGarantiaInput = document.querySelector('input[name="deposito_garantia"]');
-    
-    // ✅ Event listener para el depósito de garantía
-    if (depositoGarantiaInput) {
-        depositoGarantiaInput.addEventListener('input', function() {
-            calcularTotales();
-            calcularSaldoOcupar();
-            habilitarBotonProcesar();
-        });
-    }
-    
-    // Actualizar eventos para recalcular el saldo cuando cambien los pagos
-    ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito_galicia', 'monto_deposito_mp'].forEach(function(id) {
-        const input = document.getElementById(id);
-        if (input) {
-            input.addEventListener('input', function() {
-                calcularTotalPagos();
-                calcularSaldoOcupar();
-                habilitarBotonProcesar();
-            });
-        }
-    });
+// ✅ Event listeners consolidados - movidos al bloque principal
     
     // ✅ Función para formatear números mientras se escriben
     function formatearNumeroEnTiempoReal(input) {
@@ -1757,8 +1724,54 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('🔥 EVENT KEYUP en seña detectado');
             actualizarSaldoPorSenia();
         });
+        
+        seniaInput.addEventListener('blur', function() {
+            console.log('🔥 EVENT BLUR en seña detectado');
+            actualizarSaldoPorSenia();
+        });
     } else {
         console.error('❌ No se encontró el campo senia para agregar event listeners');
+    }
+    
+    // ✅ Event listeners para depósito de garantía y otros campos 
+    const importeLocacionInput = document.querySelector('input[name="importe_locacion"]');
+    const depositoGarantiaInput = document.querySelector('input[name="deposito_garantia"]');
+    
+    if (depositoGarantiaInput) {
+        depositoGarantiaInput.addEventListener('input', function() {
+            calcularTotales();
+            calcularSaldoOcupar();
+            habilitarBotonProcesar();
+        });
+    }
+    
+    // Actualizar eventos para recalcular el saldo cuando cambien los pagos
+    ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito_galicia', 'monto_deposito_mp'].forEach(function(id) {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('input', function() {
+                calcularTotalPagos();
+                calcularSaldoOcupar();
+                habilitarBotonProcesar();
+            });
+        }
+    });
+    
+    // ✅ Event listeners para botones
+    const testSaldoBtn = document.getElementById('testSaldoBtn');
+    if (testSaldoBtn) {
+        testSaldoBtn.addEventListener('click', function() {
+            console.log('🧪 EJECUTANDO TEST...');
+            actualizarSaldoPorSenia();
+        });
+    }
+    
+    const recalcularBtn = document.getElementById('recalcularBtn');
+    if (recalcularBtn) {
+        recalcularBtn.addEventListener('click', function() {
+            console.log('🔄 RECALCULANDO...');
+            actualizarSaldoPorSenia();
+        });
     }
     
     // Inicializar cálculos
