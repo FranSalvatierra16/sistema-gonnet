@@ -549,8 +549,18 @@ def ver_disponibilidad(request, propiedad_id):
     return render(request, 'inmobiliaria/ver_disponibilidad.html', context)
 @login_required                                                                 
 def reservas(request):
-    reservas = Reserva.objects.filter(sucursal=request.user.sucursal)
-    return render(request, 'inmobiliaria/reserva/lista.html', {'reservas': reservas})
+    # ✅ Ordenar por ID descendente como en operaciones
+    reservas = Reserva.objects.filter(sucursal=request.user.sucursal).order_by('-id')
+    
+    # ✅ Filtro de búsqueda por ID (opcional)
+    search_id = request.GET.get('search_id', '').strip()
+    if search_id:
+        reservas = reservas.filter(id__icontains=search_id)
+    
+    return render(request, 'inmobiliaria/reserva/lista.html', {
+        'reservas': reservas,
+        'search_id': search_id
+    })
 def operaciones(request):
     # Obtener solo reservas pagadas (completas o con saldo pendiente) ordenadas por fecha más reciente
     reservas = Reserva.objects.filter(

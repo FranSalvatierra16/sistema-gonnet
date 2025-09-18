@@ -311,10 +311,25 @@
             <h1 class="page-title">📋 Reservas Pendientes</h1>
             <p class="subtitle">Gestiona todas las reservas que están esperando confirmación o pago</p>
             
-            <div class="text-center">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                 <a href="{% url 'inmobiliaria:crear_reserva' %}" class="btn-nueva-reserva">
                     <i class="fas fa-plus me-2"></i>Nueva Reserva
                 </a>
+                
+                <!-- ✅ Filtro de búsqueda por ID -->
+                <form method="GET" style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="text" name="search_id" value="{{ search_id }}" 
+                           placeholder="Buscar por ID..." 
+                           style="padding: 0.5rem; border: 2px solid #ddd; border-radius: 8px; width: 150px;">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    {% if search_id %}
+                    <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-secondary btn-sm" title="Limpiar">
+                        <i class="fas fa-times"></i>
+                    </a>
+                    {% endif %}
+                </form>
             </div>
         </div>
 
@@ -332,7 +347,7 @@
                                 <i class="fas fa-home"></i>
                             </div>
                             <div>
-                                <h3 class="property-title">{{ reserva.propiedad }}</h3>
+                                <h3 class="property-title">Reserva #{{ reserva.id }} - {{ reserva.propiedad }}</h3>
                                 <span class="status-badge {% if reserva.estado == 'en_espera' %}status-en-espera{% else %}status-confirmada{% endif %}">
                                     {% if reserva.estado == 'en_espera' %}En Espera{% else %}Confirmada No Pagada{% endif %}
                                 </span>
