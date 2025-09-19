@@ -414,7 +414,17 @@
                     <!-- Pestaña de Venta -->
                     <div class="tab-pane fade" id="venta" role="tabpanel">
                         <div class="container mt-4">
-                            {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
+                            <!-- ✅ DEBUG: Mostrar info de venta -->
+                            <div class="alert alert-info">
+                                <strong>DEBUG:</strong>
+                                {% if info_venta %}
+                                    ✅ Info venta existe - En venta: {{ info_venta.en_venta }} - Precio: {{ info_venta.precio_venta|default:"Sin precio" }}
+                                {% else %}
+                                    ❌ No hay info_venta para esta propiedad
+                                {% endif %}
+                            </div>
+                            
+                            {% if info_venta and info_venta.en_venta %}
                                 <div class="card">
                                     <div class="card-header bg-primary text-white">
                                         <h4 class="mb-0">Información de Venta</h4>
@@ -718,16 +728,16 @@
                         <div class="modal-content">
                             <form method="post" action="{% url 'inmobiliaria:editar_info_venta' propiedad_id=propiedad.id %}">
                                 {% csrf_token %}
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="modalVentaLabel">
-                                        {% if propiedad.info_venta and propiedad.info_venta.en_venta %}
-                                            Editar información de venta
-                                        {% else %}
-                                            Activar venta de propiedad
-                                        {% endif %}
-                                    </h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="modalVentaLabel">
+                                            {% if info_venta and info_venta.en_venta %}
+                                                Editar información de venta
+                                            {% else %}
+                                                Activar venta de propiedad
+                                            {% endif %}
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
                                 <div class="modal-body">
                                     <div class="form-check mb-4">
                                         <input class="form-check-input" type="checkbox" name="en_venta" id="en_venta" 
@@ -1340,6 +1350,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
         }
+    });
+    
+    // ✅ DEBUG: Mostrar información del modal de venta cuando se abre
+    document.getElementById('modalVenta').addEventListener('show.bs.modal', function() {
+        console.log('🏠 MODAL VENTA ABIERTO - DEBUG:');
+        {% if info_venta %}
+            console.log('   ✅ Info venta existe:');
+            console.log('   - En venta: {{ info_venta.en_venta }}');
+            console.log('   - Precio venta: {{ info_venta.precio_venta|default:"null" }}');
+            console.log('   - Precio autorización: {{ info_venta.precio_autorizacion|default:"null" }}');
+            console.log('   - Estado: {{ info_venta.estado|default:"null" }}');
+            console.log('   - Metros cuadrados: {{ info_venta.metros_cuadrados|default:"null" }}');
+        {% else %}
+            console.log('   ❌ No hay info_venta para esta propiedad');
+        {% endif %}
+        
+        // Verificar valores de los campos
+        console.log('   📋 Valores de campos:');
+        console.log('   - Checkbox en_venta:', document.getElementById('en_venta').checked);
+        console.log('   - Metros cuadrados:', document.getElementById('metros_cuadrados').value);
+        console.log('   - Precio venta:', document.getElementById('precio_venta').value);
+        console.log('   - Precio autorización:', document.getElementById('precio_autorizacion').value);
     });
     
     // Manejar edición de disponibilidades
