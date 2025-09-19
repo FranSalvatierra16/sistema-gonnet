@@ -253,17 +253,22 @@
                                 </div>
                                 <img src="{{ imagen.imagen.url }}" class="card-img-top" alt="Imagen de propiedad" 
                                      style="height: 200px; object-fit: cover;">
-                                <div class="card-body p-2 d-flex justify-content-between align-items-center">
+                                
+                                <!-- Botón eliminar más visible -->
+                                <button type="button" 
+                                        class="btn btn-danger btn-sm eliminar-imagen position-absolute"
+                                        data-imagen-id="{{ imagen.id }}"
+                                        title="Click para eliminar imagen"
+                                        style="top: 8px; right: 50px; z-index: 10;"
+                                        onmouseover="console.log('🗑️ Hover en botón eliminar ID: {{ imagen.id }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                
+                                <div class="card-body p-2 d-flex justify-content-center align-items-center">
                                     <small class="text-muted">
                                         <i class="fas fa-sort-numeric-up me-1"></i>
                                         Orden: <span class="orden-texto">{{ imagen.orden }}</span>
                                     </small>
-                                    <button type="button" 
-                                            class="btn btn-danger btn-sm eliminar-imagen"
-                                            data-imagen-id="{{ imagen.id }}"
-                                            title="Eliminar imagen">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -612,18 +617,36 @@
     
     .eliminar-imagen {
         background: linear-gradient(135deg, #dc3545, #c82333) !important;
-        border: none !important;
+        border: 2px solid white !important;
         color: white !important;
         font-weight: 600;
         text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        transition: all 0.2s ease;
-        box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+        width: 36px !important;
+        height: 36px !important;
+        border-radius: 50% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    
+    .image-card:hover .eliminar-imagen {
+        opacity: 1;
+        transform: scale(1);
     }
     
     .eliminar-imagen:hover {
         background: linear-gradient(135deg, #c82333, #a71e2a) !important;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+        transform: scale(1.1) !important;
+        box-shadow: 0 6px 20px rgba(220, 53, 69, 0.6) !important;
+        border-color: #fff !important;
+    }
+    
+    .eliminar-imagen:active {
+        transform: scale(0.95) !important;
     }
     
     .image-controls .btn {
@@ -779,8 +802,17 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 $(document).ready(function() {
+    console.log('📸 Página de formulario cargada');
+    console.log('📸 Botones eliminar encontrados:', $('.eliminar-imagen').length);
+    
+    // Test inicial de botones eliminar
+    $('.eliminar-imagen').each(function(index) {
+        console.log(`📸 Botón ${index + 1}: ID=${$(this).data('imagen-id')}, Visible=${$(this).is(':visible')}`);
+    });
+    
     // Inicialización de Select2 para propietario
     $('.select2-propietario').select2({
         ajax: {
@@ -863,50 +895,88 @@ $(document).ready(function() {
 
     // Los botones de movimiento fueron removidos - solo drag & drop ahora 🎯
 
-    // Funcionalidad para eliminar imágenes
-    $('#imagenes-container').on('click', '.eliminar-imagen', function(e) {
+    // Funcionalidad para eliminar imágenes (MEJORADA)
+    $(document).on('click', '.eliminar-imagen', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        if (isDragging) return;
+        
+        console.log('🗑️ Click en botón eliminar detectado');
+        console.log('🗑️ isDragging:', isDragging);
+        
+        if (isDragging) {
+            console.log('🗑️ Cancelando eliminación porque se está arrastrando');
+            return;
+        }
         
         const $btn = $(this);
         const idImg = $btn.data('imagen-id');
         
-        console.log('🗑️ Intentando eliminar imagen:', idImg);
+        console.log('🗑️ Intentando eliminar imagen ID:', idImg);
+        console.log('🗑️ Botón:', $btn[0]);
         
-        if (!confirm('¿Eliminar la imagen definitivamente?')) return;
-        
-        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
-        
-        const deleteUrl = "{% url 'inmobiliaria:imagen_eliminar' 0 %}".replace('0', idImg);
-        console.log('🔗 URL de eliminación:', deleteUrl);
-        
-        $.post({
-            url: deleteUrl,
-            data: {
-                'csrfmiddlewaretoken': CSRF
-            },
-            success: function(response) {
-                console.log('✅ Respuesta de eliminación:', response);
-                if (response.success) {
-                    $btn.closest('.col-6, .col-md-4, .col-lg-3').fadeOut(300, function() {
-                        $(this).remove();
-                        enviarOrdenAlServidor(false); // No mostrar toast al eliminar
-                        showToast('Imagen eliminada correctamente', 'success');
-                    });
-                } else {
-                    console.error('❌ Error del servidor:', response.error);
-                    showToast('Error: ' + (response.error || 'Error desconocido'), 'error');
+        // Función para confirmar eliminación
+        function confirmarEliminacion() {
+            console.log('🗑️ Usuario confirmó eliminación');
+            
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+            
+            const deleteUrl = "{% url 'inmobiliaria:imagen_eliminar' 0 %}".replace('0', idImg);
+            console.log('🔗 URL de eliminación:', deleteUrl);
+            
+            $.post({
+                url: deleteUrl,
+                data: {
+                    'csrfmiddlewaretoken': CSRF
+                },
+                success: function(response) {
+                    console.log('✅ Respuesta de eliminación:', response);
+                    if (response.success) {
+                        $btn.closest('.col-6, .col-md-4, .col-lg-3').fadeOut(300, function() {
+                            $(this).remove();
+                            enviarOrdenAlServidor(false); // No mostrar toast al eliminar
+                            showToast('Imagen eliminada correctamente', 'success');
+                        });
+                    } else {
+                        console.error('❌ Error del servidor:', response.error);
+                        showToast('Error: ' + (response.error || 'Error desconocido'), 'error');
+                        $btn.prop('disabled', false).html('<i class="fas fa-trash"></i>');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('❌ Error de conexión:', { xhr, status, error });
+                    console.error('❌ Respuesta:', xhr.responseText);
+                    showToast('Error de conexión: ' + error, 'error');
                     $btn.prop('disabled', false).html('<i class="fas fa-trash"></i>');
                 }
-            },
-            error: function(xhr, status, error) {
-                console.error('❌ Error de conexión:', { xhr, status, error });
-                console.error('❌ Respuesta:', xhr.responseText);
-                showToast('Error de conexión: ' + error, 'error');
-                $btn.prop('disabled', false).html('<i class="fas fa-trash"></i>');
+            });
+        }
+        
+        // Usar SweetAlert2 si está disponible, sino confirm nativo
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: '¿Eliminar imagen?',
+                text: 'Esta acción no se puede deshacer',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    confirmarEliminacion();
+                } else {
+                    console.log('🗑️ Usuario canceló eliminación');
+                }
+            });
+        } else {
+            // Fallback a confirm nativo
+            if (confirm('¿Eliminar la imagen definitivamente?\n\nEsta acción no se puede deshacer.')) {
+                confirmarEliminacion();
+            } else {
+                console.log('🗑️ Usuario canceló eliminación');
             }
-        });
+        }
     });
 
     // Hacer las imágenes arrastrables con jQuery UI Sortable (SOLO DRAG & DROP)
