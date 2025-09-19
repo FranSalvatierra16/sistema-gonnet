@@ -4415,15 +4415,69 @@ def ventas(request):
     if estado:
         propiedades_venta = propiedades_venta.filter(info_venta__estado=estado)
 
+    # Filtro por ambientes
+    ambientes = request.GET.get('ambientes', '')
+    if ambientes:
+        if ambientes == '5':  # 5+ ambientes
+            propiedades_venta = propiedades_venta.filter(ambientes__gte=5)
+        else:
+            propiedades_venta = propiedades_venta.filter(ambientes=int(ambientes))
+
+    # Filtros avanzados
+    tipo_inmueble = request.GET.get('tipo_inmueble', '')
+    if tipo_inmueble:
+        propiedades_venta = propiedades_venta.filter(tipo_inmueble=tipo_inmueble)
+
+    vista = request.GET.get('vista', '')
+    if vista:
+        propiedades_venta = propiedades_venta.filter(vista=vista)
+
+    valoracion = request.GET.get('valoracion', '')
+    if valoracion:
+        propiedades_venta = propiedades_venta.filter(valoracion=int(valoracion))
+
+    # Filtros de precio
+    precio_min = request.GET.get('precio_min', '')
+    if precio_min:
+        propiedades_venta = propiedades_venta.filter(info_venta__precio_venta__gte=float(precio_min))
+
+    precio_max = request.GET.get('precio_max', '')
+    if precio_max:
+        propiedades_venta = propiedades_venta.filter(info_venta__precio_venta__lte=float(precio_max))
+
+    # Filtros de características (checkboxes)
+    caracteristicas_filtros = [
+        'amoblado', 'cochera', 'wifi', 'piscina', 'patio', 'parrilla', 
+        'terraza', 'balcon', 'vista_al_Mar', 'a_estrenar', 'seguridad', 'apto_credito'
+    ]
+    
+    for caracteristica in caracteristicas_filtros:
+        if request.GET.get(caracteristica):
+            # Filtrar propiedades que tienen esta característica marcada como True
+            filter_kwargs = {caracteristica: True}
+            propiedades_venta = propiedades_venta.filter(**filter_kwargs)
+
     context = {
         'propiedades': propiedades_venta,
         'busqueda': busqueda,
         'estado_filtro': estado,
+        'ambientes_filtro': ambientes,
         'estados': VentaPropiedad.ESTADO_CHOICES,
         'telefono_empresa': '5492235916229',
         'total_propiedades': total_propiedades,
         'propiedades_disponibles': propiedades_disponibles,
         'propiedades_reservadas': propiedades_reservadas,
+        # Filtros avanzados para mantener en el contexto
+        'tipo_inmueble_filtro': tipo_inmueble,
+        'vista_filtro': vista,
+        'valoracion_filtro': valoracion,
+        'precio_min_filtro': precio_min,
+        'precio_max_filtro': precio_max,
+        # Características seleccionadas
+        'caracteristicas_seleccionadas': {
+            caracteristica: request.GET.get(caracteristica, False) 
+            for caracteristica in caracteristicas_filtros
+        }
     }
     
     return render(request, 'inmobiliaria/propiedades/ventas.html', context)

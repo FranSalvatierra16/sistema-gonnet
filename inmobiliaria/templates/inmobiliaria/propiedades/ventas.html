@@ -655,20 +655,6 @@
 
 <script>
 // JavaScript para Modal de Filtros de Ventas
-function abrirModalFiltrosVentas() {
-    console.log('Abriendo modal de filtros de ventas...');
-    try {
-        const modalElement = document.getElementById('modalFiltrosAvanzadosVentas');
-        if (modalElement) {
-            const modal = new bootstrap.Modal(modalElement);
-            modal.show();
-        } else {
-            console.error('Modal de filtros de ventas no encontrado');
-        }
-    } catch (error) {
-        console.error('Error al abrir modal de filtros de ventas:', error);
-    }
-}
 
 function aplicarFiltrosAvanzadosVentas() {
     console.log('Aplicando filtros avanzados de ventas...');
@@ -815,6 +801,81 @@ function limpiarFiltrosVentas() {
 }
 
 let propiedadesImagenesVenta = {};
+
+// Mantener valores seleccionados en el modal cuando se abre
+function cargarValoresEnModal() {
+    console.log('Cargando valores actuales en el modal...');
+    
+    // Cargar valores de filtros básicos desde la URL
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Tipo de inmueble
+    const tipoInmueble = urlParams.get('tipo_inmueble') || '{{ tipo_inmueble_filtro }}';
+    if (tipoInmueble) {
+        const selectTipo = document.getElementById('filtro_tipo_inmueble_ventas');
+        if (selectTipo) selectTipo.value = tipoInmueble;
+    }
+    
+    // Vista
+    const vista = urlParams.get('vista') || '{{ vista_filtro }}';
+    if (vista) {
+        const selectVista = document.getElementById('filtro_vista_ventas');
+        if (selectVista) selectVista.value = vista;
+    }
+    
+    // Valoración
+    const valoracion = urlParams.get('valoracion') || '{{ valoracion_filtro }}';
+    if (valoracion) {
+        const selectValoracion = document.getElementById('filtro_valoracion_ventas');
+        if (selectValoracion) selectValoracion.value = valoracion;
+    }
+    
+    // Precios
+    const precioMin = urlParams.get('precio_min') || '{{ precio_min_filtro }}';
+    if (precioMin) {
+        const inputPrecioMin = document.getElementById('filtro_precio_min_ventas');
+        if (inputPrecioMin) inputPrecioMin.value = precioMin;
+    }
+    
+    const precioMax = urlParams.get('precio_max') || '{{ precio_max_filtro }}';
+    if (precioMax) {
+        const inputPrecioMax = document.getElementById('filtro_precio_max_ventas');
+        if (inputPrecioMax) inputPrecioMax.value = precioMax;
+    }
+    
+    // Características (checkboxes)
+    const caracteristicas = ['amoblado', 'cochera', 'wifi', 'piscina', 'patio', 'parrilla', 'terraza', 'balcon', 'vista_al_Mar', 'a_estrenar', 'seguridad', 'apto_credito'];
+    
+    caracteristicas.forEach(caracteristica => {
+        const valor = urlParams.get(caracteristica);
+        if (valor) {
+            const checkbox = document.getElementById(`filtro_${caracteristica}_ventas`);
+            if (checkbox) {
+                checkbox.checked = true;
+                console.log(`Marcando característica: ${caracteristica}`);
+            }
+        }
+    });
+}
+
+// Modificar la función de abrir modal para cargar valores
+function abrirModalFiltrosVentas() {
+    console.log('Abriendo modal de filtros de ventas...');
+    try {
+        const modalElement = document.getElementById('modalFiltrosAvanzadosVentas');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+            
+            // Cargar valores actuales cuando se abre el modal
+            setTimeout(cargarValoresEnModal, 100);
+        } else {
+            console.error('Modal de filtros de ventas no encontrado');
+        }
+    } catch (error) {
+        console.error('Error al abrir modal de filtros de ventas:', error);
+    }
+}
 
 // Recopilar todas las imágenes de las propiedades en venta
 document.addEventListener('DOMContentLoaded', function() {
