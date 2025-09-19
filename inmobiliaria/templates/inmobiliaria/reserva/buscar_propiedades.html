@@ -1327,18 +1327,18 @@
                                 style="padding: 12px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 14px;"
                                 onmouseover="this.style.background='#2563eb'"
                                 onmouseout="this.style.background='#3b82f6'">Todos</button>
-                        <button onclick="limpiarBusquedaInquilino()" 
-                                style="padding: 12px 16px; background: #64748b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 14px;"
-                                onmouseover="this.style.background='#475569'"
-                                onmouseout="this.style.background='#64748b'">Limpiar</button>
+                        <button onclick="mostrarModalCrearInquilino()" 
+                                style="padding: 12px 16px; background: #16a34a; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 14px;"
+                                onmouseover="this.style.background='#15803d'"
+                                onmouseout="this.style.background='#16a34a'">Crear</button>
                     </div>
                     <div id="estado_busqueda" style="font-size: 13px; color: #64748b; min-height: 18px; padding: 8px 0;"></div>
                 </div>
                 
                 <!-- Lista de Inquilinos -->
-                <div style="display: flex; gap: 12px;">
+                <div>
                     <select id="inquilino" onchange="actualizarInquilinoId()" size="4"
-                            style="flex: 1; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; background: #ffffff !important; color: #1e293b !important; font-weight: 500 !important; font-family: 'Segoe UI', Arial, sans-serif !important; transition: all 0.2s; cursor: pointer !important; max-height: 160px; overflow-y: auto;"
+                            style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; background: #ffffff !important; color: #1e293b !important; font-weight: 500 !important; font-family: 'Segoe UI', Arial, sans-serif !important; transition: all 0.2s; cursor: pointer !important; max-height: 160px; overflow-y: auto;"
                             onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1) !important'"
                             onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none !important'">
                         <option value="" style="color: #64748b !important; background: #f8fafc !important; font-weight: 500 !important; font-size: 14px !important; text-align: center; padding: 8px !important;">-- Selecciona un inquilino --</option>
@@ -1349,16 +1349,6 @@
                         </option>
                         {% endfor %}
                     </select>
-                    <div style="display: flex; flex-direction: column; gap: 8px; min-width: 100px;">
-                        <button onclick="mostrarModalCrearInquilino()" 
-                                style="padding: 12px 16px; background: #16a34a; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 13px;"
-                                onmouseover="this.style.background='#15803d'"
-                                onmouseout="this.style.background='#16a34a'">Crear</button>
-                        <button onclick="seleccionarPrimerInquilino()" 
-                                style="padding: 12px 16px; background: #64748b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 13px;"
-                                onmouseover="this.style.background='#475569'"
-                                onmouseout="this.style.background='#64748b'">Ver</button>
-                    </div>
                 </div>
             </div>
         </div>
