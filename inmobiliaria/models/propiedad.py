@@ -56,7 +56,7 @@ class HistorialDisponibilidad(models.Model):
     ESTADO_CHOICES = [
         ('libre', 'Libre'),
         ('reservado', 'Reservado'),
-        ('ocupado', 'Ocupado')
+        ('alquilado', 'Alquilado')
     ]
 
     propiedad = models.ForeignKey(
@@ -468,24 +468,26 @@ class Reserva(models.Model):
                 disponibilidades_a_eliminar.append(disponibilidad)
                 
                 # 3️⃣ CREAR FRAGMENTO ANTERIOR (si hay espacio antes de la reserva)
+                # 🏨 LÓGICA HOTEL: Libre hasta el día de entrada INCLUSIVO
                 if fecha_inicio_disp < self.fecha_inicio:
-                    fecha_fin_anterior = self.fecha_inicio - timedelta(days=1)
+                    fecha_fin_anterior = self.fecha_inicio  # ✅ INCLUYE el día de entrada
                     nuevas_disponibilidades.append({
                         'fecha_inicio': fecha_inicio_disp,
                         'fecha_fin': fecha_fin_anterior,
                         'tipo': 'ANTERIOR'
                     })
-                    print(f"      ✅ Fragmento ANTERIOR: {fecha_inicio_disp} al {fecha_fin_anterior}")
+                    print(f"      ✅ Fragmento ANTERIOR: {fecha_inicio_disp} al {fecha_fin_anterior} (libre hasta día de entrada inclusivo)")
                 
                 # 4️⃣ CREAR FRAGMENTO POSTERIOR (si hay espacio después de la reserva)
+                # 🏨 LÓGICA HOTEL: Libre desde el día de salida INCLUSIVO
                 if fecha_fin_disp > self.fecha_fin:
-                    fecha_inicio_posterior = self.fecha_fin + timedelta(days=1)
+                    fecha_inicio_posterior = self.fecha_fin  # ✅ INCLUYE el día de salida
                     nuevas_disponibilidades.append({
                         'fecha_inicio': fecha_inicio_posterior,
                         'fecha_fin': fecha_fin_disp,
                         'tipo': 'POSTERIOR'
                     })
-                    print(f"      ✅ Fragmento POSTERIOR: {fecha_inicio_posterior} al {fecha_fin_disp}")
+                    print(f"      ✅ Fragmento POSTERIOR: {fecha_inicio_posterior} al {fecha_fin_disp} (libre desde día de salida inclusivo)")
             
             # 5️⃣ ELIMINAR disponibilidades originales
             for disp in disponibilidades_a_eliminar:
@@ -533,12 +535,13 @@ class Reserva(models.Model):
                 'tipo': 'disponibilidad'
             })
         
-        # Agregar reservas (períodos reservados/ocupados)
+        # Agregar reservas (períodos reservados/alquilados)
         reservas = self.propiedad.reservas.filter(
             estado__in=['confirmada', 'confirmada_no_pagada', 'pagada']
         )
         for reserva in reservas:
-            estado = 'ocupado' if reserva.estado == 'pagada' else 'reservado'
+            # ✅ ESTADOS CORRECTOS: reservada → reservado, pagada → alquilado
+            estado = 'alquilado' if reserva.estado == 'pagada' else 'reservado'
             periodos.append({
                 'fecha_inicio': reserva.fecha_inicio,
                 'fecha_fin': reserva.fecha_fin,
@@ -560,7 +563,7 @@ class Reserva(models.Model):
                 reserva=periodo['reserva']
             )
             
-            estado_emoji = {'libre': '🟢', 'reservado': '🟡', 'ocupado': '🔴'}[periodo['estado']]
+            estado_emoji = {'libre': '🟢', 'reservado': '🟡', 'alquilado': '🔴'}[periodo['estado']]
             print(f"   {i+1:02d}. {estado_emoji} {periodo['estado'].upper()}: {periodo['fecha_inicio']} al {periodo['fecha_fin']} ({periodo['tipo']})")
         
         print(f"✅ HISTORIAL CRONOLÓGICO COMPLETADO: {len(periodos)} períodos")

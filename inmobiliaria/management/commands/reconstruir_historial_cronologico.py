@@ -94,12 +94,13 @@ class Command(BaseCommand):
             
             self.stdout.write(f"📅 {disponibilidades.count()} disponibilidades encontradas")
             
-            # Agregar reservas (períodos reservados/ocupados)
+            # Agregar reservas (períodos reservados/alquilados)
             reservas = propiedad.reservas.filter(
                 estado__in=['confirmada', 'confirmada_no_pagada', 'pagada']
             )
             for reserva in reservas:
-                estado = 'ocupado' if reserva.estado == 'pagada' else 'reservado'
+                # ✅ ESTADOS CORRECTOS: reservada → reservado, pagada → alquilado
+                estado = 'alquilado' if reserva.estado == 'pagada' else 'reservado'
                 periodos.append({
                     'fecha_inicio': reserva.fecha_inicio,
                     'fecha_fin': reserva.fecha_fin,
@@ -124,7 +125,7 @@ class Command(BaseCommand):
                     reserva=periodo['reserva']
                 )
                 
-                estado_emoji = {'libre': '🟢', 'reservado': '🟡', 'ocupado': '🔴'}[periodo['estado']]
+                estado_emoji = {'libre': '🟢', 'reservado': '🟡', 'alquilado': '🔴'}[periodo['estado']]
                 self.stdout.write(f"   {i+1:02d}. {estado_emoji} {periodo['estado'].upper()}: {periodo['fecha_inicio']} al {periodo['fecha_fin']} ({periodo['tipo']})")
             
             self.stdout.write(f"✅ HISTORIAL RECONSTRUIDO: {len(periodos)} períodos cronológicos")
