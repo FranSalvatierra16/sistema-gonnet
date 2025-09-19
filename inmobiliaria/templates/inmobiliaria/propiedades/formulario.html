@@ -240,23 +240,12 @@
                         <div class="col-6 col-md-4 col-lg-3" data-imagen-id="{{ imagen.id }}">
                             <div class="card image-card position-relative">
                                 <div class="image-overlay">
-                                    <div class="image-controls">
-                                        <button type="button" class="btn btn-sm btn-light btn-move-left" 
-                                                title="Mover a la izquierda" data-direction="left">
-                                            <i class="fas fa-chevron-left"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-light btn-move-right" 
-                                                title="Mover a la derecha" data-direction="right">
-                                            <i class="fas fa-chevron-right"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-primary btn-move-first" 
-                                                title="Mover al inicio">
-                                            <i class="fas fa-fast-backward"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-info btn-move-last" 
-                                                title="Mover al final">
-                                            <i class="fas fa-fast-forward"></i>
-                                        </button>
+                                    <div class="image-controls text-center">
+                                        <div class="mb-2">
+                                            <i class="fas fa-hand-paper fa-2x text-white mb-2"></i>
+                                            <p class="mb-1 text-white fw-bold">Arrastra desde el ícono verde</p>
+                                            <small class="text-white-50">para reordenar</small>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="drag-handle">
@@ -584,21 +573,57 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0,0,0,0.7);
+        background: rgba(0,0,0,0.8);
         opacity: 0;
         visibility: hidden;
-        transition: all 0.3s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         display: flex;
         align-items: center;
         justify-content: center;
         z-index: 2;
+        backdrop-filter: blur(2px);
+        border-radius: 8px;
     }
     
     .image-controls {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        padding: 10px;
+        gap: 10px;
+        padding: 15px;
+    }
+    
+    .image-controls .btn {
+        border: none !important;
+        font-weight: 600;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .image-controls .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    
+    .image-controls .btn-light:hover {
+        background: #fff !important;
+        color: #333 !important;
+    }
+    
+    .eliminar-imagen {
+        background: linear-gradient(135deg, #dc3545, #c82333) !important;
+        border: none !important;
+        color: white !important;
+        font-weight: 600;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+    }
+    
+    .eliminar-imagen:hover {
+        background: linear-gradient(135deg, #c82333, #a71e2a) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
     }
     
     .image-controls .btn {
@@ -619,27 +644,45 @@
     
     .drag-handle {
         position: absolute;
-        top: 5px;
-        left: 5px;
-        background: rgba(255,255,255,0.9);
-        color: #666;
-        border-radius: 4px;
-        padding: 5px 8px;
+        top: 8px;
+        left: 8px;
+        background: linear-gradient(135deg, #4caf50, #45a049);
+        color: white;
+        border-radius: 8px;
+        padding: 8px;
         cursor: grab;
         z-index: 3;
         transition: all 0.3s ease;
         font-size: 14px;
+        opacity: 0;
+        transform: scale(0.8);
+        box-shadow: 0 3px 12px rgba(76, 175, 80, 0.4);
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .image-card:hover .drag-handle {
+        opacity: 1;
+        transform: scale(1);
     }
     
     .drag-handle:hover {
-        background: rgba(255,255,255,1);
-        color: #333;
-        transform: scale(1.05);
+        background: linear-gradient(135deg, #66bb6a, #5cb85c);
+        color: white;
+        transform: scale(1.1);
+        box-shadow: 0 8px 25px rgba(76, 175, 80, 0.6);
+        cursor: grab;
     }
     
     .drag-handle:active {
-        cursor: grabbing;
+        cursor: grabbing !important;
+        transform: scale(1.05);
+        background: linear-gradient(135deg, #5cb85c, #4cae4c);
     }
+    
     
     .sortable-placeholder {
         border: 3px dashed #4caf50 !important;
@@ -650,8 +693,21 @@
     }
     
     @keyframes pulse {
-        0%, 100% { opacity: 0.6; }
-        50% { opacity: 1; }
+        0%, 100% { 
+            opacity: 0.6; 
+            transform: scale(0.98);
+            border-color: #4caf50;
+        }
+        50% { 
+            opacity: 1; 
+            transform: scale(1);
+            border-color: #66bb6a;
+        }
+    }
+    
+    .drag-dimmed {
+        opacity: 0.4 !important;
+        transition: opacity 0.3s ease !important;
     }
     
     .drag-placeholder {
@@ -781,6 +837,10 @@ $(document).ready(function() {
     function enviarOrdenAlServidor(mostrarToast = true) {
         const nuevaLista = actualizarOrdenes();
         
+        console.log('🔄 Enviando orden al servidor:', nuevaLista);
+        console.log('🔗 URL:', URL_REORDENAR);
+        console.log('🔐 CSRF:', CSRF);
+        
         $.post({
             url: URL_REORDENAR,
             data: { 
@@ -788,63 +848,20 @@ $(document).ready(function() {
                 'ordenes': JSON.stringify(nuevaLista) 
             },
             success: function(response) {
+                console.log('✅ Respuesta del servidor:', response);
                 if (response.success && mostrarToast) {
                     showToast('Orden actualizado correctamente', 'success');
                 }
             },
-            error: function() {
-                showToast('Error al actualizar el orden', 'error');
+            error: function(xhr, status, error) {
+                console.error('❌ Error al reordenar:', { xhr, status, error });
+                console.error('❌ Respuesta:', xhr.responseText);
+                showToast('Error al actualizar el orden: ' + error, 'error');
             }
         });
     }
 
-    // Manejar botones de movimiento específicos
-    $(document).on('click', '.btn-move-left, .btn-move-right, .btn-move-first, .btn-move-last', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const $btn = $(this);
-        const $container = $btn.closest('.col-6, .col-md-4, .col-lg-3');
-        const $allContainers = $('#imagenes-container > div');
-        const currentIndex = $allContainers.index($container);
-        let newIndex = currentIndex;
-        
-        // Agregar animación
-        $container.addClass('moving-animation');
-        
-        if ($btn.hasClass('btn-move-left') && currentIndex > 0) {
-            newIndex = currentIndex - 1;
-        } else if ($btn.hasClass('btn-move-right') && currentIndex < $allContainers.length - 1) {
-            newIndex = currentIndex + 1;
-        } else if ($btn.hasClass('btn-move-first')) {
-            newIndex = 0;
-        } else if ($btn.hasClass('btn-move-last')) {
-            newIndex = $allContainers.length - 1;
-        }
-        
-        if (newIndex !== currentIndex) {
-            // Mover el elemento
-            if (newIndex === 0) {
-                $container.prependTo('#imagenes-container');
-            } else if (newIndex === $allContainers.length - 1) {
-                $container.appendTo('#imagenes-container');
-            } else {
-                if (newIndex < currentIndex) {
-                    $container.insertBefore($allContainers.eq(newIndex));
-                } else {
-                    $container.insertAfter($allContainers.eq(newIndex));
-                }
-            }
-            
-            // Actualizar y enviar al servidor
-            setTimeout(() => {
-                enviarOrdenAlServidor(true);
-                $container.removeClass('moving-animation');
-            }, 250);
-        } else {
-            $container.removeClass('moving-animation');
-        }
-    });
+    // Los botones de movimiento fueron removidos - solo drag & drop ahora 🎯
 
     // Funcionalidad para eliminar imágenes
     $('#imagenes-container').on('click', '.eliminar-imagen', function(e) {
@@ -855,67 +872,99 @@ $(document).ready(function() {
         const $btn = $(this);
         const idImg = $btn.data('imagen-id');
         
+        console.log('🗑️ Intentando eliminar imagen:', idImg);
+        
         if (!confirm('¿Eliminar la imagen definitivamente?')) return;
         
         $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
         
+        const deleteUrl = "{% url 'inmobiliaria:imagen_eliminar' 0 %}".replace('0', idImg);
+        console.log('🔗 URL de eliminación:', deleteUrl);
+        
         $.post({
-            url: "{% url 'inmobiliaria:imagen_eliminar' 0 %}".replace('0', idImg),
+            url: deleteUrl,
             data: {
                 'csrfmiddlewaretoken': CSRF
             },
             success: function(response) {
+                console.log('✅ Respuesta de eliminación:', response);
                 if (response.success) {
                     $btn.closest('.col-6, .col-md-4, .col-lg-3').fadeOut(300, function() {
                         $(this).remove();
                         enviarOrdenAlServidor(false); // No mostrar toast al eliminar
+                        showToast('Imagen eliminada correctamente', 'success');
                     });
                 } else {
-                    alert('Error: ' + response.error);
+                    console.error('❌ Error del servidor:', response.error);
+                    showToast('Error: ' + (response.error || 'Error desconocido'), 'error');
                     $btn.prop('disabled', false).html('<i class="fas fa-trash"></i>');
                 }
             },
-            error: function() {
-                alert('Error de conexión');
+            error: function(xhr, status, error) {
+                console.error('❌ Error de conexión:', { xhr, status, error });
+                console.error('❌ Respuesta:', xhr.responseText);
+                showToast('Error de conexión: ' + error, 'error');
                 $btn.prop('disabled', false).html('<i class="fas fa-trash"></i>');
             }
         });
     });
 
-    // Hacer las imágenes arrastrables con jQuery UI Sortable (mejorado)
+    // Hacer las imágenes arrastrables con jQuery UI Sortable (SOLO DRAG & DROP)
     $('#imagenes-container').sortable({
         items: '.col-6, .col-md-4, .col-lg-3',
         handle: '.drag-handle',
-        cancel: '.eliminar-imagen, .btn-move-left, .btn-move-right, .btn-move-first, .btn-move-last',
+        cancel: '.eliminar-imagen',
         placeholder: 'sortable-placeholder',
         forcePlaceholderSize: true,
-        tolerance: 'pointer',
+        tolerance: 'intersect',
         cursor: 'grabbing',
         helper: 'clone',
-        opacity: 0.9,
-        revert: 150,
+        opacity: 0.8,
+        revert: 200,
         scroll: true,
-        scrollSensitivity: 20,
-        scrollSpeed: 10,
-        distance: 5,
+        scrollSensitivity: 15,
+        scrollSpeed: 15,
+        distance: 10,
+        delay: 100,
+        containment: '#imagenes-container',
         start: function(e, ui) {
             isDragging = true;
+            console.log('🎯 Iniciando drag & drop');
+            
+            // Configurar placeholder
             ui.placeholder.height(ui.item.height());
-            ui.placeholder.html('<div class="drag-placeholder"><i class="fas fa-arrows-alt fa-3x mb-2"></i><p class="mb-0"><strong>Suelta aquí</strong></p><small>para cambiar la posición</small></div>');
-            ui.helper.css('z-index', 1000);
+            ui.placeholder.html(`
+                <div class="drag-placeholder text-center py-4">
+                    <i class="fas fa-hand-paper fa-3x text-success mb-3" style="animation: pulse 1s infinite;"></i>
+                    <h5 class="text-success mb-2"><strong>Suelta aquí</strong></h5>
+                    <small class="text-muted">para cambiar la posición</small>
+                </div>
+            `);
+            
+            // Estilos durante drag
+            ui.helper.css({
+                'z-index': 9999,
+                'transform': 'rotate(5deg) scale(1.05)',
+                'box-shadow': '0 20px 40px rgba(0,0,0,0.3)'
+            });
+            
             $('body').css('cursor', 'grabbing');
             
-            // Ocultar overlay durante drag
+            // Ocultar overlays durante drag
             ui.item.find('.image-overlay').css('opacity', '0');
+            $('.image-card').not(ui.item).addClass('drag-dimmed');
         },
         stop: function(e, ui) {
+            console.log('🏁 Finalizando drag & drop');
             setTimeout(() => {
                 isDragging = false;
                 $('body').css('cursor', '');
                 ui.item.find('.image-overlay').css('opacity', '');
+                $('.image-card').removeClass('drag-dimmed');
             }, 100);
         },
-        update: function() {
+        update: function(e, ui) {
+            console.log('📝 Orden actualizado por drag & drop');
             enviarOrdenAlServidor(true);
         }
     });
