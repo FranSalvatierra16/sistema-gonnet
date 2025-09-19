@@ -37,6 +37,11 @@
                             <i class="fas fa-snowflake"></i> Invierno
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="imagenes-tab" data-bs-toggle="tab" data-bs-target="#imagenes" type="button" role="tab" aria-controls="imagenes" aria-selected="false">
+                            <i class="fas fa-images"></i> Imágenes
+                        </button>
+                    </li>
                 </ul>
 
                 <!-- Contenido de las pestañas -->
@@ -715,6 +720,80 @@
                     <div class="tab-pane fade" id="invierno" role="tabpanel">
                         <!-- Contenido de invierno -->
                     </div>
+
+                    <!-- Pestaña de Gestión de Imágenes -->
+                    <div class="tab-pane fade" id="imagenes" role="tabpanel">
+                        <div class="container mt-4">
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="card">
+                                        <div class="card-header bg-primary text-white">
+                                            <h4 class="mb-0"><i class="fas fa-images me-2"></i>Gestión de Imágenes</h4>
+                                            <small>Arrastra las imágenes para reordenarlas</small>
+                                        </div>
+                                        <div class="card-body">
+                                            {% if propiedad.imagenes.all %}
+                                                <div id="sortable-images" class="row">
+                                                    {% for imagen in propiedad.imagenes.all %}
+                                                    <div class="col-md-3 col-sm-4 col-6 mb-4 sortable-item" data-id="{{ imagen.id }}" data-orden="{{ imagen.orden }}">
+                                                        <div class="image-container position-relative">
+                                                            <img src="{{ imagen.imagen.url }}" 
+                                                                 class="img-fluid rounded shadow-sm sortable-image" 
+                                                                 alt="Imagen {{ forloop.counter }}"
+                                                                 style="height: 200px; width: 100%; object-fit: cover; cursor: grab;"
+                                                                 onerror="this.onerror=null; this.src='{% static 'images/logo.png' %}';">
+                                                            
+                                                            <!-- Overlay con controles -->
+                                                            <div class="image-overlay">
+                                                                <div class="overlay-content">
+                                                                    <button type="button" class="btn btn-danger btn-sm delete-image" 
+                                                                            data-id="{{ imagen.id }}" title="Eliminar imagen">
+                                                                        <i class="fas fa-trash"></i>
+                                                                    </button>
+                                                                    <button type="button" class="btn btn-info btn-sm view-image" 
+                                                                            onclick="openGallery({{ forloop.counter0 }})" title="Ver imagen">
+                                                                        <i class="fas fa-eye"></i>
+                                                                    </button>
+                                                                </div>
+                                                                <div class="order-badge">
+                                                                    <span class="badge bg-secondary">{{ imagen.orden }}</span>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <!-- Indicador de arrastrar -->
+                                                            <div class="drag-handle">
+                                                                <i class="fas fa-grip-vertical"></i>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
+                                                
+                                                <!-- Botones de acción -->
+                                                <div class="mt-4 text-center">
+                                                    <button type="button" id="save-order" class="btn btn-success me-2" disabled>
+                                                        <i class="fas fa-save"></i> Guardar Orden
+                                                    </button>
+                                                    <button type="button" id="reset-order" class="btn btn-secondary">
+                                                        <i class="fas fa-undo"></i> Resetear
+                                                    </button>
+                                                </div>
+                                            {% else %}
+                                                <div class="text-center py-5">
+                                                    <i class="fas fa-images fa-3x text-muted mb-3"></i>
+                                                    <h5 class="text-muted">No hay imágenes</h5>
+                                                    <p class="text-muted">Edita la propiedad para agregar imágenes</p>
+                                                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" class="btn btn-primary">
+                                                        <i class="fas fa-plus"></i> Agregar Imágenes
+                                                    </a>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Modal de Venta -->
@@ -1176,6 +1255,145 @@
     border-radius: 8px;
     padding: 10px 20px;
 }
+
+/* Estilos para gestión de imágenes con drag & drop */
+.sortable-item {
+    transition: transform 0.2s ease;
+}
+
+.sortable-item.dragging {
+    transform: rotate(5deg) scale(1.05);
+    z-index: 1000;
+    opacity: 0.8;
+}
+
+.sortable-item.drag-over {
+    transform: scale(0.95);
+    border: 2px dashed #007bff;
+    border-radius: 8px;
+}
+
+.image-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.image-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.image-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.6);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 10px;
+}
+
+.image-container:hover .image-overlay {
+    opacity: 1;
+}
+
+.overlay-content {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.order-badge {
+    align-self: flex-end;
+    text-align: right;
+}
+
+.drag-handle {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 4px;
+    padding: 5px;
+    cursor: grab;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    color: #666;
+}
+
+.image-container:hover .drag-handle {
+    opacity: 1;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.sortable-image {
+    user-select: none;
+    -webkit-user-drag: none;
+    -khtml-user-drag: none;
+    -moz-user-drag: none;
+    -o-user-drag: none;
+}
+
+.delete-image:hover {
+    background: #dc3545 !important;
+    transform: scale(1.1);
+}
+
+.view-image:hover {
+    background: #17a2b8 !important;
+    transform: scale(1.1);
+}
+
+/* Estado cuando se está arrastrando */
+.sortable-images-container.dragging .sortable-item:not(.dragging) {
+    opacity: 0.6;
+}
+
+/* Animaciones para reordenar */
+.sortable-item {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes imageAdded {
+    from {
+        opacity: 0;
+        transform: scale(0.8) translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.image-added {
+    animation: imageAdded 0.5s ease-out;
+}
+
+@keyframes imageRemoved {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.8) translateY(-20px);
+    }
+}
+
+.image-removing {
+    animation: imageRemoved 0.3s ease-in forwards;
+}
 </style>
 
 <!-- Incluir SweetAlert2 -->
@@ -1615,6 +1833,320 @@ function desactivarVenta(propiedadId) {
                     title: 'Error de conexión',
                     text: `No se pudo conectar con el servidor: ${error.message}`,
                     footer: 'Verifica la consola del navegador para más detalles'
+                });
+            });
+        }
+    });
+}
+
+// ============== GESTIÓN DE IMÁGENES CON DRAG & DROP ==============
+
+let isDragging = false;
+let draggedElement = null;
+let originalOrder = [];
+
+// Inicializar funcionalidad de drag & drop cuando se carga la pestaña
+document.addEventListener('DOMContentLoaded', function() {
+    // Guardar orden original
+    saveOriginalOrder();
+    
+    // Configurar drag & drop
+    setupDragAndDrop();
+    
+    // Configurar botones
+    setupImageButtons();
+    
+    // Listener para cambio de pestaña
+    const imageTab = document.getElementById('imagenes-tab');
+    if (imageTab) {
+        imageTab.addEventListener('shown.bs.tab', function() {
+            console.log('📸 Pestaña de imágenes activada');
+            saveOriginalOrder();
+        });
+    }
+});
+
+function saveOriginalOrder() {
+    originalOrder = [];
+    document.querySelectorAll('.sortable-item').forEach((item, index) => {
+        originalOrder.push({
+            id: item.dataset.id,
+            orden: parseInt(item.dataset.orden),
+            element: item
+        });
+    });
+    console.log('💾 Orden original guardado:', originalOrder);
+}
+
+function setupDragAndDrop() {
+    const sortableContainer = document.getElementById('sortable-images');
+    if (!sortableContainer) return;
+
+    // Configurar eventos para cada imagen
+    document.querySelectorAll('.sortable-item').forEach(item => {
+        item.draggable = true;
+        
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragover', handleDragOver);
+        item.addEventListener('dragenter', handleDragEnter);
+        item.addEventListener('dragleave', handleDragLeave);
+        item.addEventListener('drop', handleDrop);
+        item.addEventListener('dragend', handleDragEnd);
+    });
+}
+
+function handleDragStart(e) {
+    isDragging = true;
+    draggedElement = this;
+    this.classList.add('dragging');
+    
+    // Configurar datos de transferencia
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.outerHTML);
+    
+    // Agregar clase al contenedor
+    document.getElementById('sortable-images').classList.add('dragging');
+    
+    console.log('🎯 Arrastrando imagen:', this.dataset.id);
+}
+
+function handleDragOver(e) {
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+}
+
+function handleDragEnter(e) {
+    if (this !== draggedElement) {
+        this.classList.add('drag-over');
+    }
+}
+
+function handleDragLeave(e) {
+    this.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+    if (e.stopPropagation) {
+        e.stopPropagation();
+    }
+    
+    if (this !== draggedElement) {
+        console.log('📥 Drop en:', this.dataset.id);
+        
+        // Intercambiar elementos
+        const draggedParent = draggedElement.parentNode;
+        const droppedParent = this.parentNode;
+        
+        const draggedNextSibling = draggedElement.nextSibling;
+        const droppedNextSibling = this.nextSibling;
+        
+        draggedParent.insertBefore(this, draggedNextSibling);
+        droppedParent.insertBefore(draggedElement, droppedNextSibling);
+        
+        // Actualizar badges de orden
+        updateOrderBadges();
+        
+        // Habilitar botón guardar
+        document.getElementById('save-order').disabled = false;
+    }
+    
+    this.classList.remove('drag-over');
+    return false;
+}
+
+function handleDragEnd(e) {
+    isDragging = false;
+    this.classList.remove('dragging');
+    
+    // Limpiar todas las clases drag-over
+    document.querySelectorAll('.sortable-item').forEach(item => {
+        item.classList.remove('drag-over');
+    });
+    
+    // Remover clase del contenedor
+    document.getElementById('sortable-images').classList.remove('dragging');
+    
+    draggedElement = null;
+    console.log('🏁 Drag terminado');
+}
+
+function updateOrderBadges() {
+    document.querySelectorAll('.sortable-item').forEach((item, index) => {
+        const badge = item.querySelector('.order-badge .badge');
+        if (badge) {
+            badge.textContent = index + 1;
+        }
+    });
+}
+
+function setupImageButtons() {
+    // Botón Guardar Orden
+    const saveButton = document.getElementById('save-order');
+    if (saveButton) {
+        saveButton.addEventListener('click', saveImageOrder);
+    }
+    
+    // Botón Reset
+    const resetButton = document.getElementById('reset-order');
+    if (resetButton) {
+        resetButton.addEventListener('click', resetImageOrder);
+    }
+    
+    // Botones Eliminar
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.delete-image')) {
+            const btn = e.target.closest('.delete-image');
+            const imageId = btn.dataset.id;
+            deleteImage(imageId);
+        }
+    });
+}
+
+function saveImageOrder() {
+    const images = [];
+    document.querySelectorAll('.sortable-item').forEach((item, index) => {
+        images.push({
+            id: parseInt(item.dataset.id),
+            orden: index + 1
+        });
+    });
+    
+    console.log('💾 Guardando nuevo orden:', images);
+    
+    // Mostrar loading
+    Swal.fire({
+        title: 'Guardando orden...',
+        text: 'Por favor espere',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    fetch(`{% url 'inmobiliaria:reordenar_imagenes' propiedad_id=0 %}`.replace('0', '{{ propiedad.id }}'), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({ imagenes: images })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: '¡Orden guardado!',
+                text: 'Las imágenes se han reordenado correctamente',
+                timer: 2000,
+                showConfirmButton: false
+            });
+            
+            // Actualizar orden original y deshabilitar botón
+            saveOriginalOrder();
+            document.getElementById('save-order').disabled = true;
+        } else {
+            throw new Error(data.error || 'Error desconocido');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'No se pudo guardar el orden: ' + error.message
+        });
+    });
+}
+
+function resetImageOrder() {
+    console.log('🔄 Reseteando orden');
+    
+    const container = document.getElementById('sortable-images');
+    if (!container) return;
+    
+    // Reordenar elementos según orden original
+    originalOrder.sort((a, b) => a.orden - b.orden).forEach(item => {
+        container.appendChild(item.element);
+    });
+    
+    // Actualizar badges
+    updateOrderBadges();
+    
+    // Deshabilitar botón guardar
+    document.getElementById('save-order').disabled = true;
+    
+    Swal.fire({
+        icon: 'info',
+        title: 'Orden restaurado',
+        text: 'Se ha restaurado el orden original',
+        timer: 1500,
+        showConfirmButton: false
+    });
+}
+
+function deleteImage(imageId) {
+    Swal.fire({
+        title: '¿Eliminar imagen?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Mostrar loading
+            Swal.fire({
+                title: 'Eliminando...',
+                text: 'Por favor espere',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            fetch(`{% url 'inmobiliaria:imagen_eliminar' imagen_id=0 %}`.replace('0', imageId), {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Animar eliminación
+                    const imageElement = document.querySelector(`[data-id="${imageId}"]`);
+                    if (imageElement) {
+                        imageElement.classList.add('image-removing');
+                        setTimeout(() => {
+                            imageElement.remove();
+                            updateOrderBadges();
+                            saveOriginalOrder();
+                        }, 300);
+                    }
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Imagen eliminada!',
+                        text: 'La imagen se ha eliminado correctamente',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    throw new Error(data.error || 'Error desconocido');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'No se pudo eliminar la imagen: ' + error.message
                 });
             });
         }
