@@ -1318,7 +1318,7 @@
                 <!-- Búsqueda -->
                 <div style="margin-bottom: 16px;">
                     <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                        <input type="text" id="buscar_inquilino" placeholder="Buscar por nombre o ID..." 
+                        <input type="text" id="buscar_inquilino" placeholder="Buscar por nombre, ID o documento..." 
                                style="flex: 1; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
                                onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
                                onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'"
@@ -1343,9 +1343,9 @@
                             onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none !important'">
                         <option value="" style="color: #64748b !important; background: #f8fafc !important; font-weight: 500 !important; font-size: 14px !important; text-align: center; padding: 8px !important;">-- Selecciona un inquilino --</option>
                         {% for inquilino in inquilinos %}
-                        <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.nombre|lower }} {{ inquilino.apellido|lower }}" data-id="{{ inquilino.id }}"
+                        <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.nombre|lower }} {{ inquilino.apellido|lower }}" data-id="{{ inquilino.id }}" data-dni="{{ inquilino.dni }}"
                                 style="color: #1e293b !important; font-weight: 500 !important; background: #ffffff !important; padding: 8px !important; font-size: 14px !important; border-bottom: 1px solid #f1f5f9 !important;">
-                            ID: {{ inquilino.id }} - {{ inquilino.nombre }} {{ inquilino.apellido }}
+                            ID: {{ inquilino.id }} - {{ inquilino.nombre }} {{ inquilino.apellido }} (DNI: {{ inquilino.dni }})
                         </option>
                         {% endfor %}
                     </select>
@@ -2857,7 +2857,8 @@ document.addEventListener('DOMContentLoaded', function() {
             value: option.value,
             text: option.text,
             nombre: option.getAttribute('data-nombre') || '',
-            id: option.getAttribute('data-id') || option.value
+            id: option.getAttribute('data-id') || option.value,
+            dni: option.getAttribute('data-dni') || ''
         }));
     }
 });
@@ -2884,6 +2885,7 @@ function buscarInquilinosEnTiempoReal() {
     const inquilinosFiltrados = inquilinosOriginales.filter(inquilino => {
         return inquilino.nombre.includes(termino) || 
                inquilino.id.toString().includes(termino) ||
+               inquilino.dni.includes(termino) ||
                inquilino.text.toLowerCase().includes(termino);
     });
     
@@ -2902,6 +2904,7 @@ function buscarInquilinosEnTiempoReal() {
             option.style.cssText = 'color: #000000 !important; font-weight: 700 !important; background: #ffffff !important; padding: 8px !important; font-size: 15px !important; border-bottom: 1px solid #e0e0e0;';
             option.setAttribute('data-nombre', inquilino.nombre);
             option.setAttribute('data-id', inquilino.id);
+            option.setAttribute('data-dni', inquilino.dni);
             inquilinoSelect.add(option);
         }
     });
@@ -2935,7 +2938,8 @@ function buscarTodosLosInquilinos() {
                     value: option.value,
                     text: option.innerHTML,
                     nombre: option.getAttribute('data-nombre') || option.innerHTML.toLowerCase(),
-                    id: option.getAttribute('data-id') || option.value
+                    id: option.getAttribute('data-id') || option.value,
+                    dni: option.getAttribute('data-dni') || ''
                 }));
                 
                 // Actualizar el select
@@ -2973,6 +2977,7 @@ function mostrarTodosLosInquilinos() {
             option.style.cssText = 'color: #000000 !important; font-weight: 700 !important; background: #ffffff !important; padding: 8px !important; font-size: 15px !important; border-bottom: 1px solid #e0e0e0;';
             option.setAttribute('data-nombre', inquilino.nombre);
             option.setAttribute('data-id', inquilino.id);
+            option.setAttribute('data-dni', inquilino.dni);
         }
         inquilinoSelect.add(option);
     });
@@ -3494,8 +3499,11 @@ function guardarInquilino() {
                 
                 // Actualizar también la lista original para búsquedas
                 inquilinosOriginales.push({
+                    value: data.inquilino.id,
+                    text: `ID: ${data.inquilino.id} - ${data.inquilino.nombre} ${data.inquilino.apellido} (DNI: ${data.inquilino.dni})`,
                     id: data.inquilino.id,
-                    nombre: `${data.inquilino.nombre.toLowerCase()} ${data.inquilino.apellido.toLowerCase()}`
+                    nombre: `${data.inquilino.nombre.toLowerCase()} ${data.inquilino.apellido.toLowerCase()}`,
+                    dni: data.inquilino.dni || ''
                 });
                 console.log('📋 Lista inquilinosOriginales actualizada');
             }
