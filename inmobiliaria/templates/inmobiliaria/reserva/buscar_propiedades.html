@@ -1244,146 +1244,136 @@
                 {% endif %}
             {% endif %}
         </div>
-<!-- MODAL MEJORADO PARA CONFIRMAR RESERVA -->
-<div id="modalConfirmarReserva" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; backdrop-filter: blur(5px);">
-    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 20px; padding: 0; width: 95%; max-width: 600px; box-shadow: 0 25px 80px rgba(0,0,0,0.5); animation: modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);">
+<!-- MODAL MODERNO MINIMALISTA -->
+<div id="modalConfirmarReserva" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.75); z-index: 9999; backdrop-filter: blur(8px);">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 16px; padding: 0; width: 95%; max-width: 580px; box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05); animation: modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);">
         
-        <!-- Header Moderno -->
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 20px 20px 0 0; position: relative; overflow: hidden;">
-            <div style="position: absolute; top: -50px; right: -50px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; opacity: 0.5;"></div>
-            <div style="position: absolute; bottom: -30px; left: -30px; width: 60px; height: 60px; background: rgba(255,255,255,0.1); border-radius: 50%; opacity: 0.7;"></div>
-            <h3 style="margin: 0; font-size: 26px; font-weight: 700; text-shadow: 1px 1px 3px rgba(0,0,0,0.3); position: relative; z-index: 2;">✨ Confirmar Reserva</h3>
-            <button onclick="cerrarModal()" style="position: absolute; top: 20px; right: 25px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; cursor: pointer; border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; transition: all 0.3s; z-index: 3;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">×</button>
+        <!-- Header Minimalista -->
+        <div style="background: #1e293b; color: white; padding: 24px 32px; border-radius: 16px 16px 0 0; position: relative;">
+            <h3 style="margin: 0; font-size: 22px; font-weight: 600; color: #f8fafc;">Confirmar Reserva</h3>
+            <button onclick="cerrarModal()" style="position: absolute; top: 20px; right: 24px; background: rgba(255,255,255,0.1); border: none; color: #cbd5e1; font-size: 20px; cursor: pointer; border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'; this.style.color='#f8fafc'" onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#cbd5e1'">×</button>
         </div>
         
-        <!-- Body Optimizado -->
-        <div style="padding: 30px; max-height: 70vh; overflow-y: auto; background: #ffffff;">
+        <!-- Body Minimalista -->
+        <div style="padding: 32px; max-height: 70vh; overflow-y: auto; background: #ffffff;">
             
-            <!-- Información Esencial de la Propiedad -->
-            <div style="background: linear-gradient(135deg, #f8fffe 0%, #f0fdfa 100%); border: 3px solid #14b8a6; padding: 25px; border-radius: 15px; margin-bottom: 25px; position: relative; overflow: hidden;">
-                <div style="position: absolute; top: -20px; right: -20px; width: 40px; height: 40px; background: rgba(20,184,166,0.1); border-radius: 50%;"></div>
-                <h4 style="color: #0d9488; margin: 0 0 20px 0; font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; position: relative;">🏡 Propiedad Seleccionada</h4>
+            <!-- Información de la Propiedad -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                <h4 style="color: #334155; margin: 0 0 20px 0; font-size: 16px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">Propiedad Seleccionada</h4>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
                     <div>
-                        <div style="margin-bottom: 12px;"><strong style="color: #0d9488; font-weight: 600;">Ficha:</strong> <span id="modal_ficha" style="color: #374151; font-weight: 600; font-size: 16px;">-</span></div>
-                        <div style="margin-bottom: 12px;"><strong style="color: #0d9488; font-weight: 600;">Dirección:</strong> <span id="modal_direccion" style="color: #374151; font-weight: 600;">-</span></div>
-                        <div style="margin-bottom: 12px;"><strong style="color: #0d9488; font-weight: 600;">Propietario:</strong> <span id="modal_propietario" style="color: #374151; font-weight: 600;">-</span></div>
+                        <div style="margin-bottom: 16px;"><span style="color: #64748b; font-size: 14px;">Ficha:</span> <span id="modal_ficha" style="color: #1e293b; font-weight: 500; display: block; margin-top: 2px;">-</span></div>
+                        <div style="margin-bottom: 16px;"><span style="color: #64748b; font-size: 14px;">Dirección:</span> <span id="modal_direccion" style="color: #1e293b; font-weight: 500; display: block; margin-top: 2px;">-</span></div>
+                        <div style="margin-bottom: 16px;"><span style="color: #64748b; font-size: 14px;">Propietario:</span> <span id="modal_propietario" style="color: #1e293b; font-weight: 500; display: block; margin-top: 2px;">-</span></div>
                     </div>
                     <div>
-                        <div style="margin-bottom: 12px;"><strong style="color: #0d9488; font-weight: 600;">Período:</strong> <span id="modal_fecha_inicio" style="color: #374151; font-weight: 600;">-</span> a <span id="modal_fecha_fin" style="color: #374151; font-weight: 600;">-</span></div>
-                        <div style="margin-bottom: 12px;"><strong style="color: #0d9488; font-weight: 600;">Duración:</strong> <span id="modal_total_dias" style="color: #374151; font-weight: 600; font-size: 16px;">-</span> días</div>
-                        <div style="margin-bottom: 12px;"><strong style="color: #0d9488; font-weight: 600;">Estado:</strong> <span id="modal_estado" style="color: #059669; font-weight: 700; background: #ecfdf5; padding: 4px 8px; border-radius: 6px; font-size: 14px;">-</span></div>
+                        <div style="margin-bottom: 16px;"><span style="color: #64748b; font-size: 14px;">Período:</span> <span style="color: #1e293b; font-weight: 500; display: block; margin-top: 2px;"><span id="modal_fecha_inicio">-</span> a <span id="modal_fecha_fin">-</span></span></div>
+                        <div style="margin-bottom: 16px;"><span style="color: #64748b; font-size: 14px;">Duración:</span> <span id="modal_total_dias" style="color: #1e293b; font-weight: 500; display: block; margin-top: 2px;">-</span> días</div>
+                        <div style="margin-bottom: 16px;"><span style="color: #64748b; font-size: 14px;">Estado:</span> <span id="modal_estado" style="color: #059669; font-weight: 500; background: #f0fdf4; padding: 4px 8px; border-radius: 6px; font-size: 13px; display: inline-block; margin-top: 2px;">-</span></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Precio Total Mejorado -->
-            <div style="background: linear-gradient(135deg, #fef3c7 0%, #fef7d0 100%); border: 3px solid #f59e0b; padding: 25px; border-radius: 15px; margin-bottom: 25px; position: relative; overflow: hidden;">
-                <div style="position: absolute; top: -20px; right: -20px; width: 40px; height: 40px; background: rgba(245,158,11,0.1); border-radius: 50%;"></div>
-                <h4 style="color: #d97706; margin: 0 0 20px 0; font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; position: relative;">💰 Precio Total</h4>
+            <!-- Precio Total -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                <h4 style="color: #334155; margin: 0 0 16px 0; font-size: 16px; font-weight: 600;">Precio Total</h4>
                 <div style="position: relative;">
-                    <span style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); font-size: 24px; font-weight: 700; color: #d97706; z-index: 1;">$</span>
+                    <span style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 18px; font-weight: 500; color: #64748b; z-index: 1;">$</span>
                     <input type="number" id="precio_total_editable" step="0.01" min="0" 
-                           style="width: 100%; padding: 18px 18px 18px 50px; font-size: 22px; font-weight: 700; border: 3px solid #f59e0b; border-radius: 12px; background: white; box-shadow: 0 4px 15px rgba(245,158,11,0.2); transition: all 0.3s; color: #1f2937;"
-                           onfocus="this.style.borderColor='#d97706'; this.style.boxShadow='0 0 20px rgba(217,119,6,0.4)'; this.style.transform='scale(1.02)'"
-                           onblur="this.style.borderColor='#f59e0b'; this.style.boxShadow='0 4px 15px rgba(245,158,11,0.2)'; this.style.transform='scale(1)'">
+                           style="width: 100%; padding: 16px 16px 16px 40px; font-size: 18px; font-weight: 600; border: 1px solid #d1d5db; border-radius: 8px; background: white; transition: all 0.2s; color: #1e293b;"
+                           onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                           onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                 </div>
             </div>
 
-            <!-- Vendedor Mejorado -->
-            <div style="background: linear-gradient(135deg, #ede9fe 0%, #f3f0ff 100%); border: 3px solid #8b5cf6; padding: 25px; border-radius: 15px; margin-bottom: 25px; position: relative; overflow: hidden;">
-                <div style="position: absolute; top: -20px; right: -20px; width: 40px; height: 40px; background: rgba(139,92,246,0.1); border-radius: 50%;"></div>
-                <h4 style="color: #7c3aed; margin: 0 0 20px 0; font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; position: relative;">👤 Vendedor</h4>
-                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+            <!-- Vendedor -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                <h4 style="color: #334155; margin: 0 0 16px 0; font-size: 16px; font-weight: 600;">Vendedor</h4>
+                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
                     <input type="number" id="vendedor_id" placeholder="ID del vendedor" min="1" 
-                           style="flex: 1; padding: 15px; border: 3px solid #8b5cf6; border-radius: 12px; font-size: 16px; font-weight: 600; color: #374151; background: white; transition: all 0.3s;"
-                           onfocus="this.style.borderColor='#7c3aed'; this.style.boxShadow='0 0 15px rgba(124,58,237,0.3)'; this.style.transform='scale(1.02)'"
-                           onblur="this.style.borderColor='#8b5cf6'; this.style.boxShadow='none'; this.style.transform='scale(1)'"
+                           style="flex: 1; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; font-weight: 500; color: #1e293b; background: white; transition: all 0.2s;"
+                           onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                           onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'"
                            oninput="buscarVendedorAutomatico()">
                     <button onclick="buscarVendedor()" 
-                            style="padding: 15px 25px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 700; transition: all 0.3s; box-shadow: 0 4px 15px rgba(139,92,246,0.3); font-size: 14px;"
-                            onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 6px 20px rgba(139,92,246,0.4)'"
-                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(139,92,246,0.3)'">🔍 Buscar</button>
+                            style="padding: 12px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 14px;"
+                            onmouseover="this.style.background='#2563eb'"
+                            onmouseout="this.style.background='#3b82f6'">Buscar</button>
                 </div>
-                <div id="vendedor_info" style="display: none; background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%); padding: 20px; border-radius: 12px; border: 3px solid #10b981; box-shadow: 0 4px 15px rgba(16,185,129,0.2);">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <span style="font-size: 32px;">✅</span>
+                <div id="vendedor_info" style="display: none; background: #f0fdf4; padding: 16px; border-radius: 8px; border: 1px solid #16a34a;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 8px; height: 8px; background: #16a34a; border-radius: 50%;"></div>
                         <div>
-                            <strong style="color: #065f46; font-size: 16px; font-weight: 700;">Vendedor encontrado:</strong>
-                            <div id="vendedor_nombre" style="color: #1f2937; font-size: 20px; font-weight: 800; margin-top: 8px; background: rgba(255,255,255,0.6); padding: 8px 12px; border-radius: 8px;"></div>
+                            <div style="color: #15803d; font-size: 14px; font-weight: 500;">Vendedor encontrado</div>
+                            <div id="vendedor_nombre" style="color: #1e293b; font-size: 16px; font-weight: 600; margin-top: 4px;"></div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Inquilino Mejorado -->
-            <div style="background: linear-gradient(135deg, #f0f9ff 0%, #f0f8ff 100%); border: 3px solid #0ea5e9; padding: 25px; border-radius: 15px; margin-bottom: 25px; position: relative; overflow: hidden;">
-                <div style="position: absolute; top: -20px; right: -20px; width: 40px; height: 40px; background: rgba(14,165,233,0.1); border-radius: 50%;"></div>
-                <h4 style="color: #0369a1; margin: 0 0 20px 0; font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; position: relative;">👥 Inquilino</h4>
+            <!-- Inquilino -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                <h4 style="color: #334155; margin: 0 0 16px 0; font-size: 16px; font-weight: 600;">Inquilino</h4>
                 
-                <!-- Búsqueda Mejorada -->
-                <div style="margin-bottom: 20px;">
-                    <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                <!-- Búsqueda -->
+                <div style="margin-bottom: 16px;">
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
                         <input type="text" id="buscar_inquilino" placeholder="Buscar por nombre o ID..." 
-                               style="flex: 1; padding: 15px; border: 3px solid #0ea5e9; border-radius: 12px; font-size: 16px; color: #1f2937; font-weight: 600; transition: all 0.3s;"
-                               onfocus="this.style.borderColor='#0369a1'; this.style.boxShadow='0 0 15px rgba(3,105,161,0.3)'; this.style.transform='scale(1.02)'"
-                               onblur="this.style.borderColor='#0ea5e9'; this.style.boxShadow='none'; this.style.transform='scale(1)'"
+                               style="flex: 1; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                               onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                               onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'"
                                oninput="buscarInquilinosEnTiempoReal()">
                         <button onclick="buscarTodosLosInquilinos()" 
-                                style="padding: 15px 20px; background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 700; transition: all 0.3s; box-shadow: 0 4px 15px rgba(14,165,233,0.3); font-size: 14px;"
-                                onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 6px 20px rgba(14,165,233,0.4)'"
-                                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(14,165,233,0.3)'">🔍 Todos</button>
+                                style="padding: 12px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 14px;"
+                                onmouseover="this.style.background='#2563eb'"
+                                onmouseout="this.style.background='#3b82f6'">Todos</button>
                         <button onclick="limpiarBusquedaInquilino()" 
-                                style="padding: 15px 20px; background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 700; transition: all 0.3s; box-shadow: 0 4px 15px rgba(249,115,22,0.3); font-size: 14px;"
-                                onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 6px 20px rgba(249,115,22,0.4)'"
-                                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(249,115,22,0.3)'">🔄 Limpiar</button>
+                                style="padding: 12px 16px; background: #64748b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 14px;"
+                                onmouseover="this.style.background='#475569'"
+                                onmouseout="this.style.background='#64748b'">Limpiar</button>
                     </div>
-                    <div id="estado_busqueda" style="font-size: 14px; color: #6b7280; font-style: italic; min-height: 20px; padding: 8px; background: rgba(240,249,255,0.5); border-radius: 8px;"></div>
+                    <div id="estado_busqueda" style="font-size: 13px; color: #64748b; min-height: 18px; padding: 8px 0;"></div>
                 </div>
                 
                 <!-- Lista de Inquilinos -->
-                <div style="display: flex; gap: 15px;">
+                <div style="display: flex; gap: 12px;">
                     <select id="inquilino" onchange="actualizarInquilinoId()" size="4"
-                            style="flex: 1; padding: 15px; border: 3px solid #0ea5e9; border-radius: 12px; font-size: 16px; background: #ffffff !important; color: #1f2937 !important; font-weight: 600 !important; font-family: 'Segoe UI', Arial, sans-serif !important; transition: all 0.3s; box-shadow: 0 4px 15px rgba(14,165,233,0.2) !important; cursor: pointer !important; max-height: 180px; overflow-y: auto;"
-                            onfocus="this.style.borderColor='#0369a1'; this.style.boxShadow='0 0 20px rgba(3,105,161,0.4) !important'; this.style.transform='scale(1.02)'"
-                            onblur="this.style.borderColor='#0ea5e9'; this.style.boxShadow='0 4px 15px rgba(14,165,233,0.2) !important'; this.style.transform='scale(1)'">
-                        <option value="" style="color: #6b7280 !important; background: #f8fafc !important; font-weight: 600 !important; font-size: 14px !important; text-align: center; padding: 12px !important;">-- Selecciona un inquilino --</option>
+                            style="flex: 1; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; background: #ffffff !important; color: #1e293b !important; font-weight: 500 !important; font-family: 'Segoe UI', Arial, sans-serif !important; transition: all 0.2s; cursor: pointer !important; max-height: 160px; overflow-y: auto;"
+                            onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1) !important'"
+                            onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none !important'">
+                        <option value="" style="color: #64748b !important; background: #f8fafc !important; font-weight: 500 !important; font-size: 14px !important; text-align: center; padding: 8px !important;">-- Selecciona un inquilino --</option>
                         {% for inquilino in inquilinos %}
                         <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.nombre|lower }} {{ inquilino.apellido|lower }}" data-id="{{ inquilino.id }}"
-                                style="color: #1f2937 !important; font-weight: 600 !important; background: #ffffff !important; padding: 12px !important; font-size: 15px !important; border-bottom: 1px solid #e5e7eb !important;">
+                                style="color: #1e293b !important; font-weight: 500 !important; background: #ffffff !important; padding: 8px !important; font-size: 14px !important; border-bottom: 1px solid #f1f5f9 !important;">
                             ID: {{ inquilino.id }} - {{ inquilino.nombre }} {{ inquilino.apellido }}
                         </option>
                         {% endfor %}
                     </select>
-                    <div style="display: flex; flex-direction: column; gap: 12px; min-width: 140px;">
+                    <div style="display: flex; flex-direction: column; gap: 8px; min-width: 100px;">
                         <button onclick="mostrarModalCrearInquilino()" 
-                                style="padding: 15px 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 700; transition: all 0.3s; box-shadow: 0 4px 15px rgba(16,185,129,0.3); font-size: 14px;"
-                                onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 6px 20px rgba(16,185,129,0.4)'"
-                                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(16,185,129,0.3)'">➕ Crear</button>
+                                style="padding: 12px 16px; background: #16a34a; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 13px;"
+                                onmouseover="this.style.background='#15803d'"
+                                onmouseout="this.style.background='#16a34a'">Crear</button>
                         <button onclick="seleccionarPrimerInquilino()" 
-                                style="padding: 15px 20px; background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 700; transition: all 0.3s; box-shadow: 0 4px 15px rgba(168,85,247,0.3); font-size: 14px;"
-                                onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 6px 20px rgba(168,85,247,0.4)'"
-                                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(168,85,247,0.3)'">📋 Ver</button>
+                                style="padding: 12px 16px; background: #64748b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 13px;"
+                                onmouseover="this.style.background='#475569'"
+                                onmouseout="this.style.background='#64748b'">Ver</button>
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Footer Moderno -->
-        <div style="padding: 25px 30px; border-top: 3px solid #e5e7eb; text-align: right; border-radius: 0 0 20px 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); position: relative; overflow: hidden;">
-            <div style="position: absolute; bottom: -30px; left: -30px; width: 60px; height: 60px; background: rgba(156,163,175,0.1); border-radius: 50%;"></div>
-            <div style="display: flex; justify-content: flex-end; gap: 15px; align-items: center; position: relative; z-index: 2;">
+        <!-- Footer Minimalista -->
+        <div style="padding: 24px 32px; border-top: 1px solid #e2e8f0; text-align: right; border-radius: 0 0 16px 16px; background: #f8fafc;">
+            <div style="display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
                 <button onclick="cerrarModal()" 
-                        style="padding: 15px 30px; background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 700; transition: all 0.3s; box-shadow: 0 4px 15px rgba(156,163,175,0.3); font-size: 16px;"
-                        onmouseover="this.style.transform='translateY(-3px) scale(1.05)'; this.style.boxShadow='0 6px 25px rgba(156,163,175,0.4)'"
-                        onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 4px 15px rgba(156,163,175,0.3)'">❌ Cancelar</button>
+                        style="padding: 12px 24px; background: #64748b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 15px;"
+                        onmouseover="this.style.background='#475569'"
+                        onmouseout="this.style.background='#64748b'">Cancelar</button>
                 <button onclick="confirmarReservaFinal()" 
-                        style="padding: 18px 35px; background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 18px; transition: all 0.3s; box-shadow: 0 6px 20px rgba(5,150,105,0.4); text-transform: uppercase; letter-spacing: 1px; position: relative; overflow: hidden;"
-                        onmouseover="this.style.transform='translateY(-4px) scale(1.05)'; this.style.boxShadow='0 8px 30px rgba(5,150,105,0.5)'; this.style.background='linear-gradient(135deg, #047857 0%, #059669 100%)'"
-                        onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 6px 20px rgba(5,150,105,0.4)'; this.style.background='linear-gradient(135deg, #059669 0%, #10b981 100%)'">
-                    <span style="position: relative; z-index: 2;">✨ CONFIRMAR RESERVA</span>
-                    <div style="position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: left 0.5s;" onmouseenter="this.style.left='100%'"></div>
-                </button>
+                        style="padding: 12px 28px; background: #16a34a; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.2s;"
+                        onmouseover="this.style.background='#15803d'; this.style.transform='translateY(-1px)'"
+                        onmouseout="this.style.background='#16a34a'; this.style.transform='translateY(0)'">Confirmar Reserva</button>
             </div>
         </div>
         
@@ -1398,23 +1388,16 @@
             </div>
         </div>
 
-<!-- Animaciones CSS Mejoradas -->
+<!-- Animaciones CSS Minimalistas -->
 <style>
 @keyframes modalAppear {
     0% {
         opacity: 0;
-        transform: translate(-50%, -60%) scale(0.7);
-        filter: blur(10px);
-    }
-    50% {
-        opacity: 0.8;
-        transform: translate(-50%, -52%) scale(1.05);
-        filter: blur(5px);
+        transform: translate(-50%, -55%) scale(0.95);
     }
     100% {
         opacity: 1;
         transform: translate(-50%, -50%) scale(1);
-        filter: blur(0px);
     }
 }
 
@@ -1422,35 +1405,16 @@
     0% {
         opacity: 1;
         transform: translate(-50%, -50%) scale(1);
-        filter: blur(0px);
     }
     100% {
         opacity: 0;
-        transform: translate(-50%, -40%) scale(0.8);
-        filter: blur(8px);
+        transform: translate(-50%, -45%) scale(0.95);
     }
 }
 
-/* Efectos de hover mejorados */
-.modal-button-primary:hover {
-    transform: translateY(-4px) scale(1.05) !important;
-    box-shadow: 0 12px 35px rgba(5,150,105,0.6) !important;
-}
-
+/* Efectos sutiles */
 .modal-input:focus {
-    transform: scale(1.02) !important;
-    box-shadow: 0 0 25px rgba(var(--primary-color), 0.4) !important;
-}
-
-/* Backgrounds animados */
-@keyframes backgroundFloat {
-    0%, 100% { transform: translate(0, 0) rotate(0deg); }
-    33% { transform: translate(10px, -10px) rotate(2deg); }
-    66% { transform: translate(-5px, 5px) rotate(-1deg); }
-}
-
-.floating-element {
-    animation: backgroundFloat 6s ease-in-out infinite;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
 }
 </style>
         
@@ -4920,3 +4884,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock extra_js %}
+
