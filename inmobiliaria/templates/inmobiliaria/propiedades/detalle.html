@@ -1362,16 +1362,59 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('   - Precio autorización: {{ info_venta.precio_autorizacion|default:"null" }}');
             console.log('   - Estado: {{ info_venta.estado|default:"null" }}');
             console.log('   - Metros cuadrados: {{ info_venta.metros_cuadrados|default:"null" }}');
+            console.log('   - Escribanía: {{ info_venta.escribania|default:"null" }}');
+            console.log('   - Observaciones: {{ info_venta.observaciones|default:"null" }}');
+            console.log('   - Precio expensas: {{ info_venta.precio_expensas|default:"null" }}');
         {% else %}
             console.log('   ❌ No hay info_venta para esta propiedad');
         {% endif %}
         
-        // Verificar valores de los campos
-        console.log('   📋 Valores de campos:');
+        // Verificar valores de los campos ANTES
+        console.log('   📋 Valores de campos ANTES:');
         console.log('   - Checkbox en_venta:', document.getElementById('en_venta').checked);
         console.log('   - Metros cuadrados:', document.getElementById('metros_cuadrados').value);
         console.log('   - Precio venta:', document.getElementById('precio_venta').value);
         console.log('   - Precio autorización:', document.getElementById('precio_autorizacion').value);
+        console.log('   - Estado select:', document.getElementById('estado_venta').value);
+        console.log('   - Escribanía:', document.getElementById('escribania').value);
+        
+        // ✅ FORZAR valores si están vacíos pero tenemos info_venta
+        {% if info_venta %}
+        if (!document.getElementById('metros_cuadrados').value && '{{ info_venta.metros_cuadrados|default:"" }}') {
+            document.getElementById('metros_cuadrados').value = '{{ info_venta.metros_cuadrados }}';
+            console.log('   🔧 FORZANDO metros_cuadrados a:', '{{ info_venta.metros_cuadrados }}');
+        }
+        if (!document.getElementById('precio_venta').value && '{{ info_venta.precio_venta|default:"" }}') {
+            document.getElementById('precio_venta').value = '{{ info_venta.precio_venta }}';
+            console.log('   🔧 FORZANDO precio_venta a:', '{{ info_venta.precio_venta }}');
+        }
+        if (!document.getElementById('precio_autorizacion').value && '{{ info_venta.precio_autorizacion|default:"" }}') {
+            document.getElementById('precio_autorizacion').value = '{{ info_venta.precio_autorizacion }}';
+            console.log('   🔧 FORZANDO precio_autorizacion a:', '{{ info_venta.precio_autorizacion }}');
+        }
+        if (!document.getElementById('precio_expensas_venta').value && '{{ info_venta.precio_expensas|default:"" }}') {
+            document.getElementById('precio_expensas_venta').value = '{{ info_venta.precio_expensas }}';
+            console.log('   🔧 FORZANDO precio_expensas a:', '{{ info_venta.precio_expensas }}');
+        }
+        if (!document.getElementById('escribania').value && '{{ info_venta.escribania|default:"" }}') {
+            document.getElementById('escribania').value = '{{ info_venta.escribania }}';
+            console.log('   🔧 FORZANDO escribania a:', '{{ info_venta.escribania }}');
+        }
+        if (!document.getElementById('observaciones_venta').value && '{{ info_venta.observaciones|default:"" }}') {
+            document.getElementById('observaciones_venta').value = '{{ info_venta.observaciones }}';
+            console.log('   🔧 FORZANDO observaciones a:', '{{ info_venta.observaciones }}');
+        }
+        // Establecer estado del select
+        document.getElementById('estado_venta').value = '{{ info_venta.estado }}';
+        console.log('   🔧 FORZANDO estado a:', '{{ info_venta.estado }}');
+        {% endif %}
+        
+        // Verificar valores DESPUÉS
+        console.log('   📋 Valores de campos DESPUÉS:');
+        console.log('   - Metros cuadrados:', document.getElementById('metros_cuadrados').value);
+        console.log('   - Precio venta:', document.getElementById('precio_venta').value);
+        console.log('   - Precio autorización:', document.getElementById('precio_autorizacion').value);
+        console.log('   - Estado select:', document.getElementById('estado_venta').value);
     });
     
     // Manejar edición de disponibilidades
