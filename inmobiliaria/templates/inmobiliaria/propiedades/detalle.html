@@ -1567,14 +1567,27 @@ function desactivarVenta(propiedadId) {
             });
             
             const formData = new FormData();
-            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const url = `{% url 'inmobiliaria:editar_info_venta' propiedad_id=0 %}`.replace('0', propiedadId);
+            
+            console.log('🔍 Debug - Desactivar venta:');
+            console.log('   - Propiedad ID:', propiedadId);
+            console.log('   - URL:', url);
+            console.log('   - CSRF Token presente:', csrfToken ? 'Sí' : 'No');
+            
+            formData.append('csrfmiddlewaretoken', csrfToken);
             formData.append('accion', 'desactivar');
             
-            fetch(`/propiedades/${propiedadId}/editar-info-venta/`, {
+            fetch(url, {
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     Swal.fire({
@@ -1596,11 +1609,12 @@ function desactivarVenta(propiedadId) {
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Error completo:', error);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error de conexión',
-                    text: 'No se pudo conectar con el servidor'
+                    text: `No se pudo conectar con el servidor: ${error.message}`,
+                    footer: 'Verifica la consola del navegador para más detalles'
                 });
             });
         }
