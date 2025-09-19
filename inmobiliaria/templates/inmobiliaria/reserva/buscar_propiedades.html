@@ -3239,64 +3239,71 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 </style>
 
-<!-- MODAL HERMOSO PARA CREAR INQUILINO -->
-<div id="crearInquilinoModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 10000;">
-    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 15px; padding: 0; width: 95%; max-width: 800px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); animation: modalAppear 0.3s ease-out; max-height: 90vh; overflow: hidden;">
+<!-- MODAL MODERNO PARA CREAR INQUILINO -->
+<div id="crearInquilinoModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.75); z-index: 10000; backdrop-filter: blur(8px);">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 16px; padding: 0; width: 95%; max-width: 700px; box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05); animation: modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); max-height: 90vh; overflow: hidden;">
         
-        <!-- Header -->
-        <div style="background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%); color: white; padding: 20px; border-radius: 15px 15px 0 0; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
-            <h3 style="margin: 0; font-size: 24px; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">🏠 Crear Nuevo Inquilino</h3>
-            <button onclick="cerrarModalInquilino()" style="position: absolute; top: 15px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 28px; cursor: pointer; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.3s;">×</button>
+        <!-- Header Minimalista -->
+        <div style="background: #1e293b; color: white; padding: 24px 32px; border-radius: 16px 16px 0 0; position: relative;">
+            <h3 style="margin: 0; font-size: 22px; font-weight: 600; color: #f8fafc;">Crear Nuevo Inquilino</h3>
+            <button onclick="cerrarModalInquilino()" style="position: absolute; top: 20px; right: 24px; background: rgba(255,255,255,0.1); border: none; color: #cbd5e1; font-size: 20px; cursor: pointer; border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'; this.style.color='#f8fafc'" onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#cbd5e1'">×</button>
         </div>
         
-        <!-- Body -->
-        <div style="padding: 25px; max-height: 70vh; overflow-y: auto; background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);">
+        <!-- Body Minimalista -->
+        <div style="padding: 32px; max-height: 70vh; overflow-y: auto; background: #ffffff;">
             <form id="crearInquilinoForm">
                 {% csrf_token %}
                 
                 <!-- Datos Personales -->
-                <div style="background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%); border: 2px solid #4caf50; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(76,175,80,0.2);">
-                    <h4 style="color: #2e7d32; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">👤 Datos Personales</h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                    <h4 style="color: #334155; margin: 0 0 20px 0; font-size: 16px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">Datos Personales</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div>
-                            <label style="display: block; margin-bottom: 5px; color: #2e7d32; font-weight: 600;">Nombre *</label>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Nombre *</label>
                             <input type="text" id="nombre" name="nombre" required
-                                   style="width: 100%; padding: 10px; border: 2px solid #4caf50; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                         </div>
                         <div>
-                            <label style="display: block; margin-bottom: 5px; color: #2e7d32; font-weight: 600;">Apellido *</label>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Apellido *</label>
                             <input type="text" id="apellido" name="apellido" required
-                                   style="width: 100%; padding: 10px; border: 2px solid #4caf50; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                         </div>
-                      
-                        <div>
-                            <label style="display: block; margin-bottom: 5px; color: #2e7d32; font-weight: 600;">Email *</label>
+                        <div style="grid-column: span 2;">
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Email *</label>
                             <input type="email" id="email" name="email" required
-                                   style="width: 100%; padding: 10px; border: 2px solid #4caf50; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                         </div>
                     </div>
                 </div>
 
                 <!-- Contacto -->
-                <div style="background: linear-gradient(135deg, #e3f2fd 0%, #f0f8ff 100%); border: 2px solid #2196f3; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(33,150,243,0.2);">
-                    <h4 style="color: #1565c0; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">📱 Contacto</h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div>
-                            <label style="display: block; margin-bottom: 5px; color: #1565c0; font-weight: 600;">Celular *</label>
-                            <input type="text" id="celular" name="celular" required
-                                   style="width: 100%; padding: 10px; border: 2px solid #2196f3; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
-                        </div>
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                    <h4 style="color: #334155; margin: 0 0 20px 0; font-size: 16px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">Contacto</h4>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Celular *</label>
+                        <input type="text" id="celular" name="celular" required
+                               style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                               onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                               onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                     </div>
                 </div>
 
                 <!-- Documentación -->
-                <div style="background: linear-gradient(135deg, #fff3e0 0%, #fff8e1 100%); border: 2px solid #ff9800; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(255,152,0,0.2);">
-                    <h4 style="color: #ef6c00; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">📄 Documentación</h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                    <h4 style="color: #334155; margin: 0 0 20px 0; font-size: 16px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">Documentación</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div>
-                            <label style="display: block; margin-bottom: 5px; color: #ef6c00; font-weight: 600;">Tipo de Documento *</label>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Tipo de Documento *</label>
                             <select id="tipo_doc" name="tipo_doc" required
-                                    style="width: 100%; padding: 10px; border: 2px solid #ff9800; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500; background: white;">
+                                    style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; background: white; transition: all 0.2s;"
+                                    onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                    onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                                 <option value="dni">DNI</option>
                                 <option value="le">LE</option>
                                 <option value="ls">LS</option>
@@ -3305,65 +3312,85 @@ document.addEventListener('DOMContentLoaded', function() {
                             </select>
                         </div>
                         <div>
-                            <label style="display: block; margin-bottom: 5px; color: #ef6c00; font-weight: 600;">Número de Documento *</label>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Número de Documento *</label>
                             <input type="text" id="dni" name="dni" required
-                                   style="width: 100%; padding: 10px; border: 2px solid #ff9800; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                         </div>
                     </div>
                 </div>
 
                 <!-- Dirección -->
-                <div style="background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 100%); border: 2px solid #e91e63; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(233,30,99,0.2);">
-                    <h4 style="color: #ad1457; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">🏡 Dirección</h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div>
-                            <label style="display: block; margin-bottom: 5px; color: #ad1457; font-weight: 600;">Domicilio *</label>
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                    <h4 style="color: #334155; margin: 0 0 20px 0; font-size: 16px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">Dirección</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div style="grid-column: span 2;">
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Domicilio *</label>
                             <input type="text" id="domicilio" name="domicilio" required
-                                   style="width: 100%; padding: 10px; border: 2px solid #e91e63; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                         </div>
                         <div>
-                            <label style="display: block; margin-bottom: 5px; color: #ad1457; font-weight: 600;">Localidad *</label>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Localidad *</label>
                             <input type="text" id="localidad" name="localidad" required
-                                   style="width: 100%; padding: 10px; border: 2px solid #e91e63; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                         </div>
                         <div>
-                            <label style="display: block; margin-bottom: 5px; color: #ad1457; font-weight: 600;">Provincia *</label>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Provincia *</label>
                             <input type="text" id="provincia" name="provincia" required
-                                   style="width: 100%; padding: 10px; border: 2px solid #e91e63; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                         </div>
                         <div>
-                            <label style="display: block; margin-bottom: 5px; color: #ad1457; font-weight: 600;">Código Postal *</label>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Código Postal *</label>
                             <input type="text" id="codigo_postal" name="codigo_postal" required
-                                   style="width: 100%; padding: 10px; border: 2px solid #e91e63; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500;">
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                         </div>
                     </div>
                 </div>
 
-                <!-- Observaciones -->
-                <div style="background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); border: 2px solid #9c27b0; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(156,39,176,0.2);">
-                    <h4 style="color: #6a1b9a; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">📝 Información Adicional</h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <!-- Información Adicional -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                    <h4 style="color: #334155; margin: 0 0 20px 0; font-size: 16px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">Información Adicional</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div>
-                            <label style="display: block; margin-bottom: 5px; color: #6a1b9a; font-weight: 600;">Observaciones</label>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Observaciones</label>
                             <textarea id="observaciones" name="observaciones" rows="3"
-                                      style="width: 100%; padding: 10px; border: 2px solid #9c27b0; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500; resize: vertical;"></textarea>
+                                      style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; resize: vertical; transition: all 0.2s;"
+                                      onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                      onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'"></textarea>
                         </div>
                         <div>
-                            <label style="display: block; margin-bottom: 5px; color: #6a1b9a; font-weight: 600;">Garantía</label>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Garantía</label>
                             <textarea id="garantia" name="garantia" rows="3"
-                                      style="width: 100%; padding: 10px; border: 2px solid #9c27b0; border-radius: 8px; font-size: 14px; color: #333; font-weight: 500; resize: vertical;"></textarea>
+                                      style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; resize: vertical; transition: all 0.2s;"
+                                      onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                      onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'"></textarea>
                         </div>
                     </div>
                 </div>
             </form>
         </div>
         
-        <!-- Footer -->
-        <div style="padding: 20px; border-top: 1px solid #e0e0e0; text-align: right; border-radius: 0 0 15px 15px; background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%); box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
-            <button onclick="cerrarModalInquilino()" 
-                    style="padding: 12px 25px; background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white; border: none; border-radius: 8px; margin-right: 15px; cursor: pointer; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(108,117,125,0.3);">❌ Cancelar</button>
-            <button onclick="guardarInquilino()" 
-                    style="padding: 12px 30px; background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(76,175,80,0.3);">✅ GUARDAR INQUILINO</button>
+        <!-- Footer Minimalista -->
+        <div style="padding: 24px 32px; border-top: 1px solid #e2e8f0; text-align: right; border-radius: 0 0 16px 16px; background: #f8fafc;">
+            <div style="display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
+                <button onclick="cerrarModalInquilino()" 
+                        style="padding: 12px 24px; background: #64748b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 15px;"
+                        onmouseover="this.style.background='#475569'"
+                        onmouseout="this.style.background='#64748b'">Cancelar</button>
+                <button onclick="guardarInquilino()" 
+                        style="padding: 12px 28px; background: #16a34a; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.2s;"
+                        onmouseover="this.style.background='#15803d'; this.style.transform='translateY(-1px)'"
+                        onmouseout="this.style.background='#16a34a'; this.style.transform='translateY(0)'">Guardar Inquilino</button>
+            </div>
         </div>
     </div>
 </div>
@@ -3497,20 +3524,7 @@ function guardarInquilino() {
 
 
 
-// Agregar botón para abrir el modal de crear inquilino
-document.addEventListener('DOMContentLoaded', function() {
-    const inquilinoSelect = document.getElementById('inquilino');
-    if (inquilinoSelect) {
-        const btnCrearInquilino = document.createElement('button');
-        btnCrearInquilino.type = 'button';
-        btnCrearInquilino.className = 'btn btn-primary btn-sm ms-2';
-        btnCrearInquilino.textContent = 'Crear Nuevo';
-        btnCrearInquilino.onclick = function() {
-            $('#crearInquilinoModal').modal('show');
-        };
-        inquilinoSelect.parentNode.appendChild(btnCrearInquilino);
-    }
-    });
+// Botón "Crear Nuevo" eliminado - ahora se usa el botón en la interfaz
 
 // Función para cargar los precios de una propiedad específica
 function cargarPreciosPropiedad(propiedadId) {
