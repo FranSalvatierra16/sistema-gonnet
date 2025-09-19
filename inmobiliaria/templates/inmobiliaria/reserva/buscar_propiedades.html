@@ -1759,22 +1759,8 @@ function autenticarYReservar() {
                         document.getElementById('usuarioVendedor').value = '';
                         document.getElementById('contrasenaVendedor').value = '';
                         
-                        // Mostramos el modal de reserva
-                        const modalReserva = new bootstrap.Modal(document.getElementById('modalConfirmarReserva'));
-                        modalReserva.show();
-                        
-                        // Actualizamos los campos del modal
-                    mostrarModalReserva(
-                        window.datosReserva.ficha,
-                        window.datosReserva.direccion,
-                        window.datosReserva.propietario,
-                        window.datosReserva.disponibilidad,
-                        window.datosReserva.precio,
-                        window.datosReserva.fechaInicio,
-                        window.datosReserva.fechaFin,
-                            window.datosReserva.totalDias,
-                            window.datosReserva.esOperacionDirecta
-                    );
+                        // Mostramos el modal de reserva personalizado
+                        window.mostrarModalReserva(false); // false = reserva normal (no operación directa)
                 });
                 }, 300);
             } else {
@@ -2338,94 +2324,7 @@ window.mostrarModalOperacion = function() {
     window.mostrarModalReserva(true); // true = operación directa
 }
 
-// Actualizar la función mostrarModalReserva para manejar operaciones directas
-function mostrarModalReserva(ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias, esOperacionDirecta = false) {
-    console.log('Iniciando mostrarModalReserva con:', { ficha, direccion, propietario, disponibilidad, precio, fechaInicio, fechaFin, totalDias, esOperacionDirecta });
-
-    try {
-        // Formatear fechas
-        const fechaInicioFormateada = formatearFecha(fechaInicio);
-        const fechaFinFormateada = formatearFecha(fechaFin);
-
-        // Limpiar campos previos
-        document.getElementById('vendedor_id').value = '';
-        document.getElementById('vendedor_info').style.display = 'none';
-        document.getElementById('inquilino').value = '';
-        document.getElementById('modalVendedorId').value = '';
-        document.getElementById('modalInquilinoId').value = '';
-
-        // Actualizar título y botón según el tipo de operación
-        const modalTitle = document.getElementById("modalLabel");
-        const confirmarBtn = document.getElementById("confirmar-reserva-btn");
-        if (modalTitle) modalTitle.textContent = esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
-        if (confirmarBtn) confirmarBtn.textContent = esOperacionDirecta ? 'Confirmar Operación' : 'Confirmar Reserva';
-
-        // Actualizar información de la propiedad
-        const elementos = {
-            "propiedadDireccion": direccion,
-            "fechaInicio": fechaInicioFormateada,
-            "fechaFin": fechaFinFormateada,
-            "totalDias": `${totalDias} días`,
-            "precio_total_display": precio,
-            "modalPropiedadId": ficha,
-            "modalFechaInicio": fechaInicioFormateada,
-            "modalFechaFin": fechaFinFormateada,
-            "modalPrecioTotal": precio,
-            "precio_total": precio
-        };
-
-        // Actualizar cada elemento verificando su existencia
-        Object.entries(elementos).forEach(([id, valor]) => {
-            const elemento = document.getElementById(id);
-            if (elemento) {
-                if (elemento.tagName === 'INPUT') {
-                    elemento.value = valor;
-                } else {
-                    elemento.textContent = valor;
-                }
-            } else {
-                console.warn(`Elemento con id '${id}' no encontrado`);
-            }
-        });
-
-        // Configurar operación directa
-        let operacionDirectaInput = document.getElementById("esOperacionDirecta");
-        if (!operacionDirectaInput) {
-            operacionDirectaInput = document.createElement("input");
-            operacionDirectaInput.type = "hidden";
-            operacionDirectaInput.id = "esOperacionDirecta";
-            operacionDirectaInput.name = "es_operacion_directa";
-            const form = document.getElementById("confirmar-reserva-form");
-            if (form) form.appendChild(operacionDirectaInput);
-        }
-        operacionDirectaInput.value = esOperacionDirecta ? "1" : "0";
-
-        // Mostrar el modal usando Bootstrap 5
-        const modalElement = document.getElementById('modalConfirmarReserva');
-        if (modalElement) {
-            const modalInstance = new bootstrap.Modal(modalElement, {
-                backdrop: 'static',
-                keyboard: false
-            });
-            modalInstance.show();
-            
-            // Enfocar el campo de vendedor
-            modalElement.addEventListener('shown.bs.modal', function () {
-                const vendedorInput = document.getElementById('vendedor_id');
-                if (vendedorInput) vendedorInput.focus();
-            });
-        } else {
-            console.error('Modal element not found');
-        }
-    } catch (error) {
-        console.error('Error en mostrarModalReserva:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Hubo un error al mostrar el modal. Por favor, intente nuevamente.'
-        });
-    }
-}
+// FUNCIÓN ELIMINADA - Se usa la función simple mostrarModalReserva más abajo para el modal personalizado
 
 function verPrecios() {
     console.log("=== ABRIENDO MODAL DE PRECIOS ===");
@@ -2828,17 +2727,24 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
         return;
     }
     
-    // Llenar información
-    document.getElementById('modal_ficha').textContent = propiedadSeleccionada.id || '-';
-    document.getElementById('modal_direccion').textContent = propiedadSeleccionada.direccion || '-';
-    document.getElementById('modal_propietario').textContent = propiedadSeleccionada.propietario || '-';
-    document.getElementById('modal_total_dias').textContent = propiedadSeleccionada.totalDias || '-';
+    // Llenar información básica del modal
+    const elementosModal = {
+        'modal_ficha': propiedadSeleccionada.id || '-',
+        'modal_direccion': propiedadSeleccionada.direccion || '-',
+        'modal_propietario': propiedadSeleccionada.propietario || '-',
+        'modal_total_dias': propiedadSeleccionada.totalDias || '-',
+        'modal_estado': propiedadSeleccionada.estado || 'Disponible'
+    };
     
-    // Llenar nuevos campos
-    document.getElementById('modal_ambientes').textContent = propiedadSeleccionada.ambientes || 'No especificado';
-    document.getElementById('modal_estado').textContent = propiedadSeleccionada.estado || 'Disponible';
-    document.getElementById('modal_descripcion').textContent = propiedadSeleccionada.descripcion || 'Sin descripción';
-    document.getElementById('modal_caracteristicas').textContent = propiedadSeleccionada.caracteristicas || 'Sin características';
+    // Llenar solo los elementos que existen
+    Object.entries(elementosModal).forEach(([id, valor]) => {
+        const elemento = document.getElementById(id);
+        if (elemento) {
+            elemento.textContent = valor;
+        } else {
+            console.warn(`⚠️ Elemento ${id} no encontrado en el modal`);
+        }
+    });
     
     // Función para formatear fecha de yyyy-mm-dd a dd-mm-yy
     function formatearFecha(fechaISO) {
