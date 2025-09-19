@@ -471,9 +471,14 @@
                                             </div>
                                         {% endif %}
                                         <div class="text-center mt-4">
-                                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalVenta">
-                                                <i class="fas fa-edit"></i> Editar información
-                                            </button>
+                                            <div class="d-flex justify-content-center gap-3">
+                                                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalVenta">
+                                                    <i class="fas fa-edit"></i> Editar información
+                                                </button>
+                                                <button type="button" class="btn btn-danger" onclick="desactivarVenta({{ propiedad.id }})">
+                                                    <i class="fas fa-times-circle"></i> Desactivar Venta
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1173,6 +1178,9 @@
 }
 </style>
 
+<!-- Incluir SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 function verHistorial() {
     const modalHistorial = new bootstrap.Modal(document.getElementById('modalHistorial'));
@@ -1534,5 +1542,69 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Función para desactivar venta
+function desactivarVenta(propiedadId) {
+    Swal.fire({
+        title: '¿Desactivar venta?',
+        text: 'Esta acción quitará la propiedad de la lista de ventas. Puedes reactivarla cuando quieras.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, desactivar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Mostrar loading
+            Swal.fire({
+                title: 'Desactivando...',
+                text: 'Por favor espere',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            formData.append('accion', 'desactivar');
+            
+            fetch(`/propiedades/${propiedadId}/editar-info-venta/`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Venta desactivada!',
+                        text: 'La propiedad ya no aparecerá en la lista de ventas',
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        // Recargar la página para mostrar los cambios
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.error || 'Error desconocido al desactivar la venta'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de conexión',
+                    text: 'No se pudo conectar con el servidor'
+                });
+            });
+        }
+    });
+}
 </script>
 {% endblock %}

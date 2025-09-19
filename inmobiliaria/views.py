@@ -4313,7 +4313,23 @@ def editar_info_venta(request, propiedad_id):
     info_venta, created = VentaPropiedad.objects.get_or_create(propiedad=propiedad)
 
     if request.method == 'POST':
-        # Actualizar en_venta
+        # Verificar si es una acción de desactivar (AJAX)
+        accion = request.POST.get('accion')
+        if accion == 'desactivar':
+            try:
+                info_venta.en_venta = False
+                info_venta.save()
+                return JsonResponse({
+                    'success': True, 
+                    'message': 'Venta desactivada correctamente'
+                })
+            except Exception as e:
+                return JsonResponse({
+                    'success': False, 
+                    'error': str(e)
+                })
+        
+        # Lógica normal del formulario (no AJAX)
         en_venta = request.POST.get('en_venta') == 'on'
         info_venta.en_venta = en_venta
 
