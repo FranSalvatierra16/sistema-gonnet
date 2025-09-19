@@ -414,16 +414,6 @@
                     <!-- Pestaña de Venta -->
                     <div class="tab-pane fade" id="venta" role="tabpanel">
                         <div class="container mt-4">
-                            <!-- ✅ DEBUG: Mostrar info de venta -->
-                            <div class="alert alert-info">
-                                <strong>DEBUG:</strong>
-                                {% if info_venta %}
-                                    ✅ Info venta existe - En venta: {{ info_venta.en_venta }} - Precio: {{ info_venta.precio_venta|default:"Sin precio" }}
-                                {% else %}
-                                    ❌ No hay info_venta para esta propiedad
-                                {% endif %}
-                            </div>
-                            
                             {% if info_venta and info_venta.en_venta %}
                                 <div class="card">
                                     <div class="card-header bg-primary text-white">
@@ -752,12 +742,12 @@
                                             <div class="col-md-6 mb-3">
                                                 <label for="metros_cuadrados" class="form-label">Metros cuadrados *</label>
                                                 <input type="number" step="0.01" class="form-control" id="metros_cuadrados" name="metros_cuadrados"
-                                                       value="{% if info_venta %}{{ info_venta.metros_cuadrados|default:'' }}{% endif %}">
+                                                       value="{% if info_venta %}{{ info_venta.metros_cuadrados|floatformat:2|default:'' }}{% endif %}">
                                             </div>
                                             <div class="col-md-6 mb-3">
                                                 <label for="precio_venta" class="form-label">Precio de venta *</label>
                                                 <input type="number" class="form-control" id="precio_venta" name="precio_venta" 
-                                                       value="{% if info_venta %}{{ info_venta.precio_venta|default:'' }}{% endif %}">
+                                                       value="{% if info_venta %}{{ info_venta.precio_venta|floatformat:2|default:'' }}{% endif %}">
                                             </div>
                                         </div>
                                         
@@ -765,12 +755,12 @@
                                             <div class="col-md-6 mb-3">
                                                 <label for="precio_autorizacion" class="form-label">Precio de autorización *</label>
                                                 <input type="number" class="form-control" id="precio_autorizacion" name="precio_autorizacion"
-                                                       value="{% if info_venta %}{{ info_venta.precio_autorizacion|default:'' }}{% endif %}">
+                                                       value="{% if info_venta %}{{ info_venta.precio_autorizacion|floatformat:2|default:'' }}{% endif %}">
                                             </div>
                                             <div class="col-md-6 mb-3">
                                                 <label for="precio_expensas_venta" class="form-label">Precio de expensas</label>
                                                 <input type="number" class="form-control" id="precio_expensas_venta" name="precio_expensas"
-                                                       value="{% if info_venta %}{{ info_venta.precio_expensas|default:'' }}{% endif %}">
+                                                       value="{% if info_venta %}{{ info_venta.precio_expensas|floatformat:2|default:'' }}{% endif %}">
                                             </div>
                                         </div>
 
@@ -1352,69 +1342,36 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // ✅ DEBUG: Mostrar información del modal de venta cuando se abre
+    // ✅ Llenar campos del modal de venta automáticamente
     document.getElementById('modalVenta').addEventListener('show.bs.modal', function() {
-        console.log('🏠 MODAL VENTA ABIERTO - DEBUG:');
-        {% if info_venta %}
-            console.log('   ✅ Info venta existe:');
-            console.log('   - En venta: {{ info_venta.en_venta }}');
-            console.log('   - Precio venta: {{ info_venta.precio_venta|default:"null" }}');
-            console.log('   - Precio autorización: {{ info_venta.precio_autorizacion|default:"null" }}');
-            console.log('   - Estado: {{ info_venta.estado|default:"null" }}');
-            console.log('   - Metros cuadrados: {{ info_venta.metros_cuadrados|default:"null" }}');
-            console.log('   - Escribanía: {{ info_venta.escribania|default:"null" }}');
-            console.log('   - Observaciones: {{ info_venta.observaciones|default:"null" }}');
-            console.log('   - Precio expensas: {{ info_venta.precio_expensas|default:"null" }}');
-        {% else %}
-            console.log('   ❌ No hay info_venta para esta propiedad');
-        {% endif %}
-        
-        // Verificar valores de los campos ANTES
-        console.log('   📋 Valores de campos ANTES:');
-        console.log('   - Checkbox en_venta:', document.getElementById('en_venta').checked);
-        console.log('   - Metros cuadrados:', document.getElementById('metros_cuadrados').value);
-        console.log('   - Precio venta:', document.getElementById('precio_venta').value);
-        console.log('   - Precio autorización:', document.getElementById('precio_autorizacion').value);
-        console.log('   - Estado select:', document.getElementById('estado_venta').value);
-        console.log('   - Escribanía:', document.getElementById('escribania').value);
-        
         // ✅ FORZAR valores si están vacíos pero tenemos info_venta
         {% if info_venta %}
         if (!document.getElementById('metros_cuadrados').value && '{{ info_venta.metros_cuadrados|default:"" }}') {
-            document.getElementById('metros_cuadrados').value = '{{ info_venta.metros_cuadrados }}';
-            console.log('   🔧 FORZANDO metros_cuadrados a:', '{{ info_venta.metros_cuadrados }}');
+            // Convertir comas a puntos para inputs tipo number
+            var metrosCuadrados = '{{ info_venta.metros_cuadrados }}'.replace(',', '.');
+            document.getElementById('metros_cuadrados').value = metrosCuadrados;
         }
         if (!document.getElementById('precio_venta').value && '{{ info_venta.precio_venta|default:"" }}') {
-            document.getElementById('precio_venta').value = '{{ info_venta.precio_venta }}';
-            console.log('   🔧 FORZANDO precio_venta a:', '{{ info_venta.precio_venta }}');
+            var precioVenta = '{{ info_venta.precio_venta }}'.replace(',', '.');
+            document.getElementById('precio_venta').value = precioVenta;
         }
         if (!document.getElementById('precio_autorizacion').value && '{{ info_venta.precio_autorizacion|default:"" }}') {
-            document.getElementById('precio_autorizacion').value = '{{ info_venta.precio_autorizacion }}';
-            console.log('   🔧 FORZANDO precio_autorizacion a:', '{{ info_venta.precio_autorizacion }}');
+            var precioAutorizacion = '{{ info_venta.precio_autorizacion }}'.replace(',', '.');
+            document.getElementById('precio_autorizacion').value = precioAutorizacion;
         }
         if (!document.getElementById('precio_expensas_venta').value && '{{ info_venta.precio_expensas|default:"" }}') {
-            document.getElementById('precio_expensas_venta').value = '{{ info_venta.precio_expensas }}';
-            console.log('   🔧 FORZANDO precio_expensas a:', '{{ info_venta.precio_expensas }}');
+            var precioExpensas = '{{ info_venta.precio_expensas }}'.replace(',', '.');
+            document.getElementById('precio_expensas_venta').value = precioExpensas;
         }
         if (!document.getElementById('escribania').value && '{{ info_venta.escribania|default:"" }}') {
             document.getElementById('escribania').value = '{{ info_venta.escribania }}';
-            console.log('   🔧 FORZANDO escribania a:', '{{ info_venta.escribania }}');
         }
         if (!document.getElementById('observaciones_venta').value && '{{ info_venta.observaciones|default:"" }}') {
             document.getElementById('observaciones_venta').value = '{{ info_venta.observaciones }}';
-            console.log('   🔧 FORZANDO observaciones a:', '{{ info_venta.observaciones }}');
         }
         // Establecer estado del select
         document.getElementById('estado_venta').value = '{{ info_venta.estado }}';
-        console.log('   🔧 FORZANDO estado a:', '{{ info_venta.estado }}');
         {% endif %}
-        
-        // Verificar valores DESPUÉS
-        console.log('   📋 Valores de campos DESPUÉS:');
-        console.log('   - Metros cuadrados:', document.getElementById('metros_cuadrados').value);
-        console.log('   - Precio venta:', document.getElementById('precio_venta').value);
-        console.log('   - Precio autorización:', document.getElementById('precio_autorizacion').value);
-        console.log('   - Estado select:', document.getElementById('estado_venta').value);
     });
     
     // Manejar edición de disponibilidades

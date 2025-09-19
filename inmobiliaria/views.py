@@ -360,16 +360,10 @@ def propiedad_detalle(request, propiedad_id):
     # ✅ Obtener información de venta si existe
     try:
         info_venta = propiedad.info_venta
-        print(f"🏠 Info venta encontrada para propiedad {propiedad.id}: {info_venta}")
-        print(f"   - En venta: {info_venta.en_venta}")
-        print(f"   - Precio venta: {info_venta.precio_venta}")
-        print(f"   - Estado: {info_venta.estado}")
     except VentaPropiedad.DoesNotExist:
         info_venta = None
-        print(f"🏠 No hay info_venta para propiedad {propiedad.id}")
     except Exception as e:
         info_venta = None
-        print(f"🏠 Error al obtener info_venta: {e}")
 
     # ✅ Obtener información de 24 meses si existe  
     try:
