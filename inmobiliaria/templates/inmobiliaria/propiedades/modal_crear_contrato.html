@@ -107,14 +107,24 @@
                                 <div class="card-body">
                                     <!-- Buscador de Inquilinos -->
                                     <div class="mb-3">
-                                        <div class="row">
-                                            <div class="col-12">
+                                        <div class="row mb-2">
+                                            <div class="col-8">
                                                 <input type="text" id="buscar_inquilino" placeholder="Buscar por nombre, ID o documento..." 
-                                                       class="form-control mb-2" oninput="buscarInquilinosEnTiempoReal()">
+                                                       class="form-control" oninput="buscarInquilinosEnTiempoReal()">
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="d-flex gap-2">
+                                                    <button type="button" onclick="mostrarModalCrearInquilino()" class="btn btn-success">
+                                                        ➕ Crear
+                                                    </button>
+                                                    <button type="button" onclick="buscarTodosLosInquilinos()" class="btn btn-primary">
+                                                        🔍 Todos
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="row">
-                                            <div class="col-9">
+                                            <div class="col-12">
                                                 <select id="inquilino_select" onchange="actualizarInquilinoId()" size="5" name="inquilino_id" required
                                                         class="form-control" style="width: 100%; max-height: 150px; overflow-y: auto;">
                                                     <option value="">-- Selecciona un inquilino --</option>
@@ -127,17 +137,6 @@
                                                     </option>
                                                     {% endfor %}
                                                 </select>
-                                            </div>
-                                            <div class="col-3">
-                                                <button type="button" onclick="mostrarModalCrearInquilino()" class="btn btn-success w-100 mb-2">
-                                                    ➕ Crear
-                                                </button>
-                                                <button type="button" onclick="buscarTodosLosInquilinos()" class="btn btn-primary w-100 mb-2">
-                                                    🔍 Todos
-                                                </button>
-                                                <button type="button" onclick="limpiarBusquedaInquilino()" class="btn btn-warning w-100">
-                                                    🔄 Limpiar
-                                                </button>
                                             </div>
                                         </div>
                                         <div id="estado_busqueda" style="font-size: 14px; color: #666; font-style: italic; min-height: 20px; margin-top: 8px;"></div>
@@ -304,9 +303,8 @@ function mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, e
         document.getElementById('modal_expensas').textContent = expensas > 0 ? 
             `$${expensas.toLocaleString('es-ES')}` : 'No incluye';
         
-        // Calcular depósito sugerido (2 meses)
-        const depositoSugerido = precioMensual * 2;
-        document.getElementById('deposito_garantia').value = depositoSugerido.toLocaleString('es-ES');
+        // El depósito se escribe manualmente
+        document.getElementById('deposito_garantia').value = '';
         
         // Actualizar resumen
         actualizarResumenContrato();
@@ -317,7 +315,7 @@ function mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, e
         
         // Establecer valores por defecto
         document.getElementById('precio_mensual_input').value = '50.000';
-        document.getElementById('deposito_garantia').value = '100.000';
+        document.getElementById('deposito_garantia').value = '';
         actualizarResumenContrato();
     }
     
@@ -366,10 +364,6 @@ function buscarTodosLosInquilinos() {
     document.getElementById('buscar_inquilino').value = '';
 }
 
-function limpiarBusquedaInquilino() {
-    document.getElementById('buscar_inquilino').value = '';
-    buscarTodosLosInquilinos();
-}
 
 function actualizarInquilinoId() {
     const select = document.getElementById('inquilino_select');
