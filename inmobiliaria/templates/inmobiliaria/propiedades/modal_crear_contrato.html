@@ -107,30 +107,40 @@
                                 <div class="card-body">
                                     <!-- Buscador de Inquilinos -->
                                     <div class="mb-3">
-                                        <div class="d-flex gap-2 mb-2">
-                                            <input type="text" id="buscar_inquilino" placeholder="Buscar por nombre o ID del inquilino..." 
-                                                   class="form-control" oninput="buscarInquilinosEnTiempoReal()">
-                                            <button type="button" onclick="buscarTodosLosInquilinos()" class="btn btn-primary">🔍 Buscar Todos</button>
-                                            <button type="button" onclick="limpiarBusquedaInquilino()" class="btn btn-warning">🔄 Limpiar</button>
+                                        <div class="row">
+                                            <div class="col-12">
+                                                <input type="text" id="buscar_inquilino" placeholder="Buscar por nombre, ID o documento..." 
+                                                       class="form-control mb-2" oninput="buscarInquilinosEnTiempoReal()">
+                                            </div>
                                         </div>
-                                        <div id="estado_busqueda" style="font-size: 14px; color: #666; font-style: italic; min-height: 20px;"></div>
-                                    </div>
-                                    
-                                    <!-- Lista de Inquilinos -->
-                                    <div class="d-flex gap-2">
-                                        <select id="inquilino_select" onchange="actualizarInquilinoId()" size="5" name="inquilino_id" required
-                                                class="form-control" style="max-height: 150px; overflow-y: auto;">
-                                            <option value="">-- Selecciona un inquilino --</option>
-                                            {% for inquilino in inquilinos %}
-                                            <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.nombre|lower }} {{ inquilino.apellido|lower }}" data-id="{{ inquilino.id }}">
-                                                ID: {{ inquilino.id }} - {{ inquilino.nombre }} {{ inquilino.apellido }}
-                                            </option>
-                                            {% endfor %}
-                                        </select>
-                                        <div class="d-flex flex-column gap-2">
-                                            <button type="button" onclick="mostrarModalCrearInquilino()" class="btn btn-success">➕ Crear Nuevo</button>
-                                            <button type="button" onclick="seleccionarPrimerInquilino()" class="btn btn-info">📋 Ver Todos</button>
+                                        <div class="row">
+                                            <div class="col-9">
+                                                <select id="inquilino_select" onchange="actualizarInquilinoId()" size="5" name="inquilino_id" required
+                                                        class="form-control" style="width: 100%; max-height: 150px; overflow-y: auto;">
+                                                    <option value="">-- Selecciona un inquilino --</option>
+                                                    {% for inquilino in inquilinos %}
+                                                    <option value="{{ inquilino.id }}" 
+                                                            data-nombre="{{ inquilino.nombre|lower }} {{ inquilino.apellido|lower }}" 
+                                                            data-id="{{ inquilino.id }}"
+                                                            data-dni="{{ inquilino.dni|default:'' }}">
+                                                        ID: {{ inquilino.id }} - {{ inquilino.nombre }} {{ inquilino.apellido }} (DNI: {{ inquilino.dni|default:'N/A' }})
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="col-3">
+                                                <button type="button" onclick="mostrarModalCrearInquilino()" class="btn btn-success w-100 mb-2">
+                                                    ➕ Crear
+                                                </button>
+                                                <button type="button" onclick="buscarTodosLosInquilinos()" class="btn btn-primary w-100 mb-2">
+                                                    🔍 Todos
+                                                </button>
+                                                <button type="button" onclick="limpiarBusquedaInquilino()" class="btn btn-warning w-100">
+                                                    🔄 Limpiar
+                                                </button>
+                                            </div>
                                         </div>
+                                        <div id="estado_busqueda" style="font-size: 14px; color: #666; font-style: italic; min-height: 20px; margin-top: 8px;"></div>
                                     </div>
                                 </div>
                             </div>
@@ -171,26 +181,14 @@
                                     <h5 class="mb-0">📋 Resumen del Contrato</h5>
                                 </div>
                                 <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-3">
-                                            <div class="text-center">
-                                                <h6 class="text-muted">Total de Cuotas</h6>
-                                                <h4 id="total_cuotas" class="text-primary">24</h4>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-3">
+                                    <div class="row justify-content-center">
+                                        <div class="col-md-6">
                                             <div class="text-center">
                                                 <h6 class="text-muted">Precio por Cuota</h6>
                                                 <h4 id="precio_por_cuota" class="text-success">$0</h4>
                                             </div>
                                         </div>
-                                        <div class="col-md-3">
-                                            <div class="text-center">
-                                                <h6 class="text-muted">Total del Contrato</h6>
-                                                <h4 id="total_contrato" class="text-warning">$0</h4>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-3">
+                                        <div class="col-md-6">
                                             <div class="text-center">
                                                 <h6 class="text-muted">Depósito de Garantía</h6>
                                                 <h4 id="total_deposito" class="text-info">$0</h4>
@@ -345,8 +343,10 @@ function buscarInquilinosEnTiempoReal() {
         
         const nombre = option.dataset.nombre || '';
         const id = option.dataset.id || '';
+        const dni = option.dataset.dni || '';
         
-        if (nombre.includes(busqueda) || id.includes(busqueda)) {
+        // Buscar por nombre, ID o DNI
+        if (nombre.includes(busqueda) || id.includes(busqueda) || dni.includes(busqueda)) {
             option.style.display = '';
             encontrados++;
         } else {
@@ -383,13 +383,6 @@ function actualizarInquilinoId() {
     }
 }
 
-function seleccionarPrimerInquilino() {
-    const select = document.getElementById('inquilino_select');
-    if (select.options.length > 1) {
-        select.selectedIndex = 1; // Seleccionar el primer inquilino (índice 1, ya que 0 es la opción vacía)
-        actualizarInquilinoId();
-    }
-}
 
 function mostrarModalCrearInquilino() {
     const modal = new bootstrap.Modal(document.getElementById('modalNuevoInquilino'));
@@ -522,7 +515,8 @@ function crearNuevoInquilino() {
             option.value = data.inquilino.id;
             option.dataset.nombre = `${data.inquilino.nombre.toLowerCase()} ${data.inquilino.apellido.toLowerCase()}`;
             option.dataset.id = data.inquilino.id;
-            option.textContent = `ID: ${data.inquilino.id} - ${data.inquilino.nombre} ${data.inquilino.apellido}`;
+            option.dataset.dni = data.inquilino.dni || '';
+            option.textContent = `ID: ${data.inquilino.id} - ${data.inquilino.nombre} ${data.inquilino.apellido} (DNI: ${data.inquilino.dni || 'N/A'})`;
             select.appendChild(option);
             
             // Seleccionar el nuevo inquilino
@@ -552,10 +546,8 @@ function actualizarResumenContrato() {
     
     const totalContrato = precioMensual * duracionMeses;
     
-    // Actualizar resumen
-    document.getElementById('total_cuotas').textContent = duracionMeses;
+    // Actualizar resumen (solo campos que quedaron)
     document.getElementById('precio_por_cuota').textContent = `$${precioMensual.toLocaleString('es-ES')}`;
-    document.getElementById('total_contrato').textContent = `$${totalContrato.toLocaleString('es-ES')}`;
     document.getElementById('total_deposito').textContent = `$${deposito.toLocaleString('es-ES')}`;
 }
 
