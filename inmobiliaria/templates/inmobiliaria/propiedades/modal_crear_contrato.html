@@ -110,7 +110,7 @@
                                         <div class="row mb-2">
                                             <div class="col-8">
                                                 <input type="text" id="buscar_inquilino" placeholder="Buscar por nombre, ID o documento..." 
-                                                       class="form-control" oninput="buscarInquilinosEnTiempoReal()">
+                                                   class="form-control" oninput="buscarInquilinosEnTiempoReal()">
                                             </div>
                                             <div class="col-4">
                                                 <div class="d-flex gap-2">
@@ -125,18 +125,18 @@
                                         </div>
                                         <div class="row">
                                             <div class="col-12">
-                                                <select id="inquilino_select" onchange="actualizarInquilinoId()" size="5" name="inquilino_id" required
+                                        <select id="inquilino_select" onchange="actualizarInquilinoId()" size="5" name="inquilino_id" required
                                                         class="form-control" style="width: 100%; max-height: 150px; overflow-y: auto;">
-                                                    <option value="">-- Selecciona un inquilino --</option>
-                                                    {% for inquilino in inquilinos %}
+                                            <option value="">-- Selecciona un inquilino --</option>
+                                            {% for inquilino in inquilinos %}
                                                     <option value="{{ inquilino.id }}" 
                                                             data-nombre="{{ inquilino.nombre|lower }} {{ inquilino.apellido|lower }}" 
                                                             data-id="{{ inquilino.id }}"
                                                             data-dni="{{ inquilino.dni|default:'' }}">
                                                         ID: {{ inquilino.id }} - {{ inquilino.nombre }} {{ inquilino.apellido }} (DNI: {{ inquilino.dni|default:'N/A' }})
-                                                    </option>
-                                                    {% endfor %}
-                                                </select>
+                                            </option>
+                                            {% endfor %}
+                                        </select>
                                             </div>
                                         </div>
                                         <div id="estado_busqueda" style="font-size: 14px; color: #666; font-style: italic; min-height: 20px; margin-top: 8px;"></div>
@@ -213,61 +213,168 @@
     </div>
 </div>
 
-<!-- Modal para crear nuevo inquilino -->
-<div class="modal fade" id="modalNuevoInquilino" tabindex="-1" aria-labelledby="modalNuevoInquilinoLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-info text-white">
-                <h5 class="modal-title" id="modalNuevoInquilinoLabel">
-                    <i class="fas fa-user-plus"></i> Crear Nuevo Inquilino
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+<!-- MODAL MODERNO PARA CREAR INQUILINO -->
+<div id="modalNuevoInquilino" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.75); z-index: 10000; backdrop-filter: blur(8px);">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 16px; padding: 0; width: 95%; max-width: 700px; box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05); animation: modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); max-height: 90vh; overflow: hidden;">
+        
+        <!-- Header Minimalista -->
+        <div style="background: #1e293b; color: white; padding: 24px 32px; border-radius: 16px 16px 0 0; position: relative;">
+            <h3 style="margin: 0; font-size: 22px; font-weight: 600; color: #f8fafc;">Crear Nuevo Inquilino</h3>
+            <button onclick="cerrarModalNuevoInquilino()" style="position: absolute; top: 20px; right: 24px; background: rgba(255,255,255,0.1); border: none; color: #cbd5e1; font-size: 20px; cursor: pointer; border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'; this.style.color='#f8fafc'" onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#cbd5e1'">×</button>
             </div>
+        
+        <!-- Body Minimalista -->
+        <div style="padding: 32px; max-height: 70vh; overflow-y: auto; background: #ffffff;">
             <form id="formNuevoInquilino">
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Nombre *</label>
-                                <input type="text" class="form-control" id="inquilino_nombre_nuevo" name="nombre" required>
+                {% csrf_token %}
+                
+                <!-- Datos Personales -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                    <h4 style="color: #334155; margin: 0 0 20px 0; font-size: 16px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">Datos Personales</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Nombre *</label>
+                            <input type="text" id="inquilino_nombre_nuevo" name="nombre" required
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                             </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Apellido *</label>
+                            <input type="text" id="inquilino_apellido_nuevo" name="apellido" required
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Apellido *</label>
-                                <input type="text" class="form-control" id="inquilino_apellido_nuevo" name="apellido" required>
-                            </div>
+                        <div style="grid-column: span 2;">
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Email *</label>
+                            <input type="email" id="inquilino_email_nuevo" name="email" required
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                         </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Teléfono</label>
-                                <input type="text" class="form-control" id="inquilino_telefono_nuevo" name="telefono">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Email</label>
-                                <input type="email" class="form-control" id="inquilino_email_nuevo" name="email">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">DNI</label>
-                        <input type="text" class="form-control" id="inquilino_dni_nuevo" name="dni">
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-save"></i> Crear Inquilino
-                    </button>
+
+                <!-- Contacto -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                    <h4 style="color: #334155; margin: 0 0 20px 0; font-size: 16px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">Contacto</h4>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Celular *</label>
+                        <input type="text" id="inquilino_telefono_nuevo" name="telefono" required
+                               style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                               onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                               onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
+                    </div>
+                            </div>
+
+                <!-- Documentación -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                    <h4 style="color: #334155; margin: 0 0 20px 0; font-size: 16px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">Documentación</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Tipo de Documento *</label>
+                            <select id="inquilino_tipo_doc_nuevo" name="tipo_doc" required
+                                    style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; background: white; transition: all 0.2s;"
+                                    onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                    onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
+                                <option value="dni">DNI</option>
+                                <option value="le">LE</option>
+                                <option value="ls">LS</option>
+                                <option value="cipf">CIPF</option>
+                                <option value="pas">Pasaporte</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Número de Documento *</label>
+                            <input type="text" id="inquilino_dni_nuevo" name="dni" required
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dirección -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                    <h4 style="color: #334155; margin: 0 0 20px 0; font-size: 16px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">Dirección</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div style="grid-column: span 2;">
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Domicilio *</label>
+                            <input type="text" id="inquilino_domicilio_nuevo" name="domicilio" required
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Localidad *</label>
+                            <input type="text" id="inquilino_localidad_nuevo" name="localidad" required
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Provincia *</label>
+                            <input type="text" id="inquilino_provincia_nuevo" name="provincia" required
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Código Postal *</label>
+                            <input type="text" id="inquilino_codigo_postal_nuevo" name="codigo_postal" required
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información Adicional -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                    <h4 style="color: #334155; margin: 0 0 20px 0; font-size: 16px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">Información Adicional</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Observaciones</label>
+                            <textarea id="inquilino_observaciones_nuevo" name="observaciones" rows="3"
+                                      style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; resize: vertical; transition: all 0.2s;"
+                                      onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                      onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'"></textarea>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Garantía</label>
+                            <textarea id="inquilino_garantia_nuevo" name="garantia" rows="3"
+                                      style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; resize: vertical; transition: all 0.2s;"
+                                      onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                      onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'"></textarea>
+                        </div>
+                    </div>
                 </div>
             </form>
         </div>
+        
+        <!-- Footer Minimalista -->
+        <div style="padding: 24px 32px; border-top: 1px solid #e2e8f0; text-align: right; border-radius: 0 0 16px 16px; background: #f8fafc;">
+            <div style="display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
+                <button onclick="cerrarModalNuevoInquilino()" 
+                        style="padding: 12px 24px; background: #64748b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 15px;"
+                        onmouseover="this.style.background='#475569'"
+                        onmouseout="this.style.background='#64748b'">Cancelar</button>
+                <button onclick="guardarNuevoInquilino()" 
+                        style="padding: 12px 28px; background: #16a34a; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.2s;"
+                        onmouseover="this.style.background='#15803d'; this.style.transform='translateY(-1px)'"
+                        onmouseout="this.style.background='#16a34a'; this.style.transform='translateY(0)'">Guardar Inquilino</button>
+            </div>
+        </div>
     </div>
 </div>
+
+<style>
+@keyframes modalAppear {
+    from { opacity: 0; transform: translate(-50%, -60%) scale(0.9); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+</style>
 
 <script>
 // Variable global para el timeout de búsqueda
@@ -379,8 +486,97 @@ function actualizarInquilinoId() {
 
 
 function mostrarModalCrearInquilino() {
-    const modal = new bootstrap.Modal(document.getElementById('modalNuevoInquilino'));
-    modal.show();
+    console.log('🏠 Abriendo modal crear inquilino...');
+    document.getElementById('modalNuevoInquilino').style.display = 'block';
+}
+
+function cerrarModalNuevoInquilino() {
+    console.log('🚪 Cerrando modal crear inquilino...');
+    const modal = document.getElementById('modalNuevoInquilino');
+    const form = document.getElementById('formNuevoInquilino');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        console.log('✅ Modal de inquilino ocultado');
+    }
+    
+    if (form) {
+        form.reset();
+        console.log('✅ Formulario de inquilino reseteado');
+    }
+}
+
+function guardarNuevoInquilino() {
+    console.log('💾 Guardando nuevo inquilino...');
+    
+    const form = document.getElementById('formNuevoInquilino');
+    const formData = new FormData(form);
+    
+    // Validar campos requeridos
+    const camposRequeridos = ['nombre', 'apellido', 'email', 'telefono', 'tipo_doc', 'dni', 'domicilio', 'localidad', 'provincia', 'codigo_postal'];
+    let camposVacios = [];
+    
+    camposRequeridos.forEach(campo => {
+        const input = form.querySelector(`[name="${campo}"]`);
+        if (!input || !input.value.trim()) {
+            camposVacios.push(campo);
+        }
+    });
+    
+    if (camposVacios.length > 0) {
+        alert('❌ Por favor completa los siguientes campos requeridos:\n• ' + camposVacios.join('\n• '));
+        return;
+    }
+    
+    console.log('📋 Datos a enviar:');
+    for (let [key, value] of formData.entries()) {
+        console.log(`  ${key}: ${value}`);
+    }
+    
+    fetch('{% url "inmobiliaria:crear_inquilino_ajax" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => {
+        console.log('🔄 Respuesta recibida:', response);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('📊 Respuesta crear inquilino:', data);
+        
+        if (data.success) {
+            // Cerrar modal
+            cerrarModalNuevoInquilino();
+            
+            // Agregar el nuevo inquilino a la lista
+            const select = document.getElementById('inquilino_select');
+            const option = document.createElement('option');
+            option.value = data.inquilino.id;
+            option.dataset.nombre = `${data.inquilino.nombre.toLowerCase()} ${data.inquilino.apellido.toLowerCase()}`;
+            option.dataset.id = data.inquilino.id;
+            option.dataset.dni = data.inquilino.dni || '';
+            option.textContent = `ID: ${data.inquilino.id} - ${data.inquilino.nombre} ${data.inquilino.apellido} (DNI: ${data.inquilino.dni || 'N/A'})`;
+            select.appendChild(option);
+            
+            // Seleccionar el nuevo inquilino
+            select.value = data.inquilino.id;
+            actualizarInquilinoId();
+            
+            alert(`✅ Inquilino creado exitosamente: ${data.inquilino.nombre} ${data.inquilino.apellido}`);
+        } else {
+            alert(`❌ Error al crear inquilino: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error al crear inquilino:', error);
+        alert(`Error al crear inquilino: ${error.message}`);
+    });
 }
 
 // Función para buscar vendedor automáticamente
@@ -473,60 +669,6 @@ function buscarVendedor(event) {
         });
 }
 
-// Función para crear nuevo inquilino
-function crearNuevoInquilino() {
-    const formData = new FormData();
-    formData.append('nombre', document.getElementById('inquilino_nombre_nuevo').value);
-    formData.append('apellido', document.getElementById('inquilino_apellido_nuevo').value);
-    formData.append('telefono', document.getElementById('inquilino_telefono_nuevo').value);
-    formData.append('email', document.getElementById('inquilino_email_nuevo').value);
-    formData.append('dni', document.getElementById('inquilino_dni_nuevo').value);
-    
-    console.log('👤 Creando nuevo inquilino...');
-    
-    fetch('/inmobiliaria/crear-inquilino-ajax/', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('📊 Respuesta crear inquilino:', data);
-        
-        if (data.success) {
-            // Cerrar modal de creación
-            const modal = bootstrap.Modal.getInstance(document.getElementById('modalNuevoInquilino'));
-            modal.hide();
-            
-            // Limpiar formulario
-            document.getElementById('formNuevoInquilino').reset();
-            
-            // Agregar el nuevo inquilino a la lista
-            const select = document.getElementById('inquilino_select');
-            const option = document.createElement('option');
-            option.value = data.inquilino.id;
-            option.dataset.nombre = `${data.inquilino.nombre.toLowerCase()} ${data.inquilino.apellido.toLowerCase()}`;
-            option.dataset.id = data.inquilino.id;
-            option.dataset.dni = data.inquilino.dni || '';
-            option.textContent = `ID: ${data.inquilino.id} - ${data.inquilino.nombre} ${data.inquilino.apellido} (DNI: ${data.inquilino.dni || 'N/A'})`;
-            select.appendChild(option);
-            
-            // Seleccionar el nuevo inquilino
-            select.value = data.inquilino.id;
-            actualizarInquilinoId();
-            
-            alert(`✅ Inquilino creado exitosamente: ${data.inquilino.nombre} ${data.inquilino.apellido}`);
-        } else {
-            alert(`❌ Error al crear inquilino: ${data.error}`);
-        }
-    })
-    .catch(error => {
-        console.error('❌ Error al crear inquilino:', error);
-        alert(`Error al crear inquilino: ${error.message}`);
-    });
-}
 
 // Función para actualizar el resumen del contrato
 function actualizarResumenContrato() {
@@ -597,10 +739,5 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Manejar el formulario de nuevo inquilino
-    document.getElementById('formNuevoInquilino').addEventListener('submit', function(e) {
-        e.preventDefault();
-        crearNuevoInquilino();
-    });
 });
 </script> 
