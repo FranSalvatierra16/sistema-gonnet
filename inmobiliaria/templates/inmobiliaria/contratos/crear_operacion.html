@@ -413,7 +413,19 @@ let conceptoSeleccionadoActual = null;
 // Función para parsear valores formateados
 function parsearValorFormateado(valor) {
     if (!valor || valor === '') return 0;
-    return parseFloat(valor.toString().replace(/\./g, '')) || 0;
+    
+    // Convertir a string y limpiar
+    const valorStr = valor.toString().trim();
+    
+    // Remover puntos de miles (formato argentino) y espacios
+    const valorLimpio = valorStr.replace(/\./g, '').replace(/\s/g, '');
+    
+    // Convertir a número
+    const resultado = parseFloat(valorLimpio) || 0;
+    
+    console.log('🔧 parsearValorFormateado:', valor, '→', valorLimpio, '→', resultado);
+    
+    return resultado;
 }
 
 // Función para formatear números en tiempo real
@@ -623,9 +635,18 @@ function calcularTotales() {
     const totalConceptos = conceptosAgregados.reduce((sum, concepto) => sum + concepto.importe, 0);
     
     // Obtener valores de los campos arriba
-    const depositoInput = parsearValorFormateado(document.getElementById('deposito_garantia')?.value || '0');
-    const honorariosInput = parsearValorFormateado(document.getElementById('honorarios_top').value);
-    const selladosInput = parsearValorFormateado(document.getElementById('sellados_top').value);
+    const depositoInputRaw = document.getElementById('deposito_garantia')?.value || '0';
+    const honorariosInputRaw = document.getElementById('honorarios_top').value;
+    const selladosInputRaw = document.getElementById('sellados_top').value;
+    
+    const depositoInput = parsearValorFormateado(depositoInputRaw);
+    const honorariosInput = parsearValorFormateado(honorariosInputRaw);
+    const selladosInput = parsearValorFormateado(selladosInputRaw);
+    
+    console.log('🔍 DEBUG VALORES RAW:');
+    console.log('  - Depósito RAW:', depositoInputRaw, '→ Parseado:', depositoInput);
+    console.log('  - Honorarios RAW:', honorariosInputRaw, '→ Parseado:', honorariosInput);
+    console.log('  - Sellados RAW:', selladosInputRaw, '→ Parseado:', selladosInput);
     
     // Solo incluir en el total si están cargados como conceptos (igual que alquiler por día)
     const concepto10Presente = verificarConcepto10();
