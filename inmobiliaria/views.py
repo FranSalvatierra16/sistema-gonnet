@@ -7628,9 +7628,18 @@ def recibo_contrato_24(request, contrato_id):
         conceptos_contrato = []
         
         # Buscar el primer movimiento de caja relacionado con este contrato
+        # Los movimientos de contrato incluyen el ID del contrato en el concepto
         primer_movimiento = MovimientoCaja.objects.filter(
-            contrato_id=contrato.id
+            concepto__icontains=f'Contrato #{contrato.id}',
+            propiedad=contrato.propiedad,
+            sucursal=request.user.sucursal
         ).first()
+        
+        # Si no encontramos movimiento por concepto, buscar por cuotas pagadas
+        if not primer_movimiento:
+            cuota_pagada = contrato.cuotas.filter(estado='pagada', movimiento__isnull=False).first()
+            if cuota_pagada and cuota_pagada.movimiento:
+                primer_movimiento = cuota_pagada.movimiento
         
         if primer_movimiento and primer_movimiento.concepto:
             # Parsear los conceptos del movimiento
@@ -7649,9 +7658,17 @@ def recibo_contrato_24(request, contrato_id):
                 conceptos_contrato.append({
                     'fecha': primer_movimiento.fecha,
                     'codigo': '90',
-                    'nombre': 'ALQUILER A COBRAR',
-                    'importe': f"${contrato.precio_mensual:,.2f}".replace(',', '.')
+                    'nombre': primer_movimiento.concepto,
+                    'importe': f"${primer_movimiento.monto_efectivo:,.2f}".replace(',', '.')
                 })
+        else:
+            # Si no hay movimientos, usar datos básicos del contrato
+            conceptos_contrato.append({
+                'fecha': contrato.fecha_operacion,
+                'codigo': '90',
+                'nombre': f'CONTRATO ALQUILER - {contrato.propiedad.direccion}',
+                'importe': f"${contrato.precio_mensual:,.2f}".replace(',', '.')
+            })
         
         # Calcular valores para la tabla de honorarios
         alquiler_mensual = contrato.precio_mensual
