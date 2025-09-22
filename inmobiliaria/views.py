@@ -6754,7 +6754,7 @@ def procesar_operacion_contrato(request, contrato_id):
         
         return JsonResponse({
             'success': True,
-            'redirect_url': reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
+            'redirect_url': reverse('inmobiliaria:recibo_contrato_24', args=[contrato.id])
         })
     except Exception as e:
         return JsonResponse({'error': f'Error al procesar la operación: {str(e)}'}, status=400)
@@ -6873,7 +6873,7 @@ def pagar_cuota(request, cuota_id):
             
             return JsonResponse({
                 'success': True,
-                'redirect_url': reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
+                'redirect_url': reverse('inmobiliaria:recibo_contrato_24', args=[contrato.id])
             })
             
     except Exception as e:
