@@ -6607,6 +6607,10 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         monto_deposito_galicia = limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0'))
         monto_deposito_mp = limpiar_valor_monetario(request.POST.get('monto_deposito_mp', '0'))
         
+        # Honorarios y sellados (nuevos campos)
+        honorarios = limpiar_valor_monetario(request.POST.get('honorarios', '0'))
+        sellados = limpiar_valor_monetario(request.POST.get('sellados', '0'))
+        
         total_movimiento = (monto_efectivo + monto_cheque + monto_tarjeta + 
                           monto_deposito_galicia + monto_deposito_mp)
         
@@ -6621,7 +6625,9 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             fecha=timezone.now(),
             empleado=request.user,
             sucursal=request.user.sucursal,
-            propiedad=contrato.propiedad
+            propiedad=contrato.propiedad,
+            honorarios=honorarios,
+            sellados=sellados
         )
         
         # Si hay depósitos bancarios, guardarlos
@@ -7670,14 +7676,20 @@ def recibo_contrato_24(request, contrato_id):
                 'importe': f"${contrato.precio_mensual:,.2f}".replace(',', '.')
             })
         
-        # Calcular valores para la tabla de honorarios
+        # Obtener valores de honorarios y sellados del movimiento (si existen)
         from decimal import Decimal
         
         alquiler_mensual = contrato.precio_mensual
         deposito_garantia = contrato.deposito_garantia or Decimal('0')
-        honorarios = alquiler_mensual * Decimal('0.08')  # 8% de honorarios típico
-        sellado = alquiler_mensual * Decimal('0.012')  # 1.2% de sellado típico
         primer_mes = alquiler_mensual
+        
+        # Usar valores del movimiento si existen, sino usar 0
+        honorarios = Decimal('0')
+        sellado = Decimal('0')
+        
+        if primer_movimiento:
+            honorarios = getattr(primer_movimiento, 'honorarios', Decimal('0')) or Decimal('0')
+            sellado = getattr(primer_movimiento, 'sellados', Decimal('0')) or Decimal('0')
         
         total_a_abonar = primer_mes + alquiler_mensual + deposito_garantia + honorarios + sellado
         subtotal = total_a_abonar

@@ -60,5 +60,5 @@ reconstruir_historial_propiedad.short_description = "🔄 Reconstruir historial 
 class PropiedadAdmin(admin.ModelAdmin):
     list_display = ('id', 'direccion', 'propietario', 'sucursal')
     search_fields = ('direccion', 'propietario__nombre', 'propietario__apellido')
-    list_filter = ('sucursal', 'tipo_propiedad')
+    list_filter = ('sucursal', 'tipo_inmueble')
     actions = [reconstruir_historial_propiedad]

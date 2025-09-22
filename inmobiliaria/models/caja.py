@@ -107,6 +107,10 @@ class MovimientoCaja(models.Model):
     sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
     empleado = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     caja = models.ForeignKey('Caja', on_delete=models.CASCADE, null=True, blank=True)
+    
+    # Campos para contratos de 24 meses
+    honorarios = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True)
+    sellados = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
