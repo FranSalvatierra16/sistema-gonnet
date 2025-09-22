@@ -636,11 +636,19 @@ function calcularTotales() {
     const honorarios = concepto25Presente ? honorariosInput : 0;
     const sellados = concepto26Presente ? selladosInput : 0;
     
+    // El total del recibo debe ser solo lo que se va a pagar en esta operación
     const totalRecibo = totalConceptos + deposito + honorarios + sellados;
     
     document.getElementById('totalConceptos').textContent = totalConceptos.toLocaleString('es-AR');
     document.getElementById('totalRecibo').value = totalRecibo;
     document.getElementById('totalOperacion').textContent = totalRecibo.toLocaleString('es-AR');
+    
+    console.log('🔍 DEBUG CÁLCULO:');
+    console.log('  - Total Conceptos:', totalConceptos);
+    console.log('  - Depósito (concepto 10):', deposito, '| Presente:', concepto10Presente);
+    console.log('  - Honorarios (concepto 25):', honorarios, '| Presente:', concepto25Presente);
+    console.log('  - Sellados (concepto 26):', sellados, '| Presente:', concepto26Presente);
+    console.log('  - TOTAL RECIBO:', totalRecibo);
     
     // Calcular total de pagos actual
     const totalPagos = calcularTotalPagos();
