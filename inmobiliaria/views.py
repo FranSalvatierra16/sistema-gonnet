@@ -7671,10 +7671,12 @@ def recibo_contrato_24(request, contrato_id):
             })
         
         # Calcular valores para la tabla de honorarios
+        from decimal import Decimal
+        
         alquiler_mensual = contrato.precio_mensual
-        deposito_garantia = contrato.deposito_garantia or 0
-        honorarios = alquiler_mensual * 0.08  # 8% de honorarios típico
-        sellado = alquiler_mensual * 0.012  # 1.2% de sellado típico
+        deposito_garantia = contrato.deposito_garantia or Decimal('0')
+        honorarios = alquiler_mensual * Decimal('0.08')  # 8% de honorarios típico
+        sellado = alquiler_mensual * Decimal('0.012')  # 1.2% de sellado típico
         primer_mes = alquiler_mensual
         
         total_a_abonar = primer_mes + alquiler_mensual + deposito_garantia + honorarios + sellado
@@ -7683,7 +7685,7 @@ def recibo_contrato_24(request, contrato_id):
         
         # Convertir números a formato de pesos argentinos
         def format_currency(amount):
-            return f"${amount:,.2f}".replace(',', '.')
+            return f"${float(amount):,.2f}".replace(',', '.')
         
         # Obtener logo en base64
         logo_base64 = None
@@ -7700,7 +7702,9 @@ def recibo_contrato_24(request, contrato_id):
         # Función para convertir número a texto (básica)
         def numero_a_texto(numero):
             # Implementación simple - en producción usar una librería como num2words
-            return f"{'PESOS ' + str(int(numero)).upper() if numero > 0 else ''}"
+            if numero > 0:
+                return f"PESOS {str(int(float(numero))).upper()}"
+            return ""
         
         context = {
             'contrato': contrato,
