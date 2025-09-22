@@ -6752,8 +6752,17 @@ def procesar_operacion_contrato(request, contrato_id):
             else:
                 return JsonResponse({'error': 'Debe seleccionar un día de vencimiento'}, status=400)
             
-            total_esperado = contrato.deposito_garantia + contrato.precio_mensual
-            mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
+            # Lógica inteligente: solo incluir depósito si hay concepto 10 (igual que alquiler por día)
+            conceptos_texto = movimiento.concepto
+            concepto_10_presente = ' | ID:10 |' in conceptos_texto
+            
+            if concepto_10_presente:
+                total_esperado = contrato.deposito_garantia + contrato.precio_mensual
+                mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
+            else:
+                # Si no hay concepto 10, el total esperado es lo que esté en los conceptos
+                total_esperado = total_movimiento  # Aceptar cualquier total (conceptos + honorarios + sellados sin depósito)
+                mensaje_error = f'Total validado: ${total_movimiento} (sin depósito, concepto 10 no presente)'
             
             # Usar el día de vencimiento seleccionado para crear las fechas
             fecha_actual = timezone.now().date()
