@@ -114,6 +114,9 @@
                                 <th>Precio Mensual</th>
                                 <th>Inicio</th>
                                 <th>Próxima Cuota</th>
+                                <th>Depósito</th>
+                                <th>Honorarios</th>
+                                <th>Sellados</th>
                                 <th>Estado</th>
                                 <th>Acciones</th>
                             </tr>
@@ -158,6 +161,33 @@
                                         </div>
                                     {% else %}
                                         <span class="badge bg-success">Todas las cuotas pagadas</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if contrato.deposito_estado == 'pagado' %}
+                                        <span class="badge bg-success">✅ Pagado</span>
+                                    {% elif contrato.deposito_garantia > 0 %}
+                                        <span class="badge bg-warning">⏳ Pendiente</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if contrato.honorarios_estado == 'pagado' %}
+                                        <span class="badge bg-success">✅ Pagado</span>
+                                    {% elif contrato.honorarios > 0 %}
+                                        <span class="badge bg-warning">⏳ Pendiente</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if contrato.sellados_estado == 'pagado' %}
+                                        <span class="badge bg-success">✅ Pagado</span>
+                                    {% elif contrato.sellados > 0 %}
+                                        <span class="badge bg-warning">⏳ Pendiente</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">N/A</span>
                                     {% endif %}
                                 </td>
                                 <td>

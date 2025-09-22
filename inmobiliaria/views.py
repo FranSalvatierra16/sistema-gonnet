@@ -6509,6 +6509,17 @@ def lista_contratos(request):
             Q(estado__in=['pendiente', 'vencida']) &
             Q(fecha_vencimiento__lt=contrato.proxima_cuota.fecha_vencimiento if contrato.proxima_cuota else timezone.now().date())
         ).exists()
+        
+        # Determinar estado de depósito, honorarios y sellados
+        contrato.deposito_estado = determinar_estado_concepto_contrato(contrato, '10')  # Concepto 10 = depósito
+        contrato.honorarios_estado = determinar_estado_concepto_contrato(contrato, '25')  # Concepto 25 = honorarios  
+        contrato.sellados_estado = determinar_estado_concepto_contrato(contrato, '26')  # Concepto 26 = sellados
+        
+        # Agregar valores de honorarios y sellados desde MovimientoCaja si no están en el contrato
+        if not hasattr(contrato, 'honorarios'):
+            contrato.honorarios = obtener_valor_concepto_contrato(contrato, 'honorarios')
+        if not hasattr(contrato, 'sellados'):
+            contrato.sellados = obtener_valor_concepto_contrato(contrato, 'sellados')
     
     context = {
         'contratos': contratos,
@@ -6584,6 +6595,58 @@ def obtener_caja_abierta(request):
     except Caja.DoesNotExist:
         return None
 
+def determinar_estado_concepto_contrato(contrato, concepto_id):
+    """
+    Determina si un concepto específico está pagado para un contrato.
+    Similar a la lógica del concepto 10 en alquiler por día.
+    """
+    from .models import MovimientoCaja
+    
+    # Buscar movimientos de caja relacionados con este contrato
+    movimientos = MovimientoCaja.objects.filter(
+        propiedad=contrato.propiedad,
+        concepto__icontains=f'Contrato #{contrato.id}'
+    )
+    
+    # Verificar si algún movimiento contiene el concepto específico
+    for movimiento in movimientos:
+        try:
+            # Parsear conceptos estructurados (igual que en alquiler por día)
+            conceptos_lineas = movimiento.concepto.split('\n')
+            for linea in conceptos_lineas:
+                if ' | ID:' in linea and ' | $' in linea:
+                    partes = linea.split(' | ')
+                    if len(partes) >= 3:
+                        # Buscar ID en la línea
+                        id_parte = [p for p in partes if p.startswith('ID:')]
+                        if id_parte:
+                            id_concepto = id_parte[0].replace('ID:', '').strip()
+                            if id_concepto == concepto_id:
+                                return 'pagado'
+        except:
+            continue
+    
+    return 'pendiente'
+
+def obtener_valor_concepto_contrato(contrato, campo):
+    """
+    Obtiene el valor de honorarios o sellados desde MovimientoCaja para un contrato.
+    """
+    from .models import MovimientoCaja
+    from decimal import Decimal
+    
+    # Buscar el primer movimiento de caja relacionado con este contrato
+    movimiento = MovimientoCaja.objects.filter(
+        propiedad=contrato.propiedad,
+        concepto__icontains=f'Contrato #{contrato.id}'
+    ).first()
+    
+    if movimiento:
+        # Obtener el valor del campo específico
+        return getattr(movimiento, campo, Decimal('0'))
+    
+    return Decimal('0')
+
 def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
     """Procesa los conceptos y crea el movimiento de caja"""
     try:
@@ -6607,9 +6670,9 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         monto_deposito_galicia = limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0'))
         monto_deposito_mp = limpiar_valor_monetario(request.POST.get('monto_deposito_mp', '0'))
         
-        # Honorarios y sellados (nuevos campos)
-        honorarios = limpiar_valor_monetario(request.POST.get('honorarios', '0'))
-        sellados = limpiar_valor_monetario(request.POST.get('sellados', '0'))
+        # Honorarios y sellados (campos movidos arriba)
+        honorarios = limpiar_valor_monetario(request.POST.get('honorarios_top', '0'))
+        sellados = limpiar_valor_monetario(request.POST.get('sellados_top', '0'))
         
         total_movimiento = (monto_efectivo + monto_cheque + monto_tarjeta + 
                           monto_deposito_galicia + monto_deposito_mp)

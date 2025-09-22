@@ -66,6 +66,26 @@
                                        onchange="formatearNumeroEnTiempoReal(this)" 
                                        oninput="formatearNumeroEnTiempoReal(this)">
                             </div>
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label><strong>Honorarios:</strong></label>
+                                        <input type="text" class="form-control" id="honorarios_top" name="honorarios_top" 
+                                               value="0" 
+                                               onchange="formatearNumeroEnTiempoReal(this)" 
+                                               oninput="formatearNumeroEnTiempoReal(this)">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label><strong>Sellados:</strong></label>
+                                        <input type="text" class="form-control" id="sellados_top" name="sellados_top" 
+                                               value="0" 
+                                               onchange="formatearNumeroEnTiempoReal(this)" 
+                                               oninput="formatearNumeroEnTiempoReal(this)">
+                                    </div>
+                                </div>
+                            </div>
                             <div class="form-group mt-3">
                                 <label><strong>Día de Vencimiento Mensual:</strong></label>
                                 <select class="form-control" id="dia_vencimiento" name="dia_vencimiento" required>
@@ -150,20 +170,6 @@
                                         <div class="col-8"><strong>TOTAL DE LOS CONCEPTOS:</strong></div>
                                         <div class="col-4 text-end">
                                             <span id="totalConceptos">0.00</span>
-                                        </div>
-                                    </div>
-                                    <div class="row mb-2">
-                                        <div class="col-8"><strong>HONORARIOS:</strong></div>
-                                        <div class="col-4">
-                                            <input type="number" class="form-control form-control-sm" 
-                                                   name="honorarios" value="0.00" step="0.01" id="honorarios">
-                                        </div>
-                                    </div>
-                                    <div class="row mb-2">
-                                        <div class="col-8"><strong>SELLADOS:</strong></div>
-                                        <div class="col-4">
-                                            <input type="number" class="form-control form-control-sm" 
-                                                   name="sellados" value="0.00" step="0.01" id="sellados">
                                         </div>
                                     </div>
                                     <hr>
@@ -588,11 +594,37 @@ function actualizarConcepto() {
     conceptoEditando = null;
 }
 
+// Función para verificar si hay concepto 25 (honorarios) cargado
+function verificarConcepto25() {
+    return conceptosAgregados.some(concepto => {
+        const conceptoId = String(concepto.conceptoId || concepto.id).trim();
+        return conceptoId === '25';
+    });
+}
+
+// Función para verificar si hay concepto 26 (sellados) cargado
+function verificarConcepto26() {
+    return conceptosAgregados.some(concepto => {
+        const conceptoId = String(concepto.conceptoId || concepto.id).trim();
+        return conceptoId === '26';
+    });
+}
+
 // Función para calcular totales
 function calcularTotales() {
     const totalConceptos = conceptosAgregados.reduce((sum, concepto) => sum + concepto.importe, 0);
-    const honorarios = parsearValorFormateado(document.getElementById('honorarios').value);
-    const sellados = parsearValorFormateado(document.getElementById('sellados').value);
+    
+    // Obtener valores de los campos arriba
+    const honorariosInput = parsearValorFormateado(document.getElementById('honorarios_top').value);
+    const selladosInput = parsearValorFormateado(document.getElementById('sellados_top').value);
+    
+    // Solo incluir en el total si están cargados como conceptos
+    const concepto25Presente = verificarConcepto25();
+    const concepto26Presente = verificarConcepto26();
+    
+    const honorarios = concepto25Presente ? honorariosInput : 0;
+    const sellados = concepto26Presente ? selladosInput : 0;
+    
     const totalRecibo = totalConceptos + honorarios + sellados;
     
     document.getElementById('totalConceptos').textContent = totalConceptos.toLocaleString('es-AR');
@@ -603,8 +635,57 @@ function calcularTotales() {
     const totalPagos = calcularTotalPagos();
     const diferencia = totalPagos - totalRecibo;
     
+    // Mostrar estado de honorarios y sellados
+    actualizarEstadoHonorariosYSellados();
+    
     // Habilitar/deshabilitar botón según la diferencia
     habilitarBotonProcesar(diferencia === 0 && totalRecibo > 0);
+}
+
+// Función para actualizar el estado visual de honorarios y sellados
+function actualizarEstadoHonorariosYSellados() {
+    const honorariosInput = document.getElementById('honorarios_top');
+    const selladosInput = document.getElementById('sellados_top');
+    
+    const concepto25Presente = verificarConcepto25();
+    const concepto26Presente = verificarConcepto26();
+    
+    const honorariosValue = parsearValorFormateado(honorariosInput.value);
+    const selladosValue = parsearValorFormateado(selladosInput.value);
+    
+    // Actualizar estilo del campo honorarios
+    if (honorariosValue > 0) {
+        if (concepto25Presente) {
+            honorariosInput.style.backgroundColor = '#d4edda';
+            honorariosInput.style.color = '#155724';
+            honorariosInput.title = '✅ Honorarios pagados (concepto 25 cargado)';
+        } else {
+            honorariosInput.style.backgroundColor = '#fff3cd';
+            honorariosInput.style.color = '#856404';
+            honorariosInput.title = '⏳ Honorarios pendientes - Cargar concepto 25 para pagarlos';
+        }
+    } else {
+        honorariosInput.style.backgroundColor = '';
+        honorariosInput.style.color = '';
+        honorariosInput.title = '';
+    }
+    
+    // Actualizar estilo del campo sellados
+    if (selladosValue > 0) {
+        if (concepto26Presente) {
+            selladosInput.style.backgroundColor = '#d4edda';
+            selladosInput.style.color = '#155724';
+            selladosInput.title = '✅ Sellados pagados (concepto 26 cargado)';
+        } else {
+            selladosInput.style.backgroundColor = '#fff3cd';
+            selladosInput.style.color = '#856404';
+            selladosInput.title = '⏳ Sellados pendientes - Cargar concepto 26 para pagarlos';
+        }
+    } else {
+        selladosInput.style.backgroundColor = '';
+        selladosInput.style.color = '';
+        selladosInput.title = '';
+    }
 }
 
 // Función para calcular total de pagos
@@ -946,10 +1027,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Event listener para honorarios
-    document.getElementById('honorarios').addEventListener('input', calcularTotales);
+    document.getElementById('honorarios_top').addEventListener('input', calcularTotales);
     
     // Event listener para sellados
-    document.getElementById('sellados').addEventListener('input', calcularTotales);
+    document.getElementById('sellados_top').addEventListener('input', calcularTotales);
     
     // Event listeners para los botones de seleccionar concepto
     document.addEventListener('click', function(e) {
