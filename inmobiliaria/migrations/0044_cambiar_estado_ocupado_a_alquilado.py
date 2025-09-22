@@ -10,12 +10,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='caja',
-            name='id',
-            field=models.BigAutoField(auto_created=True, default=1, primary_key=True, serialize=False, verbose_name='ID'),
-            preserve_default=False,
-        ),
+        # NOTA: Removimos la operación AddField para 'id' en 'caja' porque Django ya maneja este campo automáticamente
+        # y estaba causando el error "can't have more than one auto-generated field"
         migrations.AddField(
             model_name='propiedad',
             name='titulo',
