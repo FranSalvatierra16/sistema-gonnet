@@ -653,12 +653,10 @@ function calcularTotales() {
     const concepto25Presente = verificarConcepto25();
     const concepto26Presente = verificarConcepto26();
     
-    const deposito = concepto10Presente ? depositoInput : 0;
-    const honorarios = concepto25Presente ? honorariosInput : 0;
-    const sellados = concepto26Presente ? selladosInput : 0;
-    
-    // El total del recibo debe ser solo lo que se va a pagar en esta operación
-    const totalRecibo = totalConceptos + deposito + honorarios + sellados;
+    // LÓGICA CORRECTA: El total del recibo es SOLO la suma de conceptos agregados
+    // Los campos de arriba (Depósito, Honorarios, Sellados) son solo informativos
+    // NO se deben sumar al total del recibo
+    const totalRecibo = totalConceptos;
     
     document.getElementById('totalConceptos').textContent = totalConceptos.toLocaleString('es-AR');
     document.getElementById('totalRecibo').value = totalRecibo;
@@ -666,10 +664,10 @@ function calcularTotales() {
     
     console.log('🔍 DEBUG CÁLCULO:');
     console.log('  - Total Conceptos:', totalConceptos);
-    console.log('  - Depósito (concepto 10):', deposito, '| Presente:', concepto10Presente);
-    console.log('  - Honorarios (concepto 25):', honorarios, '| Presente:', concepto25Presente);
-    console.log('  - Sellados (concepto 26):', sellados, '| Presente:', concepto26Presente);
-    console.log('  - TOTAL RECIBO:', totalRecibo);
+    console.log('  - Depósito (concepto 10) presente:', concepto10Presente);
+    console.log('  - Honorarios (concepto 25) presente:', concepto25Presente);
+    console.log('  - Sellados (concepto 26) presente:', concepto26Presente);
+    console.log('  - TOTAL RECIBO = Total Conceptos:', totalRecibo);
     
     // Calcular total de pagos actual
     const totalPagos = calcularTotalPagos();
