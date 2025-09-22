@@ -610,22 +610,33 @@ function verificarConcepto26() {
     });
 }
 
+// Función para verificar si hay concepto 10 (depósito) cargado
+function verificarConcepto10() {
+    return conceptosAgregados.some(concepto => {
+        const conceptoId = String(concepto.conceptoId || concepto.id).trim();
+        return conceptoId === '10';
+    });
+}
+
 // Función para calcular totales
 function calcularTotales() {
     const totalConceptos = conceptosAgregados.reduce((sum, concepto) => sum + concepto.importe, 0);
     
     // Obtener valores de los campos arriba
+    const depositoInput = parsearValorFormateado(document.getElementById('deposito_garantia')?.value || '0');
     const honorariosInput = parsearValorFormateado(document.getElementById('honorarios_top').value);
     const selladosInput = parsearValorFormateado(document.getElementById('sellados_top').value);
     
-    // Solo incluir en el total si están cargados como conceptos
+    // Solo incluir en el total si están cargados como conceptos (igual que alquiler por día)
+    const concepto10Presente = verificarConcepto10();
     const concepto25Presente = verificarConcepto25();
     const concepto26Presente = verificarConcepto26();
     
+    const deposito = concepto10Presente ? depositoInput : 0;
     const honorarios = concepto25Presente ? honorariosInput : 0;
     const sellados = concepto26Presente ? selladosInput : 0;
     
-    const totalRecibo = totalConceptos + honorarios + sellados;
+    const totalRecibo = totalConceptos + deposito + honorarios + sellados;
     
     document.getElementById('totalConceptos').textContent = totalConceptos.toLocaleString('es-AR');
     document.getElementById('totalRecibo').value = totalRecibo;
@@ -635,23 +646,45 @@ function calcularTotales() {
     const totalPagos = calcularTotalPagos();
     const diferencia = totalPagos - totalRecibo;
     
-    // Mostrar estado de honorarios y sellados
-    actualizarEstadoHonorariosYSellados();
+    // Mostrar estado de depósito, honorarios y sellados
+    actualizarEstadoDepositoHonorariosYSellados();
     
     // Habilitar/deshabilitar botón según la diferencia
     habilitarBotonProcesar(diferencia === 0 && totalRecibo > 0);
 }
 
-// Función para actualizar el estado visual de honorarios y sellados
-function actualizarEstadoHonorariosYSellados() {
+// Función para actualizar el estado visual de depósito, honorarios y sellados
+function actualizarEstadoDepositoHonorariosYSellados() {
+    const depositoInput = document.getElementById('deposito_garantia');
     const honorariosInput = document.getElementById('honorarios_top');
     const selladosInput = document.getElementById('sellados_top');
     
+    const concepto10Presente = verificarConcepto10();
     const concepto25Presente = verificarConcepto25();
     const concepto26Presente = verificarConcepto26();
     
+    const depositoValue = parsearValorFormateado(depositoInput?.value || '0');
     const honorariosValue = parsearValorFormateado(honorariosInput.value);
     const selladosValue = parsearValorFormateado(selladosInput.value);
+    
+    // Actualizar estilo del campo depósito (solo si existe)
+    if (depositoInput) {
+        if (depositoValue > 0) {
+            if (concepto10Presente) {
+                depositoInput.style.backgroundColor = '#d4edda';
+                depositoInput.style.color = '#155724';
+                depositoInput.title = '✅ Depósito pagado (concepto 10 cargado)';
+            } else {
+                depositoInput.style.backgroundColor = '#fff3cd';
+                depositoInput.style.color = '#856404';
+                depositoInput.title = '⏳ Depósito pendiente - Cargar concepto 10 para pagarlo';
+            }
+        } else {
+            depositoInput.style.backgroundColor = '';
+            depositoInput.style.color = '';
+            depositoInput.title = '';
+        }
+    }
     
     // Actualizar estilo del campo honorarios
     if (honorariosValue > 0) {
@@ -794,23 +827,9 @@ function procesarOperacion() {
 
 // Función para actualizar el total esperado
 function actualizarTotalEsperado() {
-    const precioMensual = parsearValorFormateado(document.getElementById('precio_mensual').value);
-    let totalEsperado = 0;
-
-    if ('{{ tipo_operacion }}' === 'principal') {
-        const depositoGarantia = parsearValorFormateado(document.getElementById('deposito_garantia').value);
-        totalEsperado = precioMensual + depositoGarantia;
-    } else {
-        totalEsperado = precioMensual;
-    }
-
-    document.getElementById('totalRecibo').value = totalEsperado;
-    document.getElementById('totalOperacion').textContent = totalEsperado.toLocaleString('es-AR');
-    
-    // Habilitar/deshabilitar botón según la diferencia
-    const totalPagos = calcularTotalPagos();
-    const diferencia = totalPagos - totalEsperado;
-    habilitarBotonProcesar(diferencia === 0 && totalEsperado > 0);
+    // Esta función ya no es necesaria, usar calcularTotales() en su lugar
+    // que tiene la lógica correcta para honorarios y sellados
+    calcularTotales();
 }
 
 // Función para buscar concepto por ID
