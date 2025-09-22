@@ -7752,20 +7752,43 @@ def recibo_contrato_24(request, contrato_id):
         from decimal import Decimal
         
         alquiler_mensual = contrato.precio_mensual
-        deposito_garantia = contrato.deposito_garantia or Decimal('0')
-        primer_mes = alquiler_mensual
         
-        # Usar valores del movimiento si existen, sino usar 0
+        # LÓGICA CORREGIDA: Solo mostrar lo que realmente se pagó
+        # Detectar qué conceptos están presentes en el movimiento
+        deposito_pagado = Decimal('0')
+        primer_mes_pagado = Decimal('0')
         honorarios = Decimal('0')
         sellado = Decimal('0')
         
         if primer_movimiento:
+            # Verificar conceptos presentes en el movimiento
+            conceptos_texto = primer_movimiento.concepto
+            print(f"🔍 DEBUG RECIBO - Conceptos texto: {conceptos_texto}")
+            
+            # Solo incluir si el concepto está presente
+            if ' | ID:10 |' in conceptos_texto:  # Depósito
+                deposito_pagado = contrato.deposito_garantia or Decimal('0')
+                print(f"✅ Depósito pagado: {deposito_pagado}")
+            
+            # Buscar concepto de alquiler (ID:1, ID:24, o cualquier alquiler)
+            if (' | ID:1 |' in conceptos_texto or ' | ID:24 |' in conceptos_texto or 
+                'alquiler' in conceptos_texto.lower()):  # Alquiler mensual
+                primer_mes_pagado = alquiler_mensual
+                print(f"✅ Primer mes pagado: {primer_mes_pagado}")
+            
+            # Honorarios y sellados desde el movimiento (usar los valores de los campos, no buscar en conceptos)
             honorarios = getattr(primer_movimiento, 'honorarios', Decimal('0')) or Decimal('0')
             sellado = getattr(primer_movimiento, 'sellados', Decimal('0')) or Decimal('0')
+            print(f"📊 Honorarios: {honorarios}, Sellados: {sellado}")
         
-        total_a_abonar = primer_mes + alquiler_mensual + deposito_garantia + honorarios + sellado
+        # Total = Solo lo que se pagó realmente
+        total_a_abonar = primer_mes_pagado + deposito_pagado + honorarios + sellado
         subtotal = total_a_abonar
         total_contrato = total_a_abonar
+        
+        # Para el template
+        deposito_garantia = deposito_pagado  # Solo mostrar si se pagó
+        primer_mes = primer_mes_pagado       # Solo mostrar si se pagó
         
         # Convertir números a formato de pesos argentinos
         def format_currency(amount):
