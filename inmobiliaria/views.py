@@ -7616,3 +7616,93 @@ def configurar_numeracion_recibos(request, sucursal_id):
             return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
     
     return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal_id)
+
+
+@login_required
+def recibo_contrato_24(request, contrato_id):
+    """Vista para mostrar el recibo de un contrato de 24 meses"""
+    try:
+        contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+        
+        # Obtener los conceptos del primer pago del contrato
+        conceptos_contrato = []
+        
+        # Buscar el primer movimiento de caja relacionado con este contrato
+        primer_movimiento = MovimientoCaja.objects.filter(
+            contrato_id=contrato.id
+        ).first()
+        
+        if primer_movimiento and primer_movimiento.concepto:
+            # Parsear los conceptos del movimiento
+            try:
+                import json
+                conceptos_data = json.loads(primer_movimiento.concepto)
+                for concepto_data in conceptos_data:
+                    conceptos_contrato.append({
+                        'fecha': primer_movimiento.fecha,
+                        'codigo': concepto_data.get('id', ''),
+                        'nombre': concepto_data.get('nombre', ''),
+                        'importe': f"${float(concepto_data.get('importe', 0)):,.2f}".replace(',', '.')
+                    })
+            except (json.JSONDecodeError, ValueError):
+                # Si no se puede parsear como JSON, usar formato fallback
+                conceptos_contrato.append({
+                    'fecha': primer_movimiento.fecha,
+                    'codigo': '90',
+                    'nombre': 'ALQUILER A COBRAR',
+                    'importe': f"${contrato.precio_mensual:,.2f}".replace(',', '.')
+                })
+        
+        # Calcular valores para la tabla de honorarios
+        alquiler_mensual = contrato.precio_mensual
+        deposito_garantia = contrato.deposito_garantia or 0
+        honorarios = alquiler_mensual * 0.08  # 8% de honorarios típico
+        sellado = alquiler_mensual * 0.012  # 1.2% de sellado típico
+        primer_mes = alquiler_mensual
+        
+        total_a_abonar = primer_mes + alquiler_mensual + deposito_garantia + honorarios + sellado
+        subtotal = total_a_abonar
+        total_contrato = total_a_abonar
+        
+        # Convertir números a formato de pesos argentinos
+        def format_currency(amount):
+            return f"${amount:,.2f}".replace(',', '.')
+        
+        # Obtener logo en base64
+        logo_base64 = None
+        try:
+            import base64
+            import os
+            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'logo.png')
+            if os.path.exists(logo_path):
+                with open(logo_path, 'rb') as logo_file:
+                    logo_base64 = base64.b64encode(logo_file.read()).decode('utf-8')
+        except Exception as e:
+            print(f"Error al cargar logo: {e}")
+        
+        # Función para convertir número a texto (básica)
+        def numero_a_texto(numero):
+            # Implementación simple - en producción usar una librería como num2words
+            return f"{'PESOS ' + str(int(numero)).upper() if numero > 0 else ''}"
+        
+        context = {
+            'contrato': contrato,
+            'conceptos_contrato': conceptos_contrato,
+            'primer_mes': format_currency(primer_mes),
+            'alquiler_mensual': format_currency(alquiler_mensual),
+            'deposito_garantia': format_currency(deposito_garantia),
+            'honorarios': format_currency(honorarios),
+            'sellado': format_currency(sellado),
+            'total_a_abonar': format_currency(total_a_abonar),
+            'subtotal': format_currency(subtotal),
+            'total_contrato': format_currency(total_contrato),
+            'suma_en_letras': numero_a_texto(total_contrato),
+            'logo_base64': logo_base64,
+        }
+        
+        return render(request, 'inmobiliaria/contratos/recibo_contrato_24.html', context)
+        
+    except Exception as e:
+        logger.error(f"Error al generar recibo de contrato: {str(e)}")
+        messages.error(request, f'Error al generar recibo: {str(e)}')
+        return redirect('inmobiliaria:lista_contratos')
