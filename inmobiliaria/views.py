@@ -7772,15 +7772,25 @@ def recibo_contrato_24(request, contrato_id):
         alquiler_mensual = contrato.precio_mensual
         
         # LÓGICA SIMPLIFICADA: El total es la suma de todos los conceptos + honorarios + sellados
-        total_conceptos = sum(concepto['importe'] for concepto in conceptos_contrato)
+        total_conceptos = Decimal('0')
+        for concepto in conceptos_contrato:
+            importe_str = concepto['importe']
+            if importe_str:
+                # Convertir explícitamente a Decimal
+                total_conceptos += Decimal(str(importe_str).replace('.', '').replace(',', '.') if importe_str else '0')
+            print(f"  - Concepto {concepto['nombre']}: {importe_str} -> {concepto['importe']}")
         
         # Honorarios y sellados desde el movimiento
         honorarios = Decimal('0')
         sellado = Decimal('0')
         
         if primer_movimiento:
-            honorarios = getattr(primer_movimiento, 'honorarios', Decimal('0')) or Decimal('0')
-            sellado = getattr(primer_movimiento, 'sellados', Decimal('0')) or Decimal('0')
+            honorarios_raw = getattr(primer_movimiento, 'honorarios', Decimal('0')) or Decimal('0')
+            sellado_raw = getattr(primer_movimiento, 'sellados', Decimal('0')) or Decimal('0')
+            
+            # Asegurar que son Decimal
+            honorarios = Decimal(str(honorarios_raw)) if honorarios_raw else Decimal('0')
+            sellado = Decimal(str(sellado_raw)) if sellado_raw else Decimal('0')
             print(f"🔍 DEBUG RECIBO:")
             print(f"  - Total conceptos: {total_conceptos}")
             print(f"  - Honorarios: {honorarios}")
