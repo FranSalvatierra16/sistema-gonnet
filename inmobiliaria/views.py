@@ -6660,8 +6660,31 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             except:
                 return Decimal('0')
         
-        # Extraer datos del formulario
-        concepto = request.POST.get('concepto', f'Contrato #{contrato.id} - {contrato.propiedad.direccion}')
+        # PROCESAR CONCEPTOS INDIVIDUALES DEL FORMULARIO
+        conceptos_count = int(request.POST.get('conceptos_count', 0))
+        conceptos_completos = []
+        
+        for i in range(conceptos_count):
+            concepto_id = request.POST.get(f'concepto_{i}_id')
+            concepto_nombre = request.POST.get(f'concepto_{i}_nombre')
+            concepto_importe = request.POST.get(f'concepto_{i}_importe')
+            
+            if concepto_id and concepto_nombre and concepto_importe:
+                conceptos_completos.append({
+                    'id': concepto_id,
+                    'nombre': concepto_nombre,
+                    'importe': concepto_importe
+                })
+                print(f"💰 CONCEPTO CONTRATO {i}: ID={concepto_id}, {concepto_nombre} - ${concepto_importe}")
+        
+        # Crear concepto en formato JSON para el recibo
+        import json
+        if conceptos_completos:
+            concepto = json.dumps(conceptos_completos)
+            print(f"📝 CONCEPTO JSON: {concepto}")
+        else:
+            # Fallback si no hay conceptos
+            concepto = f'Contrato #{contrato.id} - {contrato.propiedad.direccion}'
         
         # Métodos de pago
         monto_efectivo = limpiar_valor_monetario(request.POST.get('monto_efectivo', '0'))
@@ -7804,6 +7827,12 @@ def recibo_contrato_24(request, contrato_id):
         
         # El total del recibo es: conceptos + honorarios + sellados
         total_a_abonar = total_conceptos + honorarios + sellado
+        
+        print(f"🧮 CÁLCULO FINAL:")
+        print(f"  - Total conceptos: {total_conceptos}")
+        print(f"  - Honorarios: {honorarios}")
+        print(f"  - Sellados: {sellado}")
+        print(f"  - TOTAL A ABONAR: {total_a_abonar}")
         subtotal = total_a_abonar
         total_contrato = total_a_abonar
         
