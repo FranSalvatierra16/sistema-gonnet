@@ -7776,9 +7776,15 @@ def recibo_contrato_24(request, contrato_id):
         for concepto in conceptos_contrato:
             importe_str = concepto['importe']
             if importe_str:
-                # Convertir explícitamente a Decimal
-                total_conceptos += Decimal(str(importe_str).replace('.', '').replace(',', '.') if importe_str else '0')
-            print(f"  - Concepto {concepto['nombre']}: {importe_str} -> {concepto['importe']}")
+                # Limpiar el string: quitar $, puntos de miles, y convertir coma decimal a punto
+                importe_limpio = str(importe_str).replace('$', '').replace('.', '').replace(',', '.')
+                try:
+                    importe_decimal = Decimal(importe_limpio)
+                    total_conceptos += importe_decimal
+                    print(f"  - Concepto {concepto['nombre']}: '{importe_str}' -> '{importe_limpio}' -> {importe_decimal}")
+                except (ValueError, TypeError) as e:
+                    print(f"  ❌ Error convirtiendo {importe_str}: {e}")
+                    continue
         
         # Honorarios y sellados desde el movimiento
         honorarios = Decimal('0')
