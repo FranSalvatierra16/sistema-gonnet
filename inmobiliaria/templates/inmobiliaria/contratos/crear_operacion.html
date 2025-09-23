@@ -71,7 +71,7 @@
                                     <div class="form-group">
                                         <label><strong>Honorarios:</strong></label>
                                         <input type="text" class="form-control" id="honorarios_top" name="honorarios_top" 
-                                               value="0" 
+                                               value="{{ contrato.honorarios|format_price }}" 
                                                onchange="formatearNumeroEnTiempoReal(this)" 
                                                oninput="formatearNumeroEnTiempoReal(this)">
                                     </div>
@@ -80,7 +80,7 @@
                                     <div class="form-group">
                                         <label><strong>Sellados:</strong></label>
                                         <input type="text" class="form-control" id="sellados_top" name="sellados_top" 
-                                               value="0" 
+                                               value="{{ contrato.sellados|format_price }}" 
                                                onchange="formatearNumeroEnTiempoReal(this)" 
                                                oninput="formatearNumeroEnTiempoReal(this)">
                                     </div>

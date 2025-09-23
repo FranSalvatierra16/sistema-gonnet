@@ -27,6 +27,10 @@ class ContratoAlquiler(models.Model):
     deposito_garantia = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     gastos_adicionales = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     
+    # Montos configurables para honorarios y sellados
+    honorarios = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True, help_text='Monto de honorarios configurado')
+    sellados = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True, help_text='Monto de sellados configurado')
+    
     # Estado del contrato
     ESTADO_CHOICES = [
         ('reservado', 'Reservado'),
