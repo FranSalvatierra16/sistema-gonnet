@@ -3176,9 +3176,9 @@ def ver_recibo_movimiento(request, movimiento_id):
                         else:
                             # No se pudo parsear, usar concepto único
                             print("⚠️ No se pudieron extraer conceptos individuales, usando concepto único")
-                    pagos.append({
-                        'fecha': fecha_mov,
-                        'codigo': codigo_mov,
+                            pagos.append({
+                                'fecha': fecha_mov,
+                                'codigo': codigo_mov,
                                 'concepto': concepto_texto or 'ALQ - Alquiler temporario',
                                 'monto': f'${movimiento.monto_total:,.0f}'
                             })
