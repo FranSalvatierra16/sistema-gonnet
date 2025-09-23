@@ -1099,8 +1099,8 @@
                             data-ambientes="{{ propiedad.ambientes|default:0 }}"
                             data-estado="{{ propiedad.estado|default:'Disponible' }}"
                             data-llave="{{ propiedad.llave|default:'Sin asignar' }}"
-                            data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
-                            data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}">
+                            data-descripcion="{{ propiedad.descripcion|default:'Sin descripción' }}"
+                            data-caracteristicas="{{ propiedad|get_caracteristicas }}">
                             <td style="color: red;">{{ propiedad.id }}</td>
                             <td style="color: red;">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td style="color: red;">{{ propiedad.ubicacion }}</td>
@@ -1126,8 +1126,8 @@
                             data-ambientes="{{ propiedad.ambientes|default:0 }}"
                             data-estado="{{ propiedad.estado|default:'Disponible' }}"
                             data-llave="{{ propiedad.llave|default:'Sin asignar' }}"
-                            data-descripcion="{{ propiedad.descripcion|default:'Sin descripción'|escapejs }}"
-                            data-caracteristicas="{{ propiedad|get_caracteristicas|escapejs }}">
+                            data-descripcion="{{ propiedad.descripcion|default:'Sin descripción' }}"
+                            data-caracteristicas="{{ propiedad|get_caracteristicas }}">
                             <td>{{ propiedad.id }}</td>
                             <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td>{{ propiedad.ubicacion }}</td>
@@ -4388,7 +4388,9 @@ function obtenerDatosPropiedad(propiedadId, estadoReserva) {
             // Actualizar descripción
             const descripcionElement = document.getElementById("descripcionDetallada");
             if (descripcionElement) {
-                descripcionElement.innerText = data.descripcion || 'No hay descripción disponible';
+                let descripcion = data.descripcion || 'No hay descripción disponible';
+                // Convertir saltos de línea a <br> para mostrar correctamente
+                descripcionElement.innerHTML = descripcion.replace(/\n/g, '<br>').replace(/\r/g, '');
             }
             
             // Actualizar características
