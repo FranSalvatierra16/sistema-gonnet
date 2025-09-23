@@ -6739,6 +6739,24 @@ def procesar_operacion_contrato(request, contrato_id):
         if not movimiento:
             return JsonResponse({'error': 'Error al procesar el movimiento'}, status=400)
         
+        # Guardar honorarios y sellados en el contrato
+        def limpiar_valor_monetario(valor_str):
+            if not valor_str or valor_str.strip() == '':
+                return Decimal('0')
+            valor_limpio = valor_str.replace('.', '').replace(',', '.')
+            try:
+                return Decimal(valor_limpio)
+            except:
+                return Decimal('0')
+        
+        honorarios = limpiar_valor_monetario(request.POST.get('honorarios_top', '0'))
+        sellados = limpiar_valor_monetario(request.POST.get('sellados_top', '0'))
+        
+        contrato.honorarios = honorarios
+        contrato.sellados = sellados
+        contrato.save()
+        print(f"✅ CONTRATO ACTUALIZADO - Honorarios: {honorarios}, Sellados: {sellados}")
+        
         if tipo_operacion == 'principal':
             # Capturar el día de vencimiento seleccionado
             dia_vencimiento = request.POST.get('dia_vencimiento')
