@@ -7867,10 +7867,20 @@ def detalles_operacion_reserva(request, reserva_id):
                 'concepto': recibo.movimiento_caja.concepto if recibo.movimiento_caja else 'N/A'
             })
         
+        # Calcular precio por día desde la relación con Precio
+        precio_por_dia = 0
+        try:
+            # Buscar precio por día en los precios de la propiedad
+            precio_obj = reserva.propiedad.precios.filter(precio_por_dia__isnull=False).first()
+            if precio_obj and precio_obj.precio_por_dia:
+                precio_por_dia = float(precio_obj.precio_por_dia)
+        except:
+            precio_por_dia = 0
+        
         # Preparar datos de respuesta
         operacion_data = {
             'importe_total': float(reserva.precio_total),
-            'precio_por_dia': float(reserva.precio_por_dia) if reserva.precio_por_dia else 0,
+            'precio_por_dia': precio_por_dia,
             'senia_pagada': float(total_pagado),
             'deposito': float(reserva.deposito_garantia) if reserva.deposito_garantia else 0,
             'saldo_pendiente': float(saldo_pendiente),
