@@ -438,19 +438,83 @@ class Reserva(models.Model):
 
     def actualizar_historial_disponibilidad(self):
         """
-        ✅ HISTORIAL COMPLETO: Crea historial fragmentado pero NO modifica disponibilidades
+        ✅ FRAGMENTACIÓN AUTOMÁTICA: Fragmenta disponibilidades Y crea historial fragmentado
         
-        MANTIENE: Las disponibilidades manuales intactas
+        FRAGMENTA: Las disponibilidades que se superponen con la reserva
         CREA: Historial cronológico fragmentado (libre/reservado/operación)
         """
         with transaction.atomic():
             print(f"📋 ACTUALIZANDO HISTORIAL para reserva {self.fecha_inicio} al {self.fecha_fin}")
             
-            # ❌ NO FRAGMENTAR DISPONIBILIDADES - mantienen como están
+            # ✅ FRAGMENTAR DISPONIBILIDADES automáticamente
+            self._fragmentar_disponibilidades_con_reserva()
+            
             # ✅ RECONSTRUIR historial completo cronológicamente con fragmentación visual
             self.reconstruir_historial_cronologico()
             
-            print(f"✅ HISTORIAL FRAGMENTADO ACTUALIZADO (disponibilidades intactas) para reserva {self.id}")
+            print(f"✅ HISTORIAL FRAGMENTADO ACTUALIZADO (con fragmentación automática) para reserva {self.id}")
+    
+    def _fragmentar_disponibilidades_con_reserva(self):
+        """
+        Fragmenta automáticamente las disponibilidades que se superponen con esta reserva.
+        """
+        print(f"✂️ Fragmentando disponibilidades para Reserva #{self.id}")
+        
+        # Buscar disponibilidades que se superponen con esta reserva
+        disponibilidades_afectadas = Disponibilidad.objects.filter(
+            propiedad=self.propiedad,
+            fecha_inicio__lt=self.fecha_fin,
+            fecha_fin__gt=self.fecha_inicio
+        )
+        
+        for disponibilidad in disponibilidades_afectadas:
+            print(f"   📋 Procesando disponibilidad: {disponibilidad.fecha_inicio} al {disponibilidad.fecha_fin}")
+            
+            # Fragmentar esta disponibilidad
+            self._fragmentar_disponibilidad_individual(disponibilidad)
+    
+    def _fragmentar_disponibilidad_individual(self, disponibilidad):
+        """
+        Fragmenta una disponibilidad individual en múltiples partes según la reserva.
+        """
+        from datetime import timedelta
+        
+        fragmentos = []
+        
+        # ANTES de la reserva
+        if disponibilidad.fecha_inicio < self.fecha_inicio:
+            fragmentos.append({
+                'fecha_inicio': disponibilidad.fecha_inicio,
+                'fecha_fin': self.fecha_inicio - timedelta(days=1),
+                'estado': 'libre'
+            })
+            print(f"      🟢 Fragmento ANTES: {disponibilidad.fecha_inicio} al {self.fecha_inicio - timedelta(days=1)}")
+        
+        # DURANTE la reserva (NO crear fragmento, la reserva la maneja el historial)
+        
+        # DESPUÉS de la reserva
+        if disponibilidad.fecha_fin > self.fecha_fin:
+            fragmentos.append({
+                'fecha_inicio': self.fecha_fin + timedelta(days=1),
+                'fecha_fin': disponibilidad.fecha_fin,
+                'estado': 'libre'
+            })
+            print(f"      🟢 Fragmento DESPUÉS: {self.fecha_fin + timedelta(days=1)} al {disponibilidad.fecha_fin}")
+        
+        # Eliminar la disponibilidad original
+        print(f"      🗑️ Eliminando disponibilidad original: {disponibilidad.fecha_inicio} al {disponibilidad.fecha_fin}")
+        disponibilidad.delete()
+        
+        # Crear nuevos fragmentos
+        for fragmento in fragmentos:
+            nueva_disponibilidad = Disponibilidad.objects.create(
+                propiedad=self.propiedad,
+                fecha_inicio=fragmento['fecha_inicio'],
+                fecha_fin=fragmento['fecha_fin'],
+                estado=fragmento['estado'],
+                es_manual=False  # Es automática (fragmentada)
+            )
+            print(f"      ✅ Creado fragmento: {nueva_disponibilidad.fecha_inicio} al {nueva_disponibilidad.fecha_fin}")
     
     def reconstruir_historial_cronologico(self):
         """
