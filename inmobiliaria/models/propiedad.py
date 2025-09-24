@@ -523,9 +523,9 @@ class Reserva(models.Model):
             inicio_reserva = max(reserva.fecha_inicio, disponibilidad.fecha_inicio)
             fin_reserva = min(reserva.fecha_fin, disponibilidad.fecha_fin)
             
-            # Si la reserva tiene algún pago, es "operación", sino es "reservado"
-            tiene_pagos = reserva.recibos.exists() or reserva.pagos.exists()
-            estado = 'alquilado' if tiene_pagos else 'reservado'
+            # Si la reserva tiene seña pagada > 0, es "operación", sino es "reservado"
+            tiene_senia = reserva.senia_pagada and reserva.senia_pagada > 0
+            estado = 'alquilado' if tiene_senia else 'reservado'
             HistorialDisponibilidad.objects.create(
                 propiedad=self.propiedad,
                 fecha_inicio=inicio_reserva,
