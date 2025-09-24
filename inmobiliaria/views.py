@@ -2734,6 +2734,15 @@ def procesar_movimiento_reserva(request):
             
             print(f"=== MOVIMIENTO CREADO EXITOSAMENTE - ID: {movimiento.id} ===")
             
+            # 🔄 RECONSTRUIR HISTORIAL después de procesar pago
+            try:
+                print(f"🔄 Reconstruyendo historial para propiedad {reserva.propiedad.id}")
+                reserva.actualizar_historial_disponibilidad()
+                print(f"✅ Historial actualizado correctamente")
+            except Exception as e:
+                print(f"⚠️ Error al actualizar historial: {e}")
+                # No fallar la operación principal por esto
+            
             return JsonResponse({
                 'success': True,
                 'movimiento_id': movimiento.id,
