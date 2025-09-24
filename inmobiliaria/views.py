@@ -7834,25 +7834,38 @@ def detalles_operacion_reserva(request, reserva_id):
         reserva = get_object_or_404(Reserva, id=reserva_id)
         
         # Obtener movimientos de caja asociados a esta reserva
+        # Buscar a través de los recibos que están relacionados con la reserva
         movimientos = MovimientoCaja.objects.filter(
-            Q(reserva=reserva) | Q(concepto__icontains=f'Reserva #{reserva.id}')
+            Q(recibo__reserva=reserva) |
+            Q(concepto__icontains=f'Reserva #{reserva.id}') |
+            Q(concepto__icontains=f'Reserva {reserva.id}') |
+            Q(concepto__icontains=f'#{reserva.id}')
         ).order_by('fecha')
         
-        # Calcular totales
-        total_pagado = movimientos.aggregate(total=Sum('importe'))['total'] or 0
+        # Calcular totales sumando todos los tipos de montos
+        total_pagado = 0
+        for movimiento in movimientos:
+            total_movimiento = (
+                movimiento.monto_efectivo + 
+                movimiento.monto_cheque + 
+                movimiento.monto_tarjeta + 
+                movimiento.monto_deposito
+            )
+            total_pagado += total_movimiento
+        
         saldo_pendiente = max(0, reserva.precio_total - total_pagado)
         
-        # Obtener recibos generados
+        # Obtener recibos generados a través de la relación
         recibos = []
-        for movimiento in movimientos:
-            if movimiento.numero_recibo:
-                recibos.append({
-                    'id': movimiento.id,
-                    'numero': movimiento.numero_recibo,
-                    'fecha': movimiento.fecha.strftime('%d/%m/%Y'),
-                    'monto': float(movimiento.importe),
-                    'concepto': movimiento.concepto
-                })
+        recibos_reserva = reserva.recibos.all().order_by('fecha_emision')
+        for recibo in recibos_reserva:
+            recibos.append({
+                'id': recibo.id,
+                'numero': recibo.numero_recibo,
+                'fecha': recibo.fecha_emision.strftime('%d/%m/%Y'),
+                'monto': float(recibo.monto_este_pago),
+                'concepto': recibo.movimiento_caja.concepto if recibo.movimiento_caja else 'N/A'
+            })
         
         # Preparar datos de respuesta
         operacion_data = {
