@@ -16,11 +16,23 @@ class Command(BaseCommand):
         ).distinct()
         
         # También buscar reservas que tienen MovimientoCaja relacionados
-        from inmobiliaria.models.operacion import MovimientoCaja
+        from inmobiliaria.models import MovimientoCaja
+        
+        # Extraer IDs de reserva desde el campo concepto
+        movimientos_reservas = MovimientoCaja.objects.filter(
+            concepto__icontains='Reserva #'
+        ).values_list('concepto', flat=True)
+        
+        # Extraer números de reserva del concepto
+        ids_reservas_con_movimientos = []
+        for concepto in movimientos_reservas:
+            import re
+            match = re.search(r'Reserva #(\d+)', concepto)
+            if match:
+                ids_reservas_con_movimientos.append(int(match.group(1)))
+        
         reservas_con_movimientos = Reserva.objects.filter(
-            id__in=MovimientoCaja.objects.filter(
-                concepto__icontains='Reserva #'
-            ).values_list('concepto', flat=True)
+            id__in=ids_reservas_con_movimientos
         ).exclude(estado='pagada').distinct()
         
         # Combinar ambas consultas
