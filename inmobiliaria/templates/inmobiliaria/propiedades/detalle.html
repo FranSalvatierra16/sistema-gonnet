@@ -2165,69 +2165,70 @@ function deleteImage(imageId) {
         }
     });
     
-    // Manejar click en botón "Ver Monto" del historial - Event delegation global
-    document.body.addEventListener('click', function(e) {
-        if (e.target.closest('.ver-monto-reserva')) {
-            e.preventDefault();
-            console.log('🔘 Botón Ver Monto clickeado');
-            
-            const btn = e.target.closest('.ver-monto-reserva');
-            const reservaId = btn.getAttribute('data-reserva-id');
-            
-            console.log('📋 Reserva ID:', reservaId);
-            
-            if (!reservaId) {
-                console.error('❌ No se encontró reserva ID');
-                Swal.fire({
-                    title: 'Error',
-                    text: 'No se pudo identificar la reserva',
-                    icon: 'error'
-                });
-                return;
-            }
-            
-            // Mostrar loading en el botón
-            const originalContent = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando...';
-            btn.disabled = true;
-            
-            console.log('🔍 Haciendo petición a:', `/reservas/${reservaId}/detalles-operacion/`);
-            
-            // Hacer petición AJAX para obtener detalles de la operación
-            fetch(`/reservas/${reservaId}/detalles-operacion/`)
-                .then(response => {
-                    console.log('📡 Response status:', response.status);
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('✅ Respuesta recibida:', data);
-                    if (data.success) {
-                        mostrarDetallesOperacion(data.operacion, data.reserva);
-                    } else {
-                        console.error('❌ Error en respuesta:', data.error);
-                        Swal.fire({
-                            title: 'Error',
-                            text: data.error || 'No se pudieron cargar los detalles',
-                            icon: 'error'
-                        });
-                    }
-                })
-                .catch(error => {
-                    console.error('❌ Error AJAX:', error);
-                    Swal.fire({
-                        title: 'Error',
-                        text: 'Error de conexión al cargar los detalles',
-                        icon: 'error'
-                    });
-                })
-                .finally(() => {
-                    // Restaurar botón
-                    btn.innerHTML = originalContent;
-                    btn.disabled = false;
-                });
-        }
-    });
 }
+
+// 🧪 TEST: Verificar que los botones "Ver Monto" existen al cargar la página
+console.log('🔍 Verificando botones Ver Monto...');
+setTimeout(() => {
+    const botones = document.querySelectorAll('.ver-monto-reserva');
+    console.log('🎯 Botones Ver Monto encontrados:', botones.length);
+    botones.forEach((btn, index) => {
+        console.log(`  Botón ${index + 1}:`, btn, 'Reserva ID:', btn.getAttribute('data-reserva-id'));
+    });
+}, 2000);
+
+// 🚀 Event listener GLOBAL para botones "Ver Monto" (fuera del DOMContentLoaded)
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.ver-monto-reserva');
+    if (btn) {
+        e.preventDefault();
+        console.log('🔘 ¡Botón Ver Monto clickeado!');
+        
+        const reservaId = btn.getAttribute('data-reserva-id');
+        console.log('📋 Reserva ID encontrado:', reservaId);
+        
+        if (!reservaId) {
+            console.error('❌ No se encontró reserva ID');
+            alert('Error: No se pudo identificar la reserva');
+            return;
+        }
+        
+        // Mostrar loading en el botón
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando...';
+        btn.disabled = true;
+        
+        console.log('🔍 Haciendo petición a:', `/reservas/${reservaId}/detalles-operacion/`);
+        
+        // Hacer petición AJAX usando fetch
+        fetch(`/reservas/${reservaId}/detalles-operacion/`)
+            .then(response => {
+                console.log('📡 Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('✅ Respuesta recibida:', data);
+                if (data.success) {
+                    mostrarDetallesOperacion(data.operacion, data.reserva);
+                } else {
+                    console.error('❌ Error en respuesta:', data.error);
+                    alert('Error: ' + (data.error || 'No se pudieron cargar los detalles'));
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error AJAX:', error);
+                alert('Error de conexión: ' + error.message);
+            })
+            .finally(() => {
+                // Restaurar botón
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+            });
+    }
+});
 
 function mostrarDetallesOperacion(operacion, reserva) {
     const formatearPrecio = (precio) => {
