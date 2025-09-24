@@ -569,19 +569,22 @@ class Reserva(models.Model):
         """
         Fragmenta una disponibilidad manual en períodos libres y ocupados
         """
+        from datetime import timedelta
         fecha_actual = disponibilidad.fecha_inicio
         
         for reserva in reservas_en_disponibilidad:
             # Período libre ANTES de la reserva
             if fecha_actual < reserva.fecha_inicio:
+                # Período libre hasta el día anterior a la reserva
+                fecha_fin_libre = reserva.fecha_inicio - timedelta(days=1)
                 HistorialDisponibilidad.objects.create(
                     propiedad=self.propiedad,
                     fecha_inicio=fecha_actual,
-                    fecha_fin=reserva.fecha_inicio,
+                    fecha_fin=fecha_fin_libre,
                     estado='libre',
                     reserva=None
                 )
-                print(f"   ✅ Período libre: {fecha_actual} al {reserva.fecha_inicio}")
+                print(f"   ✅ Período libre: {fecha_actual} al {fecha_fin_libre}")
             
             # Período de la RESERVA
             inicio_reserva = max(reserva.fecha_inicio, disponibilidad.fecha_inicio)
@@ -598,11 +601,11 @@ class Reserva(models.Model):
             estado_display = 'operación' if estado == 'alquilado' else estado
             print(f"   🏠 Período {estado_display}: {inicio_reserva} al {fin_reserva} (Reserva #{reserva.id})")
             
-            # Mover fecha actual al final de la reserva
-            fecha_actual = max(fecha_actual, reserva.fecha_fin)
+            # Mover fecha actual al día siguiente de la reserva
+            fecha_actual = reserva.fecha_fin + timedelta(days=1)
         
         # Período libre DESPUÉS de todas las reservas
-        if fecha_actual < disponibilidad.fecha_fin:
+        if fecha_actual <= disponibilidad.fecha_fin:
             HistorialDisponibilidad.objects.create(
                 propiedad=self.propiedad,
                 fecha_inicio=fecha_actual,
