@@ -7823,3 +7823,64 @@ def recibo_contrato_24(request, contrato_id):
         logger.error(f"Error al generar recibo de contrato: {str(e)}")
         messages.error(request, f'Error al generar recibo: {str(e)}')
         return redirect('inmobiliaria:lista_contratos')
+
+
+@login_required
+def detalles_operacion_reserva(request, reserva_id):
+    """
+    API endpoint para obtener detalles de la operación de una reserva
+    """
+    try:
+        reserva = get_object_or_404(Reserva, id=reserva_id)
+        
+        # Obtener movimientos de caja asociados a esta reserva
+        movimientos = MovimientoCaja.objects.filter(
+            Q(reserva=reserva) | Q(concepto__icontains=f'Reserva #{reserva.id}')
+        ).order_by('fecha')
+        
+        # Calcular totales
+        total_pagado = movimientos.aggregate(total=Sum('importe'))['total'] or 0
+        saldo_pendiente = max(0, reserva.precio_total - total_pagado)
+        
+        # Obtener recibos generados
+        recibos = []
+        for movimiento in movimientos:
+            if movimiento.numero_recibo:
+                recibos.append({
+                    'id': movimiento.id,
+                    'numero': movimiento.numero_recibo,
+                    'fecha': movimiento.fecha.strftime('%d/%m/%Y'),
+                    'monto': float(movimiento.importe),
+                    'concepto': movimiento.concepto
+                })
+        
+        # Preparar datos de respuesta
+        operacion_data = {
+            'importe_total': float(reserva.precio_total),
+            'precio_por_dia': float(reserva.precio_por_dia) if reserva.precio_por_dia else 0,
+            'senia_pagada': float(total_pagado),
+            'deposito': float(reserva.deposito_garantia) if reserva.deposito_garantia else 0,
+            'saldo_pendiente': float(saldo_pendiente),
+            'recibos': recibos
+        }
+        
+        reserva_data = {
+            'id': reserva.id,
+            'cliente': reserva.cliente.nombre if reserva.cliente else 'No especificado',
+            'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
+            'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
+            'total_dias': (reserva.fecha_fin - reserva.fecha_inicio).days,
+            'estado': reserva.estado
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'operacion': operacion_data,
+            'reserva': reserva_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Error al cargar detalles: {str(e)}'
+        })

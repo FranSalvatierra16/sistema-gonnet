@@ -905,6 +905,7 @@
                                 <th>Estado</th>
                                 <th>Reserva</th>
                                 <th>Última Actualización</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="historialTableBody">
@@ -928,10 +929,22 @@
                                     {% endif %}
                                 </td>
                                 <td>{{ historial.fecha_actualizacion|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    {% if historial.reserva %}
+                                        <button type="button" 
+                                                class="btn btn-info btn-sm ver-monto-reserva"
+                                                data-reserva-id="{{ historial.reserva.id }}"
+                                                title="Ver monto de la operación">
+                                            <i class="fas fa-dollar-sign"></i> Ver Monto
+                                        </button>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5" class="text-center">
+                                <td colspan="6" class="text-center">
                                     No hay registros en el historial
                                 </td>
                             </tr>
@@ -2149,6 +2162,122 @@ function deleteImage(imageId) {
                     text: 'No se pudo eliminar la imagen: ' + error.message
                 });
             });
+        }
+    });
+    
+    // Manejar click en botón "Ver Monto" del historial
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.ver-monto-reserva')) {
+            const btn = e.target.closest('.ver-monto-reserva');
+            const reservaId = btn.dataset.reservaId;
+            
+            // Mostrar loading en el botón
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando...';
+            btn.disabled = true;
+            
+            // Hacer petición AJAX para obtener detalles de la operación
+            fetch(`/reservas/${reservaId}/detalles-operacion/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        mostrarDetallesOperacion(data.operacion, data.reserva);
+                    } else {
+                        Swal.fire({
+                            title: 'Error',
+                            text: data.error || 'No se pudieron cargar los detalles',
+                            icon: 'error'
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Error de conexión al cargar los detalles',
+                        icon: 'error'
+                    });
+                })
+                .finally(() => {
+                    // Restaurar botón
+                    btn.innerHTML = originalContent;
+                    btn.disabled = false;
+                });
+        }
+    });
+}
+
+function mostrarDetallesOperacion(operacion, reserva) {
+    const formatearPrecio = (precio) => {
+        return new Intl.NumberFormat('es-AR', {
+            style: 'currency',
+            currency: 'ARS',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(precio);
+    };
+    
+    let html = `
+        <div class="operacion-detalles">
+            <h5><i class="fas fa-calendar-check"></i> Reserva #${reserva.id}</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Cliente:</strong> ${reserva.cliente}</p>
+                    <p><strong>Período:</strong> ${reserva.fecha_inicio} al ${reserva.fecha_fin}</p>
+                    <p><strong>Total días:</strong> ${reserva.total_dias}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Estado:</strong> 
+                        <span class="badge ${reserva.estado === 'pagada' ? 'bg-success' : 'bg-warning'}">
+                            ${reserva.estado === 'pagada' ? 'Alquilado' : 'Reservado'}
+                        </span>
+                    </p>
+                    <p><strong>Precio por día:</strong> ${formatearPrecio(operacion.precio_por_dia)}</p>
+                </div>
+            </div>
+            
+            <hr>
+            
+            <h6><i class="fas fa-money-bill-wave"></i> Detalles de la Operación</h6>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Importe Total:</strong> ${formatearPrecio(operacion.importe_total)}</p>
+                    <p><strong>Seña Pagada:</strong> ${formatearPrecio(operacion.senia_pagada || 0)}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Depósito:</strong> ${formatearPrecio(operacion.deposito || 0)}</p>
+                    <p><strong>Saldo Pendiente:</strong> ${formatearPrecio(operacion.saldo_pendiente || 0)}</p>
+                </div>
+            </div>
+            
+            ${operacion.recibos && operacion.recibos.length > 0 ? `
+                <hr>
+                <h6><i class="fas fa-receipt"></i> Recibos Generados</h6>
+                <div class="recibos-list">
+                    ${operacion.recibos.map(recibo => `
+                        <div class="d-flex justify-content-between align-items-center border p-2 mb-2 rounded">
+                            <div>
+                                <strong>Recibo #${recibo.numero}</strong><br>
+                                <small>Fecha: ${recibo.fecha} - Monto: ${formatearPrecio(recibo.monto)}</small>
+                            </div>
+                            <a href="/recibo/${recibo.id}/" target="_blank" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-eye"></i> Ver PDF
+                            </a>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+        </div>
+    `;
+    
+    Swal.fire({
+        title: 'Detalles de la Operación',
+        html: html,
+        width: '800px',
+        showCloseButton: true,
+        showConfirmButton: false,
+        customClass: {
+            popup: 'operacion-detalles-modal'
         }
     });
 }
