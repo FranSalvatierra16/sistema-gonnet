@@ -79,6 +79,10 @@ class HistorialDisponibilidad(models.Model):
         blank=True,
         related_name='historiales_disponibilidad'
     )
+    es_principal = models.BooleanField(
+        default=False,
+        help_text='True si es una disponibilidad creada manualmente, False si es automática (fragmentación)'
+    )
 
     class Meta:
         verbose_name = _("Historial de Disponibilidad")

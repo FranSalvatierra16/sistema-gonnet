@@ -1334,6 +1334,16 @@ def crear_disponibilidad(request, propiedad_id):
                     messages.error(request, 'Ya existe una disponibilidad para estas fechas')
                 else:
                     nueva_disponibilidad.save()
+                    
+                    # ✅ CREAR HISTORIAL COMO DISPONIBILIDAD PRINCIPAL
+                    HistorialDisponibilidad.objects.create(
+                        propiedad=propiedad,
+                        fecha_inicio=nueva_disponibilidad.fecha_inicio,
+                        fecha_fin=nueva_disponibilidad.fecha_fin,
+                        estado='libre',
+                        es_principal=True  # Marcada como disponibilidad principal
+                    )
+                    
                     messages.success(request, 'Disponibilidad creada exitosamente')
                     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
                     
@@ -3615,10 +3625,19 @@ def agregar_disponibilidad_masiva(request):
                     
                     # 🎯 INTENTAR CREAR DISPONIBILIDAD (como antes)
                     # Si falla por cualquier razón, capturar el error pero continuar con las demás
-                    Disponibilidad.objects.create(
+                    nueva_disponibilidad = Disponibilidad.objects.create(
                         propiedad=propiedad,
                         fecha_inicio=fecha_inicio,
                         fecha_fin=fecha_fin
+                    )
+                    
+                    # ✅ CREAR HISTORIAL COMO DISPONIBILIDAD PRINCIPAL
+                    HistorialDisponibilidad.objects.create(
+                        propiedad=propiedad,
+                        fecha_inicio=nueva_disponibilidad.fecha_inicio,
+                        fecha_fin=nueva_disponibilidad.fecha_fin,
+                        estado='libre',
+                        es_principal=True  # Marcada como disponibilidad principal
                     )
                     
                     # ✅ Si llegamos aquí, fue exitoso
@@ -4092,9 +4111,11 @@ def logout_view(request):
 
 def ver_historial_disponibilidad(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    # ✅ FILTRAR SOLO DISPONIBILIDADES PRINCIPALES (creadas manualmente)
     # ✅ ORDENAMIENTO CRONOLÓGICO ESTRICTO: primero por fecha_inicio, luego por fecha_fin, luego por ID
     historial = HistorialDisponibilidad.objects.filter(
-        propiedad=propiedad
+        propiedad=propiedad,
+        es_principal=True  # Solo mostrar disponibilidades principales
     ).order_by('fecha_inicio', 'fecha_fin', 'id')
 
     return JsonResponse({
