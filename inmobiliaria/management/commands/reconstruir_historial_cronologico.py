@@ -99,9 +99,8 @@ class Command(BaseCommand):
                 estado__in=['confirmada', 'confirmada_no_pagada', 'pagada']
             )
             for reserva in reservas:
-                # ✅ ESTADOS CORRECTOS: sin pagos → reservado, con pagos → operación
-                tiene_pagos = reserva.recibos.exists() or reserva.pagos.exists()
-                estado = 'alquilado' if tiene_pagos else 'reservado'
+                # ✅ ESTADOS CORRECTOS: reservada → reservado, pagada → operación
+                estado = 'alquilado' if reserva.estado == 'pagada' else 'reservado'
                 periodos.append({
                     'fecha_inicio': reserva.fecha_inicio,
                     'fecha_fin': reserva.fecha_fin,

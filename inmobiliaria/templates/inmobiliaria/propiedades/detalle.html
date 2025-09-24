@@ -2251,8 +2251,8 @@ function mostrarDetallesOperacion(operacion, reserva) {
                 </div>
                 <div class="col-md-6">
                     <p><strong>Estado:</strong> 
-                        <span class="badge ${operacion.senia_pagada > 0 ? 'bg-success' : 'bg-warning'}">
-                            ${operacion.senia_pagada > 0 ? 'Operación' : 'Reservado'}
+                        <span class="badge ${reserva.estado === 'pagada' ? 'bg-success' : 'bg-warning'}">
+                            ${reserva.estado === 'pagada' ? 'Operación' : 'Reservado'}
                         </span>
                     </p>
                     <p><strong>Precio por día:</strong> ${formatearPrecio(operacion.precio_por_dia)}</p>
