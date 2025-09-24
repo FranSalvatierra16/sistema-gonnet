@@ -56,7 +56,7 @@ class HistorialDisponibilidad(models.Model):
     ESTADO_CHOICES = [
         ('libre', 'Libre'),
         ('reservado', 'Reservado'),
-        ('alquilado', 'Alquilado')
+        ('alquilado', 'Operación')
     ]
 
     propiedad = models.ForeignKey(
@@ -441,7 +441,7 @@ class Reserva(models.Model):
         ✅ HISTORIAL COMPLETO: Crea historial fragmentado pero NO modifica disponibilidades
         
         MANTIENE: Las disponibilidades manuales intactas
-        CREA: Historial cronológico fragmentado (libre/reservado/alquilado)
+        CREA: Historial cronológico fragmentado (libre/reservado/operación)
         """
         with transaction.atomic():
             print(f"📋 ACTUALIZANDO HISTORIAL para reserva {self.fecha_inicio} al {self.fecha_fin}")
@@ -523,7 +523,9 @@ class Reserva(models.Model):
             inicio_reserva = max(reserva.fecha_inicio, disponibilidad.fecha_inicio)
             fin_reserva = min(reserva.fecha_fin, disponibilidad.fecha_fin)
             
-            estado = 'alquilado' if reserva.estado == 'pagada' else 'reservado'
+            # Si la reserva tiene algún pago, es "operación", sino es "reservado"
+            tiene_pagos = reserva.recibos.exists() or reserva.pagos.exists()
+            estado = 'alquilado' if tiene_pagos else 'reservado'
             HistorialDisponibilidad.objects.create(
                 propiedad=self.propiedad,
                 fecha_inicio=inicio_reserva,
@@ -531,7 +533,8 @@ class Reserva(models.Model):
                 estado=estado,
                 reserva=reserva
             )
-            print(f"   🏠 Período {estado}: {inicio_reserva} al {fin_reserva} (Reserva #{reserva.id})")
+            estado_display = 'operación' if estado == 'alquilado' else estado
+            print(f"   🏠 Período {estado_display}: {inicio_reserva} al {fin_reserva} (Reserva #{reserva.id})")
             
             # Mover fecha actual al final de la reserva
             fecha_actual = max(fecha_actual, reserva.fecha_fin)
