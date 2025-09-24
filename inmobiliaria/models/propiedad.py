@@ -438,79 +438,114 @@ class Reserva(models.Model):
 
     def actualizar_historial_disponibilidad(self):
         """
-        ❌ FRAGMENTACIÓN DESHABILITADA: No modifica disponibilidades, solo crea historial
+        ✅ HISTORIAL COMPLETO: Crea historial fragmentado pero NO modifica disponibilidades
         
-        ANTES: Dividía las disponibilidades automáticamente
-        AHORA: Solo actualiza el historial, mantiene disponibilidades intactas
+        MANTIENE: Las disponibilidades manuales intactas
+        CREA: Historial cronológico fragmentado (libre/reservado/alquilado)
         """
         with transaction.atomic():
-            print(f"📋 SOLO HISTORIAL para reserva {self.fecha_inicio} al {self.fecha_fin}")
+            print(f"📋 ACTUALIZANDO HISTORIAL para reserva {self.fecha_inicio} al {self.fecha_fin}")
             
-            # ❌ NO FRAGMENTAR DISPONIBILIDADES - Solo crear historial de la reserva
-            # ✅ RECONSTRUIR historial completo cronológicamente
+            # ❌ NO FRAGMENTAR DISPONIBILIDADES - mantienen como están
+            # ✅ RECONSTRUIR historial completo cronológicamente con fragmentación visual
             self.reconstruir_historial_cronologico()
             
-            print(f"✅ HISTORIAL ACTUALIZADO (sin fragmentar disponibilidades) para reserva {self.id}")
+            print(f"✅ HISTORIAL FRAGMENTADO ACTUALIZADO (disponibilidades intactas) para reserva {self.id}")
     
     def reconstruir_historial_cronologico(self):
         """
-        Reconstruye el historial en orden cronológico perfecto:
-        1. Limpia historial existente
-        2. Combina disponibilidades (libres) y reservas (ocupadas)
-        3. Ordena cronológicamente
+        ✅ NUEVA LÓGICA: Fragmenta visualmente las disponibilidades manuales con las reservas
+        
+        1. Toma las disponibilidades manuales como base
+        2. Para cada disponibilidad, calcula qué partes están libres y cuáles ocupadas por reservas
+        3. Crea un historial fragmentado que muestra: Libre → Reservado → Libre → Reservado...
         """
-        print(f"🔄 RECONSTRUYENDO historial cronológico para propiedad {self.propiedad.id}")
+        print(f"🔄 RECONSTRUYENDO historial fragmentado para propiedad {self.propiedad.id}")
         
         # 1️⃣ LIMPIAR historial existente
         HistorialDisponibilidad.objects.filter(propiedad=self.propiedad).delete()
         print(f"🧹 Historial anterior eliminado")
         
-        # 2️⃣ OBTENER todos los períodos (disponibilidades + reservas)
-        periodos = []
-        
-        # Agregar disponibilidades (períodos libres)
-        disponibilidades = self.propiedad.disponibilidades.all()
-        for disp in disponibilidades:
-            periodos.append({
-                'fecha_inicio': disp.fecha_inicio,
-                'fecha_fin': disp.fecha_fin,
-                'estado': 'libre',
-                'reserva': None,
-                'tipo': 'disponibilidad'
-            })
-        
-        # Agregar reservas (períodos reservados/alquilados)
+        # 2️⃣ OBTENER disponibilidades manuales y reservas
+        disponibilidades_manuales = self.propiedad.disponibilidades.filter(es_manual=True).order_by('fecha_inicio')
         reservas = self.propiedad.reservas.filter(
             estado__in=['confirmada', 'confirmada_no_pagada', 'pagada']
-        )
-        for reserva in reservas:
-            # ✅ ESTADOS CORRECTOS: reservada → reservado, pagada → alquilado
+        ).order_by('fecha_inicio')
+        
+        print(f"📋 Disponibilidades manuales: {disponibilidades_manuales.count()}")
+        print(f"📋 Reservas activas: {reservas.count()}")
+        
+        # 3️⃣ FRAGMENTAR cada disponibilidad manual con las reservas que la intersectan
+        for disponibilidad in disponibilidades_manuales:
+            print(f"🔧 Fragmentando disponibilidad: {disponibilidad.fecha_inicio} al {disponibilidad.fecha_fin}")
+            
+            # Encontrar reservas que se superponen con esta disponibilidad
+            reservas_en_disponibilidad = reservas.filter(
+                fecha_inicio__lt=disponibilidad.fecha_fin,
+                fecha_fin__gt=disponibilidad.fecha_inicio
+            ).order_by('fecha_inicio')
+            
+            if not reservas_en_disponibilidad.exists():
+                # Sin reservas: toda la disponibilidad está libre
+                HistorialDisponibilidad.objects.create(
+                    propiedad=self.propiedad,
+                    fecha_inicio=disponibilidad.fecha_inicio,
+                    fecha_fin=disponibilidad.fecha_fin,
+                    estado='libre',
+                    reserva=None
+                )
+                print(f"   ✅ Período libre completo: {disponibilidad.fecha_inicio} al {disponibilidad.fecha_fin}")
+            else:
+                # Con reservas: fragmentar la disponibilidad
+                self._fragmentar_disponibilidad_con_reservas(disponibilidad, reservas_en_disponibilidad)
+        
+        print(f"✅ HISTORIAL FRAGMENTADO COMPLETADO para propiedad {self.propiedad.id}")
+    
+    def _fragmentar_disponibilidad_con_reservas(self, disponibilidad, reservas_en_disponibilidad):
+        """
+        Fragmenta una disponibilidad manual en períodos libres y ocupados
+        """
+        fecha_actual = disponibilidad.fecha_inicio
+        
+        for reserva in reservas_en_disponibilidad:
+            # Período libre ANTES de la reserva
+            if fecha_actual < reserva.fecha_inicio:
+                HistorialDisponibilidad.objects.create(
+                    propiedad=self.propiedad,
+                    fecha_inicio=fecha_actual,
+                    fecha_fin=reserva.fecha_inicio,
+                    estado='libre',
+                    reserva=None
+                )
+                print(f"   ✅ Período libre: {fecha_actual} al {reserva.fecha_inicio}")
+            
+            # Período de la RESERVA
+            inicio_reserva = max(reserva.fecha_inicio, disponibilidad.fecha_inicio)
+            fin_reserva = min(reserva.fecha_fin, disponibilidad.fecha_fin)
+            
             estado = 'alquilado' if reserva.estado == 'pagada' else 'reservado'
-            periodos.append({
-                'fecha_inicio': reserva.fecha_inicio,
-                'fecha_fin': reserva.fecha_fin,
-                'estado': estado,
-                'reserva': reserva,
-                'tipo': 'reserva'
-            })
-        
-        # 3️⃣ ORDENAR cronológicamente
-        periodos.sort(key=lambda x: (x['fecha_inicio'], x['fecha_fin']))
-        
-        # 4️⃣ CREAR entradas de historial ordenadas
-        for i, periodo in enumerate(periodos):
             HistorialDisponibilidad.objects.create(
                 propiedad=self.propiedad,
-                fecha_inicio=periodo['fecha_inicio'],
-                fecha_fin=periodo['fecha_fin'],
-                estado=periodo['estado'],
-                reserva=periodo['reserva']
+                fecha_inicio=inicio_reserva,
+                fecha_fin=fin_reserva,
+                estado=estado,
+                reserva=reserva
             )
+            print(f"   🏠 Período {estado}: {inicio_reserva} al {fin_reserva} (Reserva #{reserva.id})")
             
-            estado_emoji = {'libre': '🟢', 'reservado': '🟡', 'alquilado': '🔴'}[periodo['estado']]
-            print(f"   {i+1:02d}. {estado_emoji} {periodo['estado'].upper()}: {periodo['fecha_inicio']} al {periodo['fecha_fin']} ({periodo['tipo']})")
+            # Mover fecha actual al final de la reserva
+            fecha_actual = max(fecha_actual, reserva.fecha_fin)
         
-        print(f"✅ HISTORIAL CRONOLÓGICO COMPLETADO: {len(periodos)} períodos")
+        # Período libre DESPUÉS de todas las reservas
+        if fecha_actual < disponibilidad.fecha_fin:
+            HistorialDisponibilidad.objects.create(
+                propiedad=self.propiedad,
+                fecha_inicio=fecha_actual,
+                fecha_fin=disponibilidad.fecha_fin,
+                estado='libre',
+                reserva=None
+            )
+            print(f"   ✅ Período libre final: {fecha_actual} al {disponibilidad.fecha_fin}")
 
     def actualizar_saldos(self):
         """Actualiza los saldos basados en los pagos realizados"""
