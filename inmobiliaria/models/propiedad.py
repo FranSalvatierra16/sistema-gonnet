@@ -438,79 +438,19 @@ class Reserva(models.Model):
 
     def actualizar_historial_disponibilidad(self):
         """
-        ✅ FRAGMENTACIÓN AUTOMÁTICA: Divide las disponibilidades cuando se crean reservas
+        ❌ FRAGMENTACIÓN DESHABILITADA: No modifica disponibilidades, solo crea historial
         
-        Ejemplo: Disponibilidad 1/01-28/02 + Reserva 10/01-15/01 = 
-        - Elimina: 1/01-28/02
-        - Crea: 1/01-9/01 libre, 10/01-15/01 reservado, 16/01-28/02 libre
+        ANTES: Dividía las disponibilidades automáticamente
+        AHORA: Solo actualiza el historial, mantiene disponibilidades intactas
         """
-        from datetime import timedelta
-        
         with transaction.atomic():
-            print(f"🔄 FRAGMENTANDO para reserva {self.fecha_inicio} al {self.fecha_fin}")
+            print(f"📋 SOLO HISTORIAL para reserva {self.fecha_inicio} al {self.fecha_fin}")
             
-            # 1️⃣ BUSCAR disponibilidades que se superponen con la reserva
-            disponibilidades_afectadas = Disponibilidad.objects.filter(
-                propiedad=self.propiedad,
-                fecha_inicio__lt=self.fecha_fin,      # Disponibilidad empieza antes del fin de reserva
-                fecha_fin__gt=self.fecha_inicio       # Disponibilidad termina después del inicio de reserva
-            ).order_by('fecha_inicio')
-            
-            print(f"📋 Disponibilidades que se superponen: {disponibilidades_afectadas.count()}")
-            
-            # 2️⃣ FRAGMENTAR cada disponibilidad afectada
-            nuevas_disponibilidades = []
-            disponibilidades_a_eliminar = []
-            
-            for disponibilidad in disponibilidades_afectadas:
-                print(f"   🗓️ Fragmentando: {disponibilidad.fecha_inicio} al {disponibilidad.fecha_fin}")
-                
-                fecha_inicio_disp = disponibilidad.fecha_inicio
-                fecha_fin_disp = disponibilidad.fecha_fin
-                
-                # Marcar para eliminar la disponibilidad original
-                disponibilidades_a_eliminar.append(disponibilidad)
-                
-                # 3️⃣ CREAR FRAGMENTO ANTERIOR (si hay espacio antes de la reserva)
-                # 🏨 LÓGICA HOTEL: Libre hasta el día de entrada INCLUSIVO
-                if fecha_inicio_disp < self.fecha_inicio:
-                    fecha_fin_anterior = self.fecha_inicio  # ✅ INCLUYE el día de entrada
-                    nuevas_disponibilidades.append({
-                        'fecha_inicio': fecha_inicio_disp,
-                        'fecha_fin': fecha_fin_anterior,
-                        'tipo': 'ANTERIOR'
-                    })
-                    print(f"      ✅ Fragmento ANTERIOR: {fecha_inicio_disp} al {fecha_fin_anterior} (libre hasta día de entrada inclusivo)")
-                
-                # 4️⃣ CREAR FRAGMENTO POSTERIOR (si hay espacio después de la reserva)
-                # 🏨 LÓGICA HOTEL: Libre desde el día de salida INCLUSIVO
-                if fecha_fin_disp > self.fecha_fin:
-                    fecha_inicio_posterior = self.fecha_fin  # ✅ INCLUYE el día de salida
-                    nuevas_disponibilidades.append({
-                        'fecha_inicio': fecha_inicio_posterior,
-                        'fecha_fin': fecha_fin_disp,
-                        'tipo': 'POSTERIOR'
-                    })
-                    print(f"      ✅ Fragmento POSTERIOR: {fecha_inicio_posterior} al {fecha_fin_disp} (libre desde día de salida inclusivo)")
-            
-            # 5️⃣ ELIMINAR disponibilidades originales
-            for disp in disponibilidades_a_eliminar:
-                print(f"   🗑️ Eliminando disponibilidad original: {disp.fecha_inicio} al {disp.fecha_fin}")
-                disp.delete()
-            
-            # 6️⃣ CREAR nuevas disponibilidades fragmentadas
-            for nueva_disp in nuevas_disponibilidades:
-                Disponibilidad.objects.create(
-                    propiedad=self.propiedad,
-                    fecha_inicio=nueva_disp['fecha_inicio'],
-                    fecha_fin=nueva_disp['fecha_fin']
-                )
-                print(f"   ➕ Nueva disponibilidad {nueva_disp['tipo']}: {nueva_disp['fecha_inicio']} al {nueva_disp['fecha_fin']}")
-            
-            # 7️⃣ RECONSTRUIR historial completo cronológicamente
+            # ❌ NO FRAGMENTAR DISPONIBILIDADES - Solo crear historial de la reserva
+            # ✅ RECONSTRUIR historial completo cronológicamente
             self.reconstruir_historial_cronologico()
             
-            print(f"✅ FRAGMENTACIÓN COMPLETADA para reserva {self.id}")
+            print(f"✅ HISTORIAL ACTUALIZADO (sin fragmentar disponibilidades) para reserva {self.id}")
     
     def reconstruir_historial_cronologico(self):
         """
@@ -644,6 +584,10 @@ class Disponibilidad(models.Model):
     )
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
+    es_manual = models.BooleanField(
+        default=True,
+        help_text='True si fue creada manualmente, False si fue generada automáticamente'
+    )
 
     def save(self, *args, **kwargs):
         from datetime import timedelta

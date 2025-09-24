@@ -316,7 +316,8 @@ def propiedades(request):
 @login_required
 def propiedad_detalle(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
-    disponibilidades = propiedad.disponibilidades.all()
+    # ✅ FILTRAR SOLO DISPONIBILIDADES MANUALES (no automáticas)
+    disponibilidades = propiedad.disponibilidades.filter(es_manual=True)
     
     # Obtener el historial de disponibilidad
     historiales = HistorialDisponibilidad.objects.filter(
@@ -1320,7 +1321,8 @@ def crear_disponibilidad(request, propiedad_id):
                 nueva_disponibilidad = Disponibilidad(
                     propiedad=propiedad,
                     fecha_inicio=form.cleaned_data['fecha_inicio'],
-                    fecha_fin=form.cleaned_data['fecha_fin']
+                    fecha_fin=form.cleaned_data['fecha_fin'],
+                    es_manual=True  # Marcada explícitamente como manual
                 )
                 
                 # Verificar solapamiento manualmente
@@ -3622,7 +3624,8 @@ def agregar_disponibilidad_masiva(request):
                     nueva_disponibilidad = Disponibilidad.objects.create(
                         propiedad=propiedad,
                         fecha_inicio=fecha_inicio,
-                        fecha_fin=fecha_fin
+                        fecha_fin=fecha_fin,
+                        es_manual=True  # Marcada explícitamente como manual
                     )
                     
                     # ✅ Las disponibilidades manuales no crean historial automáticamente
