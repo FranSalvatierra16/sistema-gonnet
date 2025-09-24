@@ -17,6 +17,7 @@
                 <th>Dirección</th>
                 <th>Valoración</th>
                 <th>Piso</th>
+                <th>Departamento</th>
                 <th>Ambientes</th>
                 
                 
@@ -32,6 +33,7 @@
                 <td>{{ propiedad.direccion }}</td>
                 <td>{{ propiedad.valoracion}}</td>
                 <td>{{ propiedad.piso }}</td>
+                <td>{{ propiedad.departamento }}</td>
                 <td>{{ propiedad.ambientes }}</td>
                
                 <td>
@@ -48,7 +50,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="10" class="text-center">Este propietario no tiene propiedades registradas.</td>
+                <td colspan="11" class="text-center">Este propietario no tiene propiedades registradas.</td>
             </tr>
             {% endfor %}
         </tbody>
