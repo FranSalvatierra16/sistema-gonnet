@@ -524,7 +524,13 @@ class Reserva(models.Model):
             fin_reserva = min(reserva.fecha_fin, disponibilidad.fecha_fin)
             
             # Si la reserva tiene algún pago, es "operación", sino es "reservado"
-            tiene_pagos = reserva.recibos.exists() or reserva.pagos.exists()
+            # Verificar múltiples campos: senia, senia_pagada, pagos relacionados, recibos
+            tiene_pagos = (
+                (hasattr(reserva, 'senia') and reserva.senia and reserva.senia > 0) or
+                (hasattr(reserva, 'senia_pagada') and reserva.senia_pagada and reserva.senia_pagada > 0) or
+                reserva.recibos.exists() or
+                reserva.pagos.exists()
+            )
             estado = 'alquilado' if tiene_pagos else 'reservado'
             HistorialDisponibilidad.objects.create(
                 propiedad=self.propiedad,

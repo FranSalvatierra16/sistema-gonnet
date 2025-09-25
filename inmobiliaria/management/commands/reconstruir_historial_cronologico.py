@@ -99,8 +99,14 @@ class Command(BaseCommand):
                 estado__in=['confirmada', 'confirmada_no_pagada', 'pagada']
             )
             for reserva in reservas:
-                # ✅ ESTADOS CORRECTOS: sin pagos → reservado, con pagos → operación
-                tiene_pagos = reserva.recibos.exists() or reserva.pagos.exists()
+                # ✅ ESTADOS CORRECTOS: cualquier pago → operación, sin pagos → reservado
+                # Verificar múltiples campos: senia, senia_pagada, pagos relacionados, recibos
+                tiene_pagos = (
+                    (hasattr(reserva, 'senia') and reserva.senia and reserva.senia > 0) or
+                    (hasattr(reserva, 'senia_pagada') and reserva.senia_pagada and reserva.senia_pagada > 0) or
+                    reserva.recibos.exists() or
+                    reserva.pagos.exists()
+                )
                 estado = 'alquilado' if tiene_pagos else 'reservado'
                 periodos.append({
                     'fecha_inicio': reserva.fecha_inicio,
