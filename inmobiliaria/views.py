@@ -7864,7 +7864,8 @@ def detalles_operacion_reserva(request, reserva_id):
                 'numero': recibo.numero_recibo,
                 'fecha': recibo.fecha_emision.strftime('%d/%m/%Y'),
                 'monto': float(recibo.monto_este_pago),
-                'concepto': recibo.movimiento_caja.concepto if recibo.movimiento_caja else 'N/A'
+                'concepto': recibo.movimiento_caja.concepto if recibo.movimiento_caja else 'N/A',
+                'movimiento_id': recibo.movimiento_caja.id if recibo.movimiento_caja else None
             })
         
         # Calcular precio por día desde la relación con Precio
