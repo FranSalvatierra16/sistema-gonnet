@@ -1,0 +1,351 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+
+{% block title %}Gestión de Conceptos{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-tags"></i> Gestión de Conceptos</h2>
+                    <p class="text-muted">Sucursal: {{ sucursal }} | Total: {{ total_conceptos }} conceptos</p>
+                </div>
+                <button class="btn btn-primary" data-toggle="modal" data-target="#crearConceptoModal">
+                    <i class="fas fa-plus"></i> Agregar Concepto
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensajes de éxito/error -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Tabla de Conceptos -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-list"></i> Lista de Conceptos</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if conceptos %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th width="15%">ID</th>
+                                <th width="50%">Nombre</th>
+                                <th width="20%">Fecha Creación</th>
+                                <th width="15%" class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for concepto in conceptos %}
+                            <tr id="concepto-{{ concepto.id }}">
+                                <td>
+                                    <span class="badge badge-primary">{{ concepto.id }}</span>
+                                </td>
+                                <td>
+                                    <span class="concepto-nombre" data-concepto-id="{{ concepto.id }}">{{ concepto.nombre }}</span>
+                                    <input type="text" class="form-control concepto-nombre-input d-none" 
+                                           data-concepto-id="{{ concepto.id }}" value="{{ concepto.nombre }}">
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ concepto.fecha_creacion|date:"d/m/Y H:i" }}</small>
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <!-- Botón Editar -->
+                                        <button class="btn btn-outline-warning btn-editar" 
+                                                data-concepto-id="{{ concepto.id }}" 
+                                                title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        
+                                        <!-- Botón Guardar (oculto) -->
+                                        <button class="btn btn-success btn-guardar d-none" 
+                                                data-concepto-id="{{ concepto.id }}" 
+                                                title="Guardar">
+                                            <i class="fas fa-save"></i>
+                                        </button>
+                                        
+                                        <!-- Botón Cancelar (oculto) -->
+                                        <button class="btn btn-secondary btn-cancelar d-none" 
+                                                data-concepto-id="{{ concepto.id }}" 
+                                                title="Cancelar">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                        
+                                        <!-- Botón Eliminar -->
+                                        <button class="btn btn-outline-danger btn-eliminar" 
+                                                data-concepto-id="{{ concepto.id }}" 
+                                                data-concepto-nombre="{{ concepto.nombre }}" 
+                                                title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="p-4 text-center">
+                    <i class="fas fa-tags fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No hay conceptos registrados</h5>
+                    <p class="text-muted">Utiliza el botón "Agregar Concepto" para crear el primero.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crear Concepto -->
+<div class="modal fade" id="crearConceptoModal" tabindex="-1" role="dialog" aria-labelledby="crearConceptoModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="crear">
+                
+                <div class="modal-header">
+                    <h5 class="modal-title" id="crearConceptoModalLabel">
+                        <i class="fas fa-plus"></i> Crear Nuevo Concepto
+                    </h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="nuevo_id"><strong>ID del Concepto *</strong></label>
+                        <input type="text" class="form-control" id="nuevo_id" name="nuevo_id" 
+                               placeholder="Ej: 27, ABC01, etc." required maxlength="20">
+                        <small class="form-text text-muted">
+                            Identificador único para el concepto. Puede ser numérico o alfanumérico.
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="nuevo_nombre"><strong>Nombre del Concepto *</strong></label>
+                        <input type="text" class="form-control" id="nuevo_nombre" name="nuevo_nombre" 
+                               placeholder="Ej: Mantenimiento, Gastos administrativos, etc." required maxlength="100">
+                        <small class="form-text text-muted">
+                            Nombre descriptivo que aparecerá en recibos y movimientos.
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Crear Concepto
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Confirmar Eliminación -->
+<div class="modal fade" id="eliminarConceptoModal" tabindex="-1" role="dialog" aria-labelledby="eliminarConceptoModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form method="post" id="eliminarConceptoForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="eliminar">
+                <input type="hidden" name="concepto_id" id="eliminar_concepto_id">
+                
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="eliminarConceptoModalLabel">
+                        <i class="fas fa-exclamation-triangle"></i> Confirmar Eliminación
+                    </h5>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>¡Atención!</strong> Esta acción no se puede deshacer.
+                    </div>
+                    
+                    <p>¿Estás seguro de que quieres eliminar el concepto?</p>
+                    <div class="bg-light p-3 rounded">
+                        <strong>ID:</strong> <span id="eliminar_concepto_id_display"></span><br>
+                        <strong>Nombre:</strong> <span id="eliminar_concepto_nombre_display"></span>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Eliminar Definitivamente
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+$(document).ready(function() {
+    // Editar concepto
+    $('.btn-editar').click(function() {
+        const conceptoId = $(this).data('concepto-id');
+        const row = $(`#concepto-${conceptoId}`);
+        
+        // Ocultar texto y mostrar input
+        row.find('.concepto-nombre').addClass('d-none');
+        row.find('.concepto-nombre-input').removeClass('d-none').focus();
+        
+        // Cambiar botones
+        $(this).addClass('d-none');
+        row.find('.btn-eliminar').addClass('d-none');
+        row.find('.btn-guardar, .btn-cancelar').removeClass('d-none');
+    });
+    
+    // Cancelar edición
+    $('.btn-cancelar').click(function() {
+        const conceptoId = $(this).data('concepto-id');
+        const row = $(`#concepto-${conceptoId}`);
+        
+        // Restaurar texto original
+        const nombreOriginal = row.find('.concepto-nombre').text();
+        row.find('.concepto-nombre-input').val(nombreOriginal);
+        
+        // Mostrar texto y ocultar input
+        row.find('.concepto-nombre').removeClass('d-none');
+        row.find('.concepto-nombre-input').addClass('d-none');
+        
+        // Restaurar botones
+        row.find('.btn-editar, .btn-eliminar').removeClass('d-none');
+        $(this).addClass('d-none');
+        row.find('.btn-guardar').addClass('d-none');
+    });
+    
+    // Guardar cambios
+    $('.btn-guardar').click(function() {
+        const conceptoId = $(this).data('concepto-id');
+        const nuevoNombre = $(`.concepto-nombre-input[data-concepto-id="${conceptoId}"]`).val().trim();
+        
+        if (!nuevoNombre) {
+            alert('El nombre no puede estar vacío.');
+            return;
+        }
+        
+        // Crear formulario dinámico
+        const form = $('<form method="post"></form>');
+        form.append('<input type="hidden" name="csrfmiddlewaretoken" value="' + $('[name=csrfmiddlewaretoken]').val() + '">');
+        form.append('<input type="hidden" name="action" value="editar">');
+        form.append('<input type="hidden" name="concepto_id" value="' + conceptoId + '">');
+        form.append('<input type="hidden" name="nuevo_nombre" value="' + nuevoNombre + '">');
+        
+        $('body').append(form);
+        form.submit();
+    });
+    
+    // Eliminar concepto
+    $('.btn-eliminar').click(function() {
+        const conceptoId = $(this).data('concepto-id');
+        const conceptoNombre = $(this).data('concepto-nombre');
+        
+        $('#eliminar_concepto_id').val(conceptoId);
+        $('#eliminar_concepto_id_display').text(conceptoId);
+        $('#eliminar_concepto_nombre_display').text(conceptoNombre);
+        
+        $('#eliminarConceptoModal').modal('show');
+    });
+    
+    // Permitir editar con Enter
+    $('.concepto-nombre-input').keypress(function(e) {
+        if (e.which === 13) { // Enter
+            const conceptoId = $(this).data('concepto-id');
+            $(`.btn-guardar[data-concepto-id="${conceptoId}"]`).click();
+        }
+    });
+    
+    // Permitir cancelar con Escape
+    $('.concepto-nombre-input').keydown(function(e) {
+        if (e.which === 27) { // Escape
+            const conceptoId = $(this).data('concepto-id');
+            $(`.btn-cancelar[data-concepto-id="${conceptoId}"]`).click();
+        }
+    });
+    
+    // Auto-focus en modal de crear
+    $('#crearConceptoModal').on('shown.bs.modal', function () {
+        $('#nuevo_id').focus();
+    });
+    
+    // Validación en tiempo real para ID
+    $('#nuevo_id').on('input', function() {
+        const valor = $(this).val();
+        const regex = /^[a-zA-Z0-9]{1,20}$/;
+        
+        if (valor && !regex.test(valor)) {
+            $(this).addClass('is-invalid');
+            $(this).siblings('.form-text').text('Solo se permiten letras y números, máximo 20 caracteres.');
+        } else {
+            $(this).removeClass('is-invalid');
+            $(this).siblings('.form-text').text('Identificador único para el concepto. Puede ser numérico o alfanumérico.');
+        }
+    });
+});
+</script>
+
+<style>
+.concepto-nombre {
+    font-weight: 500;
+}
+
+.concepto-nombre-input {
+    border: 2px solid #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.btn-group-sm > .btn {
+    margin: 0 1px;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.badge-primary {
+    font-size: 0.9em;
+    padding: 0.5em 0.8em;
+}
+
+.modal-header.bg-danger {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.alert-warning {
+    border-left: 4px solid #ffc107;
+}
+
+.form-control:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+</style>
+{% endblock %}

@@ -218,4 +218,7 @@ urlpatterns = [
     path('propiedades/<int:propiedad_id>/reactivar-24-meses/', views.reactivar_propiedad_24_meses, name='reactivar_propiedad_24_meses'),
     path('propiedades/<int:propiedad_id>/desactivar-24-meses/', views.desactivar_propiedad_24_meses, name='desactivar_propiedad_24_meses'),
     
+    # Gestión de Conceptos
+    path('conceptos/', views.gestionar_conceptos, name='gestionar_conceptos'),
+    
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
