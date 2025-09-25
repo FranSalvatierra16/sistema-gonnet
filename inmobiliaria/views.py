@@ -6270,7 +6270,24 @@ def buscar_propiedades(request):
                 else:
                     propiedad.dias_libres_calculados = 999999  # Disponibles después
             
-            print(f"🏠 Propiedad {propiedad.id}: Estado={getattr(propiedad, 'estado_reserva', 'N/A')}, Días libres={propiedad.dias_libres_calculados}")
+            estado_debug = getattr(propiedad, 'estado_reserva', 'N/A')
+            print(f"🏠 Propiedad {propiedad.id}: Estado={estado_debug}, Días libres={propiedad.dias_libres_calculados}")
+            
+            # DEBUG ESPECIAL para propiedad 44554
+            if propiedad.id == 44554:
+                print(f"🔍 DEBUG ESPECIAL 44554:")
+                print(f"   - Estado reserva: {estado_debug}")
+                print(f"   - Fecha inicio búsqueda: {fecha_inicio}")
+                print(f"   - Fecha fin búsqueda: {fecha_fin}")
+                print(f"   - Días libres calculados: {propiedad.dias_libres_calculados}")
+                
+                # Revisar reservas y disponibilidades
+                reservas = propiedad.reservas.filter(fecha_fin__lt=fecha_inicio).order_by('-fecha_fin')
+                print(f"   - Reservas anteriores: {list(reservas.values('id', 'fecha_fin'))}")
+                
+                from inmobiliaria.models import Disponibilidad
+                disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad, fecha_fin__lt=fecha_inicio).order_by('-fecha_fin')
+                print(f"   - Disponibilidades anteriores: {list(disponibilidades.values('id', 'fecha_fin'))}")
         
         # Ordenar: primero las rojas (días libres = -1), luego por menos días libres
         propiedades_disponibles.sort(key=lambda p: p.dias_libres_calculados)
