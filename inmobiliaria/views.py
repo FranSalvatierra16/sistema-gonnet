@@ -5226,7 +5226,8 @@ def conceptos_list(request):
             ]
         }
         return JsonResponse(data)
-    # Si acceden por navegador normal, puedes devolver una plantilla o un error
+    # Si acceden por navegador normal, redirigir a la gestión completa
+    return redirect('inmobiliaria:gestionar_conceptos')
 
 def propietario_cuentas(request):
     propietario_id = request.GET.get('propietario_id')
