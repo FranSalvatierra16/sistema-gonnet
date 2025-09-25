@@ -202,12 +202,12 @@
                             <h3 style="margin: 0; font-size: 9px;">{{ precio_total_operacion }}</h3>
                         </div>
                         <div style="width: 18%; text-align: center;">
-                            <h3 style="margin: 0; font-size: 9px;">SEÑA PAGADA</h3>
+                            <h3 style="margin: 0; font-size: 9px;">SEÑA</h3>
                             <div style="border-bottom: 1px solid #2d8524;"></div>
                             <h3 style="margin: 0; font-size: 9px;">{{ monto_este_pago }}</h3>
                         </div>
                         <div style="width: 18%; text-align: center;">
-                            <h3 style="margin: 0; font-size: 8px;">QUEDA POR PAGAR</h3>
+                            <h3 style="margin: 0; font-size: 8px;">SALDO RESTANTE</h3>
                             <div style="border-bottom: 1px solid #2d8524;"></div>
                             <h3 style="margin: 0; font-size: 9px;">{{ saldo_pendiente }}</h3>
                         </div>
@@ -321,7 +321,7 @@
     
                 <!-- Forma de pago -->
                 <div style="padding: 2; padding-left: 10px; border-top: 1px solid #2d8524; height: 6%;">
-                    <p style="margin: 0; font-size: 9px;">FORMA DE PAGO:<u>&nbsp;&nbsp;&nbsp;{{ formas_de_pago }}&nbsp;&nbsp;&nbsp;</u></p></p>
+                    <p style="margin: 0; font-size: 9px;">FORMA DE PAGO:<u>&nbsp;&nbsp;&nbsp;{% if 'Mercado Pago' in formas_de_pago or 'Galicia' in formas_de_pago %}TRANSFERENCIA BANCARIA - {% endif %}{{ formas_de_pago }}&nbsp;&nbsp;&nbsp;</u></p></p>
                     <div style="border-bottom: 1px dotted black; height: 5px;"></div>
                 </div>
     
