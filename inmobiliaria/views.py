@@ -3009,13 +3009,13 @@ def ver_recibo_movimiento(request, movimiento_id):
                 
             else:
                 # ✅ FALLBACK: USAR VALORES DIRECTOS DE LA RESERVA
-                total_senia_pagada_recibo = reserva.senia or 0
-                total_deposito_pagado_recibo = reserva.deposito_garantia or 0
+            total_senia_pagada_recibo = reserva.senia or 0
+            total_deposito_pagado_recibo = reserva.deposito_garantia or 0
                 precio_total_operacion = reserva.precio_total
-                
+            
                 print(f"✅ FALLBACK - USANDO VALORES DIRECTOS DE LA RESERVA:")
-                print(f"   - Seña (reserva.senia): ${total_senia_pagada_recibo}")
-                print(f"   - Depósito (reserva.deposito_garantia): ${total_deposito_pagado_recibo}")
+            print(f"   - Seña (reserva.senia): ${total_senia_pagada_recibo}")
+            print(f"   - Depósito (reserva.deposito_garantia): ${total_deposito_pagado_recibo}")
             
             # ✅ CORREGIDO: Solo la seña cuenta para el total pagado (el depósito es aparte)
             total_pagado_reserva = total_senia_pagada_recibo
@@ -3182,9 +3182,9 @@ def ver_recibo_movimiento(request, movimiento_id):
                         else:
                             # No se pudo parsear, usar concepto único
                             print("⚠️ No se pudieron extraer conceptos individuales, usando concepto único")
-                    pagos.append({
-                        'fecha': fecha_mov,
-                        'codigo': codigo_mov,
+                            pagos.append({
+                                'fecha': fecha_mov,
+                                'codigo': codigo_mov,
                                 'concepto': concepto_texto or 'ALQ - Alquiler temporario',
                                 'monto': f'${movimiento.monto_total:,.0f}'
                             })
