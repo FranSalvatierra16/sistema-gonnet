@@ -3382,7 +3382,7 @@ def ver_recibo_movimiento(request, movimiento_id):
             'total_senia_pagada': total_senia_pagada_recibo if reserva else 0,  # ✅ NUEVO: Solo seña
             'total_deposito_pagado': total_deposito_pagado_recibo if reserva else 0,  # ✅ NUEVO: Solo depósito
             'movimientos_relacionados': movimientos_relacionados,
-            'fecha_actual': timezone.now().strftime('%d/%m/%Y'),
+            'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
             'caja': movimiento.caja,
             'propiedad': movimiento.propiedad,
             'empleado': movimiento.empleado,
@@ -6270,13 +6270,21 @@ def buscar_propiedades(request):
             print(f"Error calculando días libres para propiedad {propiedad.id}: {e}")
             return 999999  # En caso de error, ponerla al final
 
-    # Aplicar ordenamiento si hay fechas válidas
-    if fecha_inicio and fecha_fin and propiedades_disponibles:
+    # ✅ APLICAR ORDENAMIENTO MEJORADO: Rojas primero, luego por días libres
+    if propiedades_disponibles:
         print("🔄 APLICANDO ORDENAMIENTO PERSONALIZADO...")
         
         # Agregar días libres a cada propiedad para debugging
         for propiedad in propiedades_disponibles:
-            propiedad.dias_libres_calculados = calcular_dias_libres(propiedad, fecha_inicio, fecha_fin)
+            if fecha_inicio and fecha_fin:
+                propiedad.dias_libres_calculados = calcular_dias_libres(propiedad, fecha_inicio, fecha_fin)
+            else:
+                # Sin fechas, usar un orden básico
+                if hasattr(propiedad, 'estado_reserva') and propiedad.estado_reserva == 'confirmada_no_pagada':
+                    propiedad.dias_libres_calculados = -1  # Rojas primero
+                else:
+                    propiedad.dias_libres_calculados = 999999  # Disponibles después
+            
             print(f"🏠 Propiedad {propiedad.id}: Estado={getattr(propiedad, 'estado_reserva', 'N/A')}, Días libres={propiedad.dias_libres_calculados}")
         
         # Ordenar: primero las rojas (días libres = -1), luego por menos días libres
@@ -6286,7 +6294,8 @@ def buscar_propiedades(request):
         for i, propiedad in enumerate(propiedades_disponibles, 1):
             estado = getattr(propiedad, 'estado_reserva', 'N/A')
             dias = propiedad.dias_libres_calculados
-            print(f"  {i}. Propiedad {propiedad.id}: {estado} - {dias} días libres")
+            color = "🔴" if estado == 'confirmada_no_pagada' else "🟢"
+            print(f"  {i}. {color} Propiedad {propiedad.id}: {estado} - {dias} días libres")
 
     # Obtener conceptos para el template
     conceptos = Concepto.objects.filter(
