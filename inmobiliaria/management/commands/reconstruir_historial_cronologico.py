@@ -132,7 +132,7 @@ class Command(BaseCommand):
                     reserva=periodo['reserva']
                 )
                 
-                estado_emoji = {'libre': '🟢', 'reservado': '🟡', 'alquilado': '🔴'}[periodo['estado']]
+                estado_emoji = {'libre': '🟡', 'reservado': '🔴', 'alquilado': '🟢'}[periodo['estado']]
                 self.stdout.write(f"   {i+1:02d}. {estado_emoji} {periodo['estado'].upper()}: {periodo['fecha_inicio']} al {periodo['fecha_fin']} ({periodo['tipo']})")
             
             self.stdout.write(f"✅ HISTORIAL RECONSTRUIDO: {len(periodos)} períodos cronológicos")
