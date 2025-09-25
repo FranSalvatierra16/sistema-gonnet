@@ -3009,8 +3009,8 @@ def ver_recibo_movimiento(request, movimiento_id):
                 
             else:
                 # ✅ FALLBACK: USAR VALORES DIRECTOS DE LA RESERVA
-            total_senia_pagada_recibo = reserva.senia or 0
-            total_deposito_pagado_recibo = reserva.deposito_garantia or 0
+                total_senia_pagada_recibo = reserva.senia or 0
+                total_deposito_pagado_recibo = reserva.deposito_garantia or 0
                 precio_total_operacion = reserva.precio_total
             
                 print(f"✅ FALLBACK - USANDO VALORES DIRECTOS DE LA RESERVA:")
