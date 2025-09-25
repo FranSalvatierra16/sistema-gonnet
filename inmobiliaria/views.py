@@ -5936,8 +5936,8 @@ def buscar_propiedades_caja(request):
 @login_required
 def buscar_propiedades(request):
     # FUNCIÓN: buscar_propiedades - función que está siendo usada en producción ✅
-        print("🚀 INICIO DE BUSCAR_PROPIEDADES - FUNCIÓN EJECUTÁNDOSE")
-        print("🔍 DEBUGGING: Esta es la función que se está ejecutando para ordenamiento")
+    print("🚀 INICIO DE BUSCAR_PROPIEDADES - FUNCIÓN EJECUTÁNDOSE")
+    print("🔍 DEBUGGING: Esta es la función que se está ejecutando para ordenamiento")
     
     # Obtener la sucursal del vendedor logueado
     sucursal_vendedor = request.user.sucursal
