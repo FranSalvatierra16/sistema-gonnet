@@ -6208,18 +6208,17 @@ def buscar_propiedades(request):
     # ✅ ORDENAMIENTO PERSONALIZADO: Primero rojas, luego por días libres
     def calcular_dias_libres(propiedad, fecha_inicio_busqueda, fecha_fin_busqueda):
         """
-        Calcula cuántos días libres hay alrededor de las fechas de búsqueda.
-        Ejemplo: Si busco del 25-27 y hay reserva hasta 22 y próxima desde 29,
-        son 45 días libres (3 días buscados + reserva anterior + reserva siguiente)
+        Calcula días libres SOLO ANTES de la búsqueda.
+        Ejemplo: Si busco del 25-27 y la reserva anterior terminó el 22, son 3 días libres.
         """
-        if not hasattr(propiedad, 'estado_reserva'):
-            return 999999  # Sin estado definido, ponerla al final
-            
-        if propiedad.estado_reserva == 'confirmada_no_pagada':
-            return -1  # Rojas van primero (valor negativo)
-        
-        # Para propiedades disponibles, calcular días libres SOLO ANTES de la búsqueda
         try:
+            if not hasattr(propiedad, 'estado_reserva'):
+                return 999999  # Sin estado definido, ponerla al final
+                
+            if propiedad.estado_reserva == 'confirmada_no_pagada':
+                return -1  # Rojas van primero (valor negativo)
+            
+            # Para propiedades disponibles, calcular días libres SOLO ANTES de la búsqueda
             # Buscar la reserva o disponibilidad que termina más cerca ANTES de la fecha de búsqueda
             
             # OPCIÓN 1: Buscar reserva que termine antes de la búsqueda
