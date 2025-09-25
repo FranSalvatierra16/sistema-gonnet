@@ -6285,7 +6285,6 @@ def buscar_propiedades(request):
                 reservas = propiedad.reservas.filter(fecha_fin__lt=fecha_inicio).order_by('-fecha_fin')
                 print(f"   - Reservas anteriores: {list(reservas.values('id', 'fecha_fin'))}")
                 
-                from inmobiliaria.models import Disponibilidad
                 disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad, fecha_fin__lt=fecha_inicio).order_by('-fecha_fin')
                 print(f"   - Disponibilidades anteriores: {list(disponibilidades.values('id', 'fecha_fin'))}")
         
