@@ -3382,7 +3382,7 @@ def ver_recibo_movimiento(request, movimiento_id):
             'total_senia_pagada': total_senia_pagada_recibo if reserva else 0,  # ✅ NUEVO: Solo seña
             'total_deposito_pagado': total_deposito_pagado_recibo if reserva else 0,  # ✅ NUEVO: Solo depósito
             'movimientos_relacionados': movimientos_relacionados,
-            'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
+            'fecha_actual': timezone.now().strftime('%d/%m/%Y'),
             'caja': movimiento.caja,
             'propiedad': movimiento.propiedad,
             'empleado': movimiento.empleado,
