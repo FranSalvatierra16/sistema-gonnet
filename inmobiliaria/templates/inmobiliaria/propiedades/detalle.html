@@ -910,11 +910,11 @@
                         </thead>
                         <tbody id="historialTableBody">
                             {% for historial in historiales %}
-                            <tr class="{% if historial.estado == 'libre' %}table-warning{% elif historial.estado == 'reservado' %}table-danger{% else %}table-success{% endif %}">
+                            <tr class="{% if historial.estado == 'libre' %}table-success{% elif historial.estado == 'reservado' %}table-warning{% else %}table-danger{% endif %}">
                                 <td>{{ historial.fecha_inicio|date:"d/m/Y" }}</td>
                                 <td>{{ historial.fecha_fin|date:"d/m/Y" }}</td>
                                 <td>
-                                    <span class="badge {% if historial.estado == 'libre' %}bg-warning{% elif historial.estado == 'reservado' %}bg-danger{% else %}bg-success{% endif %}">
+                                    <span class="badge {% if historial.estado == 'libre' %}bg-success{% elif historial.estado == 'reservado' %}bg-warning{% else %}bg-danger{% endif %}">
                                         {{ historial.get_estado_display|default:historial.estado|title }}
                                     </span>
                                 </td>
