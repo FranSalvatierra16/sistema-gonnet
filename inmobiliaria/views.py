@@ -6767,8 +6767,8 @@ def procesar_operacion_contrato(request, contrato_id):
             concepto_10_presente = ' | ID:10 |' in conceptos_texto
             
             if concepto_10_presente:
-            total_esperado = contrato.deposito_garantia + contrato.precio_mensual
-            mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
+                total_esperado = contrato.deposito_garantia + contrato.precio_mensual
+                mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
             else:
                 # Si no hay concepto 10, el total esperado es lo que esté en los conceptos
                 total_esperado = total_movimiento  # Aceptar cualquier total (conceptos + honorarios + sellados sin depósito)
