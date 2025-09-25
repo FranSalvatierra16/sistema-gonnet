@@ -3205,13 +3205,13 @@ def ver_recibo_movimiento(request, movimiento_id):
                     # Solo usar fallback ultra simple si no se procesaron conceptos
                     if not conceptos_procesados:
                         print("🚨 USANDO FALLBACK ULTRA SIMPLE")
-                    pagos.append({
-                        'fecha': '15/09/2025',
-                        'codigo': 'M0001',
-                        'concepto': 'ALQ - Alquiler temporario',
-                        'monto': '$130,000'
-                    })
-                    total_pagado = 130000
+                        pagos.append({
+                            'fecha': '15/09/2025',
+                            'codigo': 'M0001',
+                            'concepto': 'ALQ - Alquiler temporario',
+                            'monto': '$130,000'
+                        })
+                        total_pagado = 130000
                     else:
                         print("✅ CONCEPTOS YA PROCESADOS - No usar fallback ultra simple")
             
