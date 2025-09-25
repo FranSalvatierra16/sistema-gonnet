@@ -12,6 +12,15 @@
                 <div>
                     <h2><i class="fas fa-tags"></i> Gestión de Conceptos</h2>
                     <p class="text-muted">Sucursal: {{ sucursal }} | Total: {{ total_conceptos }} conceptos</p>
+                    <div class="mt-2">
+                        <small class="text-info">
+                            <i class="fas fa-info-circle"></i> 
+                            Los IDs se muestran con colores: 
+                            <span class="badge badge-primary badge-sm">Normales</span>
+                            <span class="badge badge-warning badge-sm">Con caracteres especiales</span>
+                            <span class="badge badge-danger badge-sm">Sin ID</span>
+                        </small>
+                    </div>
                 </div>
                 <button class="btn btn-primary" data-toggle="modal" data-target="#crearConceptoModal">
                     <i class="fas fa-plus"></i> Agregar Concepto
@@ -54,7 +63,21 @@
                             {% for concepto in conceptos %}
                             <tr id="concepto-{{ concepto.id }}">
                                 <td>
-                                    <span class="badge badge-primary">{{ concepto.id }}</span>
+                                    {% if concepto.id|length > 0 %}
+                                        {% if concepto.id|slugify %}
+                                            <span class="badge badge-primary concepto-id-badge" title="ID: {{ concepto.id }}">
+                                                {{ concepto.id|truncatechars:15 }}
+                                            </span>
+                                        {% else %}
+                                            <span class="badge badge-warning concepto-id-badge" title="ID con caracteres especiales: '{{ concepto.id }}'">
+                                                <i class="fas fa-exclamation-triangle"></i> {{ concepto.id|length }} chars
+                                            </span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge badge-danger concepto-id-badge" title="ID vacío">
+                                            <i class="fas fa-times"></i> Sin ID
+                                        </span>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     <span class="concepto-nombre" data-concepto-id="{{ concepto.id }}">{{ concepto.nombre }}</span>
@@ -341,6 +364,37 @@ $(document).ready(function() {
 .badge-primary {
     font-size: 0.9em;
     padding: 0.5em 0.8em;
+}
+
+/* Estilos para badges de ID */
+.concepto-id-badge {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85em;
+    padding: 0.4em 0.7em;
+    min-width: 60px;
+    text-align: center;
+    cursor: help;
+}
+
+.badge-warning {
+    background-color: #ffc107 !important;
+    color: #212529 !important;
+}
+
+.badge-danger {
+    background-color: #dc3545 !important;
+    color: white !important;
+}
+
+.badge-primary {
+    background-color: #007bff !important;
+    color: white !important;
+}
+
+/* Tooltip mejorado para IDs */
+.concepto-id-badge:hover {
+    transform: scale(1.05);
+    transition: transform 0.2s ease;
 }
 
 .modal-header.bg-danger {
