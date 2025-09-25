@@ -5936,7 +5936,8 @@ def buscar_propiedades_caja(request):
 @login_required
 def buscar_propiedades(request):
     # FUNCIÓN: buscar_propiedades - función que está siendo usada en producción ✅
-    print("🚀 INICIO DE BUSCAR_PROPIEDADES - FUNCIÓN EJECUTÁNDOSE")
+        print("🚀 INICIO DE BUSCAR_PROPIEDADES - FUNCIÓN EJECUTÁNDOSE")
+        print("🔍 DEBUGGING: Esta es la función que se está ejecutando para ordenamiento")
     
     # Obtener la sucursal del vendedor logueado
     sucursal_vendedor = request.user.sucursal
@@ -6217,54 +6218,39 @@ def buscar_propiedades(request):
         if propiedad.estado_reserva == 'confirmada_no_pagada':
             return -1  # Rojas van primero (valor negativo)
         
-        # Para propiedades disponibles, calcular días libres basado en DISPONIBILIDADES
+        # Para propiedades disponibles, calcular días libres SOLO ANTES de la búsqueda
         try:
-            # PRIMERO: Verificar si hay una disponibilidad que CONTIENE el período de búsqueda
-            disponibilidad_que_contiene = Disponibilidad.objects.filter(
-                propiedad=propiedad,
-                fecha_inicio__lte=fecha_inicio_busqueda,
-                fecha_fin__gte=fecha_fin_busqueda
-            ).first()
+            # Buscar la reserva o disponibilidad que termina más cerca ANTES de la fecha de búsqueda
             
-            if disponibilidad_que_contiene:
-                # Si está dentro de una disponibilidad, calcular días libres ANTES y DESPUÉS
-                # de la búsqueda dentro de esa misma disponibilidad
-                dias_antes_busqueda = (fecha_inicio_busqueda - disponibilidad_que_contiene.fecha_inicio).days
-                dias_despues_busqueda = (disponibilidad_que_contiene.fecha_fin - fecha_fin_busqueda).days
-                total_dias_libres = dias_antes_busqueda + dias_despues_busqueda
-                return total_dias_libres
+            # OPCIÓN 1: Buscar reserva que termine antes de la búsqueda
+            reserva_anterior = propiedad.reservas.filter(
+                fecha_fin__lt=fecha_inicio_busqueda
+            ).order_by('-fecha_fin').first()
             
-            # Si NO está dentro de una disponibilidad, buscar la más cercana antes y después
+            # OPCIÓN 2: Buscar disponibilidad que termine antes de la búsqueda
             disponibilidad_anterior = Disponibilidad.objects.filter(
                 propiedad=propiedad,
                 fecha_fin__lt=fecha_inicio_busqueda
             ).order_by('-fecha_fin').first()
             
-            disponibilidad_posterior = Disponibilidad.objects.filter(
-                propiedad=propiedad,
-                fecha_inicio__gt=fecha_fin_busqueda
-            ).order_by('fecha_inicio').first()
+            # Usar la fecha más reciente (reserva o disponibilidad)
+            fecha_fin_anterior = None
             
-            # Calcular días libres totales
-            dias_libres = 0
+            if reserva_anterior and disponibilidad_anterior:
+                # Tomar la fecha más reciente entre reserva y disponibilidad
+                fecha_fin_anterior = max(reserva_anterior.fecha_fin, disponibilidad_anterior.fecha_fin)
+            elif reserva_anterior:
+                fecha_fin_anterior = reserva_anterior.fecha_fin
+            elif disponibilidad_anterior:
+                fecha_fin_anterior = disponibilidad_anterior.fecha_fin
             
-            if disponibilidad_anterior:
-                # Días entre el fin de la última disponibilidad y el inicio de búsqueda
-                dias_antes = (fecha_inicio_busqueda - disponibilidad_anterior.fecha_fin).days
-                dias_libres += max(dias_antes, 0)
+            if fecha_fin_anterior:
+                # Calcular días libres SOLO ANTES: fecha_fin_anterior hasta fecha_inicio_busqueda
+                dias_libres = (fecha_inicio_busqueda - fecha_fin_anterior).days
+                return max(dias_libres, 0)  # No negativos
             else:
-                # Si no hay disponibilidad anterior, asumir muchos días libres antes
-                dias_libres += 365
-            
-            if disponibilidad_posterior:
-                # Días entre el fin de búsqueda y el inicio de la próxima disponibilidad
-                dias_despues = (disponibilidad_posterior.fecha_inicio - fecha_fin_busqueda).days
-                dias_libres += max(dias_despues, 0)
-            else:
-                # Si no hay disponibilidad posterior, asumir muchos días libres después
-                dias_libres += 365
-                
-            return dias_libres
+                # Si no hay nada anterior, asumir muchos días libres (ponerla al final)
+                return 999999
             
         except Exception as e:
             print(f"Error calculando días libres para propiedad {propiedad.id}: {e}")
