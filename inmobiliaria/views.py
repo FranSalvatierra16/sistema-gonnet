@@ -6090,13 +6090,20 @@ def buscar_propiedades(request):
                 
                 # Crear pseudo-disponibilidad para compatibilidad
                 class DisponibilidadCalculada:
+                    def __init__(self, fecha_inicio, fecha_fin):
+                        self.fecha_inicio = fecha_inicio
+                        self.fecha_fin = fecha_fin
+                    
                     def exists(self):
                         return True
                     
                     def count(self):
                         return 1  # Indica que hay una disponibilidad calculada
+                    
+                    def first(self):
+                        return self  # Retorna a sí mismo como primer elemento
                 
-                disponibilidades = DisponibilidadCalculada()
+                disponibilidades = DisponibilidadCalculada(fecha_disponible_desde, fecha_disponible_hasta)
             else:
                 # No disponible en este período
                 class DisponibilidadVacia:
@@ -6105,6 +6112,9 @@ def buscar_propiedades(request):
                     
                     def count(self):
                         return 0  # Indica que no hay disponibilidades
+                    
+                    def first(self):
+                        return None  # No hay primer elemento
                 disponibilidades = DisponibilidadVacia()
 
             # Obtener las reservas asociadas a la propiedad
