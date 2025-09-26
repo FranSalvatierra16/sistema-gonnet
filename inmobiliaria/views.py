@@ -6052,70 +6052,13 @@ def buscar_propiedades(request):
             if form.cleaned_data.get(caracteristica):
                 propiedades = propiedades.filter(**{caracteristica: True})
 
-        # ✅ FILTRAR PROPIEDADES CON DISPONIBILIDADES CALCULADAS DINÁMICAMENTE
+        # Filtrar propiedades que están disponibles en las fechas indicadas
         for propiedad in propiedades:
-            # ✅ CALCULAR DISPONIBILIDADES BASÁNDOSE EN RESERVAS
-            from datetime import timedelta
-            
-            # Obtener todas las reservas confirmadas/pagadas de la propiedad
-            reservas_ocupadas = propiedad.reservas.filter(
-                estado__in=['confirmada', 'pagada']
-            ).order_by('fecha_inicio')
-            
-            # Verificar si la propiedad está disponible en el período solicitado
-            propiedad_disponible = True
-            fecha_disponible_desde = fecha_inicio
-            
-            # Buscar la última reserva que termine antes del período de búsqueda
-            for reserva in reservas_ocupadas:
-                if reserva.fecha_fin < fecha_inicio:
-                    # Esta reserva termina antes del período de búsqueda
-                    fecha_disponible_desde = max(fecha_disponible_desde, reserva.fecha_fin + timedelta(days=1))
-                elif reserva.fecha_inicio <= fecha_fin and reserva.fecha_fin >= fecha_inicio:
-                    # Esta reserva se superpone con el período de búsqueda
-                    propiedad_disponible = False
-                    break
-            
-            # Calcular hasta cuándo está disponible
-            fecha_disponible_hasta = fecha_inicio + timedelta(days=365)  # Por defecto 1 año
-            if propiedad_disponible:
-                for reserva in reservas_ocupadas:
-                    if reserva.fecha_inicio > fecha_fin:
-                        fecha_disponible_hasta = min(fecha_disponible_hasta, reserva.fecha_inicio - timedelta(days=1))
-                        break
-                
-                # Asignar las fechas calculadas a la propiedad
-                propiedad.disponibilidad_inicio = fecha_disponible_desde
-                propiedad.disponibilidad_fin = fecha_disponible_hasta
-                
-                # Crear pseudo-disponibilidad para compatibilidad
-                class DisponibilidadCalculada:
-                    def __init__(self, fecha_inicio, fecha_fin):
-                        self.fecha_inicio = fecha_inicio
-                        self.fecha_fin = fecha_fin
-                    
-                    def exists(self):
-                        return True
-                    
-                    def count(self):
-                        return 1  # Indica que hay una disponibilidad calculada
-                    
-                    def first(self):
-                        return self  # Retorna a sí mismo como primer elemento
-                
-                disponibilidades = DisponibilidadCalculada(fecha_disponible_desde, fecha_disponible_hasta)
-            else:
-                # No disponible en este período
-                class DisponibilidadVacia:
-                    def exists(self):
-                        return False
-                    
-                    def count(self):
-                        return 0  # Indica que no hay disponibilidades
-                    
-                    def first(self):
-                        return None  # No hay primer elemento
-                disponibilidades = DisponibilidadVacia()
+            disponibilidades = Disponibilidad.objects.filter(
+                propiedad=propiedad,
+                fecha_inicio__lte=fecha_inicio,  # Disponibilidad empieza antes o igual al inicio solicitado
+                fecha_fin__gte=fecha_fin,        # Disponibilidad termina después o igual al fin solicitado
+            )
 
             # Obtener las reservas asociadas a la propiedad
             reservas = propiedad.reservas.filter(
