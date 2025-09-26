@@ -6092,6 +6092,9 @@ def buscar_propiedades(request):
                 class DisponibilidadCalculada:
                     def exists(self):
                         return True
+                    
+                    def count(self):
+                        return 1  # Indica que hay una disponibilidad calculada
                 
                 disponibilidades = DisponibilidadCalculada()
             else:
@@ -6099,6 +6102,9 @@ def buscar_propiedades(request):
                 class DisponibilidadVacia:
                     def exists(self):
                         return False
+                    
+                    def count(self):
+                        return 0  # Indica que no hay disponibilidades
                 disponibilidades = DisponibilidadVacia()
 
             # Obtener las reservas asociadas a la propiedad
