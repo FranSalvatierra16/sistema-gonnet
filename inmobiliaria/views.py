@@ -6112,16 +6112,15 @@ def buscar_propiedades(request):
                 propiedad.disponibilidad_fin = fecha_disponible_hasta
                 
                 print(f"🎯 RESULTADO FINAL: {fecha_disponible_desde} al {fecha_disponible_hasta}")
-            else:
-                print(f"❌ PROP {propiedad.id}: NO hay disponibilidad base que contenga el período")
                 
                 disponibilidades = Disponibilidad.objects.filter(
                     propiedad=propiedad,
                     fecha_inicio__lte=fecha_inicio,
                     fecha_fin__gte=fecha_fin,
                 )
+                print(f"🔍 PROP {propiedad.id}: Disponibilidades encontradas: {disponibilidades.count()}")
             else:
-                # No hay disponibilidad manual que cubra el período
+                print(f"❌ PROP {propiedad.id}: NO hay disponibilidad base que contenga el período")
                 disponibilidades = Disponibilidad.objects.none()
 
             # Obtener las reservas asociadas a la propiedad
