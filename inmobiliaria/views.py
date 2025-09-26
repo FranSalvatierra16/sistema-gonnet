@@ -6054,11 +6054,57 @@ def buscar_propiedades(request):
 
         # Filtrar propiedades que están disponibles en las fechas indicadas
         for propiedad in propiedades:
-            disponibilidades = Disponibilidad.objects.filter(
+            # ✅ CALCULAR DISPONIBILIDADES FRAGMENTADAS POR RESERVAS
+            from datetime import timedelta
+            
+            # Buscar disponibilidad manual que contenga el período
+            disponibilidad_base = Disponibilidad.objects.filter(
                 propiedad=propiedad,
-                fecha_inicio__lte=fecha_inicio,  # Disponibilidad empieza antes o igual al inicio solicitado
-                fecha_fin__gte=fecha_fin,        # Disponibilidad termina después o igual al fin solicitado
-            )
+                fecha_inicio__lte=fecha_inicio,
+                fecha_fin__gte=fecha_fin,
+            ).first()
+            
+            if disponibilidad_base:
+                # 🎯 CALCULAR FECHA DE INICIO REAL (después de la última reserva)
+                fecha_disponible_desde = disponibilidad_base.fecha_inicio
+                fecha_disponible_hasta = disponibilidad_base.fecha_fin
+                
+                # Buscar la última reserva que termine ANTES del período buscado
+                ultima_reserva = propiedad.reservas.filter(
+                    estado__in=['confirmada', 'pagada'],
+                    fecha_fin__lt=fecha_inicio,  # Termina antes del período buscado
+                    fecha_inicio__gte=disponibilidad_base.fecha_inicio,  # Dentro de la disponibilidad
+                    fecha_fin__lte=disponibilidad_base.fecha_fin
+                ).order_by('-fecha_fin').first()  # La más reciente
+                
+                if ultima_reserva:
+                    # Disponible desde el día siguiente a la última reserva
+                    fecha_disponible_desde = ultima_reserva.fecha_fin + timedelta(days=1)
+                
+                # Buscar la primera reserva que empiece DESPUÉS del período buscado
+                proxima_reserva = propiedad.reservas.filter(
+                    estado__in=['confirmada', 'pagada'],
+                    fecha_inicio__gt=fecha_fin,  # Empieza después del período buscado
+                    fecha_inicio__gte=disponibilidad_base.fecha_inicio,
+                    fecha_fin__lte=disponibilidad_base.fecha_fin
+                ).order_by('fecha_inicio').first()  # La más próxima
+                
+                if proxima_reserva:
+                    # Disponible hasta el día anterior a la próxima reserva
+                    fecha_disponible_hasta = proxima_reserva.fecha_inicio - timedelta(days=1)
+                
+                # Asignar fechas calculadas a la propiedad
+                propiedad.disponibilidad_inicio = fecha_disponible_desde
+                propiedad.disponibilidad_fin = fecha_disponible_hasta
+                
+                disponibilidades = Disponibilidad.objects.filter(
+                    propiedad=propiedad,
+                    fecha_inicio__lte=fecha_inicio,
+                    fecha_fin__gte=fecha_fin,
+                )
+            else:
+                # No hay disponibilidad manual que cubra el período
+                disponibilidades = Disponibilidad.objects.none()
 
             # Obtener las reservas asociadas a la propiedad
             reservas = propiedad.reservas.filter(
