@@ -6052,13 +6052,54 @@ def buscar_propiedades(request):
             if form.cleaned_data.get(caracteristica):
                 propiedades = propiedades.filter(**{caracteristica: True})
 
-        # Filtrar propiedades que están disponibles en las fechas indicadas
+        # ✅ FILTRAR PROPIEDADES CON DISPONIBILIDADES CALCULADAS DINÁMICAMENTE
         for propiedad in propiedades:
-            disponibilidades = Disponibilidad.objects.filter(
-                propiedad=propiedad,
-                fecha_inicio__lte=fecha_inicio,  # Disponibilidad empieza antes o igual al inicio solicitado
-                fecha_fin__gte=fecha_fin,        # Disponibilidad termina después o igual al fin solicitado
-            )
+            # ✅ CALCULAR DISPONIBILIDADES BASÁNDOSE EN RESERVAS
+            from datetime import timedelta
+            
+            # Obtener todas las reservas confirmadas/pagadas de la propiedad
+            reservas_ocupadas = propiedad.reservas.filter(
+                estado__in=['confirmada', 'pagada']
+            ).order_by('fecha_inicio')
+            
+            # Verificar si la propiedad está disponible en el período solicitado
+            propiedad_disponible = True
+            fecha_disponible_desde = fecha_inicio
+            
+            # Buscar la última reserva que termine antes del período de búsqueda
+            for reserva in reservas_ocupadas:
+                if reserva.fecha_fin < fecha_inicio:
+                    # Esta reserva termina antes del período de búsqueda
+                    fecha_disponible_desde = max(fecha_disponible_desde, reserva.fecha_fin + timedelta(days=1))
+                elif reserva.fecha_inicio <= fecha_fin and reserva.fecha_fin >= fecha_inicio:
+                    # Esta reserva se superpone con el período de búsqueda
+                    propiedad_disponible = False
+                    break
+            
+            # Calcular hasta cuándo está disponible
+            fecha_disponible_hasta = fecha_inicio + timedelta(days=365)  # Por defecto 1 año
+            if propiedad_disponible:
+                for reserva in reservas_ocupadas:
+                    if reserva.fecha_inicio > fecha_fin:
+                        fecha_disponible_hasta = min(fecha_disponible_hasta, reserva.fecha_inicio - timedelta(days=1))
+                        break
+                
+                # Asignar las fechas calculadas a la propiedad
+                propiedad.disponibilidad_inicio = fecha_disponible_desde
+                propiedad.disponibilidad_fin = fecha_disponible_hasta
+                
+                # Crear pseudo-disponibilidad para compatibilidad
+                class DisponibilidadCalculada:
+                    def exists(self):
+                        return True
+                
+                disponibilidades = DisponibilidadCalculada()
+            else:
+                # No disponible en este período
+                class DisponibilidadVacia:
+                    def exists(self):
+                        return False
+                disponibilidades = DisponibilidadVacia()
 
             # Obtener las reservas asociadas a la propiedad
             reservas = propiedad.reservas.filter(
@@ -6189,6 +6230,13 @@ def buscar_propiedades(request):
                 # ✅ ASIGNAR EL PRECIO CALCULADO CON TU FUNCIÓN
                 print(f"🔥 PRECIO FINAL CALCULADO para propiedad {propiedad.id}: ${precio_total}")
                 propiedad.precio_total_reserva = precio_total
+                
+                # ✅ ASIGNAR LAS FECHAS DE DISPONIBILIDAD CALCULADAS DINÁMICAMENTE
+                # Las fechas ya fueron calculadas arriba en el bloque de disponibilidades
+                if not hasattr(propiedad, 'disponibilidad_inicio'):
+                    propiedad.disponibilidad_inicio = fecha_inicio
+                if not hasattr(propiedad, 'disponibilidad_fin'): 
+                    propiedad.disponibilidad_fin = fecha_fin
                 
                 # Agregar la propiedad disponible a la lista
                 propiedades_disponibles.append(propiedad)
