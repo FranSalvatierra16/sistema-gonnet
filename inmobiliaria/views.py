@@ -6097,11 +6097,11 @@ def buscar_propiedades(request):
                     def exists(self):
                         return True
                     
-                    def count(self):
-                        return 1  # Indica que hay una disponibilidad calculada
-                    
-                    def first(self):
-                        return self  # Retorna a sí mismo como primer elemento
+                     def count(self):
+                         return 1  # Indica que hay una disponibilidad calculada
+                     
+                     def first(self):
+                         return self  # Retorna a sí mismo como primer elemento
                 
                 disponibilidades = DisponibilidadCalculada(fecha_disponible_desde, fecha_disponible_hasta)
             else:
@@ -6110,11 +6110,11 @@ def buscar_propiedades(request):
                     def exists(self):
                         return False
                     
-                    def count(self):
-                        return 0  # Indica que no hay disponibilidades
-                    
-                    def first(self):
-                        return None  # No hay primer elemento
+                     def count(self):
+                         return 0  # Indica que no hay disponibilidades
+                     
+                     def first(self):
+                         return None  # No hay primer elemento
                 disponibilidades = DisponibilidadVacia()
 
             # Obtener las reservas asociadas a la propiedad
