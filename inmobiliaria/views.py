@@ -3009,13 +3009,13 @@ def ver_recibo_movimiento(request, movimiento_id):
                 
             else:
                 # ✅ FALLBACK: USAR VALORES DIRECTOS DE LA RESERVA
-            total_senia_pagada_recibo = reserva.senia or 0
-            total_deposito_pagado_recibo = reserva.deposito_garantia or 0
+                total_senia_pagada_recibo = reserva.senia or 0
+                total_deposito_pagado_recibo = reserva.deposito_garantia or 0
                 precio_total_operacion = reserva.precio_total
             
                 print(f"✅ FALLBACK - USANDO VALORES DIRECTOS DE LA RESERVA:")
-            print(f"   - Seña (reserva.senia): ${total_senia_pagada_recibo}")
-            print(f"   - Depósito (reserva.deposito_garantia): ${total_deposito_pagado_recibo}")
+                print(f"   - Seña (reserva.senia): ${total_senia_pagada_recibo}")
+                print(f"   - Depósito (reserva.deposito_garantia): ${total_deposito_pagado_recibo}")
             
             # ✅ CORREGIDO: Solo la seña cuenta para el total pagado (el depósito es aparte)
             total_pagado_reserva = total_senia_pagada_recibo
@@ -3182,9 +3182,9 @@ def ver_recibo_movimiento(request, movimiento_id):
                         else:
                             # No se pudo parsear, usar concepto único
                             print("⚠️ No se pudieron extraer conceptos individuales, usando concepto único")
-                    pagos.append({
-                        'fecha': fecha_mov,
-                        'codigo': codigo_mov,
+                            pagos.append({
+                                'fecha': fecha_mov,
+                                'codigo': codigo_mov,
                                 'concepto': concepto_texto or 'ALQ - Alquiler temporario',
                                 'monto': f'${movimiento.monto_total:,.0f}'
                             })
@@ -3205,13 +3205,13 @@ def ver_recibo_movimiento(request, movimiento_id):
                     # Solo usar fallback ultra simple si no se procesaron conceptos
                     if not conceptos_procesados:
                         print("🚨 USANDO FALLBACK ULTRA SIMPLE")
-                    pagos.append({
-                        'fecha': '15/09/2025',
-                        'codigo': 'M0001',
-                        'concepto': 'ALQ - Alquiler temporario',
-                        'monto': '$130,000'
-                    })
-                    total_pagado = 130000
+                        pagos.append({
+                            'fecha': '15/09/2025',
+                            'codigo': 'M0001',
+                            'concepto': 'ALQ - Alquiler temporario',
+                            'monto': '$130,000'
+                        })
+                        total_pagado = 130000
                     else:
                         print("✅ CONCEPTOS YA PROCESADOS - No usar fallback ultra simple")
             
@@ -6054,99 +6054,67 @@ def buscar_propiedades(request):
 
         # ✅ FILTRAR PROPIEDADES CON DISPONIBILIDADES CALCULADAS DINÁMICAMENTE
         for propiedad in propiedades:
+            # ✅ CALCULAR DISPONIBILIDADES BASÁNDOSE EN RESERVAS
             from datetime import timedelta
             
-            # 1️⃣ OBTENER DISPONIBILIDADES MANUALES COMO BASE
-            disponibilidades_manuales = Disponibilidad.objects.filter(
-                propiedad=propiedad,
-                es_manual=True
-            ).order_by('fecha_inicio')
-            
-            # 2️⃣ OBTENER RESERVAS QUE PUEDEN FRAGMENTAR LAS DISPONIBILIDADES
+            # Obtener todas las reservas confirmadas/pagadas de la propiedad
             reservas_ocupadas = propiedad.reservas.filter(
                 estado__in=['confirmada', 'pagada']
             ).order_by('fecha_inicio')
             
-            # 3️⃣ BUSCAR DISPONIBILIDAD MANUAL QUE CONTENGA EL PERÍODO SOLICITADO
-            disponibilidad_encontrada = None
-            for disp_manual in disponibilidades_manuales:
-                if disp_manual.fecha_inicio <= fecha_inicio and disp_manual.fecha_fin >= fecha_fin:
-                    disponibilidad_encontrada = disp_manual
+            # Verificar si la propiedad está disponible en el período solicitado
+            propiedad_disponible = True
+            fecha_disponible_desde = fecha_inicio
+            
+            # Buscar la última reserva que termine antes del período de búsqueda
+            for reserva in reservas_ocupadas:
+                if reserva.fecha_fin < fecha_inicio:
+                    # Esta reserva termina antes del período de búsqueda
+                    fecha_disponible_desde = max(fecha_disponible_desde, reserva.fecha_fin + timedelta(days=1))
+                elif reserva.fecha_inicio <= fecha_fin and reserva.fecha_fin >= fecha_inicio:
+                    # Esta reserva se superpone con el período de búsqueda
+                    propiedad_disponible = False
                     break
             
-            if disponibilidad_encontrada:
-                # 4️⃣ CALCULAR FECHAS DISPONIBLES FRAGMENTANDO POR RESERVAS
-                fecha_disponible_desde = disponibilidad_encontrada.fecha_inicio
-                fecha_disponible_hasta = disponibilidad_encontrada.fecha_fin
-                
-                # Buscar la última reserva que termine antes del período de búsqueda
+            # Calcular hasta cuándo está disponible
+            fecha_disponible_hasta = fecha_inicio + timedelta(days=365)  # Por defecto 1 año
+            if propiedad_disponible:
                 for reserva in reservas_ocupadas:
-                    if (reserva.fecha_fin < fecha_inicio and 
-                        reserva.fecha_inicio >= disponibilidad_encontrada.fecha_inicio and
-                        reserva.fecha_fin <= disponibilidad_encontrada.fecha_fin):
-                        # Esta reserva está dentro de la disponibilidad y termina antes de la búsqueda
-                        fecha_disponible_desde = max(fecha_disponible_desde, reserva.fecha_fin + timedelta(days=1))
-                
-                # Buscar la primera reserva que empiece después del período de búsqueda
-                for reserva in reservas_ocupadas:
-                    if (reserva.fecha_inicio > fecha_fin and
-                        reserva.fecha_inicio >= disponibilidad_encontrada.fecha_inicio and
-                        reserva.fecha_fin <= disponibilidad_encontrada.fecha_fin):
-                        # Esta reserva está dentro de la disponibilidad y empieza después de la búsqueda
+                    if reserva.fecha_inicio > fecha_fin:
                         fecha_disponible_hasta = min(fecha_disponible_hasta, reserva.fecha_inicio - timedelta(days=1))
                         break
                 
-                # Verificar que no hay conflictos en el período solicitado
-                hay_conflicto = False
-                for reserva in reservas_ocupadas:
-                    if (reserva.fecha_inicio <= fecha_fin and reserva.fecha_fin >= fecha_inicio):
-                        hay_conflicto = True
-                        break
+                # Asignar las fechas calculadas a la propiedad
+                propiedad.disponibilidad_inicio = fecha_disponible_desde
+                propiedad.disponibilidad_fin = fecha_disponible_hasta
                 
-                if not hay_conflicto:
-                    # Asignar las fechas calculadas a la propiedad
-                    propiedad.disponibilidad_inicio = fecha_disponible_desde
-                    propiedad.disponibilidad_fin = fecha_disponible_hasta
+                # Crear pseudo-disponibilidad para compatibilidad
+                class DisponibilidadCalculada:
+                    def __init__(self, fecha_inicio, fecha_fin):
+                        self.fecha_inicio = fecha_inicio
+                        self.fecha_fin = fecha_fin
                     
-                    # Crear pseudo-disponibilidad para compatibilidad
-                    class DisponibilidadCalculada:
-                        def __init__(self, fecha_inicio, fecha_fin):
-                            self.fecha_inicio = fecha_inicio
-                            self.fecha_fin = fecha_fin
-                        
-                        def exists(self):
-                            return True
-                        
-                        def count(self):
-                            return 1
-                        
-                        def first(self):
-                            return self
+                    def exists(self):
+                        return True
                     
-                    disponibilidades = DisponibilidadCalculada(fecha_disponible_desde, fecha_disponible_hasta)
-                else:
-                    # Hay conflicto - no disponible
-                    class DisponibilidadVacia:
-                        def exists(self):
-                            return False
-                        
-                        def count(self):
-                            return 0
-                        
-                        def first(self):
-                            return None
-                    disponibilidades = DisponibilidadVacia()
+                    def count(self):
+                        return 1  # Indica que hay una disponibilidad calculada
+                    
+                    def first(self):
+                        return self  # Retorna a sí mismo como primer elemento
+                
+                disponibilidades = DisponibilidadCalculada(fecha_disponible_desde, fecha_disponible_hasta)
             else:
-                # No hay disponibilidad manual que cubra el período
+                # No disponible en este período
                 class DisponibilidadVacia:
                     def exists(self):
                         return False
                     
                     def count(self):
-                        return 0
+                        return 0  # Indica que no hay disponibilidades
                     
                     def first(self):
-                        return None
+                        return None  # No hay primer elemento
                 disponibilidades = DisponibilidadVacia()
 
             # Obtener las reservas asociadas a la propiedad
@@ -6864,8 +6832,8 @@ def procesar_operacion_contrato(request, contrato_id):
             concepto_10_presente = ' | ID:10 |' in conceptos_texto
             
             if concepto_10_presente:
-            total_esperado = contrato.deposito_garantia + contrato.precio_mensual
-            mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
+                total_esperado = contrato.deposito_garantia + contrato.precio_mensual
+                mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
             else:
                 # Si no hay concepto 10, el total esperado es lo que esté en los conceptos
                 total_esperado = total_movimiento  # Aceptar cualquier total (conceptos + honorarios + sellados sin depósito)
