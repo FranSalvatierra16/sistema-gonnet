@@ -6237,12 +6237,8 @@ def buscar_propiedades(request):
                 print(f"🔥 PRECIO FINAL CALCULADO para propiedad {propiedad.id}: ${precio_total}")
                 propiedad.precio_total_reserva = precio_total
                 
-                # ✅ ASIGNAR LAS FECHAS DE DISPONIBILIDAD CALCULADAS DINÁMICAMENTE
-                # Las fechas ya fueron calculadas arriba en el bloque de disponibilidades
-                if not hasattr(propiedad, 'disponibilidad_inicio'):
-                    propiedad.disponibilidad_inicio = fecha_inicio
-                if not hasattr(propiedad, 'disponibilidad_fin'): 
-                    propiedad.disponibilidad_fin = fecha_fin
+                # ✅ Las fechas de disponibilidad ya fueron calculadas dinámicamente en el primer bucle
+                # No sobrescribir con las fechas de búsqueda
                 
                 # Agregar la propiedad disponible a la lista
                 propiedades_disponibles.append(propiedad)
