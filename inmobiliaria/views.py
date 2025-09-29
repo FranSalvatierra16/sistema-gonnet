@@ -6231,6 +6231,10 @@ def buscar_propiedades(request):
                 print(f"   📋 Disponibilidades existentes ({todas_disponibilidades.count()}):")
                 for disp in todas_disponibilidades:
                     print(f"     - {disp.fecha_inicio} al {disp.fecha_fin}")
+                
+                # 🚫 SALTEAR: Esta propiedad no tiene disponibilidades para el período buscado
+                print(f"   🚫 SALTANDO PROPIEDAD {propiedad.id} - No aparecerá en resultados")
+                continue
             
             # ✅ CALCULAR DISPONIBILIDADES FRAGMENTADAS POR RESERVAS
 
