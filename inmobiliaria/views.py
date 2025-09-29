@@ -2768,6 +2768,11 @@ def procesar_movimiento_reserva(request):
                 
                 reserva.save()
                 
+                # ✅ ACTUALIZAR HISTORIAL: Cambiar estado de "Reservado" a "Operación" si hay seña
+                print(f"🔄 ACTUALIZANDO HISTORIAL después del pago...")
+                reserva.actualizar_historial_disponibilidad()
+                print(f"✅ HISTORIAL ACTUALIZADO - Estado debería ser 'Operación'")
+                
                 # ✅ CREAR RECIBO PARA ESTE PAGO
                 from .models.recibo import Recibo
                 # ✅ NUMERACIÓN AUTOMÁTICA DE RECIBOS POR SUCURSAL
