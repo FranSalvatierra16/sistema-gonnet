@@ -1145,6 +1145,8 @@ def buscar_propiedades_reserva(request):
         # ✅ LÓGICA SIMPLE: Buscar fechas libres entre disponibilidades y reservas
         for propiedad in propiedades:
             from datetime import timedelta
+            print(f"🔍 PROCESANDO PROPIEDAD {propiedad.id}: {propiedad}")
+            print(f"   🔎 Buscando disponibilidades que contengan {fecha_inicio} al {fecha_fin}")
             
             # 1️⃣ BUSCAR DISPONIBILIDADES QUE CONTENGAN EL PERÍODO
             disponibilidades = Disponibilidad.objects.filter(
