@@ -6139,6 +6139,95 @@ def buscar_propiedades(request):
 
         # Filtrar propiedades que están disponibles en las fechas indicadas
         for propiedad in propiedades:
+            from datetime import timedelta
+            print(f"🔍 PROCESANDO PROPIEDAD {propiedad.id}: {propiedad}")
+            print(f"   🔎 Buscando disponibilidades que contengan {fecha_inicio} al {fecha_fin}")
+            
+            # 1️⃣ BUSCAR DISPONIBILIDADES QUE CONTENGAN EL PERÍODO
+            disponibilidades = Disponibilidad.objects.filter(
+                propiedad=propiedad,
+                fecha_inicio__lte=fecha_inicio,
+                fecha_fin__gte=fecha_fin,
+            )
+            
+            if disponibilidades.exists():
+                # 2️⃣ BUSCAR ÚLTIMA FECHA FINAL ANTES DEL PERÍODO BUSCADO
+                # Combinar disponibilidades y reservas para encontrar la fecha más reciente
+                
+                # Fechas finales de disponibilidades que terminan antes del período
+                disp_anteriores = Disponibilidad.objects.filter(
+                    propiedad=propiedad,
+                    fecha_fin__lt=fecha_inicio
+                ).order_by('-fecha_fin').first()
+                
+                # Fechas finales de reservas que terminan antes del período
+                reservas_anteriores = propiedad.reservas.filter(
+                    fecha_fin__lt=fecha_inicio
+                ).order_by('-fecha_fin').first()
+                
+                # Determinar la fecha final más reciente
+                ultima_fecha_fin = None
+                if disp_anteriores and reservas_anteriores:
+                    ultima_fecha_fin = max(disp_anteriores.fecha_fin, reservas_anteriores.fecha_fin)
+                elif disp_anteriores:
+                    ultima_fecha_fin = disp_anteriores.fecha_fin
+                elif reservas_anteriores:
+                    ultima_fecha_fin = reservas_anteriores.fecha_fin
+                
+                # 3️⃣ BUSCAR PRIMERA FECHA INICIAL DESPUÉS DEL PERÍODO BUSCADO
+                
+                # Fechas iniciales de disponibilidades que empiezan después del período
+                disp_posteriores = Disponibilidad.objects.filter(
+                    propiedad=propiedad,
+                    fecha_inicio__gt=fecha_fin
+                ).order_by('fecha_inicio').first()
+                
+                # Fechas iniciales de reservas que empiezan después del período
+                reservas_posteriores = propiedad.reservas.filter(
+                    fecha_inicio__gt=fecha_fin
+                ).order_by('fecha_inicio').first()
+                
+                # Determinar la fecha inicial más próxima
+                proxima_fecha_inicio = None
+                if disp_posteriores and reservas_posteriores:
+                    proxima_fecha_inicio = min(disp_posteriores.fecha_inicio, reservas_posteriores.fecha_inicio)
+                elif disp_posteriores:
+                    proxima_fecha_inicio = disp_posteriores.fecha_inicio
+                elif reservas_posteriores:
+                    proxima_fecha_inicio = reservas_posteriores.fecha_inicio
+                
+                # 4️⃣ CALCULAR PERÍODO LIBRE
+                disponibilidad_base = disponibilidades.first()
+                
+                fecha_disponible_desde = disponibilidad_base.fecha_inicio
+                if ultima_fecha_fin:
+                    fecha_disponible_desde = ultima_fecha_fin + timedelta(days=1)
+                
+                fecha_disponible_hasta = disponibilidad_base.fecha_fin
+                if proxima_fecha_inicio:
+                    fecha_disponible_hasta = proxima_fecha_inicio - timedelta(days=1)
+                
+                # 5️⃣ ASIGNAR FECHAS CALCULADAS
+                propiedad.disponibilidad_inicio = fecha_disponible_desde
+                propiedad.disponibilidad_fin = fecha_disponible_hasta
+                
+                print(f"🎯 PROP {propiedad.id}: Libre desde {fecha_disponible_desde} hasta {fecha_disponible_hasta}")
+                print(f"   📅 Asignado: disponibilidad_inicio={propiedad.disponibilidad_inicio}")
+                print(f"   📅 Asignado: disponibilidad_fin={propiedad.disponibilidad_fin}")
+                print(f"   📊 Disponibilidad base: {disponibilidad_base.fecha_inicio} al {disponibilidad_base.fecha_fin}")
+                if ultima_fecha_fin:
+                    print(f"   ⏪ Última fecha final anterior: {ultima_fecha_fin}")
+                if proxima_fecha_inicio:
+                    print(f"   ⏩ Próxima fecha inicial posterior: {proxima_fecha_inicio}")
+            else:
+                print(f"❌ PROP {propiedad.id}: NO tiene disponibilidades que contengan el período {fecha_inicio} al {fecha_fin}")
+                
+                # Para debugging: mostrar todas las disponibilidades de esta propiedad
+                todas_disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad)
+                print(f"   📋 Disponibilidades existentes ({todas_disponibilidades.count()}):")
+                for disp in todas_disponibilidades:
+                    print(f"     - {disp.fecha_inicio} al {disp.fecha_fin}")
+            
             # ✅ CALCULAR DISPONIBILIDADES FRAGMENTADAS POR RESERVAS
 
             # Obtener las reservas asociadas a la propiedad
