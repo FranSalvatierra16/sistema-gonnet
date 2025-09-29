@@ -6181,11 +6181,7 @@ def buscar_propiedades(request):
                 print(f"   ✅ Propiedad {propiedad.id} agregada a la lista con reserva en rojo")
                 continue
             else:
-                # ✅ PROPIEDADES SIN RESERVAS - Verificar disponibilidades y calcular precios
-                if not disponibilidades.exists():
-                    print(f"   ❌ SALTANDO: Sin disponibilidades que se superpongan con {fecha_inicio} al {fecha_fin}")
-                    continue  # Saltar propiedades sin disponibilidades y sin reservas
-                
+                # ✅ PROPIEDADES SIN RESERVAS - Calcular precios y agregar a lista
                 propiedad.estado_reserva = 'disponible'
                 print(f"   ✅ DISPONIBLE: Sin reservas para mostrar en rojo")
 
