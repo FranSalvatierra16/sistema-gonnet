@@ -1216,6 +1216,9 @@ def buscar_propiedades_reserva(request):
                 Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
             )
             
+            # 🔍 DEBUGGING: Mostrar disponibilidades y reservas encontradas
+            print(f"🏠 Propiedad {propiedad.id}: Disponibilidades={disponibilidades.count()}, Reservas={reservas.count()}")
+            
             if reservas.filter(estado='pagada').exists():
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
 
@@ -6143,8 +6146,6 @@ def buscar_propiedades(request):
                 print(f"     → No hay reservas confirmada_no_pagada/confirmada/en_espera en estas fechas")
 
             # ✅ CORREGIDO: Mostrar propiedades con reservas confirmada_no_pagada en las fechas buscadas
-            # 🔍 DEBUGGING: Ver si la propiedad tiene disponibilidades
-            print(f"🏠 Propiedad {propiedad.id}: Disponibilidades={disponibilidades.count()}, Reservas={reservas.count()}")
             if reservas.exists():
                 for r in reservas:
                     print(f"   Reserva {r.id}: {r.fecha_inicio} al {r.fecha_fin}, estado='{r.estado}'")
