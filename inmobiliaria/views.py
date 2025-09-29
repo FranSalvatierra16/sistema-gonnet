@@ -1154,8 +1154,12 @@ def buscar_propiedades_reserva(request):
                 es_manual=True  # Solo disponibilidades principales/manuales
             ).first()
             
+            print(f"🔍 PROP {propiedad.id}: Buscando disponibilidad principal para período {fecha_inicio} al {fecha_fin}")
+            print(f"   Query: es_manual=True, fecha_inicio<={fecha_inicio}, fecha_fin>={fecha_fin}")
+            
             if disponibilidad_principal:
-                print(f"🔍 PROP {propiedad.id}: Disponibilidad principal encontrada: {disponibilidad_principal.fecha_inicio} al {disponibilidad_principal.fecha_fin}")
+                print(f"✅ PROP {propiedad.id}: Disponibilidad principal encontrada: {disponibilidad_principal.fecha_inicio} al {disponibilidad_principal.fecha_fin}")
+                print(f"   es_manual: {disponibilidad_principal.es_manual}")
                 
                 # 2️⃣ BUSCAR EN EL HISTORIAL LAS FECHAS MÁS CERCANAS
                 from inmobiliaria.models import HistorialDisponibilidad
@@ -1200,6 +1204,11 @@ def buscar_propiedades_reserva(request):
                 )
             else:
                 print(f"❌ PROP {propiedad.id}: NO hay disponibilidad principal que contenga el período")
+                # Mostrar qué disponibilidades SÍ tiene esta propiedad
+                todas_disp = Disponibilidad.objects.filter(propiedad=propiedad)
+                print(f"   Disponibilidades existentes para esta propiedad: {todas_disp.count()}")
+                for disp in todas_disp:
+                    print(f"     - {disp.fecha_inicio} al {disp.fecha_fin}, es_manual: {disp.es_manual}")
                 disponibilidades = Disponibilidad.objects.none()
 
             # Obtener las reservas asociadas a la propiedad
