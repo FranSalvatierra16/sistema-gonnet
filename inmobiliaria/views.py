@@ -1215,8 +1215,22 @@ def buscar_propiedades_reserva(request):
                 propiedad.disponibilidad_fin = fecha_disponible_hasta
                 
                 print(f"🎯 PROP {propiedad.id}: Libre desde {fecha_disponible_desde} hasta {fecha_disponible_hasta}")
+                print(f"   📅 Asignado: disponibilidad_inicio={propiedad.disponibilidad_inicio}")
+                print(f"   📅 Asignado: disponibilidad_fin={propiedad.disponibilidad_fin}")
+                print(f"   📊 Disponibilidad base: {disponibilidad_base.fecha_inicio} al {disponibilidad_base.fecha_fin}")
+                if ultima_fecha_fin:
+                    print(f"   ⏪ Última fecha final anterior: {ultima_fecha_fin}")
+                if proxima_fecha_inicio:
+                    print(f"   ⏩ Próxima fecha inicial posterior: {proxima_fecha_inicio}")
             else:
+                print(f"❌ PROP {propiedad.id}: NO tiene disponibilidades que contengan el período {fecha_inicio} al {fecha_fin}")
                 disponibilidades = Disponibilidad.objects.none()
+                
+                # Para debugging: mostrar todas las disponibilidades de esta propiedad
+                todas_disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad)
+                print(f"   📋 Disponibilidades existentes ({todas_disponibilidades.count()}):")
+                for disp in todas_disponibilidades:
+                    print(f"     - {disp.fecha_inicio} al {disp.fecha_fin}")
 
             # Obtener las reservas asociadas a la propiedad
             reservas = propiedad.reservas.filter(
