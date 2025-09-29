@@ -77,28 +77,17 @@ class Command(BaseCommand):
             HistorialDisponibilidad.objects.filter(propiedad=propiedad).delete()
             self.stdout.write(f"🧹 Eliminadas {historial_anterior} entradas de historial anterior")
             
-            # 2️⃣ OBTENER todos los períodos (disponibilidades + reservas)
-            periodos = []
-            
-            # Agregar disponibilidades (períodos libres)
+            # 2️⃣ OBTENER disponibilidades y reservas
             disponibilidades = propiedad.disponibilidades.all()
-            for disp in disponibilidades:
-                periodos.append({
-                    'fecha_inicio': disp.fecha_inicio,
-                    'fecha_fin': disp.fecha_fin,
-                    'estado': 'libre',
-                    'reserva': None,
-                    'tipo': 'disponibilidad',
-                    'objeto': disp
-                })
-            
             self.stdout.write(f"📅 {disponibilidades.count()} disponibilidades encontradas")
             
-            # Agregar reservas (períodos reservados/alquilados)
-            reservas = propiedad.reservas.filter(
+            # Procesar reservas y crear lista de datos de reservas
+            reservas_queryset = propiedad.reservas.filter(
                 estado__in=['confirmada', 'confirmada_no_pagada', 'pagada']
             )
-            for reserva in reservas:
+            reservas = []
+            
+            for reserva in reservas_queryset:
                 # ✅ ESTADOS CORRECTOS: cualquier pago → operación, sin pagos → reservado
                 # Verificar múltiples campos: senia, senia_pagada, pagos relacionados, recibos
                 tiene_pagos = (
@@ -107,23 +96,83 @@ class Command(BaseCommand):
                     reserva.recibos.exists() or
                     reserva.pagos.exists()
                 )
+                
                 estado = 'alquilado' if tiene_pagos else 'reservado'
-                periodos.append({
+                
+                reservas.append({
                     'fecha_inicio': reserva.fecha_inicio,
                     'fecha_fin': reserva.fecha_fin,
                     'estado': estado,
                     'reserva': reserva,
-                    'tipo': 'reserva',
-                    'objeto': reserva
+                    'tipo': 'reserva'
                 })
             
-            self.stdout.write(f"🎯 {reservas.count()} reservas encontradas")
+            self.stdout.write(f"🎯 {len(reservas)} reservas encontradas")
             
-            # 3️⃣ ORDENAR cronológicamente
-            periodos.sort(key=lambda x: (x['fecha_inicio'], x['fecha_fin']))
+            # 3️⃣ FRAGMENTAR DISPONIBILIDADES CON RESERVAS
+            historial_fragmentado = []
             
-            # 4️⃣ CREAR entradas de historial ordenadas
-            for i, periodo in enumerate(periodos):
+            for disp in disponibilidades:
+                # Obtener reservas que intersectan con esta disponibilidad
+                reservas_en_disp = [r for r in reservas if 
+                    r['fecha_inicio'] < disp.fecha_fin and r['fecha_fin'] > disp.fecha_inicio]
+                
+                if not reservas_en_disp:
+                    # No hay reservas en esta disponibilidad, agregar como período libre completo
+                    historial_fragmentado.append({
+                        'fecha_inicio': disp.fecha_inicio,
+                        'fecha_fin': disp.fecha_fin,
+                        'estado': 'libre',
+                        'reserva': None,
+                        'tipo': 'disponibilidad'
+                    })
+                else:
+                    # Fragmentar la disponibilidad por reservas
+                    # Ordenar reservas por fecha de inicio
+                    reservas_en_disp.sort(key=lambda x: x['fecha_inicio'])
+                    
+                    fecha_actual = disp.fecha_inicio
+                    
+                    for reserva_data in reservas_en_disp:
+                        # Período libre ANTES de la reserva
+                        if fecha_actual < reserva_data['fecha_inicio']:
+                            historial_fragmentado.append({
+                                'fecha_inicio': fecha_actual,
+                                'fecha_fin': reserva_data['fecha_inicio'],
+                                'estado': 'libre',
+                                'reserva': None,
+                                'tipo': 'disponibilidad'
+                            })
+                        
+                        # Período de la reserva
+                        inicio_reserva = max(fecha_actual, reserva_data['fecha_inicio'])
+                        fin_reserva = min(disp.fecha_fin, reserva_data['fecha_fin'])
+                        
+                        historial_fragmentado.append({
+                            'fecha_inicio': inicio_reserva,
+                            'fecha_fin': fin_reserva,
+                            'estado': reserva_data['estado'],
+                            'reserva': reserva_data['reserva'],
+                            'tipo': 'reserva'
+                        })
+                        
+                        # Mover fecha actual al final de la reserva
+                        fecha_actual = max(fecha_actual, reserva_data['fecha_fin'])
+                    
+                    # Período libre DESPUÉS de todas las reservas
+                    if fecha_actual < disp.fecha_fin:
+                        historial_fragmentado.append({
+                            'fecha_inicio': fecha_actual,
+                            'fecha_fin': disp.fecha_fin,
+                            'estado': 'libre',
+                            'reserva': None,
+                            'tipo': 'disponibilidad'
+                        })
+            
+            # 4️⃣ ORDENAR cronológicamente y crear entradas
+            historial_fragmentado.sort(key=lambda x: (x['fecha_inicio'], x['fecha_fin']))
+            
+            for i, periodo in enumerate(historial_fragmentado):
                 HistorialDisponibilidad.objects.create(
                     propiedad=propiedad,
                     fecha_inicio=periodo['fecha_inicio'],
@@ -135,7 +184,7 @@ class Command(BaseCommand):
                 estado_emoji = {'libre': '🟡', 'reservado': '🔴', 'alquilado': '🟢'}[periodo['estado']]
                 self.stdout.write(f"   {i+1:02d}. {estado_emoji} {periodo['estado'].upper()}: {periodo['fecha_inicio']} al {periodo['fecha_fin']} ({periodo['tipo']})")
             
-            self.stdout.write(f"✅ HISTORIAL RECONSTRUIDO: {len(periodos)} períodos cronológicos")
+            self.stdout.write(f"✅ HISTORIAL RECONSTRUIDO: {len(historial_fragmentado)} períodos cronológicos")
 
     def simular_reconstruccion(self, propiedad):
         """
