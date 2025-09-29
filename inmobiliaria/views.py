@@ -1142,82 +1142,86 @@ def buscar_propiedades_reserva(request):
             if form.cleaned_data.get(caracteristica):
                 propiedades = propiedades.filter(**{caracteristica: True})
 
-        # ✅ CALCULAR DISPONIBILIDADES BASÁNDOSE EN HISTORIAL Y DISPONIBILIDADES PRINCIPALES
+        # ✅ LÓGICA SIMPLE: Buscar fechas libres entre disponibilidades y reservas
         for propiedad in propiedades:
             from datetime import timedelta
             
-            # 1️⃣ BUSCAR DISPONIBILIDAD PRINCIPAL (MANUAL) QUE CONTENGA EL PERÍODO
-            disponibilidad_principal = Disponibilidad.objects.filter(
+            # 1️⃣ BUSCAR DISPONIBILIDADES QUE CONTENGAN EL PERÍODO
+            disponibilidades = Disponibilidad.objects.filter(
                 propiedad=propiedad,
                 fecha_inicio__lte=fecha_inicio,
                 fecha_fin__gte=fecha_fin,
-                es_manual=True  # Solo disponibilidades principales/manuales
-            ).first()
+            )
             
-            print(f"🔍 PROP {propiedad.id}: Buscando disponibilidad principal para período {fecha_inicio} al {fecha_fin}")
-            print(f"   Query: es_manual=True, fecha_inicio<={fecha_inicio}, fecha_fin>={fecha_fin}")
-            
-            if disponibilidad_principal:
-                print(f"✅ PROP {propiedad.id}: Disponibilidad principal encontrada: {disponibilidad_principal.fecha_inicio} al {disponibilidad_principal.fecha_fin}")
-                print(f"   es_manual: {disponibilidad_principal.es_manual}")
+            if disponibilidades.exists():
+                # 2️⃣ BUSCAR ÚLTIMA FECHA FINAL ANTES DEL PERÍODO BUSCADO
+                # Combinar disponibilidades y reservas para encontrar la fecha más reciente
                 
-                # 2️⃣ BUSCAR EN EL HISTORIAL LAS FECHAS MÁS CERCANAS
-                from inmobiliaria.models import HistorialDisponibilidad
-                
-                # Buscar la fecha anterior más cercana (operación/reserva que termine antes de fecha_inicio)
-                historial_anterior = HistorialDisponibilidad.objects.filter(
+                # Fechas finales de disponibilidades que terminan antes del período
+                disp_anteriores = Disponibilidad.objects.filter(
                     propiedad=propiedad,
-                    estado__in=['operación', 'reservado'],
                     fecha_fin__lt=fecha_inicio
-                ).order_by('-fecha_fin').first()  # La más reciente
+                ).order_by('-fecha_fin').first()
                 
-                # Buscar la fecha posterior más cercana (operación/reserva que empiece después de fecha_fin)
-                historial_posterior = HistorialDisponibilidad.objects.filter(
+                # Fechas finales de reservas que terminan antes del período
+                reservas_anteriores = propiedad.reservas.filter(
+                    fecha_fin__lt=fecha_inicio
+                ).order_by('-fecha_fin').first()
+                
+                # Determinar la fecha final más reciente
+                ultima_fecha_fin = None
+                if disp_anteriores and reservas_anteriores:
+                    ultima_fecha_fin = max(disp_anteriores.fecha_fin, reservas_anteriores.fecha_fin)
+                elif disp_anteriores:
+                    ultima_fecha_fin = disp_anteriores.fecha_fin
+                elif reservas_anteriores:
+                    ultima_fecha_fin = reservas_anteriores.fecha_fin
+                
+                # 3️⃣ BUSCAR PRIMERA FECHA INICIAL DESPUÉS DEL PERÍODO BUSCADO
+                
+                # Fechas iniciales de disponibilidades que empiezan después del período
+                disp_posteriores = Disponibilidad.objects.filter(
                     propiedad=propiedad,
-                    estado__in=['operación', 'reservado'],
                     fecha_inicio__gt=fecha_fin
-                ).order_by('fecha_inicio').first()  # La más próxima
+                ).order_by('fecha_inicio').first()
                 
-                # 3️⃣ CALCULAR FECHAS REALES DE DISPONIBILIDAD
-                fecha_disponible_desde = disponibilidad_principal.fecha_inicio
-                fecha_disponible_hasta = disponibilidad_principal.fecha_fin
+                # Fechas iniciales de reservas que empiezan después del período
+                reservas_posteriores = propiedad.reservas.filter(
+                    fecha_inicio__gt=fecha_fin
+                ).order_by('fecha_inicio').first()
                 
-                if historial_anterior:
-                    print(f"📅 ANTERIOR: Encontrada operación/reserva hasta {historial_anterior.fecha_fin}")
-                    fecha_disponible_desde = historial_anterior.fecha_fin + timedelta(days=1)
+                # Determinar la fecha inicial más próxima
+                proxima_fecha_inicio = None
+                if disp_posteriores and reservas_posteriores:
+                    proxima_fecha_inicio = min(disp_posteriores.fecha_inicio, reservas_posteriores.fecha_inicio)
+                elif disp_posteriores:
+                    proxima_fecha_inicio = disp_posteriores.fecha_inicio
+                elif reservas_posteriores:
+                    proxima_fecha_inicio = reservas_posteriores.fecha_inicio
                 
-                if historial_posterior:
-                    print(f"📅 POSTERIOR: Encontrada operación/reserva desde {historial_posterior.fecha_inicio}")
-                    fecha_disponible_hasta = historial_posterior.fecha_inicio - timedelta(days=1)
+                # 4️⃣ CALCULAR PERÍODO LIBRE
+                disponibilidad_base = disponibilidades.first()
                 
-                # 4️⃣ ASIGNAR FECHAS CALCULADAS
+                fecha_disponible_desde = disponibilidad_base.fecha_inicio
+                if ultima_fecha_fin:
+                    fecha_disponible_desde = ultima_fecha_fin + timedelta(days=1)
+                
+                fecha_disponible_hasta = disponibilidad_base.fecha_fin
+                if proxima_fecha_inicio:
+                    fecha_disponible_hasta = proxima_fecha_inicio - timedelta(days=1)
+                
+                # 5️⃣ ASIGNAR FECHAS CALCULADAS
                 propiedad.disponibilidad_inicio = fecha_disponible_desde
                 propiedad.disponibilidad_fin = fecha_disponible_hasta
                 
-                print(f"🎯 RESULTADO: {fecha_disponible_desde} al {fecha_disponible_hasta}")
-                
-                # Crear QuerySet compatible
-                disponibilidades = Disponibilidad.objects.filter(
-                    propiedad=propiedad,
-                    fecha_inicio__lte=fecha_inicio,
-                    fecha_fin__gte=fecha_fin,
-                )
+                print(f"🎯 PROP {propiedad.id}: Libre desde {fecha_disponible_desde} hasta {fecha_disponible_hasta}")
             else:
-                print(f"❌ PROP {propiedad.id}: NO hay disponibilidad principal que contenga el período")
-                # Mostrar qué disponibilidades SÍ tiene esta propiedad
-                todas_disp = Disponibilidad.objects.filter(propiedad=propiedad)
-                print(f"   Disponibilidades existentes para esta propiedad: {todas_disp.count()}")
-                for disp in todas_disp:
-                    print(f"     - {disp.fecha_inicio} al {disp.fecha_fin}, es_manual: {disp.es_manual}")
                 disponibilidades = Disponibilidad.objects.none()
 
             # Obtener las reservas asociadas a la propiedad
             reservas = propiedad.reservas.filter(
                 Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
             )
-            
-            # 🔍 DEBUGGING: Mostrar disponibilidades y reservas encontradas
-            print(f"🏠 Propiedad {propiedad.id}: Disponibilidades={disponibilidades.count()}, Reservas={reservas.count()}")
             
             if reservas.filter(estado='pagada').exists():
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
