@@ -3133,42 +3133,28 @@ def ver_recibo_movimiento(request, movimiento_id):
                 print(f"   - Saldo Pendiente: ${saldo_pendiente}")
                 
             else:
-                # ✅ NUEVO: ANALIZAR CONCEPTOS DEL MOVIMIENTO ACTUAL
-                total_senia_pagada_recibo = 0
-                total_deposito_pagado_recibo = 0
+                # ✅ SIMPLIFICADO: USAR DIRECTAMENTE VALORES DEL CASILLERO DE LA RESERVA
+                total_senia_pagada_recibo = reserva.senia or 0
+                total_deposito_pagado_recibo = reserva.deposito_garantia or 0
                 precio_total_operacion = reserva.precio_total
                 
-                # Parsear los conceptos JSON del movimiento actual
+                # Verificar si hay concepto 10 para el estado del depósito
                 try:
                     import json
                     if movimiento.concepto and movimiento.concepto.startswith('['):
                         conceptos_data = json.loads(movimiento.concepto)
                         for concepto_data in conceptos_data:
                             concepto_id = str(concepto_data.get('id', ''))
-                            concepto_importe = float(concepto_data.get('importe', 0))
-                            
-                            if concepto_id == '1':  # Alquiler/Seña
-                                total_senia_pagada_recibo += concepto_importe
-                                print(f"🎯 SEÑA MOVIMIENTO - Concepto ID 1: ${concepto_importe}")
-                            elif concepto_id == '10':  # Depósito
-                                total_deposito_pagado_recibo += concepto_importe
+                            if concepto_id == '10':  # Depósito
                                 concepto_10_en_recibo = True
-                                print(f"🎯 DEPÓSITO MOVIMIENTO - Concepto ID 10: ${concepto_importe}")
-                            
-                        print(f"✅ ANÁLISIS CONCEPTOS DEL MOVIMIENTO ACTUAL:")
-                        print(f"   - Seña (concepto ID 1): ${total_senia_pagada_recibo}")
-                        print(f"   - Depósito (concepto ID 10): ${total_deposito_pagado_recibo}")
-                    else:
-                        # Fallback: si no hay JSON, usar valores de reserva
-                        total_senia_pagada_recibo = reserva.senia or 0
-                        total_deposito_pagado_recibo = reserva.deposito_garantia or 0
-                        print(f"⚠️ FALLBACK: JSON no válido, usando reserva - Seña: ${total_senia_pagada_recibo}, Depósito: ${total_deposito_pagado_recibo}")
-                        
-                except (json.JSONDecodeError, ValueError) as e:
-                    # Fallback: si falla el parsing, usar valores de reserva
-                    total_senia_pagada_recibo = reserva.senia or 0
-                    total_deposito_pagado_recibo = reserva.deposito_garantia or 0
-                    print(f"⚠️ ERROR PARSING JSON: {e}, usando reserva - Seña: ${total_senia_pagada_recibo}, Depósito: ${total_deposito_pagado_recibo}")
+                                break
+                except:
+                    pass
+                
+                print(f"✅ USANDO VALORES DIRECTOS DE LA RESERVA:")
+                print(f"   - Seña (reserva.senia): ${total_senia_pagada_recibo}")
+                print(f"   - Depósito (reserva.deposito_garantia): ${total_deposito_pagado_recibo}")
+                print(f"   - Concepto 10 presente: {concepto_10_en_recibo}")
             
             # ✅ CORREGIDO: Solo la seña cuenta para el total pagado (el depósito es aparte)
             total_pagado_reserva = total_senia_pagada_recibo
@@ -3493,7 +3479,8 @@ def ver_recibo_movimiento(request, movimiento_id):
                 numero_recibo_mostrar = f'R{reserva.id:06d}'
                 precio_total_mostrar = reserva.precio_total
                 saldo_pendiente_mostrar = saldo_pendiente
-                monto_este_pago_mostrar = total_movimiento
+                # ✅ CORREGIDO: Usar la seña del casillero, no el total del movimiento
+                monto_este_pago_mostrar = total_senia_pagada_recibo
             
             # Usar el nuevo template de recibo
             return render(request, 'inmobiliaria/reserva/recibo.html', {
