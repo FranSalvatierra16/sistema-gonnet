@@ -1181,7 +1181,19 @@ function calcularTotales() {
     
     const totalConceptos = conceptosAgregados.reduce((sum, concepto) => sum + concepto.importe, 0);
     const totalRecibo = totalConceptos; // ✅ Total = conceptos únicamente
-    const senia = parsearValorFormateado(document.getElementById('senia').value);
+    
+    // 🔍 DEBUG: Verificar valores RAW antes de parsear
+    const seniaElement = document.getElementById('senia');
+    const importeLocacionElement = document.getElementById('importe_locacion');
+    
+    console.log('🔍 DEBUG ELEMENTOS:');
+    console.log('  - seniaElement:', seniaElement);
+    console.log('  - seniaElement.value RAW:', seniaElement ? seniaElement.value : 'NO_ENCONTRADO');
+    console.log('  - importeLocacionElement:', importeLocacionElement);
+    console.log('  - importeLocacionElement.value RAW:', importeLocacionElement ? importeLocacionElement.value : 'NO_ENCONTRADO');
+    
+    const senia = parsearValorFormateado(seniaElement ? seniaElement.value : '0');
+    const importeLocacion = parsearValorFormateado(importeLocacionElement ? importeLocacionElement.value : '0');
     
     // ✅ Formatear valores en displays
     document.getElementById('totalConceptos').textContent = totalConceptos.toLocaleString('es-ES');
@@ -1189,7 +1201,6 @@ function calcularTotales() {
     document.getElementById('totalReciboDisplay').textContent = totalRecibo.toLocaleString('es-ES');
     
     // 🔄 NUEVA LÓGICA: Calcular "Queda por Pagar" = Importe Locación - Seña
-    const importeLocacion = parsearValorFormateado(document.getElementById('importe_locacion').value);
     const quedaPorPagar = Math.max(0, importeLocacion - senia);
     
     console.log('🔍 DEBUG NUEVA VALIDACIÓN:');
