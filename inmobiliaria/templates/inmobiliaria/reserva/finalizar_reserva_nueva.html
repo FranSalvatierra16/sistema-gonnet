@@ -1188,14 +1188,16 @@ function calcularTotales() {
     document.getElementById('totalRecibo').value = totalRecibo;
     document.getElementById('totalReciboDisplay').textContent = totalRecibo.toLocaleString('es-ES');
     
-    // 🔄 NUEVA LÓGICA: Calcular "Queda por Pagar" restando de la seña
-    const quedaPorPagar = Math.max(0, totalRecibo - senia);
+    // 🔄 NUEVA LÓGICA: Calcular "Queda por Pagar" = Importe Locación - Seña
+    const importeLocacion = parsearValorFormateado(document.getElementById('importe_locacion').value);
+    const quedaPorPagar = Math.max(0, importeLocacion - senia);
     
     console.log('🔍 DEBUG NUEVA VALIDACIÓN:');
     console.log('  - Seña (campo arriba):', senia);
+    console.log('  - Importe Locación:', importeLocacion);
     console.log('  - Total Conceptos:', totalConceptos);
     console.log('  - Total Recibo:', totalRecibo);
-    console.log('  - Queda por Pagar:', quedaPorPagar);
+    console.log('  - Queda por Pagar (Importe - Seña):', quedaPorPagar);
     
     // Mostrar "Queda por Pagar" en la UI
     const quedaPorPagarElement = document.getElementById('saldo_ocupar');
