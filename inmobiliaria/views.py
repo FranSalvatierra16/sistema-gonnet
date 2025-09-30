@@ -1915,8 +1915,35 @@ def ver_recibo(request, reserva_id):
             'propiedad': propiedad_completa,
         }
         
+        # ✅ CALCULAR VALORES CORRECTOS PARA EL RECIBO
+        # Calcular seña y saldo restante basado en lo que realmente se pagó
+        senia_pagada = reserva.senia or 0
+        deposito_pagado = reserva.deposito_garantia or 0
+        precio_total = reserva.precio_total or 0
+        saldo_restante = precio_total - senia_pagada
+        
+        # Verificar si el depósito fue pagado revisando los conceptos (concepto 10)
+        deposito_estado = 'no_aplica'
+        if deposito_pagado > 0:
+            # Verificar si hay concepto 10 en los pagos
+            concepto_10_presente = False
+            if conceptos_operacion and conceptos_operacion.exists():
+                for registro in conceptos_operacion:
+                    if registro.concepto and registro.concepto.id == 10:
+                        concepto_10_presente = True
+                        break
+            
+            if concepto_10_presente:
+                deposito_estado = 'pagado'
+            else:
+                deposito_estado = 'pendiente'
+        
         # DEBUG: Confirmar template y datos
         print("🧾 TEMPLATE USADO: inmobiliaria/reserva/recibo.html")
+        print(f"🧾 PRECIO TOTAL: ${precio_total:,.0f}")
+        print(f"🧾 SEÑA PAGADA: ${senia_pagada:,.0f}")
+        print(f"🧾 SALDO RESTANTE: ${saldo_restante:,.0f}")
+        print(f"🧾 DEPÓSITO: ${deposito_pagado:,.0f} ({deposito_estado})")
         print(f"🧾 TOTAL PAGADO: {f'${total_pagado:,.0f}'}")
         print(f"🧾 FORMAS DE PAGO: {', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO'}")
         print(f"🧾 PAGOS COUNT: {len(pagos)}")
@@ -1936,6 +1963,12 @@ def ver_recibo(request, reserva_id):
             'total_pagado': f'${total_pagado:,.0f}',
             'monto_en_palabras': numero_a_palabras(total_pagado),
             'formas_de_pago': ', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO',
+            # ✅ AGREGAR VARIABLES QUE NECESITA EL TEMPLATE
+            'precio_total_operacion': f'${precio_total:,.0f}',
+            'monto_este_pago': f'${senia_pagada:,.0f}',  # La seña que se pagó
+            'saldo_pendiente': f'${saldo_restante:,.0f}',  # Saldo restante después de la seña
+            'deposito_garantia': f'${deposito_pagado:,.0f}',  # Depósito de garantía
+            'deposito_estado': deposito_estado,  # Estado del depósito
         })
         
     except Exception as e:
@@ -3101,8 +3134,8 @@ def ver_recibo_movimiento(request, movimiento_id):
                 
             else:
                 # ✅ FALLBACK: USAR VALORES DIRECTOS DE LA RESERVA
-                total_senia_pagada_recibo = reserva.senia or 0
-                total_deposito_pagado_recibo = reserva.deposito_garantia or 0
+            total_senia_pagada_recibo = reserva.senia or 0
+            total_deposito_pagado_recibo = reserva.deposito_garantia or 0
                 precio_total_operacion = reserva.precio_total
             
                 print(f"✅ FALLBACK - USANDO VALORES DIRECTOS DE LA RESERVA:")
@@ -3274,9 +3307,9 @@ def ver_recibo_movimiento(request, movimiento_id):
                         else:
                             # No se pudo parsear, usar concepto único
                             print("⚠️ No se pudieron extraer conceptos individuales, usando concepto único")
-                            pagos.append({
-                                'fecha': fecha_mov,
-                                'codigo': codigo_mov,
+                    pagos.append({
+                        'fecha': fecha_mov,
+                        'codigo': codigo_mov,
                                 'concepto': concepto_texto or 'ALQ - Alquiler temporario',
                                 'monto': f'${movimiento.monto_total:,.0f}'
                             })
@@ -3289,22 +3322,22 @@ def ver_recibo_movimiento(request, movimiento_id):
                             'fecha': fecha_mov,
                             'codigo': codigo_mov,
                             'concepto': concepto_texto or 'ALQ - Alquiler temporario',
-                            'monto': f'${movimiento.monto_total:,.0f}'
-                        })
-                        total_pagado += movimiento.monto_total
+                        'monto': f'${movimiento.monto_total:,.0f}'
+                    })
+                    total_pagado += movimiento.monto_total
                     
                 except Exception as e:
                     print(f"❌ Error en fallback: {e}")
                     # Solo usar fallback ultra simple si no se procesaron conceptos
                     if not conceptos_procesados:
                         print("🚨 USANDO FALLBACK ULTRA SIMPLE")
-                        pagos.append({
-                            'fecha': '15/09/2025',
-                            'codigo': 'M0001',
-                            'concepto': 'ALQ - Alquiler temporario',
-                            'monto': '$130,000'
-                        })
-                        total_pagado = 130000
+                    pagos.append({
+                        'fecha': '15/09/2025',
+                        'codigo': 'M0001',
+                        'concepto': 'ALQ - Alquiler temporario',
+                        'monto': '$130,000'
+                    })
+                    total_pagado = 130000
                     else:
                         print("✅ CONCEPTOS YA PROCESADOS - No usar fallback ultra simple")
             
@@ -6308,11 +6341,11 @@ def buscar_propiedades(request):
                 propiedad.estado_reserva = 'disponible'
                 print(f"   ✅ DISPONIBLE: Sin reservas para mostrar en rojo")
 
-                # Calcular el precio total según las fechas seleccionadas
+            # Calcular el precio total según las fechas seleccionadas
                 precio_total = 0
                 print('fecha de inicio',fecha_inicio)
                 print('fecha de fin',fecha_fin)
-                # Para cálculos de precio: usar días completos (lógica original)
+            # Para cálculos de precio: usar días completos (lógica original)
                 dias_reserva = (fecha_fin - fecha_inicio).days + 1
 
                 print(f"🔥 INICIANDO CÁLCULO para propiedad {propiedad.id} del {fecha_inicio} al {fecha_fin}")
@@ -6941,8 +6974,8 @@ def procesar_operacion_contrato(request, contrato_id):
             concepto_10_presente = ' | ID:10 |' in conceptos_texto
             
             if concepto_10_presente:
-                total_esperado = contrato.deposito_garantia + contrato.precio_mensual
-                mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
+            total_esperado = contrato.deposito_garantia + contrato.precio_mensual
+            mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
             else:
                 # Si no hay concepto 10, el total esperado es lo que esté en los conceptos
                 total_esperado = total_movimiento  # Aceptar cualquier total (conceptos + honorarios + sellados sin depósito)
