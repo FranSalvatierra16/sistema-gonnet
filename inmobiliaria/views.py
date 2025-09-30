@@ -2742,17 +2742,12 @@ def procesar_movimiento_reserva(request):
                 print(f"   Los conceptos pueden incluir extras como gastos bancarios")
                 print(f"   Validación principal: formas de pago = total conceptos")
                 
-                # ✅ MONTO DE ESTE PAGO (separar seña del depósito)
+                # ✅ CORREGIDO: MONTO DE ESTE PAGO debe ser la SEÑA DEL CASILLERO, no el total pagado
                 monto_total_pagado = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
                 
-                # Si hay concepto 10, el depósito no va a la seña
-                if concepto_10_presente:
-                    monto_este_pago = monto_total_pagado - concepto_10_importe  # Solo la parte que no es depósito
-                    monto_seña_este_pago = monto_este_pago
-                else:
-                    # Si no hay concepto 10, todo va a seña (el depósito queda pendiente)
-                    monto_este_pago = monto_total_pagado
-                    monto_seña_este_pago = monto_total_pagado
+                # ✅ NUEVO: monto_este_pago siempre es la seña final del casillero (no el total de este movimiento)
+                monto_este_pago = senia  # Usar la seña del casillero
+                monto_seña_este_pago = senia  # La seña siempre es la del casillero
                 
                 print(f"✅ VALORES DIRECTOS DEL FORMULARIO:")
                 print(f"   - Seña nueva a agregar: ${senia}")
@@ -2769,14 +2764,14 @@ def procesar_movimiento_reserva(request):
                     print(f"🔄 ACTUALIZANDO PRECIO TOTAL: ${reserva.precio_total} -> ${importe_locacion}")
                     reserva.precio_total = importe_locacion
                 
-                # ✅ ACTUALIZAR SEÑA (acumulativa, sin incluir depósito si se pagó con concepto 10)
-                # CORREGIDO: Solo sumar el pago actual a la seña existente, no duplicar pagos anteriores
+                # ✅ CORREGIDO: USAR DIRECTAMENTE EL VALOR DEL CASILLERO SEÑA (no acumulativo)
+                # La seña del casillero ya es el valor total final que se quiere
                 senia_anterior = reserva.senia or 0
-                reserva.senia = senia_anterior + monto_seña_este_pago
+                reserva.senia = senia  # Usar directamente el valor del casillero
                 
                 print(f"🔧 CORRECCIÓN SEÑA:")
                 print(f"   - Seña anterior: ${senia_anterior}")
-                print(f"   - Pago actual (seña): ${monto_seña_este_pago}")
+                print(f"   - Seña del casillero: ${senia}")
                 print(f"   - Nueva seña total: ${reserva.senia}")
                 
                 # ✅ ACTUALIZAR DEPÓSITO (siempre se guarda, pero solo se marca como pagado con concepto 10)
