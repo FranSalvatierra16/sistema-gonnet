@@ -1700,6 +1700,12 @@ document.addEventListener('DOMContentLoaded', function() {
     calcularTotales();
     calcularSaldoOcupar();
     habilitarBotonProcesar();
+    
+    // 🔄 Asegurar que el cálculo inicial se ejecute después de que todo esté listo
+    setTimeout(function() {
+        calcularSaldoOcupar();
+        console.log('🎯 CÁLCULO INICIAL ejecutado');
+    }, 100);
 });
 </script>
 
