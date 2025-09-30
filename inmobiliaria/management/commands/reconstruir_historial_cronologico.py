@@ -32,8 +32,9 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.ERROR(f"❌ Propiedad {options['propiedad_id']} no encontrada"))
                 return
         else:
-            propiedades = Propiedad.objects.all().order_by('id')
-            self.stdout.write(f"📋 Procesando TODAS las propiedades: {propiedades.count()} encontradas")
+            # 🔍 DEBUGGING: Solo Polonia 100 por ahora
+            propiedades = Propiedad.objects.filter(id=90808).order_by('id')
+            self.stdout.write(f"🔍 DEBUG: Procesando solo Polonia 100: {propiedades.count()} encontradas")
         
         if options['dry_run']:
             self.stdout.write(self.style.WARNING("🔍 MODO DRY-RUN: Solo mostrando cambios, sin aplicar"))
@@ -133,7 +134,7 @@ class Command(BaseCommand):
                     
                     fecha_actual = disp.fecha_inicio
                     
-                    for reserva_data in reservas_en_disp:
+                    for i, reserva_data in enumerate(reservas_en_disp):
                         # Período libre ANTES de la reserva
                         if fecha_actual < reserva_data['fecha_inicio']:
                             historial_fragmentado.append({
@@ -158,6 +159,28 @@ class Command(BaseCommand):
                         
                         # Mover fecha actual al final de la reserva
                         fecha_actual = max(fecha_actual, reserva_data['fecha_fin'])
+                        
+                        # 🔥 NUEVO: Período libre ENTRE reservas
+                        # Si hay una siguiente reserva, verificar si hay espacio libre entre ellas
+                        if i + 1 < len(reservas_en_disp):
+                            proxima_reserva = reservas_en_disp[i + 1]
+                            self.stdout.write(f"🔍 DEBUG Polen: Reserva {i+1}: {reserva_data['fecha_inicio']} al {reserva_data['fecha_fin']}")
+                            self.stdout.write(f"🔍 DEBUG Polen: Próxima reserva: {proxima_reserva['fecha_inicio']} al {proxima_reserva['fecha_fin']}")
+                            self.stdout.write(f"🔍 DEBUG Polen: fecha_actual = {fecha_actual}, próxima_inicio = {proxima_reserva['fecha_inicio']}")
+                            
+                            if fecha_actual < proxima_reserva['fecha_inicio']:
+                                self.stdout.write(f"✅ DEBUG Polen: Creando período libre ENTRE: {fecha_actual} al {proxima_reserva['fecha_inicio']}")
+                                historial_fragmentado.append({
+                                    'fecha_inicio': fecha_actual,
+                                    'fecha_fin': proxima_reserva['fecha_inicio'],
+                                    'estado': 'libre',
+                                    'reserva': None,
+                                    'tipo': 'disponibilidad'
+                                })
+                                # Actualizar fecha_actual para la próxima iteración
+                                fecha_actual = proxima_reserva['fecha_inicio']
+                            else:
+                                self.stdout.write(f"❌ DEBUG Polen: NO hay espacio libre entre reservas")
                     
                     # Período libre DESPUÉS de todas las reservas
                     if fecha_actual < disp.fecha_fin:
