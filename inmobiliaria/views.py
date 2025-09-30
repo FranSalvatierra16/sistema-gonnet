@@ -762,8 +762,29 @@ def reserva_eliminar(request, reserva_id):
     reserva = get_object_or_404(Reserva, pk=reserva_id)
     
     if request.method == "POST":
-        reserva.delete()
-        messages.success(request, 'Reserva eliminada exitosamente.')
+        try:
+            # ✅ NUEVO: Cancelar la reserva primero para restaurar disponibilidades
+            print(f"🗑️ ELIMINANDO RESERVA {reserva_id}: {reserva.fecha_inicio} al {reserva.fecha_fin}")
+            print(f"   Propiedad: {reserva.propiedad.id} - {reserva.propiedad.direccion}")
+            
+            # Guardar datos para el mensaje
+            fecha_inicio = reserva.fecha_inicio
+            fecha_fin = reserva.fecha_fin
+            propiedad_direccion = reserva.propiedad.direccion
+            
+            # 1️⃣ Cancelar la reserva (esto restaura las disponibilidades y reconstruye historial)
+            reserva.cancelar_reserva()
+            
+            # 2️⃣ Ahora sí eliminar físicamente la reserva
+            reserva.delete()
+            
+            print(f"✅ Reserva eliminada y disponibilidades restauradas: {fecha_inicio} al {fecha_fin}")
+            messages.success(request, f'Reserva eliminada exitosamente. Las fechas del {fecha_inicio.strftime("%d/%m/%Y")} al {fecha_fin.strftime("%d/%m/%Y")} vuelven a estar disponibles.')
+            
+        except Exception as e:
+            print(f"❌ Error al eliminar reserva: {e}")
+            messages.error(request, f'Error al eliminar la reserva: {str(e)}')
+            
         return redirect('inmobiliaria:reservas')  # Redirige a la lista de reservas después de eliminar
     
     return render(request, 'inmobiliaria/reserva/confirmar_eliminar.html', {'reserva': reserva})
@@ -7635,12 +7656,26 @@ def eliminar_disponibilidad(request, disponibilidad_id):
             propiedad_direccion = disponibilidad.propiedad.direccion
             fecha_inicio = disponibilidad.fecha_inicio.strftime('%d/%m/%Y')
             fecha_fin = disponibilidad.fecha_fin.strftime('%d/%m/%Y')
+            propiedad = disponibilidad.propiedad
             
+            print(f"🗑️ ELIMINANDO DISPONIBILIDAD: {fecha_inicio} al {fecha_fin} para {propiedad_direccion}")
+            
+            # ✅ NUEVO: Eliminar la disponibilidad Y reconstruir historial
             disponibilidad.delete()
+            
+            # ✅ Reconstruir historial cronológico para reflejar los cambios
+            from .models.propiedad import Reserva
+            # Buscar una reserva de esta propiedad para usar su método de reconstruir historial
+            reserva_ejemplo = Reserva.objects.filter(propiedad=propiedad).first()
+            if reserva_ejemplo:
+                reserva_ejemplo.reconstruir_historial_cronologico()
+                print(f"✅ Historial reconstruido para propiedad {propiedad.id}")
+            else:
+                print(f"⚠️ No se encontraron reservas para reconstruir historial de propiedad {propiedad.id}")
             
             return JsonResponse({
                 'success': True,
-                'message': f'Disponibilidad eliminada correctamente del {fecha_inicio} al {fecha_fin} para {propiedad_direccion}'
+                'message': f'Disponibilidad eliminada correctamente del {fecha_inicio} al {fecha_fin} para {propiedad_direccion}. Historial actualizado.'
             })
             
         except Exception as e:
