@@ -1350,22 +1350,22 @@ function calcularTotalPagos() {
 // Función para calcular saldo a ocupar
 function calcularSaldoOcupar() {
     try {
-        // Obtener el saldo pendiente actual (lo que se muestra en el resumen)
-        const saldoPendienteActual = parseFloat('{{ saldo_a_ocupar }}') || 0;
+        // 🎯 NUEVA LÓGICA SIMPLE: Queda por Pagar = Importe Locación - Seña
+        const importeLocacionElement = document.querySelector('input[name="importe_locacion"]');
+        const seniaElement = document.getElementById('senia');
         
-        // Obtener el total que se está pagando en esta operación
-        const totalPagoActual = calcularTotalPagos();
+        const importeLocacion = parseFloat((importeLocacionElement?.value || '0').replace(/\./g, '')) || 0;
+        const senia = parseFloat((seniaElement?.value || '0').replace(/\./g, '')) || 0;
         
-        // Saldo a Ocupar = Saldo pendiente actual - Lo que se paga ahora
-        const saldoOcupar = saldoPendienteActual - totalPagoActual;
+        const quedaPorPagar = Math.max(0, importeLocacion - senia);
         
         // Mostrar con formato de miles
         const saldoOcuparElement = document.getElementById('saldo_ocupar');
         if (saldoOcuparElement) {
-            saldoOcuparElement.value = saldoOcupar.toLocaleString('es-ES');
+            saldoOcuparElement.value = quedaPorPagar.toLocaleString('es-ES');
         }
         
-        console.log(`💰 CÁLCULO SALDO: Pendiente actual: ${saldoPendienteActual}, Pago actual: ${totalPagoActual}, Queda por pagar: ${saldoOcupar}`);
+        console.log(`🎯 SIMPLE: Importe Locación: ${importeLocacion}, Seña: ${senia}, Queda por Pagar: ${quedaPorPagar}`);
     } catch (error) {
         console.error('Error en calcularSaldoOcupar:', error);
     }
