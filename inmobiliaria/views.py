@@ -2702,11 +2702,12 @@ def procesar_movimiento_reserva(request):
                     # Actualizar el depósito para que coincida con el concepto 10
                     deposito_garantia = concepto_10_importe
                 
-                # ✅ VALIDACIÓN: CONCEPTOS DEBEN SUMAR SEÑA + DEPÓSITO (si concepto 10 presente)
-                total_esperado = senia + (concepto_10_importe if concepto_10_presente else Decimal('0'))
-                if conceptos_completos and total_conceptos != total_esperado:
-                    print(f"⚠️  ADVERTENCIA: Los conceptos suman ${total_conceptos} pero se esperaba ${total_esperado}")
-                    print(f"   Seña: ${senia} + Depósito pagado (concepto 10): ${concepto_10_importe if concepto_10_presente else 0}")
+                # 🔄 NUEVA LÓGICA: No validar conceptos vs seña+depósito
+                # Los conceptos pueden ser diferentes a la seña (ej: gastos bancarios extras)
+                # Solo validamos que formas de pago = total conceptos (se hace más abajo)
+                print(f"✅ NUEVA VALIDACIÓN: Total conceptos: ${total_conceptos}, Seña del campo: ${senia}")
+                print(f"   Los conceptos pueden incluir extras como gastos bancarios")
+                print(f"   Validación principal: formas de pago = total conceptos")
                 
                 # ✅ MONTO DE ESTE PAGO (separar seña del depósito)
                 monto_total_pagado = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
