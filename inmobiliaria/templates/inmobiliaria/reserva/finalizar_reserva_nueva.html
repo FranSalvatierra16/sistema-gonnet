@@ -1551,6 +1551,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const importeLocacionInput = document.querySelector('input[name="importe_locacion"]');
     const depositoGarantiaInput = document.querySelector('input[name="deposito_garantia"]');
     
+    // ✅ Event listener para la seña - RECALCULAR "Queda por Pagar"
+    if (seniaInput) {
+        seniaInput.addEventListener('input', function() {
+            calcularTotales(); // Esto recalculará "Queda por Pagar"
+            calcularSaldoOcupar();
+            habilitarBotonProcesar();
+        });
+    }
+    
+    // ✅ Event listener para el importe locación - RECALCULAR "Queda por Pagar"
+    if (importeLocacionInput) {
+        importeLocacionInput.addEventListener('input', function() {
+            calcularTotales(); // Esto recalculará "Queda por Pagar"
+            calcularSaldoOcupar();
+            habilitarBotonProcesar();
+        });
+    }
+    
     // ✅ Event listener para el depósito de garantía
     if (depositoGarantiaInput) {
         depositoGarantiaInput.addEventListener('input', function() {
