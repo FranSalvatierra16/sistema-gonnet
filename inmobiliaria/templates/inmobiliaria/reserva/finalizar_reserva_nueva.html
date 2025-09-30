@@ -677,6 +677,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 // ✅ NUEVO: Variable con seña ya pagada desde el backend
 const SENIA_PAGADA = {% if total_senia_pagada %}{{ total_senia_pagada }}{% else %}0{% endif %};
+console.log('🔧 SENIA_PAGADA inicializada:', SENIA_PAGADA);
 
 // Variable para almacenar los conceptos agregados
 let conceptosAgregados = [];
@@ -1204,17 +1205,24 @@ function calcularTotales() {
     document.getElementById('totalReciboDisplay').textContent = totalRecibo.toLocaleString('es-ES');
     
     // ✅ CORREGIDO: Calcular "Queda por Pagar" = Importe Locación - (Seña Pagada + Seña Actual)
-    const totalSenia = SENIA_PAGADA + senia;
-    const quedaPorPagar = Math.max(0, importeLocacion - totalSenia);
+    const seniaPagadaNum = Number(SENIA_PAGADA) || 0;
+    const seniaActualNum = Number(senia) || 0;
+    const importeLocacionNum = Number(importeLocacion) || 0;
+    const totalSenia = seniaPagadaNum + seniaActualNum;
+    const quedaPorPagar = Math.max(0, importeLocacionNum - totalSenia);
     
-    console.log('🔍 DEBUG CORREGIDO:');
-    console.log('  - Seña Pagada:', SENIA_PAGADA);
-    console.log('  - Seña Actual (campo):', senia);
-    console.log('  - Total Seña:', totalSenia);
-    console.log('  - Importe Locación:', importeLocacion);
+    console.log('🔍 DEBUG CORREGIDO - CÁLCULO QUEDA POR PAGAR:');
+    console.log('  - SENIA_PAGADA (original):', SENIA_PAGADA, typeof SENIA_PAGADA);
+    console.log('  - seniaPagadaNum:', seniaPagadaNum, typeof seniaPagadaNum);
+    console.log('  - Seña Actual (original):', senia, typeof senia);
+    console.log('  - seniaActualNum:', seniaActualNum, typeof seniaActualNum);
+    console.log('  - Importe Locación (original):', importeLocacion, typeof importeLocacion);
+    console.log('  - importeLocacionNum:', importeLocacionNum, typeof importeLocacionNum);
+    console.log('  - Total Seña:', totalSenia, typeof totalSenia);
+    console.log('  - Cálculo: ', importeLocacionNum, ' - ', totalSenia, ' = ', (importeLocacionNum - totalSenia));
+    console.log('  - Math.max(0, resultado):', quedaPorPagar);
     console.log('  - Total Conceptos:', totalConceptos);
     console.log('  - Total Recibo:', totalRecibo);
-    console.log('  - Queda por Pagar (Importe - Total Seña):', quedaPorPagar);
     
     // Mostrar "Queda por Pagar" en la UI
     const quedaPorPagarElement = document.getElementById('saldo_ocupar');
@@ -1364,8 +1372,11 @@ function calcularSaldoOcupar() {
         const seniaActual = parseFloat((seniaElement?.value || '0').replace(/\./g, '')) || 0;
         
         // ✅ CÁLCULO CORRECTO: Total seña = seña pagada + seña actual
-        const totalSenia = SENIA_PAGADA + seniaActual;
-        const quedaPorPagar = Math.max(0, importeLocacion - totalSenia);
+        const seniaPagadaNum = Number(SENIA_PAGADA) || 0;
+        const seniaActualNum = Number(seniaActual) || 0;
+        const importeLocacionNum = Number(importeLocacion) || 0;
+        const totalSenia = seniaPagadaNum + seniaActualNum;
+        const quedaPorPagar = Math.max(0, importeLocacionNum - totalSenia);
         
         // Mostrar con formato de miles
         const saldoOcuparElement = document.getElementById('saldo_ocupar');
@@ -1373,7 +1384,15 @@ function calcularSaldoOcupar() {
             saldoOcuparElement.value = quedaPorPagar.toLocaleString('es-ES');
         }
         
-        console.log(`✅ CORREGIDO: Importe: ${importeLocacion}, Seña Pagada: ${SENIA_PAGADA}, Seña Actual: ${seniaActual}, Total Seña: ${totalSenia}, Queda por Pagar: ${quedaPorPagar}`);
+        console.log('✅ CORREGIDO calcularSaldoOcupar:');
+        console.log('  - SENIA_PAGADA (original):', SENIA_PAGADA, typeof SENIA_PAGADA);
+        console.log('  - seniaPagadaNum:', seniaPagadaNum, typeof seniaPagadaNum);
+        console.log('  - seniaActual (original):', seniaActual, typeof seniaActual);
+        console.log('  - seniaActualNum:', seniaActualNum, typeof seniaActualNum);
+        console.log('  - importeLocacion (original):', importeLocacion, typeof importeLocacion);
+        console.log('  - importeLocacionNum:', importeLocacionNum, typeof importeLocacionNum);
+        console.log('  - Total Seña:', totalSenia, typeof totalSenia);
+        console.log('  - Queda por Pagar:', quedaPorPagar, typeof quedaPorPagar);
     } catch (error) {
         console.error('Error en calcularSaldoOcupar:', error);
     }
