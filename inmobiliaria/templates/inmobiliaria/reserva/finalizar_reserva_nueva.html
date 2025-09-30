@@ -1407,20 +1407,7 @@ function procesarMovimiento() {
     const depositoGarantia = parsearValorFormateado(document.querySelector('input[name="deposito_garantia"]').value);
     
     // ✅ NUEVA LÓGICA: Solo incluir depósito si hay concepto 10
-    const concepto10Presente = verificarConcepto10();
-    const depositoAPagar = concepto10Presente ? depositoGarantia : 0;
-    const totalEsperado = senia + depositoAPagar;
-    
-    console.log(`🔍 VALIDACIÓN PROCESAMIENTO - Total Recibo: ${totalRecibo}, Seña: ${senia}, Depósito: ${depositoGarantia}, Concepto 10: ${concepto10Presente}, Total Esperado: ${totalEsperado}`);
-    
-    if (Math.abs(totalRecibo - totalEsperado) > 0.01) {
-        const depositoTexto = concepto10Presente ? 
-            `\nDepósito de Garantía: $${depositoGarantia.toLocaleString('es-ES')} (concepto 10 cargado)` : 
-            `\nDepósito de Garantía: $${depositoGarantia.toLocaleString('es-ES')} (pendiente - falta concepto 10)`;
-        
-        alert(`⚠️ El total del recibo ($${totalRecibo.toLocaleString('es-ES')}) debe coincidir exactamente con la suma esperada ($${totalEsperado.toLocaleString('es-ES')})\n\nSeña: $${senia.toLocaleString('es-ES')}${depositoTexto}\n\n${concepto10Presente ? 'Total a pagar = Seña + Depósito' : 'Total a pagar = Solo Seña (el depósito queda pendiente)'}`);
-        return;
-    }
+    console.log(`🔍 NUEVA VALIDACIÓN SIMPLE - Total Recibo: ${totalRecibo}, Solo validaremos vs Total Pagos`);
     
     // Verificar que los pagos coincidan
     const totalPagos = parsearValorFormateado(document.getElementById('totalPagos').textContent);
