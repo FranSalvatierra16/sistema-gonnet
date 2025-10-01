@@ -6496,6 +6496,7 @@ def buscar_propiedades(request):
                     dias_resultado = max(dias_perdidos, 0)  # No negativos
                     
                     print(f"🔍 Propiedad {propiedad.id}: Última {tipo_encontrado} terminó {fecha_fin_mas_reciente}, día siguiente {dia_siguiente}, búsqueda {fecha_inicio_busqueda} → {dias_resultado} días perdidos")
+                    print(f"    📊 CÁLCULO: ({fecha_inicio_busqueda} - {dia_siguiente}).days = {dias_perdidos} → max(0, {dias_perdidos}) = {dias_resultado}")
                     return dias_resultado
                 else:
                     # Sin fechas anteriores, usar ID como fallback
@@ -6548,7 +6549,15 @@ def buscar_propiedades(request):
                 print(f"   - Disponibilidades anteriores: {list(disponibilidades.values('id', 'fecha_fin'))}")
         
         # ✅ ORDENAR: primero las rojas (días libres = -1), luego por menos días libres, luego por ID
+        print("🔧 ANTES DEL ORDENAMIENTO:")
+        for prop in propiedades_disponibles:
+            print(f"   Propiedad {prop.id}: dias_libres_calculados = {prop.dias_libres_calculados} (tipo: {type(prop.dias_libres_calculados)})")
+        
         propiedades_disponibles.sort(key=lambda p: (p.dias_libres_calculados, p.id))
+        
+        print("🔧 DESPUÉS DEL ORDENAMIENTO:")
+        for i, prop in enumerate(propiedades_disponibles, 1):
+            print(f"   {i}. Propiedad {prop.id}: dias_libres_calculados = {prop.dias_libres_calculados}")
         
         # ✅ DEBUG DETALLADO PARA VERIFICAR ORDENAMIENTO
         print("=" * 80)
