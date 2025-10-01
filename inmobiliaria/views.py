@@ -1227,13 +1227,15 @@ def buscar_propiedades_reserva(request):
                 
                 fecha_disponible_desde = disponibilidad_base.fecha_inicio
                 if ultima_fecha_fin:
-                    # 🏨 LÓGICA HOTEL: Si reserva termina el 17, el 17 ya está disponible
-                    fecha_disponible_desde = ultima_fecha_fin
+                    # ✅ CORREGIDO: Si reserva termina el 17, está disponible desde el 18
+                    from datetime import timedelta
+                    fecha_disponible_desde = ultima_fecha_fin + timedelta(days=1)
                 
                 fecha_disponible_hasta = disponibilidad_base.fecha_fin
                 if proxima_fecha_inicio:
-                    # 🏨 LÓGICA HOTEL: Si próxima reserva empieza el 25, hasta el 25 está disponible
-                    fecha_disponible_hasta = proxima_fecha_inicio
+                    # ✅ CORREGIDO: Si próxima reserva empieza el 25, está disponible hasta el 24
+                    from datetime import timedelta
+                    fecha_disponible_hasta = proxima_fecha_inicio - timedelta(days=1)
                 
                 # 5️⃣ ASIGNAR FECHAS CALCULADAS
                 propiedad.disponibilidad_inicio = fecha_disponible_desde
@@ -6273,13 +6275,15 @@ def buscar_propiedades(request):
                 
                 fecha_disponible_desde = disponibilidad_base.fecha_inicio
                 if ultima_fecha_fin:
-                    # 🏨 LÓGICA HOTEL: Si reserva termina el 17, el 17 ya está disponible
-                    fecha_disponible_desde = ultima_fecha_fin
+                    # ✅ CORREGIDO: Si reserva termina el 17, está disponible desde el 18
+                    from datetime import timedelta
+                    fecha_disponible_desde = ultima_fecha_fin + timedelta(days=1)
                 
                 fecha_disponible_hasta = disponibilidad_base.fecha_fin
                 if proxima_fecha_inicio:
-                    # 🏨 LÓGICA HOTEL: Si próxima reserva empieza el 25, hasta el 25 está disponible
-                    fecha_disponible_hasta = proxima_fecha_inicio
+                    # ✅ CORREGIDO: Si próxima reserva empieza el 25, está disponible hasta el 24
+                    from datetime import timedelta
+                    fecha_disponible_hasta = proxima_fecha_inicio - timedelta(days=1)
                 
                 # 5️⃣ ASIGNAR FECHAS CALCULADAS
                 propiedad.disponibilidad_inicio = fecha_disponible_desde
