@@ -6457,38 +6457,49 @@ def buscar_propiedades(request):
             if propiedad.estado_reserva == 'confirmada_no_pagada':
                 return -1  # Rojas van primero (valor negativo)
             
-            # ✅ FALLBACK ULTRA-SIMPLE: Si hay errores, usar ID como ordenamiento
+            # ✅ LÓGICA CORREGIDA: Buscar la fecha de fin más reciente (reserva o disponibilidad)
             try:
-                # Intentar usar las disponibilidades ya cargadas en la propiedad si existen
-                if hasattr(propiedad, 'disponibilidades_relacionadas'):
-                    disponibilidades = propiedad.disponibilidades_relacionadas
-                else:
-                    # Fallback: consulta directa pero con manejo de errores
-                    from .models.propiedad import Disponibilidad
-                    disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad)
+                # Buscar reservas que terminen ANTES O EN la fecha de búsqueda
+                reservas_anteriores = propiedad.reservas.filter(
+                    fecha_fin__lte=fecha_inicio_busqueda  # ✅ CORREGIDO: <= en lugar de <
+                ).order_by('-fecha_fin')
                 
-                # Buscar la disponibilidad más relevante
-                disponibilidad_valida = None
-                for disp in disponibilidades:
-                    if (disp.fecha_inicio <= fecha_inicio_busqueda <= disp.fecha_fin):
-                        disponibilidad_valida = disp
-                        break
+                # Buscar disponibilidades que terminen ANTES O EN la fecha de búsqueda  
+                from .models.propiedad import Disponibilidad
+                disponibilidades_anteriores = Disponibilidad.objects.filter(
+                    propiedad=propiedad,
+                    fecha_fin__lte=fecha_inicio_busqueda  # ✅ CORREGIDO: <= en lugar de <
+                ).order_by('-fecha_fin')
                 
-                if not disponibilidad_valida:
-                    # Buscar la más cercana antes de la fecha
-                    for disp in disponibilidades:
-                        if disp.fecha_fin < fecha_inicio_busqueda:
-                            if not disponibilidad_valida or disp.fecha_fin > disponibilidad_valida.fecha_fin:
-                                disponibilidad_valida = disp
+                # Encontrar la fecha de fin más reciente (reserva o disponibilidad)
+                fecha_fin_mas_reciente = None
+                tipo_encontrado = None
                 
-                if disponibilidad_valida and disponibilidad_valida.fecha_inicio:
-                    # Calcular días perdidos
-                    dias_perdidos = (fecha_inicio_busqueda - disponibilidad_valida.fecha_inicio).days
-                    dias_resultado = max(dias_perdidos, 0)
-                    print(f"🔍 Propiedad {propiedad.id}: {dias_resultado} días perdidos")
+                # Verificar reservas
+                if reservas_anteriores.exists():
+                    reserva_reciente = reservas_anteriores.first()
+                    fecha_fin_mas_reciente = reserva_reciente.fecha_fin
+                    tipo_encontrado = "reserva"
+                
+                # Verificar disponibilidades y comparar
+                if disponibilidades_anteriores.exists():
+                    disponibilidad_reciente = disponibilidades_anteriores.first()
+                    if not fecha_fin_mas_reciente or disponibilidad_reciente.fecha_fin > fecha_fin_mas_reciente:
+                        fecha_fin_mas_reciente = disponibilidad_reciente.fecha_fin
+                        tipo_encontrado = "disponibilidad"
+                
+                if fecha_fin_mas_reciente:
+                    # ✅ CALCULAR DÍAS PERDIDOS: desde el día siguiente al fin hasta el inicio de búsqueda
+                    from datetime import timedelta
+                    dia_siguiente = fecha_fin_mas_reciente + timedelta(days=1)
+                    dias_perdidos = (fecha_inicio_busqueda - dia_siguiente).days
+                    dias_resultado = max(dias_perdidos, 0)  # No negativos
+                    
+                    print(f"🔍 Propiedad {propiedad.id}: Última {tipo_encontrado} terminó {fecha_fin_mas_reciente}, búsqueda {fecha_inicio_busqueda} → {dias_resultado} días perdidos")
                     return dias_resultado
                 else:
-                    # Fallback final: usar ID de propiedad para ordenamiento consistente
+                    # Sin fechas anteriores, usar ID como fallback
+                    print(f"🔍 Propiedad {propiedad.id}: Sin fechas anteriores, usando ID como ordenamiento")
                     return int(propiedad.id) if propiedad.id else 999999
                     
             except Exception as e:
