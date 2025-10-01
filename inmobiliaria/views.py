@@ -6543,7 +6543,9 @@ def buscar_propiedades(request):
             dias = propiedad.dias_libres_calculados
             color = "🔴" if estado == 'confirmada_no_pagada' else "🟢"
             ubicacion = getattr(propiedad, 'ubicacion', 'Sin ubicación')
-            print(f"  {i:2d}. {color} ID:{propiedad.id:5d} | {ubicacion:20s} | {estado:20s} | {dias:6d} días libres")
+            # ✅ CORREGIDO: Convertir dias a int para evitar error de formato
+            dias_int = int(dias) if isinstance(dias, (int, float, str)) and str(dias).replace('-', '').isdigit() else 999999
+            print(f"  {i:2d}. {color} ID:{propiedad.id:5d} | {ubicacion:20s} | {estado:20s} | {dias_int:6d} días libres")
         print("=" * 80)
 
     # Obtener conceptos para el template
