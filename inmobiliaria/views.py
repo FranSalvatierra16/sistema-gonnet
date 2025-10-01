@@ -6495,7 +6495,7 @@ def buscar_propiedades(request):
                     dias_perdidos = (fecha_inicio_busqueda - dia_siguiente).days
                     dias_resultado = max(dias_perdidos, 0)  # No negativos
                     
-                    print(f"🔍 Propiedad {propiedad.id}: Última {tipo_encontrado} terminó {fecha_fin_mas_reciente}, búsqueda {fecha_inicio_busqueda} → {dias_resultado} días perdidos")
+                    print(f"🔍 Propiedad {propiedad.id}: Última {tipo_encontrado} terminó {fecha_fin_mas_reciente}, día siguiente {dia_siguiente}, búsqueda {fecha_inicio_busqueda} → {dias_resultado} días perdidos")
                     return dias_resultado
                 else:
                     # Sin fechas anteriores, usar ID como fallback
@@ -6550,22 +6550,32 @@ def buscar_propiedades(request):
         # ✅ ORDENAR: primero las rojas (días libres = -1), luego por menos días libres, luego por ID
         propiedades_disponibles.sort(key=lambda p: (p.dias_libres_calculados, p.id))
         
-        # ✅ DEBUG SIMPLIFICADO SIN FORMATO COMPLEJO
+        # ✅ DEBUG DETALLADO PARA VERIFICAR ORDENAMIENTO
+        print("=" * 80)
         print("📋 PROPIEDADES ORDENADAS POR DÍAS PERDIDOS:")
         print(f"Total propiedades encontradas: {len(propiedades_disponibles)}")
+        print("=" * 80)
         
-        # Solo mostrar las primeras 5 para debug sin riesgo de errores de formato
-        for i, propiedad in enumerate(propiedades_disponibles[:5], 1):
+        # Mostrar TODAS las propiedades con sus cálculos para debug
+        for i, propiedad in enumerate(propiedades_disponibles, 1):
             try:
                 estado = getattr(propiedad, 'estado_reserva', 'disponible')
-                dias = str(propiedad.dias_libres_calculados)
-                print(f"  {i}. Propiedad {propiedad.id} - {estado} - {dias} días libres")
-            except:
-                print(f"  {i}. Propiedad con error en debug")
+                dias = propiedad.dias_libres_calculados
+                
+                # Obtener fechas de disponibilidad para mostrar
+                try:
+                    disponibilidad_info = "Sin info"
+                    if hasattr(propiedad, 'disponibilidad_inicio') and hasattr(propiedad, 'disponibilidad_fin'):
+                        disponibilidad_info = f"{propiedad.disponibilidad_inicio} al {propiedad.disponibilidad_fin}"
+                except:
+                    disponibilidad_info = "Error obteniendo fechas"
+                
+                print(f"  {i:2d}. ID:{propiedad.id:5d} | {estado:20s} | {str(dias):>6s} días | {disponibilidad_info}")
+                
+            except Exception as e:
+                print(f"  {i:2d}. ID:{propiedad.id} | ERROR: {e}")
         
-        if len(propiedades_disponibles) > 5:
-            print(f"  ... y {len(propiedades_disponibles) - 5} propiedades más")
-        print("-" * 50)
+        print("=" * 80)
 
     # Obtener conceptos para el template
     conceptos = Concepto.objects.filter(
