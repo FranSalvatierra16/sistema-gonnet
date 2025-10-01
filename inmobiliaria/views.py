@@ -6535,18 +6535,22 @@ def buscar_propiedades(request):
         # ✅ ORDENAR: primero las rojas (días libres = -1), luego por menos días libres, luego por ID
         propiedades_disponibles.sort(key=lambda p: (p.dias_libres_calculados, p.id))
         
-        print("=" * 80)
-        print("📋 ORDEN FINAL DE PROPIEDADES (OPTIMIZADO POR DÍAS PERDIDOS):")
-        print("=" * 80)
-        for i, propiedad in enumerate(propiedades_disponibles, 1):
-            estado = getattr(propiedad, 'estado_reserva', 'N/A')
-            dias = propiedad.dias_libres_calculados
-            color = "🔴" if estado == 'confirmada_no_pagada' else "🟢"
-            ubicacion = getattr(propiedad, 'ubicacion', 'Sin ubicación')
-            # ✅ CORREGIDO: Convertir dias a int para evitar error de formato
-            dias_int = int(dias) if isinstance(dias, (int, float, str)) and str(dias).replace('-', '').isdigit() else 999999
-            print(f"  {i:2d}. {color} ID:{propiedad.id:5d} | {ubicacion:20s} | {estado:20s} | {dias_int:6d} días libres")
-        print("=" * 80)
+        # ✅ DEBUG SIMPLIFICADO SIN FORMATO COMPLEJO
+        print("📋 PROPIEDADES ORDENADAS POR DÍAS PERDIDOS:")
+        print(f"Total propiedades encontradas: {len(propiedades_disponibles)}")
+        
+        # Solo mostrar las primeras 5 para debug sin riesgo de errores de formato
+        for i, propiedad in enumerate(propiedades_disponibles[:5], 1):
+            try:
+                estado = getattr(propiedad, 'estado_reserva', 'disponible')
+                dias = str(propiedad.dias_libres_calculados)
+                print(f"  {i}. Propiedad {propiedad.id} - {estado} - {dias} días libres")
+            except:
+                print(f"  {i}. Propiedad con error en debug")
+        
+        if len(propiedades_disponibles) > 5:
+            print(f"  ... y {len(propiedades_disponibles) - 5} propiedades más")
+        print("-" * 50)
 
     # Obtener conceptos para el template
     conceptos = Concepto.objects.filter(
