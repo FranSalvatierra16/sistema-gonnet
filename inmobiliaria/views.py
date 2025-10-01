@@ -6484,9 +6484,15 @@ def buscar_propiedades(request):
             if fecha_fin_anterior:
                 # Calcular días libres SOLO ANTES: fecha_fin_anterior hasta fecha_inicio_busqueda
                 dias_libres = (fecha_inicio_busqueda - fecha_fin_anterior).days
-                return max(dias_libres, 0)  # No negativos
+                dias_resultado = max(dias_libres, 0)  # No negativos
+                
+                # DEBUG mejorado
+                print(f"🔍 Propiedad {propiedad.id}: Fecha fin anterior: {fecha_fin_anterior}, Inicio búsqueda: {fecha_inicio_busqueda}, Días libres: {dias_resultado}")
+                
+                return dias_resultado
             else:
                 # Si no hay nada anterior, asumir muchos días libres (ponerla al final)
+                print(f"🔍 Propiedad {propiedad.id}: Sin fecha anterior, asignando 999999 días")
                 return 999999
             
         except Exception as e:
@@ -6526,15 +6532,19 @@ def buscar_propiedades(request):
                 disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad, fecha_fin__lt=fecha_inicio).order_by('-fecha_fin')
                 print(f"   - Disponibilidades anteriores: {list(disponibilidades.values('id', 'fecha_fin'))}")
         
-        # Ordenar: primero las rojas (días libres = -1), luego por menos días libres
-        propiedades_disponibles.sort(key=lambda p: p.dias_libres_calculados)
+        # ✅ ORDENAR: primero las rojas (días libres = -1), luego por menos días libres, luego por ID
+        propiedades_disponibles.sort(key=lambda p: (p.dias_libres_calculados, p.id))
         
-        print("📋 ORDEN FINAL:")
+        print("=" * 80)
+        print("📋 ORDEN FINAL DE PROPIEDADES (OPTIMIZADO POR DÍAS PERDIDOS):")
+        print("=" * 80)
         for i, propiedad in enumerate(propiedades_disponibles, 1):
             estado = getattr(propiedad, 'estado_reserva', 'N/A')
             dias = propiedad.dias_libres_calculados
             color = "🔴" if estado == 'confirmada_no_pagada' else "🟢"
-            print(f"  {i}. {color} Propiedad {propiedad.id}: {estado} - {dias} días libres")
+            ubicacion = getattr(propiedad, 'ubicacion', 'Sin ubicación')
+            print(f"  {i:2d}. {color} ID:{propiedad.id:5d} | {ubicacion:20s} | {estado:20s} | {dias:6d} días libres")
+        print("=" * 80)
 
     # Obtener conceptos para el template
     conceptos = Concepto.objects.filter(
