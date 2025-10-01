@@ -1183,12 +1183,12 @@ def buscar_propiedades_reserva(request):
                 # Fechas finales de disponibilidades que terminan antes del período
                 disp_anteriores = Disponibilidad.objects.filter(
                     propiedad=propiedad,
-                    fecha_fin__lt=fecha_inicio
+                    fecha_fin__lte=fecha_inicio
                 ).order_by('-fecha_fin').first()
                 
                 # Fechas finales de reservas que terminan antes del período
                 reservas_anteriores = propiedad.reservas.filter(
-                    fecha_fin__lt=fecha_inicio
+                    fecha_fin__lte=fecha_inicio
                 ).order_by('-fecha_fin').first()
                 
                 # Determinar la fecha final más reciente
@@ -6229,12 +6229,12 @@ def buscar_propiedades(request):
                 # Fechas finales de disponibilidades que terminan antes del período
                 disp_anteriores = Disponibilidad.objects.filter(
                     propiedad=propiedad,
-                    fecha_fin__lt=fecha_inicio
+                    fecha_fin__lte=fecha_inicio
                 ).order_by('-fecha_fin').first()
                 
                 # Fechas finales de reservas que terminan antes del período
                 reservas_anteriores = propiedad.reservas.filter(
-                    fecha_fin__lt=fecha_inicio
+                    fecha_fin__lte=fecha_inicio
                 ).order_by('-fecha_fin').first()
                 
                 # Determinar la fecha final más reciente
@@ -6497,12 +6497,12 @@ def buscar_propiedades(request):
                 
                 # 2️⃣ SEGUNDO: Buscar fechas anteriores (reservas o disponibilidades que terminaron antes)
                 reservas_anteriores = propiedad.reservas.filter(
-                    fecha_fin__lt=fecha_inicio_busqueda
+                    fecha_fin__lte=fecha_inicio_busqueda
                 ).order_by('-fecha_fin')
                 
                 disponibilidades_anteriores = Disponibilidad.objects.filter(
                     propiedad=propiedad,
-                    fecha_fin__lt=fecha_inicio_busqueda
+                    fecha_fin__lte=fecha_inicio_busqueda
                 ).order_by('-fecha_fin')
                 
                 # Encontrar la fecha de fin más reciente
