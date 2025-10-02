@@ -2865,6 +2865,18 @@ def procesar_movimiento_reserva(request):
                 reserva.senia = Decimal('0')
                 deposito_garantia = Decimal('0')
                 
+            # ✅ ACTUALIZAR VENDEDOR SI SE CAMBIÓ EN EL FORMULARIO
+            productor_id = request.POST.get('productor_id')
+            if productor_id and productor_id.strip():
+                try:
+                    nuevo_vendedor = Vendedor.objects.get(id=int(productor_id))
+                    if reserva.vendedor != nuevo_vendedor:
+                        print(f"🔄 Cambiando vendedor de {reserva.vendedor} a {nuevo_vendedor}")
+                        reserva.vendedor = nuevo_vendedor
+                except (Vendedor.DoesNotExist, ValueError) as e:
+                    print(f"⚠️ Error al cambiar vendedor: {e}")
+                    # No cambiar el vendedor si hay error, mantener el original
+            
             # Cambiar estado de la reserva
             reserva.estado = 'pagada'
             reserva.save()
