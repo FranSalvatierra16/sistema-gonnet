@@ -451,6 +451,44 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         <hr>
                         
+                        <!-- Sección de Conceptos -->
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <div class="card">
+                                    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                                        <h5 class="mb-0">📝 Conceptos</h5>
+                                        <button type="button" class="btn btn-primary btn-sm" onclick="mostrarModalConcepto()">
+                                            ➕ Agregar Concepto
+                                        </button>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered" id="tablaConceptos">
+                                                <thead style="background-color: #e9ecef;">
+                                                    <tr>
+                                                        <th>Fecha</th>
+                                                        <th>Concepto</th>
+                                                        <th>Observaciones</th>
+                                                        <th>Importe</th>
+                                                        <th>ID</th>
+                                                        <th>Acciones</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="conceptosBody">
+                                                    <!-- Los conceptos se agregan dinámicamente aquí -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="alert alert-info mt-2">
+                                            <small><strong>💡 Información:</strong> Los conceptos se pueden agregar para detallar la operación. Esta funcionalidad está en desarrollo.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
                         <!-- Sección de Formas de Pago -->
                         <div class="row mb-3">
                             <div class="col-md-12">
