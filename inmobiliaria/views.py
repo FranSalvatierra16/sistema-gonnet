@@ -1547,8 +1547,8 @@ def finalizar_reserva_nueva(request, reserva_id):
             'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
             'numero_movimiento': proximo_numero_movimiento,
             'numero_recibo': '0000-00000000',  # Para completar
-            'productor_id': request.user.id,
-            'productor_nombre': f"{request.user.nombre} {request.user.apellido}",
+            'productor_id': reserva.vendedor.id if reserva.vendedor else request.user.id,
+            'productor_nombre': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else f"{request.user.nombre} {request.user.apellido}",
             'conceptos_caja': conceptos_caja,
             'saldo_a_ocupar': saldo_a_ocupar,
             'senia_pendiente': senia_pendiente,  # ✅ NUEVO: Seña pendiente (0 si ya se pagó)
@@ -7646,8 +7646,8 @@ def finalizar_reserva_nueva(request, reserva_id):
             'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
             'numero_movimiento': proximo_numero_movimiento,
             'numero_recibo': '0000-00000000',  # Para completar
-            'productor_id': request.user.id,
-            'productor_nombre': f"{request.user.nombre} {request.user.apellido}",
+            'productor_id': reserva.vendedor.id if reserva.vendedor else request.user.id,
+            'productor_nombre': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else f"{request.user.nombre} {request.user.apellido}",
             'conceptos_caja': conceptos_caja,
             'saldo_a_ocupar': saldo_a_ocupar,  # Para mostrar en resumen
             'senia_pendiente': senia_pendiente,  # Para prellenar el campo seña
