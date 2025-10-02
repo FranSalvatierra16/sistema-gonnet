@@ -55,11 +55,59 @@ function calcularSaldoOcupar() {
 // Función para calcular totales generales
 function calcularTotales() {
     try {
+        console.log('🔧 calcularTotales llamada - VERSIÓN ACTUALIZADA v2.0');
+        
+        // 1. Calcular total de conceptos
+        let totalConceptos = 0;
+        if (conceptosAgregados && conceptosAgregados.length > 0) {
+            totalConceptos = conceptosAgregados.reduce((sum, concepto) => {
+                return sum + (parseFloat(concepto.importe) || 0);
+            }, 0);
+        }
+        
+        console.log('💰 Total conceptos calculado:', totalConceptos, 'de', conceptosAgregados.length, 'conceptos');
+        
+        // 2. Actualizar display del total de conceptos
+        const totalConceptosElement = document.getElementById('totalConceptos');
+        if (totalConceptosElement) {
+            totalConceptosElement.textContent = totalConceptos.toLocaleString('es-ES');
+            console.log('✅ Display totalConceptos actualizado:', totalConceptos.toLocaleString('es-ES'));
+        }
+        
+        // 3. Calcular total del recibo (seña + conceptos)
+        const seniaElement = document.querySelector('input[name="senia"]');
+        const seniaActual = parseFloat((seniaElement?.value || '0').replace(/\./g, '')) || 0;
+        
+        const totalRecibo = seniaActual + totalConceptos;
+        
+        console.log('🧾 Total recibo calculado: seña(' + seniaActual + ') + conceptos(' + totalConceptos + ') = ' + totalRecibo);
+        
+        // 4. Actualizar display del total del recibo
+        const totalReciboElement = document.getElementById('totalRecibo');
+        if (totalReciboElement) {
+            totalReciboElement.value = totalRecibo;
+            console.log('✅ Display totalRecibo actualizado:', totalRecibo);
+        }
+        
+        // 5. Actualizar display para comparación con pagos
+        const totalReciboDisplayElement = document.getElementById('totalReciboDisplay');
+        if (totalReciboDisplayElement) {
+            totalReciboDisplayElement.textContent = totalRecibo.toLocaleString('es-ES');
+            console.log('✅ Display totalReciboDisplay actualizado:', totalRecibo.toLocaleString('es-ES'));
+        }
+        
+        // 6. Recalcular saldo a ocupar
         if (typeof calcularSaldoOcupar === 'function') {
             calcularSaldoOcupar();
         }
+        
+        // 7. Recalcular totales de pagos para comparación
+        if (typeof calcularTotalPagos === 'function') {
+            calcularTotalPagos();
+        }
+        
     } catch (error) {
-        console.error('Error en calcularTotales:', error);
+        console.error('❌ Error en calcularTotales:', error);
     }
 }
 
@@ -690,44 +738,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         <hr>
                         
-                        <!-- Sección de Conceptos -->
-                        <div class="row mb-3">
-                            <div class="col-md-12">
-                                <div class="card">
-                                    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
-                                        <h5 class="mb-0">📝 Conceptos</h5>
-                                        <button type="button" class="btn btn-primary btn-sm" onclick="mostrarModalConcepto()">
-                                            ➕ Agregar Concepto
-                                        </button>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="table-responsive">
-                                            <table class="table table-sm table-bordered" id="tablaConceptos">
-                                                <thead style="background-color: #e9ecef;">
-                                                    <tr>
-                                                        <th>Fecha</th>
-                                                        <th>Concepto</th>
-                                                        <th>Observaciones</th>
-                                                        <th>Importe</th>
-                                                        <th>ID</th>
-                                                        <th>Acciones</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="conceptosBody">
-                                                    <!-- Los conceptos se agregan dinámicamente aquí -->
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        <div class="alert alert-info mt-2">
-                                            <small><strong>💡 Información:</strong> Los conceptos se pueden agregar para detallar la operación. Esta funcionalidad está en desarrollo.</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <hr>
-                        
                         <!-- Sección de Formas de Pago -->
                         <div class="row mb-3">
                             <div class="col-md-12">
@@ -944,7 +954,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
-                <button type="button" class="btn btn-success" id="btnAgregarConcepto" onclick="console.log('Botón clickeado, función agregarConcepto:', typeof agregarConcepto); if(typeof agregarConcepto === 'function') { agregarConcepto(); } else { alert('ERROR: agregarConcepto no está definida. Tipo: ' + typeof agregarConcepto); }">✅ Agregar</button>
+                <button type="button" class="btn btn-success" id="btnAgregarConcepto" onclick="agregarConcepto()">✅ Agregar</button>
             </div>
         </div>
     </div>
