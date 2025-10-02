@@ -60,6 +60,50 @@ function habilitarBotonProcesar() {
     console.log('habilitarBotonProcesar ejecutada');
 }
 
+// ✅ FUNCIONES FALTANTES PARA EL MODAL DE CONCEPTO
+function mostrarModalConcepto() {
+    console.log('mostrarModalConcepto llamada');
+    const modalElement = document.getElementById('modalConcepto');
+    if (!modalElement) {
+        console.error('Modal element not found');
+        alert('Error: No se encontró el modal de concepto');
+        return;
+    }
+
+    // Resetear el formulario
+    const formElement = document.getElementById('formConcepto');
+    if (formElement) {
+        formElement.reset();
+    }
+
+    // Mostrar modal usando Bootstrap 5
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
+}
+
+function mostrarModalBuscarConcepto() {
+    console.log('mostrarModalBuscarConcepto llamada');
+    // Implementar lógica de búsqueda de conceptos si es necesario
+    alert('Función de búsqueda de conceptos en desarrollo');
+}
+
+function mostrarModalNuevoConcepto() {
+    console.log('mostrarModalNuevoConcepto llamada');
+    // Implementar lógica para crear nuevo concepto si es necesario
+    alert('Función de nuevo concepto en desarrollo');
+}
+
+function buscarConceptoPorId(id) {
+    console.log('buscarConceptoPorId llamada con ID:', id);
+    // Implementar lógica de búsqueda por ID si es necesario
+}
+
+function agregarConcepto() {
+    console.log('agregarConcepto llamada');
+    // Implementar lógica para agregar concepto si es necesario
+    alert('Función de agregar concepto en desarrollo');
+}
+
 // Función para buscar vendedor por ID
 function buscarPorId() {
     const idInput = document.getElementById('productor_id');
