@@ -1672,7 +1672,17 @@ document.addEventListener('DOMContentLoaded', function() {
         input.addEventListener('input', function() {
             formatearNumeroEnTiempoReal(this);
             if (this.name === 'senia' || this.name === 'importe_locacion') {
+                console.log(`🔄 Campo ${this.name} cambió a: ${this.value}`);
                 calcularSaldoOcupar();
+                calcularTotales();
+            }
+        });
+        
+        // También recalcular cuando se pierde el foco
+        input.addEventListener('blur', function() {
+            if (this.name === 'senia' || this.name === 'importe_locacion') {
+                calcularSaldoOcupar();
+                calcularTotales();
             }
         });
     });
@@ -1710,6 +1720,57 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('formConcepto').reset();
     });
     
+    // ✅ NUEVO: Variable con seña ya pagada desde el backend
+    const SENIA_PAGADA = {% if total_senia_pagada %}{{ total_senia_pagada }}{% else %}0{% endif %};
+    console.log('🔧 SENIA_PAGADA inicializada:', SENIA_PAGADA);
+
+    // ✅ FUNCIÓN: Calcular saldo a ocupar (Queda por Pagar)
+    function calcularSaldoOcupar() {
+        try {
+            // ✅ CORREGIDO: Queda por Pagar = Importe Locación - (Seña Ya Pagada + Seña Actual)
+            const importeLocacionElement = document.querySelector('input[name="importe_locacion"]');
+            const seniaElement = document.getElementById('senia');
+            
+            const importeLocacion = parseFloat((importeLocacionElement?.value || '0').replace(/\./g, '')) || 0;
+            const seniaActual = parseFloat((seniaElement?.value || '0').replace(/\./g, '')) || 0;
+            
+            // ✅ CÁLCULO CORRECTO: Total seña = seña pagada + seña actual
+            const totalSenia = SENIA_PAGADA + seniaActual;
+            const quedaPorPagar = Math.max(0, importeLocacion - totalSenia);
+            
+            console.log('💰 CÁLCULO QUEDA POR PAGAR:');
+            console.log(`   Importe Locación: ${importeLocacion}`);
+            console.log(`   Seña Pagada: ${SENIA_PAGADA}`);
+            console.log(`   Seña Actual: ${seniaActual}`);
+            console.log(`   Total Seña: ${totalSenia}`);
+            console.log(`   Queda por Pagar: ${quedaPorPagar}`);
+            
+            // Actualizar el campo en la interfaz
+            const quedaPorPagarElement = document.querySelector('input[name="queda_por_pagar"]');
+            if (quedaPorPagarElement) {
+                quedaPorPagarElement.value = quedaPorPagar.toLocaleString('es-ES');
+            }
+            
+            // Actualizar también en el resumen si existe
+            const resumenPendiente = document.querySelector('#resumen-pendiente, .pendiente-amount');
+            if (resumenPendiente) {
+                resumenPendiente.textContent = `$${quedaPorPagar.toLocaleString('es-ES')}`;
+            }
+            
+        } catch (error) {
+            console.error('❌ Error en calcularSaldoOcupar:', error);
+        }
+    }
+
+    // ✅ FUNCIÓN: Calcular totales generales
+    function calcularTotales() {
+        try {
+            calcularSaldoOcupar(); // Asegurar que el saldo esté actualizado
+        } catch (error) {
+            console.error('❌ Error en calcularTotales:', error);
+        }
+    }
+
     // ✅ Inicializar cálculos al cargar la página
     calcularTotales();
     calcularSaldoOcupar();
