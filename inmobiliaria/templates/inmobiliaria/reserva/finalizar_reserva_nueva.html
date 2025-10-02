@@ -8,7 +8,8 @@
 <script>
 // ✅ FUNCIONES GLOBALES NECESARIAS PARA EL FUNCIONAMIENTO
 // Variable con seña ya pagada desde el backend
-const SENIA_PAGADA = {% if total_senia_pagada %}{{ total_senia_pagada }}{% else %}0{% endif %};
+const SENIA_PAGADA = {% if total_senia_pagada and total_senia_pagada != None %}{{ total_senia_pagada|floatformat:0 }}{% else %}0{% endif %};
+console.log('🔧 SENIA_PAGADA inicializada:', SENIA_PAGADA);
 
 // Función para calcular saldo a ocupar (Queda por Pagar)
 function calcularSaldoOcupar() {
@@ -62,10 +63,10 @@ function habilitarBotonProcesar() {
 
 // ✅ FUNCIONES FALTANTES PARA EL MODAL DE CONCEPTO
 function mostrarModalConcepto() {
-    console.log('mostrarModalConcepto llamada');
+    console.log('🔧 mostrarModalConcepto llamada');
     const modalElement = document.getElementById('modalConcepto');
     if (!modalElement) {
-        console.error('Modal element not found');
+        console.error('❌ Modal element not found');
         alert('Error: No se encontró el modal de concepto');
         return;
     }
@@ -77,8 +78,16 @@ function mostrarModalConcepto() {
     }
 
     // Mostrar modal usando Bootstrap 5
-    const modal = new bootstrap.Modal(modalElement);
-    modal.show();
+    try {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+        console.log('✅ Modal mostrado correctamente');
+    } catch (error) {
+        console.error('❌ Error al mostrar modal:', error);
+        // Fallback: mostrar modal sin Bootstrap
+        modalElement.style.display = 'block';
+        modalElement.classList.add('show');
+    }
 }
 
 function mostrarModalBuscarConcepto() {
@@ -1860,6 +1869,13 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('🎯 CÁLCULO INICIAL ejecutado');
     }, 100);
 });
+
+// ✅ VERIFICAR QUE TODAS LAS FUNCIONES ESTÁN DEFINIDAS
+console.log('🔧 FUNCIONES DEFINIDAS:');
+console.log('- mostrarModalConcepto:', typeof mostrarModalConcepto);
+console.log('- calcularSaldoOcupar:', typeof calcularSaldoOcupar);
+console.log('- calcularTotales:', typeof calcularTotales);
+console.log('- habilitarBotonProcesar:', typeof habilitarBotonProcesar);
 </script>
 
 <style>
