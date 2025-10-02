@@ -6,6 +6,60 @@
 
 {% block extra_js %}
 <script>
+// ✅ FUNCIONES GLOBALES NECESARIAS PARA EL FUNCIONAMIENTO
+// Variable con seña ya pagada desde el backend
+const SENIA_PAGADA = {% if total_senia_pagada %}{{ total_senia_pagada }}{% else %}0{% endif %};
+
+// Función para calcular saldo a ocupar (Queda por Pagar)
+function calcularSaldoOcupar() {
+    try {
+        const importeLocacionElement = document.querySelector('input[name="importe_locacion"]');
+        const seniaElement = document.querySelector('input[name="senia"]');
+        
+        if (!importeLocacionElement || !seniaElement) {
+            return; // Salir silenciosamente si no existen los campos
+        }
+        
+        const importeLocacion = parseFloat((importeLocacionElement.value || '0').replace(/\./g, '')) || 0;
+        const seniaActual = parseFloat((seniaElement.value || '0').replace(/\./g, '')) || 0;
+        
+        const totalSenia = SENIA_PAGADA + seniaActual;
+        const quedaPorPagar = Math.max(0, importeLocacion - totalSenia);
+        
+        // Actualizar el campo si existe
+        const quedaPorPagarElement = document.querySelector('input[name="queda_por_pagar"]');
+        if (quedaPorPagarElement) {
+            quedaPorPagarElement.value = quedaPorPagar.toLocaleString('es-ES');
+        }
+        
+        // Actualizar resumen si existe
+        const resumenPendiente = document.querySelector('#resumen-pendiente, .pendiente-amount');
+        if (resumenPendiente) {
+            resumenPendiente.textContent = `$${quedaPorPagar.toLocaleString('es-ES')}`;
+        }
+        
+    } catch (error) {
+        console.error('Error en calcularSaldoOcupar:', error);
+    }
+}
+
+// Función para calcular totales generales
+function calcularTotales() {
+    try {
+        if (typeof calcularSaldoOcupar === 'function') {
+            calcularSaldoOcupar();
+        }
+    } catch (error) {
+        console.error('Error en calcularTotales:', error);
+    }
+}
+
+// Función placeholder para habilitar botón procesar
+function habilitarBotonProcesar() {
+    // Esta función puede estar definida en otro lugar
+    console.log('habilitarBotonProcesar ejecutada');
+}
+
 // Función para buscar vendedor por ID
 function buscarPorId() {
     const idInput = document.getElementById('productor_id');
@@ -1672,7 +1726,10 @@ document.addEventListener('DOMContentLoaded', function() {
         input.addEventListener('input', function() {
             formatearNumeroEnTiempoReal(this);
             if (this.name === 'senia' || this.name === 'importe_locacion') {
-                calcularSaldoOcupar();
+                setTimeout(() => {
+                    calcularSaldoOcupar();
+                    calcularTotales();
+                }, 10);
             }
         });
     });
