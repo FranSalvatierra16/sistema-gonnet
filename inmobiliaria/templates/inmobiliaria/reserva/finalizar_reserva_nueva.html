@@ -7,9 +7,17 @@
 {% block extra_js %}
 <script>
 // ✅ FUNCIONES GLOBALES NECESARIAS PARA EL FUNCIONAMIENTO
+console.log('🚀 CARGANDO SCRIPT - VERSIÓN ACTUALIZADA v2.0 - ' + new Date().toLocaleTimeString());
+
 // Variable con seña ya pagada desde el backend
 const SENIA_PAGADA = {% if total_senia_pagada and total_senia_pagada != None %}{{ total_senia_pagada|floatformat:0 }}{% else %}0{% endif %};
 console.log('🔧 SENIA_PAGADA inicializada:', SENIA_PAGADA);
+
+// ✅ VARIABLES GLOBALES PARA CONCEPTOS
+let conceptosAgregados = [];
+let conceptoSeleccionadoActual = null;
+let conceptoEditando = null;
+let contadorConceptos = 1;
 
 // Función para calcular saldo a ocupar (Queda por Pagar)
 function calcularSaldoOcupar() {
@@ -91,26 +99,248 @@ function mostrarModalConcepto() {
 }
 
 function mostrarModalBuscarConcepto() {
-    console.log('mostrarModalBuscarConcepto llamada');
-    // Implementar lógica de búsqueda de conceptos si es necesario
-    alert('Función de búsqueda de conceptos en desarrollo');
+    console.log('🔧 mostrarModalBuscarConcepto llamada');
+    const modalElement = document.getElementById('modalBuscarConcepto');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    } else {
+        alert('Modal de búsqueda no encontrado');
+    }
 }
 
 function mostrarModalNuevoConcepto() {
-    console.log('mostrarModalNuevoConcepto llamada');
-    // Implementar lógica para crear nuevo concepto si es necesario
-    alert('Función de nuevo concepto en desarrollo');
+    console.log('🔧 mostrarModalNuevoConcepto llamada');
+    const modalElement = document.getElementById('modalNuevoConcepto');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    } else {
+        alert('Modal de nuevo concepto no encontrado');
+    }
 }
 
 function buscarConceptoPorId(id) {
-    console.log('buscarConceptoPorId llamada con ID:', id);
-    // Implementar lógica de búsqueda por ID si es necesario
+    console.log('🔧 buscarConceptoPorId llamada con ID:', id);
+    if (!id || id.trim() === '') {
+        // Limpiar selección si no hay ID
+        const infoDiv = document.getElementById('infoConceptoSeleccionado');
+        if (infoDiv) {
+            infoDiv.style.display = 'none';
+        }
+        conceptoSeleccionadoActual = null;
+        return;
+    }
+    
+    // Buscar en la tabla de conceptos disponibles
+    const filaConcepto = document.querySelector(`tr[data-concepto-id="${id}"]`);
+    if (filaConcepto) {
+        const nombre = filaConcepto.querySelector('td:nth-child(2)').textContent;
+        seleccionarConcepto(id, nombre);
+    } else {
+        // Si no se encuentra, limpiar selección
+        const infoDiv = document.getElementById('infoConceptoSeleccionado');
+        if (infoDiv) {
+            infoDiv.style.display = 'none';
+        }
+        conceptoSeleccionadoActual = null;
+    }
 }
 
 function agregarConcepto() {
-    console.log('agregarConcepto llamada');
-    // Implementar lógica para agregar concepto si es necesario
-    alert('Función de agregar concepto en desarrollo');
+    console.log('🔧 agregarConcepto llamada - VERSIÓN ACTUALIZADA v2.0');
+    
+    // Validar que hay un concepto seleccionado
+    const conceptoIdInput = document.getElementById('conceptoId');
+    const observaciones = document.getElementById('observaciones').value || 'Sin observaciones';
+    const importe = parseFloat(document.getElementById('importe').value);
+    
+    if (!conceptoIdInput.value || !conceptoSeleccionadoActual) {
+        alert('Por favor selecciona un concepto válido');
+        return;
+    }
+    
+    if (!importe || importe <= 0) {
+        alert('Por favor ingresa un importe válido mayor a 0');
+        return;
+    }
+    
+    // Verificar si estamos editando o agregando
+    if (conceptoEditando) {
+        // Actualizar concepto existente
+        conceptoEditando.conceptoId = conceptoSeleccionadoActual.id;
+        conceptoEditando.nombre = conceptoSeleccionadoActual.nombre;
+        conceptoEditando.observaciones = observaciones;
+        conceptoEditando.importe = importe;
+        
+        console.log('✅ Concepto actualizado:', conceptoEditando);
+        conceptoEditando = null;
+    } else {
+        // Agregar nuevo concepto
+        const nuevoConcepto = {
+            id: contadorConceptos++,
+            conceptoId: conceptoSeleccionadoActual.id,
+            nombre: conceptoSeleccionadoActual.nombre,
+            observaciones: observaciones,
+            importe: importe,
+            fecha: new Date().toLocaleDateString('es-ES')
+        };
+        
+        conceptosAgregados.push(nuevoConcepto);
+        console.log('✅ Nuevo concepto agregado:', nuevoConcepto);
+    }
+    
+    // Actualizar tabla y cerrar modal
+    actualizarTablaConceptos();
+    calcularTotales();
+    
+    // Cerrar modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalConcepto'));
+    if (modal) {
+        modal.hide();
+    }
+    
+    // Limpiar formulario
+    document.getElementById('formConcepto').reset();
+    document.getElementById('infoConceptoSeleccionado').style.display = 'none';
+    conceptoSeleccionadoActual = null;
+}
+
+// Función para seleccionar un concepto
+function seleccionarConcepto(id, nombre) {
+    console.log('🔧 seleccionarConcepto llamada:', id, nombre);
+    
+    conceptoSeleccionadoActual = { id: id, nombre: nombre };
+    
+    // Actualizar el input del ID
+    document.getElementById('conceptoId').value = id;
+    
+    // Mostrar información del concepto seleccionado
+    const infoDiv = document.getElementById('infoConceptoSeleccionado');
+    const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
+    
+    if (infoDiv && nombreSpan) {
+        nombreSpan.textContent = `ID: ${id} - ${nombre}`;
+        infoDiv.style.display = 'block';
+    }
+    
+    // Cerrar modal de búsqueda si está abierto
+    const modalBuscar = document.getElementById('modalBuscarConcepto');
+    if (modalBuscar) {
+        const modal = bootstrap.Modal.getInstance(modalBuscar);
+        if (modal) {
+            modal.hide();
+        }
+    }
+    
+    console.log('✅ Concepto seleccionado:', conceptoSeleccionadoActual);
+}
+
+// Función para actualizar la tabla de conceptos
+function actualizarTablaConceptos() {
+    const tbody = document.getElementById('conceptosBody');
+    if (!tbody) {
+        console.warn('⚠️ No se encontró el tbody de conceptos');
+        return;
+    }
+    
+    tbody.innerHTML = '';
+    
+    conceptosAgregados.forEach((concepto) => {
+        const fila = document.createElement('tr');
+        fila.innerHTML = `
+            <td>${concepto.fecha}</td>
+            <td>${concepto.nombre}</td>
+            <td>${concepto.observaciones}</td>
+            <td class="text-end">$${concepto.importe.toLocaleString('es-ES')}</td>
+            <td>${concepto.conceptoId}</td>
+            <td>
+                <button type="button" class="btn btn-warning btn-sm me-1" 
+                        onclick="editarConcepto(${concepto.id})" title="Editar">
+                    ✏️
+                </button>
+                <button type="button" class="btn btn-danger btn-sm" 
+                        onclick="eliminarConcepto(${concepto.id})" title="Eliminar">
+                    🗑️
+                </button>
+            </td>
+        `;
+        tbody.appendChild(fila);
+    });
+    
+    console.log('✅ Tabla de conceptos actualizada:', conceptosAgregados.length, 'conceptos');
+}
+
+// Función para eliminar concepto
+function eliminarConcepto(conceptoId) {
+    if (confirm('¿Estás seguro de que deseas eliminar este concepto?')) {
+        conceptosAgregados = conceptosAgregados.filter(c => c.id !== conceptoId);
+        actualizarTablaConceptos();
+        calcularTotales();
+        console.log('✅ Concepto eliminado, quedan:', conceptosAgregados.length);
+    }
+}
+
+// Función para editar concepto
+function editarConcepto(conceptoId) {
+    console.log('🔧 editarConcepto llamada con ID:', conceptoId);
+    
+    const concepto = conceptosAgregados.find(c => c.id === conceptoId);
+    if (!concepto) {
+        alert('Concepto no encontrado');
+        return;
+    }
+    
+    // Guardar el concepto que se está editando
+    conceptoEditando = concepto;
+    
+    // Rellenar el modal con los datos del concepto
+    document.getElementById('conceptoId').value = concepto.conceptoId;
+    document.getElementById('observaciones').value = concepto.observaciones === 'Sin observaciones' ? '' : concepto.observaciones;
+    document.getElementById('importe').value = concepto.importe;
+    
+    // Mostrar información del concepto
+    conceptoSeleccionadoActual = {
+        id: concepto.conceptoId,
+        nombre: concepto.nombre
+    };
+    
+    const infoDiv = document.getElementById('infoConceptoSeleccionado');
+    const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
+    if (infoDiv && nombreSpan) {
+        nombreSpan.textContent = `ID: ${concepto.conceptoId} - ${concepto.nombre}`;
+        infoDiv.style.display = 'block';
+    }
+    
+    // Cambiar el título del modal y el botón
+    document.getElementById('modalConceptoLabel').textContent = '✏️ Editar Concepto';
+    const btnAgregar = document.querySelector('#modalConcepto .btn-success');
+    if (btnAgregar) {
+        btnAgregar.textContent = '✅ Actualizar';
+    }
+    
+    // Abrir modal
+    const modal = new bootstrap.Modal(document.getElementById('modalConcepto'));
+    modal.show();
+    
+    console.log('✅ Modal de edición abierto para concepto:', concepto);
+}
+
+// Función para filtrar conceptos en el modal de búsqueda
+function filtrarConceptos(texto) {
+    const filas = document.querySelectorAll('#tablaConceptosBusqueda tr');
+    const textoBusqueda = texto.toLowerCase();
+    
+    filas.forEach(fila => {
+        const id = fila.dataset.conceptoId || '';
+        const nombre = fila.dataset.conceptoNombre || '';
+        
+        if (id.includes(textoBusqueda) || nombre.includes(textoBusqueda)) {
+            fila.style.display = '';
+        } else {
+            fila.style.display = 'none';
+        }
+    });
 }
 
 // Función para buscar vendedor por ID
@@ -714,7 +944,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
-                <button type="button" class="btn btn-success" id="btnAgregarConcepto" onclick="agregarConcepto()">✅ Agregar</button>
+                <button type="button" class="btn btn-success" id="btnAgregarConcepto" onclick="console.log('Botón clickeado, función agregarConcepto:', typeof agregarConcepto); if(typeof agregarConcepto === 'function') { agregarConcepto(); } else { alert('ERROR: agregarConcepto no está definida. Tipo: ' + typeof agregarConcepto); }">✅ Agregar</button>
             </div>
         </div>
     </div>
