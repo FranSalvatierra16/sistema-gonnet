@@ -1557,6 +1557,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'deposito': reserva.deposito_garantia or 0,  # Depósito de garantía
             'saldo_pendiente': saldo_a_ocupar,  # Saldo pendiente calculado
             'conceptos_pago': conceptos_caja,  # Conceptos disponibles
+            'conceptos_caja': conceptos_caja,  # Para el template HTML
             'conceptos_json': list(conceptos_caja.values('id', 'nombre')),  # Para JavaScript
             'cliente_id': reserva.cliente.id,
             'cliente_nombre': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
@@ -1570,7 +1571,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'productor_nombre': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else f"{request.user.nombre} {request.user.apellido}",
             'saldo_a_ocupar': saldo_a_ocupar,
             'senia_pendiente': senia_pendiente,  # ✅ NUEVO: Seña pendiente (0 si ya se pagó)
-            'total_senia_pagada': reserva.senia or 0,  # ✅ SIMPLE: Del casillero
+            'total_senia_pagada': total_pagos_anteriores if es_completar_pago else 0,  # ✅ CORREGIDO: Lo que ya se pagó
             'total_deposito_pagado': reserva.deposito_garantia or 0,  # ✅ SIMPLE: Del casillero
             'deposito_garantia': reserva.deposito_garantia,
             'fecha_desde': reserva.fecha_inicio.strftime('%d/%m/%Y'),
@@ -7616,6 +7617,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'deposito': reserva.deposito_garantia or 0,  # Depósito de garantía
             'saldo_pendiente': saldo_a_ocupar,  # Saldo pendiente calculado
             'conceptos_pago': conceptos_caja,  # Conceptos disponibles
+            'conceptos_caja': conceptos_caja,  # Para el template HTML
             'conceptos_json': list(conceptos_caja.values('id', 'nombre')),  # Para JavaScript
             'cliente_id': reserva.cliente.id,
             'cliente_nombre': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",

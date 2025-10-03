@@ -1266,9 +1266,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <script>
-// ✅ NUEVO: Variable con seña ya pagada desde el backend
-const SENIA_PAGADA = {% if total_senia_pagada %}{{ total_senia_pagada }}{% else %}0{% endif %};
-console.log('🔧 SENIA_PAGADA inicializada:', SENIA_PAGADA);
 
 // Variable para almacenar los conceptos agregados
 let conceptosAgregados = [];
