@@ -1557,6 +1557,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'deposito': reserva.deposito_garantia or 0,  # Depósito de garantía
             'saldo_pendiente': saldo_a_ocupar,  # Saldo pendiente calculado
             'conceptos_pago': conceptos_caja,  # Conceptos disponibles
+            'conceptos_json': list(conceptos_caja.values('id', 'nombre')),  # Para JavaScript
             'cliente_id': reserva.cliente.id,
             'cliente_nombre': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
             'interno_caja': caja_actual.numero,
@@ -7615,6 +7616,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'deposito': reserva.deposito_garantia or 0,  # Depósito de garantía
             'saldo_pendiente': saldo_a_ocupar,  # Saldo pendiente calculado
             'conceptos_pago': conceptos_caja,  # Conceptos disponibles
+            'conceptos_json': list(conceptos_caja.values('id', 'nombre')),  # Para JavaScript
             'cliente_id': reserva.cliente.id,
             'cliente_nombre': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
             'interno_caja': caja_actual.numero,
