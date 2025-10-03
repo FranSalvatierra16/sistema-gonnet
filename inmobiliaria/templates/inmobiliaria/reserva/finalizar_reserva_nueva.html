@@ -121,10 +121,96 @@ function calcularTotales() {
     }
 }
 
-// Función placeholder para habilitar botón procesar
-function habilitarBotonProcesar() {
-    // Esta función puede estar definida en otro lugar
-    console.log('habilitarBotonProcesar ejecutada');
+// Función para calcular total de pagos y validar
+function calcularTotalPagos() {
+    try {
+        // Obtener valores de los campos de pago
+        const efectivo = parseFloat(document.getElementById('monto_efectivo')?.value?.replace(/\./g, '') || '0') || 0;
+        const cheque = parseFloat(document.getElementById('monto_cheque')?.value?.replace(/\./g, '') || '0') || 0;
+        const tarjeta = parseFloat(document.getElementById('monto_tarjeta')?.value?.replace(/\./g, '') || '0') || 0;
+        const galicia = parseFloat(document.getElementById('monto_deposito_galicia')?.value?.replace(/\./g, '') || '0') || 0;
+        const mp = parseFloat(document.getElementById('monto_deposito_mp')?.value?.replace(/\./g, '') || '0') || 0;
+        
+        const totalPagos = efectivo + cheque + tarjeta + galicia + mp;
+        
+        console.log('💰 CÁLCULO TOTAL PAGOS:');
+        console.log('   Efectivo:', efectivo);
+        console.log('   Cheque:', cheque);
+        console.log('   Tarjeta:', tarjeta);
+        console.log('   Galicia:', galicia);
+        console.log('   Mercado Pago:', mp);
+        console.log('   TOTAL PAGOS:', totalPagos);
+        
+        // Actualizar display del total de pagos
+        const totalPagosElement = document.getElementById('totalPagos');
+        if (totalPagosElement) {
+            totalPagosElement.textContent = totalPagos.toLocaleString('es-ES');
+        }
+        
+        // Obtener total del recibo
+        const totalReciboElement = document.getElementById('totalRecibo');
+        const totalRecibo = parseFloat(totalReciboElement?.value || '0') || 0;
+        
+        // Actualizar display del total del recibo en la comparación
+        const totalReciboDisplayElement = document.getElementById('totalReciboDisplay');
+        if (totalReciboDisplayElement) {
+            totalReciboDisplayElement.textContent = totalRecibo.toLocaleString('es-ES');
+        }
+        
+        // Calcular diferencia
+        const diferencia = totalPagos - totalRecibo;
+        
+        // Actualizar diferencia
+        const diferenciaElement = document.getElementById('diferenciaPagos');
+        if (diferenciaElement) {
+            if (diferencia === 0) {
+                diferenciaElement.style.color = 'green';
+                diferenciaElement.textContent = '0 ✅';
+            } else if (diferencia > 0) {
+                diferenciaElement.style.color = 'orange';
+                diferenciaElement.textContent = `+${diferencia.toLocaleString('es-ES')} ⚠️`;
+            } else {
+                diferenciaElement.style.color = 'red';
+                diferenciaElement.textContent = `${diferencia.toLocaleString('es-ES')} ❌`;
+            }
+        }
+        
+        console.log('📊 COMPARACIÓN:');
+        console.log('   Total Pagos:', totalPagos);
+        console.log('   Total Recibo:', totalRecibo);
+        console.log('   Diferencia:', diferencia);
+        
+        // Habilitar/deshabilitar botón
+        habilitarBotonProcesar(diferencia === 0 && totalRecibo > 0);
+        
+    } catch (error) {
+        console.error('❌ Error en calcularTotalPagos:', error);
+    }
+}
+
+// Función para habilitar/deshabilitar botón procesar
+function habilitarBotonProcesar(habilitar = false) {
+    const boton = document.getElementById('btnProcesarMovimiento');
+    if (boton) {
+        if (habilitar) {
+            boton.disabled = false;
+            boton.classList.remove('btn-secondary');
+            boton.classList.add('btn-success');
+            console.log('✅ Botón HABILITADO - Totales coinciden');
+        } else {
+            boton.disabled = true;
+            boton.classList.remove('btn-success');
+            boton.classList.add('btn-secondary');
+            console.log('❌ Botón DESHABILITADO - Totales no coinciden');
+        }
+    }
+}
+
+// Función para procesar movimiento
+function procesarMovimiento() {
+    console.log('🚀 Procesando movimiento...');
+    // El formulario se enviará automáticamente
+    document.getElementById('formProcesarMovimiento').submit();
 }
 
 // ✅ FUNCIONES FALTANTES PARA EL MODAL DE CONCEPTO
