@@ -1763,6 +1763,125 @@ function editarConcepto(conceptoId) {
     }
 }
 
+// Función para calcular totales
+function calcularTotales() {
+    // ✅ Función auxiliar para parsear valores formateados
+    const parsearValorFormateado = (valor) => {
+        if (!valor) return 0;
+        return parseFloat(valor.toString().replace(/\./g, '')) || 0;
+    };
+    
+    const totalConceptos = conceptosAgregados.reduce((sum, concepto) => sum + concepto.importe, 0);
+    const totalRecibo = totalConceptos; // ✅ Total = conceptos únicamente
+    
+    // 🔍 DEBUG: Verificar valores RAW antes de parsear
+    const seniaElement = document.getElementById('senia');
+    const importeLocacionElement = document.querySelector('input[name="importe_locacion"]');
+    
+    console.log('🔍 DEBUG ELEMENTOS:');
+    console.log('  - seniaElement:', seniaElement);
+    console.log('  - seniaElement.value RAW:', seniaElement ? seniaElement.value : 'NO_ENCONTRADO');
+    console.log('  - importeLocacionElement:', importeLocacionElement);
+    console.log('  - importeLocacionElement.value RAW:', importeLocacionElement ? importeLocacionElement.value : 'NO_ENCONTRADO');
+    
+    const senia = parsearValorFormateado(seniaElement ? seniaElement.value : '0');
+    const importeLocacion = parsearValorFormateado(importeLocacionElement ? importeLocacionElement.value : '0');
+    
+    // ✅ Formatear valores en displays
+    document.getElementById('totalConceptos').textContent = totalConceptos.toLocaleString('es-ES');
+    document.getElementById('totalRecibo').value = totalRecibo;
+    document.getElementById('totalReciboDisplay').textContent = totalRecibo.toLocaleString('es-ES');
+    
+    // ✅ CORREGIDO: Calcular "Queda por Pagar" = Importe Locación - (Seña Pagada + Seña Actual)
+    const seniaPagadaNum = Number(SENIA_PAGADA) || 0;
+    const seniaActualNum = Number(senia) || 0;
+    const importeLocacionNum = Number(importeLocacion) || 0;
+    const totalSenia = seniaPagadaNum + seniaActualNum;
+    const quedaPorPagar = Math.max(0, importeLocacionNum - totalSenia);
+    
+    console.log('🔍 DEBUG CORREGIDO - CÁLCULO QUEDA POR PAGAR:');
+    console.log('  - SENIA_PAGADA (original):', SENIA_PAGADA, typeof SENIA_PAGADA);
+    console.log('  - seniaPagadaNum:', seniaPagadaNum, typeof seniaPagadaNum);
+    console.log('  - Seña Actual (original):', senia, typeof senia);
+    console.log('  - seniaActualNum:', seniaActualNum, typeof seniaActualNum);
+    console.log('  - Importe Locación (original):', importeLocacion, typeof importeLocacion);
+    console.log('  - importeLocacionNum:', importeLocacionNum, typeof importeLocacionNum);
+    console.log('  - Total Seña:', totalSenia, typeof totalSenia);
+    console.log('  - Cálculo: ', importeLocacionNum, ' - ', totalSenia, ' = ', (importeLocacionNum - totalSenia));
+    console.log('  - Math.max(0, resultado):', quedaPorPagar);
+    console.log('  - Total Conceptos:', totalConceptos);
+    console.log('  - Total Recibo:', totalRecibo);
+    
+    // Mostrar "Queda por Pagar" en la UI
+    const quedaPorPagarElement = document.getElementById('saldo_ocupar');
+    if (quedaPorPagarElement) {
+        quedaPorPagarElement.value = quedaPorPagar.toLocaleString('es-ES');
+    }
+    
+    const validacionElement = document.getElementById('validacionSeña');
+    
+    // Calcular total de pagos actual
+    const totalPagos = calcularTotalPagos();
+    const diferenciaPagos = totalPagos - totalRecibo;
+    
+    if (totalRecibo === 0) {
+        validacionElement.innerHTML = '<span style="color: gray;">ℹ️ Agregue conceptos para continuar</span>';
+        validacionElement.style.display = 'block';
+    } else if (diferenciaPagos === 0) {
+        validacionElement.innerHTML = `<span style="color: green;">✅ Todo correcto: Total Conceptos ($${totalRecibo.toLocaleString('es-ES')}) = Total Pagos</span>`;
+        validacionElement.style.display = 'block';
+    } else if (diferenciaPagos > 0) {
+        validacionElement.innerHTML = `<span style="color: orange;">⚠️ Sobran $${Math.abs(diferenciaPagos).toLocaleString('es-ES')} en pagos (Total: $${totalPagos.toLocaleString('es-ES')} vs Conceptos: $${totalRecibo.toLocaleString('es-ES')})</span>`;
+        validacionElement.style.display = 'block';
+    } else {
+        validacionElement.innerHTML = `<span style="color: red;">❌ Faltan $${Math.abs(diferenciaPagos).toLocaleString('es-ES')} en pagos (Total: $${totalPagos.toLocaleString('es-ES')} vs Conceptos: $${totalRecibo.toLocaleString('es-ES')})</span>`;
+        validacionElement.style.display = 'block';
+    }
+    
+    // ✅ Evaluar estado del botón: solo verificar que pagos = conceptos
+    const pagosCoinciden = diferenciaPagos === 0;
+    habilitarBotonProcesar(pagosCoinciden && totalRecibo > 0);
+}
+
+// ✅ Función para verificar si hay concepto 10 cargado
+function verificarConcepto10() {
+    // Buscar en los conceptos agregados si existe el concepto con conceptoId '10'
+    console.log('🔍 VERIFICANDO CONCEPTO 10 - Conceptos agregados:', conceptosAgregados);
+    console.log('🔍 Array length:', conceptosAgregados.length);
+    
+    // Buscar por conceptoId (no por id que es solo un contador)
+    const concepto10 = conceptosAgregados.find(concepto => {
+        const conceptoId = String(concepto.conceptoId || concepto.id).trim();
+        console.log(`🔍 Concepto:`, concepto);
+        console.log(`🔍 conceptoId original: "${concepto.conceptoId}", id: "${concepto.id}"`);
+        console.log(`🔍 conceptoId parseado: "${conceptoId}"`);
+        console.log(`🔍 Comparando conceptoId: "${conceptoId}" === "10"`, conceptoId === '10');
+        return conceptoId === '10';
+    });
+    
+    console.log('🔍 CONCEPTO 10 ENCONTRADO:', concepto10);
+    
+    const tieneConcepto10 = conceptosAgregados.some(concepto => {
+        const conceptoId = String(concepto.conceptoId || concepto.id).trim();
+        return conceptoId === '10';
+    });
+    
+    console.log('🔍 TIENE CONCEPTO 10:', tieneConcepto10);
+    
+    return tieneConcepto10;
+}
+
+// Función para calcular total de transferencias
+function calcularTotalTransferencias() {
+    const galicia = parseFloat(document.querySelector('input[name="monto_deposito_galicia"]').value) || 0;
+    const mercadoPago = parseFloat(document.querySelector('input[name="monto_deposito_mp"]').value) || 0;
+    const totalTransferencias = galicia + mercadoPago;
+    
+    // Actualizar el campo oculto
+    document.getElementById('monto_deposito_total').value = totalTransferencias.toFixed(2);
+    
+    console.log(`Transferencias - Galicia: ${galicia}, MP: ${mercadoPago}, Total: ${totalTransferencias}`);
+}
 
 // Función auxiliar para parsear valores formateados
 function parsearValorFormateado(valor) {
