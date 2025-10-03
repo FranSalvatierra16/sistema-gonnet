@@ -1295,6 +1295,74 @@ function mostrarModalConcepto() {
     // Mostrar el modal
     var modalConcepto = new bootstrap.Modal(document.getElementById('modalConcepto'));
     modalConcepto.show();
+}
+
+// Función para agregar concepto a la tabla
+function agregarConcepto() {
+    console.log('➕ EJECUTANDO AGREGAR CONCEPTO');
+    console.log('📋 Estado al agregar - conceptoEditando:', conceptoEditando);
+    
+    // ⚠️ VERIFICACIÓN: Si hay un concepto editando, significa que esto es un error
+    if (conceptoEditando !== null) {
+        console.error('🚨 ERROR: Se está ejecutando agregarConcepto() pero hay un conceptoEditando activo!');
+        console.error('📋 Concepto que se está editando:', conceptoEditando);
+        alert('ERROR: Se detectó que está intentando agregar un concepto cuando debería estar editando. Por favor, use el botón "Actualizar" en lugar de "Agregar".');
+        return;
+    }
+    
+    const observaciones = document.getElementById('observaciones').value;
+    const importe = parseFloat(document.getElementById('importe').value);
+    
+    console.log('📝 Datos para nuevo concepto:', {
+        conceptoSeleccionadoActual: conceptoSeleccionadoActual,
+        observaciones: observaciones,
+        importe: importe
+    });
+    
+    // Validaciones
+    if (!conceptoSeleccionadoActual) {
+        console.error('❌ Validación falló: No hay concepto seleccionado');
+        alert('Por favor selecciona un concepto escribiendo su ID o usando el botón Buscar');
+        return;
+    }
+    
+    if (!importe || importe <= 0) {
+        console.error('❌ Validación falló: Importe inválido=', importe);
+        alert('Por favor ingresa un importe válido');
+        return;
+    }
+    
+    const fechaActual = '{{ fecha_actual }}';
+    
+    // Crear objeto concepto
+    const nuevoConcepto = {
+        id: ++contadorConceptos,
+        conceptoId: conceptoSeleccionadoActual.id,
+        nombre: conceptoSeleccionadoActual.nombre,
+        observaciones: observaciones || 'Sin observaciones',
+        importe: importe,
+        fecha: fechaActual
+    };
+    
+    console.log('✅ Nuevo concepto creado:', nuevoConcepto);
+    
+    // Agregar a la lista
+    conceptosAgregados.push(nuevoConcepto);
+    
+    console.log('📋 Array después de agregar:', JSON.parse(JSON.stringify(conceptosAgregados)));
+    
+    // Actualizar tabla
+    actualizarTablaConceptos();
+    
+    // Actualizar totales
+    calcularTotales();
+    
+    // Cerrar modal
+    var modalConcepto = bootstrap.Modal.getInstance(document.getElementById('modalConcepto'));
+    modalConcepto.hide();
+    
+    console.log('✅ Concepto agregado exitosamente');
+}
 
 // Función para actualizar concepto existente
 function actualizarConcepto() {
@@ -1655,6 +1723,58 @@ function editarConcepto(conceptoId) {
 
 
 // ✅ Función para calcular totales de conceptos
+function calcularTotales() {
+    try {
+        console.log('🔧 calcularTotales llamada - VERSIÓN ACTUALIZADA v2.0');
+        
+        // 1. Calcular total de conceptos (solo para mostrar, NO se suma al recibo)
+        let totalConceptos = 0;
+        if (conceptosAgregados && conceptosAgregados.length > 0) {
+            totalConceptos = conceptosAgregados.reduce((sum, concepto) => {
+                return sum + (parseFloat(concepto.importe) || 0);
+            }, 0);
+        }
+        
+        console.log('💰 Total conceptos calculado:', totalConceptos, 'de', conceptosAgregados.length, 'conceptos');
+        
+        // 2. Actualizar display del total de conceptos
+        const totalConceptosElement = document.getElementById('totalConceptos');
+        if (totalConceptosElement) {
+            totalConceptosElement.textContent = totalConceptos.toLocaleString('es-ES');
+        }
+        
+        // 3. El total del recibo ES el total de conceptos
+        const totalRecibo = totalConceptos;
+        
+        // 4. Actualizar campos del total del recibo
+        const totalReciboElement = document.getElementById('totalRecibo');
+        const totalReciboDisplayElement = document.getElementById('totalReciboDisplay');
+        
+        if (totalReciboElement) {
+            totalReciboElement.value = totalRecibo;
+        }
+        if (totalReciboDisplayElement) {
+            totalReciboDisplayElement.textContent = totalRecibo.toLocaleString('es-ES');
+        }
+        
+        console.log('📊 TOTALES ACTUALIZADOS:');
+        console.log('   - Total Conceptos:', totalConceptos);
+        console.log('   - Total Recibo:', totalRecibo);
+        
+        // 5. Calcular diferencia con pagos
+        const totalPagos = calcularTotalPagos();
+        const diferencia = totalPagos - totalRecibo;
+        
+        console.log('   - Total Pagos:', totalPagos);
+        console.log('   - Diferencia:', diferencia);
+        
+        // 6. Habilitar/deshabilitar botón
+        habilitarBotonProcesar(diferencia === 0 && totalRecibo > 0);
+        
+    } catch (error) {
+        console.error('❌ Error en calcularTotales:', error);
+    }
+}
 
 // Función auxiliar para parsear valores formateados
 function parsearValorFormateado(valor) {

@@ -1655,6 +1655,58 @@ function editarConcepto(conceptoId) {
 
 
 // ✅ Función para calcular totales de conceptos
+function calcularTotales() {
+    try {
+        console.log('🔧 calcularTotales llamada - VERSIÓN ACTUALIZADA v2.0');
+        
+        // 1. Calcular total de conceptos (solo para mostrar, NO se suma al recibo)
+        let totalConceptos = 0;
+        if (conceptosAgregados && conceptosAgregados.length > 0) {
+            totalConceptos = conceptosAgregados.reduce((sum, concepto) => {
+                return sum + (parseFloat(concepto.importe) || 0);
+            }, 0);
+        }
+        
+        console.log('💰 Total conceptos calculado:', totalConceptos, 'de', conceptosAgregados.length, 'conceptos');
+        
+        // 2. Actualizar display del total de conceptos
+        const totalConceptosElement = document.getElementById('totalConceptos');
+        if (totalConceptosElement) {
+            totalConceptosElement.textContent = totalConceptos.toLocaleString('es-ES');
+        }
+        
+        // 3. El total del recibo ES el total de conceptos
+        const totalRecibo = totalConceptos;
+        
+        // 4. Actualizar campos del total del recibo
+        const totalReciboElement = document.getElementById('totalRecibo');
+        const totalReciboDisplayElement = document.getElementById('totalReciboDisplay');
+        
+        if (totalReciboElement) {
+            totalReciboElement.value = totalRecibo;
+        }
+        if (totalReciboDisplayElement) {
+            totalReciboDisplayElement.textContent = totalRecibo.toLocaleString('es-ES');
+        }
+        
+        console.log('📊 TOTALES ACTUALIZADOS:');
+        console.log('   - Total Conceptos:', totalConceptos);
+        console.log('   - Total Recibo:', totalRecibo);
+        
+        // 5. Calcular diferencia con pagos
+        const totalPagos = calcularTotalPagos();
+        const diferencia = totalPagos - totalRecibo;
+        
+        console.log('   - Total Pagos:', totalPagos);
+        console.log('   - Diferencia:', diferencia);
+        
+        // 6. Habilitar/deshabilitar botón
+        habilitarBotonProcesar(diferencia === 0 && totalRecibo > 0);
+        
+    } catch (error) {
+        console.error('❌ Error en calcularTotales:', error);
+    }
+}
 
 // Función auxiliar para parsear valores formateados
 function parsearValorFormateado(valor) {
