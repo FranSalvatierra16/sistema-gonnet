@@ -6592,14 +6592,21 @@ def buscar_propiedades(request):
         
         # ✅ ORDENAR: primero las rojas (días libres = -1), luego por menos días libres, luego por ID
         print("🔧 ANTES DEL ORDENAMIENTO:")
+        print(f"📅 Fechas de búsqueda: {fecha_inicio} al {fecha_fin}")
         for prop in propiedades_disponibles:
-            print(f"   Propiedad {prop.id}: dias_libres_calculados = {prop.dias_libres_calculados} (tipo: {type(prop.dias_libres_calculados)})")
+            disponibilidad_info = "Sin info"
+            if hasattr(prop, 'disponibilidad_inicio') and hasattr(prop, 'disponibilidad_fin'):
+                disponibilidad_info = f"{prop.disponibilidad_inicio} al {prop.disponibilidad_fin}"
+            print(f"   Propiedad {prop.id}: dias_libres_calculados = {prop.dias_libres_calculados} | Disponibilidad: {disponibilidad_info}")
         
         propiedades_disponibles.sort(key=lambda p: (p.dias_libres_calculados, p.id))
         
         print("🔧 DESPUÉS DEL ORDENAMIENTO:")
         for i, prop in enumerate(propiedades_disponibles, 1):
-            print(f"   {i}. Propiedad {prop.id}: dias_libres_calculados = {prop.dias_libres_calculados}")
+            disponibilidad_info = "Sin info"
+            if hasattr(prop, 'disponibilidad_inicio') and hasattr(prop, 'disponibilidad_fin'):
+                disponibilidad_info = f"{prop.disponibilidad_inicio} al {prop.disponibilidad_fin}"
+            print(f"   {i}. Propiedad {prop.id}: dias_libres_calculados = {prop.dias_libres_calculados} | Disponibilidad: {disponibilidad_info}")
         
         # ✅ DEBUG DETALLADO PARA VERIFICAR ORDENAMIENTO
         print("=" * 80)
