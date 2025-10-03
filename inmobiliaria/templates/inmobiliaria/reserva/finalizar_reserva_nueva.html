@@ -1079,6 +1079,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                     ❌ Cancelar
                                 </a>
                               
+                                <button type="button" class="btn btn-warning btn-sm me-2" onclick="console.log('🔍 DEBUG:', document.getElementById('monto_efectivo')?.value); calcularTotalPagos();">
+                                    🔍 Debug
+                                </button>
                                 <button type="button" class="btn btn-success btn-lg" id="btnProcesarMovimiento" disabled onclick="procesarMovimiento()">
                                     ✅ Procesar Movimiento
                                 </button>
@@ -2209,6 +2212,18 @@ document.addEventListener('DOMContentLoaded', function() {
     importesPago.forEach(input => {
         input.addEventListener('input', function() {
             formatearNumeroEnTiempoReal(this);
+            // Usar setTimeout para que el formateo termine antes del cálculo
+            setTimeout(() => {
+                console.log('🔄 Calculando desde input event, valor:', this.value);
+                calcularTotalPagos();
+                calcularSaldoOcupar();
+                calcularTotales();
+            }, 10);
+        });
+        
+        // También agregar evento blur para asegurar el cálculo
+        input.addEventListener('blur', function() {
+            console.log('🔄 Calculando desde blur event, valor:', this.value);
             calcularTotalPagos();
             calcularSaldoOcupar();
             calcularTotales();
@@ -2294,13 +2309,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // ✅ Inicializar cálculos al cargar la página
     calcularTotales();
     calcularSaldoOcupar();
+    calcularTotalPagos();
     habilitarBotonProcesar();
     
     // 🔄 Asegurar que el cálculo inicial se ejecute después de que todo esté listo
     setTimeout(function() {
         calcularSaldoOcupar();
+        calcularTotalPagos();
         console.log('🎯 CÁLCULO INICIAL ejecutado');
     }, 100);
+    
+    // 🔄 Ejecutar cálculo adicional después de un tiempo más largo por si hay retrasos
+    setTimeout(function() {
+        console.log('🔄 RECÁLCULO TARDÍO ejecutado');
+        calcularTotalPagos();
+        calcularTotales();
+    }, 500);
 });
 
 // ✅ VERIFICAR QUE TODAS LAS FUNCIONES ESTÁN DEFINIDAS
