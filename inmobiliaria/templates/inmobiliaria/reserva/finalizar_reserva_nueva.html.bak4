@@ -279,17 +279,6 @@ function procesarMovimiento() {
     // Crear FormData del formulario
     const formData = new FormData(form);
     
-    // ✅ Agregar conceptos al FormData
-    conceptosAgregados.forEach((concepto, index) => {
-        formData.append(`concepto_${index}_id`, concepto.conceptoId);
-        formData.append(`concepto_${index}_nombre`, concepto.nombre);
-        formData.append(`concepto_${index}_observaciones`, concepto.observaciones);
-        formData.append(`concepto_${index}_importe`, concepto.importe);
-        formData.append(`concepto_${index}_fecha`, concepto.fecha);
-    });
-    
-    console.log('📋 Enviando', conceptosAgregados.length, 'conceptos al servidor');
-    
     // Enviar via AJAX
     fetch(form.action || window.location.href, {
         method: 'POST',
@@ -1713,6 +1702,135 @@ function calcularSaldoOcupar() {
 
 
 // Función para procesar el movimiento completo
+function procesarMovimiento() {
+    const boton = document.getElementById('btnProcesarMovimiento');
+    const formulario = document.getElementById('formProcesarMovimiento');
+    
+    // Verificar que hay conceptos agregados
+    if (conceptosAgregados.length === 0) {
+        alert('⚠️ Debes agregar al menos un concepto antes de procesar el movimiento');
+        return;
+    }
+    
+    // ✅ VALIDACIÓN: Verificar que el total del recibo coincida con la suma de seña + depósito de garantía
+    // Función auxiliar para parsear valores formateados
+    const parsearValorFormateado = (valor) => {
+        if (!valor) return 0;
+        return parseFloat(valor.toString().replace(/\./g, '')) || 0;
+    };
+    
+    const totalRecibo = parseFloat(document.getElementById('totalRecibo').value) || 0;
+    const senia = parsearValorFormateado(document.getElementById('senia').value);
+    const depositoGarantia = parsearValorFormateado(document.querySelector('input[name="deposito_garantia"]').value);
+    
+    // ✅ NUEVA LÓGICA: Solo incluir depósito si hay concepto 10
+    console.log(`🔍 NUEVA VALIDACIÓN SIMPLE - Total Recibo: ${totalRecibo}, Solo validaremos vs Total Pagos`);
+    
+    // Verificar que los pagos coincidan
+    const totalPagos = parsearValorFormateado(document.getElementById('totalPagos').textContent);
+    
+    console.log(`🔍 VALIDACIÓN PAGOS - Total Recibo: ${totalRecibo}, Total Pagos: ${totalPagos}`);
+    
+    if (Math.abs(totalRecibo - totalPagos) > 0.01) {
+        alert('⚠️ Los pagos deben coincidir exactamente con el total del recibo');
+        return;
+    }
+    
+    // Deshabilitar botón y mostrar loading
+    boton.disabled = true;
+    boton.innerHTML = '⏳ Procesando...';
+    
+    // Preparar datos del formulario
+    const formData = new FormData(formulario);
+    
+    // ✅ LIMPIAR VALORES MONETARIOS ANTES DE ENVIAR
+    const limpiarValorMonetario = (valor) => {
+        if (!valor) return '0';
+        // Remover puntos de miles y convertir a string limpio
+        return valor.toString().replace(/\./g, '');
+    };
+    
+    // Limpiar y reemplazar valores monetarios
+    const montoEfectivo = limpiarValorMonetario(document.querySelector('input[name="monto_efectivo"]').value);
+    const montoCheque = limpiarValorMonetario(document.querySelector('input[name="monto_cheque"]').value);
+    const montoTarjeta = limpiarValorMonetario(document.querySelector('input[name="monto_tarjeta"]').value);
+    const montoGalicia = limpiarValorMonetario(document.querySelector('input[name="monto_deposito_galicia"]').value);
+    const montoMP = limpiarValorMonetario(document.querySelector('input[name="monto_deposito_mp"]').value);
+    
+    // ✅ TAMBIÉN LIMPIAR SEÑA E IMPORTE LOCACIÓN
+    const seniaLimpia = limpiarValorMonetario(document.querySelector('input[name="senia"]').value);
+    const importeLocacionLimpia = limpiarValorMonetario(document.querySelector('input[name="importe_locacion"]').value);
+    
+    // Reemplazar valores en el FormData
+    formData.set('monto_efectivo', montoEfectivo);
+    formData.set('monto_cheque', montoCheque);
+    formData.set('monto_tarjeta', montoTarjeta);
+    formData.set('monto_deposito_galicia', montoGalicia);
+    formData.set('monto_deposito_mp', montoMP);
+    formData.set('senia', seniaLimpia);
+    formData.set('importe_locacion', importeLocacionLimpia);
+    
+    console.log('=== VALORES LIMPIADOS ANTES DE ENVIAR ===');
+    console.log(`Efectivo: ${montoEfectivo}, Galicia: ${montoGalicia}, MP: ${montoMP}`);
+    
+    // Agregar conceptos al FormData
+    conceptosAgregados.forEach((concepto, index) => {
+        formData.append(`concepto_${index}_id`, concepto.conceptoId);
+        formData.append(`concepto_${index}_nombre`, concepto.nombre);
+        formData.append(`concepto_${index}_observaciones`, concepto.observaciones);
+        formData.append(`concepto_${index}_importe`, concepto.importe);
+        formData.append(`concepto_${index}_fecha`, concepto.fecha);
+    });
+    
+    formData.append('conceptos_count', conceptosAgregados.length);
+    
+    // Enviar al servidor
+    fetch('{% url "inmobiliaria:procesar_movimiento_reserva" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        
+        // Verificar si la respuesta es exitosa
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // Verificar si es JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            return response.text().then(text => {
+                console.log('Response is not JSON, content:', text.substring(0, 500));
+                throw new Error('La respuesta del servidor no es JSON válido');
+            });
+        }
+        
+        return response.json();
+    })
+    .then(data => {
+        console.log('Parsed JSON data:', data);
+        
+        if (data.success) {
+            alert('✅ Movimiento procesado exitosamente');
+            // Redirigir al recibo
+            window.location.href = data.redirect_url;
+        } else {
+            alert('❌ Error: ' + data.error);
+            // Rehabilitar botón
+            boton.disabled = false;
+            boton.innerHTML = '✅ Procesar Movimiento';
+        }
+    })
+    .catch(error => {
+        console.error('Error completo:', error);
+        alert('❌ Error al procesar el movimiento: ' + error.message);
+        // Rehabilitar botón
+        boton.disabled = false;
+        boton.innerHTML = '✅ Procesar Movimiento';
+    });
+}
 
 
 // Event listeners para campos
