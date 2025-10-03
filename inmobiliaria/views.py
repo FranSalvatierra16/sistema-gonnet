@@ -1515,12 +1515,15 @@ def finalizar_reserva_nueva(request, reserva_id):
             concepto__icontains=f"Operaci\u00f3n {reserva.id}"
         )
         
-        # ✅ LÓGICA SIMPLE: SALDO = PRECIO TOTAL - SEÑA (EL DEPÓSITO NO AFECTA)
-        saldo_a_ocupar = reserva.precio_total - (reserva.senia or 0)
+        # ✅ LÓGICA PARA COMPLETAR PAGO: SALDO = PRECIO TOTAL - (SEÑA + PAGOS ANTERIORES)
+        # Calcular total de pagos anteriores
+        total_pagos_anteriores = sum(pago.monto for pago in pagos_anteriores)
+        saldo_a_ocupar = reserva.precio_total - (reserva.senia or 0) - total_pagos_anteriores
         
-        print(f"✅ CÁLCULO FINALIZAR RESERVA:")
+        print(f"✅ CÁLCULO COMPLETAR PAGO:")
         print(f"   - Precio Total: ${reserva.precio_total}")
         print(f"   - Seña: ${reserva.senia or 0}")
+        print(f"   - Pagos Anteriores: ${total_pagos_anteriores}")
         print(f"   - Saldo Pendiente: ${saldo_a_ocupar}")
         print(f"   - Depósito: ${reserva.deposito_garantia or 0}")
 
@@ -7551,8 +7554,10 @@ def finalizar_reserva_nueva(request, reserva_id):
             concepto__icontains=f"Operaci\u00f3n {reserva.id}"
         )
         
-        # ✅ LÓGICA CORREGIDA: Separar conceptos
-        saldo_a_ocupar = reserva.precio_total - (reserva.senia or 0)  # Lo que falta por pagar
+        # ✅ LÓGICA PARA COMPLETAR PAGO: SALDO = PRECIO TOTAL - (SEÑA + PAGOS ANTERIORES)
+        # Calcular total de pagos anteriores
+        total_pagos_anteriores = sum(pago.monto for pago in pagos_anteriores)
+        saldo_a_ocupar = reserva.precio_total - (reserva.senia or 0) - total_pagos_anteriores  # Lo que falta por pagar
         
         # ✅ SEÑA PENDIENTE: Solo lo que falta por pagar (puede ser 0 si quiere pagar todo)
         # El usuario decide cuánto de la seña pagar en este momento

@@ -1,1179 +1,462 @@
 {% extends 'inmobiliaria/base.html' %}
-{% load static %}
+{% load bootstrap4 %}
+{% load custom_filters %}
 
 {% block title %}Finalizar Operación{% endblock %}
 
-{% block extra_css %}
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-{% endblock %}
-
-{% block extra_js %}
-<script>
-// ✅ FUNCIONES GLOBALES NECESARIAS PARA EL FUNCIONAMIENTO
-// Variable con seña ya pagada desde el backend
-const SENIA_PAGADA = {% if total_senia_pagada and total_senia_pagada != None %}{{ total_senia_pagada|floatformat:0 }}{% else %}0{% endif %};
-console.log('🔧 SENIA_PAGADA inicializada:', SENIA_PAGADA);
-
-// Variable para almacenar los conceptos agregados
-let conceptosAgregados = [];
-let contadorConceptos = 0;
-let conceptoEditando = null;
-let conceptoSeleccionadoActual = null;
-
-// Array para almacenar todos los conceptos originales (para búsqueda)
-let conceptosOriginales = [];
-
-// Función para mostrar el modal de concepto
-function mostrarModalConcepto() {
-    console.log('🔧 MOSTRAR MODAL CONCEPTO - Solo para agregar nuevo concepto');
-    
-    // Limpiar el formulario
-    document.getElementById('formConcepto').reset();
-    
-    // Resetear completamente el modal para modo "agregar"
-    resetearModalConcepto();
-    
-    // Mostrar el modal
-    const modal = new bootstrap.Modal(document.getElementById('modalConcepto'));
-    modal.show();
-}
-
-// Función para resetear el modal de concepto
-function resetearModalConcepto() {
-    // Resetear título
-    document.getElementById('modalConceptoLabel').textContent = '➕ Agregar Concepto';
-    
-    // Resetear botón
-    const btnAgregar = document.querySelector('#modalConcepto .btn-success');
-    btnAgregar.textContent = '✅ Agregar';
-    btnAgregar.setAttribute('onclick', 'agregarConcepto()');
-    
-    // Ocultar información del concepto seleccionado
-    document.getElementById('infoConceptoSeleccionado').style.display = 'none';
-    
-    // Resetear variables globales
-    conceptoEditando = null;
-    conceptoSeleccionadoActual = null;
-}
-
-// Función para mostrar modal de búsqueda de conceptos
-function mostrarModalBuscarConcepto() {
-    console.log('🔍 MOSTRAR MODAL BUSCAR CONCEPTO');
-    const modal = new bootstrap.Modal(document.getElementById('modalBuscarConcepto'));
-    modal.show();
-}
-
-// Función para mostrar modal de nuevo concepto
-function mostrarModalNuevoConcepto() {
-    console.log('➕ MOSTRAR MODAL NUEVO CONCEPTO');
-    const modal = new bootstrap.Modal(document.getElementById('modalNuevoConcepto'));
-    modal.show();
-}
-
-// Función para buscar concepto por ID
-function buscarConceptoPorId() {
-    const conceptoId = document.getElementById('conceptoIdBusqueda').value;
-    if (!conceptoId) {
-        alert('Por favor ingrese un ID de concepto');
-        return;
-    }
-    
-    console.log('🔍 Buscando concepto ID:', conceptoId);
-    
-    // Buscar en los conceptos originales
-    const concepto = conceptosOriginales.find(c => c.id == conceptoId);
-    if (concepto) {
-        seleccionarConcepto(concepto.id, concepto.nombre);
-        // Cerrar modal de búsqueda
-        bootstrap.Modal.getInstance(document.getElementById('modalBuscarConcepto')).hide();
-    } else {
-        alert('Concepto no encontrado');
-    }
-}
-
-// Función para agregar concepto
-function agregarConcepto() {
-    console.log('✅ AGREGAR CONCEPTO');
-    
-    const importe = document.getElementById('importeConcepto').value;
-    
-    if (!conceptoSeleccionadoActual) {
-        alert('❌ Debe seleccionar un concepto primero');
-        return;
-    }
-    
-    if (!importe || parseFloat(importe.replace(/\./g, '')) <= 0) {
-        alert('❌ Debe ingresar un importe válido');
-        return;
-    }
-    
-    const importeNumerico = parseFloat(importe.replace(/\./g, ''));
-    
-    if (conceptoEditando !== null) {
-        // Editar concepto existente
-        conceptosAgregados[conceptoEditando] = {
-            id: conceptoSeleccionadoActual.id,
-            nombre: conceptoSeleccionadoActual.nombre,
-            importe: importeNumerico
-        };
-        console.log('✏️ Concepto editado:', conceptosAgregados[conceptoEditando]);
-    } else {
-        // Agregar nuevo concepto
-        const nuevoConcepto = {
-            id: conceptoSeleccionadoActual.id,
-            nombre: conceptoSeleccionadoActual.nombre,
-            importe: importeNumerico
-        };
-        
-        conceptosAgregados.push(nuevoConcepto);
-        console.log('➕ Concepto agregado:', nuevoConcepto);
-    }
-    
-    // Actualizar tabla
-    actualizarTablaConceptos();
-    
-    // Recalcular totales
-    calcularTotales();
-    
-    // Cerrar modal
-    bootstrap.Modal.getInstance(document.getElementById('modalConcepto')).hide();
-}
-
-// Función para seleccionar concepto
-function seleccionarConcepto(conceptoId, conceptoNombre) {
-    console.log('🎯 SELECCIONAR CONCEPTO:', conceptoId, conceptoNombre);
-    
-    conceptoSeleccionadoActual = {
-        id: conceptoId,
-        nombre: conceptoNombre
-    };
-    
-    // Mostrar información del concepto seleccionado
-    const infoDiv = document.getElementById('infoConceptoSeleccionado');
-    infoDiv.style.display = 'block';
-    infoDiv.innerHTML = `
-        <div class="alert alert-info">
-            <strong>✅ Concepto seleccionado:</strong><br>
-            <strong>ID:</strong> ${conceptoId}<br>
-            <strong>Nombre:</strong> ${conceptoNombre}
-        </div>
-    `;
-    
-    // Cerrar modal de búsqueda si está abierto
-    const modalBuscar = bootstrap.Modal.getInstance(document.getElementById('modalBuscarConcepto'));
-    if (modalBuscar) {
-        modalBuscar.hide();
-    }
-    
-    // Enfocar en el campo de importe
-    document.getElementById('importeConcepto').focus();
-}
-
-// Función para actualizar tabla de conceptos
-function actualizarTablaConceptos() {
-    console.log('🔄 ACTUALIZAR TABLA CONCEPTOS');
-    
-    const tbody = document.getElementById('tablaConceptos');
-    tbody.innerHTML = '';
-    
-    conceptosAgregados.forEach((concepto, index) => {
-        const row = tbody.insertRow();
-        row.innerHTML = `
-            <td>${concepto.id}</td>
-            <td>${concepto.nombre}</td>
-            <td>$${concepto.importe.toLocaleString('es-ES')}</td>
-            <td>
-                <button type="button" class="btn btn-sm btn-warning me-1" onclick="editarConcepto(${index})">
-                    ✏️ Editar
-                </button>
-                <button type="button" class="btn btn-sm btn-danger" onclick="eliminarConcepto(${index})">
-                    🗑️ Eliminar
-                </button>
-            </td>
-        `;
-    });
-    
-    console.log('✅ Tabla actualizada con', conceptosAgregados.length, 'conceptos');
-}
-
-// Función para eliminar concepto
-function eliminarConcepto(index) {
-    console.log('🗑️ ELIMINAR CONCEPTO:', index);
-    
-    if (confirm('¿Está seguro de eliminar este concepto?')) {
-        conceptosAgregados.splice(index, 1);
-        actualizarTablaConceptos();
-        calcularTotales();
-    }
-}
-
-// Función para editar concepto
-function editarConcepto(index) {
-    console.log('✏️ EDITAR CONCEPTO:', index);
-    
-    const concepto = conceptosAgregados[index];
-    
-    // Configurar modal para edición
-    conceptoEditando = index;
-    conceptoSeleccionadoActual = {
-        id: concepto.id,
-        nombre: concepto.nombre
-    };
-    
-    // Actualizar título del modal
-    document.getElementById('modalConceptoLabel').textContent = '✏️ Editar Concepto';
-    
-    // Actualizar botón
-    const btnAgregar = document.querySelector('#modalConcepto .btn-success');
-    btnAgregar.textContent = '✅ Guardar Cambios';
-    btnAgregar.setAttribute('onclick', 'agregarConcepto()');
-    
-    // Mostrar información del concepto
-    const infoDiv = document.getElementById('infoConceptoSeleccionado');
-    infoDiv.style.display = 'block';
-    infoDiv.innerHTML = `
-        <div class="alert alert-warning">
-            <strong>✏️ Editando concepto:</strong><br>
-            <strong>ID:</strong> ${concepto.id}<br>
-            <strong>Nombre:</strong> ${concepto.nombre}
-        </div>
-    `;
-    
-    // Pre-llenar el importe
-    document.getElementById('importeConcepto').value = concepto.importe.toLocaleString('es-ES');
-    
-    // Mostrar modal
-    const modal = new bootstrap.Modal(document.getElementById('modalConcepto'));
-    modal.show();
-}
-
-// Función para filtrar conceptos en la búsqueda
-function filtrarConceptos() {
-    const filtro = document.getElementById('filtroConceptos').value.toLowerCase();
-    const filas = document.querySelectorAll('#tablaConceptosBusqueda tr');
-    
-    filas.forEach(fila => {
-        const texto = fila.textContent.toLowerCase();
-        fila.style.display = texto.includes(filtro) ? '' : 'none';
-    });
-}
-
-// Función para calcular saldo a ocupar (Queda por Pagar)
-function calcularSaldoOcupar() {
-    try {
-        const importeLocacionElement = document.querySelector('input[name="importe_locacion"]');
-        
-        if (!importeLocacionElement) {
-            return; // Salir silenciosamente si no existe el campo
-        }
-        
-        const importeLocacion = parseFloat((importeLocacionElement.value || '0').replace(/\./g, '')) || 0;
-        
-        // ✅ CORREGIDO: El saldo a ocupar es la diferencia entre importe total y conceptos cargados
-        // Los casilleros de seña son solo informativos
-        let totalConceptosCargados = 0;
-        if (conceptosAgregados && conceptosAgregados.length > 0) {
-            totalConceptosCargados = conceptosAgregados.reduce((sum, concepto) => {
-                return sum + (parseFloat(concepto.importe) || 0);
-            }, 0);
-        }
-        
-        const quedaPorPagar = Math.max(0, importeLocacion - totalConceptosCargados);
-        
-        console.log('🧮 CÁLCULO QUEDA POR PAGAR:');
-        console.log('   Importe Locación:', importeLocacion);
-        console.log('   Total Conceptos:', totalConceptosCargados);
-        console.log('   Queda por Pagar:', quedaPorPagar);
-        
-        // Actualizar el campo si existe
-        const quedaPorPagarElement = document.querySelector('input[name="queda_por_pagar"]');
-        if (quedaPorPagarElement) {
-            quedaPorPagarElement.value = quedaPorPagar.toLocaleString('es-ES');
-        }
-        
-        // Actualizar resumen si existe
-        const resumenPendiente = document.querySelector('#resumen-pendiente, .pendiente-amount');
-        if (resumenPendiente) {
-            resumenPendiente.textContent = `$${quedaPorPagar.toLocaleString('es-ES')}`;
-        }
-        
-    } catch (error) {
-        console.error('Error en calcularSaldoOcupar:', error);
-    }
-}
-
-// Función para calcular totales
-function calcularTotales() {
-    try {
-        console.log('🔧 calcularTotales llamada - VERSIÓN ACTUALIZADA v2.0');
-        
-        // 1. Calcular total de conceptos
-        let totalConceptos = 0;
-        if (conceptosAgregados && conceptosAgregados.length > 0) {
-            totalConceptos = conceptosAgregados.reduce((sum, concepto) => {
-                return sum + (parseFloat(concepto.importe) || 0);
-            }, 0);
-        }
-        
-        console.log('💰 Total conceptos calculado:', totalConceptos, 'de', conceptosAgregados.length, 'conceptos');
-        
-        // 2. Actualizar display del total de conceptos
-        const totalConceptosElement = document.getElementById('totalConceptos');
-        if (totalConceptosElement) {
-            totalConceptosElement.textContent = totalConceptos.toLocaleString('es-ES');
-            console.log('✅ Display totalConceptos actualizado:', totalConceptos.toLocaleString('es-ES'));
-        }
-        
-        // 3. ✅ TOTAL DEL RECIBO = SUMA DE TODOS LOS CONCEPTOS (igual que Finalizar Reserva)
-        // Los casilleros de arriba (seña, depósito) son solo informativos
-        const totalRecibo = totalConceptos;
-        
-        console.log('🧾 Total recibo calculado: SUMA DE CONCEPTOS = ' + totalRecibo);
-        console.log('📝 Casilleros de arriba (seña, depósito) son solo informativos');
-        
-        // 4. Actualizar display del total del recibo
-        const totalReciboElement = document.getElementById('totalRecibo');
-        if (totalReciboElement) {
-            totalReciboElement.value = totalRecibo;
-            console.log('✅ Display totalRecibo actualizado:', totalRecibo);
-        }
-        
-        // 5. Actualizar display para comparación con pagos
-        const totalReciboDisplayElement = document.getElementById('totalReciboDisplay');
-        if (totalReciboDisplayElement) {
-            totalReciboDisplayElement.textContent = totalRecibo.toLocaleString('es-ES');
-            console.log('✅ Display totalReciboDisplay actualizado:', totalRecibo.toLocaleString('es-ES'));
-        }
-        
-        // 6. Recalcular saldo a ocupar
-        if (typeof calcularSaldoOcupar === 'function') {
-            calcularSaldoOcupar();
-        }
-        
-        // 7. Recalcular totales de pagos para comparación
-        if (typeof calcularTotalPagos === 'function') {
-            calcularTotalPagos();
-        }
-        
-    } catch (error) {
-        console.error('❌ Error en calcularTotales:', error);
-    }
-}
-
-// Función para calcular total de pagos y validar
-function calcularTotalPagos() {
-    try {
-        // Obtener valores de los campos de pago con debugging
-        const efectivoElement = document.getElementById('monto_efectivo');
-        const chequeElement = document.getElementById('monto_cheque');
-        const tarjetaElement = document.getElementById('monto_tarjeta');
-        const galiciaElement = document.getElementById('monto_deposito_galicia');
-        const mpElement = document.getElementById('monto_deposito_mp');
-        
-        console.log('🔍 ELEMENTOS ENCONTRADOS:');
-        console.log('   monto_efectivo:', efectivoElement ? 'SÍ' : 'NO', efectivoElement?.value);
-        console.log('   monto_cheque:', chequeElement ? 'SÍ' : 'NO', chequeElement?.value);
-        console.log('   monto_tarjeta:', tarjetaElement ? 'SÍ' : 'NO', tarjetaElement?.value);
-        console.log('   monto_deposito_galicia:', galiciaElement ? 'SÍ' : 'NO', galiciaElement?.value);
-        console.log('   monto_deposito_mp:', mpElement ? 'SÍ' : 'NO', mpElement?.value);
-        
-        // Función helper para parsear valores formateados
-        function parsearValor(elemento) {
-            if (!elemento || !elemento.value) return 0;
-            // Remover todos los caracteres que no sean números
-            const valorLimpio = elemento.value.replace(/[^\d]/g, '');
-            return parseFloat(valorLimpio) || 0;
-        }
-        
-        const efectivo = parsearValor(efectivoElement);
-        const cheque = parsearValor(chequeElement);
-        const tarjeta = parsearValor(tarjetaElement);
-        const galicia = parsearValor(galiciaElement);
-        const mp = parsearValor(mpElement);
-        
-        const totalPagos = efectivo + cheque + tarjeta + galicia + mp;
-        
-        console.log('💰 CÁLCULO TOTAL PAGOS:');
-        console.log('   Efectivo:', efectivo);
-        console.log('   Cheque:', cheque);
-        console.log('   Tarjeta:', tarjeta);
-        console.log('   Galicia:', galicia);
-        console.log('   Mercado Pago:', mp);
-        console.log('   TOTAL PAGOS:', totalPagos);
-        
-        // Actualizar display del total de pagos
-        const totalPagosElement = document.getElementById('totalPagos');
-        if (totalPagosElement) {
-            totalPagosElement.textContent = totalPagos.toLocaleString('es-ES');
-        }
-        
-        // Obtener total del recibo
-        const totalReciboElement = document.getElementById('totalRecibo');
-        const totalRecibo = parseFloat(totalReciboElement?.value || '0') || 0;
-        
-        // Actualizar display del total del recibo en la comparación
-        const totalReciboDisplayElement = document.getElementById('totalReciboDisplay');
-        if (totalReciboDisplayElement) {
-            totalReciboDisplayElement.textContent = totalRecibo.toLocaleString('es-ES');
-        }
-        
-        // Calcular diferencia
-        const diferencia = totalPagos - totalRecibo;
-        
-        // Actualizar diferencia
-        const diferenciaElement = document.getElementById('diferenciaPagos');
-        if (diferenciaElement) {
-            if (diferencia === 0) {
-                diferenciaElement.style.color = 'green';
-                diferenciaElement.textContent = '0 ✅';
-            } else if (diferencia > 0) {
-                diferenciaElement.style.color = 'orange';
-                diferenciaElement.textContent = `+${diferencia.toLocaleString('es-ES')} ⚠️`;
-            } else {
-                diferenciaElement.style.color = 'red';
-                diferenciaElement.textContent = `${diferencia.toLocaleString('es-ES')} ❌`;
-            }
-        }
-        
-        console.log('📊 COMPARACIÓN:');
-        console.log('   Total Pagos:', totalPagos);
-        console.log('   Total Recibo:', totalRecibo);
-        console.log('   Diferencia:', diferencia);
-        
-        // Habilitar/deshabilitar botón
-        habilitarBotonProcesar(diferencia === 0 && totalRecibo > 0);
-        
-    } catch (error) {
-        console.error('❌ Error en calcularTotalPagos:', error);
-    }
-}
-
-// Función para habilitar/deshabilitar botón procesar
-function habilitarBotonProcesar(habilitar = false) {
-    const boton = document.getElementById('btnProcesarMovimiento');
-    if (boton) {
-        boton.disabled = !habilitar;
-        if (habilitar) {
-            boton.classList.remove('btn-secondary');
-            boton.classList.add('btn-success');
-            console.log('✅ Botón HABILITADO - Totales coinciden');
-        } else {
-            boton.classList.remove('btn-success');
-            boton.classList.add('btn-secondary');
-            console.log('❌ Botón DESHABILIZADO - Totales no coinciden');
-        }
-    }
-}
-
-// Función para procesar movimiento
-function procesarMovimiento() {
-    console.log('🚀 Procesando movimiento...');
-    
-    // Verificar que los totales coincidan antes de enviar
-    const totalPagosElement = document.getElementById('totalPagos');
-    const totalReciboElement = document.getElementById('totalRecibo');
-    
-    const totalPagos = parseFloat(totalPagosElement?.textContent?.replace(/[^\d]/g, '') || '0') || 0;
-    const totalRecibo = parseFloat(totalReciboElement?.value || '0') || 0;
-    
-    if (totalPagos !== totalRecibo) {
-        alert('❌ Los totales no coinciden. Por favor verifica los importes.');
-        return;
-    }
-    
-    if (totalRecibo <= 0) {
-        alert('❌ Debe agregar conceptos antes de procesar el movimiento.');
-        return;
-    }
-    
-    // Enviar formulario via AJAX para manejar la respuesta JSON
-    const form = document.getElementById('formProcesarMovimiento');
-    if (!form) {
-        console.error('❌ No se encontró el formulario');
-        alert('❌ Error: No se encontró el formulario');
-        return;
-    }
-    
-    // Deshabilitar botón para evitar doble envío
-    const boton = document.getElementById('btnProcesarMovimiento');
-    if (boton) {
-        boton.disabled = true;
-        boton.textContent = '⏳ Procesando...';
-    }
-    
-    // Crear FormData del formulario
-    const formData = new FormData(form);
-    
-    // Agregar conceptos al FormData
-    formData.append('conceptos_json', JSON.stringify(conceptosAgregados));
-    
-    // Función helper para limpiar valores monetarios
-    function limpiarValorMonetario(valor) {
-        if (!valor) return '0';
-        return valor.toString().replace(/[^\d]/g, '') || '0';
-    }
-    
-    // Limpiar y reemplazar valores monetarios
-    const montoEfectivo = limpiarValorMonetario(document.querySelector('input[name="monto_efectivo"]').value);
-    const montoCheque = limpiarValorMonetario(document.querySelector('input[name="monto_cheque"]').value);
-    const montoTarjeta = limpiarValorMonetario(document.querySelector('input[name="monto_tarjeta"]').value);
-    const montoGalicia = limpiarValorMonetario(document.querySelector('input[name="monto_deposito_galicia"]').value);
-    const montoMp = limpiarValorMonetario(document.querySelector('input[name="monto_deposito_mp"]').value);
-    const senia = limpiarValorMonetario(document.querySelector('input[name="senia"]').value);
-    const deposito = limpiarValorMonetario(document.querySelector('input[name="deposito_garantia"]').value);
-    const importe = limpiarValorMonetario(document.querySelector('input[name="importe_locacion"]').value);
-    
-    // Reemplazar valores en el FormData
-    formData.set('monto_efectivo', montoEfectivo);
-    formData.set('monto_cheque', montoCheque);
-    formData.set('monto_tarjeta', montoTarjeta);
-    formData.set('monto_deposito_galicia', montoGalicia);
-    formData.set('monto_deposito_mp', montoMp);
-    formData.set('senia', senia);
-    formData.set('deposito_garantia', deposito);
-    formData.set('importe_locacion', importe);
-    
-    console.log('📤 Enviando datos:', {
-        efectivo: montoEfectivo,
-        cheque: montoCheque,
-        tarjeta: montoTarjeta,
-        galicia: montoGalicia,
-        mp: montoMp,
-        senia: senia,
-        deposito: deposito,
-        importe: importe,
-        conceptos: conceptosAgregados.length
-    });
-    
-    // Enviar via AJAX
-    fetch(form.action || window.location.href, {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('📨 Respuesta del servidor:', data);
-        
-        if (data.success) {
-            console.log('✅ Movimiento procesado exitosamente');
-            if (data.redirect_url) {
-                console.log('🔄 Redirigiendo a:', data.redirect_url);
-                window.location.href = data.redirect_url;
-            } else {
-                alert('✅ Movimiento procesado exitosamente');
-                window.location.reload();
-            }
-        } else {
-            console.error('❌ Error del servidor:', data.error);
-            alert('❌ Error: ' + (data.error || 'Error desconocido'));
-            
-            // Rehabilitar botón
-            if (boton) {
-                boton.disabled = false;
-                boton.textContent = '✅ Procesar Movimiento';
-            }
-        }
-    })
-    .catch(error => {
-        console.error('❌ Error de red:', error);
-        alert('❌ Error de conexión: ' + error.message);
-        
-        // Rehabilitar botón
-        if (boton) {
-            boton.disabled = false;
-            boton.textContent = '✅ Procesar Movimiento';
-        }
-    });
-}
-
-// Función simple para actualizar todos los cálculos de pagos
-function actualizarPagos() {
-    console.log('🔄 ACTUALIZANDO PAGOS...');
-    calcularTotalPagos();
-    calcularSaldoOcupar();
-    calcularTotales();
-}
-
-// ✅ FUNCIONES PARA FORMATEO DE NÚMEROS
-function formatearNumeroEnTiempoReal(input) {
-    let value = input.value.replace(/[^\d]/g, '');
-    
-    if (value.length > 0) {
-        // Formatear con puntos de miles
-        value = parseInt(value).toLocaleString('es-ES');
-    }
-    
-    input.value = value;
-}
-
-// Función para parsear valores formateados (ej: "33.000" -> 33000)
-function parsearValorFormateado(valor) {
-    if (!valor) return 0;
-    // Remover puntos y convertir a número
-    const valorLimpio = valor.toString().replace(/\./g, '');
-    return parseFloat(valorLimpio) || 0;
-}
-
-// ✅ INICIALIZACIÓN AL CARGAR EL DOM
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 DOM CARGADO - Inicializando...');
-    
-    // Inicializar conceptos originales desde el backend
-    conceptosOriginales = {{ conceptos_json|safe }};
-    console.log('📋 Conceptos originales cargados:', conceptosOriginales.length);
-    
-    // ✅ Event listeners SIMPLIFICADOS para campos de pago
-    const camposPago = [
-        'monto_efectivo',
-        'monto_cheque', 
-        'monto_tarjeta',
-        'monto_deposito_galicia',
-        'monto_deposito_mp'
-    ];
-    
-    camposPago.forEach(function(id) {
-        const input = document.getElementById(id);
-        console.log(`🔍 Buscando campo ${id}:`, input ? 'ENCONTRADO' : 'NO ENCONTRADO');
-        if (input) {
-            console.log(`✅ Agregando event listeners a ${id}`);
-            
-            // Event listener para input (mientras escribes)
-            input.addEventListener('input', function() {
-                console.log(`💰 INPUT en ${id}: ${this.value}`);
-                formatearNumeroEnTiempoReal(this);
-                setTimeout(() => calcularTotalPagos(), 50);
-            });
-            
-            // Event listener para keyup (después de soltar tecla)
-            input.addEventListener('keyup', function() {
-                console.log(`⌨️ KEYUP en ${id}: ${this.value}`);
-                setTimeout(() => calcularTotalPagos(), 50);
-            });
-            
-            // Event listener para change (cuando cambia el valor)
-            input.addEventListener('change', function() {
-                console.log(`🔄 CHANGE en ${id}: ${this.value}`);
-                calcularTotalPagos();
-            });
-            
-            // Event listener para blur (cuando pierde el foco)
-            input.addEventListener('blur', function() {
-                console.log(`👁️ BLUR en ${id}: ${this.value}`);
-                calcularTotalPagos();
-            });
-        } else {
-            console.error(`❌ Campo ${id} NO ENCONTRADO en el DOM`);
-        }
-    });
-    
-    // ✅ Aplicar formato también a seña e importe locación
-    const camposMonetarios = document.querySelectorAll('input[name="senia"], input[name="importe_locacion"]');
-    camposMonetarios.forEach(input => {
-        input.addEventListener('input', function() {
-            formatearNumeroEnTiempoReal(this);
-            if (this.name === 'senia' || this.name === 'importe_locacion') {
-                setTimeout(() => {
-                    calcularSaldoOcupar();
-                    calcularTotales();
-                }, 10);
-            }
-        });
-        
-        // También recalcular cuando se pierde el foco
-        input.addEventListener('blur', function() {
-            if (this.name === 'senia' || this.name === 'importe_locacion') {
-                setTimeout(() => {
-                    calcularSaldoOcupar();
-                    calcularTotales();
-                }, 10);
-            }
-        });
-    });
-    
-    // Event listeners para los botones de seleccionar concepto
-    document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('btn-seleccionar-concepto')) {
-            const conceptoId = e.target.dataset.conceptoId;
-            const conceptoNombre = e.target.dataset.conceptoNombre;
-            seleccionarConcepto(conceptoId, conceptoNombre);
-        }
-    });
-    
-    // Event listener para resetear el modal cuando se cierre
-    const modalConcepto = document.getElementById('modalConcepto');
-    modalConcepto.addEventListener('hidden.bs.modal', function () {
-        // Resetear el estado del modal
-        conceptoEditando = null;
-        document.getElementById('modalConceptoLabel').textContent = '➕ Agregar Concepto';
-        
-        // Resetear información del concepto seleccionado
-        document.getElementById('infoConceptoSeleccionado').style.display = 'none';
-        conceptoSeleccionadoActual = null;
-        
-        const btnAgregar = document.querySelector('#modalConcepto .btn-success');
-        btnAgregar.textContent = '✅ Agregar';
-        btnAgregar.setAttribute('onclick', 'agregarConcepto()');
-        
-        // Limpiar formulario
-        document.getElementById('formConcepto').reset();
-    });
-    
-    // 🔍 DEBUGGING: Verificar que los campos existen al cargar
-    console.log('🔍 VERIFICANDO CAMPOS AL CARGAR:');
-    console.log('monto_efectivo:', document.getElementById('monto_efectivo') ? 'SÍ' : 'NO');
-    console.log('monto_cheque:', document.getElementById('monto_cheque') ? 'SÍ' : 'NO');
-    console.log('monto_tarjeta:', document.getElementById('monto_tarjeta') ? 'SÍ' : 'NO');
-    
-    // ✅ Inicializar cálculos al cargar la página
-    calcularTotales();
-    calcularSaldoOcupar();
-    calcularTotalPagos();
-    habilitarBotonProcesar();
-    
-    // 🔄 Asegurar que el cálculo inicial se ejecute después de que todo esté listo
-    setTimeout(function() {
-        calcularSaldoOcupar();
-        calcularTotalPagos();
-        console.log('🎯 CÁLCULO INICIAL ejecutado');
-    }, 100);
-    
-    // 🔄 Ejecutar cálculo adicional después de un tiempo más largo por si hay retrasos
-    setTimeout(function() {
-        console.log('🔄 RECÁLCULO TARDÍO ejecutado');
-        calcularTotalPagos();
-        calcularTotales();
-    }, 500);
-});
-
-// ✅ VERIFICAR QUE TODAS LAS FUNCIONES ESTÁN DEFINIDAS
-console.log('🔧 FUNCIONES DEFINIDAS:');
-console.log('- mostrarModalConcepto:', typeof mostrarModalConcepto);
-console.log('- calcularSaldoOcupar:', typeof calcularSaldoOcupar);
-console.log('- calcularTotales:', typeof calcularTotales);
-console.log('- habilitarBotonProcesar:', typeof habilitarBotonProcesar);
-</script>
-
-{% endblock %}
-
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <h2 class="mb-4">📝 Finalizar Operación - Carga de Recibo</h2>
+<div class="container mt-4">
+    <h2>Confirmar Pago - Operación #{{ reserva.id }}</h2>
+    
+    <!-- Información de la reserva -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Detalles de la Operación</h5>
+            <p><strong>Cliente:</strong> {{ reserva.inquilino.nombre }} {{ reserva.inquilino.apellido }}</p>
+            <p><strong>Propiedad:</strong> {{ reserva.propiedad.direccion }}</p>
+            <p><strong>Precio Total:</strong> ${{ reserva.precio_total|floatformat:2 }}</p>
+            <p><strong>Saldo Pendiente:</strong> ${{ reserva.cuota_pendiente|floatformat:2 }}</p>
+        </div>
+    </div>
+
+    <!-- Sección de pagos y depósito -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Detalle de Pagos y Depósito</h5>
             
-            <!-- Información de la reserva -->
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">📋 Información de la Operación</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p><strong>🏠 Propiedad:</strong> {{ reserva.propiedad.direccion }}</p>
-                            <p><strong>📅 Fechas:</strong> {{ reserva.fecha_inicio|date:"d/m/Y" }} al {{ reserva.fecha_fin|date:"d/m/Y" }}</p>
-                            <p><strong>👤 Cliente:</strong> {{ reserva.cliente.nombre }} {{ reserva.cliente.apellido }}</p>
-                        </div>
-                        <div class="col-md-6">
-                            <p><strong>💰 Precio Total:</strong> ${{ reserva.precio_total|floatformat:0 }}</p>
-                            <p><strong>💵 Seña Pagada:</strong> ${{ total_senia_pagada|default:0|floatformat:0 }}</p>
-                            <p><strong>📊 Estado:</strong> <span class="badge bg-warning">{{ reserva.estado|title }}</span></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Formulario principal -->
-            <form id="formProcesarMovimiento" method="post" action="{% url 'inmobiliaria:procesar_movimiento_reserva' %}">
-                {% csrf_token %}
-                
-                <!-- Información del Recibo -->
-                <div class="card mb-4">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0">🧾 Información del Recibo</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <!-- Columna 1: Datos básicos -->
-                            <div class="col-md-6">
-                                <div class="row mb-3">
-                                    <div class="col-md-6">
-                                        <label for="productor" class="form-label">👤 <strong>PRODUCTOR:</strong></label>
-                                        <select class="form-select" id="productor" name="productor_id">
-                                            {% for vendedor in vendedores %}
-                                                <option value="{{ vendedor.id }}" {% if vendedor.id == productor_id %}selected{% endif %}>
-                                                    {{ vendedor.nombre }} {{ vendedor.apellido }}
-                                                </option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="col-md-6">
-                                        <label for="senia" class="form-label">💰 <strong>SEÑA:</strong></label>
-                                        <input type="text" class="form-control" id="senia" name="senia" 
-                                               value="{{ reserva.senia|default:0|floatformat:0 }}" placeholder="0">
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-6">
-                                        <label for="deposito_garantia" class="form-label">🛡️ <strong>DEPÓSITO GARANTÍA:</strong></label>
-                                        <input type="text" class="form-control" id="deposito_garantia" name="deposito_garantia" 
-                                               value="{{ reserva.deposito_garantia|default:0|floatformat:0 }}" placeholder="0">
-                                    </div>
-                                    
-                                    <div class="col-md-6">
-                                        <label for="importe_locacion" class="form-label">🏠 <strong>IMPORTE LOCACIÓN:</strong></label>
-                                        <input type="text" class="form-control" id="importe_locacion" name="importe_locacion" 
-                                               value="{{ reserva.precio_total|default:0|floatformat:0 }}" placeholder="0">
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-12">
-                                        <label for="queda_por_pagar" class="form-label">⏳ <strong>QUEDA POR PAGAR:</strong></label>
-                                        <input type="text" class="form-control" id="queda_por_pagar" name="queda_por_pagar" 
-                                               readonly style="background-color: #f8f9fa;">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Columna 2: Conceptos -->
-                            <div class="col-md-6">
-                                <h6><strong>📝 Conceptos del Recibo</strong></h6>
-                                
-                                <div class="mb-3">
-                                    <button type="button" class="btn btn-primary btn-sm" onclick="mostrarModalConcepto()">
-                                        ➕ Agregar Concepto
-                                    </button>
-                                </div>
-                                
-                                <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
-                                    <table class="table table-sm table-striped">
-                                        <thead class="table-dark">
-                                            <tr>
-                                                <th>ID</th>
-                                                <th>Concepto</th>
-                                                <th>Importe</th>
-                                                <th>Acciones</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="tablaConceptos">
-                                            <!-- Los conceptos se agregan dinámicamente aquí -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                                
-                                <div class="alert alert-info mt-2">
-                                    <strong>📊 Total Conceptos:</strong> $<span id="totalConceptos">0</span>
-                                </div>
-                                
-                                <div class="alert alert-success">
-                                    <strong>🧾 TOTAL DEL RECIBO:</strong>
-                                    <input type="hidden" id="totalRecibo" name="total_recibo" value="0">
-                                    <span class="fs-5 fw-bold">$<span id="totalReciboDisplay">0</span></span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Formas de Pago -->
-                <div class="card mb-4">
-                    <div class="card-header bg-warning text-dark">
-                        <h5 class="mb-0">💳 Formas de Pago</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="alert alert-warning">
-                            <strong>⚠️ Importante:</strong> El total de las formas de pago debe ser igual al total del recibo para poder procesar el movimiento.
-                        </div>
+            <!-- Tabla de pagos -->
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Código</th>
+                            <th>Concepto</th>
+                            <th>Forma de Pago</th>
+                            <th class="text-right">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pago in pagos_previos %}
+                        <tr>
+                            <td>{{ pago.fecha|date:"d/m/Y" }}</td>
+                            <td>{{ pago.codigo }}</td>
+                            <td>{{ pago.concepto.nombre }}</td>
+                            <td>{{ pago.get_forma_pago_display }}</td>
+                            <td class="text-right">${{ pago.monto|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
                         
-                        <div class="row">
-                            <!-- Columna 1: Datos del banco/cheque/tarjeta -->
-                            <div class="col-md-6">
-                                <div class="row mb-2">
-                                    <div class="col-md-12">
-                                        <label for="banco" class="form-label"><strong>BANCO:</strong></label>
-                                        <input type="text" class="form-control" id="banco" name="banco" placeholder="Nombre del banco">
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-2">
-                                    <div class="col-md-12">
-                                        <label for="nro_cheque" class="form-label"><strong>NRO CHEQUE:</strong></label>
-                                        <input type="text" class="form-control" id="nro_cheque" name="nro_cheque" placeholder="Número de cheque">
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-2">
-                                    <div class="col-md-12">
-                                        <label for="tarjeta" class="form-label"><strong>TARJETA:</strong></label>
-                                        <input type="text" class="form-control" id="tarjeta" name="tarjeta" placeholder="Tipo de tarjeta">
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-2">
-                                    <div class="col-md-12">
-                                        <label for="numero_tarjeta" class="form-label"><strong>NÚMERO TARJETA:</strong></label>
-                                        <input type="text" class="form-control" id="numero_tarjeta" name="numero_tarjeta" placeholder="Últimos 4 dígitos">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Columna 2: Importes -->
-                            <div class="col-md-6">
-                                <div class="row mb-2">
-                                    <div class="col-md-4">
-                                        <label for="monto_efectivo" class="form-label">💵 <strong>IMPORTE EFECTIVO:</strong></label>
-                                        <input type="text" class="form-control importe-pago" id="monto_efectivo" name="monto_efectivo" 
-                                               placeholder="0">
-                                    </div>
-                                    
-                                    <div class="col-md-4">
-                                        <label for="monto_cheque" class="form-label">💳 <strong>IMPORTE CHEQUE:</strong></label>
-                                        <input type="text" class="form-control importe-pago" id="monto_cheque" name="monto_cheque" 
-                                               placeholder="0">
-                                    </div>
-                                    
-                                    <div class="col-md-4">
-                                        <label for="monto_tarjeta" class="form-label">💳 <strong>IMPORTE TARJETA:</strong></label>
-                                        <input type="text" class="form-control importe-pago" id="monto_tarjeta" name="monto_tarjeta" 
-                                               placeholder="0">
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-2">
-                                    <div class="col-md-12">
-                                        <label class="form-label"><strong>TRANSFERENCIAS:</strong></label>
-                                        <div class="transferencias-container">
-                                            <div class="transferencia-item">
-                                                <label class="form-label">🏛️ Galicia:</label>
-                                                <input type="text" class="form-control form-control-xs importe-pago" 
-                                                       id="monto_deposito_galicia" name="monto_deposito_galicia" 
-                                                       placeholder="0">
-                                            </div>
-                                            <div class="transferencia-item">
-                                                <label class="form-label">💰 Mercado Pago:</label>
-                                                <input type="text" class="form-control form-control-xs importe-pago" 
-                                                       id="monto_deposito_mp" name="monto_deposito_mp" 
-                                                       placeholder="0">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Resumen de pagos -->
-                                <div class="card mt-3" style="background-color: #e3f2fd;">
-                                    <div class="card-body p-2">
-                                        <div class="row text-center">
-                                            <div class="col-4">
-                                                <small><strong>TOTAL DE PAGOS:</strong></small><br>
-                                                <span class="fs-6 fw-bold" id="totalPagos">0</span>
-                                            </div>
-                                            <div class="col-4">
-                                                <small><strong>TOTAL RECIBO:</strong></small><br>
-                                                <span class="fs-6 fw-bold" id="totalReciboDisplay2">0</span>
-                                            </div>
-                                            <div class="col-4">
-                                                <small><strong>DIFERENCIA:</strong></small><br>
-                                                <span class="fs-6 fw-bold" id="diferenciaPagos">0</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        {% if reserva.deposito_garantia > 0 %}
+                        <tr class="table-info">
+                            <td>{{ reserva.fecha_inicio|date:"d/m/Y" }}</td>
+                            <td>DEP-{{ reserva.id }}</td>
+                            <td>Depósito de Garantía</td>
+                            <td>-</td>
+                            <td class="text-right">${{ reserva.deposito_garantia|floatformat:2 }}</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="text-right"><strong>Total Pagado:</strong></td>
+                            <td class="text-right"><strong>${{ total_pagado|floatformat:2 }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-right"><strong>Depósito de Garantía:</strong></td>
+                            <td class="text-right"><strong>${{ deposito|floatformat:2 }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-right"><strong>Saldo Pendiente:</strong></td>
+                            <td class="text-right"><strong>${{ saldo_pendiente|floatformat:2 }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botones -->
+    <div class="mt-3">
+        <!-- Botón para ver recibo -->
+   
+        
+        <!-- Botón para agregar pago -->
+        <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#agregarPagoModal">
+            <i class="fas fa-plus"></i> Agregar Nuevo Pago
+        </button>
+
+        {% if not reserva.deposito_garantia > 0 %}
+        <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#agregarDepositoModal">
+            <i class="fas fa-plus"></i> Agregar Depósito de Garantía
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Modal para agregar depósito -->
+    <div class="modal fade" id="agregarDepositoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Agregar Depósito de Garantía</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post" action="{% url 'inmobiliaria:agregar_deposito' reserva.id %}">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>Monto del Depósito de Garantía</label>
+                            <input type="number" name="monto_deposito" class="form-control" step="0.01" required>
+                            <small class="form-text text-muted">Este es un depósito de garantía que se devolverá al finalizar el contrato.</small>
                         </div>
                     </div>
-                </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar Depósito</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 
-                <!-- Observaciones -->
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <label for="observaciones" class="form-label"><strong>Observaciones Generales:</strong></label>
-                        <textarea class="form-control" id="observaciones" name="observaciones" rows="3" 
-                                  placeholder="Observaciones adicionales sobre la operación..."></textarea>
+<!-- Modal para agregar pago -->
+<div class="modal fade" id="agregarPagoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Agregar Pago</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" id="formPago">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Concepto</label>
+                        <div class="input-group">
+                            <input type="text" 
+                                id="codigo_concepto" 
+                                class="form-control" 
+                                placeholder="Código" 
+                                maxlength="3" 
+                                minlength="3" 
+                                pattern=".{3,3}"
+                                style="width: 100px;"
+                                list="codigos_list"
+                                required>
+                            <input 
+                                type="text" 
+                                id="concepto_input" 
+                                class="form-control" 
+                                placeholder="Buscar concepto..." 
+                                list="conceptos_list"
+                                required
+                            >
+                            <input type="hidden" id="concepto_id" name="concepto">
+                            <datalist id="codigos_list">
+                                {% for concepto in conceptos_pago %}
+                                    <option value="{{ concepto.codigo }}">
+                                {% endfor %}
+                            </datalist>
+                            <datalist id="conceptos_list">
+                                {% for concepto in conceptos_pago %}
+                                    <option 
+                                        value="{{ concepto.nombre }}"
+                                        data-id="{{ concepto.id }}"
+                                        data-codigo="{{ concepto.codigo }}"
+                                    >
+                                {% endfor %}
+                            </datalist>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Forma de Pago</label>
+                        <select name="forma_pago" id="forma_pago" class="form-control" required>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="tarjeta">Tarjeta</option>
+                            <option value="cheque">Cheque</option>
+                            <option value="qr">QR</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Campo para destino de transferencia (inicialmente oculto) -->
+                  
+
+                    <!-- Campos para tarjeta (inicialmente ocultos) -->
+                    <div id="campos_tarjeta" style="display: none;">
+                        <div class="form-group">
+                            <label>Tipo de Tarjeta</label>
+                            <select name="tipo_tarjeta" class="form-control">
+                                <option value="">Seleccione tipo de tarjeta</option>
+                                <option value="visa">Visa</option>
+                                <option value="mastercard">Mastercard</option>
+                                <option value="american_express">American Express</option>
+                                <option value="otro">Otro</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Monto</label>
+                        <input type="number" name="monto" class="form-control" step="0.01" max="{{ reserva.cuota_pendiente }}" required>
                     </div>
                 </div>
-
-                <!-- Botones de acción -->
-                <div class="row">
-                    <div class="col-md-12 text-end">
-                        <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-secondary me-2">
-                            ❌ Cancelar
-                        </a>
-                      
-                        <button type="button" class="btn btn-success btn-lg" id="btnProcesarMovimiento" disabled onclick="procesarMovimiento()">
-                            ✅ Procesar Movimiento
-                        </button>
-                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Pago</button>
                 </div>
-                
-                <!-- Campos ocultos -->
-                <input type="hidden" name="reserva_id" value="{{ reserva.id }}">
-                <input type="hidden" name="conceptos_json" value="">
             </form>
         </div>
     </div>
 </div>
 
-<!-- Modal para agregar concepto -->
-<div class="modal fade" id="modalConcepto" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalConceptoLabel">➕ Agregar Concepto</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="formConcepto">
-                    <!-- Información del concepto seleccionado -->
-                    <div id="infoConceptoSeleccionado" style="display: none;"></div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <button type="button" class="btn btn-info btn-sm mb-3" onclick="mostrarModalBuscarConcepto()">
-                                🔍 Buscar Concepto
-                            </button>
-                        </div>
-                        <div class="col-md-6">
-                            <button type="button" class="btn btn-success btn-sm mb-3" onclick="mostrarModalNuevoConcepto()">
-                                ➕ Nuevo Concepto
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="importeConcepto" class="form-label">💰 <strong>Importe:</strong></label>
-                        <input type="text" class="form-control" id="importeConcepto" name="importe" 
-                               placeholder="Ingrese el importe" required>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="agregarConcepto()">✅ Agregar</button>
-            </div>
-        </div>
-    </div>
-</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Manejo del formulario de pago
+    const formPago = document.getElementById('formPago');
+    const codigoConcepto = document.getElementById('codigo_concepto');
+    const conceptoInput = document.getElementById('concepto_input');
+    const conceptoId = document.getElementById('concepto_id');
+    const conceptosList = document.getElementById('conceptos_list');
 
-<!-- Modal para buscar concepto -->
-<div class="modal fade" id="modalBuscarConcepto" tabindex="-1">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">🔍 Buscar Concepto</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="conceptoIdBusqueda" class="form-label">🆔 Buscar por ID:</label>
-                        <div class="input-group">
-                            <input type="number" class="form-control" id="conceptoIdBusqueda" placeholder="ID del concepto">
-                            <button class="btn btn-primary" type="button" onclick="buscarConceptoPorId()">🔍 Buscar</button>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="filtroConceptos" class="form-label">🔍 Filtrar por nombre:</label>
-                        <input type="text" class="form-control" id="filtroConceptos" placeholder="Escriba para filtrar..." onkeyup="filtrarConceptos()">
-                    </div>
-                </div>
+    // Crear un mapa de conceptos para búsqueda rápida
+    const conceptosMap = new Map();
+    const conceptosPorNombre = new Map();
+    {% for concepto in conceptos_pago %}
+        conceptosMap.set('{{ concepto.codigo }}', {
+            id: '{{ concepto.id }}',
+            nombre: '{{ concepto.nombre }}',
+            codigo: '{{ concepto.codigo }}'
+        });
+        conceptosPorNombre.set('{{ concepto.nombre }}', {
+            id: '{{ concepto.id }}',
+            nombre: '{{ concepto.nombre }}',
+            codigo: '{{ concepto.codigo }}'
+        });
+    {% endfor %}
+
+    // Función para buscar concepto por código
+    function buscarConceptoPorCodigo(codigo) {
+        const concepto = conceptosMap.get(codigo);
+        if (concepto) {
+            conceptoInput.value = concepto.nombre;
+            conceptoId.value = concepto.id;
+            return true;
+        }
+        return false;
+    }
+
+    // Función para buscar concepto por nombre
+    function buscarConceptoPorNombre(nombre) {
+        const concepto = conceptosPorNombre.get(nombre);
+        if (concepto) {
+            codigoConcepto.value = concepto.codigo;
+            conceptoId.value = concepto.id;
+            return true;
+        }
+        return false;
+    }
+
+    // Manejar entrada de código
+    codigoConcepto.addEventListener('input', function(e) {
+        const codigo = e.target.value;
+        if (codigo.length === 3) {
+            if (!buscarConceptoPorCodigo(codigo)) {
+                conceptoInput.value = '';
+                conceptoId.value = '';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Código de concepto no encontrado'
+                });
+            }
+        } else {
+            conceptoInput.value = '';
+            conceptoId.value = '';
+        }
+    });
+
+    // Manejar entrada de nombre de concepto
+    conceptoInput.addEventListener('input', function(e) {
+        const nombre = e.target.value;
+        if (!buscarConceptoPorNombre(nombre)) {
+            codigoConcepto.value = '';
+            conceptoId.value = '';
+        }
+    });
+
+    // Manejar selección de concepto
+    conceptoInput.addEventListener('change', function(e) {
+        const nombre = e.target.value;
+        if (!buscarConceptoPorNombre(nombre)) {
+            codigoConcepto.value = '';
+            conceptoId.value = '';
+            conceptoInput.value = '';
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Por favor seleccione un concepto válido de la lista'
+            });
+        }
+    });
+
+    // También validar cuando el campo de código pierde el foco
+    codigoConcepto.addEventListener('blur', function(e) {
+        const codigo = e.target.value;
+        if (codigo && codigo.length === 3 && !buscarConceptoPorCodigo(codigo)) {
+            e.target.value = '';
+            conceptoInput.value = '';
+            conceptoId.value = '';
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Código de concepto no encontrado'
+            });
+        }
+    });
+
+    if (formPago) {
+        formPago.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            try {
+                // Validar que se haya seleccionado un concepto
+                if (!conceptoId.value) {
+                    throw new Error('Por favor seleccione un concepto válido');
+                }
+
+                // Validar campos de tarjeta si es necesario
+                const formaPago = document.getElementById('forma_pago').value;
+                if (formaPago === 'tarjeta') {
+                    const tipoTarjeta = document.querySelector('select[name="tipo_tarjeta"]').value;
+                    if (!tipoTarjeta) {
+                        throw new Error('Por favor seleccione el tipo de tarjeta');
+                    }
+                }
+
+                // Validar campos de transferencia si es necesario
+                if (formaPago === 'transferencia' || formaPago === 'qr') {
+                    const destinoDeposito = document.querySelector('select[name="destino_deposito"]').value;
+                    if (!destinoDeposito) {
+                        throw new Error('Por favor seleccione el destino de la transferencia');
+                    }
+                }
+
+                const formData = new FormData(this);
                 
-                <div class="table-responsive" style="max-height: 400px;">
-                    <table class="table table-striped table-hover">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>ID</th>
-                                <th>Nombre</th>
-                                <th>Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tablaConceptosBusqueda">
-                            {% for concepto in conceptos %}
-                            <tr>
-                                <td>{{ concepto.id }}</td>
-                                <td>{{ concepto.nombre }}</td>
-                                <td>
-                                    <button type="button" class="btn btn-sm btn-primary btn-seleccionar-concepto" 
-                                            data-concepto-id="{{ concepto.id }}" 
-                                            data-concepto-nombre="{{ concepto.nombre }}">
-                                        ✅ Seleccionar
-                                    </button>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cerrar</button>
-            </div>
-        </div>
-    </div>
-</div>
+                fetch('{% url "inmobiliaria:agregar_pago" reserva.id %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Cerrar el modal primero
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('agregarPagoModal'));
+                        if (modal) {
+                            modal.hide();
+                        }
+                        
+                        // Mostrar mensaje de éxito
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Éxito',
+                            text: 'Pago registrado correctamente',
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(() => {
+                            window.location.href = data.redirect_url;
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.message
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Ocurrió un error al procesar el pago'
+                    });
+                });
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message
+                });
+            }
+        });
+    }
 
-<!-- Modal para nuevo concepto -->
-<div class="modal fade" id="modalNuevoConcepto" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">➕ Crear Nuevo Concepto</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="alert alert-info">
-                    <strong>ℹ️ Información:</strong> Para crear nuevos conceptos, debe ir a la sección de 
-                    <a href="{% url 'inmobiliaria:gestionar_conceptos' %}" target="_blank">Gestión de Conceptos</a>.
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cerrar</button>
-                <a href="{% url 'inmobiliaria:gestionar_conceptos' %}" class="btn btn-primary" target="_blank">
-                    🔗 Ir a Gestión de Conceptos
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
+    // Manejo de campos de tarjeta
+    document.getElementById('forma_pago').addEventListener('change', function() {
+        const camposTarjeta = document.getElementById('campos_tarjeta');
+        const camposTransferencia = document.getElementById('campos_transferencia');
+        const numeroTarjeta = document.querySelector('input[name="numero_tarjeta"]');
+        const tipoTarjeta = document.querySelector('select[name="tipo_tarjeta"]');
+        const destinoDeposito = document.querySelector('select[name="destino_deposito"]');
+        
+        // Ocultar todos los campos adicionales primero
+        camposTarjeta.style.display = 'none';
+        camposTransferencia.style.display = 'none';
+        numeroTarjeta.required = false;
+        tipoTarjeta.required = false;
+        destinoDeposito.required = false;
+        
+        // Mostrar campos según la forma de pago
+        if (this.value === 'tarjeta') {
+            camposTarjeta.style.display = 'block';
+            tipoTarjeta.required = true;
+        } else if (this.value === 'transferencia' || this.value === 'qr') {
+            camposTransferencia.style.display = 'block';
+            destinoDeposito.required = true;
+        }
+    });
+
+    // Limpiar formulario cuando se abre el modal
+    document.getElementById('agregarPagoModal').addEventListener('show.bs.modal', function () {
+        // Resetear formulario
+        document.getElementById('formPago').reset();
+        // Limpiar campos ocultos y de búsqueda
+        document.getElementById('concepto_id').value = '';
+        document.getElementById('codigo_concepto').value = '';
+        document.getElementById('concepto_input').value = '';
+        // Ocultar campos adicionales
+        document.getElementById('campos_tarjeta').style.display = 'none';
+        document.getElementById('campos_transferencia').style.display = 'none';
+    });
+});
+</script>
 
 <style>
-.form-control[readonly] {
-    background-color: #f8f9fa !important;
-    border: 1px solid #ced4da;
-}
-
-.transferencias-container {
+.input-group {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.transferencia-item {
-    display: flex;
-    align-items: center;
     gap: 10px;
-    margin-bottom: 8px;
 }
 
-.transferencia-item label {
-    min-width: 120px;
-    margin-bottom: 0;
-    font-size: 0.9rem;
+#codigo_concepto {
+    width: 100px;
 }
 
-.transferencia-item:last-child {
-    margin-bottom: 0;
+#concepto_input {
+    flex: 1;
 }
 
-/* Estilos para campos pequeños */
-.form-control-xs {
-    font-size: 0.8rem;
-    padding: 2px 5px;
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.modal-body {
+    padding: 1rem;
 }
 </style>
 {% endblock %}
