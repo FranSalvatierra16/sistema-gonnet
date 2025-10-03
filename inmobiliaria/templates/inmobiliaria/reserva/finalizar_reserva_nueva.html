@@ -289,6 +289,11 @@ function procesarMovimiento() {
     });
     
     console.log('📋 Enviando', conceptosAgregados.length, 'conceptos al servidor');
+    console.log('🌐 URL de destino:', form.action || window.location.href);
+    console.log('📦 FormData contents:');
+    for (let [key, value] of formData.entries()) {
+        console.log(`   ${key}: ${value}`);
+    }
     
     // Enviar via AJAX
     fetch(form.action || window.location.href, {
@@ -748,7 +753,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <h4>🧾 RECIBO DE ALQUILER POR DÍA</h4>
                 </div>
                 <div class="card-body">
-                                            <form method="post" id="formProcesarMovimiento">
+                                            <form method="post" id="formProcesarMovimiento" action="{% url 'inmobiliaria:procesar_movimiento_reserva' %}">
                             {% csrf_token %}
                             <input type="hidden" name="reserva_id" value="{{ reserva.id }}">
                         
