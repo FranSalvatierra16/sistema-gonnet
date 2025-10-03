@@ -3280,9 +3280,39 @@ def ver_recibo_movimiento(request, movimiento_id):
                     # Nuevo formato esperado: "Reserva 85 - limpieza + alquiler + deposito|CONCEPTOS:11:limpieza:35000|1:alquiler:35000|10:deposito:20000|"
                     concepto_texto = movimiento.concepto or ""
                     print(f"📝 CONCEPTO COMPLETO: {concepto_texto}")
+                    print(f"📝 LONGITUD: {len(concepto_texto)} caracteres")
+                    print(f"📝 TIPO: {type(concepto_texto)}")
                     
-                    # Buscar información estructurada de conceptos
-                    if "|CONCEPTOS:" in concepto_texto:
+                    # ✅ NUEVO: Intentar parsear como JSON primero
+                    if concepto_texto.startswith('[') and concepto_texto.endswith(']'):
+                        print(f"🔍 DETECTADO FORMATO JSON")
+                        try:
+                            import json
+                            conceptos_json = json.loads(concepto_texto)
+                            print(f"✅ JSON PARSEADO: {len(conceptos_json)} conceptos")
+                            
+                            for i, concepto_data in enumerate(conceptos_json):
+                                concepto_id = concepto_data.get('id', f'C{i+1:02d}')
+                                concepto_nombre = concepto_data.get('nombre', 'Sin nombre')
+                                concepto_importe = float(concepto_data.get('importe', 0))
+                                
+                                pagos.append({
+                                    'fecha': fecha_mov,
+                                    'codigo': concepto_id,
+                                    'concepto': concepto_nombre,
+                                    'monto': f'${concepto_importe:,.0f}'
+                                })
+                                total_pagado += concepto_importe
+                                
+                                print(f"💰 CONCEPTO JSON {i+1}: ID={concepto_id}, {concepto_nombre} - ${concepto_importe:,.0f}")
+                            
+                            conceptos_procesados = True
+                            
+                        except json.JSONDecodeError as e:
+                            print(f"❌ Error al parsear JSON: {e}")
+                    
+                    # Si no es JSON, continuar con el formato anterior
+                    if not conceptos_procesados and "|CONCEPTOS:" in concepto_texto:
                         # Extraer la parte estructurada
                         concepto_parts = concepto_texto.split("|CONCEPTOS:", 1)
                         if len(concepto_parts) > 1:
@@ -3374,24 +3404,16 @@ def ver_recibo_movimiento(request, movimiento_id):
                         else:
                             # No se pudo parsear, usar concepto único
                             print("⚠️ No se pudieron extraer conceptos individuales, usando concepto único")
-                    pagos.append({
-                        'fecha': fecha_mov,
-                        'codigo': codigo_mov,
-                                'concepto': concepto_texto or 'ALQ - Alquiler temporario',
-                                'monto': f'${movimiento.monto_total:,.0f}'
-                            })
-                    total_pagado += movimiento.monto_total
                     
+                    # ✅ FALLBACK FINAL: Si no se procesaron conceptos, usar el concepto completo
                     if not conceptos_procesados and not pagos:
-                        # No hay conceptos separados, usar el concepto completo
-                        print("⚠️ No hay conceptos separados con '+', usando concepto completo")
                         pagos.append({
                             'fecha': fecha_mov,
                             'codigo': codigo_mov,
                             'concepto': concepto_texto or 'ALQ - Alquiler temporario',
-                        'monto': f'${movimiento.monto_total:,.0f}'
-                    })
-                    total_pagado += movimiento.monto_total
+                            'monto': f'${movimiento.monto_total:,.0f}'
+                        })
+                        total_pagado += movimiento.monto_total
                     
                 except Exception as e:
                     print(f"❌ Error en fallback: {e}")
