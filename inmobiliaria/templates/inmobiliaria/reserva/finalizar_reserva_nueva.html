@@ -23,17 +23,28 @@ let contadorConceptos = 1;
 function calcularSaldoOcupar() {
     try {
         const importeLocacionElement = document.querySelector('input[name="importe_locacion"]');
-        const seniaElement = document.querySelector('input[name="senia"]');
         
-        if (!importeLocacionElement || !seniaElement) {
-            return; // Salir silenciosamente si no existen los campos
+        if (!importeLocacionElement) {
+            return; // Salir silenciosamente si no existe el campo
         }
         
         const importeLocacion = parseFloat((importeLocacionElement.value || '0').replace(/\./g, '')) || 0;
-        const seniaActual = parseFloat((seniaElement.value || '0').replace(/\./g, '')) || 0;
         
-        const totalSenia = SENIA_PAGADA + seniaActual;
-        const quedaPorPagar = Math.max(0, importeLocacion - totalSenia);
+        // ✅ CORREGIDO: El saldo a ocupar es la diferencia entre importe total y conceptos cargados
+        // Los casilleros de seña son solo informativos
+        let totalConceptosCargados = 0;
+        if (conceptosAgregados && conceptosAgregados.length > 0) {
+            totalConceptosCargados = conceptosAgregados.reduce((sum, concepto) => {
+                return sum + (parseFloat(concepto.importe) || 0);
+            }, 0);
+        }
+        
+        const quedaPorPagar = Math.max(0, importeLocacion - totalConceptosCargados);
+        
+        console.log('🧮 CÁLCULO QUEDA POR PAGAR:');
+        console.log('   Importe Locación:', importeLocacion);
+        console.log('   Total Conceptos:', totalConceptosCargados);
+        console.log('   Queda por Pagar:', quedaPorPagar);
         
         // Actualizar el campo si existe
         const quedaPorPagarElement = document.querySelector('input[name="queda_por_pagar"]');
@@ -74,14 +85,12 @@ function calcularTotales() {
             console.log('✅ Display totalConceptos actualizado:', totalConceptos.toLocaleString('es-ES'));
         }
         
-        // 3. ✅ TOTAL DEL RECIBO = SOLO LA SEÑA (los conceptos NO se suman)
-        const seniaElement = document.querySelector('input[name="senia"]');
-        const seniaActual = parseFloat((seniaElement?.value || '0').replace(/\./g, '')) || 0;
+        // 3. ✅ TOTAL DEL RECIBO = SUMA DE TODOS LOS CONCEPTOS (igual que Finalizar Reserva)
+        // Los casilleros de arriba (seña, depósito) son solo informativos
+        const totalRecibo = totalConceptos;
         
-        const totalRecibo = seniaActual; // ✅ SOLO la seña
-        
-        console.log('🧾 Total recibo calculado: SOLO seña = ' + totalRecibo);
-        console.log('📝 Conceptos son informativos, NO se suman al recibo');
+        console.log('🧾 Total recibo calculado: SUMA DE CONCEPTOS = ' + totalRecibo);
+        console.log('📝 Casilleros de arriba (seña, depósito) son solo informativos');
         
         // 4. Actualizar display del total del recibo
         const totalReciboElement = document.getElementById('totalRecibo');
