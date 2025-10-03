@@ -2667,24 +2667,29 @@ def procesar_movimiento_reserva(request):
                     total_conceptos += importe_limpio
                     
                     # Guardar información completa del concepto
-                    conceptos_completos.append({
+                    concepto_completo = {
                         'id': concepto_id or f'C{i+1:02d}',
                         'nombre': concepto_nombre,
                         'importe': concepto_importe or '0'
-                    })
+                    }
+                    conceptos_completos.append(concepto_completo)
                     print(f"💰 CONCEPTO {i}: ID={concepto_id}, {concepto_nombre} - ${concepto_importe}")
+                    print(f"💰 CONCEPTO COMPLETO GUARDADO: {concepto_completo}")
             
-            # Construir concepto detallado con los conceptos individuales
-            if conceptos_detalle:
-                concepto_detallado = f"Operaci\u00f3n {reserva.id} - " + " + ".join(conceptos_detalle)
+            # ✅ NUEVO: Guardar conceptos en formato JSON para mejor parsing
+            if conceptos_completos:
+                import json
+                # Convertir conceptos a formato JSON
+                conceptos_json = []
+                for concepto in conceptos_completos:
+                    conceptos_json.append({
+                        'id': concepto['id'],
+                        'nombre': concepto['nombre'],
+                        'importe': concepto['importe']
+                    })
                 
-                # Agregar información estructurada al final para parsing posterior
-                # Formato: |CONCEPTOS:id1:nombre1:importe1|id2:nombre2:importe2|
-                if conceptos_completos:
-                    conceptos_info = "|CONCEPTOS:"
-                    for concepto in conceptos_completos:
-                        conceptos_info += f"{concepto['id']}:{concepto['nombre']}:{concepto['importe']}|"
-                    concepto_detallado += conceptos_info
+                concepto_detallado = json.dumps(conceptos_json, ensure_ascii=False)
+                print(f"📝 CONCEPTOS EN JSON: {concepto_detallado}")
             else:
                 concepto_detallado = f"Operaci\u00f3n {reserva.id} - {reserva.propiedad.direccion}"
             
@@ -3286,10 +3291,12 @@ def ver_recibo_movimiento(request, movimiento_id):
                     # ✅ NUEVO: Intentar parsear como JSON primero
                     if concepto_texto.startswith('[') and concepto_texto.endswith(']'):
                         print(f"🔍 DETECTADO FORMATO JSON")
+                        print(f"🔍 JSON COMPLETO: {concepto_texto}")
                         try:
                             import json
                             conceptos_json = json.loads(concepto_texto)
                             print(f"✅ JSON PARSEADO: {len(conceptos_json)} conceptos")
+                            print(f"✅ CONCEPTOS PARSEADOS: {conceptos_json}")
                             
                             for i, concepto_data in enumerate(conceptos_json):
                                 concepto_id = concepto_data.get('id', f'C{i+1:02d}')
