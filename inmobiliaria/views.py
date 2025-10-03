@@ -6455,11 +6455,10 @@ def buscar_propiedades(request):
     # Los precios ya fueron calculados correctamente arriba para cada propiedad
     # No es necesario recalcular aquí
 
-    # ✅ ORDENAMIENTO PERSONALIZADO: Primero rojas, luego por días libres
+    # ✅ ORDENAMIENTO SIMPLIFICADO: Usar directamente la disponibilidad_inicio del cuadrito
     def calcular_dias_libres(propiedad, fecha_inicio_busqueda, fecha_fin_busqueda):
         """
-        Calcula días perdidos desde el inicio de disponibilidad hasta la búsqueda.
-        Versión ultra-segura con múltiples fallbacks.
+        Calcula días perdidos usando DIRECTAMENTE la fecha de disponibilidad_inicio que se muestra en el cuadrito.
         """
         try:
             # Verificar estado de la propiedad
@@ -6469,92 +6468,20 @@ def buscar_propiedades(request):
             if propiedad.estado_reserva == 'confirmada_no_pagada':
                 return -1  # Rojas van primero (valor negativo)
             
-            # ✅ LÓGICA CORREGIDA: Calcular días perdidos correctamente
-            try:
-                from .models.propiedad import Disponibilidad
+            # ✅ LÓGICA SIMPLIFICADA: Usar directamente disponibilidad_inicio del cuadrito
+            if hasattr(propiedad, 'disponibilidad_inicio') and propiedad.disponibilidad_inicio:
+                dias_perdidos = (fecha_inicio_busqueda - propiedad.disponibilidad_inicio).days
+                dias_resultado = max(dias_perdidos, 0)
                 
-                # 1️⃣ PRIMERO: Buscar disponibilidades que CONTENGAN la fecha de búsqueda
-                disponibilidades_que_contienen = Disponibilidad.objects.filter(
-                    propiedad=propiedad,
-                    fecha_inicio__lte=fecha_inicio_busqueda,
-                    fecha_fin__gte=fecha_inicio_busqueda
-                )
-                
-                if disponibilidades_que_contienen.exists():
-                    # Si hay disponibilidad que contiene la fecha, verificar si hay reservas anteriores
-                    disponibilidad_actual = disponibilidades_que_contienen.first()
-                    
-                    # Buscar la reserva más reciente que termine antes o en la fecha de búsqueda
-                    reserva_anterior = propiedad.reservas.filter(
-                        fecha_fin__lte=fecha_inicio_busqueda
-                    ).order_by('-fecha_fin').first()
-                    
-                    if reserva_anterior:
-                        # ✅ LÓGICA HOTEL: Si reserva termina el 3, disponible desde el 3 (mismo día)
-                        dia_disponible = reserva_anterior.fecha_fin
-                        dias_perdidos = (fecha_inicio_busqueda - dia_disponible).days
-                        dias_resultado = max(dias_perdidos, 0)
-                        
-                        print(f"🔍 Propiedad {propiedad.id}: Reserva hasta {reserva_anterior.fecha_fin}, disponible desde {dia_disponible}, búsqueda {fecha_inicio_busqueda} → {dias_resultado} días perdidos")
-                        print(f"    📊 CÁLCULO: ({fecha_inicio_busqueda} - {dia_disponible}).days = {dias_perdidos} → max(0, {dias_perdidos}) = {dias_resultado}")
-                        return dias_resultado
-                    else:
-                        # Sin reservas anteriores, calcular desde el inicio de la disponibilidad
-                        dias_perdidos = (fecha_inicio_busqueda - disponibilidad_actual.fecha_inicio).days
-                        dias_resultado = max(dias_perdidos, 0)
-                        
-                        print(f"🔍 Propiedad {propiedad.id}: Sin reservas anteriores, disponible desde {disponibilidad_actual.fecha_inicio}, búsqueda {fecha_inicio_busqueda} → {dias_resultado} días perdidos")
-                        print(f"    📊 CÁLCULO: ({fecha_inicio_busqueda} - {disponibilidad_actual.fecha_inicio}).days = {dias_perdidos} → max(0, {dias_perdidos}) = {dias_resultado}")
-                        return dias_resultado
-                
-                # 2️⃣ SEGUNDO: Buscar fechas anteriores (reservas o disponibilidades que terminaron antes)
-                reservas_anteriores = propiedad.reservas.filter(
-                    fecha_fin__lte=fecha_inicio_busqueda
-                ).order_by('-fecha_fin')
-                
-                disponibilidades_anteriores = Disponibilidad.objects.filter(
-                    propiedad=propiedad,
-                    fecha_fin__lte=fecha_inicio_busqueda
-                ).order_by('-fecha_fin')
-                
-                # Encontrar la fecha de fin más reciente
-                fecha_fin_mas_reciente = None
-                tipo_encontrado = None
-                
-                if reservas_anteriores.exists():
-                    reserva_reciente = reservas_anteriores.first()
-                    fecha_fin_mas_reciente = reserva_reciente.fecha_fin
-                    tipo_encontrado = "reserva"
-                
-                if disponibilidades_anteriores.exists():
-                    disponibilidad_reciente = disponibilidades_anteriores.first()
-                    if not fecha_fin_mas_reciente or disponibilidad_reciente.fecha_fin > fecha_fin_mas_reciente:
-                        fecha_fin_mas_reciente = disponibilidad_reciente.fecha_fin
-                        tipo_encontrado = "disponibilidad"
-                
-                if fecha_fin_mas_reciente:
-                    # ✅ LÓGICA HOTEL: Si termina el 3, disponible desde el 3 (mismo día)
-                    dias_perdidos = (fecha_inicio_busqueda - fecha_fin_mas_reciente).days
-                    dias_resultado = max(dias_perdidos, 0)
-                    
-                    print(f"🔍 Propiedad {propiedad.id}: Última {tipo_encontrado} terminó {fecha_fin_mas_reciente}, disponible desde {fecha_fin_mas_reciente}, búsqueda {fecha_inicio_busqueda} → {dias_resultado} días perdidos")
-                    print(f"    📊 CÁLCULO: ({fecha_inicio_busqueda} - {fecha_fin_mas_reciente}).days = {dias_perdidos} → max(0, {dias_perdidos}) = {dias_resultado}")
-                    return dias_resultado
-                else:
-                    # Sin fechas anteriores, usar 0 como valor por defecto (disponible desde siempre)
-                    print(f"🔍 Propiedad {propiedad.id}: Sin fechas anteriores, asumiendo 0 días perdidos")
-                    return 0
-                    
-            except Exception as e:
-                print(f"Error en cálculo avanzado para propiedad {propiedad.id}: {e}")
-                # Fallback final: usar ID de propiedad
-                try:
-                    return int(propiedad.id) if propiedad.id else 999999
-                except:
-                    return 999999
+                print(f"🔍 Propiedad {propiedad.id}: Disponible desde {propiedad.disponibilidad_inicio}, búsqueda {fecha_inicio_busqueda} → {dias_resultado} días perdidos")
+                print(f"    📊 CÁLCULO SIMPLE: ({fecha_inicio_busqueda} - {propiedad.disponibilidad_inicio}).days = {dias_perdidos} → max(0, {dias_perdidos}) = {dias_resultado}")
+                return dias_resultado
+            else:
+                print(f"🔍 Propiedad {propiedad.id}: Sin disponibilidad_inicio, usando 999999")
+                return 999999
             
         except Exception as e:
-            print(f"Error general calculando días libres para propiedad {propiedad.id}: {e}")
+            print(f"Error calculando días libres para propiedad {propiedad.id}: {e}")
             return 999999
 
     # ✅ APLICAR ORDENAMIENTO MEJORADO: Rojas primero, luego por días libres
