@@ -1517,7 +1517,7 @@ def finalizar_reserva_nueva(request, reserva_id):
         
         # ✅ DETECTAR SI ES "COMPLETAR PAGO" O "FINALIZAR RESERVA"
         # Si ya hay pagos anteriores, es "Completar Pago", sino es "Finalizar Reserva"
-        total_pagos_anteriores = sum(pago.monto for pago in pagos_anteriores)
+        total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
         es_completar_pago = total_pagos_anteriores > 0
         
         if es_completar_pago:
@@ -2340,7 +2340,7 @@ def buscar_operacion(request):
             'concepto_id': movimiento.concepto_id,
             'cuenta_id': movimiento.cuenta_id if movimiento.cuenta else None,
             'productor_id': movimiento.productor_id if hasattr(movimiento, 'productor') else None,
-            'monto': str(movimiento.monto),
+            'monto': str(movimiento.monto_total),
             'tipo_comprobante': movimiento.tipo_comprobante if hasattr(movimiento, 'tipo_comprobante') else None
         })
     except Movimiento.DoesNotExist:
@@ -4927,9 +4927,9 @@ def eliminar_movimiento(request, movimiento_id):
     # Actualizar saldo de la caja
     caja = Caja.objects.get(sucursal=request.user.sucursal)
     if movimiento.tipo.tipo == TipoMovimientoCajaEnum.INGRESO:
-        caja.saldo -= movimiento.monto
+        caja.saldo -= movimiento.monto_total
     else:
-        caja.saldo += movimiento.monto
+        caja.saldo += movimiento.monto_total
     
     caja.save()
     movimiento.delete()
@@ -5976,7 +5976,7 @@ def buscar_movimientos(request):
             'tipo_comprobante': mov.tipo_comprobante,
             'numero_liquidacion': mov.numero_liquidacion,
             'detalles': mov.detalles,
-            'monto': float(mov.monto) if mov.monto else 0,
+            'monto': float(mov.monto_total) if mov.monto_total else 0,
             'productor': {
                 'id': mov.productor.id,
                 'nombre': mov.productor.nombre,
@@ -7565,7 +7565,7 @@ def finalizar_reserva_nueva(request, reserva_id):
         
         # ✅ DETECTAR SI ES "COMPLETAR PAGO" O "FINALIZAR RESERVA"
         # Si ya hay pagos anteriores, es "Completar Pago", sino es "Finalizar Reserva"
-        total_pagos_anteriores = sum(pago.monto for pago in pagos_anteriores)
+        total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
         es_completar_pago = total_pagos_anteriores > 0
         
         if es_completar_pago:
