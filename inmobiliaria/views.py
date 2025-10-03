@@ -2854,6 +2854,12 @@ def procesar_movimiento_reserva(request):
                     numero_recibo = f"R{reserva.id:06d}-{len(pagos_anteriores) + 1:02d}"
                     print(f"🧾 NÚMERO MANUAL GENERADO: {numero_recibo}")
                 
+                print(f"🧾 DEBUG CREACIÓN RECIBO:")
+                print(f"   - precio_total_operacion (reserva.precio_total): ${reserva.precio_total}")
+                print(f"   - monto_este_pago (senia): ${monto_este_pago}")
+                print(f"   - total_pagado_antes (senia_anterior): ${senia_anterior}")
+                print(f"   - saldo_pendiente: ${saldo_pendiente}")
+                
                 recibo = Recibo.objects.create(
                     numero_recibo=numero_recibo,
                     movimiento_caja=movimiento,
@@ -3522,6 +3528,11 @@ def ver_recibo_movimiento(request, movimiento_id):
                 precio_total_mostrar = recibo_obj.precio_total_operacion
                 saldo_pendiente_mostrar = recibo_obj.saldo_pendiente
                 monto_este_pago_mostrar = recibo_obj.monto_este_pago
+                
+                print(f"🧾 DEBUG RECIBO - USANDO DATOS DEL RECIBO:")
+                print(f"   - precio_total_operacion: ${precio_total_mostrar}")
+                print(f"   - monto_este_pago: ${monto_este_pago_mostrar}")
+                print(f"   - saldo_pendiente: ${saldo_pendiente_mostrar}")
             else:
                 numero_recibo_mostrar = f'R{reserva.id:06d}'
                 precio_total_mostrar = reserva.precio_total
