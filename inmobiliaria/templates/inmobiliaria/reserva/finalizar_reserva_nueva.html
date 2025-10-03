@@ -138,11 +138,19 @@ function calcularTotalPagos() {
         console.log('   monto_deposito_galicia:', galiciaElement ? 'SÍ' : 'NO', galiciaElement?.value);
         console.log('   monto_deposito_mp:', mpElement ? 'SÍ' : 'NO', mpElement?.value);
         
-        const efectivo = parseFloat((efectivoElement?.value || '0').replace(/\./g, '').replace(/,/g, '')) || 0;
-        const cheque = parseFloat((chequeElement?.value || '0').replace(/\./g, '').replace(/,/g, '')) || 0;
-        const tarjeta = parseFloat((tarjetaElement?.value || '0').replace(/\./g, '').replace(/,/g, '')) || 0;
-        const galicia = parseFloat((galiciaElement?.value || '0').replace(/\./g, '').replace(/,/g, '')) || 0;
-        const mp = parseFloat((mpElement?.value || '0').replace(/\./g, '').replace(/,/g, '')) || 0;
+        // Función helper para parsear valores formateados
+        function parsearValor(elemento) {
+            if (!elemento || !elemento.value) return 0;
+            // Remover todos los caracteres que no sean números
+            const valorLimpio = elemento.value.replace(/[^\d]/g, '');
+            return parseFloat(valorLimpio) || 0;
+        }
+        
+        const efectivo = parsearValor(efectivoElement);
+        const cheque = parsearValor(chequeElement);
+        const tarjeta = parsearValor(tarjetaElement);
+        const galicia = parsearValor(galiciaElement);
+        const mp = parsearValor(mpElement);
         
         const totalPagos = efectivo + cheque + tarjeta + galicia + mp;
         
@@ -222,8 +230,84 @@ function habilitarBotonProcesar(habilitar = false) {
 // Función para procesar movimiento
 function procesarMovimiento() {
     console.log('🚀 Procesando movimiento...');
-    // El formulario se enviará automáticamente
-    document.getElementById('formProcesarMovimiento').submit();
+    
+    // Verificar que los totales coincidan antes de enviar
+    const totalPagosElement = document.getElementById('totalPagos');
+    const totalReciboElement = document.getElementById('totalRecibo');
+    
+    const totalPagos = parseFloat(totalPagosElement?.textContent?.replace(/[^\d]/g, '') || '0') || 0;
+    const totalRecibo = parseFloat(totalReciboElement?.value || '0') || 0;
+    
+    if (totalPagos !== totalRecibo) {
+        alert('❌ Los totales no coinciden. Por favor verifica los importes.');
+        return;
+    }
+    
+    if (totalRecibo <= 0) {
+        alert('❌ Debe agregar conceptos antes de procesar el movimiento.');
+        return;
+    }
+    
+    // Enviar formulario via AJAX para manejar la respuesta JSON
+    const form = document.getElementById('formProcesarMovimiento');
+    if (!form) {
+        console.error('❌ No se encontró el formulario');
+        alert('❌ Error: No se encontró el formulario');
+        return;
+    }
+    
+    // Deshabilitar botón para evitar doble envío
+    const boton = document.getElementById('btnProcesarMovimiento');
+    if (boton) {
+        boton.disabled = true;
+        boton.textContent = '⏳ Procesando...';
+    }
+    
+    // Crear FormData del formulario
+    const formData = new FormData(form);
+    
+    // Enviar via AJAX
+    fetch(form.action || window.location.href, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('📨 Respuesta del servidor:', data);
+        
+        if (data.success) {
+            console.log('✅ Movimiento procesado exitosamente');
+            if (data.redirect_url) {
+                console.log('🔄 Redirigiendo a:', data.redirect_url);
+                window.location.href = data.redirect_url;
+            } else {
+                alert('✅ Movimiento procesado exitosamente');
+                window.location.reload();
+            }
+        } else {
+            console.error('❌ Error del servidor:', data.error);
+            alert('❌ Error: ' + (data.error || 'Error desconocido'));
+            
+            // Rehabilitar botón
+            if (boton) {
+                boton.disabled = false;
+                boton.textContent = '✅ Procesar Movimiento';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error de red:', error);
+        alert('❌ Error de conexión: ' + error.message);
+        
+        // Rehabilitar botón
+        if (boton) {
+            boton.disabled = false;
+            boton.textContent = '✅ Procesar Movimiento';
+        }
+    });
 }
 
 // ✅ FUNCIONES FALTANTES PARA EL MODAL DE CONCEPTO
@@ -995,9 +1079,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                     ❌ Cancelar
                                 </a>
                               
-                                <button type="button" class="btn btn-info btn-sm me-2" onclick="calcularTotalPagos()">
-                                    🔄 Recalcular
-                                </button>
                                 <button type="button" class="btn btn-success btn-lg" id="btnProcesarMovimiento" disabled onclick="procesarMovimiento()">
                                     ✅ Procesar Movimiento
                                 </button>
