@@ -1205,12 +1205,12 @@ def buscar_propiedades_reserva(request):
                 # Fechas iniciales de disponibilidades que empiezan después del período
                 disp_posteriores = Disponibilidad.objects.filter(
                     propiedad=propiedad,
-                    fecha_inicio__gt=fecha_fin
+                    fecha_inicio__gte=fecha_fin
                 ).order_by('fecha_inicio').first()
                 
                 # Fechas iniciales de reservas que empiezan después del período
                 reservas_posteriores = propiedad.reservas.filter(
-                    fecha_inicio__gt=fecha_fin
+                    fecha_inicio__gte=fecha_fin
                 ).order_by('fecha_inicio').first()
                 
                 # Determinar la fecha inicial más próxima
@@ -6263,12 +6263,12 @@ def buscar_propiedades(request):
                 # Fechas iniciales de disponibilidades que empiezan después del período
                 disp_posteriores = Disponibilidad.objects.filter(
                     propiedad=propiedad,
-                    fecha_inicio__gt=fecha_fin
+                    fecha_inicio__gte=fecha_fin
                 ).order_by('fecha_inicio').first()
                 
                 # Fechas iniciales de reservas que empiezan después del período
                 reservas_posteriores = propiedad.reservas.filter(
-                    fecha_inicio__gt=fecha_fin
+                    fecha_inicio__gte=fecha_fin
                 ).order_by('fecha_inicio').first()
                 
                 # Determinar la fecha inicial más próxima

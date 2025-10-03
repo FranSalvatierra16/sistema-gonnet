@@ -57,7 +57,7 @@ function calcularTotales() {
     try {
         console.log('🔧 calcularTotales llamada - VERSIÓN ACTUALIZADA v2.0');
         
-        // 1. Calcular total de conceptos
+        // 1. Calcular total de conceptos (solo para mostrar, NO se suma al recibo)
         let totalConceptos = 0;
         if (conceptosAgregados && conceptosAgregados.length > 0) {
             totalConceptos = conceptosAgregados.reduce((sum, concepto) => {
@@ -74,13 +74,14 @@ function calcularTotales() {
             console.log('✅ Display totalConceptos actualizado:', totalConceptos.toLocaleString('es-ES'));
         }
         
-        // 3. Calcular total del recibo (seña + conceptos)
+        // 3. ✅ TOTAL DEL RECIBO = SOLO LA SEÑA (los conceptos NO se suman)
         const seniaElement = document.querySelector('input[name="senia"]');
         const seniaActual = parseFloat((seniaElement?.value || '0').replace(/\./g, '')) || 0;
         
-        const totalRecibo = seniaActual + totalConceptos;
+        const totalRecibo = seniaActual; // ✅ SOLO la seña
         
-        console.log('🧾 Total recibo calculado: seña(' + seniaActual + ') + conceptos(' + totalConceptos + ') = ' + totalRecibo);
+        console.log('🧾 Total recibo calculado: SOLO seña = ' + totalRecibo);
+        console.log('📝 Conceptos son informativos, NO se suman al recibo');
         
         // 4. Actualizar display del total del recibo
         const totalReciboElement = document.getElementById('totalRecibo');
