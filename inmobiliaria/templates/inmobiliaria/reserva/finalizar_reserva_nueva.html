@@ -19,6 +19,19 @@ let conceptoSeleccionadoActual = null;
 let conceptoEditando = null;
 let contadorConceptos = 1;
 
+// ✅ FUNCIÓN GLOBAL PARA ACTUALIZAR PAGOS (debe estar al principio para los event listeners inline)
+function actualizarPagos() {
+    console.log('🔄 ACTUALIZANDO PAGOS...');
+    try {
+        if (typeof calcularTotalPagos === 'function') calcularTotalPagos();
+        if (typeof calcularSaldoOcupar === 'function') calcularSaldoOcupar();
+        if (typeof calcularTotales === 'function') calcularTotales();
+        console.log('✅ PAGOS ACTUALIZADOS');
+    } catch (error) {
+        console.error('❌ ERROR AL ACTUALIZAR PAGOS:', error);
+    }
+}
+
 // Función para calcular saldo a ocupar (Queda por Pagar)
 function calcularSaldoOcupar() {
     try {
@@ -1976,18 +1989,6 @@ function calcularSaldoOcupar() {
     }
 }
 
-// Función simple para actualizar todos los cálculos de pagos
-function actualizarPagos() {
-    console.log('🔄 ACTUALIZANDO PAGOS...');
-    try {
-        calcularTotalPagos();
-        calcularSaldoOcupar();
-        calcularTotales();
-        console.log('✅ PAGOS ACTUALIZADOS');
-    } catch (error) {
-        console.error('❌ ERROR AL ACTUALIZAR PAGOS:', error);
-    }
-}
 
 // Función para procesar el movimiento completo
 function procesarMovimiento() {
