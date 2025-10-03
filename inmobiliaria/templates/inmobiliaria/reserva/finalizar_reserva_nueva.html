@@ -124,12 +124,25 @@ function calcularTotales() {
 // Función para calcular total de pagos y validar
 function calcularTotalPagos() {
     try {
-        // Obtener valores de los campos de pago
-        const efectivo = parseFloat(document.getElementById('monto_efectivo')?.value?.replace(/\./g, '') || '0') || 0;
-        const cheque = parseFloat(document.getElementById('monto_cheque')?.value?.replace(/\./g, '') || '0') || 0;
-        const tarjeta = parseFloat(document.getElementById('monto_tarjeta')?.value?.replace(/\./g, '') || '0') || 0;
-        const galicia = parseFloat(document.getElementById('monto_deposito_galicia')?.value?.replace(/\./g, '') || '0') || 0;
-        const mp = parseFloat(document.getElementById('monto_deposito_mp')?.value?.replace(/\./g, '') || '0') || 0;
+        // Obtener valores de los campos de pago con debugging
+        const efectivoElement = document.getElementById('monto_efectivo');
+        const chequeElement = document.getElementById('monto_cheque');
+        const tarjetaElement = document.getElementById('monto_tarjeta');
+        const galiciaElement = document.getElementById('monto_deposito_galicia');
+        const mpElement = document.getElementById('monto_deposito_mp');
+        
+        console.log('🔍 ELEMENTOS ENCONTRADOS:');
+        console.log('   monto_efectivo:', efectivoElement ? 'SÍ' : 'NO', efectivoElement?.value);
+        console.log('   monto_cheque:', chequeElement ? 'SÍ' : 'NO', chequeElement?.value);
+        console.log('   monto_tarjeta:', tarjetaElement ? 'SÍ' : 'NO', tarjetaElement?.value);
+        console.log('   monto_deposito_galicia:', galiciaElement ? 'SÍ' : 'NO', galiciaElement?.value);
+        console.log('   monto_deposito_mp:', mpElement ? 'SÍ' : 'NO', mpElement?.value);
+        
+        const efectivo = parseFloat((efectivoElement?.value || '0').replace(/\./g, '').replace(/,/g, '')) || 0;
+        const cheque = parseFloat((chequeElement?.value || '0').replace(/\./g, '').replace(/,/g, '')) || 0;
+        const tarjeta = parseFloat((tarjetaElement?.value || '0').replace(/\./g, '').replace(/,/g, '')) || 0;
+        const galicia = parseFloat((galiciaElement?.value || '0').replace(/\./g, '').replace(/,/g, '')) || 0;
+        const mp = parseFloat((mpElement?.value || '0').replace(/\./g, '').replace(/,/g, '')) || 0;
         
         const totalPagos = efectivo + cheque + tarjeta + galicia + mp;
         
@@ -982,6 +995,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                     ❌ Cancelar
                                 </a>
                               
+                                <button type="button" class="btn btn-info btn-sm me-2" onclick="calcularTotalPagos()">
+                                    🔄 Recalcular
+                                </button>
                                 <button type="button" class="btn btn-success btn-lg" id="btnProcesarMovimiento" disabled onclick="procesarMovimiento()">
                                     ✅ Procesar Movimiento
                                 </button>
