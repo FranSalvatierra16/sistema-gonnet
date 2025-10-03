@@ -1549,8 +1549,14 @@ def finalizar_reserva_nueva(request, reserva_id):
         print(f"   - Seña pendiente a mostrar: ${senia_pendiente}")
 
         # Datos para el formulario (solo lectura)
+        # ✅ VARIABLES PARA EL TEMPLATE ORIGINAL (igual que finalizar_reserva)
         context = {
             'reserva': reserva,
+            'pagos_previos': pagos_anteriores,  # Lista de MovimientoCaja anteriores
+            'total_pagado': total_pagos_anteriores,  # Total de pagos anteriores
+            'deposito': reserva.deposito_garantia or 0,  # Depósito de garantía
+            'saldo_pendiente': saldo_a_ocupar,  # Saldo pendiente calculado
+            'conceptos_pago': conceptos_caja,  # Conceptos disponibles
             'cliente_id': reserva.cliente.id,
             'cliente_nombre': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
             'interno_caja': caja_actual.numero,
@@ -1561,7 +1567,6 @@ def finalizar_reserva_nueva(request, reserva_id):
             'numero_recibo': '0000-00000000',  # Para completar
             'productor_id': reserva.vendedor.id if reserva.vendedor else request.user.id,
             'productor_nombre': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else f"{request.user.nombre} {request.user.apellido}",
-            'conceptos_caja': conceptos_caja,
             'saldo_a_ocupar': saldo_a_ocupar,
             'senia_pendiente': senia_pendiente,  # ✅ NUEVO: Seña pendiente (0 si ya se pagó)
             'total_senia_pagada': reserva.senia or 0,  # ✅ SIMPLE: Del casillero
@@ -7602,9 +7607,14 @@ def finalizar_reserva_nueva(request, reserva_id):
         print(f"   - Depósito: ${reserva.deposito_garantia or 0} ({deposito_estado})")
 
         
-        # Datos para el formulario 
+        # ✅ VARIABLES PARA EL TEMPLATE ORIGINAL (igual que finalizar_reserva)
         context = {
             'reserva': reserva,
+            'pagos_previos': pagos_anteriores,  # Lista de MovimientoCaja anteriores
+            'total_pagado': total_pagos_anteriores,  # Total de pagos anteriores
+            'deposito': reserva.deposito_garantia or 0,  # Depósito de garantía
+            'saldo_pendiente': saldo_a_ocupar,  # Saldo pendiente calculado
+            'conceptos_pago': conceptos_caja,  # Conceptos disponibles
             'cliente_id': reserva.cliente.id,
             'cliente_nombre': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
             'interno_caja': caja_actual.numero,
@@ -7615,7 +7625,6 @@ def finalizar_reserva_nueva(request, reserva_id):
             'numero_recibo': '0000-00000000',  # Para completar
             'productor_id': reserva.vendedor.id if reserva.vendedor else request.user.id,
             'productor_nombre': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else f"{request.user.nombre} {request.user.apellido}",
-            'conceptos_caja': conceptos_caja,
             'saldo_a_ocupar': saldo_a_ocupar,  # Para mostrar en resumen
             'senia_pendiente': senia_pendiente,  # Para prellenar el campo seña
             'total_senia_pagada': reserva.senia or 0,  # Lo que ya se pagó
