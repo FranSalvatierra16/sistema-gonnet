@@ -1551,11 +1551,11 @@ def finalizar_reserva_nueva(request, reserva_id):
         es_completar_pago = total_pagos_anteriores > 0
         
         if es_completar_pago:
-            # COMPLETAR PAGO: SALDO = PRECIO TOTAL - (SEÑA + PAGOS ANTERIORES)
-            saldo_a_ocupar = reserva.precio_total - (reserva.senia or 0) - total_pagos_anteriores
+            # COMPLETAR PAGO: SALDO = PRECIO TOTAL - SOLO LA SEÑA ANTERIOR (concepto ID:1)
+            saldo_a_ocupar = reserva.precio_total - total_senia_anteriores
         else:
-            # FINALIZAR RESERVA: SALDO = PRECIO TOTAL - SEÑA (EL DEPÓSITO NO AFECTA)
-            saldo_a_ocupar = reserva.precio_total - (reserva.senia or 0)
+            # FINALIZAR RESERVA: SALDO = PRECIO TOTAL (no hay seña anterior)
+            saldo_a_ocupar = reserva.precio_total
         
         tipo_operacion = "COMPLETAR PAGO" if es_completar_pago else "FINALIZAR RESERVA"
         print(f"✅ CÁLCULO {tipo_operacion}:")
@@ -7649,15 +7649,21 @@ def finalizar_reserva_nueva(request, reserva_id):
         es_completar_pago = total_pagos_anteriores > 0
         
         if es_completar_pago:
-            # COMPLETAR PAGO: SALDO = PRECIO TOTAL - (SEÑA + PAGOS ANTERIORES)
-            saldo_a_ocupar = reserva.precio_total - (reserva.senia or 0) - total_pagos_anteriores
+            # COMPLETAR PAGO: SALDO = PRECIO TOTAL - SOLO LA SEÑA ANTERIOR (concepto ID:1)
+            saldo_a_ocupar = reserva.precio_total - total_senia_anteriores
         else:
-            # FINALIZAR RESERVA: SALDO = PRECIO TOTAL - SEÑA (EL DEPÓSITO NO AFECTA)
-            saldo_a_ocupar = reserva.precio_total - (reserva.senia or 0)  # Lo que falta por pagar
+            # FINALIZAR RESERVA: SALDO = PRECIO TOTAL (no hay seña anterior)
+            saldo_a_ocupar = reserva.precio_total
         
         # ✅ SEÑA PENDIENTE: Solo lo que falta por pagar (puede ser 0 si quiere pagar todo)
         # El usuario decide cuánto de la seña pagar en este momento
         senia_pendiente = saldo_a_ocupar  # Por defecto el saldo pendiente, pero el usuario puede cambiarlo
+        
+        print(f"🔧 CÁLCULO SALDO Y SEÑA:")
+        print(f"   - Precio Total: ${reserva.precio_total}")
+        print(f"   - Seña Anteriores (ID:1): ${total_senia_anteriores}")
+        print(f"   - Saldo a Ocupar: ${saldo_a_ocupar}")
+        print(f"   - Seña Pendiente: ${senia_pendiente}")
         
         # ✅ DETECTAR SI EL DEPÓSITO YA FUE PAGADO (concepto 10)
         deposito_pagado = False
