@@ -7644,7 +7644,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'productor_nombre': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else f"{request.user.nombre} {request.user.apellido}",
             'saldo_a_ocupar': saldo_a_ocupar,  # Para mostrar en resumen
             'senia_pendiente': senia_pendiente,  # Para prellenar el campo seña
-            'total_senia_pagada': reserva.senia or 0,  # Lo que ya se pagó
+            'total_senia_pagada': total_pagos_anteriores if es_completar_pago else 0,  # ✅ CORREGIDO: Lo que ya se pagó
             'total_deposito_pagado': reserva.deposito_garantia or 0,  
             'deposito_garantia': reserva.deposito_garantia,
             'deposito_estado': deposito_estado,  # ✅ Estado del depósito (pagado/pendiente)
