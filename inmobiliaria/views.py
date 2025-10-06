@@ -1535,18 +1535,18 @@ def finalizar_reserva_nueva(request, reserva_id):
                             concepto_id = parts[0].strip()
                             concepto_importe = parts[2].strip()
                             
-                            # Solo contar concepto ID 1 (alquiler) como seña
-                            if concepto_id == '1':
+                            # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA: 1, 15, 103
+                            if concepto_id in ['1', '15', '103']:
                                 try:
                                     importe_num = Decimal(concepto_importe.replace(',', ''))
                                     total_senia_anteriores += importe_num
-                                    print(f"💰 SEÑA ANTERIOR DETECTADA: ${importe_num}")
+                                    print(f"💰 SEÑA ANTERIOR DETECTADA: Concepto {concepto_id} - ${importe_num}")
                                 except:
                                     pass
         
         print(f"📊 CÁLCULO PAGOS ANTERIORES:")
         print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
-        print(f"   - Seña anteriores (solo ID:1): ${total_senia_anteriores}")
+        print(f"   - Seña anteriores (conceptos 1,15,103): ${total_senia_anteriores}")
         
         es_completar_pago = total_pagos_anteriores > 0
         
@@ -2861,8 +2861,8 @@ def procesar_movimiento_reserva(request):
                     concepto_id = request.POST.get(f'concepto_{i}_id')
                     concepto_importe = request.POST.get(f'concepto_{i}_importe')
                     
-                    # Solo contar concepto ID 1 (alquiler) como seña
-                    if concepto_id == '1':
+                    # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA: 1, 15, 103
+                    if concepto_id in ['1', '15', '103']:
                         importe_limpio = Decimal(limpiar_valor_monetario(concepto_importe or '0'))
                         senia_real += importe_limpio
                         print(f"💰 SEÑA DETECTADA: Concepto {concepto_id} - ${importe_limpio}")
@@ -2877,7 +2877,7 @@ def procesar_movimiento_reserva(request):
                 
                 print(f"🔧 CORRECCIÓN SEÑA:")
                 print(f"   - Seña anterior: ${senia_anterior}")
-                print(f"   - Seña nueva (solo alquiler ID:1): ${senia_real}")
+                print(f"   - Seña nueva (conceptos 1,15,103): ${senia_real}")
                 print(f"   - Es completar pago: {es_completar_pago}")
                 if es_completar_pago:
                     print(f"   - Seña total (anterior + nueva): ${reserva.senia}")
@@ -7655,18 +7655,18 @@ def finalizar_reserva_nueva(request, reserva_id):
                             concepto_id = parts[0].strip()
                             concepto_importe = parts[2].strip()
                             
-                            # Solo contar concepto ID 1 (alquiler) como seña
-                            if concepto_id == '1':
+                            # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA: 1, 15, 103
+                            if concepto_id in ['1', '15', '103']:
                                 try:
                                     importe_num = Decimal(concepto_importe.replace(',', ''))
                                     total_senia_anteriores += importe_num
-                                    print(f"💰 SEÑA ANTERIOR DETECTADA: ${importe_num}")
+                                    print(f"💰 SEÑA ANTERIOR DETECTADA: Concepto {concepto_id} - ${importe_num}")
                                 except:
                                     pass
         
         print(f"📊 CÁLCULO PAGOS ANTERIORES:")
         print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
-        print(f"   - Seña anteriores (solo ID:1): ${total_senia_anteriores}")
+        print(f"   - Seña anteriores (conceptos 1,15,103): ${total_senia_anteriores}")
         
         es_completar_pago = total_pagos_anteriores > 0
         
@@ -7683,7 +7683,7 @@ def finalizar_reserva_nueva(request, reserva_id):
         
         print(f"🔧 CÁLCULO SALDO Y SEÑA:")
         print(f"   - Precio Total: ${reserva.precio_total}")
-        print(f"   - Seña Anteriores (ID:1): ${total_senia_anteriores}")
+        print(f"   - Seña Anteriores (conceptos 1,15,103): ${total_senia_anteriores}")
         print(f"   - Saldo a Ocupar: ${saldo_a_ocupar}")
         print(f"   - Seña Pendiente: ${senia_pendiente}")
         
