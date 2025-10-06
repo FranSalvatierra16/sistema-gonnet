@@ -1518,6 +1518,36 @@ def finalizar_reserva_nueva(request, reserva_id):
         # ✅ DETECTAR SI ES "COMPLETAR PAGO" O "FINALIZAR RESERVA"
         # Si ya hay pagos anteriores, es "Completar Pago", sino es "Finalizar Reserva"
         total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
+        
+        # ✅ CALCULAR SOLO LA SEÑA DE PAGOS ANTERIORES (concepto ID: 1)
+        total_senia_anteriores = Decimal('0')
+        for pago in pagos_anteriores:
+            if pago.concepto and "|CONCEPTOS:" in pago.concepto:
+                # Parsear conceptos del formato |CONCEPTOS:id:nombre:importe|
+                concepto_parts = pago.concepto.split("|CONCEPTOS:", 1)
+                if len(concepto_parts) > 1:
+                    conceptos_data = concepto_parts[1]
+                    conceptos_items = [item for item in conceptos_data.split("|") if item.strip()]
+                    
+                    for concepto_item in conceptos_items:
+                        parts = concepto_item.split(":")
+                        if len(parts) >= 3:
+                            concepto_id = parts[0].strip()
+                            concepto_importe = parts[2].strip()
+                            
+                            # Solo contar concepto ID 1 (alquiler) como seña
+                            if concepto_id == '1':
+                                try:
+                                    importe_num = Decimal(concepto_importe.replace(',', ''))
+                                    total_senia_anteriores += importe_num
+                                    print(f"💰 SEÑA ANTERIOR DETECTADA: ${importe_num}")
+                                except:
+                                    pass
+        
+        print(f"📊 CÁLCULO PAGOS ANTERIORES:")
+        print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
+        print(f"   - Seña anteriores (solo ID:1): ${total_senia_anteriores}")
+        
         es_completar_pago = total_pagos_anteriores > 0
         
         if es_completar_pago:
@@ -1571,7 +1601,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'productor_nombre': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else f"{request.user.nombre} {request.user.apellido}",
             'saldo_a_ocupar': saldo_a_ocupar,
             'senia_pendiente': senia_pendiente,  # ✅ NUEVO: Seña pendiente (0 si ya se pagó)
-            'total_senia_pagada': total_pagos_anteriores if es_completar_pago else 0,  # ✅ CORREGIDO: Lo que ya se pagó
+            'total_senia_pagada': total_senia_anteriores if es_completar_pago else 0,  # ✅ CORREGIDO: Solo seña de pagos anteriores
             'total_deposito_pagado': reserva.deposito_garantia or 0,  # ✅ SIMPLE: Del casillero
             'deposito_garantia': reserva.deposito_garantia,
             'fecha_desde': reserva.fecha_inicio.strftime('%d/%m/%Y'),
@@ -7586,6 +7616,36 @@ def finalizar_reserva_nueva(request, reserva_id):
         # ✅ DETECTAR SI ES "COMPLETAR PAGO" O "FINALIZAR RESERVA"
         # Si ya hay pagos anteriores, es "Completar Pago", sino es "Finalizar Reserva"
         total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
+        
+        # ✅ CALCULAR SOLO LA SEÑA DE PAGOS ANTERIORES (concepto ID: 1)
+        total_senia_anteriores = Decimal('0')
+        for pago in pagos_anteriores:
+            if pago.concepto and "|CONCEPTOS:" in pago.concepto:
+                # Parsear conceptos del formato |CONCEPTOS:id:nombre:importe|
+                concepto_parts = pago.concepto.split("|CONCEPTOS:", 1)
+                if len(concepto_parts) > 1:
+                    conceptos_data = concepto_parts[1]
+                    conceptos_items = [item for item in conceptos_data.split("|") if item.strip()]
+                    
+                    for concepto_item in conceptos_items:
+                        parts = concepto_item.split(":")
+                        if len(parts) >= 3:
+                            concepto_id = parts[0].strip()
+                            concepto_importe = parts[2].strip()
+                            
+                            # Solo contar concepto ID 1 (alquiler) como seña
+                            if concepto_id == '1':
+                                try:
+                                    importe_num = Decimal(concepto_importe.replace(',', ''))
+                                    total_senia_anteriores += importe_num
+                                    print(f"💰 SEÑA ANTERIOR DETECTADA: ${importe_num}")
+                                except:
+                                    pass
+        
+        print(f"📊 CÁLCULO PAGOS ANTERIORES:")
+        print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
+        print(f"   - Seña anteriores (solo ID:1): ${total_senia_anteriores}")
+        
         es_completar_pago = total_pagos_anteriores > 0
         
         if es_completar_pago:
@@ -7644,7 +7704,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'productor_nombre': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else f"{request.user.nombre} {request.user.apellido}",
             'saldo_a_ocupar': saldo_a_ocupar,  # Para mostrar en resumen
             'senia_pendiente': senia_pendiente,  # Para prellenar el campo seña
-            'total_senia_pagada': total_pagos_anteriores if es_completar_pago else 0,  # ✅ CORREGIDO: Lo que ya se pagó
+            'total_senia_pagada': total_senia_anteriores if es_completar_pago else 0,  # ✅ CORREGIDO: Solo seña de pagos anteriores
             'total_deposito_pagado': reserva.deposito_garantia or 0,  
             'deposito_garantia': reserva.deposito_garantia,
             'deposito_estado': deposito_estado,  # ✅ Estado del depósito (pagado/pendiente)
