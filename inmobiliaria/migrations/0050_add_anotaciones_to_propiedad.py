@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('inmobiliaria', '0049_add_es_manual_to_disponibilidad'),
+        ('inmobiliaria', '0048_add_es_manual_to_disponibilidad'),
     ]
 
     operations = [
