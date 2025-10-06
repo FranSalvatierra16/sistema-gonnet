@@ -2638,8 +2638,7 @@ def procesar_movimiento_reserva(request):
             }
             
             # ✅ PROCESAR CONCEPTOS INDIVIDUALES DEL FRONTEND
-            conceptos_count = int(request.POST.get('conceptos_count', 0))
-            print(f"📊 CONCEPTOS RECIBIDOS: {conceptos_count}")
+            conceptos_count = len([key for key in request.POST.keys() if key.startswith('concepto_') and key.endswith('_nombre')])
             conceptos_detalle = []
             conceptos_completos = []  # Para guardar información completa
             
@@ -2653,8 +2652,6 @@ def procesar_movimiento_reserva(request):
                 concepto_nombre = request.POST.get(f'concepto_{i}_nombre')
                 concepto_observaciones = request.POST.get(f'concepto_{i}_observaciones')
                 concepto_importe = request.POST.get(f'concepto_{i}_importe')
-                
-                print(f"📝 PROCESANDO CONCEPTO {i}: ID={concepto_id}, Nombre={concepto_nombre}, Importe={concepto_importe}")
                 
                 if concepto_nombre:
                     conceptos_detalle.append(f"{concepto_nombre}")
@@ -2679,20 +2676,17 @@ def procesar_movimiento_reserva(request):
                     print(f"💰 CONCEPTO {i}: ID={concepto_id}, {concepto_nombre} - ${concepto_importe}")
                     print(f"💰 CONCEPTO COMPLETO GUARDADO: {concepto_completo}")
             
-            # ✅ NUEVO: Guardar conceptos en formato JSON para mejor parsing
-            if conceptos_completos:
-                import json
-                # Convertir conceptos a formato JSON
-                conceptos_json = []
-                for concepto in conceptos_completos:
-                    conceptos_json.append({
-                        'id': concepto['id'],
-                        'nombre': concepto['nombre'],
-                        'importe': concepto['importe']
-                    })
+            # Construir concepto detallado con los conceptos individuales
+            if conceptos_detalle:
+                concepto_detallado = f"Operaci\u00f3n {reserva.id} - " + " + ".join(conceptos_detalle)
                 
-                concepto_detallado = json.dumps(conceptos_json, ensure_ascii=False)
-                print(f"📝 CONCEPTOS EN JSON: {concepto_detallado}")
+                # Agregar información estructurada al final para parsing posterior
+                # Formato: |CONCEPTOS:id1:nombre1:importe1|id2:nombre2:importe2|
+                if conceptos_completos:
+                    conceptos_info = "|CONCEPTOS:"
+                    for concepto in conceptos_completos:
+                        conceptos_info += f"{concepto['id']}:{concepto['nombre']}:{concepto['importe']}|"
+                    concepto_detallado += conceptos_info
             else:
                 concepto_detallado = f"Operaci\u00f3n {reserva.id} - {reserva.propiedad.direccion}"
             
@@ -3291,42 +3285,8 @@ def ver_recibo_movimiento(request, movimiento_id):
                     print(f"📝 LONGITUD: {len(concepto_texto)} caracteres")
                     print(f"📝 TIPO: {type(concepto_texto)}")
                     
-                    # ✅ NUEVO: Intentar parsear como JSON primero
-                    print(f"🔍 VERIFICANDO FORMATO:")
-                    print(f"   - Empieza con '[': {concepto_texto.startswith('[')}")
-                    print(f"   - Termina con ']': {concepto_texto.endswith(']')}")
-                    print(f"   - Longitud: {len(concepto_texto)}")
-                    
-                    if concepto_texto.startswith('[') and concepto_texto.endswith(']'):
-                        print(f"🔍 DETECTADO FORMATO JSON")
-                        print(f"🔍 JSON COMPLETO: {concepto_texto}")
-                        try:
-                            import json
-                            conceptos_json = json.loads(concepto_texto)
-                            print(f"✅ JSON PARSEADO: {len(conceptos_json)} conceptos")
-                            print(f"✅ CONCEPTOS PARSEADOS: {conceptos_json}")
-                            
-                            for i, concepto_data in enumerate(conceptos_json):
-                                concepto_id = concepto_data.get('id', f'C{i+1:02d}')
-                                concepto_nombre = concepto_data.get('nombre', 'Sin nombre')
-                                concepto_importe = float(concepto_data.get('importe', 0))
-                                
-                                pagos.append({
-                                    'fecha': fecha_mov,
-                                    'codigo': concepto_id,
-                                    'concepto': concepto_nombre,
-                                    'monto': f'${concepto_importe:,.0f}'
-                                })
-                                total_pagado += concepto_importe
-                                
-                                print(f"💰 CONCEPTO JSON {i+1}: ID={concepto_id}, {concepto_nombre} - ${concepto_importe:,.0f}")
-                            
-                            conceptos_procesados = True
-                            
-                        except json.JSONDecodeError as e:
-                            print(f"❌ Error al parsear JSON: {e}")
-                    else:
-                        print(f"❌ NO ES FORMATO JSON - Intentando otros formatos")
+                    # ✅ MEJORADO: Detectar si tiene formato estructurado |CONCEPTOS:
+                    conceptos_procesados = False
                     
                     # Si no es JSON, continuar con el formato anterior
                     if not conceptos_procesados and "|CONCEPTOS:" in concepto_texto:
@@ -3335,35 +3295,21 @@ def ver_recibo_movimiento(request, movimiento_id):
                         if len(concepto_parts) > 1:
                             conceptos_data = concepto_parts[1]  # "11:limpieza:35000|1:alquiler:35000|10:deposito:20000|"
                             conceptos_items = [item for item in conceptos_data.split("|") if item.strip()]
-                            print(f"🔍 CONCEPTOS ESTRUCTURADOS ENCONTRADOS: {conceptos_items}")
-                            
-                            # ✅ VARIABLES PARA DETECTAR CONCEPTO 10
-                            concepto_10_en_recibo = False
-                            deposito_pagado_via_concepto10 = 0
+                            print(f"✅ CONCEPTOS ENCONTRADOS: {len(conceptos_items)} items")
                             
                             # Crear una entrada por cada concepto individual
                             for i, concepto_item in enumerate(conceptos_items):
                                 parts = concepto_item.split(":")
                                 if len(parts) >= 3:
-                                    concepto_id = parts[0]
-                                    concepto_nombre = parts[1]
-                                    concepto_importe = parts[2]
+                                    concepto_id = parts[0].strip()
+                                    concepto_nombre = parts[1].strip()
+                                    concepto_importe = parts[2].strip()
                                     
                                     # Limpiar y convertir el importe
                                     try:
-                                        importe_num = float(concepto_importe.replace(',', '').replace('.', ''))
-                                        if importe_num > 1000:  # Si es mayor a 1000, probablemente no tiene decimales
-                                            importe_num = importe_num
-                                        else:
-                                            importe_num = importe_num * 100  # Convertir si está en formato decimal
+                                        importe_num = float(concepto_importe.replace(',', ''))
                                     except:
                                         importe_num = 0
-                                    
-                                    # ✅ DETECTAR CONCEPTO 10 (DEPÓSITO)
-                                    if concepto_id == '10':
-                                        concepto_10_en_recibo = True
-                                        deposito_pagado_via_concepto10 = importe_num
-                                        print(f"🏦 CONCEPTO 10 DETECTADO EN RECIBO: Depósito ${importe_num:,.0f}")
                                     
                                     pagos.append({
                                         'fecha': fecha_mov,
@@ -3372,24 +3318,10 @@ def ver_recibo_movimiento(request, movimiento_id):
                                         'monto': f'${importe_num:,.0f}'
                                     })
                                     total_pagado += importe_num
-                                    print(f"💰 CONCEPTO {i+1}: ID={concepto_id}, {concepto_nombre} - ${importe_num:,.0f}")
+                                    print(f"💰 CONCEPTO: ID={concepto_id}, {concepto_nombre} - ${importe_num:,.0f}")
                             
-                            # ✅ ACTUALIZAR DEPÓSITO BASADO EN CONCEPTO 10
-                            if concepto_10_en_recibo:
-                                total_deposito_pagado_recibo = deposito_pagado_via_concepto10
-                                print(f"💳 DEPÓSITO CONFIRMADO: ${total_deposito_pagado_recibo} (vía concepto 10)")
-                            else:
-                                total_deposito_pagado_recibo = 0
-                                print(f"⚠️  SIN CONCEPTO 10: Depósito NO considerado pagado")
-                            
-                            # Si se procesaron conceptos estructurados, marcar como completo
-                            if pagos:
-                                print(f"✅ CONCEPTOS ESTRUCTURADOS PROCESADOS: {len(pagos)} conceptos")
-                                # MARCAR COMO PROCESADO: Ya se procesaron los conceptos estructurados
-                                conceptos_procesados = True
-                            else:
-                                print("⚠️ No se encontraron conceptos estructurados válidos")
-                                conceptos_procesados = False
+                            conceptos_procesados = True
+                            print(f"✅ CONCEPTOS PROCESADOS: {len(pagos)} conceptos")
                         else:
                             # Fallback al método anterior
                             print("⚠️ No se pudo parsear información estructurada, usando método anterior")

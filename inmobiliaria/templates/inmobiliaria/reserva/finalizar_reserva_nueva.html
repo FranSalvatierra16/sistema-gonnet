@@ -280,7 +280,6 @@ function procesarMovimiento() {
     const formData = new FormData(form);
     
             // ✅ Agregar conceptos al FormData
-            formData.append('conceptos_count', conceptosAgregados.length);
             conceptosAgregados.forEach((concepto, index) => {
                 formData.append(`concepto_${index}_id`, concepto.conceptoId);
                 formData.append(`concepto_${index}_nombre`, concepto.nombre);
