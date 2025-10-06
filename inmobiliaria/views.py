@@ -2604,6 +2604,20 @@ def procesar_movimiento_reserva(request):
             # Obtener la reserva
             reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
             
+            # ✅ DETECTAR SI ES "COMPLETAR PAGO" (ya hay pagos anteriores)
+            pagos_anteriores = MovimientoCaja.objects.filter(
+                propiedad=reserva.propiedad,
+                tipo=TipoMovimientoCajaEnum.INGRESO,
+                concepto__icontains=f"Operaci\u00f3n {reserva.id}"
+            )
+            total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
+            es_completar_pago = total_pagos_anteriores > 0
+            
+            print(f"🔍 DETECTANDO TIPO DE OPERACIÓN:")
+            print(f"   - Pagos anteriores encontrados: {pagos_anteriores.count()}")
+            print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
+            print(f"   - Es completar pago: {es_completar_pago}")
+            
             # Obtener la caja actual
             caja_actual = Caja.objects.filter(
                 sucursal=request.user.sucursal,
@@ -2853,15 +2867,23 @@ def procesar_movimiento_reserva(request):
                         senia_real += importe_limpio
                         print(f"💰 SEÑA DETECTADA: Concepto {concepto_id} - ${importe_limpio}")
                 
-                reserva.senia = senia_real
+                # ✅ CORREGIDO: En completar pago, sumar seña anterior + nueva seña
+                if es_completar_pago:
+                    # Sumar seña anterior + nueva seña de este pago
+                    reserva.senia = senia_anterior + senia_real
+                else:
+                    # En finalizar reserva, usar solo la seña de este pago
+                    reserva.senia = senia_real
                 
                 print(f"🔧 CORRECCIÓN SEÑA:")
                 print(f"   - Seña anterior: ${senia_anterior}")
-                print(f"   - Total conceptos: ${total_conceptos}")
-                print(f"   - Concepto 10 (depósito): ${concepto_10_importe}")
-                print(f"   - Seña real (solo alquiler ID:1): ${senia_real}")
-                print(f"   - Nueva seña guardada: ${reserva.senia}")
-                print(f"   - Saldo restante esperado: ${reserva.precio_total - senia_real}")
+                print(f"   - Seña nueva (solo alquiler ID:1): ${senia_real}")
+                print(f"   - Es completar pago: {es_completar_pago}")
+                if es_completar_pago:
+                    print(f"   - Seña total (anterior + nueva): ${reserva.senia}")
+                else:
+                    print(f"   - Seña total (solo nueva): ${reserva.senia}")
+                print(f"   - Saldo restante esperado: ${reserva.precio_total - reserva.senia}")
                 
                 # ✅ ACTUALIZAR DEPÓSITO (siempre se guarda, pero solo se marca como pagado con concepto 10)
                 if deposito_garantia > 0:
