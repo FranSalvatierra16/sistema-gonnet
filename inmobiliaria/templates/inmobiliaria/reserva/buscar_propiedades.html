@@ -3901,6 +3901,12 @@ function guardarCambiosPrecios() {
     formData.append('precios', JSON.stringify(precios));
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
+    console.log('🚀 Enviando request a:', '{% url "inmobiliaria:guardar_precios_propiedad" %}');
+    console.log('📦 FormData enviada:', {
+        propiedad_id: propiedadSeleccionada.id,
+        precios: JSON.stringify(precios)
+    });
+    
     fetch('{% url "inmobiliaria:guardar_precios_propiedad" %}', {
         method: 'POST',
         body: formData
@@ -4174,6 +4180,12 @@ function guardarCambiosPrecios() {
     formData.append('propiedad_id', propiedadSeleccionada.id);
     formData.append('precios', JSON.stringify(precios));
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    console.log('🚀 Enviando request a:', '{% url "inmobiliaria:guardar_precios_propiedad" %}');
+    console.log('📦 FormData enviada:', {
+        propiedad_id: propiedadSeleccionada.id,
+        precios: JSON.stringify(precios)
+    });
     
     fetch('{% url "inmobiliaria:guardar_precios_propiedad" %}', {
         method: 'POST',

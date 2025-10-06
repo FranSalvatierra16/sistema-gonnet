@@ -5825,7 +5825,10 @@ def obtener_precios_propiedad(request, propiedad_id):
                     propiedad=propiedad,
                     tipo_precio=tipo_key,
                     precio_total=0,
-                    precio_por_dia=0
+                    precio_por_dia=0,
+                    precio_toma=0,
+                    precio_dia_toma=0,
+                    ajuste_porcentaje=0
                 )
             
             # Agregar los datos del precio
@@ -5833,7 +5836,10 @@ def obtener_precios_propiedad(request, propiedad_id):
                 'tipo_precio': tipo_key,
                 'tipo_precio_display': tipo_display,
                 'precio_total': str(precio.precio_total or 0),
-                'precio_por_dia': str(precio.precio_por_dia or 0)
+                'precio_por_dia': str(precio.precio_por_dia or 0),
+                'precio_toma': str(precio.precio_toma or 0),
+                'precio_dia_toma': str(precio.precio_dia_toma or 0),
+                'ajuste_porcentaje': str(precio.ajuste_porcentaje or 0)
             })
         
         response_data = {
