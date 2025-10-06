@@ -2809,16 +2809,29 @@ def procesar_movimiento_reserva(request):
                 # ✅ CORREGIDO: CALCULAR SEÑA SOLO CON CONCEPTOS QUE NO SEAN DEPÓSITO
                 senia_anterior = reserva.senia or 0
                 
-                # Calcular seña real (total conceptos - depósito)
-                senia_real = total_conceptos - concepto_10_importe
+                # ✅ CORREGIDO: Solo contar conceptos de alquiler como seña (ID: 1)
+                senia_real = Decimal('0')
+                
+                # Revisar conceptos para encontrar solo los de alquiler
+                for i in range(conceptos_count):
+                    concepto_id = request.POST.get(f'concepto_{i}_id')
+                    concepto_importe = request.POST.get(f'concepto_{i}_importe')
+                    
+                    # Solo contar concepto ID 1 (alquiler) como seña
+                    if concepto_id == '1':
+                        importe_limpio = Decimal(limpiar_valor_monetario(concepto_importe or '0'))
+                        senia_real += importe_limpio
+                        print(f"💰 SEÑA DETECTADA: Concepto {concepto_id} - ${importe_limpio}")
+                
                 reserva.senia = senia_real
                 
                 print(f"🔧 CORRECCIÓN SEÑA:")
                 print(f"   - Seña anterior: ${senia_anterior}")
                 print(f"   - Total conceptos: ${total_conceptos}")
                 print(f"   - Concepto 10 (depósito): ${concepto_10_importe}")
-                print(f"   - Seña real (sin depósito): ${senia_real}")
+                print(f"   - Seña real (solo alquiler ID:1): ${senia_real}")
                 print(f"   - Nueva seña guardada: ${reserva.senia}")
+                print(f"   - Saldo restante esperado: ${reserva.precio_total - senia_real}")
                 
                 # ✅ ACTUALIZAR DEPÓSITO (siempre se guarda, pero solo se marca como pagado con concepto 10)
                 if deposito_garantia > 0:
