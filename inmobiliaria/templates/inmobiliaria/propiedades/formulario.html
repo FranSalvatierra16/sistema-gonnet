@@ -167,15 +167,29 @@
             <div class="card-header">
                 <h4 class="mb-0">
                     <i class="fas fa-file-alt me-2"></i>
-                    Descripción
+                    Descripción y Anotaciones
                 </h4>
             </div>
             <div class="card-body">
-                <label for="id_descripcion" class="form-label">
-                    <i class="fas fa-edit me-1"></i>Descripción detallada de la propiedad
-                </label>
-                {{ form.descripcion }}
-                {{ form.descripcion.errors }}
+                <div class="row g-4">
+                    <div class="col-12">
+                        <label for="id_descripcion" class="form-label">
+                            <i class="fas fa-edit me-1"></i>Descripción detallada de la propiedad
+                        </label>
+                        {{ form.descripcion }}
+                        {{ form.descripcion.errors }}
+                    </div>
+                    <div class="col-12">
+                        <label for="id_anotaciones" class="form-label">
+                            <i class="fas fa-sticky-note me-1"></i>Anotaciones y observaciones
+                        </label>
+                        {{ form.anotaciones }}
+                        {{ form.anotaciones.errors }}
+                        {% if form.anotaciones.help_text %}
+                            <small class="form-text text-muted">{{ form.anotaciones.help_text }}</small>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
         </div>
 
