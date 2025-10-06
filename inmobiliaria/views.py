@@ -2806,15 +2806,19 @@ def procesar_movimiento_reserva(request):
                     print(f"🔄 ACTUALIZANDO PRECIO TOTAL: ${reserva.precio_total} -> ${importe_locacion}")
                     reserva.precio_total = importe_locacion
                 
-                # ✅ CORREGIDO: USAR DIRECTAMENTE EL VALOR DEL CASILLERO SEÑA (no acumulativo)
-                # La seña del casillero ya es el valor total final que se quiere
+                # ✅ CORREGIDO: CALCULAR SEÑA SOLO CON CONCEPTOS QUE NO SEAN DEPÓSITO
                 senia_anterior = reserva.senia or 0
-                reserva.senia = senia  # Usar directamente el valor del casillero
+                
+                # Calcular seña real (total conceptos - depósito)
+                senia_real = total_conceptos - concepto_10_importe
+                reserva.senia = senia_real
                 
                 print(f"🔧 CORRECCIÓN SEÑA:")
                 print(f"   - Seña anterior: ${senia_anterior}")
-                print(f"   - Seña del casillero: ${senia}")
-                print(f"   - Nueva seña total: ${reserva.senia}")
+                print(f"   - Total conceptos: ${total_conceptos}")
+                print(f"   - Concepto 10 (depósito): ${concepto_10_importe}")
+                print(f"   - Seña real (sin depósito): ${senia_real}")
+                print(f"   - Nueva seña guardada: ${reserva.senia}")
                 
                 # ✅ ACTUALIZAR DEPÓSITO (siempre se guarda, pero solo se marca como pagado con concepto 10)
                 if deposito_garantia > 0:
