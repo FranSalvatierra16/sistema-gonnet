@@ -224,8 +224,8 @@ class PropiedadForm(forms.ModelForm):
             'propietario', 'fichado_por'
         ]
         widgets = {
-            'descripcion': forms.Textarea(attrs={'rows': 5}),
-            'anotaciones': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Notas y observaciones sobre la propiedad...'}),
+            'descripcion': forms.Textarea(attrs={'rows': 5, 'class': 'form-control', 'style': 'width: 100%;'}),
+            'anotaciones': forms.Textarea(attrs={'rows': 4, 'class': 'form-control', 'style': 'width: 100%;', 'placeholder': 'Notas y observaciones sobre la propiedad...'}),
             'valoracion': forms.Select(attrs={'class': 'form-control'}),
             'direccion': forms.TextInput(attrs={'placeholder': 'Ingrese la dirección'}),
             'titulo': forms.TextInput(attrs={'placeholder': 'Título descriptivo (opcional)'}),

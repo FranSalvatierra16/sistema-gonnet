@@ -176,14 +176,18 @@
                         <label for="id_descripcion" class="form-label">
                             <i class="fas fa-edit me-1"></i>Descripción detallada de la propiedad
                         </label>
-                        {{ form.descripcion }}
+                        <div style="width: 90%;">
+                            {{ form.descripcion }}
+                        </div>
                         {{ form.descripcion.errors }}
                     </div>
                     <div class="col-12">
                         <label for="id_anotaciones" class="form-label">
                             <i class="fas fa-sticky-note me-1"></i>Anotaciones y observaciones
                         </label>
-                        {{ form.anotaciones }}
+                        <div style="width: 90%;">
+                            {{ form.anotaciones }}
+                        </div>
                         {{ form.anotaciones.errors }}
                         {% if form.anotaciones.help_text %}
                             <small class="form-text text-muted">{{ form.anotaciones.help_text }}</small>
