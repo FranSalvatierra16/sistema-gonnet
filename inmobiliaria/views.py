@@ -7436,8 +7436,11 @@ def guardar_precios_propiedad(request):
         
         propiedad = get_object_or_404(Propiedad, id=propiedad_id)
         
+        print(f"👤 Usuario: {request.user.username}, Nivel: {request.user.nivel}")
+        
         # Solo usuarios nivel 3 o superior pueden modificar precios
         if request.user.nivel < 3:
+            print(f"❌ Usuario sin permisos - Nivel {request.user.nivel} < 3")
             return JsonResponse({
                 'success': False,
                 'error': 'No tienes permisos para modificar precios'
@@ -7449,6 +7452,9 @@ def guardar_precios_propiedad(request):
         # Actualizar cada precio
         for precio_info in precios_data:
             tipo_precio = precio_info.get('tipo_precio')
+            
+            print(f"🔍 Procesando precio: {tipo_precio}")
+            print(f"📊 Datos recibidos: {precio_info}")
             
             # Buscar o crear el precio
             precio, created = Precio.objects.get_or_create(
@@ -7464,15 +7470,25 @@ def guardar_precios_propiedad(request):
             )
             
             # Actualizar valores
-            precio.precio_toma = precio_info.get('precio_toma', 0)
-            precio.precio_dia_toma = precio_info.get('precio_dia_toma', 0)
-            precio.precio_por_dia = precio_info.get('precio_por_dia', 0)
-            precio.precio_total = precio_info.get('precio_total', 0)
-            precio.ajuste_porcentaje = precio_info.get('ajuste_porcentaje', 0)
+            precio_toma_nuevo = precio_info.get('precio_toma', 0)
+            precio_dia_toma_nuevo = precio_info.get('precio_dia_toma', 0)
+            precio_por_dia_nuevo = precio_info.get('precio_por_dia', 0)
+            precio_total_nuevo = precio_info.get('precio_total', 0)
+            ajuste_porcentaje_nuevo = precio_info.get('ajuste_porcentaje', 0)
             
-            precio.save()
+            print(f"💰 Valores a guardar - Toma: {precio_toma_nuevo}, Día Toma: {precio_dia_toma_nuevo}, Por Día: {precio_por_dia_nuevo}")
+            
+            precio.precio_toma = precio_toma_nuevo
+            precio.precio_dia_toma = precio_dia_toma_nuevo
+            precio.precio_por_dia = precio_por_dia_nuevo
+            precio.precio_total = precio_total_nuevo
+            precio.ajuste_porcentaje = ajuste_porcentaje_nuevo
+            
+            # Usar update_fields para evitar el recálculo automático del precio_total
+            precio.save(update_fields=['precio_toma', 'precio_dia_toma', 'precio_por_dia', 'precio_total', 'ajuste_porcentaje'])
             
             print(f"✅ Actualizado precio {tipo_precio} para propiedad {propiedad_id}")
+            print(f"📋 Valores guardados - Toma: {precio.precio_toma}, Día Toma: {precio.precio_dia_toma}")
         
         return JsonResponse({
             'success': True,

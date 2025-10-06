@@ -3857,16 +3857,33 @@ function guardarCambiosPrecios() {
     const filas = document.querySelectorAll('#tablaPreciosCompleta tr[data-precio-id]');
     const precios = [];
     
+    console.log(`🔍 Encontradas ${filas.length} filas de precios`);
+    
     filas.forEach(fila => {
         const tipoPrecio = fila.dataset.precioId;
+        
+        // Debug: verificar que los elementos existen
+        const inputToma = fila.querySelector('[data-field="precio_toma"]');
+        const inputDiaToma = fila.querySelector('[data-field="precio_dia_toma"]');
+        const inputPorDia = fila.querySelector('[data-field="precio_por_dia"]');
+        const inputTotal = fila.querySelector('[data-field="precio_total"]');
+        const inputAjuste = fila.querySelector('[data-field="ajuste_porcentaje"]');
+        
+        console.log(`🔍 Fila ${tipoPrecio}:`);
+        console.log('  - Input Toma:', inputToma, inputToma ? inputToma.value : 'NO ENCONTRADO');
+        console.log('  - Input Día Toma:', inputDiaToma, inputDiaToma ? inputDiaToma.value : 'NO ENCONTRADO');
+        console.log('  - Input Por Día:', inputPorDia, inputPorDia ? inputPorDia.value : 'NO ENCONTRADO');
+        
         const precioData = {
             tipo_precio: tipoPrecio,
-            precio_toma: parseFloat(fila.querySelector('[data-field="precio_toma"]').value) || 0,
-            precio_dia_toma: parseFloat(fila.querySelector('[data-field="precio_dia_toma"]').value) || 0,
-            precio_por_dia: parseFloat(fila.querySelector('[data-field="precio_por_dia"]').value) || 0,
-            precio_total: parseFloat(fila.querySelector('[data-field="precio_total"]').value) || 0,
-            ajuste_porcentaje: parseFloat(fila.querySelector('[data-field="ajuste_porcentaje"]').value) || 0
+            precio_toma: parseFloat(inputToma ? inputToma.value : 0) || 0,
+            precio_dia_toma: parseFloat(inputDiaToma ? inputDiaToma.value : 0) || 0,
+            precio_por_dia: parseFloat(inputPorDia ? inputPorDia.value : 0) || 0,
+            precio_total: parseFloat(inputTotal ? inputTotal.value : 0) || 0,
+            ajuste_porcentaje: parseFloat(inputAjuste ? inputAjuste.value : 0) || 0
         };
+        
+        console.log(`💰 Datos para ${tipoPrecio}:`, precioData);
         precios.push(precioData);
     });
     
@@ -4114,16 +4131,33 @@ function guardarCambiosPrecios() {
     const filas = document.querySelectorAll('#tablaPreciosCompleta tr[data-precio-id]');
     const precios = [];
     
+    console.log(`🔍 Encontradas ${filas.length} filas de precios`);
+    
     filas.forEach(fila => {
         const tipoPrecio = fila.dataset.precioId;
+        
+        // Debug: verificar que los elementos existen
+        const inputToma = fila.querySelector('[data-field="precio_toma"]');
+        const inputDiaToma = fila.querySelector('[data-field="precio_dia_toma"]');
+        const inputPorDia = fila.querySelector('[data-field="precio_por_dia"]');
+        const inputTotal = fila.querySelector('[data-field="precio_total"]');
+        const inputAjuste = fila.querySelector('[data-field="ajuste_porcentaje"]');
+        
+        console.log(`🔍 Fila ${tipoPrecio}:`);
+        console.log('  - Input Toma:', inputToma, inputToma ? inputToma.value : 'NO ENCONTRADO');
+        console.log('  - Input Día Toma:', inputDiaToma, inputDiaToma ? inputDiaToma.value : 'NO ENCONTRADO');
+        console.log('  - Input Por Día:', inputPorDia, inputPorDia ? inputPorDia.value : 'NO ENCONTRADO');
+        
         const precioData = {
             tipo_precio: tipoPrecio,
-            precio_toma: parseFloat(fila.querySelector('[data-field="precio_toma"]').value) || 0,
-            precio_dia_toma: parseFloat(fila.querySelector('[data-field="precio_dia_toma"]').value) || 0,
-            precio_por_dia: parseFloat(fila.querySelector('[data-field="precio_por_dia"]').value) || 0,
-            precio_total: parseFloat(fila.querySelector('[data-field="precio_total"]').value) || 0,
-            ajuste_porcentaje: parseFloat(fila.querySelector('[data-field="ajuste_porcentaje"]').value) || 0
+            precio_toma: parseFloat(inputToma ? inputToma.value : 0) || 0,
+            precio_dia_toma: parseFloat(inputDiaToma ? inputDiaToma.value : 0) || 0,
+            precio_por_dia: parseFloat(inputPorDia ? inputPorDia.value : 0) || 0,
+            precio_total: parseFloat(inputTotal ? inputTotal.value : 0) || 0,
+            ajuste_porcentaje: parseFloat(inputAjuste ? inputAjuste.value : 0) || 0
         };
+        
+        console.log(`💰 Datos para ${tipoPrecio}:`, precioData);
         precios.push(precioData);
     });
     

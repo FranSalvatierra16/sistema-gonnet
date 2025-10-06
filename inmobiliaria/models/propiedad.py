@@ -819,7 +819,9 @@ class Precio(models.Model):
         return round(base_price, 2)
 
     def save(self, *args, **kwargs):
-        if self.precio_por_dia is not None:
+        # Solo recalcular precio_total si no se está estableciendo manualmente
+        # y si precio_por_dia tiene un valor
+        if self.precio_por_dia is not None and not kwargs.get('skip_price_calculation', False):
             # Calcular el precio total basado en el tipo de precio
             if 'QUINCENA' in self.tipo_precio or self.tipo_precio == 'VACACIONES_INVIERNO':
                 if 'ENERO' in self.tipo_precio or 'MARZO' in self.tipo_precio or 'DICIEMBRE' in self.tipo_precio:
@@ -837,8 +839,12 @@ class Precio(models.Model):
             if base_price is not None and self.ajuste_porcentaje != 0:
                 base_price *= (1 - self.ajuste_porcentaje / 100)
 
-            self.precio_total = round(base_price, 2) if base_price is not None else None
+            # Solo actualizar precio_total si no se está estableciendo manualmente
+            if 'precio_total' not in kwargs.get('update_fields', []):
+                self.precio_total = round(base_price, 2) if base_price is not None else None
 
+        # Remover el parámetro personalizado antes de llamar al save padre
+        kwargs.pop('skip_price_calculation', None)
         super().save(*args, **kwargs)
 
 class ConceptoPago(models.Model):
