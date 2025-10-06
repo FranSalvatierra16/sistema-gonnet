@@ -220,11 +220,12 @@ class PropiedadForm(forms.ModelForm):
             # 'habilitar_precio_alquiler', 'precio_alquiler',
             'amoblado', 'cochera', 'tv_smart', 'wifi', 
             'dependencia', 'patio', 'parrilla', 'piscina', 'reciclado', 'a_estrenar', 'terraza', 'balcon', 
-            'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito', 'descripcion', 
+            'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito', 'descripcion', 'anotaciones',
             'propietario', 'fichado_por'
         ]
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 5}),
+            'anotaciones': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Notas y observaciones sobre la propiedad...'}),
             'valoracion': forms.Select(attrs={'class': 'form-control'}),
             'direccion': forms.TextInput(attrs={'placeholder': 'Ingrese la dirección'}),
             'titulo': forms.TextInput(attrs={'placeholder': 'Título descriptivo (opcional)'}),

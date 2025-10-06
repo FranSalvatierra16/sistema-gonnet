@@ -285,6 +285,22 @@
                                             {% endif %}
                                         </div>
                                     </div>
+
+                                    <!-- Sección de Anotaciones -->
+                                    <div class="annotations-section mt-4">
+                                        <h5>
+                                            <i class="fas fa-sticky-note me-2"></i>Anotaciones
+                                        </h5>
+                                        <div class="annotations-content">
+                                            {% if propiedad.anotaciones %}
+                                                <div class="alert alert-info">
+                                                    <p class="annotations-text mb-0">{{ propiedad.anotaciones|linebreaks }}</p>
+                                                </div>
+                                            {% else %}
+                                                <p class="text-muted mb-0">No hay anotaciones para esta propiedad.</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 

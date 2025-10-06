@@ -108,6 +108,12 @@ class Propiedad(models.Model):
     )
     ubicacion = models.CharField(max_length=UBICACION_MAX_LENGTH)
     descripcion = models.TextField(blank=True)
+    anotaciones = models.TextField(
+        blank=True, 
+        null=True,
+        verbose_name="Anotaciones",
+        help_text="Notas y observaciones sobre la propiedad"
+    )
     tipo_inmueble = models.CharField(max_length=20, choices=TIPOS_INMUEBLES, default='departamento')
     vista = models.CharField(max_length=20, choices=TIPOS_VISTA, default='a_la_calle')
     piso = models.CharField(
