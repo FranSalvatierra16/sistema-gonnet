@@ -1942,8 +1942,8 @@ def ver_recibo(request, reserva_id):
                     formas_con_montos.append(f'Transferencia ${movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Transferencia')
             
-            # Usar formas con montos si hay múltiples formas de pago, sino usar formas simples
-            formas_de_pago_mostrar = formas_con_montos if len(formas_con_montos) > 1 else formas_de_pago
+            # Siempre usar formas con montos para mostrar el desglose completo
+            formas_de_pago_mostrar = formas_con_montos if formas_con_montos else formas_de_pago
         else:
             formas_de_pago_mostrar = formas_de_pago
         
@@ -3496,8 +3496,8 @@ def ver_recibo_movimiento(request, movimiento_id):
                     formas_con_montos.append(f'Transferencia ${movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Transferencia')
             
-            # Usar formas con montos si hay múltiples formas de pago, sino usar formas simples
-            formas_de_pago_mostrar = formas_con_montos if len(formas_con_montos) > 1 else formas_de_pago
+            # Siempre usar formas con montos para mostrar el desglose completo
+            formas_de_pago_mostrar = formas_con_montos if formas_con_montos else formas_de_pago
             
             # Función para convertir número a palabras
             def numero_a_palabras(numero):
