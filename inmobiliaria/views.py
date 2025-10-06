@@ -2639,6 +2639,7 @@ def procesar_movimiento_reserva(request):
             
             # ✅ PROCESAR CONCEPTOS INDIVIDUALES DEL FRONTEND
             conceptos_count = int(request.POST.get('conceptos_count', 0))
+            print(f"📊 CONCEPTOS RECIBIDOS: {conceptos_count}")
             conceptos_detalle = []
             conceptos_completos = []  # Para guardar información completa
             
@@ -2652,6 +2653,8 @@ def procesar_movimiento_reserva(request):
                 concepto_nombre = request.POST.get(f'concepto_{i}_nombre')
                 concepto_observaciones = request.POST.get(f'concepto_{i}_observaciones')
                 concepto_importe = request.POST.get(f'concepto_{i}_importe')
+                
+                print(f"📝 PROCESANDO CONCEPTO {i}: ID={concepto_id}, Nombre={concepto_nombre}, Importe={concepto_importe}")
                 
                 if concepto_nombre:
                     conceptos_detalle.append(f"{concepto_nombre}")
@@ -3289,6 +3292,11 @@ def ver_recibo_movimiento(request, movimiento_id):
                     print(f"📝 TIPO: {type(concepto_texto)}")
                     
                     # ✅ NUEVO: Intentar parsear como JSON primero
+                    print(f"🔍 VERIFICANDO FORMATO:")
+                    print(f"   - Empieza con '[': {concepto_texto.startswith('[')}")
+                    print(f"   - Termina con ']': {concepto_texto.endswith(']')}")
+                    print(f"   - Longitud: {len(concepto_texto)}")
+                    
                     if concepto_texto.startswith('[') and concepto_texto.endswith(']'):
                         print(f"🔍 DETECTADO FORMATO JSON")
                         print(f"🔍 JSON COMPLETO: {concepto_texto}")
@@ -3317,6 +3325,8 @@ def ver_recibo_movimiento(request, movimiento_id):
                             
                         except json.JSONDecodeError as e:
                             print(f"❌ Error al parsear JSON: {e}")
+                    else:
+                        print(f"❌ NO ES FORMATO JSON - Intentando otros formatos")
                     
                     # Si no es JSON, continuar con el formato anterior
                     if not conceptos_procesados and "|CONCEPTOS:" in concepto_texto:
@@ -3414,13 +3424,27 @@ def ver_recibo_movimiento(request, movimiento_id):
                     
                     # ✅ FALLBACK FINAL: Si no se procesaron conceptos, usar el concepto completo
                     if not conceptos_procesados and not pagos:
+                        # Si es un concepto simple como "Operación X - Dirección", crear un concepto genérico
+                        if concepto_texto and "Operación" in concepto_texto and " - " in concepto_texto:
+                            print(f"🔄 CONCEPTO SIMPLE DETECTADO: {concepto_texto}")
+                            # Extraer información básica
+                            partes = concepto_texto.split(" - ", 1)
+                            if len(partes) > 1:
+                                direccion = partes[1]
+                                concepto_nombre = f"Alquiler - {direccion}"
+                            else:
+                                concepto_nombre = "Alquiler temporario"
+                        else:
+                            concepto_nombre = concepto_texto or 'ALQ - Alquiler temporario'
+                        
                         pagos.append({
                             'fecha': fecha_mov,
                             'codigo': codigo_mov,
-                            'concepto': concepto_texto or 'ALQ - Alquiler temporario',
+                            'concepto': concepto_nombre,
                             'monto': f'${movimiento.monto_total:,.0f}'
                         })
                         total_pagado += movimiento.monto_total
+                        print(f"💰 CONCEPTO FALLBACK: {concepto_nombre} - ${movimiento.monto_total:,.0f}")
                     
                 except Exception as e:
                     print(f"❌ Error en fallback: {e}")
