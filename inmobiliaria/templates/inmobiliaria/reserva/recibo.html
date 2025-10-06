@@ -69,8 +69,6 @@
                     <h1 style="margin: 0; font-size: 10px;">Nº: {{ numero_recibo }}</h1>    
                     <h2 style="margin: 0; font-size: 10px;">Fecha: <u>&nbsp;&nbsp;&nbsp;{{ fecha }}&nbsp;&nbsp;&nbsp;</u></h2>
                     <h2 style="margin: 0; font-size: 7px;">Hora: &nbsp;&nbsp;<u>&nbsp;&nbsp;&nbsp;&nbsp;{{ hora }}&nbsp;&nbsp;&nbsp;&nbsp;</u></h2>
-                    <p style="margin: 0; font-size: 7px;">IVA : RESPONSABLE INSCRIPTO</p>
-                    <p style="margin: 0; font-size: 7px;">CUIT: 20-10757572-4</p>
                     <p style="margin: 0; font-size: 7px;">ING. BRUTOS: 20-10757572-4</p>
                     <!-- <p style="margin: 0;">JUB: 60620856 C.P.S.M.C.P.P.B.A Ley 7014</p> -->
                     <p style="margin: 0; font-size: 7px;">INSC: 120609/8 REG. 1572</p>
@@ -101,10 +99,6 @@
                         <span style="min-width: 120px; font-size: 8px;">LOCALIDAD:</span>
                         <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.localidad }}</div>
                     </div>
-                    <div style="display: flex; align-items: center; margin: 5px 0;">
-                        <span style="min-width: 120px; font-size: 8px;">IVA:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black;">&nbsp;</div>
-                    </div>
                 </div>
             </div>
     
@@ -112,8 +106,10 @@
                 <div style="width: 80%; text-align: left; ">
                     <h4 style="margin: 0; color: transparent; font-size: 10px;      ">CLIENTE: </h4>    
                     <div style="display: flex; align-items: center; margin: 5px 0;">
-                        <span style="min-width: 120px; font-size: 8px;">D.N.I:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.dni }}</div>
+                        <span style="min-width: 120px; font-size: 8px;">DNI/CUIT:</span>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">
+                            {% if cliente.cuit %}{{ cliente.cuit }}{% else %}{{ cliente.dni }}{% endif %}
+                        </div>
                     </div>
                     <div style="display: flex; align-items: center; margin: 5px 0;">
                         <span style="min-width: 120px; font-size: 8px;">TEL:</span>
@@ -122,12 +118,6 @@
                     <div style="display: flex; align-items: center; margin: 5px 0;">
                         <span style="min-width: 120px; font-size: 8px;">PROVINCIA:</span>
                         <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.provincia }}</div>
-                    </div>
-                    <div style="display: flex; align-items: center; margin: 5px 0;">
-                        <span style="min-width: 120px; font-size: 8px;">C.U.I.T:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">
-                            {% if cliente.cuit %}{{ cliente.cuit }}{% endif %}
-                        </div>
                     </div>
                 </div>
             </div>
