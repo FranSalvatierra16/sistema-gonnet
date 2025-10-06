@@ -1921,19 +1921,31 @@ def ver_recibo(request, reserva_id):
         
         # Si no hay formas de pago desde pagos, intentar obtener del movimiento creado
         if not formas_de_pago and 'movimiento' in locals():
+            formas_con_montos = []
             if movimiento.monto_efectivo > 0:
+                formas_con_montos.append(f'Efectivo ${movimiento.monto_efectivo:,.0f}')
                 formas_de_pago.append('Efectivo')
             if movimiento.monto_tarjeta > 0:
+                formas_con_montos.append(f'Tarjeta ${movimiento.monto_tarjeta:,.0f}')
                 formas_de_pago.append('Tarjeta')
             if movimiento.monto_cheque > 0:
+                formas_con_montos.append(f'Cheque ${movimiento.monto_cheque:,.0f}')
                 formas_de_pago.append('Cheque')
             if movimiento.monto_deposito > 0:
                 if movimiento.destino_deposito == 'galicia':
+                    formas_con_montos.append(f'Transferencia Galicia ${movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Galicia')
                 elif movimiento.destino_deposito == 'mp':
+                    formas_con_montos.append(f'Transferencia Mercado Pago ${movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Mercado Pago')
                 else:
+                    formas_con_montos.append(f'Transferencia ${movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Transferencia')
+            
+            # Usar formas con montos si hay múltiples formas de pago, sino usar formas simples
+            formas_de_pago_mostrar = formas_con_montos if len(formas_con_montos) > 1 else formas_de_pago
+        else:
+            formas_de_pago_mostrar = formas_de_pago
         
             # Función simplificada para convertir número a palabras
             def numero_a_palabras(numero):
@@ -2032,7 +2044,7 @@ def ver_recibo(request, reserva_id):
             'pagos': pagos,
             'total_pagado': f'${total_pagado:,.0f}',
             'monto_en_palabras': numero_a_palabras(total_pagado),
-            'formas_de_pago': ', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO',
+            'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
             # ✅ AGREGAR VARIABLES QUE NECESITA EL TEMPLATE
             'precio_total_operacion': f'${precio_total:,.0f}',
             'monto_este_pago': f'${senia_pagada:,.0f}',  # La seña que se pagó
@@ -3462,20 +3474,30 @@ def ver_recibo_movimiento(request, movimiento_id):
                     else:
                         print("✅ CONCEPTOS YA PROCESADOS - No usar fallback ultra simple")
             
-            # Obtener formas de pago del movimiento
+            # Obtener formas de pago del movimiento con montos detallados
+            formas_con_montos = []
             if movimiento.monto_efectivo > 0:
+                formas_con_montos.append(f'Efectivo ${movimiento.monto_efectivo:,.0f}')
                 formas_de_pago.append('Efectivo')
             if movimiento.monto_tarjeta > 0:
+                formas_con_montos.append(f'Tarjeta ${movimiento.monto_tarjeta:,.0f}')
                 formas_de_pago.append('Tarjeta')
             if movimiento.monto_cheque > 0:
+                formas_con_montos.append(f'Cheque ${movimiento.monto_cheque:,.0f}')
                 formas_de_pago.append('Cheque')
             if movimiento.monto_deposito > 0:
                 if movimiento.destino_deposito == 'galicia':
+                    formas_con_montos.append(f'Transferencia Galicia ${movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Galicia')
                 elif movimiento.destino_deposito == 'mp':
+                    formas_con_montos.append(f'Transferencia Mercado Pago ${movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Mercado Pago')
                 else:
+                    formas_con_montos.append(f'Transferencia ${movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Transferencia')
+            
+            # Usar formas con montos si hay múltiples formas de pago, sino usar formas simples
+            formas_de_pago_mostrar = formas_con_montos if len(formas_con_montos) > 1 else formas_de_pago
             
             # Función para convertir número a palabras
             def numero_a_palabras(numero):
@@ -3608,7 +3630,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'pagos': pagos,
                 'total_pagado': f'${total_pagado:,.0f}',
                 'monto_en_palabras': numero_a_palabras(total_pagado),
-                'formas_de_pago': ', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO',
+                'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
                 'logo_base64': logo_base64,
                 # ✅ DATOS CORREGIDOS PARA MOSTRAR EN RECIBO
                 'precio_total_operacion': f'${precio_total_mostrar:,.0f}',
