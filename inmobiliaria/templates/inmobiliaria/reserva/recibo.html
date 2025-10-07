@@ -360,8 +360,8 @@
     
     <!-- Dropdown de WhatsApp -->
     <div class="btn-group" role="group">
-    <button onclick="compartirArchivoDirecto();" class="btn btn-success">
-        <i class="fab fa-whatsapp me-2"></i>Enviar Imagen por WhatsApp
+    <button onclick="enviarDirectoWhatsApp();" class="btn btn-success">
+        <i class="fab fa-whatsapp me-2"></i>Enviar por WhatsApp
     </button>
         <button type="button" class="btn btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
             <span class="visually-hidden">Toggle Dropdown</span>
@@ -489,6 +489,95 @@ async function compartirWhatsApp() {
     }
 }
 
+// Función PRINCIPAL: Enviar directamente por WhatsApp (ABRE LA APP)
+async function enviarDirectoWhatsApp() {
+    try {
+        mostrarNotificacion('📸 Preparando recibo para WhatsApp...', 'info');
+        
+        // Obtener el elemento del recibo (sin botones)
+        const reciboElement = document.querySelector('.printable');
+        
+        if (!reciboElement) {
+            mostrarNotificacion('❌ No se encontró el recibo para capturar', 'error');
+            return;
+        }
+        
+        // Cargar html2canvas si no está disponible
+        if (typeof html2canvas === 'undefined') {
+            await cargarHtml2Canvas();
+        }
+        
+        // Configurar opciones para mejor calidad
+        const options = {
+            scale: 2, // Mayor resolución
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            width: reciboElement.scrollWidth,
+            height: reciboElement.scrollHeight,
+            scrollX: 0,
+            scrollY: 0
+        };
+        
+        // Capturar el recibo como canvas
+        const canvas = await html2canvas(reciboElement, options);
+        
+        // Convertir canvas a blob de imagen
+        const imageBlob = await new Promise(resolve => {
+            canvas.toBlob(resolve, 'image/jpeg', 0.95);
+        });
+        
+        // Crear archivo de imagen
+        const fileName = `recibo_{{ reserva.id|default:"N/A" }}.jpg`;
+        const file = new File([imageBlob], fileName, { type: 'image/jpeg' });
+        
+        // FORZAR Web Share API (abre WhatsApp directamente)
+        if (navigator.share) {
+            try {
+                const shareData = {
+                    title: 'Recibo de Pago',
+                    text: `🧾 Recibo de Pago - Gonnet Propiedades\n📋 Operación: {{ reserva.id|default:"N/A" }}\n🏠 {{ propiedad.direccion }}\n👤 {{ cliente.nombre_completo }}\n💰 {{ total_pagado }}`,
+                    files: [file]
+                };
+                
+                // Intentar compartir (esto abre el menú nativo)
+                await navigator.share(shareData);
+                mostrarNotificacion('✅ ¡Selecciona WhatsApp para enviar la imagen!', 'success');
+                return;
+                
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    // Usuario canceló, no mostrar error
+                    mostrarNotificacion('ℹ️ Compartir cancelado', 'info');
+                    return;
+                }
+                console.log('Error con Web Share API:', error);
+            }
+        }
+        
+        // FALLBACK: Si Web Share no funciona, descargar y dar instrucciones
+        const url = window.URL.createObjectURL(imageBlob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = fileName;
+        
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }, 100);
+        
+        mostrarNotificacion('📱 Imagen descargada. Ábrela desde tu galería y compártela por WhatsApp.', 'info');
+        
+    } catch (error) {
+        console.error('Error enviando por WhatsApp:', error);
+        mostrarNotificacion('❌ Error al preparar el recibo', 'error');
+    }
+}
+
 // Función para compartir recibo como IMAGEN (NUEVA ESTRATEGIA)
 async function compartirArchivoDirecto() {
     try {
@@ -531,11 +620,8 @@ async function compartirArchivoDirecto() {
         const fileName = `recibo_{{ reserva.id|default:"N/A" }}.jpg`;
         const file = new File([imageBlob], fileName, { type: 'image/jpeg' });
         
-        // Detectar si es móvil
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
-        if (isMobile && navigator.share) {
-            // EN MÓVIL: Usar Web Share API para compartir imagen directamente
+        // SIEMPRE intentar usar Web Share API primero (funciona en móviles y algunos desktop)
+        if (navigator.share) {
             try {
                 const shareData = {
                     title: 'Recibo de Pago - Gonnet Propiedades',
@@ -549,14 +635,24 @@ async function compartirArchivoDirecto() {
                     files: [file]
                 };
                 
-                // Verificar si puede compartir archivos
+                // Intentar compartir con archivo
                 if (navigator.canShare && navigator.canShare(shareData)) {
                     await navigator.share(shareData);
-                    mostrarNotificacion('✅ Imagen del recibo compartida! Selecciona WhatsApp en el menú.', 'success');
+                    mostrarNotificacion('✅ ¡Selecciona WhatsApp en el menú para enviar!', 'success');
                     return;
+                } else {
+                    // Si no puede compartir archivos, intentar solo con texto
+                    const textShareData = {
+                        title: 'Recibo de Pago - Gonnet Propiedades',
+                        text: shareData.text
+                    };
+                    await navigator.share(textShareData);
+                    mostrarNotificacion('ℹ️ Se compartió el texto. La imagen se descargará para que la adjuntes manualmente.', 'info');
+                    // Continuar con descarga como fallback
                 }
             } catch (error) {
                 console.log('Error con Web Share API:', error);
+                // Continuar con descarga como fallback
             }
         }
         
