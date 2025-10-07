@@ -489,45 +489,11 @@ async function compartirWhatsApp() {
     }
 }
 
-// Función para abrir WhatsApp Web con contacto preseleccionado
+// Función para abrir WhatsApp Web (SIN contacto preseleccionado)
 function abrirWhatsAppConContacto() {
-    // Obtener datos del cliente
-    const clienteNombre = '{{ cliente.nombre_completo }}';
-    const clienteTelefono = '{{ cliente.telefono }}';
-    
-    // Crear mensaje predeterminado
-    const mensaje = `🧾 Recibo de Pago - Gonnet Propiedades\n📋 Operación: {{ reserva.id|default:"N/A" }}\n🏠 {{ propiedad.direccion }}\n👤 ${clienteNombre}\n💰 {{ total_pagado }}`;
-    
-    // PRIORIDAD 1: Si hay teléfono del cliente, ir DIRECTO a su chat
-    if (clienteTelefono && clienteTelefono.trim() !== '') {
-        const telefonoLimpio = clienteTelefono.replace(/\D/g, ''); // Solo números
-        if (telefonoLimpio.length >= 8) { // Más flexible con la validación
-            // Asegurar código de país (Argentina +54)
-            let numeroCompleto = telefonoLimpio;
-            
-            // Si no empieza con 54, agregarlo
-            if (!numeroCompleto.startsWith('54')) {
-                // Si empieza con 9 (celular), agregar 54
-                if (numeroCompleto.startsWith('9')) {
-                    numeroCompleto = '54' + numeroCompleto;
-                }
-                // Si empieza con 11, 221, etc (área), agregar 54
-                else if (numeroCompleto.length >= 10) {
-                    numeroCompleto = '54' + numeroCompleto;
-                }
-            }
-            
-            // Abrir WhatsApp Web DIRECTAMENTE con el cliente
-            const urlCliente = `https://web.whatsapp.com/send?phone=${numeroCompleto}&text=${encodeURIComponent(mensaje)}`;
-            window.open(urlCliente, '_blank');
-            mostrarNotificacion(`📱 WhatsApp Web abierto con ${clienteNombre}. Arrastra la imagen al chat.`, 'success');
-            return;
-        }
-    }
-    
-    // FALLBACK: Si no hay teléfono válido, abrir WhatsApp normal
+    // Abrir WhatsApp Web normal para que el usuario elija el contacto
     window.open('https://web.whatsapp.com/', '_blank');
-    mostrarNotificacion('📱 WhatsApp Web abierto. Selecciona un contacto y arrastra la imagen.', 'info');
+    mostrarNotificacion('📱 WhatsApp Web abierto. Selecciona el contacto que quieras y arrastra la imagen.', 'success');
 }
 
 
