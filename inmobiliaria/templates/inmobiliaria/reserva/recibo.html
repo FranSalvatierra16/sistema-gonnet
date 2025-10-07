@@ -539,20 +539,18 @@ async function enviarDirectoWhatsApp() {
         const fileName = `recibo_{{ reserva.id|default:"N/A" }}.jpg`;
         const file = new File([imageBlob], fileName, { type: 'image/jpeg' });
         
-        // Detectar si es móvil o desktop
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
-        if (isMobile && navigator.share) {
-            // EN MÓVIL: Usar Web Share API (abre menú nativo)
+        // PRIORIDAD: Usar Web Share API (selector nativo de contactos)
+        if (navigator.share) {
             try {
                 const shareData = {
-                    title: 'Recibo de Pago',
-                    text: `🧾 Recibo de Pago - Gonnet Propiedades\n📋 Operación: {{ reserva.id|default:"N/A" }}\n🏠 {{ propiedad.direccion }}\n👤 {{ cliente.nombre_completo }}\n💰 {{ total_pagado }}`,
+                    title: 'Recibo de Pago - Gonnet Propiedades',
+                    text: `🧾 Recibo de Pago\n📋 Operación: {{ reserva.id|default:"N/A" }}\n🏠 {{ propiedad.direccion }}\n👤 {{ cliente.nombre_completo }}\n💰 {{ total_pagado }}`,
                     files: [file]
                 };
                 
+                // Esto abre el SELECTOR NATIVO de contactos (como reenviar)
                 await navigator.share(shareData);
-                mostrarNotificacion('✅ ¡Selecciona WhatsApp para enviar la imagen!', 'success');
+                mostrarNotificacion('✅ ¡Imagen enviada! Selecciona WhatsApp desde el menú.', 'success');
                 return;
                 
             } catch (error) {
@@ -560,11 +558,11 @@ async function enviarDirectoWhatsApp() {
                     mostrarNotificacion('ℹ️ Compartir cancelado', 'info');
                     return;
                 }
-                console.log('Error con Web Share API:', error);
+                console.log('Web Share API no disponible:', error);
             }
         }
         
-        // EN DESKTOP: Descargar imagen y abrir WhatsApp Web directamente
+        // FALLBACK: Si Web Share no está disponible, descargar y abrir WhatsApp Web
         const url = window.URL.createObjectURL(imageBlob);
         const a = document.createElement('a');
         a.style.display = 'none';
@@ -579,7 +577,7 @@ async function enviarDirectoWhatsApp() {
             window.URL.revokeObjectURL(url);
         }, 100);
         
-        // Abrir WhatsApp Web con contacto preseleccionado
+        // Abrir WhatsApp Web como fallback
         setTimeout(() => {
             abrirWhatsAppConContacto();
         }, 1000);
