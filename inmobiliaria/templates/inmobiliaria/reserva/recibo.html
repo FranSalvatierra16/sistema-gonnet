@@ -360,15 +360,18 @@
     
     <!-- Dropdown de WhatsApp -->
     <div class="btn-group" role="group">
-        <button onclick="compartirWhatsApp();" class="btn btn-success">
-            <i class="fab fa-whatsapp me-2"></i>Compartir en WhatsApp
-        </button>
+    <button onclick="compartirArchivoDirecto();" class="btn btn-success">
+        <i class="fab fa-whatsapp me-2"></i>Enviar PDF por WhatsApp
+    </button>
         <button type="button" class="btn btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
             <span class="visually-hidden">Toggle Dropdown</span>
         </button>
         <ul class="dropdown-menu">
             <li><a class="dropdown-item" href="#" onclick="compartirWhatsApp(); return false;">
-                <i class="fab fa-whatsapp me-2"></i>Compartir general
+                <i class="fab fa-whatsapp me-2"></i>Compartir inteligente
+            </a></li>
+            <li><a class="dropdown-item" href="#" onclick="compartirArchivoDirecto(); return false;">
+                <i class="fas fa-paperclip me-2"></i>Enviar PDF como archivo
             </a></li>
             <li><a class="dropdown-item" href="#" onclick="compartirWhatsAppNumero(); return false;">
                 <i class="fas fa-phone me-2"></i>Enviar a número específico
@@ -402,10 +405,10 @@ async function compartirWhatsApp() {
         }
     
     // Detectar si el dispositivo soporta Web Share API con archivos
-    if (navigator.share && navigator.canShare) {
+    if (navigator.share) {
         try {
             // Mostrar loading
-            mostrarNotificacion('📄 Generando PDF...', 'info');
+            mostrarNotificacion('📄 Generando PDF para compartir...', 'info');
             
             // Descargar el PDF como blob
             const response = await fetch(pdfUrl);
@@ -418,21 +421,30 @@ async function compartirWhatsApp() {
             // Preparar datos para compartir
             const shareData = {
                 title: 'Recibo de Pago - Gonnet Propiedades',
-                text: `🧾 *RECIBO DE PAGO - GONNET PROPIEDADES*\n\n` +
+                text: `🧾 RECIBO DE PAGO - GONNET PROPIEDADES\n\n` +
                       `📋 Operación: {{ reserva.id|default:"N/A" }}\n` +
                       `🏠 Propiedad: {{ propiedad.direccion }}\n` +
                       `👤 Cliente: {{ cliente.nombre_completo }}\n` +
                       `📅 Fecha: {{ fecha }}\n` +
                       `💰 Total: {{ total_pagado }}\n` +
                       `💳 Forma de pago: {{ formas_de_pago }}\n\n` +
-                      `_Gonnet Propiedades - Mar del Plata_`,
+                      `Gonnet Propiedades - Mar del Plata`,
                 files: [file]
             };
             
-            // Verificar si se puede compartir con archivos
-            if (navigator.canShare(shareData)) {
+            // Intentar compartir con archivo
+            if (navigator.canShare && navigator.canShare(shareData)) {
                 await navigator.share(shareData);
-                mostrarNotificacion('✅ PDF compartido exitosamente', 'success');
+                mostrarNotificacion('✅ PDF compartido como archivo', 'success');
+                return;
+            } else {
+                // Si no puede compartir archivos, compartir solo texto
+                const textShareData = {
+                    title: 'Recibo de Pago - Gonnet Propiedades',
+                    text: shareData.text + `\n\n📄 Descargar PDF: ${pdfUrl}`
+                };
+                await navigator.share(textShareData);
+                mostrarNotificacion('✅ Enlace compartido (descarga el PDF desde el enlace)', 'success');
                 return;
             }
         } catch (error) {
@@ -474,6 +486,93 @@ async function compartirWhatsApp() {
     } catch (error) {
         console.error('Error en compartirWhatsApp:', error);
         mostrarNotificacion('❌ Error al compartir por WhatsApp', 'error');
+    }
+}
+
+// Función para compartir PDF como archivo directamente (FORZADO)
+async function compartirArchivoDirecto() {
+    try {
+        mostrarNotificacion('📎 Preparando PDF para compartir como archivo...', 'info');
+        
+        // Obtener enlace público del PDF
+        const pdfUrl = await obtenerEnlacePublico();
+        
+        if (!pdfUrl) {
+            mostrarNotificacion('❌ Error al generar PDF', 'error');
+            return;
+        }
+        
+        // Descargar el PDF como blob
+        const response = await fetch(pdfUrl);
+        const pdfBlob = await response.blob();
+        
+        // Crear archivo para compartir
+        const fileName = `recibo_{{ reserva.id|default:"N/A" }}.pdf`;
+        const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+        
+        // Detectar si es móvil
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        if (isMobile && navigator.share) {
+            // EN MÓVIL: Usar Web Share API para compartir archivo directamente
+            try {
+                const shareData = {
+                    title: 'Recibo de Pago',
+                    text: `🧾 RECIBO DE PAGO - GONNET PROPIEDADES\n\n` +
+                          `📋 Operación: {{ reserva.id|default:"N/A" }}\n` +
+                          `🏠 Propiedad: {{ propiedad.direccion }}\n` +
+                          `👤 Cliente: {{ cliente.nombre_completo }}\n` +
+                          `📅 Fecha: {{ fecha }}\n` +
+                          `💰 Total: {{ total_pagado }}\n` +
+                          `💳 Forma de pago: {{ formas_de_pago }}`,
+                    files: [file]
+                };
+                
+                // Verificar si puede compartir archivos
+                if (navigator.canShare && navigator.canShare(shareData)) {
+                    await navigator.share(shareData);
+                    mostrarNotificacion('✅ PDF compartido como archivo! Selecciona WhatsApp en el menú.', 'success');
+                    return;
+                } else {
+                    // Fallback: compartir solo texto con enlace
+                    await navigator.share({
+                        title: 'Recibo de Pago',
+                        text: shareData.text + `\n\n📄 PDF: ${pdfUrl}`
+                    });
+                    mostrarNotificacion('✅ Enlace compartido (tu dispositivo no soporta archivos)', 'info');
+                    return;
+                }
+            } catch (error) {
+                console.log('Error con Web Share API:', error);
+            }
+        }
+        
+        // EN DESKTOP O FALLBACK: Descargar automáticamente y mostrar instrucciones
+        // Crear enlace temporal para forzar descarga
+        const url = window.URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = fileName;
+        
+        // Agregar al DOM, hacer clic y remover
+        document.body.appendChild(a);
+        a.click();
+        
+        // Limpiar
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }, 100);
+        
+        // Mostrar instrucciones para desktop
+        setTimeout(() => {
+            mostrarNotificacion(`📎 PDF descargado como "${fileName}". Ahora puedes arrastrarlo a WhatsApp Web o usar el botón de adjuntar archivo.`, 'success');
+        }, 500);
+        
+    } catch (error) {
+        console.error('Error compartiendo archivo:', error);
+        mostrarNotificacion('❌ Error al preparar archivo para compartir', 'error');
     }
 }
 
