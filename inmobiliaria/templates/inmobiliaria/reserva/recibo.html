@@ -348,7 +348,156 @@
     <!-- Aquí termina la sección del recibo -->
 </div>
 </div>
-<!-- Botón para imprimir -->
-<button onclick="window.print();" class="btn btn-primary mt-3" style="background-color: #2d8524; border-color: #2d8524; color: white;">Imprimir Recibo</button>
+<!-- Botones de acción -->
+<div class="d-flex gap-2 mt-3">
+    <button onclick="window.print();" class="btn btn-primary" style="background-color: #2d8524; border-color: #2d8524; color: white;">
+        <i class="fas fa-print me-2"></i>Imprimir Recibo
+    </button>
+    
+    <!-- Dropdown de WhatsApp -->
+    <div class="btn-group" role="group">
+        <button onclick="compartirWhatsApp();" class="btn btn-success">
+            <i class="fab fa-whatsapp me-2"></i>Compartir en WhatsApp
+        </button>
+        <button type="button" class="btn btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="visually-hidden">Toggle Dropdown</span>
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" onclick="compartirWhatsApp(); return false;">
+                <i class="fab fa-whatsapp me-2"></i>Compartir general
+            </a></li>
+            <li><a class="dropdown-item" href="#" onclick="compartirWhatsAppNumero(); return false;">
+                <i class="fas fa-phone me-2"></i>Enviar a número específico
+            </a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#" onclick="copiarEnlace(); return false;">
+                <i class="fas fa-link me-2"></i>Copiar enlace del recibo
+            </a></li>
+        </ul>
+    </div>
+</div>
+
+<script>
+function compartirWhatsApp() {
+    // Obtener la URL actual del recibo
+    const reciboUrl = window.location.href;
+    
+    // Crear el mensaje para WhatsApp
+    const mensaje = `🧾 *RECIBO DE PAGO - GONNET PROPIEDADES*\n\n` +
+                   `📋 Operación: {{ reserva.id|default:"N/A" }}\n` +
+                   `🏠 Propiedad: {{ propiedad.direccion }}\n` +
+                   `👤 Cliente: {{ cliente.nombre_completo }}\n` +
+                   `📅 Fecha: {{ fecha }}\n` +
+                   `💰 Total: {{ total_pagado }}\n` +
+                   `💳 Forma de pago: {{ formas_de_pago }}\n\n` +
+                   `📄 Ver recibo completo: ${reciboUrl}\n\n` +
+                   `_Gonnet Propiedades - Mar del Plata_`;
+    
+    // Detectar si es móvil o desktop
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // Crear la URL de WhatsApp
+    let whatsappUrl;
+    if (isMobile) {
+        // En móvil, usar whatsapp://
+        whatsappUrl = `whatsapp://send?text=${encodeURIComponent(mensaje)}`;
+    } else {
+        // En desktop, usar web.whatsapp.com
+        whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+    }
+    
+    // Abrir WhatsApp
+    window.open(whatsappUrl, '_blank');
+}
+
+// Función alternativa para enviar a un número específico
+function compartirWhatsAppNumero() {
+    const numero = prompt("Ingrese el número de teléfono (con código de país, ej: 5492235551234):");
+    if (!numero) return;
+    
+    const reciboUrl = window.location.href;
+    const mensaje = `🧾 *RECIBO DE PAGO - GONNET PROPIEDADES*\n\n` +
+                   `📋 Operación: {{ reserva.id|default:"N/A" }}\n` +
+                   `🏠 Propiedad: {{ propiedad.direccion }}\n` +
+                   `👤 Cliente: {{ cliente.nombre_completo }}\n` +
+                   `📅 Fecha: {{ fecha }}\n` +
+                   `💰 Total: {{ total_pagado }}\n` +
+                   `💳 Forma de pago: {{ formas_de_pago }}\n\n` +
+                   `📄 Ver recibo completo: ${reciboUrl}\n\n` +
+                   `_Gonnet Propiedades - Mar del Plata_`;
+    
+    const whatsappUrl = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+    window.open(whatsappUrl, '_blank');
+}
+
+// Función para copiar enlace del recibo
+function copiarEnlace() {
+    const reciboUrl = window.location.href;
+    
+    // Usar la API moderna de clipboard si está disponible
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(reciboUrl).then(() => {
+            mostrarNotificacion('✅ Enlace copiado al portapapeles', 'success');
+        }).catch(() => {
+            // Fallback si falla
+            copiarEnlaceFallback(reciboUrl);
+        });
+    } else {
+        // Fallback para navegadores más antiguos
+        copiarEnlaceFallback(reciboUrl);
+    }
+}
+
+// Función fallback para copiar enlace
+function copiarEnlaceFallback(texto) {
+    const textArea = document.createElement('textarea');
+    textArea.value = texto;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+        mostrarNotificacion('✅ Enlace copiado al portapapeles', 'success');
+    } catch (err) {
+        mostrarNotificacion('❌ No se pudo copiar el enlace', 'error');
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+// Función para mostrar notificaciones
+function mostrarNotificacion(mensaje, tipo) {
+    // Crear elemento de notificación
+    const notificacion = document.createElement('div');
+    notificacion.className = `alert alert-${tipo === 'success' ? 'success' : 'danger'} position-fixed`;
+    notificacion.style.cssText = `
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 300px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    `;
+    notificacion.innerHTML = `
+        <div class="d-flex align-items-center">
+            <span>${mensaje}</span>
+            <button type="button" class="btn-close ms-auto" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    
+    // Agregar al body
+    document.body.appendChild(notificacion);
+    
+    // Auto-remover después de 3 segundos
+    setTimeout(() => {
+        if (notificacion.parentElement) {
+            notificacion.remove();
+        }
+    }, 3000);
+}
+</script>
 
 {% endblock %}
