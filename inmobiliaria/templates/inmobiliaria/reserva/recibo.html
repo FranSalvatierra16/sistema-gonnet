@@ -489,6 +489,130 @@ async function compartirWhatsApp() {
     }
 }
 
+// Función para abrir WhatsApp Web con contacto preseleccionado
+function abrirWhatsAppConContacto() {
+    // Obtener datos del cliente para sugerir como contacto
+    const clienteNombre = '{{ cliente.nombre_completo }}';
+    const clienteTelefono = '{{ cliente.telefono }}';
+    
+    // Crear mensaje predeterminado
+    const mensaje = `🧾 Recibo de Pago - Gonnet Propiedades\n📋 Operación: {{ reserva.id|default:"N/A" }}\n🏠 {{ propiedad.direccion }}\n👤 ${clienteNombre}\n💰 {{ total_pagado }}`;
+    
+    // Opciones para abrir WhatsApp
+    const opciones = [];
+    
+    // Opción 1: Si hay teléfono del cliente, usarlo
+    if (clienteTelefono && clienteTelefono.trim() !== '') {
+        const telefonoLimpio = clienteTelefono.replace(/\D/g, ''); // Solo números
+        if (telefonoLimpio.length >= 10) {
+            // Asegurar código de país (Argentina +54)
+            let numeroCompleto = telefonoLimpio;
+            if (!numeroCompleto.startsWith('54')) {
+                numeroCompleto = '54' + numeroCompleto;
+            }
+            opciones.push({
+                nombre: `${clienteNombre} (Cliente)`,
+                url: `https://web.whatsapp.com/send?phone=${numeroCompleto}&text=${encodeURIComponent(mensaje)}`
+            });
+        }
+    }
+    
+    // Opción 2: Número de la inmobiliaria (para envío interno)
+    opciones.push({
+        nombre: 'Gonnet Propiedades (Interno)',
+        url: `https://web.whatsapp.com/send?phone=5492235551234&text=${encodeURIComponent(mensaje)}`
+    });
+    
+    // Opción 3: Abrir WhatsApp sin contacto específico
+    opciones.push({
+        nombre: 'Seleccionar contacto manualmente',
+        url: 'https://web.whatsapp.com/'
+    });
+    
+    // Si solo hay una opción válida, abrirla directamente
+    if (opciones.length === 2 && clienteTelefono && clienteTelefono.trim() !== '') {
+        window.open(opciones[0].url, '_blank');
+        mostrarNotificacion(`📱 WhatsApp Web abierto con ${clienteNombre}. Arrastra la imagen al chat.`, 'success');
+        return;
+    }
+    
+    // Si hay múltiples opciones, mostrar selector
+    mostrarSelectorContacto(opciones);
+}
+
+// Función para mostrar selector de contacto
+function mostrarSelectorContacto(opciones) {
+    // Crear modal de selección
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+    `;
+    
+    const contenido = document.createElement('div');
+    contenido.style.cssText = `
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    `;
+    
+    contenido.innerHTML = `
+        <h4 style="margin-top: 0; color: #25D366;">
+            <i class="fab fa-whatsapp"></i> Seleccionar contacto para WhatsApp
+        </h4>
+        <p style="margin-bottom: 15px; color: #666;">¿A quién quieres enviar el recibo?</p>
+        <div id="opciones-contacto"></div>
+        <button onclick="this.parentElement.parentElement.remove()" 
+                style="margin-top: 15px; padding: 8px 15px; background: #ccc; border: none; border-radius: 5px; cursor: pointer;">
+            Cancelar
+        </button>
+    `;
+    
+    const contenedorOpciones = contenido.querySelector('#opciones-contacto');
+    
+    opciones.forEach((opcion, index) => {
+        const boton = document.createElement('button');
+        boton.style.cssText = `
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #25D366;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: left;
+            font-size: 14px;
+        `;
+        boton.innerHTML = `<i class="fab fa-whatsapp me-2"></i>${opcion.nombre}`;
+        boton.onclick = () => {
+            window.open(opcion.url, '_blank');
+            modal.remove();
+            if (index === opciones.length - 1) {
+                mostrarNotificacion('📱 WhatsApp Web abierto. Selecciona un contacto y arrastra la imagen.', 'success');
+            } else {
+                mostrarNotificacion(`📱 WhatsApp Web abierto con ${opcion.nombre.split(' (')[0]}. Arrastra la imagen al chat.`, 'success');
+            }
+        };
+        contenedorOpciones.appendChild(boton);
+    });
+    
+    modal.appendChild(contenido);
+    document.body.appendChild(modal);
+}
+
 // Función PRINCIPAL: Enviar directamente por WhatsApp (ABRE LA APP)
 async function enviarDirectoWhatsApp() {
     try {
@@ -571,11 +695,9 @@ async function enviarDirectoWhatsApp() {
             window.URL.revokeObjectURL(url);
         }, 100);
         
-        // Abrir WhatsApp Web directamente
+        // Abrir WhatsApp Web con contacto preseleccionado
         setTimeout(() => {
-            const whatsappWebUrl = 'https://web.whatsapp.com/';
-            window.open(whatsappWebUrl, '_blank');
-            mostrarNotificacion('📱 Imagen descargada y WhatsApp Web abierto. Arrastra la imagen al chat para enviarla.', 'success');
+            abrirWhatsAppConContacto();
         }, 1000);
         
     } catch (error) {
