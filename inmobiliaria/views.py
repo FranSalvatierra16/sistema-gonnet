@@ -3161,7 +3161,7 @@ def ver_recibo_movimiento(request, movimiento_id):
     print("="*50)
     try:
         # Obtener el movimiento de caja principal
-        movimiento = get_object_or_404(MovimientoCajaCaja, id=movimiento_id, sucursal=request.user.sucursal)
+        movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
         
         # Obtener la reserva relacionada desde el concepto del movimiento
         reserva = None
@@ -5016,7 +5016,7 @@ def nuevo_movimiento(request, numero_caja=None):
 
 @login_required
 def eliminar_movimiento(request, movimiento_id):
-    movimiento = get_object_or_404(MovimientoCajaCaja, id=movimiento_id, sucursal=request.user.sucursal)
+    movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
     
     # Actualizar saldo de la caja
     caja = Caja.objects.get(sucursal=request.user.sucursal)
