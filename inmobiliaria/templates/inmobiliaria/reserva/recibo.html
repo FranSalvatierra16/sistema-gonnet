@@ -373,19 +373,22 @@
             <li><a class="dropdown-item" href="#" onclick="compartirWhatsAppNumero(); return false;">
                 <i class="fas fa-phone me-2"></i>Enviar a número específico
             </a></li>
+            <li><a class="dropdown-item" href="#" onclick="compartirWhatsAppConDescarga(); return false;">
+                <i class="fas fa-download me-2"></i>Descargar PDF y abrir WhatsApp
+            </a></li>
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="#" onclick="copiarEnlace(); return false;">
                 <i class="fas fa-link me-2"></i>Copiar enlace del recibo
             </a></li>
             <li><a class="dropdown-item" href="#" onclick="descargarPDF(); return false;">
-                <i class="fas fa-file-pdf me-2"></i>Descargar PDF
+                <i class="fas fa-file-pdf me-2"></i>Solo descargar PDF
             </a></li>
         </ul>
     </div>
 </div>
 
 <script>
-function compartirWhatsApp() {
+async function compartirWhatsApp() {
     // Obtener la URL del PDF del recibo
     const currentUrl = window.location.href;
     let pdfUrl;
@@ -401,7 +404,47 @@ function compartirWhatsApp() {
         pdfUrl = `${window.location.origin}{% url 'inmobiliaria:ver_recibo_pdf' reserva.id %}`;
     }
     
-    // Crear el mensaje para WhatsApp
+    // Detectar si el dispositivo soporta Web Share API con archivos
+    if (navigator.share && navigator.canShare) {
+        try {
+            // Mostrar loading
+            mostrarNotificacion('📄 Generando PDF...', 'info');
+            
+            // Descargar el PDF como blob
+            const response = await fetch(pdfUrl);
+            const pdfBlob = await response.blob();
+            
+            // Crear archivo para compartir
+            const fileName = `recibo_{{ reserva.id|default:"N/A" }}.pdf`;
+            const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+            
+            // Preparar datos para compartir
+            const shareData = {
+                title: 'Recibo de Pago - Gonnet Propiedades',
+                text: `🧾 *RECIBO DE PAGO - GONNET PROPIEDADES*\n\n` +
+                      `📋 Operación: {{ reserva.id|default:"N/A" }}\n` +
+                      `🏠 Propiedad: {{ propiedad.direccion }}\n` +
+                      `👤 Cliente: {{ cliente.nombre_completo }}\n` +
+                      `📅 Fecha: {{ fecha }}\n` +
+                      `💰 Total: {{ total_pagado }}\n` +
+                      `💳 Forma de pago: {{ formas_de_pago }}\n\n` +
+                      `_Gonnet Propiedades - Mar del Plata_`,
+                files: [file]
+            };
+            
+            // Verificar si se puede compartir con archivos
+            if (navigator.canShare(shareData)) {
+                await navigator.share(shareData);
+                mostrarNotificacion('✅ PDF compartido exitosamente', 'success');
+                return;
+            }
+        } catch (error) {
+            console.log('Error compartiendo con Web Share API:', error);
+            // Continuar con método fallback
+        }
+    }
+    
+    // Fallback: Método tradicional con enlace
     const mensaje = `🧾 *RECIBO DE PAGO - GONNET PROPIEDADES*\n\n` +
                    `📋 Operación: {{ reserva.id|default:"N/A" }}\n` +
                    `🏠 Propiedad: {{ propiedad.direccion }}\n` +
@@ -427,6 +470,11 @@ function compartirWhatsApp() {
     
     // Abrir WhatsApp
     window.open(whatsappUrl, '_blank');
+    
+    // Mostrar instrucciones adicionales
+    setTimeout(() => {
+        mostrarNotificacion('💡 Tip: En móviles modernos, el PDF se puede compartir directamente. En otros casos, usa el enlace del mensaje.', 'info');
+    }, 1000);
 }
 
 // Función alternativa para enviar a un número específico
@@ -463,8 +511,55 @@ function compartirWhatsAppNumero() {
     window.open(whatsappUrl, '_blank');
 }
 
+// Función para descargar PDF y abrir WhatsApp con instrucciones
+async function compartirWhatsAppConDescarga() {
+    try {
+        // Mostrar loading
+        mostrarNotificacion('📄 Descargando PDF...', 'info');
+        
+        // Primero descargar el PDF
+        await descargarPDF();
+        
+        // Esperar un momento para que se complete la descarga
+        setTimeout(() => {
+            // Crear mensaje para WhatsApp con instrucciones
+            const mensaje = `🧾 *RECIBO DE PAGO - GONNET PROPIEDADES*\n\n` +
+                           `📋 Operación: {{ reserva.id|default:"N/A" }}\n` +
+                           `🏠 Propiedad: {{ propiedad.direccion }}\n` +
+                           `👤 Cliente: {{ cliente.nombre_completo }}\n` +
+                           `📅 Fecha: {{ fecha }}\n` +
+                           `💰 Total: {{ total_pagado }}\n` +
+                           `💳 Forma de pago: {{ formas_de_pago }}\n\n` +
+                           `📎 *El PDF del recibo se ha descargado en tu dispositivo*\n` +
+                           `Para enviarlo: toca el 📎 (clip) en WhatsApp y selecciona "Documento"\n\n` +
+                           `_Gonnet Propiedades - Mar del Plata_`;
+            
+            // Detectar si es móvil o desktop
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            // Crear la URL de WhatsApp
+            let whatsappUrl;
+            if (isMobile) {
+                whatsappUrl = `whatsapp://send?text=${encodeURIComponent(mensaje)}`;
+            } else {
+                whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+            }
+            
+            // Abrir WhatsApp
+            window.open(whatsappUrl, '_blank');
+            
+            // Mostrar instrucciones
+            mostrarNotificacion('✅ PDF descargado. WhatsApp abierto con instrucciones para adjuntar el archivo.', 'success');
+        }, 1500);
+        
+    } catch (error) {
+        mostrarNotificacion('❌ Error al descargar PDF', 'error');
+        console.error('Error:', error);
+    }
+}
+
 // Función para descargar PDF directamente
-function descargarPDF() {
+async function descargarPDF() {
     const currentUrl = window.location.href;
     let pdfUrl;
     
@@ -479,8 +574,37 @@ function descargarPDF() {
         pdfUrl = `${window.location.origin}{% url 'inmobiliaria:ver_recibo_pdf' reserva.id %}`;
     }
     
-    // Abrir el PDF en nueva ventana para descarga
-    window.open(pdfUrl, '_blank');
+    try {
+        // Crear un enlace temporal para forzar la descarga
+        const response = await fetch(pdfUrl);
+        const blob = await response.blob();
+        
+        // Crear URL temporal del blob
+        const url = window.URL.createObjectURL(blob);
+        
+        // Crear enlace de descarga
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `recibo_{{ reserva.id|default:"N/A" }}.pdf`;
+        
+        // Agregar al DOM, hacer clic y remover
+        document.body.appendChild(a);
+        a.click();
+        
+        // Limpiar
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }, 100);
+        
+        return true;
+    } catch (error) {
+        console.error('Error descargando PDF:', error);
+        // Fallback: abrir en nueva ventana
+        window.open(pdfUrl, '_blank');
+        return false;
+    }
 }
 
 // Función para copiar enlace del recibo
@@ -524,32 +648,73 @@ function copiarEnlaceFallback(texto) {
 
 // Función para mostrar notificaciones
 function mostrarNotificacion(mensaje, tipo) {
+    // Determinar la clase CSS según el tipo
+    let alertClass;
+    switch(tipo) {
+        case 'success':
+            alertClass = 'alert-success';
+            break;
+        case 'error':
+            alertClass = 'alert-danger';
+            break;
+        case 'info':
+            alertClass = 'alert-info';
+            break;
+        default:
+            alertClass = 'alert-secondary';
+    }
+    
     // Crear elemento de notificación
     const notificacion = document.createElement('div');
-    notificacion.className = `alert alert-${tipo === 'success' ? 'success' : 'danger'} position-fixed`;
+    notificacion.className = `alert ${alertClass} position-fixed`;
     notificacion.style.cssText = `
         top: 20px;
         right: 20px;
         z-index: 9999;
         min-width: 300px;
+        max-width: 400px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        animation: slideIn 0.3s ease-out;
     `;
     notificacion.innerHTML = `
         <div class="d-flex align-items-center">
-            <span>${mensaje}</span>
-            <button type="button" class="btn-close ms-auto" onclick="this.parentElement.parentElement.remove()"></button>
+            <span style="flex: 1;">${mensaje}</span>
+            <button type="button" class="btn-close ms-2" onclick="this.parentElement.parentElement.remove()"></button>
         </div>
     `;
     
     // Agregar al body
     document.body.appendChild(notificacion);
     
-    // Auto-remover después de 3 segundos
+    // Auto-remover después de tiempo variable según el tipo
+    const timeout = tipo === 'info' ? 5000 : 3000;
     setTimeout(() => {
         if (notificacion.parentElement) {
-            notificacion.remove();
+            notificacion.style.animation = 'slideOut 0.3s ease-in';
+            setTimeout(() => {
+                if (notificacion.parentElement) {
+                    notificacion.remove();
+                }
+            }, 300);
         }
-    }, 3000);
+    }, timeout);
+}
+
+// Agregar estilos de animación
+if (!document.getElementById('notification-styles')) {
+    const style = document.createElement('style');
+    style.id = 'notification-styles';
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
 }
 </script>
 
