@@ -349,9 +349,13 @@
 </div>
 </div>
 <!-- Botones de acción -->
-<div class="d-flex gap-2 mt-3">
+<div class="d-flex gap-2 mt-3 flex-wrap">
     <button onclick="window.print();" class="btn btn-primary" style="background-color: #2d8524; border-color: #2d8524; color: white;">
         <i class="fas fa-print me-2"></i>Imprimir Recibo
+    </button>
+    
+    <button onclick="descargarPDF();" class="btn btn-danger">
+        <i class="fas fa-file-pdf me-2"></i>Descargar PDF
     </button>
     
     <!-- Dropdown de WhatsApp -->
@@ -373,14 +377,29 @@
             <li><a class="dropdown-item" href="#" onclick="copiarEnlace(); return false;">
                 <i class="fas fa-link me-2"></i>Copiar enlace del recibo
             </a></li>
+            <li><a class="dropdown-item" href="#" onclick="descargarPDF(); return false;">
+                <i class="fas fa-file-pdf me-2"></i>Descargar PDF
+            </a></li>
         </ul>
     </div>
 </div>
 
 <script>
 function compartirWhatsApp() {
-    // Obtener la URL actual del recibo
-    const reciboUrl = window.location.href;
+    // Obtener la URL del PDF del recibo
+    const currentUrl = window.location.href;
+    let pdfUrl;
+    
+    // Determinar si es un recibo de reserva o de movimiento
+    if (currentUrl.includes('recibo-movimiento/')) {
+        // Es un recibo de movimiento
+        const movimientoId = currentUrl.match(/recibo-movimiento\/(\d+)\//)[1];
+        pdfUrl = `${window.location.origin}{% url 'inmobiliaria:ver_recibo_movimiento_pdf' 0 %}`.replace('0', movimientoId);
+    } else {
+        // Es un recibo de reserva
+        const reservaId = '{{ reserva.id }}';
+        pdfUrl = `${window.location.origin}{% url 'inmobiliaria:ver_recibo_pdf' reserva.id %}`;
+    }
     
     // Crear el mensaje para WhatsApp
     const mensaje = `🧾 *RECIBO DE PAGO - GONNET PROPIEDADES*\n\n` +
@@ -390,7 +409,7 @@ function compartirWhatsApp() {
                    `📅 Fecha: {{ fecha }}\n` +
                    `💰 Total: {{ total_pagado }}\n` +
                    `💳 Forma de pago: {{ formas_de_pago }}\n\n` +
-                   `📄 Ver recibo completo: ${reciboUrl}\n\n` +
+                   `📄 Descargar recibo PDF: ${pdfUrl}\n\n` +
                    `_Gonnet Propiedades - Mar del Plata_`;
     
     // Detectar si es móvil o desktop
@@ -415,7 +434,21 @@ function compartirWhatsAppNumero() {
     const numero = prompt("Ingrese el número de teléfono (con código de país, ej: 5492235551234):");
     if (!numero) return;
     
-    const reciboUrl = window.location.href;
+    // Obtener la URL del PDF del recibo
+    const currentUrl = window.location.href;
+    let pdfUrl;
+    
+    // Determinar si es un recibo de reserva o de movimiento
+    if (currentUrl.includes('recibo-movimiento/')) {
+        // Es un recibo de movimiento
+        const movimientoId = currentUrl.match(/recibo-movimiento\/(\d+)\//)[1];
+        pdfUrl = `${window.location.origin}{% url 'inmobiliaria:ver_recibo_movimiento_pdf' 0 %}`.replace('0', movimientoId);
+    } else {
+        // Es un recibo de reserva
+        const reservaId = '{{ reserva.id }}';
+        pdfUrl = `${window.location.origin}{% url 'inmobiliaria:ver_recibo_pdf' reserva.id %}`;
+    }
+    
     const mensaje = `🧾 *RECIBO DE PAGO - GONNET PROPIEDADES*\n\n` +
                    `📋 Operación: {{ reserva.id|default:"N/A" }}\n` +
                    `🏠 Propiedad: {{ propiedad.direccion }}\n` +
@@ -423,11 +456,31 @@ function compartirWhatsAppNumero() {
                    `📅 Fecha: {{ fecha }}\n` +
                    `💰 Total: {{ total_pagado }}\n` +
                    `💳 Forma de pago: {{ formas_de_pago }}\n\n` +
-                   `📄 Ver recibo completo: ${reciboUrl}\n\n` +
+                   `📄 Descargar recibo PDF: ${pdfUrl}\n\n` +
                    `_Gonnet Propiedades - Mar del Plata_`;
     
     const whatsappUrl = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
     window.open(whatsappUrl, '_blank');
+}
+
+// Función para descargar PDF directamente
+function descargarPDF() {
+    const currentUrl = window.location.href;
+    let pdfUrl;
+    
+    // Determinar si es un recibo de reserva o de movimiento
+    if (currentUrl.includes('recibo-movimiento/')) {
+        // Es un recibo de movimiento
+        const movimientoId = currentUrl.match(/recibo-movimiento\/(\d+)\//)[1];
+        pdfUrl = `${window.location.origin}{% url 'inmobiliaria:ver_recibo_movimiento_pdf' 0 %}`.replace('0', movimientoId);
+    } else {
+        // Es un recibo de reserva
+        const reservaId = '{{ reserva.id }}';
+        pdfUrl = `${window.location.origin}{% url 'inmobiliaria:ver_recibo_pdf' reserva.id %}`;
+    }
+    
+    // Abrir el PDF en nueva ventana para descarga
+    window.open(pdfUrl, '_blank');
 }
 
 // Función para copiar enlace del recibo

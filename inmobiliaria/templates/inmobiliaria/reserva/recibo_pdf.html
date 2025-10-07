@@ -1,0 +1,235 @@
+{% load custom_filters %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Recibo</title>
+    <style type="text/css">
+        @page {
+            size: legal;
+            margin: 1cm;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .printable {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="printable">
+        <!-- Aquí comienza la sección del recibo -->
+        <div style="height: 49%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid;">
+            <!-- Contenido del recibo -->
+            <div style="height: 15%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
+                <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                     {% if logo_base64 %}
+                        <img src="data:image/png;base64,{{ logo_base64 }}" alt="Logo" style="max-width: 80px; max-height: 80px;">
+                    {% else %}
+                        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" alt="Logo" style="max-width: 80px; max-height: 80px;">
+                    {% endif %}
+                </div>
+                <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                    <h1 style="margin: 0; font-size: 14px; font-weight: bold;">GONNET PROPIEDADES</h1>
+                    <h2 style="margin: 0; font-size: 10px;">ADMINISTRACION - VENTA - ALQUILER</h2>
+                    <p style="margin: 0; font-size: 7px;">DOCUMENTO NO VALIDO COMO FACTURA</p>
+                </div>
+                <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; margin-top: 5px;">
+                    <div style="width: 80%; text-align: left;">
+                        <h1 style="margin: 0; font-size: 10px;">Nº: {{ numero_recibo }}</h1>    
+                        <h2 style="margin: 0; font-size: 10px;">Fecha: <u>&nbsp;&nbsp;&nbsp;{{ fecha }}&nbsp;&nbsp;&nbsp;</u></h2>
+                        <h2 style="margin: 0; font-size: 7px;">Hora: &nbsp;&nbsp;<u>&nbsp;&nbsp;&nbsp;&nbsp;{{ hora }}&nbsp;&nbsp;&nbsp;&nbsp;</u></h2>
+                        <p style="margin: 0; font-size: 7px;">ING. BRUTOS: 20-10757572-4</p>
+                        <!-- <p style="margin: 0;">JUB: 60620856 C.P.S.M.C.P.P.B.A Ley 7014</p> -->
+                        <p style="margin: 0; font-size: 7px;">INSC: 120609/8 REG. 1572</p>
+                        <p style="margin: 0; font-size: 7px;">INICIO ACTIVIDAD: 01/01/1977</p>
+                    </div>
+                </div>
+            </div>
+    
+            <div style="height: 16%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
+                <div style="height: 100%; width: 64%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
+                    <div style="width: 90%; text-align: left;">
+                        <h4 style="margin: 0; color: transparent; font-size: 10px;">CLIENTE: </h4>    
+                        <div style="display: flex; align-items: center; margin: 5px 0;">
+                            <span style="min-width: 120px; font-size: 8px;">NOMBRE:</span>
+                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.nombre_completo }}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; margin: 5px 0;">
+                            <span style="min-width: 120px; font-size: 8px;">DOMICILIO:</span>
+                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.direccion }}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; margin: 5px 0;">
+                            <span style="min-width: 120px; font-size: 8px;">LOCALIDAD:</span>
+                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.localidad }}</div>
+                        </div>
+                    </div>
+                </div>
+        
+                <div style="height: 100%; width: 36%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
+                    <div style="width: 80%; text-align: left; ">
+                        <h4 style="margin: 0; color: transparent; font-size: 10px;      ">CLIENTE: </h4>    
+                        <div style="display: flex; align-items: center; margin: 5px 0;">
+                            <span style="min-width: 120px; font-size: 8px;">DNI/CUIT:</span>
+                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">
+                                {% if cliente.cuit %}{{ cliente.cuit }}{% else %}{{ cliente.dni }}{% endif %}
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; margin: 5px 0;">
+                            <span style="min-width: 120px; font-size: 8px;">TEL:</span>
+                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.telefono }}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; margin: 5px 0;">
+                            <span style="min-width: 120px; font-size: 8px;">PROVINCIA:</span>
+                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.provincia }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="height: 16%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
+           
+             
+                <div style="height: 100%; width: 64%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
+                    <div style="width: 90%; text-align: left;">
+                        <h4 style="margin: 0; color: transparent; font-size: 10px;">PROPIEDAD: </h4>    
+                        <div style="display: flex; align-items: center; margin: 5px 0;">
+                            <span style="min-width: 120px; font-size: 8px;">DIRECCION:</span>
+                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ propiedad.direccion }}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; margin: 5px 0;">
+                            <span style="min-width: 120px; font-size: 8px;">LOCALIDAD:</span>
+                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ propiedad.localidad }}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; margin: 5px 0;">
+                            <span style="min-width: 120px; font-size: 8px;">TIPO:</span>
+                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ propiedad.tipo_propiedad }}</div>
+                        </div>
+                    </div>
+                </div>
+        
+                <div style="height: 100%; width: 36%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
+                    <div style="width: 80%; text-align: left;">
+                        <h2 style="margin: 0; color: transparent; font-size: 8px;">CLIENTE: </h2>    
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin: 5px 0;">
+                            <div style="display: flex; align-items: center; width: 45%;">
+                                <span style="min-width: 50px; font-size: 8px;">AMOBLADO PARA:</span>
+                                <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">{{propiedad.ambientes}}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+    
+            <div style="height: 100%; width: 36%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
+                <div style="width: 80%; text-align: left;    ">     
+                    <h2 style="margin: 0; color: transparent; font-size: 8px;">CLIENTE: </h2>    
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin: 5px 0;">
+                        <div style="display: flex; align-items: center; width: 45%;">
+                            <span style="min-width: 40px; font-size: 8px;   ">FICHA:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">&nbsp; {{reserva.propiedad.id}}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; width: 45%;">
+                            <span style="min-width: 40px; font-size: 8px;">LLAVE:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">{{propiedad.llave}}</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; width: 45%;">
+                            <span style="min-width: 40px; font-size: 8px;">PISO:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">{{propiedad.piso}}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; width: 45%;">
+                            <span style="min-width: 40px; font-size: 8px;">DPTO:</span>
+                            <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">{{propiedad.departamento}}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; height: 50%;">
+            <!-- Tabla de conceptos -->
+            <div style="width: 100%; display: flex; flex-direction: column; height: 12%;">
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d8524; height: 100%;">
+                    <div style="display: flex; flex-wrap: wrap; width: 72%;">
+                        <div style="width: 18%; text-align: center;">
+                            <p style="margin: 0; font-size: 8px; font-weight: bold;">CANTIDAD</p>
+                        </div>
+                        <div style="width: 82%; text-align: center;">
+                            <p style="margin: 0; font-size: 8px; font-weight: bold;">DETALLE</p>
+                        </div>
+                    </div>
+                    <div style="width: 28%; text-align: center;">
+                        <p style="margin: 0; font-size: 8px; font-weight: bold;">IMPORTE</p>
+                    </div>
+                </div>
+            </div>
+    
+            <!-- Filas de conceptos -->
+            <div style="width: 100%; display: flex; flex-direction: column; height: 60%;">
+                <div style="display: flex; justify-content: space-between; height: 20%;">
+                    <div style="display: flex; flex-wrap: wrap; width: 72%;">
+                        <div style="width: 18%; text-align: center; border-bottom: 1px dotted black;">
+                            <p style="margin: 0; font-size: 8px;">1</p>
+                        </div>
+                        <div style="width: 82%; text-align: left; border-bottom: 1px dotted black; padding-left: 10px;">
+                            <p style="margin: 0; font-size: 8px;">SEÑA - RESERVA DE PROPIEDAD</p>
+                        </div>
+                    </div>
+                    <div style="width: 28%; text-align: center; border-bottom: 1px dotted black;">
+                        <p style="margin: 0; font-size: 8px;">{{ total_pagado }}</p>
+                    </div>
+                </div>
+    
+                <!-- Filas vacías -->
+                {% for i in "12345" %}
+                <div style="display: flex; justify-content: space-between; height: 16%;">
+                    <div style="display: flex; flex-wrap: wrap; width: 72%;">
+                        <div style="width: 18%; text-align: center; border-bottom: 1px dotted black;">
+                            <p style="margin: 0; font-size: 8px;">&nbsp;</p>
+                        </div>
+                        <div style="width: 82%; text-align: left; border-bottom: 1px dotted black;">
+                            <p style="margin: 0; font-size: 8px;">&nbsp;</p>
+                        </div>
+                    </div>
+                    <div style="width: 28%; text-align: center; border-bottom: 1px dotted black;">
+                        <p style="margin: 0; font-size: 8px;">&nbsp;</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+    
+            <!-- Total -->
+            <div style="width: 100%; display: flex; flex-direction: column; height: 10%;">
+                <div style="display: flex; justify-content: space-between; height: 100%;">
+                    <div style="width: 72%; text-align: right; padding-right: 10px;">
+                        <p style="margin: 0; font-size: 10px; font-weight: bold;">TOTAL $</p>
+                    </div>
+                    <div style="width: 28%; text-align: center; border-top: 2px solid #2d8524;">
+                        <p style="margin: 0; font-size: 10px; font-weight: bold;">{{ total_pagado }}</p>
+                    </div>
+                </div>
+            </div>
+    
+            <!-- Forma de pago -->
+            <div style="padding: 2; padding-left: 10px; border-top: 1px solid #2d8524; height: 6%;">
+                <p style="margin: 0; font-size: 9px;">FORMA DE PAGO:<u>&nbsp;&nbsp;&nbsp;{{ formas_de_pago }}&nbsp;&nbsp;&nbsp;</u></p></p>
+                <div style="border-bottom: 1px dotted black; height: 5px;"></div>
+            </div>
+    
+            <!-- Observaciones -->
+            <div style="padding: 2; padding-left: 10px; border-top: 1px solid #2d8524; height: 12%;">
+                <p style="margin: 0; font-size: 9px;">OBSERVACIONES:</p>
+                <div style="border-bottom: 1px dotted black; height: 15px;"></div>
+                <div style="border-bottom: 1px dotted black; height: 15px;"></div>
+                <div style="border-bottom: 1px dotted black; height: 15px;"></div>
+            </div>
+        </div>
+    
+        <!-- Aquí termina la sección del recibo -->
+    </div>
+</body>
+</html>

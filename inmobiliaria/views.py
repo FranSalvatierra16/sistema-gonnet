@@ -8445,3 +8445,163 @@ def gestionar_conceptos(request):
     }
     
     return render(request, 'inmobiliaria/conceptos/gestionar_conceptos.html', context)
+
+
+# Vista para generar PDF del recibo
+from django.http import HttpResponse
+from xhtml2pdf import pisa
+from django.template.loader import get_template
+import io
+
+def ver_recibo_pdf(request, reserva_id):
+    """Genera y devuelve el recibo como PDF"""
+    try:
+        reserva = get_object_or_404(Reserva, id=reserva_id)
+        
+        # Obtener los mismos datos que usa la vista normal del recibo
+        propiedad = reserva.propiedad
+        cliente = reserva.cliente
+        
+        # Obtener el último movimiento de la reserva para los datos del pago
+        ultimo_movimiento = Movimiento.objects.filter(reserva=reserva).order_by('-fecha_creacion').first()
+        
+        if ultimo_movimiento:
+            # Usar los datos del movimiento
+            total_pagado = ultimo_movimiento.monto_total
+            
+            # Construir formas de pago igual que en ver_recibo
+            formas_de_pago = []
+            formas_con_montos = []
+            
+            if ultimo_movimiento.monto_efectivo > 0:
+                formas_con_montos.append(f'Efectivo ${ultimo_movimiento.monto_efectivo:,.0f}')
+                formas_de_pago.append('Efectivo')
+            
+            if ultimo_movimiento.monto_tarjeta > 0:
+                formas_con_montos.append(f'Tarjeta ${ultimo_movimiento.monto_tarjeta:,.0f}')
+                formas_de_pago.append('Tarjeta')
+            
+            if ultimo_movimiento.monto_cheque > 0:
+                formas_con_montos.append(f'Cheque ${ultimo_movimiento.monto_cheque:,.0f}')
+                formas_de_pago.append('Cheque')
+            
+            if ultimo_movimiento.monto_deposito > 0:
+                if ultimo_movimiento.banco and 'Mercado Pago' in ultimo_movimiento.banco:
+                    formas_con_montos.append(f'Transferencia Mercado Pago ${ultimo_movimiento.monto_deposito:,.0f}')
+                    formas_de_pago.append('Mercado Pago')
+                elif ultimo_movimiento.banco and 'Galicia' in ultimo_movimiento.banco:
+                    formas_con_montos.append(f'Transferencia Galicia ${ultimo_movimiento.monto_deposito:,.0f}')
+                    formas_de_pago.append('Galicia')
+                else:
+                    formas_con_montos.append(f'Transferencia ${ultimo_movimiento.monto_deposito:,.0f}')
+                    formas_de_pago.append('Transferencia')
+            
+            formas_de_pago_mostrar = formas_con_montos if formas_con_montos else formas_de_pago
+            
+            # Obtener número de recibo
+            numero_recibo = f"{reserva.id:06d}"
+            
+        else:
+            # Fallback si no hay movimiento
+            total_pagado = reserva.monto_reserva or 0
+            formas_de_pago_mostrar = ['Efectivo']
+            numero_recibo = f"{reserva.id:06d}"
+        
+        # Preparar contexto para el template
+        context = {
+            'reserva': reserva,
+            'propiedad': propiedad,
+            'cliente': cliente,
+            'total_pagado': f"${total_pagado:,.0f}",
+            'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
+            'numero_recibo': numero_recibo,
+            'fecha': timezone.now().strftime('%d/%m/%Y'),
+            'hora': timezone.now().strftime('%H:%M'),
+        }
+        
+        # Cargar template específico para PDF (sin botones)
+        template = get_template('inmobiliaria/reserva/recibo_pdf.html')
+        html = template.render(context)
+        
+        # Crear el PDF
+        result = io.BytesIO()
+        pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
+        
+        if not pdf.err:
+            # Configurar la respuesta HTTP
+            response = HttpResponse(result.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
+            return response
+        else:
+            return HttpResponse('Error al generar PDF', status=500)
+            
+    except Exception as e:
+        return HttpResponse(f'Error: {str(e)}', status=500)
+
+
+def ver_recibo_movimiento_pdf(request, movimiento_id):
+    """Genera y devuelve el recibo de movimiento como PDF"""
+    try:
+        movimiento = get_object_or_404(Movimiento, id=movimiento_id)
+        reserva = movimiento.reserva
+        propiedad = reserva.propiedad
+        cliente = reserva.cliente
+        
+        # Construir formas de pago igual que en ver_recibo_movimiento
+        formas_de_pago = []
+        formas_con_montos = []
+        
+        if movimiento.monto_efectivo > 0:
+            formas_con_montos.append(f'Efectivo ${movimiento.monto_efectivo:,.0f}')
+            formas_de_pago.append('Efectivo')
+        
+        if movimiento.monto_tarjeta > 0:
+            formas_con_montos.append(f'Tarjeta ${movimiento.monto_tarjeta:,.0f}')
+            formas_de_pago.append('Tarjeta')
+        
+        if movimiento.monto_cheque > 0:
+            formas_con_montos.append(f'Cheque ${movimiento.monto_cheque:,.0f}')
+            formas_de_pago.append('Cheque')
+        
+        if movimiento.monto_deposito > 0:
+            if movimiento.banco and 'Mercado Pago' in movimiento.banco:
+                formas_con_montos.append(f'Transferencia Mercado Pago ${movimiento.monto_deposito:,.0f}')
+                formas_de_pago.append('Mercado Pago')
+            elif movimiento.banco and 'Galicia' in movimiento.banco:
+                formas_con_montos.append(f'Transferencia Galicia ${movimiento.monto_deposito:,.0f}')
+                formas_de_pago.append('Galicia')
+            else:
+                formas_con_montos.append(f'Transferencia ${movimiento.monto_deposito:,.0f}')
+                formas_de_pago.append('Transferencia')
+        
+        formas_de_pago_mostrar = formas_con_montos if formas_con_montos else formas_de_pago
+        
+        context = {
+            'reserva': reserva,
+            'propiedad': propiedad,
+            'cliente': cliente,
+            'movimiento': movimiento,
+            'total_pagado': f"${movimiento.monto_total:,.0f}",
+            'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
+            'numero_recibo': f"{movimiento.id:06d}",
+            'fecha': movimiento.fecha_creacion.strftime('%d/%m/%Y'),
+            'hora': movimiento.fecha_creacion.strftime('%H:%M'),
+        }
+        
+        # Cargar template específico para PDF
+        template = get_template('inmobiliaria/reserva/recibo_pdf.html')
+        html = template.render(context)
+        
+        # Crear el PDF
+        result = io.BytesIO()
+        pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
+        
+        if not pdf.err:
+            response = HttpResponse(result.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="recibo_movimiento_{movimiento.id}.pdf"'
+            return response
+        else:
+            return HttpResponse('Error al generar PDF', status=500)
+            
+    except Exception as e:
+        return HttpResponse(f'Error: {str(e)}', status=500)
