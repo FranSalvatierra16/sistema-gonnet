@@ -15,7 +15,7 @@ from .models import (
     Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, 
     Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, 
     AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal,
-    TipoMovimientoCajaEnum, ContratoAlquiler, CuotaMensual, Movimiento
+    TipoMovimientoCajaEnum, ContratoAlquiler, CuotaMensual
 )
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
@@ -3161,7 +3161,7 @@ def ver_recibo_movimiento(request, movimiento_id):
     print("="*50)
     try:
         # Obtener el movimiento de caja principal
-        movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
+        movimiento = get_object_or_404(MovimientoCajaCaja, id=movimiento_id, sucursal=request.user.sucursal)
         
         # Obtener la reserva relacionada desde el concepto del movimiento
         reserva = None
@@ -5016,7 +5016,7 @@ def nuevo_movimiento(request, numero_caja=None):
 
 @login_required
 def eliminar_movimiento(request, movimiento_id):
-    movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
+    movimiento = get_object_or_404(MovimientoCajaCaja, id=movimiento_id, sucursal=request.user.sucursal)
     
     # Actualizar saldo de la caja
     caja = Caja.objects.get(sucursal=request.user.sucursal)
@@ -8463,7 +8463,11 @@ def ver_recibo_pdf(request, reserva_id):
         cliente = reserva.cliente
         
         # Obtener el último movimiento de la reserva para los datos del pago
-        ultimo_movimiento = Movimiento.objects.filter(reserva=reserva).order_by('-fecha_creacion').first()
+        ultimo_movimiento = MovimientoCaja.objects.filter(
+            propiedad=reserva.propiedad,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+            concepto__icontains=f"Operación {reserva.id}"
+        ).order_by('-fecha').first()
         
         if ultimo_movimiento:
             # Usar los datos del movimiento
@@ -8486,10 +8490,10 @@ def ver_recibo_pdf(request, reserva_id):
                 formas_de_pago.append('Cheque')
             
             if ultimo_movimiento.monto_deposito > 0:
-                if ultimo_movimiento.banco and 'Mercado Pago' in ultimo_movimiento.banco:
+                if ultimo_movimiento.destino_deposito and ultimo_movimiento.destino_deposito == 'mp':
                     formas_con_montos.append(f'Transferencia Mercado Pago ${ultimo_movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Mercado Pago')
-                elif ultimo_movimiento.banco and 'Galicia' in ultimo_movimiento.banco:
+                elif ultimo_movimiento.destino_deposito and ultimo_movimiento.destino_deposito == 'galicia':
                     formas_con_montos.append(f'Transferencia Galicia ${ultimo_movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Galicia')
                 else:
@@ -8600,7 +8604,11 @@ def ver_recibo_publico(request, reserva_id, token):
         cliente = reserva.cliente
         
         # Obtener el último movimiento de la reserva para los datos del pago
-        ultimo_movimiento = Movimiento.objects.filter(reserva=reserva).order_by('-fecha_creacion').first()
+        ultimo_movimiento = MovimientoCaja.objects.filter(
+            propiedad=reserva.propiedad,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+            concepto__icontains=f"Operación {reserva.id}"
+        ).order_by('-fecha').first()
         
         if ultimo_movimiento:
             # Usar los datos del movimiento
@@ -8623,10 +8631,10 @@ def ver_recibo_publico(request, reserva_id, token):
                 formas_de_pago.append('Cheque')
             
             if ultimo_movimiento.monto_deposito > 0:
-                if ultimo_movimiento.banco and 'Mercado Pago' in ultimo_movimiento.banco:
+                if ultimo_movimiento.destino_deposito and ultimo_movimiento.destino_deposito == 'mp':
                     formas_con_montos.append(f'Transferencia Mercado Pago ${ultimo_movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Mercado Pago')
-                elif ultimo_movimiento.banco and 'Galicia' in ultimo_movimiento.banco:
+                elif ultimo_movimiento.destino_deposito and ultimo_movimiento.destino_deposito == 'galicia':
                     formas_con_montos.append(f'Transferencia Galicia ${ultimo_movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Galicia')
                 else:
@@ -8713,10 +8721,18 @@ def ver_recibo_movimiento_publico(request, movimiento_id, token):
         if not verificar_token_publico(token, None, movimiento_id):
             return HttpResponse('Enlace inválido o expirado', status=403)
         
-        movimiento = get_object_or_404(Movimiento, id=movimiento_id)
-        reserva = movimiento.reserva
-        propiedad = reserva.propiedad
-        cliente = reserva.cliente
+        movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id)
+        propiedad = movimiento.propiedad
+        
+        # Extraer ID de reserva del concepto
+        import re
+        match = re.search(r'Operación (\d+)', movimiento.concepto)
+        if match:
+            reserva_id = int(match.group(1))
+            reserva = get_object_or_404(Reserva, id=reserva_id)
+            cliente = reserva.cliente
+        else:
+            return HttpResponse('No se pudo identificar la reserva asociada', status=400)
         
         # Construir formas de pago igual que en ver_recibo_movimiento
         formas_de_pago = []
@@ -8755,8 +8771,8 @@ def ver_recibo_movimiento_publico(request, movimiento_id, token):
             'total_pagado': f"${movimiento.monto_total:,.0f}",
             'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
             'numero_recibo': f"{movimiento.id:06d}",
-            'fecha': movimiento.fecha_creacion.strftime('%d/%m/%Y'),
-            'hora': movimiento.fecha_creacion.strftime('%H:%M'),
+            'fecha': movimiento.fecha.strftime('%d/%m/%Y'),
+            'hora': movimiento.fecha.strftime('%H:%M'),
         }
         
         # Cargar template específico para PDF
@@ -8812,10 +8828,18 @@ def generar_enlace_publico(request):
 def ver_recibo_movimiento_pdf(request, movimiento_id):
     """Genera y devuelve el recibo de movimiento como PDF"""
     try:
-        movimiento = get_object_or_404(Movimiento, id=movimiento_id)
-        reserva = movimiento.reserva
-        propiedad = reserva.propiedad
-        cliente = reserva.cliente
+        movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id)
+        propiedad = movimiento.propiedad
+        
+        # Extraer ID de reserva del concepto
+        import re
+        match = re.search(r'Operación (\d+)', movimiento.concepto)
+        if match:
+            reserva_id = int(match.group(1))
+            reserva = get_object_or_404(Reserva, id=reserva_id)
+            cliente = reserva.cliente
+        else:
+            return HttpResponse('No se pudo identificar la reserva asociada', status=400)
         
         # Construir formas de pago igual que en ver_recibo_movimiento
         formas_de_pago = []
@@ -8854,8 +8878,8 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
             'total_pagado': f"${movimiento.monto_total:,.0f}",
             'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
             'numero_recibo': f"{movimiento.id:06d}",
-            'fecha': movimiento.fecha_creacion.strftime('%d/%m/%Y'),
-            'hora': movimiento.fecha_creacion.strftime('%H:%M'),
+            'fecha': movimiento.fecha.strftime('%d/%m/%Y'),
+            'hora': movimiento.fecha.strftime('%H:%M'),
         }
         
         # Cargar template específico para PDF
@@ -8938,7 +8962,11 @@ def ver_recibo_publico(request, reserva_id, token):
         cliente = reserva.cliente
         
         # Obtener el último movimiento de la reserva para los datos del pago
-        ultimo_movimiento = Movimiento.objects.filter(reserva=reserva).order_by('-fecha_creacion').first()
+        ultimo_movimiento = MovimientoCaja.objects.filter(
+            propiedad=reserva.propiedad,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+            concepto__icontains=f"Operación {reserva.id}"
+        ).order_by('-fecha').first()
         
         if ultimo_movimiento:
             # Usar los datos del movimiento
@@ -8961,10 +8989,10 @@ def ver_recibo_publico(request, reserva_id, token):
                 formas_de_pago.append('Cheque')
             
             if ultimo_movimiento.monto_deposito > 0:
-                if ultimo_movimiento.banco and 'Mercado Pago' in ultimo_movimiento.banco:
+                if ultimo_movimiento.destino_deposito and ultimo_movimiento.destino_deposito == 'mp':
                     formas_con_montos.append(f'Transferencia Mercado Pago ${ultimo_movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Mercado Pago')
-                elif ultimo_movimiento.banco and 'Galicia' in ultimo_movimiento.banco:
+                elif ultimo_movimiento.destino_deposito and ultimo_movimiento.destino_deposito == 'galicia':
                     formas_con_montos.append(f'Transferencia Galicia ${ultimo_movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Galicia')
                 else:
@@ -9051,10 +9079,18 @@ def ver_recibo_movimiento_publico(request, movimiento_id, token):
         if not verificar_token_publico(token, None, movimiento_id):
             return HttpResponse('Enlace inválido o expirado', status=403)
         
-        movimiento = get_object_or_404(Movimiento, id=movimiento_id)
-        reserva = movimiento.reserva
-        propiedad = reserva.propiedad
-        cliente = reserva.cliente
+        movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id)
+        propiedad = movimiento.propiedad
+        
+        # Extraer ID de reserva del concepto
+        import re
+        match = re.search(r'Operación (\d+)', movimiento.concepto)
+        if match:
+            reserva_id = int(match.group(1))
+            reserva = get_object_or_404(Reserva, id=reserva_id)
+            cliente = reserva.cliente
+        else:
+            return HttpResponse('No se pudo identificar la reserva asociada', status=400)
         
         # Construir formas de pago igual que en ver_recibo_movimiento
         formas_de_pago = []
@@ -9093,8 +9129,8 @@ def ver_recibo_movimiento_publico(request, movimiento_id, token):
             'total_pagado': f"${movimiento.monto_total:,.0f}",
             'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
             'numero_recibo': f"{movimiento.id:06d}",
-            'fecha': movimiento.fecha_creacion.strftime('%d/%m/%Y'),
-            'hora': movimiento.fecha_creacion.strftime('%H:%M'),
+            'fecha': movimiento.fecha.strftime('%d/%m/%Y'),
+            'hora': movimiento.fecha.strftime('%H:%M'),
         }
         
         # Cargar template específico para PDF
