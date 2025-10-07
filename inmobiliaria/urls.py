@@ -100,6 +100,9 @@ urlpatterns = [
     path('reserva/<int:reserva_id>/recibo/', views.ver_recibo, name='ver_recibo'),
     path('ver-recibo-pdf/<int:reserva_id>/', views.ver_recibo_pdf, name='ver_recibo_pdf'),
     path('recibo-movimiento-pdf/<int:movimiento_id>/', views.ver_recibo_movimiento_pdf, name='ver_recibo_movimiento_pdf'),
+    path('recibo-publico/<int:reserva_id>/<str:token>/', views.ver_recibo_publico, name='ver_recibo_publico'),
+    path('recibo-movimiento-publico/<int:movimiento_id>/<str:token>/', views.ver_recibo_movimiento_publico, name='ver_recibo_movimiento_publico'),
+    path('generar-enlace-publico/', views.generar_enlace_publico, name='generar_enlace_publico'),
     path('reservas/<int:reserva_id>/detalles-operacion/', views.detalles_operacion_reserva, name='detalles_operacion_reserva'),
    
     path('password_reset/done/', 

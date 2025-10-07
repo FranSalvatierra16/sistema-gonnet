@@ -389,20 +389,17 @@
 
 <script>
 async function compartirWhatsApp() {
-    // Obtener la URL del PDF del recibo
-    const currentUrl = window.location.href;
-    let pdfUrl;
-    
-    // Determinar si es un recibo de reserva o de movimiento
-    if (currentUrl.includes('recibo-movimiento/')) {
-        // Es un recibo de movimiento
-        const movimientoId = currentUrl.match(/recibo-movimiento\/(\d+)\//)[1];
-        pdfUrl = `${window.location.origin}{% url 'inmobiliaria:ver_recibo_movimiento_pdf' 0 %}`.replace('0', movimientoId);
-    } else {
-        // Es un recibo de reserva
-        const reservaId = '{{ reserva.id }}';
-        pdfUrl = `${window.location.origin}{% url 'inmobiliaria:ver_recibo_pdf' reserva.id %}`;
-    }
+    try {
+        // Mostrar loading
+        mostrarNotificacion('🔗 Generando enlace público...', 'info');
+        
+        // Obtener enlace público del PDF
+        const pdfUrl = await obtenerEnlacePublico();
+        
+        if (!pdfUrl) {
+            mostrarNotificacion('❌ Error al generar enlace público', 'error');
+            return;
+        }
     
     // Detectar si el dispositivo soporta Web Share API con archivos
     if (navigator.share && navigator.canShare) {
@@ -444,71 +441,78 @@ async function compartirWhatsApp() {
         }
     }
     
-    // Fallback: Método tradicional con enlace
-    const mensaje = `🧾 *RECIBO DE PAGO - GONNET PROPIEDADES*\n\n` +
-                   `📋 Operación: {{ reserva.id|default:"N/A" }}\n` +
-                   `🏠 Propiedad: {{ propiedad.direccion }}\n` +
-                   `👤 Cliente: {{ cliente.nombre_completo }}\n` +
-                   `📅 Fecha: {{ fecha }}\n` +
-                   `💰 Total: {{ total_pagado }}\n` +
-                   `💳 Forma de pago: {{ formas_de_pago }}\n\n` +
-                   `📄 Descargar recibo PDF: ${pdfUrl}\n\n` +
-                   `_Gonnet Propiedades - Mar del Plata_`;
-    
-    // Detectar si es móvil o desktop
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    // Crear la URL de WhatsApp
-    let whatsappUrl;
-    if (isMobile) {
-        // En móvil, usar whatsapp://
-        whatsappUrl = `whatsapp://send?text=${encodeURIComponent(mensaje)}`;
-    } else {
-        // En desktop, usar web.whatsapp.com
-        whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+        // Fallback: Método tradicional con enlace público
+        const mensaje = `🧾 *RECIBO DE PAGO - GONNET PROPIEDADES*\n\n` +
+                       `📋 Operación: {{ reserva.id|default:"N/A" }}\n` +
+                       `🏠 Propiedad: {{ propiedad.direccion }}\n` +
+                       `👤 Cliente: {{ cliente.nombre_completo }}\n` +
+                       `📅 Fecha: {{ fecha }}\n` +
+                       `💰 Total: {{ total_pagado }}\n` +
+                       `💳 Forma de pago: {{ formas_de_pago }}\n\n` +
+                       `📄 Descargar recibo PDF: ${pdfUrl}\n\n` +
+                       `_Gonnet Propiedades - Mar del Plata_`;
+        
+        // Detectar si es móvil o desktop
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // Crear la URL de WhatsApp
+        let whatsappUrl;
+        if (isMobile) {
+            // En móvil, usar whatsapp://
+            whatsappUrl = `whatsapp://send?text=${encodeURIComponent(mensaje)}`;
+        } else {
+            // En desktop, usar web.whatsapp.com
+            whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+        }
+        
+        // Abrir WhatsApp
+        window.open(whatsappUrl, '_blank');
+        
+        // Mostrar confirmación
+        mostrarNotificacion('✅ WhatsApp abierto con enlace público del PDF', 'success');
+        
+    } catch (error) {
+        console.error('Error en compartirWhatsApp:', error);
+        mostrarNotificacion('❌ Error al compartir por WhatsApp', 'error');
     }
-    
-    // Abrir WhatsApp
-    window.open(whatsappUrl, '_blank');
-    
-    // Mostrar instrucciones adicionales
-    setTimeout(() => {
-        mostrarNotificacion('💡 Tip: En móviles modernos, el PDF se puede compartir directamente. En otros casos, usa el enlace del mensaje.', 'info');
-    }, 1000);
 }
 
 // Función alternativa para enviar a un número específico
-function compartirWhatsAppNumero() {
+async function compartirWhatsAppNumero() {
     const numero = prompt("Ingrese el número de teléfono (con código de país, ej: 5492235551234):");
     if (!numero) return;
     
-    // Obtener la URL del PDF del recibo
-    const currentUrl = window.location.href;
-    let pdfUrl;
-    
-    // Determinar si es un recibo de reserva o de movimiento
-    if (currentUrl.includes('recibo-movimiento/')) {
-        // Es un recibo de movimiento
-        const movimientoId = currentUrl.match(/recibo-movimiento\/(\d+)\//)[1];
-        pdfUrl = `${window.location.origin}{% url 'inmobiliaria:ver_recibo_movimiento_pdf' 0 %}`.replace('0', movimientoId);
-    } else {
-        // Es un recibo de reserva
-        const reservaId = '{{ reserva.id }}';
-        pdfUrl = `${window.location.origin}{% url 'inmobiliaria:ver_recibo_pdf' reserva.id %}`;
+    try {
+        // Mostrar loading
+        mostrarNotificacion('🔗 Generando enlace público...', 'info');
+        
+        // Obtener enlace público del PDF
+        const pdfUrl = await obtenerEnlacePublico();
+        
+        if (!pdfUrl) {
+            mostrarNotificacion('❌ Error al generar enlace público', 'error');
+            return;
+        }
+        
+        const mensaje = `🧾 *RECIBO DE PAGO - GONNET PROPIEDADES*\n\n` +
+                       `📋 Operación: {{ reserva.id|default:"N/A" }}\n` +
+                       `🏠 Propiedad: {{ propiedad.direccion }}\n` +
+                       `👤 Cliente: {{ cliente.nombre_completo }}\n` +
+                       `📅 Fecha: {{ fecha }}\n` +
+                       `💰 Total: {{ total_pagado }}\n` +
+                       `💳 Forma de pago: {{ formas_de_pago }}\n\n` +
+                       `📄 Descargar recibo PDF: ${pdfUrl}\n\n` +
+                       `_Gonnet Propiedades - Mar del Plata_`;
+        
+        const whatsappUrl = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+        window.open(whatsappUrl, '_blank');
+        
+        mostrarNotificacion('✅ WhatsApp abierto con enlace público del PDF', 'success');
+        
+    } catch (error) {
+        console.error('Error en compartirWhatsAppNumero:', error);
+        mostrarNotificacion('❌ Error al compartir por WhatsApp', 'error');
     }
-    
-    const mensaje = `🧾 *RECIBO DE PAGO - GONNET PROPIEDADES*\n\n` +
-                   `📋 Operación: {{ reserva.id|default:"N/A" }}\n` +
-                   `🏠 Propiedad: {{ propiedad.direccion }}\n` +
-                   `👤 Cliente: {{ cliente.nombre_completo }}\n` +
-                   `📅 Fecha: {{ fecha }}\n` +
-                   `💰 Total: {{ total_pagado }}\n` +
-                   `💳 Forma de pago: {{ formas_de_pago }}\n\n` +
-                   `📄 Descargar recibo PDF: ${pdfUrl}\n\n` +
-                   `_Gonnet Propiedades - Mar del Plata_`;
-    
-    const whatsappUrl = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
-    window.open(whatsappUrl, '_blank');
 }
 
 // Función para descargar PDF y abrir WhatsApp con instrucciones
@@ -519,6 +523,9 @@ async function compartirWhatsAppConDescarga() {
         
         // Primero descargar el PDF
         await descargarPDF();
+        
+        // Obtener también el enlace público como respaldo
+        const pdfUrl = await obtenerEnlacePublico();
         
         // Esperar un momento para que se complete la descarga
         setTimeout(() => {
@@ -532,6 +539,7 @@ async function compartirWhatsAppConDescarga() {
                            `💳 Forma de pago: {{ formas_de_pago }}\n\n` +
                            `📎 *El PDF del recibo se ha descargado en tu dispositivo*\n` +
                            `Para enviarlo: toca el 📎 (clip) en WhatsApp y selecciona "Documento"\n\n` +
+                           (pdfUrl ? `📄 O descarga desde: ${pdfUrl}\n\n` : '') +
                            `_Gonnet Propiedades - Mar del Plata_`;
             
             // Detectar si es móvil o desktop
@@ -698,6 +706,50 @@ function mostrarNotificacion(mensaje, tipo) {
             }, 300);
         }
     }, timeout);
+}
+
+// Función para obtener enlace público del PDF
+async function obtenerEnlacePublico() {
+    try {
+        const currentUrl = window.location.href;
+        let requestData = {};
+        
+        // Determinar si es un recibo de reserva o de movimiento
+        if (currentUrl.includes('recibo-movimiento/')) {
+            const movimientoId = currentUrl.match(/recibo-movimiento\/(\d+)\//)[1];
+            requestData.movimiento_id = movimientoId;
+        } else {
+            const reservaId = '{{ reserva.id }}';
+            requestData.reserva_id = reservaId;
+        }
+        
+        // Obtener CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                         document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+                         '{{ csrf_token }}';
+        
+        const response = await fetch('{% url "inmobiliaria:generar_enlace_publico" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            return data.url;
+        } else {
+            console.error('Error del servidor:', data.error);
+            return null;
+        }
+        
+    } catch (error) {
+        console.error('Error obteniendo enlace público:', error);
+        return null;
+    }
 }
 
 // Agregar estilos de animación

@@ -8539,6 +8539,276 @@ def ver_recibo_pdf(request, reserva_id):
         return HttpResponse(f'Error: {str(e)}', status=500)
 
 
+# Vista AJAX para generar enlace público
+from django.http import JsonResponse
+
+def generar_enlace_publico(request):
+    """Genera enlace público para compartir PDF"""
+    if request.method == 'POST':
+        try:
+            import json
+            data = json.loads(request.body)
+            reserva_id = data.get('reserva_id')
+            movimiento_id = data.get('movimiento_id')
+            
+            if movimiento_id:
+                # Es un recibo de movimiento
+                token = generar_token_publico(None, movimiento_id)
+                url = request.build_absolute_uri(f'/recibo-movimiento-publico/{movimiento_id}/{token}/')
+            elif reserva_id:
+                # Es un recibo de reserva
+                token = generar_token_publico(reserva_id)
+                url = request.build_absolute_uri(f'/recibo-publico/{reserva_id}/{token}/')
+            else:
+                return JsonResponse({'error': 'ID requerido'}, status=400)
+            
+            return JsonResponse({'url': url})
+            
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+
+# Vista pública para compartir PDF (sin autenticación)
+import hashlib
+from django.utils import timezone
+from datetime import timedelta
+
+def generar_token_publico(reserva_id, movimiento_id=None):
+    """Genera un token seguro para acceso público al PDF"""
+    # Crear string único basado en IDs y fecha
+    base_string = f"{reserva_id}_{movimiento_id}_{timezone.now().date()}_gonnet_secret_key"
+    return hashlib.md5(base_string.encode()).hexdigest()[:16]
+
+def verificar_token_publico(token, reserva_id, movimiento_id=None):
+    """Verifica si el token es válido"""
+    token_esperado = generar_token_publico(reserva_id, movimiento_id)
+    return token == token_esperado
+
+def ver_recibo_publico(request, reserva_id, token):
+    """Vista pública para ver recibo sin autenticación"""
+    try:
+        # Verificar token
+        if not verificar_token_publico(token, reserva_id):
+            return HttpResponse('Enlace inválido o expirado', status=403)
+        
+        reserva = get_object_or_404(Reserva, id=reserva_id)
+        
+        # Obtener los mismos datos que usa la vista normal del recibo
+        propiedad = reserva.propiedad
+        cliente = reserva.cliente
+        
+        # Obtener el último movimiento de la reserva para los datos del pago
+        ultimo_movimiento = Movimiento.objects.filter(reserva=reserva).order_by('-fecha_creacion').first()
+        
+        if ultimo_movimiento:
+            # Usar los datos del movimiento
+            total_pagado = ultimo_movimiento.monto_total
+            
+            # Construir formas de pago igual que en ver_recibo
+            formas_de_pago = []
+            formas_con_montos = []
+            
+            if ultimo_movimiento.monto_efectivo > 0:
+                formas_con_montos.append(f'Efectivo ${ultimo_movimiento.monto_efectivo:,.0f}')
+                formas_de_pago.append('Efectivo')
+            
+            if ultimo_movimiento.monto_tarjeta > 0:
+                formas_con_montos.append(f'Tarjeta ${ultimo_movimiento.monto_tarjeta:,.0f}')
+                formas_de_pago.append('Tarjeta')
+            
+            if ultimo_movimiento.monto_cheque > 0:
+                formas_con_montos.append(f'Cheque ${ultimo_movimiento.monto_cheque:,.0f}')
+                formas_de_pago.append('Cheque')
+            
+            if ultimo_movimiento.monto_deposito > 0:
+                if ultimo_movimiento.banco and 'Mercado Pago' in ultimo_movimiento.banco:
+                    formas_con_montos.append(f'Transferencia Mercado Pago ${ultimo_movimiento.monto_deposito:,.0f}')
+                    formas_de_pago.append('Mercado Pago')
+                elif ultimo_movimiento.banco and 'Galicia' in ultimo_movimiento.banco:
+                    formas_con_montos.append(f'Transferencia Galicia ${ultimo_movimiento.monto_deposito:,.0f}')
+                    formas_de_pago.append('Galicia')
+                else:
+                    formas_con_montos.append(f'Transferencia ${ultimo_movimiento.monto_deposito:,.0f}')
+                    formas_de_pago.append('Transferencia')
+            
+            formas_de_pago_mostrar = formas_con_montos if formas_con_montos else formas_de_pago
+            
+            # Obtener número de recibo
+            numero_recibo = f"{reserva.id:06d}"
+            
+        else:
+            # Fallback si no hay movimiento
+            total_pagado = reserva.monto_reserva or 0
+            formas_de_pago_mostrar = ['Efectivo']
+            numero_recibo = f"{reserva.id:06d}"
+        
+        # Preparar contexto para el template
+        context = {
+            'reserva': reserva,
+            'propiedad': propiedad,
+            'cliente': cliente,
+            'total_pagado': f"${total_pagado:,.0f}",
+            'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
+            'numero_recibo': numero_recibo,
+            'fecha': timezone.now().strftime('%d/%m/%Y'),
+            'hora': timezone.now().strftime('%H:%M'),
+        }
+        
+        # Cargar template específico para PDF (sin botones)
+        template = get_template('inmobiliaria/reserva/recibo_pdf.html')
+        html = template.render(context)
+        
+        # Crear el PDF
+        result = io.BytesIO()
+        pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
+        
+        if not pdf.err:
+            # Configurar la respuesta HTTP
+            response = HttpResponse(result.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
+            return response
+        else:
+            return HttpResponse('Error al generar PDF', status=500)
+            
+    except Exception as e:
+        return HttpResponse(f'Error: {str(e)}', status=500)
+
+
+# Vista AJAX para generar enlace público
+from django.http import JsonResponse
+
+def generar_enlace_publico(request):
+    """Genera enlace público para compartir PDF"""
+    if request.method == 'POST':
+        try:
+            import json
+            data = json.loads(request.body)
+            reserva_id = data.get('reserva_id')
+            movimiento_id = data.get('movimiento_id')
+            
+            if movimiento_id:
+                # Es un recibo de movimiento
+                token = generar_token_publico(None, movimiento_id)
+                url = request.build_absolute_uri(f'/recibo-movimiento-publico/{movimiento_id}/{token}/')
+            elif reserva_id:
+                # Es un recibo de reserva
+                token = generar_token_publico(reserva_id)
+                url = request.build_absolute_uri(f'/recibo-publico/{reserva_id}/{token}/')
+            else:
+                return JsonResponse({'error': 'ID requerido'}, status=400)
+            
+            return JsonResponse({'url': url})
+            
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+def ver_recibo_movimiento_publico(request, movimiento_id, token):
+    """Vista pública para ver recibo de movimiento sin autenticación"""
+    try:
+        # Verificar token
+        if not verificar_token_publico(token, None, movimiento_id):
+            return HttpResponse('Enlace inválido o expirado', status=403)
+        
+        movimiento = get_object_or_404(Movimiento, id=movimiento_id)
+        reserva = movimiento.reserva
+        propiedad = reserva.propiedad
+        cliente = reserva.cliente
+        
+        # Construir formas de pago igual que en ver_recibo_movimiento
+        formas_de_pago = []
+        formas_con_montos = []
+        
+        if movimiento.monto_efectivo > 0:
+            formas_con_montos.append(f'Efectivo ${movimiento.monto_efectivo:,.0f}')
+            formas_de_pago.append('Efectivo')
+        
+        if movimiento.monto_tarjeta > 0:
+            formas_con_montos.append(f'Tarjeta ${movimiento.monto_tarjeta:,.0f}')
+            formas_de_pago.append('Tarjeta')
+        
+        if movimiento.monto_cheque > 0:
+            formas_con_montos.append(f'Cheque ${movimiento.monto_cheque:,.0f}')
+            formas_de_pago.append('Cheque')
+        
+        if movimiento.monto_deposito > 0:
+            if movimiento.banco and 'Mercado Pago' in movimiento.banco:
+                formas_con_montos.append(f'Transferencia Mercado Pago ${movimiento.monto_deposito:,.0f}')
+                formas_de_pago.append('Mercado Pago')
+            elif movimiento.banco and 'Galicia' in movimiento.banco:
+                formas_con_montos.append(f'Transferencia Galicia ${movimiento.monto_deposito:,.0f}')
+                formas_de_pago.append('Galicia')
+            else:
+                formas_con_montos.append(f'Transferencia ${movimiento.monto_deposito:,.0f}')
+                formas_de_pago.append('Transferencia')
+        
+        formas_de_pago_mostrar = formas_con_montos if formas_con_montos else formas_de_pago
+        
+        context = {
+            'reserva': reserva,
+            'propiedad': propiedad,
+            'cliente': cliente,
+            'movimiento': movimiento,
+            'total_pagado': f"${movimiento.monto_total:,.0f}",
+            'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
+            'numero_recibo': f"{movimiento.id:06d}",
+            'fecha': movimiento.fecha_creacion.strftime('%d/%m/%Y'),
+            'hora': movimiento.fecha_creacion.strftime('%H:%M'),
+        }
+        
+        # Cargar template específico para PDF
+        template = get_template('inmobiliaria/reserva/recibo_pdf.html')
+        html = template.render(context)
+        
+        # Crear el PDF
+        result = io.BytesIO()
+        pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
+        
+        if not pdf.err:
+            response = HttpResponse(result.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="recibo_movimiento_{movimiento.id}.pdf"'
+            return response
+        else:
+            return HttpResponse('Error al generar PDF', status=500)
+            
+    except Exception as e:
+        return HttpResponse(f'Error: {str(e)}', status=500)
+
+
+# Vista AJAX para generar enlace público
+from django.http import JsonResponse
+
+def generar_enlace_publico(request):
+    """Genera enlace público para compartir PDF"""
+    if request.method == 'POST':
+        try:
+            import json
+            data = json.loads(request.body)
+            reserva_id = data.get('reserva_id')
+            movimiento_id = data.get('movimiento_id')
+            
+            if movimiento_id:
+                # Es un recibo de movimiento
+                token = generar_token_publico(None, movimiento_id)
+                url = request.build_absolute_uri(f'/recibo-movimiento-publico/{movimiento_id}/{token}/')
+            elif reserva_id:
+                # Es un recibo de reserva
+                token = generar_token_publico(reserva_id)
+                url = request.build_absolute_uri(f'/recibo-publico/{reserva_id}/{token}/')
+            else:
+                return JsonResponse({'error': 'ID requerido'}, status=400)
+            
+            return JsonResponse({'url': url})
+            
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+
 def ver_recibo_movimiento_pdf(request, movimiento_id):
     """Genera y devuelve el recibo de movimiento como PDF"""
     try:
@@ -8605,3 +8875,273 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
             
     except Exception as e:
         return HttpResponse(f'Error: {str(e)}', status=500)
+
+
+# Vista AJAX para generar enlace público
+from django.http import JsonResponse
+
+def generar_enlace_publico(request):
+    """Genera enlace público para compartir PDF"""
+    if request.method == 'POST':
+        try:
+            import json
+            data = json.loads(request.body)
+            reserva_id = data.get('reserva_id')
+            movimiento_id = data.get('movimiento_id')
+            
+            if movimiento_id:
+                # Es un recibo de movimiento
+                token = generar_token_publico(None, movimiento_id)
+                url = request.build_absolute_uri(f'/recibo-movimiento-publico/{movimiento_id}/{token}/')
+            elif reserva_id:
+                # Es un recibo de reserva
+                token = generar_token_publico(reserva_id)
+                url = request.build_absolute_uri(f'/recibo-publico/{reserva_id}/{token}/')
+            else:
+                return JsonResponse({'error': 'ID requerido'}, status=400)
+            
+            return JsonResponse({'url': url})
+            
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+
+# Vista pública para compartir PDF (sin autenticación)
+import hashlib
+from django.utils import timezone
+from datetime import timedelta
+
+def generar_token_publico(reserva_id, movimiento_id=None):
+    """Genera un token seguro para acceso público al PDF"""
+    # Crear string único basado en IDs y fecha
+    base_string = f"{reserva_id}_{movimiento_id}_{timezone.now().date()}_gonnet_secret_key"
+    return hashlib.md5(base_string.encode()).hexdigest()[:16]
+
+def verificar_token_publico(token, reserva_id, movimiento_id=None):
+    """Verifica si el token es válido"""
+    token_esperado = generar_token_publico(reserva_id, movimiento_id)
+    return token == token_esperado
+
+def ver_recibo_publico(request, reserva_id, token):
+    """Vista pública para ver recibo sin autenticación"""
+    try:
+        # Verificar token
+        if not verificar_token_publico(token, reserva_id):
+            return HttpResponse('Enlace inválido o expirado', status=403)
+        
+        reserva = get_object_or_404(Reserva, id=reserva_id)
+        
+        # Obtener los mismos datos que usa la vista normal del recibo
+        propiedad = reserva.propiedad
+        cliente = reserva.cliente
+        
+        # Obtener el último movimiento de la reserva para los datos del pago
+        ultimo_movimiento = Movimiento.objects.filter(reserva=reserva).order_by('-fecha_creacion').first()
+        
+        if ultimo_movimiento:
+            # Usar los datos del movimiento
+            total_pagado = ultimo_movimiento.monto_total
+            
+            # Construir formas de pago igual que en ver_recibo
+            formas_de_pago = []
+            formas_con_montos = []
+            
+            if ultimo_movimiento.monto_efectivo > 0:
+                formas_con_montos.append(f'Efectivo ${ultimo_movimiento.monto_efectivo:,.0f}')
+                formas_de_pago.append('Efectivo')
+            
+            if ultimo_movimiento.monto_tarjeta > 0:
+                formas_con_montos.append(f'Tarjeta ${ultimo_movimiento.monto_tarjeta:,.0f}')
+                formas_de_pago.append('Tarjeta')
+            
+            if ultimo_movimiento.monto_cheque > 0:
+                formas_con_montos.append(f'Cheque ${ultimo_movimiento.monto_cheque:,.0f}')
+                formas_de_pago.append('Cheque')
+            
+            if ultimo_movimiento.monto_deposito > 0:
+                if ultimo_movimiento.banco and 'Mercado Pago' in ultimo_movimiento.banco:
+                    formas_con_montos.append(f'Transferencia Mercado Pago ${ultimo_movimiento.monto_deposito:,.0f}')
+                    formas_de_pago.append('Mercado Pago')
+                elif ultimo_movimiento.banco and 'Galicia' in ultimo_movimiento.banco:
+                    formas_con_montos.append(f'Transferencia Galicia ${ultimo_movimiento.monto_deposito:,.0f}')
+                    formas_de_pago.append('Galicia')
+                else:
+                    formas_con_montos.append(f'Transferencia ${ultimo_movimiento.monto_deposito:,.0f}')
+                    formas_de_pago.append('Transferencia')
+            
+            formas_de_pago_mostrar = formas_con_montos if formas_con_montos else formas_de_pago
+            
+            # Obtener número de recibo
+            numero_recibo = f"{reserva.id:06d}"
+            
+        else:
+            # Fallback si no hay movimiento
+            total_pagado = reserva.monto_reserva or 0
+            formas_de_pago_mostrar = ['Efectivo']
+            numero_recibo = f"{reserva.id:06d}"
+        
+        # Preparar contexto para el template
+        context = {
+            'reserva': reserva,
+            'propiedad': propiedad,
+            'cliente': cliente,
+            'total_pagado': f"${total_pagado:,.0f}",
+            'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
+            'numero_recibo': numero_recibo,
+            'fecha': timezone.now().strftime('%d/%m/%Y'),
+            'hora': timezone.now().strftime('%H:%M'),
+        }
+        
+        # Cargar template específico para PDF (sin botones)
+        template = get_template('inmobiliaria/reserva/recibo_pdf.html')
+        html = template.render(context)
+        
+        # Crear el PDF
+        result = io.BytesIO()
+        pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
+        
+        if not pdf.err:
+            # Configurar la respuesta HTTP
+            response = HttpResponse(result.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
+            return response
+        else:
+            return HttpResponse('Error al generar PDF', status=500)
+            
+    except Exception as e:
+        return HttpResponse(f'Error: {str(e)}', status=500)
+
+
+# Vista AJAX para generar enlace público
+from django.http import JsonResponse
+
+def generar_enlace_publico(request):
+    """Genera enlace público para compartir PDF"""
+    if request.method == 'POST':
+        try:
+            import json
+            data = json.loads(request.body)
+            reserva_id = data.get('reserva_id')
+            movimiento_id = data.get('movimiento_id')
+            
+            if movimiento_id:
+                # Es un recibo de movimiento
+                token = generar_token_publico(None, movimiento_id)
+                url = request.build_absolute_uri(f'/recibo-movimiento-publico/{movimiento_id}/{token}/')
+            elif reserva_id:
+                # Es un recibo de reserva
+                token = generar_token_publico(reserva_id)
+                url = request.build_absolute_uri(f'/recibo-publico/{reserva_id}/{token}/')
+            else:
+                return JsonResponse({'error': 'ID requerido'}, status=400)
+            
+            return JsonResponse({'url': url})
+            
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+def ver_recibo_movimiento_publico(request, movimiento_id, token):
+    """Vista pública para ver recibo de movimiento sin autenticación"""
+    try:
+        # Verificar token
+        if not verificar_token_publico(token, None, movimiento_id):
+            return HttpResponse('Enlace inválido o expirado', status=403)
+        
+        movimiento = get_object_or_404(Movimiento, id=movimiento_id)
+        reserva = movimiento.reserva
+        propiedad = reserva.propiedad
+        cliente = reserva.cliente
+        
+        # Construir formas de pago igual que en ver_recibo_movimiento
+        formas_de_pago = []
+        formas_con_montos = []
+        
+        if movimiento.monto_efectivo > 0:
+            formas_con_montos.append(f'Efectivo ${movimiento.monto_efectivo:,.0f}')
+            formas_de_pago.append('Efectivo')
+        
+        if movimiento.monto_tarjeta > 0:
+            formas_con_montos.append(f'Tarjeta ${movimiento.monto_tarjeta:,.0f}')
+            formas_de_pago.append('Tarjeta')
+        
+        if movimiento.monto_cheque > 0:
+            formas_con_montos.append(f'Cheque ${movimiento.monto_cheque:,.0f}')
+            formas_de_pago.append('Cheque')
+        
+        if movimiento.monto_deposito > 0:
+            if movimiento.banco and 'Mercado Pago' in movimiento.banco:
+                formas_con_montos.append(f'Transferencia Mercado Pago ${movimiento.monto_deposito:,.0f}')
+                formas_de_pago.append('Mercado Pago')
+            elif movimiento.banco and 'Galicia' in movimiento.banco:
+                formas_con_montos.append(f'Transferencia Galicia ${movimiento.monto_deposito:,.0f}')
+                formas_de_pago.append('Galicia')
+            else:
+                formas_con_montos.append(f'Transferencia ${movimiento.monto_deposito:,.0f}')
+                formas_de_pago.append('Transferencia')
+        
+        formas_de_pago_mostrar = formas_con_montos if formas_con_montos else formas_de_pago
+        
+        context = {
+            'reserva': reserva,
+            'propiedad': propiedad,
+            'cliente': cliente,
+            'movimiento': movimiento,
+            'total_pagado': f"${movimiento.monto_total:,.0f}",
+            'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
+            'numero_recibo': f"{movimiento.id:06d}",
+            'fecha': movimiento.fecha_creacion.strftime('%d/%m/%Y'),
+            'hora': movimiento.fecha_creacion.strftime('%H:%M'),
+        }
+        
+        # Cargar template específico para PDF
+        template = get_template('inmobiliaria/reserva/recibo_pdf.html')
+        html = template.render(context)
+        
+        # Crear el PDF
+        result = io.BytesIO()
+        pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
+        
+        if not pdf.err:
+            response = HttpResponse(result.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="recibo_movimiento_{movimiento.id}.pdf"'
+            return response
+        else:
+            return HttpResponse('Error al generar PDF', status=500)
+            
+    except Exception as e:
+        return HttpResponse(f'Error: {str(e)}', status=500)
+
+
+# Vista AJAX para generar enlace público
+from django.http import JsonResponse
+
+def generar_enlace_publico(request):
+    """Genera enlace público para compartir PDF"""
+    if request.method == 'POST':
+        try:
+            import json
+            data = json.loads(request.body)
+            reserva_id = data.get('reserva_id')
+            movimiento_id = data.get('movimiento_id')
+            
+            if movimiento_id:
+                # Es un recibo de movimiento
+                token = generar_token_publico(None, movimiento_id)
+                url = request.build_absolute_uri(f'/recibo-movimiento-publico/{movimiento_id}/{token}/')
+            elif reserva_id:
+                # Es un recibo de reserva
+                token = generar_token_publico(reserva_id)
+                url = request.build_absolute_uri(f'/recibo-publico/{reserva_id}/{token}/')
+            else:
+                return JsonResponse({'error': 'ID requerido'}, status=400)
+            
+            return JsonResponse({'url': url})
+            
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
