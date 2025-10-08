@@ -571,7 +571,39 @@ async function enviarDirectoWhatsApp() {
         const fileName = `recibo(${numeroOperacion}).jpg`;
         const file = new File([imageBlob], fileName, { type: 'image/jpeg' });
         
-        // DESCARGAR LA IMAGEN AUTOMÁTICAMENTE
+        // ENVIAR DIRECTAMENTE POR WHATSAPP (sin descargar)
+        // Crear fecha para el mensaje
+        const ahora = new Date();
+        const fechaArgentina = ahora.toLocaleDateString('es-AR', {
+            day: '2-digit',
+            month: '2-digit', 
+            year: 'numeric'
+        });
+        const mensaje = `Adjunto recibo ${fechaArgentina}`;
+        
+        // PRIORIDAD: Usar Web Share API para enviar archivo directamente
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                const shareData = {
+                    title: 'Recibo de Pago',
+                    text: mensaje,
+                    files: [file]
+                };
+                
+                await navigator.share(shareData);
+                mostrarNotificacion('✅ ¡Imagen enviada! Selecciona WhatsApp para compartir.', 'success');
+                return;
+                
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    mostrarNotificacion('ℹ️ Compartir cancelado', 'info');
+                    return;
+                }
+                console.log('Web Share API falló:', error);
+            }
+        }
+        
+        // FALLBACK: Si Web Share no funciona, descargar y abrir WhatsApp Web
         const url = window.URL.createObjectURL(imageBlob);
         const a = document.createElement('a');
         a.style.display = 'none';
@@ -586,20 +618,12 @@ async function enviarDirectoWhatsApp() {
             window.URL.revokeObjectURL(url);
         }, 100);
         
-        // DIRECTO A WHATSAPP WEB (sin extensiones ni complicaciones)
-        // Crear fecha para el mensaje
-        const ahora = new Date();
-        const fechaArgentina = ahora.toLocaleDateString('es-AR', {
-            day: '2-digit',
-            month: '2-digit', 
-            year: 'numeric'
-        });
-        const mensaje = `Adjunto recibo ${fechaArgentina}`;
-        
         // Abrir WhatsApp Web con mensaje predefinido
-        const urlWhatsAppWeb = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
-        window.open(urlWhatsAppWeb, '_blank');
-        mostrarNotificacion('📱 WhatsApp Web abierto con mensaje. Selecciona contacto y arrastra la imagen.', 'success');
+        setTimeout(() => {
+            const urlWhatsAppWeb = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+            window.open(urlWhatsAppWeb, '_blank');
+            mostrarNotificacion('📱 WhatsApp Web abierto. Arrastra la imagen descargada al chat.', 'info');
+        }, 500);
         
     } catch (error) {
         console.error('Error enviando por WhatsApp:', error);
