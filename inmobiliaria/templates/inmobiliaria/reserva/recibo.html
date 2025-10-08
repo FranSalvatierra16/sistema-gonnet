@@ -528,50 +528,11 @@ function abrirWhatsAppConContacto() {
 }
 
 
-// Función PRINCIPAL: Enviar directamente por WhatsApp (ABRE LA APP)
-async function enviarDirectoWhatsApp() {
+// Función PRINCIPAL: Enviar directamente por WhatsApp
+function enviarDirectoWhatsApp() {
     try {
         mostrarNotificacion('📸 Preparando recibo para WhatsApp...', 'info');
         
-        // Obtener el elemento del recibo (sin botones)
-        const reciboElement = document.querySelector('.printable');
-        
-        if (!reciboElement) {
-            mostrarNotificacion('❌ No se encontró el recibo para capturar', 'error');
-            return;
-        }
-        
-        // Cargar html2canvas si no está disponible
-        if (typeof html2canvas === 'undefined') {
-            await cargarHtml2Canvas();
-        }
-        
-        // Configurar opciones para mejor calidad
-        const options = {
-            scale: 2, // Mayor resolución
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: '#ffffff',
-            width: reciboElement.scrollWidth,
-            height: reciboElement.scrollHeight,
-            scrollX: 0,
-            scrollY: 0
-        };
-        
-        // Capturar el recibo como canvas
-        const canvas = await html2canvas(reciboElement, options);
-        
-        // Convertir canvas a blob de imagen
-        const imageBlob = await new Promise(resolve => {
-            canvas.toBlob(resolve, 'image/jpeg', 0.95);
-        });
-        
-        // Crear archivo de imagen con nombre personalizado
-        const numeroOperacion = '{{ reserva.id|default:"N/A" }}';
-        const fileName = `recibo(${numeroOperacion}).jpg`;
-        const file = new File([imageBlob], fileName, { type: 'image/jpeg' });
-        
-        // DIRECTO A WHATSAPP WEB (sin descargar imagen)
         // Crear fecha para el mensaje
         const ahora = new Date();
         const fechaArgentina = ahora.toLocaleDateString('es-AR', {
@@ -579,39 +540,12 @@ async function enviarDirectoWhatsApp() {
             month: '2-digit', 
             year: 'numeric'
         });
-        const mensaje = `Adjunto recibo ${fechaArgentina}`;
-        
-        // Convertir imagen a base64 para incluir en el portapapeles
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
-        
-        img.onload = function() {
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
-            
-            // Copiar imagen al portapapeles si es posible
-            if (navigator.clipboard && navigator.clipboard.write) {
-                canvas.toBlob(async (blob) => {
-                    try {
-                        await navigator.clipboard.write([
-                            new ClipboardItem({ 'image/png': blob })
-                        ]);
-                        mostrarNotificacion('📋 Imagen copiada al portapapeles. Pégala en WhatsApp Web.', 'info');
-                    } catch (err) {
-                        console.log('No se pudo copiar al portapapeles:', err);
-                    }
-                });
-            }
-        };
-        
-        img.src = URL.createObjectURL(imageBlob);
+        const mensaje = 'Adjunto recibo ' + fechaArgentina;
         
         // Abrir WhatsApp Web directamente con mensaje
-        const urlWhatsAppWeb = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+        const urlWhatsAppWeb = 'https://web.whatsapp.com/send?text=' + encodeURIComponent(mensaje);
         window.open(urlWhatsAppWeb, '_blank');
-        mostrarNotificacion('📱 WhatsApp Web abierto con mensaje. La imagen está en el portapapeles (Ctrl+V para pegar).', 'success');
+        mostrarNotificacion('📱 WhatsApp Web abierto con mensaje. Selecciona contacto.', 'success');
         
     } catch (error) {
         console.error('Error enviando por WhatsApp:', error);
