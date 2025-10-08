@@ -566,9 +566,25 @@ async function enviarDirectoWhatsApp() {
             canvas.toBlob(resolve, 'image/jpeg', 0.95);
         });
         
-        // Crear archivo de imagen
-        const fileName = `recibo_{{ reserva.id|default:"N/A" }}.jpg`;
+        // Crear archivo de imagen con nombre personalizado
+        const numeroOperacion = '{{ reserva.id|default:"N/A" }}';
+        const fileName = `recibo(${numeroOperacion}).jpg`;
         const file = new File([imageBlob], fileName, { type: 'image/jpeg' });
+        
+        // DESCARGAR LA IMAGEN AUTOMÁTICAMENTE
+        const url = window.URL.createObjectURL(imageBlob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Limpiar después de la descarga
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }, 100);
         
         // DIRECTO A WHATSAPP WEB (sin extensiones ni complicaciones)
         // Crear fecha para el mensaje
