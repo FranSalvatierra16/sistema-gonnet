@@ -572,26 +572,7 @@ async function enviarDirectoWhatsApp() {
         });
         const mensaje = 'Adjunto recibo ' + fechaArgentina;
         
-        // Intentar usar Web Share API para enviar directamente
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-                await navigator.share({
-                    title: 'Recibo de Pago',
-                    text: mensaje,
-                    files: [file]
-                });
-                mostrarNotificacion('✅ ¡Selecciona WhatsApp para enviar la imagen!', 'success');
-                return;
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    mostrarNotificacion('ℹ️ Compartir cancelado', 'info');
-                    return;
-                }
-                console.log('Web Share falló, usando fallback');
-            }
-        }
-        
-        // Fallback: Descargar imagen y abrir WhatsApp Web
+        // SIEMPRE descargar imagen y abrir WhatsApp Web (sin extensiones)
         const url = URL.createObjectURL(imageBlob);
         const a = document.createElement('a');
         a.style.display = 'none';
