@@ -529,9 +529,39 @@ function abrirWhatsAppConContacto() {
 
 
 // Función PRINCIPAL: Enviar directamente por WhatsApp
-function enviarDirectoWhatsApp() {
+async function enviarDirectoWhatsApp() {
     try {
         mostrarNotificacion('📸 Preparando recibo para WhatsApp...', 'info');
+        
+        // Obtener el elemento del recibo
+        const reciboElement = document.querySelector('.printable');
+        if (!reciboElement) {
+            mostrarNotificacion('❌ No se encontró el recibo', 'error');
+            return;
+        }
+        
+        // Cargar html2canvas si no está disponible
+        if (typeof html2canvas === 'undefined') {
+            await cargarHtml2Canvas();
+        }
+        
+        // Capturar el recibo como imagen
+        const canvasRecibo = await html2canvas(reciboElement, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff'
+        });
+        
+        // Convertir a blob
+        const imageBlob = await new Promise(resolve => {
+            canvasRecibo.toBlob(resolve, 'image/jpeg', 0.95);
+        });
+        
+        // Crear archivo con nombre personalizado
+        const numeroOperacion = '{{ reserva.id|default:"N/A" }}';
+        const fileName = 'recibo(' + numeroOperacion + ').jpg';
+        const file = new File([imageBlob], fileName, { type: 'image/jpeg' });
         
         // Crear fecha para el mensaje
         const ahora = new Date();
@@ -542,10 +572,42 @@ function enviarDirectoWhatsApp() {
         });
         const mensaje = 'Adjunto recibo ' + fechaArgentina;
         
-        // Abrir WhatsApp Web directamente con mensaje
-        const urlWhatsAppWeb = 'https://web.whatsapp.com/send?text=' + encodeURIComponent(mensaje);
-        window.open(urlWhatsAppWeb, '_blank');
-        mostrarNotificacion('📱 WhatsApp Web abierto con mensaje. Selecciona contacto.', 'success');
+        // Intentar usar Web Share API para enviar directamente
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({
+                    title: 'Recibo de Pago',
+                    text: mensaje,
+                    files: [file]
+                });
+                mostrarNotificacion('✅ ¡Selecciona WhatsApp para enviar la imagen!', 'success');
+                return;
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    mostrarNotificacion('ℹ️ Compartir cancelado', 'info');
+                    return;
+                }
+                console.log('Web Share falló, usando fallback');
+            }
+        }
+        
+        // Fallback: Descargar imagen y abrir WhatsApp Web
+        const url = URL.createObjectURL(imageBlob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        // Abrir WhatsApp Web con mensaje
+        setTimeout(() => {
+            const urlWhatsAppWeb = 'https://web.whatsapp.com/send?text=' + encodeURIComponent(mensaje);
+            window.open(urlWhatsAppWeb, '_blank');
+            mostrarNotificacion('📱 Imagen descargada. WhatsApp Web abierto. Arrastra la imagen al chat.', 'success');
+        }, 500);
         
     } catch (error) {
         console.error('Error enviando por WhatsApp:', error);
