@@ -571,7 +571,7 @@ async function enviarDirectoWhatsApp() {
         const fileName = `recibo(${numeroOperacion}).jpg`;
         const file = new File([imageBlob], fileName, { type: 'image/jpeg' });
         
-        // ENVIAR DIRECTAMENTE POR WHATSAPP (sin descargar)
+        // DIRECTO A WHATSAPP WEB (sin descargar imagen)
         // Crear fecha para el mensaje
         const ahora = new Date();
         const fechaArgentina = ahora.toLocaleDateString('es-AR', {
@@ -581,49 +581,37 @@ async function enviarDirectoWhatsApp() {
         });
         const mensaje = `Adjunto recibo ${fechaArgentina}`;
         
-        // PRIORIDAD: Usar Web Share API para enviar archivo directamente
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-                const shareData = {
-                    title: 'Recibo de Pago',
-                    text: mensaje,
-                    files: [file]
-                };
-                
-                await navigator.share(shareData);
-                mostrarNotificacion('✅ ¡Imagen enviada! Selecciona WhatsApp para compartir.', 'success');
-                return;
-                
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    mostrarNotificacion('ℹ️ Compartir cancelado', 'info');
-                    return;
-                }
-                console.log('Web Share API falló:', error);
+        // Convertir imagen a base64 para incluir en el portapapeles
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        img.onload = function() {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+            
+            // Copiar imagen al portapapeles si es posible
+            if (navigator.clipboard && navigator.clipboard.write) {
+                canvas.toBlob(async (blob) => {
+                    try {
+                        await navigator.clipboard.write([
+                            new ClipboardItem({ 'image/png': blob })
+                        ]);
+                        mostrarNotificacion('📋 Imagen copiada al portapapeles. Pégala en WhatsApp Web.', 'info');
+                    } catch (err) {
+                        console.log('No se pudo copiar al portapapeles:', err);
+                    }
+                });
             }
-        }
+        };
         
-        // FALLBACK: Si Web Share no funciona, descargar y abrir WhatsApp Web
-        const url = window.URL.createObjectURL(imageBlob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
+        img.src = URL.createObjectURL(imageBlob);
         
-        // Limpiar después de la descarga
-        setTimeout(() => {
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        }, 100);
-        
-        // Abrir WhatsApp Web con mensaje predefinido
-        setTimeout(() => {
-            const urlWhatsAppWeb = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
-            window.open(urlWhatsAppWeb, '_blank');
-            mostrarNotificacion('📱 WhatsApp Web abierto. Arrastra la imagen descargada al chat.', 'info');
-        }, 500);
+        // Abrir WhatsApp Web directamente con mensaje
+        const urlWhatsAppWeb = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+        window.open(urlWhatsAppWeb, '_blank');
+        mostrarNotificacion('📱 WhatsApp Web abierto con mensaje. La imagen está en el portapapeles (Ctrl+V para pegar).', 'success');
         
     } catch (error) {
         console.error('Error enviando por WhatsApp:', error);
