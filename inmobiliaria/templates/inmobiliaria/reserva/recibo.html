@@ -489,11 +489,23 @@ async function compartirWhatsApp() {
     }
 }
 
-// Función para abrir WhatsApp Web (SIN contacto preseleccionado)
+// Función para abrir WhatsApp Web con mensaje predefinido
 function abrirWhatsAppConContacto() {
-    // Abrir WhatsApp Web normal para que el usuario elija el contacto
-    window.open('https://web.whatsapp.com/', '_blank');
-    mostrarNotificacion('📱 WhatsApp Web abierto. Selecciona el contacto que quieras y arrastra la imagen.', 'success');
+    // Crear fecha actual en formato argentino
+    const ahora = new Date();
+    const fechaArgentina = ahora.toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric'
+    });
+    
+    // Mensaje predefinido con fecha actual
+    const mensaje = `Adjunto recibo ${fechaArgentina}`;
+    
+    // Abrir WhatsApp Web con mensaje predefinido (sin contacto específico)
+    const urlWhatsApp = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+    window.open(urlWhatsApp, '_blank');
+    mostrarNotificacion('📱 WhatsApp Web abierto con mensaje. Selecciona contacto y arrastra la imagen.', 'success');
 }
 
 
