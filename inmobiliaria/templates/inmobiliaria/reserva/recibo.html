@@ -600,27 +600,6 @@ async function enviarDirectoWhatsApp() {
         const urlWhatsAppWeb = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
         window.open(urlWhatsAppWeb, '_blank');
         mostrarNotificacion('📱 WhatsApp Web abierto con mensaje. Selecciona contacto y arrastra la imagen.', 'success');
-        return;
-        
-        // FALLBACK: Si Web Share no está disponible, descargar y abrir WhatsApp Web
-        const url = window.URL.createObjectURL(imageBlob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = fileName;
-        
-        document.body.appendChild(a);
-        a.click();
-        
-        setTimeout(() => {
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        }, 100);
-        
-        // Abrir WhatsApp Web como fallback
-        setTimeout(() => {
-            abrirWhatsAppConContacto();
-        }, 1000);
         
     } catch (error) {
         console.error('Error enviando por WhatsApp:', error);
