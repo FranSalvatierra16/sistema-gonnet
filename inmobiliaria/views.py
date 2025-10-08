@@ -1898,7 +1898,7 @@ def ver_recibo(request, reserva_id):
                     'concepto': concepto_desc,
                     'monto': f'${registro.liquidacion:,.0f}'
                 })
-                total_pagado += registro.liquidacion
+                total_pagado += (registro.liquidacion or 0)
         else:
             # Fallback: usar los pagos de la reserva como antes
             for pago in reserva.pagos.all():
@@ -1915,23 +1915,23 @@ def ver_recibo(request, reserva_id):
                     'concepto': concepto_desc,
                     'monto': f'${pago.monto:,.0f}'  # Formatear como moneda
                 })
-                total_pagado += pago.monto
+                total_pagado += (pago.monto or 0)
                 if pago.forma_pago not in formas_de_pago:
                     formas_de_pago.append(pago.forma_pago.title())
         
         # Si no hay formas de pago desde pagos, intentar obtener del movimiento creado
         if not formas_de_pago and 'movimiento' in locals():
             formas_con_montos = []
-            if movimiento.monto_efectivo > 0:
+            if (movimiento.monto_efectivo or 0) > 0:
                 formas_con_montos.append(f'Efectivo ${movimiento.monto_efectivo:,.0f}')
                 formas_de_pago.append('Efectivo')
-            if movimiento.monto_tarjeta > 0:
+            if (movimiento.monto_tarjeta or 0) > 0:
                 formas_con_montos.append(f'Tarjeta ${movimiento.monto_tarjeta:,.0f}')
                 formas_de_pago.append('Tarjeta')
-            if movimiento.monto_cheque > 0:
+            if (movimiento.monto_cheque or 0) > 0:
                 formas_con_montos.append(f'Cheque ${movimiento.monto_cheque:,.0f}')
                 formas_de_pago.append('Cheque')
-            if movimiento.monto_deposito > 0:
+            if (movimiento.monto_deposito or 0) > 0:
                 if movimiento.destino_deposito == 'galicia':
                     formas_con_montos.append(f'Transferencia Galicia ${movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Galicia')
@@ -1999,9 +1999,9 @@ def ver_recibo(request, reserva_id):
         
         # ✅ CALCULAR VALORES CORRECTOS PARA EL RECIBO
         # Calcular seña y saldo restante basado en lo que realmente se pagó
-        senia_pagada = reserva.senia or 0
-        deposito_pagado = reserva.deposito_garantia or 0
-        precio_total = reserva.precio_total or 0
+        senia_pagada = float(reserva.senia or 0)
+        deposito_pagado = float(reserva.deposito_garantia or 0)
+        precio_total = float(reserva.precio_total or 0)
         saldo_restante = precio_total - senia_pagada
         
         # Verificar si el depósito fue pagado revisando los conceptos (concepto 10)
@@ -2097,7 +2097,7 @@ def generar_recibo_pdf(reserva, pago_senia):
                 'concepto': concepto_desc,
                 'monto': f'${registro.liquidacion:,.0f}'
             })
-            total_pagado += registro.liquidacion
+            total_pagado += (registro.liquidacion or 0)
     else:
         # Fallback: usar los pagos de la reserva como antes
         for pago in reserva.pagos.all():
@@ -2114,7 +2114,7 @@ def generar_recibo_pdf(reserva, pago_senia):
                 'concepto': concepto_desc,
                 'monto': f'${pago.monto:,.0f}'  # Formatear como moneda
             })
-            total_pagado += pago.monto
+            total_pagado += (pago.monto or 0)
             if pago.forma_pago not in formas_de_pago:
                 formas_de_pago.append(pago.forma_pago.title())
     
@@ -3194,19 +3194,19 @@ def ver_recibo_movimiento(request, movimiento_id):
         ).order_by('id')
         
         # ✅ USAR SOLO EL MOVIMIENTO PRINCIPAL (no sumar movimientos múltiples)
-        total_efectivo = movimiento.monto_efectivo
-        total_cheque = movimiento.monto_cheque
-        total_tarjeta = movimiento.monto_tarjeta
-        total_deposito = movimiento.monto_deposito
+        total_efectivo = movimiento.monto_efectivo or 0
+        total_cheque = movimiento.monto_cheque or 0
+        total_tarjeta = movimiento.monto_tarjeta or 0
+        total_deposito = movimiento.monto_deposito or 0
         
         # ✅ Para transferencias, extraer del concepto si hay ambas o usar destino_deposito
         total_deposito_galicia = 0
         total_deposito_mp = 0
         
         if movimiento.destino_deposito == 'galicia':
-            total_deposito_galicia = movimiento.monto_deposito
+            total_deposito_galicia = movimiento.monto_deposito or 0
         elif movimiento.destino_deposito == 'mp':
-            total_deposito_mp = movimiento.monto_deposito
+            total_deposito_mp = movimiento.monto_deposito or 0
         elif 'Galicia:' in movimiento.concepto and 'MP:' in movimiento.concepto:
             # Extraer montos del concepto si están ambos
             import re
