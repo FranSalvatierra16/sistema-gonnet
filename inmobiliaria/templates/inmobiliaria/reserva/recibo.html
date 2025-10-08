@@ -570,51 +570,21 @@ async function enviarDirectoWhatsApp() {
         const fileName = `recibo_{{ reserva.id|default:"N/A" }}.jpg`;
         const file = new File([imageBlob], fileName, { type: 'image/jpeg' });
         
-        // PRIORIDAD: Intentar abrir WhatsApp directamente primero
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        // DIRECTO A WHATSAPP WEB (sin extensiones ni complicaciones)
+        // Crear fecha para el mensaje
+        const ahora = new Date();
+        const fechaArgentina = ahora.toLocaleDateString('es-AR', {
+            day: '2-digit',
+            month: '2-digit', 
+            year: 'numeric'
+        });
+        const mensaje = `Adjunto recibo ${fechaArgentina}`;
         
-        if (isMobile) {
-            // Crear fecha para el mensaje
-            const ahora = new Date();
-            const fechaArgentina = ahora.toLocaleDateString('es-AR', {
-                day: '2-digit',
-                month: '2-digit', 
-                year: 'numeric'
-            });
-            const mensaje = `Adjunto recibo ${fechaArgentina}`;
-            
-            // OPCIÓN 1: Intentar abrir WhatsApp directamente
-            try {
-                const urlWhatsApp = `whatsapp://send?text=${encodeURIComponent(mensaje)}`;
-                window.location.href = urlWhatsApp;
-                mostrarNotificacion('📱 Abriendo WhatsApp... Selecciona contacto y adjunta la imagen descargada.', 'success');
-                return;
-            } catch (error) {
-                console.log('No se pudo abrir WhatsApp directamente');
-            }
-        }
-        
-        // OPCIÓN 2: Usar Web Share API como fallback
-        if (navigator.share) {
-            try {
-                const shareData = {
-                    title: 'Recibo de Pago',
-                    text: `Adjunto recibo ${new Date().toLocaleDateString('es-AR')}`,
-                    files: [file]
-                };
-                
-                await navigator.share(shareData);
-                mostrarNotificacion('✅ ¡Busca WhatsApp en la lista o haz scroll hacia abajo!', 'info');
-                return;
-                
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    mostrarNotificacion('ℹ️ Compartir cancelado', 'info');
-                    return;
-                }
-                console.log('Web Share API no disponible:', error);
-            }
-        }
+        // Abrir WhatsApp Web con mensaje predefinido
+        const urlWhatsAppWeb = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+        window.open(urlWhatsAppWeb, '_blank');
+        mostrarNotificacion('📱 WhatsApp Web abierto con mensaje. Selecciona contacto y arrastra la imagen.', 'success');
+        return;
         
         // FALLBACK: Si Web Share no está disponible, descargar y abrir WhatsApp Web
         const url = window.URL.createObjectURL(imageBlob);
