@@ -624,7 +624,7 @@ def operaciones(request):
         
         # ✅ VERIFICAR QUE HAYA AL MENOS ALGÚN PAGO REAL
         total_pagado = sum(
-            mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito
+            (mov.monto_efectivo or 0) + (mov.monto_cheque or 0) + (mov.monto_tarjeta or 0) + (mov.monto_deposito or 0)
             for mov in movimientos
         )
         
@@ -1726,16 +1726,16 @@ def terminar_reserva(request, reserva_id):
                         # Asignar montos según los pagos de la reserva
                         for pago in reserva.pagos.all():
                             if pago.forma_pago == 'efectivo':
-                                movimiento.monto_efectivo += pago.monto
+                                movimiento.monto_efectivo = (movimiento.monto_efectivo or 0) + (pago.monto or 0)
                             elif pago.forma_pago == 'tarjeta':
-                                movimiento.monto_tarjeta += pago.monto
+                                movimiento.monto_tarjeta = (movimiento.monto_tarjeta or 0) + (pago.monto or 0)
                             elif pago.forma_pago == 'transferencia':
-                                movimiento.monto_deposito += pago.monto
+                                movimiento.monto_deposito = (movimiento.monto_deposito or 0) + (pago.monto or 0)
                                 movimiento.destino_deposito = pago.destino_deposito
                             elif pago.forma_pago == 'cheque':
-                                movimiento.monto_cheque += pago.monto
+                                movimiento.monto_cheque = (movimiento.monto_cheque or 0) + (pago.monto or 0)
                             elif pago.forma_pago == 'qr':
-                                movimiento.monto_deposito += pago.monto
+                                movimiento.monto_deposito = (movimiento.monto_deposito or 0) + (pago.monto or 0)
                                 movimiento.destino_deposito = pago.destino_deposito
                         
                         # Guardar el movimiento
@@ -1843,14 +1843,14 @@ def ver_recibo(request, reserva_id):
             # Asignar montos según los pagos de la reserva
             for pago in reserva.pagos.all():
                 if pago.forma_pago == 'efectivo':
-                    movimiento.monto_efectivo += pago.monto
+                    movimiento.monto_efectivo = (movimiento.monto_efectivo or 0) + (pago.monto or 0)
                 elif pago.forma_pago == 'tarjeta':
-                    movimiento.monto_tarjeta += pago.monto
+                    movimiento.monto_tarjeta = (movimiento.monto_tarjeta or 0) + (pago.monto or 0)
                 elif pago.forma_pago == 'transferencia':
-                    movimiento.monto_deposito += pago.monto
+                    movimiento.monto_deposito = (movimiento.monto_deposito or 0) + (pago.monto or 0)
                     movimiento.destino_deposito = pago.destino_deposito
                 elif pago.forma_pago == 'cheque':
-                    movimiento.monto_cheque += pago.monto
+                    movimiento.monto_cheque = (movimiento.monto_cheque or 0) + (pago.monto or 0)
             
             movimiento.save()
             
@@ -2667,7 +2667,8 @@ def procesar_movimiento_reserva(request):
             print(f"=== VALORES CONVERTIDOS A DECIMAL ===")
             print(f"Montos recibidos - Efectivo: {monto_efectivo}, Cheque: {monto_cheque}, Tarjeta: {monto_tarjeta}")
             print(f"Transferencias - Galicia: {monto_deposito_galicia}, MP: {monto_deposito_mp}, Total: {monto_deposito}")
-            print(f"TOTAL A CREAR EN MOVIMIENTOS: {monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito}")
+            total_movimientos = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
+            print(f"TOTAL A CREAR EN MOVIMIENTOS: {total_movimientos}")
             
             # Datos adicionales
             banco = request.POST.get('banco', '').strip()
@@ -2783,7 +2784,8 @@ def procesar_movimiento_reserva(request):
                 movimiento_principal.concepto = concepto_actualizado
                 movimiento_principal.save()
             
-            print(f"✅ MOVIMIENTO ÚNICO CREADO - ID: {movimiento_principal.id}, Total: ${monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito}")
+            total_movimiento_creado = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
+            print(f"✅ MOVIMIENTO ÚNICO CREADO - ID: {movimiento_principal.id}, Total: ${total_movimiento_creado}")
             
             # Usar el movimiento principal para la respuesta
             movimiento = movimiento_principal
@@ -2801,7 +2803,7 @@ def procesar_movimiento_reserva(request):
             )
             
             total_pagado_anteriormente = sum(
-                mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito
+                (mov.monto_efectivo or 0) + (mov.monto_cheque or 0) + (mov.monto_tarjeta or 0) + (mov.monto_deposito or 0)
                 for mov in pagos_anteriores
             )
             
@@ -2841,7 +2843,7 @@ def procesar_movimiento_reserva(request):
                 print(f"   Validación principal: formas de pago = total conceptos")
                 
                 # ✅ CORREGIDO: MONTO DE ESTE PAGO debe ser la SEÑA DEL CASILLERO, no el total pagado
-                monto_total_pagado = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
+                monto_total_pagado = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
                 
                 # ✅ NUEVO: monto_este_pago siempre es la seña final del casillero (no el total de este movimiento)
                 monto_este_pago = senia  # Usar la seña del casillero
@@ -3244,7 +3246,8 @@ def ver_recibo_movimiento(request, movimiento_id):
             print(f"🔍 BÚSQUEDA MOVIMIENTOS - Buscando concepto: 'Operaci\u00f3n {reserva.id}'")
             print(f"🔍 MOVIMIENTOS ENCONTRADOS: {todos_movimientos.count()}")
             for mov in todos_movimientos:
-                print(f"🔍 Movimiento ID: {mov.id}, Concepto: '{mov.concepto}', Total: {mov.monto_efectivo + mov.monto_cheque + mov.monto_tarjeta + mov.monto_deposito}")
+                total_mov = (mov.monto_efectivo or 0) + (mov.monto_cheque or 0) + (mov.monto_tarjeta or 0) + (mov.monto_deposito or 0)
+                print(f"🔍 Movimiento ID: {mov.id}, Concepto: '{mov.concepto}', Total: {total_mov}")
             
             # ✅ INTENTAR OBTENER EL RECIBO ASOCIADO A ESTE MOVIMIENTO
             recibo_obj = None
@@ -5060,11 +5063,11 @@ def caja(request):
     
     saldos = {
         'anterior': caja.saldo_inicial,
-        'ingresos': sum(m.monto_efectivo + m.monto_cheque + m.monto_tarjeta + m.monto_deposito + m.monto_qr for m in ingresos),
-        'egresos': sum(m.monto_efectivo + m.monto_cheque + m.monto_tarjeta + m.monto_deposito + m.monto_qr for m in egresos),
+        'ingresos': sum((m.monto_efectivo or 0) + (m.monto_cheque or 0) + (m.monto_tarjeta or 0) + (m.monto_deposito or 0) + (m.monto_qr or 0) for m in ingresos),
+        'egresos': sum((m.monto_efectivo or 0) + (m.monto_cheque or 0) + (m.monto_tarjeta or 0) + (m.monto_deposito or 0) + (m.monto_qr or 0) for m in egresos),
         'anterior_total': caja.saldo_inicial,
-        'ingresos_total': sum(m.monto_efectivo + m.monto_cheque + m.monto_tarjeta + m.monto_deposito + m.monto_qr for m in ingresos),
-        'egresos_total': sum(m.monto_efectivo + m.monto_cheque + m.monto_tarjeta + m.monto_deposito + m.monto_qr for m in egresos),
+        'ingresos_total': sum((m.monto_efectivo or 0) + (m.monto_cheque or 0) + (m.monto_tarjeta or 0) + (m.monto_deposito or 0) + (m.monto_qr or 0) for m in ingresos),
+        'egresos_total': sum((m.monto_efectivo or 0) + (m.monto_cheque or 0) + (m.monto_tarjeta or 0) + (m.monto_deposito or 0) + (m.monto_qr or 0) for m in egresos),
     }
     
     # Calcular saldo del día y total
@@ -7060,8 +7063,8 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         honorarios = limpiar_valor_monetario(request.POST.get('honorarios_top', '0'))
         sellados = limpiar_valor_monetario(request.POST.get('sellados_top', '0'))
         
-        total_movimiento = (monto_efectivo + monto_cheque + monto_tarjeta + 
-                          monto_deposito_galicia + monto_deposito_mp)
+        total_movimiento = ((monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + 
+                          (monto_deposito_galicia or 0) + (monto_deposito_mp or 0))
         
         # Crear movimiento de caja
         movimiento = MovimientoCaja.objects.create(
