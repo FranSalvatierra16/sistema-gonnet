@@ -489,7 +489,7 @@ async function compartirWhatsApp() {
     }
 }
 
-// Función para abrir WhatsApp Web con mensaje predefinido
+// Función para abrir WhatsApp con mensaje predefinido
 function abrirWhatsAppConContacto() {
     // Crear fecha actual en formato argentino
     const ahora = new Date();
@@ -502,10 +502,29 @@ function abrirWhatsAppConContacto() {
     // Mensaje predefinido con fecha actual
     const mensaje = `Adjunto recibo ${fechaArgentina}`;
     
-    // Abrir WhatsApp Web con mensaje predefinido (sin contacto específico)
-    const urlWhatsApp = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
-    window.open(urlWhatsApp, '_blank');
-    mostrarNotificacion('📱 WhatsApp Web abierto con mensaje. Selecciona contacto y arrastra la imagen.', 'success');
+    // Detectar si es móvil o desktop
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+        // EN MÓVIL: Usar protocolo whatsapp:// (abre la app directamente)
+        const urlMovil = `whatsapp://send?text=${encodeURIComponent(mensaje)}`;
+        
+        // Intentar abrir la app nativa
+        window.location.href = urlMovil;
+        
+        // Fallback: si no funciona, abrir WhatsApp Web después de 2 segundos
+        setTimeout(() => {
+            const urlWeb = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+            window.open(urlWeb, '_blank');
+        }, 2000);
+        
+        mostrarNotificacion('📱 Abriendo WhatsApp... Si no se abre, se abrirá WhatsApp Web.', 'info');
+    } else {
+        // EN DESKTOP: Abrir WhatsApp Web directamente
+        const urlWeb = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+        window.open(urlWeb, '_blank');
+        mostrarNotificacion('📱 WhatsApp Web abierto con mensaje. Selecciona contacto y arrastra la imagen.', 'success');
+    }
 }
 
 
