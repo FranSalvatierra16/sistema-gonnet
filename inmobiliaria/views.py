@@ -624,7 +624,7 @@ def operaciones(request):
         
         # ✅ VERIFICAR QUE HAYA AL MENOS ALGÚN PAGO REAL
         total_pagado = sum(
-            (mov.monto_efectivo or 0) + (mov.monto_cheque or 0) + (mov.monto_tarjeta or 0) + (mov.monto_deposito or 0)
+            float(mov.monto_efectivo or 0) + float(mov.monto_cheque or 0) + float(mov.monto_tarjeta or 0) + float(mov.monto_deposito or 0)
             for mov in movimientos
         )
         
@@ -2030,6 +2030,13 @@ def ver_recibo(request, reserva_id):
         print(f"🧾 FORMAS DE PAGO: {', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO'}")
         print(f"🧾 PAGOS COUNT: {len(pagos)}")
         
+        # Obtener honorarios y sellados del movimiento si existe
+        honorarios_monto = 0
+        sellados_monto = 0
+        if 'movimiento' in locals() and movimiento:
+            honorarios_monto = float(movimiento.honorarios or 0)
+            sellados_monto = float(movimiento.sellados or 0)
+        
         # Continuar con la generación del recibo usando el template correcto
         return render(request, 'inmobiliaria/reserva/recibo.html', {
             'reserva': reserva_formateada,
@@ -2051,6 +2058,9 @@ def ver_recibo(request, reserva_id):
             'saldo_pendiente': f'${saldo_restante:,.0f}',  # Saldo restante después de la seña
             'deposito_garantia': f'${deposito_pagado:,.0f}',  # Depósito de garantía
             'deposito_estado': deposito_estado,  # Estado del depósito
+            # ✅ AGREGAR HONORARIOS Y SELLADOS
+            'honorarios': f'${honorarios_monto:,.0f}',
+            'sellados': f'${sellados_monto:,.0f}',
         })
         
     except Exception as e:
@@ -3619,6 +3629,10 @@ def ver_recibo_movimiento(request, movimiento_id):
                 # ✅ CORREGIDO: Usar la seña del casillero, no el total del movimiento
                 monto_este_pago_mostrar = total_senia_pagada_recibo
             
+            # Obtener honorarios y sellados del movimiento
+            honorarios_monto = float(movimiento.honorarios or 0)
+            sellados_monto = float(movimiento.sellados or 0)
+            
             # Usar el nuevo template de recibo
             return render(request, 'inmobiliaria/reserva/recibo.html', {
                 'reserva': reserva_formateada,
@@ -3642,6 +3656,9 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'deposito_garantia': f'${reserva.deposito_garantia:,.0f}',
                 # ✅ ESTADO DEL DEPÓSITO: Verificar si fue pagado en CUALQUIER movimiento de la reserva
                 'deposito_estado': determinar_estado_deposito_completo(reserva),
+                # ✅ AGREGAR HONORARIOS Y SELLADOS
+                'honorarios': f'${honorarios_monto:,.0f}',
+                'sellados': f'${sellados_monto:,.0f}',
             })
         
         # Si no hay reserva, usar el template original
