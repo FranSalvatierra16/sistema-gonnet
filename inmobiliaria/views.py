@@ -7163,7 +7163,7 @@ def procesar_operacion_contrato(request, contrato_id):
             concepto_10_presente = ' | ID:10 |' in conceptos_texto
             
             if concepto_10_presente:
-                total_esperado = contrato.deposito_garantia + contrato.precio_mensual
+                total_esperado = float(contrato.deposito_garantia or 0) + float(contrato.precio_mensual or 0)
                 mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
             else:
                 # Si no hay concepto 10, el total esperado es lo que esté en los conceptos
@@ -8212,27 +8212,33 @@ def recibo_contrato_24(request, contrato_id):
                 import json
                 conceptos_data = json.loads(primer_movimiento.concepto)
                 for concepto_data in conceptos_data:
+                    importe_valor = float(concepto_data.get('importe', 0))
                     conceptos_contrato.append({
                         'fecha': primer_movimiento.fecha,
                         'codigo': concepto_data.get('id', ''),
                         'nombre': concepto_data.get('nombre', ''),
-                        'importe': f"${float(concepto_data.get('importe', 0)):,.2f}".replace(',', '.')
+                        'importe': f"${importe_valor:,.2f}".replace(',', '.'),
+                        'importe_numerico': importe_valor  # Agregar valor numérico para cálculos
                     })
             except (json.JSONDecodeError, ValueError):
                 # Si no se puede parsear como JSON, usar formato fallback
+                monto_efectivo_valor = float(primer_movimiento.monto_efectivo or 0)
                 conceptos_contrato.append({
                     'fecha': primer_movimiento.fecha,
                     'codigo': '90',
                     'nombre': primer_movimiento.concepto,
-                    'importe': f"${primer_movimiento.monto_efectivo:,.2f}".replace(',', '.')
+                    'importe': f"${monto_efectivo_valor:,.2f}".replace(',', '.'),
+                    'importe_numerico': monto_efectivo_valor  # Agregar valor numérico para cálculos
                 })
         else:
             # Si no hay movimientos, usar datos básicos del contrato
+            precio_mensual_valor = float(contrato.precio_mensual or 0)
             conceptos_contrato.append({
                 'fecha': contrato.fecha_operacion,
                 'codigo': '90',
                 'nombre': f'CONTRATO ALQUILER - {contrato.propiedad.direccion}',
-                'importe': f"${contrato.precio_mensual:,.2f}".replace(',', '.')
+                'importe': f"${precio_mensual_valor:,.2f}".replace(',', '.'),
+                'importe_numerico': precio_mensual_valor  # Agregar valor numérico para cálculos
             })
         
         # Obtener valores de honorarios y sellados del movimiento (si existen)
@@ -8241,7 +8247,7 @@ def recibo_contrato_24(request, contrato_id):
         alquiler_mensual = contrato.precio_mensual
         
         # LÓGICA SIMPLIFICADA: El total es la suma de todos los conceptos + honorarios + sellados
-        total_conceptos = sum(concepto['importe'] for concepto in conceptos_contrato)
+        total_conceptos = sum(concepto['importe_numerico'] for concepto in conceptos_contrato)
         
         # Honorarios y sellados desde el movimiento
         honorarios = Decimal('0')
@@ -8256,7 +8262,7 @@ def recibo_contrato_24(request, contrato_id):
             print(f"  - Sellados: {sellado}")
         
         # El total del recibo es: conceptos + honorarios + sellados
-        total_a_abonar = total_conceptos + honorarios + sellado
+        total_a_abonar = float(total_conceptos) + float(honorarios) + float(sellado)
         subtotal = total_a_abonar
         total_contrato = total_a_abonar
         
