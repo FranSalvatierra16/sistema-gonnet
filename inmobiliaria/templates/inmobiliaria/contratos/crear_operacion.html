@@ -220,6 +220,35 @@
                     </div>
                 </div>
 
+                <!-- Sección de Honorarios y Sellados -->
+                <div class="card mb-4">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">💼 Honorarios y Sellados</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label><strong>Honorarios:</strong></label>
+                                    <input type="text" class="form-control" id="honorarios_visible" 
+                                           value="0" 
+                                           onchange="formatearNumeroEnTiempoReal(this); sincronizarHonorarios()" 
+                                           oninput="formatearNumeroEnTiempoReal(this); sincronizarHonorarios()">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label><strong>Sellados:</strong></label>
+                                    <input type="text" class="form-control" id="sellados_visible" 
+                                           value="0" 
+                                           onchange="formatearNumeroEnTiempoReal(this); sincronizarSellados()" 
+                                           oninput="formatearNumeroEnTiempoReal(this); sincronizarSellados()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Botones -->
                 <div class="card">
                     <div class="card-body text-center">
@@ -1074,5 +1103,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // Inicializar cálculos
     calcularTotales();
 });
+
+// Funciones para sincronizar campos visibles con campos ocultos
+function sincronizarHonorarios() {
+    const valorVisible = document.getElementById('honorarios_visible').value;
+    document.getElementById('honorarios_top').value = valorVisible;
+    calcularTotales();
+}
+
+function sincronizarSellados() {
+    const valorVisible = document.getElementById('sellados_visible').value;
+    document.getElementById('sellados_top').value = valorVisible;
+    calcularTotales();
+}
 </script>
 {% endblock %} 
