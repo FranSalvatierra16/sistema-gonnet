@@ -114,23 +114,44 @@ class MovimientoCaja(models.Model):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Inicializar montos en 0 si son None
-        self.monto_efectivo = self.monto_efectivo or 0
-        self.monto_cheque = self.monto_cheque or 0
-        self.monto_tarjeta = self.monto_tarjeta or 0
-        self.monto_deposito = self.monto_deposito or 0
+        # Inicializar montos en 0 si son None (después de cargar desde DB)
+        if hasattr(self, 'pk') and self.pk:
+            self.monto_efectivo = self.monto_efectivo or 0
+            self.monto_cheque = self.monto_cheque or 0
+            self.monto_tarjeta = self.monto_tarjeta or 0
+            self.monto_deposito = self.monto_deposito or 0
 
     def __str__(self):
         return f"{self.get_tipo_display()} - ${self.monto_total}"
     
     @property
+    def monto_efectivo_safe(self):
+        """Retorna monto_efectivo asegurando que nunca sea None"""
+        return float(self.monto_efectivo or 0)
+    
+    @property
+    def monto_cheque_safe(self):
+        """Retorna monto_cheque asegurando que nunca sea None"""
+        return float(self.monto_cheque or 0)
+    
+    @property
+    def monto_tarjeta_safe(self):
+        """Retorna monto_tarjeta asegurando que nunca sea None"""
+        return float(self.monto_tarjeta or 0)
+    
+    @property
+    def monto_deposito_safe(self):
+        """Retorna monto_deposito asegurando que nunca sea None"""
+        return float(self.monto_deposito or 0)
+
+    @property
     def monto_total(self):
         """Calcula el monto total sumando todos los métodos de pago"""
         return (
-            self.monto_efectivo +
-            self.monto_cheque +
-            self.monto_tarjeta +
-            self.monto_deposito
+            self.monto_efectivo_safe +
+            self.monto_cheque_safe +
+            self.monto_tarjeta_safe +
+            self.monto_deposito_safe
         )
     
     class Meta:

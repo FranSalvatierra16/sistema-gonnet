@@ -3489,16 +3489,16 @@ def ver_recibo_movimiento(request, movimiento_id):
             
             # Obtener formas de pago del movimiento con montos detallados
             formas_con_montos = []
-            if movimiento.monto_efectivo > 0:
+            if (movimiento.monto_efectivo or 0) > 0:
                 formas_con_montos.append(f'Efectivo ${movimiento.monto_efectivo:,.0f}')
                 formas_de_pago.append('Efectivo')
-            if movimiento.monto_tarjeta > 0:
+            if (movimiento.monto_tarjeta or 0) > 0:
                 formas_con_montos.append(f'Tarjeta ${movimiento.monto_tarjeta:,.0f}')
                 formas_de_pago.append('Tarjeta')
-            if movimiento.monto_cheque > 0:
+            if (movimiento.monto_cheque or 0) > 0:
                 formas_con_montos.append(f'Cheque ${movimiento.monto_cheque:,.0f}')
                 formas_de_pago.append('Cheque')
-            if movimiento.monto_deposito > 0:
+            if (movimiento.monto_deposito or 0) > 0:
                 if movimiento.destino_deposito == 'galicia':
                     formas_con_montos.append(f'Transferencia Galicia ${movimiento.monto_deposito:,.0f}')
                     formas_de_pago.append('Galicia')
