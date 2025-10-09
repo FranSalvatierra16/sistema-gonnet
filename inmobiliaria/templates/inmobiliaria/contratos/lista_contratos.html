@@ -206,9 +206,11 @@
                                         <a href="{% url 'inmobiliaria:detalle_contrato' contrato.id %}" class="btn btn-sm btn-primary" title="Ver Detalle">
                                             <i class="fas fa-eye"></i>
                                         </a>
+                                        {% if contrato.operacion_principal %}
                                         <a href="{% url 'inmobiliaria:recibo_contrato_24' contrato.id %}" class="btn btn-sm btn-info" title="Ver Recibo" target="_blank">
                                             <i class="fas fa-file-invoice"></i>
                                         </a>
+                                        {% endif %}
                                         {% if contrato.estado == 'activo' or contrato.estado == 'reservado' %}
                                             {% if not contrato.operacion_principal %}
                                             <button class="btn btn-sm btn-warning" 
