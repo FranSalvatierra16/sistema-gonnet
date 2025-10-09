@@ -8256,10 +8256,6 @@ def recibo_contrato_24(request, contrato_id):
         if primer_movimiento:
             honorarios = getattr(primer_movimiento, 'honorarios', Decimal('0')) or Decimal('0')
             sellado = getattr(primer_movimiento, 'sellados', Decimal('0')) or Decimal('0')
-            print(f"🔍 DEBUG RECIBO:")
-            print(f"  - Total conceptos: {total_conceptos}")
-            print(f"  - Honorarios: {honorarios}")
-            print(f"  - Sellados: {sellado}")
         
         # El total del recibo es: conceptos + honorarios + sellados
         total_a_abonar = float(total_conceptos) + float(honorarios) + float(sellado)
@@ -8269,8 +8265,6 @@ def recibo_contrato_24(request, contrato_id):
         # Para el template (estos son solo informativos)
         deposito_garantia = contrato.deposito_garantia or Decimal('0')
         primer_mes = alquiler_mensual
-        
-        print(f"  - TOTAL FINAL: {total_a_abonar}")
         
         # Convertir números a formato de pesos argentinos
         def format_currency(amount):
