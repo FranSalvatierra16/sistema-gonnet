@@ -117,6 +117,38 @@
                 <input type="hidden" id="honorarios_top" name="honorarios_top" value="0">
                 <input type="hidden" id="sellados_top" name="sellados_top" value="0">
                 
+                <!-- Sección de Honorarios y Sellados -->
+                <div class="card mb-4" style="display: block !important; visibility: visible !important;">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">💼 Honorarios y Sellados</h5>
+                        <small class="text-muted">Estos valores se agregarán automáticamente como conceptos 25 (Honorarios) y 26 (Sellados)</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label><strong>Honorarios (Concepto 25):</strong></label>
+                                    <input type="text" class="form-control" id="honorarios_visible" 
+                                           value="0" 
+                                           onchange="formatearNumeroEnTiempoReal(this); sincronizarHonorarios(); agregarConceptoHonorarios()" 
+                                           oninput="formatearNumeroEnTiempoReal(this); sincronizarHonorarios()">
+                                    <small class="form-text text-muted">Se agregará automáticamente como concepto al cambiar el valor</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label><strong>Sellados (Concepto 26):</strong></label>
+                                    <input type="text" class="form-control" id="sellados_visible" 
+                                           value="0" 
+                                           onchange="formatearNumeroEnTiempoReal(this); sincronizarSellados(); agregarConceptoSellados()" 
+                                           oninput="formatearNumeroEnTiempoReal(this); sincronizarSellados()">
+                                    <small class="form-text text-muted">Se agregará automáticamente como concepto al cambiar el valor</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Sección de Conceptos -->
                 <div class="card mb-4">
                     <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
@@ -220,34 +252,6 @@
                     </div>
                 </div>
 
-                <!-- Sección de Honorarios y Sellados -->
-                <div class="card mb-4">
-                    <div class="card-header bg-secondary text-white">
-                        <h5 class="mb-0">💼 Honorarios y Sellados</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label><strong>Honorarios:</strong></label>
-                                    <input type="text" class="form-control" id="honorarios_visible" 
-                                           value="0" 
-                                           onchange="formatearNumeroEnTiempoReal(this); sincronizarHonorarios()" 
-                                           oninput="formatearNumeroEnTiempoReal(this); sincronizarHonorarios()">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label><strong>Sellados:</strong></label>
-                                    <input type="text" class="form-control" id="sellados_visible" 
-                                           value="0" 
-                                           onchange="formatearNumeroEnTiempoReal(this); sincronizarSellados()" 
-                                           oninput="formatearNumeroEnTiempoReal(this); sincronizarSellados()">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- Botones -->
                 <div class="card">
@@ -1115,6 +1119,60 @@ function sincronizarSellados() {
     const valorVisible = document.getElementById('sellados_visible').value;
     document.getElementById('sellados_top').value = valorVisible;
     calcularTotales();
+}
+
+// Función para agregar automáticamente concepto de honorarios (25)
+function agregarConceptoHonorarios() {
+    const valor = parsearValorFormateado(document.getElementById('honorarios_visible').value);
+    if (valor > 0) {
+        // Remover concepto 25 existente si lo hay
+        conceptosAgregados = conceptosAgregados.filter(c => c.id !== '25');
+        
+        // Agregar nuevo concepto 25
+        const conceptoHonorarios = {
+            fecha: new Date().toISOString().split('T')[0],
+            id: '25',
+            nombre: 'Honorarios',
+            observaciones: 'Honorarios profesionales',
+            importe: valor
+        };
+        
+        conceptosAgregados.push(conceptoHonorarios);
+        actualizarTablaConceptos();
+        calcularTotales();
+    } else {
+        // Si el valor es 0, remover el concepto 25
+        conceptosAgregados = conceptosAgregados.filter(c => c.id !== '25');
+        actualizarTablaConceptos();
+        calcularTotales();
+    }
+}
+
+// Función para agregar automáticamente concepto de sellados (26)
+function agregarConceptoSellados() {
+    const valor = parsearValorFormateado(document.getElementById('sellados_visible').value);
+    if (valor > 0) {
+        // Remover concepto 26 existente si lo hay
+        conceptosAgregados = conceptosAgregados.filter(c => c.id !== '26');
+        
+        // Agregar nuevo concepto 26
+        const conceptoSellados = {
+            fecha: new Date().toISOString().split('T')[0],
+            id: '26',
+            nombre: 'Sellados',
+            observaciones: 'Sellados de ley',
+            importe: valor
+        };
+        
+        conceptosAgregados.push(conceptoSellados);
+        actualizarTablaConceptos();
+        calcularTotales();
+    } else {
+        // Si el valor es 0, remover el concepto 26
+        conceptosAgregados = conceptosAgregados.filter(c => c.id !== '26');
+        actualizarTablaConceptos();
+        calcularTotales();
+    }
 }
 </script>
 {% endblock %} 
