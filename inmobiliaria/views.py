@@ -5573,16 +5573,17 @@ def guardar_movimiento(request):
 def propiedades_propietario(request, propietario_id):
     propietario = get_object_or_404(Propietario, pk=propietario_id)
 
-    propiedades = (
-        Propiedad.objects
-        .filter(propietario=propietario)
-        .order_by("numero_por_propietario")      # ← clave
-    )
+    # Obtener propiedades ordenadas por número de ficha (ID) numéricamente
+    propiedades = Propiedad.objects.filter(propietario=propietario).select_related('sucursal')
+    
+    # Convertir a lista y ordenar numéricamente por ID (número de ficha)
+    propiedades_list = list(propiedades)
+    propiedades_list.sort(key=lambda p: int(p.id) if str(p.id).isdigit() else float('inf'))
 
     return render(
         request,
         "inmobiliaria/propietarios/propiedades_propietario.html",
-        {"propietario": propietario, "propiedades": propiedades},
+        {"propietario": propietario, "propiedades": propiedades_list},
     )
 
 @require_POST

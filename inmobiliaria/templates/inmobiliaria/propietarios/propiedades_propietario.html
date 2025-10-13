@@ -13,22 +13,25 @@
         <thead class="table-light">
             <tr>
                 <th>Ficha</th>
+                <th>Sucursal</th>
                 <th>Nº&nbsp;Prop.</th>
                 <th>Dirección</th>
                 <th>Valoración</th>
                 <th>Piso</th>
                 <th>Departamento</th>
                 <th>Ambientes</th>
-                
-                
-                
                 <th>Acciones</th>
             </tr>
         </thead>
         <tbody>
-            {% for propiedad in propiedades|dictsort:"numero_por_propietario" %}
+            {% for propiedad in propiedades %}
             <tr>
                 <td>{{ propiedad.id }}</td>
+                <td>
+                    <span class="badge bg-info">
+                        {{ propiedad.sucursal.nombre|default:"Sin sucursal" }}
+                    </span>
+                </td>
                 <td>{{ propiedad.numero_por_propietario }}</td>
                 <td>{{ propiedad.direccion }}</td>
                 <td>{{ propiedad.valoracion}}</td>
@@ -50,7 +53,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="11" class="text-center">Este propietario no tiene propiedades registradas.</td>
+                <td colspan="9" class="text-center">Este propietario no tiene propiedades registradas.</td>
             </tr>
             {% endfor %}
         </tbody>
