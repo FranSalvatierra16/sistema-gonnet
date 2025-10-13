@@ -2265,6 +2265,7 @@ function mostrarDetallesOperacion(operacion, reserva) {
             <div class="row">
                 <div class="col-md-6">
                     <p><strong>Cliente:</strong> ${reserva.cliente}</p>
+                    <p><strong>Productor:</strong> ${reserva.productor_id ? `#${reserva.productor_id} - ${reserva.productor_nombre}` : 'No especificado'}</p>
                     <p><strong>Período:</strong> ${reserva.fecha_inicio} al ${reserva.fecha_fin}</p>
                     <p><strong>Total días:</strong> ${reserva.total_dias}</p>
                 </div>
