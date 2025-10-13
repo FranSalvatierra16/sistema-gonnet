@@ -8378,8 +8378,8 @@ def detalles_operacion_reserva(request, reserva_id):
         reserva_data = {
             'id': reserva.id,
             'cliente': reserva.cliente.nombre if reserva.cliente else 'No especificado',
-            'productor_id': reserva.empleado.id if reserva.empleado else None,
-            'productor_nombre': f"{reserva.empleado.first_name} {reserva.empleado.last_name}".strip() if reserva.empleado else 'No especificado',
+            'productor_id': reserva.vendedor.id if reserva.vendedor else None,
+            'productor_nombre': reserva.vendedor.nombre if reserva.vendedor else 'No especificado',
             'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
             'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
             'total_dias': (reserva.fecha_fin - reserva.fecha_inicio).days,
