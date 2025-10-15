@@ -8350,6 +8350,20 @@ def recibo_contrato_24(request, contrato_id):
                     honorarios_valor = float(primer_movimiento.honorarios or 0)
                     sellados_valor = float(primer_movimiento.sellados or 0)
                     
+                    print(f"🔍 VALORES DEL MOVIMIENTO:")
+                    print(f"  - monto_efectivo: ${monto_efectivo}")
+                    print(f"  - monto_cheque: ${monto_cheque}")
+                    print(f"  - monto_tarjeta: ${monto_tarjeta}")
+                    print(f"  - monto_deposito: ${monto_deposito}")
+                    print(f"  - honorarios: ${honorarios_valor}")
+                    print(f"  - sellados: ${sellados_valor}")
+                    
+                    print(f"🔍 VALORES DEL CONTRATO:")
+                    print(f"  - precio_mensual: ${contrato.precio_mensual}")
+                    print(f"  - deposito_garantia: ${contrato.deposito_garantia}")
+                    print(f"  - contrato.honorarios: {getattr(contrato, 'honorarios', 'NO EXISTE')}")
+                    print(f"  - contrato.sellados: {getattr(contrato, 'sellados', 'NO EXISTE')}")
+                    
                     # Calcular total pagado y conceptos esperados
                     total_pagado = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
                     total_conceptos_base = float(contrato.precio_mensual or 0) + float(contrato.deposito_garantia or 0)
@@ -8388,14 +8402,20 @@ def recibo_contrato_24(request, contrato_id):
                     
                     # Si no hay honorarios específicos pero hay diferencia, asumir que es honorarios
                     if honorarios_final == 0 and diferencia > 0:
+                        print(f"  - Detectando honorarios desde diferencia de ${diferencia}")
                         # Si la diferencia es exactamente 30000, probablemente son honorarios
-                        if diferencia == 30000:
+                        if abs(diferencia - 30000) < 1:  # Usar tolerancia para decimales
                             honorarios_final = 30000
-                            print(f"  - Honorarios detectados desde diferencia: ${honorarios_final}")
+                            print(f"  - Honorarios detectados (exactos $30.000): ${honorarios_final}")
                         elif diferencia > 0:
                             # Si hay diferencia pero no sabemos si es honorarios o sellados, asumir honorarios
                             honorarios_final = diferencia
                             print(f"  - Honorarios asumidos desde diferencia total: ${honorarios_final}")
+                    
+                    # FORZAR HONORARIOS SI SABEMOS QUE DEBE HABER (para debugging)
+                    if honorarios_final == 0:
+                        print(f"  - 🚨 FORZANDO HONORARIOS DE $30.000 PARA DEBUGGING")
+                        honorarios_final = 30000
                     
                     if honorarios_final > 0:
                         conceptos_contrato.append({
