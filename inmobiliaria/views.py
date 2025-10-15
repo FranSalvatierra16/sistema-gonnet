@@ -7121,6 +7121,10 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         conceptos_detalle = []
         
         print(f"🔍 DEBUG CONTRATOS: Procesando {conceptos_count} conceptos")
+        print(f"🔍 DEBUG CONTRATOS: Todos los datos POST:")
+        for key, value in request.POST.items():
+            if 'concepto' in key.lower():
+                print(f"  - {key}: {value}")
         
         for i in range(conceptos_count):
             concepto_id = request.POST.get(f'concepto_{i}_id')
@@ -7128,6 +7132,8 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             concepto_importe = request.POST.get(f'concepto_{i}_importe')
             concepto_observaciones = request.POST.get(f'concepto_{i}_observaciones', '')
             concepto_fecha = request.POST.get(f'concepto_{i}_fecha')
+            
+            print(f"  - Concepto {i}: ID='{concepto_id}', Nombre='{concepto_nombre}', Importe='{concepto_importe}', Obs='{concepto_observaciones}', Fecha='{concepto_fecha}'")
             
             if concepto_id and concepto_nombre and concepto_importe:
                 # Limpiar el importe
@@ -7145,7 +7151,9 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
                 # Agregar al detalle para mostrar
                 conceptos_detalle.append(f"{concepto_nombre} ${importe_limpio}")
                 
-                print(f"  - Concepto {i}: ID={concepto_id}, Nombre={concepto_nombre}, Importe=${importe_limpio}")
+                print(f"    ✅ Concepto {i} AGREGADO: ID={concepto_id}, Nombre={concepto_nombre}, Importe=${importe_limpio}")
+            else:
+                print(f"    ❌ Concepto {i} OMITIDO: Faltan datos")
         
         # Construir concepto final
         if conceptos_data:
@@ -8412,10 +8420,10 @@ def recibo_contrato_24(request, contrato_id):
                             honorarios_final = diferencia
                             print(f"  - Honorarios asumidos desde diferencia total: ${honorarios_final}")
                     
-                    # FORZAR HONORARIOS SI SABEMOS QUE DEBE HABER (para debugging)
-                    if honorarios_final == 0:
-                        print(f"  - 🚨 FORZANDO HONORARIOS DE $30.000 PARA DEBUGGING")
-                        honorarios_final = 30000
+                    # DEBUG: No forzar honorarios temporalmente para ver logs reales
+                    # if honorarios_final == 0:
+                    #     print(f"  - 🚨 FORZANDO HONORARIOS DE $30.000 PARA DEBUGGING")
+                    #     honorarios_final = 30000
                     
                     if honorarios_final > 0:
                         conceptos_contrato.append({
