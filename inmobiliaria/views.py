@@ -8350,6 +8350,15 @@ def recibo_contrato_24(request, contrato_id):
                     honorarios_valor = float(primer_movimiento.honorarios or 0)
                     sellados_valor = float(primer_movimiento.sellados or 0)
                     
+                    # Calcular total pagado y conceptos esperados
+                    total_pagado = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
+                    total_conceptos_base = float(contrato.precio_mensual or 0) + float(contrato.deposito_garantia or 0)
+                    diferencia = total_pagado - total_conceptos_base
+                    
+                    print(f"  - Total pagado: ${total_pagado}")
+                    print(f"  - Conceptos base (alquiler + depósito): ${total_conceptos_base}")
+                    print(f"  - Diferencia (honorarios + sellados): ${diferencia}")
+                    
                     # Crear conceptos basados en los valores del contrato y movimiento
                     if contrato.precio_mensual and contrato.precio_mensual > 0:
                         conceptos_contrato.append({
@@ -8371,25 +8380,58 @@ def recibo_contrato_24(request, contrato_id):
                         })
                         print(f"  - Agregado: Depósito ${contrato.deposito_garantia}")
                     
-                    if honorarios_valor > 0:
+                    # Verificar honorarios desde múltiples fuentes
+                    honorarios_final = honorarios_valor
+                    if honorarios_final == 0 and hasattr(contrato, 'honorarios') and contrato.honorarios:
+                        honorarios_final = float(contrato.honorarios or 0)
+                        print(f"  - Honorarios desde contrato: ${honorarios_final}")
+                    
+                    # Si no hay honorarios específicos pero hay diferencia, asumir que es honorarios
+                    if honorarios_final == 0 and diferencia > 0:
+                        # Si la diferencia es exactamente 30000, probablemente son honorarios
+                        if diferencia == 30000:
+                            honorarios_final = 30000
+                            print(f"  - Honorarios detectados desde diferencia: ${honorarios_final}")
+                        elif diferencia > 0:
+                            # Si hay diferencia pero no sabemos si es honorarios o sellados, asumir honorarios
+                            honorarios_final = diferencia
+                            print(f"  - Honorarios asumidos desde diferencia total: ${honorarios_final}")
+                    
+                    if honorarios_final > 0:
                         conceptos_contrato.append({
                             'fecha': primer_movimiento.fecha,
                             'codigo': '25',
                             'nombre': 'Honorarios',
-                            'importe': f"${honorarios_valor:,.2f}".replace(',', '.'),
-                            'importe_numerico': honorarios_valor
+                            'importe': f"${honorarios_final:,.2f}".replace(',', '.'),
+                            'importe_numerico': honorarios_final
                         })
-                        print(f"  - Agregado: Honorarios ${honorarios_valor}")
+                        print(f"  - Agregado: Honorarios ${honorarios_final}")
+                    else:
+                        print(f"  - Honorarios NO agregado: movimiento.honorarios={honorarios_valor}, contrato.honorarios={getattr(contrato, 'honorarios', 'N/A')}, diferencia=${diferencia}")
                     
-                    if sellados_valor > 0:
+                    # Verificar sellados desde múltiples fuentes
+                    sellados_final = sellados_valor
+                    if sellados_final == 0 and hasattr(contrato, 'sellados') and contrato.sellados:
+                        sellados_final = float(contrato.sellados or 0)
+                        print(f"  - Sellados desde contrato: ${sellados_final}")
+                    
+                    # Si hay sellados específicos o diferencia restante después de honorarios
+                    diferencia_restante = diferencia - honorarios_final
+                    if sellados_final == 0 and diferencia_restante > 0:
+                        sellados_final = diferencia_restante
+                        print(f"  - Sellados detectados desde diferencia restante: ${sellados_final}")
+                    
+                    if sellados_final > 0:
                         conceptos_contrato.append({
                             'fecha': primer_movimiento.fecha,
                             'codigo': '26',
                             'nombre': 'Sellados',
-                            'importe': f"${sellados_valor:,.2f}".replace(',', '.'),
-                            'importe_numerico': sellados_valor
+                            'importe': f"${sellados_final:,.2f}".replace(',', '.'),
+                            'importe_numerico': sellados_final
                         })
-                        print(f"  - Agregado: Sellados ${sellados_valor}")
+                        print(f"  - Agregado: Sellados ${sellados_final}")
+                    else:
+                        print(f"  - Sellados NO agregado: movimiento.sellados={sellados_valor}, contrato.sellados={getattr(contrato, 'sellados', 'N/A')}, diferencia_restante=${diferencia_restante}")
                     
                     # Si no hay conceptos específicos, usar el monto total como concepto genérico
                     if not conceptos_contrato:
