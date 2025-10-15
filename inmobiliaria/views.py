@@ -8211,26 +8211,65 @@ def recibo_contrato_24(request, contrato_id):
             # Parsear los conceptos del movimiento
             try:
                 import json
+                # Intentar parsear como JSON (formato nuevo)
                 conceptos_data = json.loads(primer_movimiento.concepto)
+                print(f"🔍 DEBUG: Conceptos parseados como JSON: {conceptos_data}")
+                
                 for concepto_data in conceptos_data:
                     importe_valor = float(concepto_data.get('importe', 0))
+                    codigo = concepto_data.get('id', concepto_data.get('codigo', ''))
+                    nombre = concepto_data.get('nombre', concepto_data.get('concepto', ''))
+                    
                     conceptos_contrato.append({
                         'fecha': primer_movimiento.fecha,
-                        'codigo': concepto_data.get('id', ''),
-                        'nombre': concepto_data.get('nombre', ''),
+                        'codigo': codigo,
+                        'nombre': nombre,
                         'importe': f"${importe_valor:,.2f}".replace(',', '.'),
-                        'importe_numerico': importe_valor  # Agregar valor numérico para cálculos
+                        'importe_numerico': importe_valor
                     })
-            except (json.JSONDecodeError, ValueError):
-                # Si no se puede parsear como JSON, usar formato fallback
-                monto_efectivo_valor = float(primer_movimiento.monto_efectivo or 0)
-                conceptos_contrato.append({
-                    'fecha': primer_movimiento.fecha,
-                    'codigo': '90',
-                    'nombre': primer_movimiento.concepto,
-                    'importe': f"${monto_efectivo_valor:,.2f}".replace(',', '.'),
-                    'importe_numerico': monto_efectivo_valor  # Agregar valor numérico para cálculos
-                })
+                    print(f"  - Concepto agregado: {codigo} - {nombre} - ${importe_valor}")
+                    
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"🔍 DEBUG: No se pudo parsear como JSON: {e}")
+                print(f"  - Concepto raw: {primer_movimiento.concepto}")
+                
+                # Intentar parsear formato texto con separadores
+                concepto_texto = primer_movimiento.concepto
+                if ' | ' in concepto_texto:
+                    # Formato: "Concepto1 | ID:25 | $40000 | Concepto2 | ID:1 | $380000"
+                    partes = concepto_texto.split(' | ')
+                    i = 0
+                    while i < len(partes):
+                        if i + 2 < len(partes) and partes[i+1].startswith('ID:'):
+                            nombre = partes[i]
+                            codigo = partes[i+1].replace('ID:', '')
+                            importe_str = partes[i+2].replace('$', '').replace('.', '').replace(',', '.')
+                            try:
+                                importe_valor = float(importe_str)
+                                conceptos_contrato.append({
+                                    'fecha': primer_movimiento.fecha,
+                                    'codigo': codigo,
+                                    'nombre': nombre,
+                                    'importe': f"${importe_valor:,.2f}".replace(',', '.'),
+                                    'importe_numerico': importe_valor
+                                })
+                                print(f"  - Concepto parseado del texto: {codigo} - {nombre} - ${importe_valor}")
+                                i += 3
+                            except ValueError:
+                                i += 1
+                        else:
+                            i += 1
+                
+                # Si no se pudo parsear nada, usar fallback
+                if not conceptos_contrato:
+                    monto_total = (primer_movimiento.monto_efectivo or 0) + (primer_movimiento.monto_cheque or 0) + (primer_movimiento.monto_tarjeta or 0) + (primer_movimiento.monto_deposito or 0)
+                    conceptos_contrato.append({
+                        'fecha': primer_movimiento.fecha,
+                        'codigo': '90',
+                        'nombre': f'Contrato #{contrato.id} - {contrato.propiedad.direccion}',
+                        'importe': f"${float(monto_total):,.2f}".replace(',', '.'),
+                        'importe_numerico': float(monto_total)
+                    })
         else:
             # Si no hay movimientos, usar datos básicos del contrato
             precio_mensual_valor = float(contrato.precio_mensual or 0)
