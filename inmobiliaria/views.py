@@ -7005,9 +7005,10 @@ def obtener_caja_abierta(request):
 def determinar_estado_concepto_contrato(contrato, concepto_id):
     """
     Determina si un concepto específico está pagado para un contrato.
-    Similar a la lógica del concepto 10 en alquiler por día.
+    Soporta tanto formato JSON nuevo como formato de texto antiguo.
     """
     from .models import MovimientoCaja
+    import json
     
     # Buscar movimientos de caja relacionados con este contrato
     movimientos = MovimientoCaja.objects.filter(
@@ -7015,10 +7016,29 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
         concepto__icontains=f'Contrato #{contrato.id}'
     )
     
+    print(f"🔍 DEBUG ESTADO CONCEPTO {concepto_id} - Contrato #{contrato.id}")
+    print(f"   - Movimientos encontrados: {movimientos.count()}")
+    
     # Verificar si algún movimiento contiene el concepto específico
-    for movimiento in movimientos:
+    for i, movimiento in enumerate(movimientos):
+        print(f"   - Movimiento {i+1}: {movimiento.concepto[:100]}...")
+        
         try:
-            # Parsear conceptos estructurados (igual que en alquiler por día)
+            # 1. INTENTAR PARSEAR COMO JSON (formato nuevo)
+            conceptos_data = json.loads(movimiento.concepto)
+            print(f"     ✅ Parseado como JSON: {len(conceptos_data)} conceptos")
+            
+            for concepto in conceptos_data:
+                concepto_id_actual = str(concepto.get('id', concepto.get('codigo', '')))
+                if concepto_id_actual == str(concepto_id):
+                    print(f"     🎯 CONCEPTO {concepto_id} ENCONTRADO EN JSON!")
+                    return 'pagado'
+                    
+        except (json.JSONDecodeError, ValueError):
+            # 2. PARSEAR FORMATO TEXTO ANTIGUO
+            print(f"     ⚠️ No es JSON, intentando formato texto...")
+            
+            # Formato con separadores |
             conceptos_lineas = movimiento.concepto.split('\n')
             for linea in conceptos_lineas:
                 if ' | ID:' in linea and ' | $' in linea:
@@ -7029,10 +7049,22 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
                         if id_parte:
                             id_concepto = id_parte[0].replace('ID:', '').strip()
                             if id_concepto == concepto_id:
+                                print(f"     🎯 CONCEPTO {concepto_id} ENCONTRADO EN TEXTO!")
                                 return 'pagado'
-        except:
+            
+            # Formato estructurado |CONCEPTOS:
+            if "|CONCEPTOS:" in movimiento.concepto:
+                concepto_parts = movimiento.concepto.split("|CONCEPTOS:", 1)
+                if len(concepto_parts) > 1:
+                    conceptos_data = concepto_parts[1]
+                    if f"|{concepto_id}:" in conceptos_data:
+                        print(f"     🎯 CONCEPTO {concepto_id} ENCONTRADO EN ESTRUCTURA!")
+                        return 'pagado'
+        except Exception as e:
+            print(f"     ❌ Error parseando movimiento: {e}")
             continue
     
+    print(f"   ❌ CONCEPTO {concepto_id} NO ENCONTRADO - Estado: pendiente")
     return 'pendiente'
 
 def obtener_valor_concepto_contrato(contrato, campo):
@@ -7057,6 +7089,8 @@ def obtener_valor_concepto_contrato(contrato, campo):
 def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
     """Procesa los conceptos y crea el movimiento de caja"""
     try:
+        import json
+        
         # Función auxiliar para limpiar valores monetarios
         def limpiar_valor_monetario(valor_str):
             if not valor_str or valor_str.strip() == '':
@@ -7066,9 +7100,6 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
                 return Decimal(valor_limpio)
             except:
                 return Decimal('0')
-        
-        # Extraer datos del formulario
-        concepto = request.POST.get('concepto', f'Contrato #{contrato.id} - {contrato.propiedad.direccion}')
         
         # Métodos de pago
         monto_efectivo = limpiar_valor_monetario(request.POST.get('monto_efectivo', '0'))
@@ -7084,11 +7115,53 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         total_movimiento = ((monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + 
                           (monto_deposito_galicia or 0) + (monto_deposito_mp or 0))
         
+        # ✅ PROCESAR CONCEPTOS INDIVIDUALES (igual que en alquiler por día)
+        conceptos_count = int(request.POST.get('conceptos_count', 0))
+        conceptos_data = []
+        conceptos_detalle = []
+        
+        print(f"🔍 DEBUG CONTRATOS: Procesando {conceptos_count} conceptos")
+        
+        for i in range(conceptos_count):
+            concepto_id = request.POST.get(f'concepto_{i}_id')
+            concepto_nombre = request.POST.get(f'concepto_{i}_nombre')
+            concepto_importe = request.POST.get(f'concepto_{i}_importe')
+            concepto_observaciones = request.POST.get(f'concepto_{i}_observaciones', '')
+            concepto_fecha = request.POST.get(f'concepto_{i}_fecha')
+            
+            if concepto_id and concepto_nombre and concepto_importe:
+                # Limpiar el importe
+                importe_limpio = limpiar_valor_monetario(concepto_importe)
+                
+                # Agregar al array de conceptos (formato JSON)
+                conceptos_data.append({
+                    'id': concepto_id,
+                    'nombre': concepto_nombre,
+                    'importe': float(importe_limpio),
+                    'observaciones': concepto_observaciones,
+                    'fecha': concepto_fecha
+                })
+                
+                # Agregar al detalle para mostrar
+                conceptos_detalle.append(f"{concepto_nombre} ${importe_limpio}")
+                
+                print(f"  - Concepto {i}: ID={concepto_id}, Nombre={concepto_nombre}, Importe=${importe_limpio}")
+        
+        # Construir concepto final
+        if conceptos_data:
+            # Guardar como JSON para parsing posterior
+            concepto_json = json.dumps(conceptos_data)
+            print(f"💾 CONCEPTO JSON GUARDADO: {concepto_json}")
+        else:
+            # Fallback si no hay conceptos
+            concepto_json = f'Contrato #{contrato.id} - {contrato.propiedad.direccion}'
+            print(f"💾 CONCEPTO FALLBACK: {concepto_json}")
+        
         # Crear movimiento de caja
         movimiento = MovimientoCaja.objects.create(
             caja=caja,
             tipo='INGRESO',
-            concepto=concepto,
+            concepto=concepto_json,  # ✅ Guardar JSON o fallback
             monto_efectivo=monto_efectivo,
             monto_cheque=monto_cheque,
             monto_tarjeta=monto_tarjeta,
