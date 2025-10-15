@@ -172,6 +172,40 @@
                         </div>
                     </div>
 
+                    <!-- Honorarios y Sellados -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header bg-warning text-dark">
+                                    <h5 class="mb-0">💼 Honorarios y Sellados (Opcional)</h5>
+                                    <small class="text-muted">Estos campos pueden quedar vacíos. Solo para organización y referencia.</small>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="mb-3">
+                                                <label class="form-label"><strong>Honorarios:</strong></label>
+                                                <input type="text" class="form-control" id="honorarios_contrato" name="honorarios_contrato" 
+                                                       placeholder="Ej: 30000" onchange="formatearNumeroEnTiempoReal(this)" 
+                                                       oninput="formatearNumeroEnTiempoReal(this)">
+                                                <small class="form-text text-muted">Valor de referencia para honorarios profesionales</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="mb-3">
+                                                <label class="form-label"><strong>Sellados:</strong></label>
+                                                <input type="text" class="form-control" id="sellados_contrato" name="sellados_contrato" 
+                                                       placeholder="Ej: 20000" onchange="formatearNumeroEnTiempoReal(this)" 
+                                                       oninput="formatearNumeroEnTiempoReal(this)">
+                                                <small class="form-text text-muted">Valor de referencia para sellados de ley</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Resumen del Contrato -->
                     <div class="row mt-3">
                         <div class="col-12">
@@ -740,4 +774,23 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
 });
+
+// Función para formatear números en tiempo real
+function formatearNumeroEnTiempoReal(input) {
+    // Obtener el valor actual
+    let valor = input.value;
+    
+    // Remover todo lo que no sea dígito
+    valor = valor.replace(/\D/g, '');
+    
+    // Si está vacío, no hacer nada
+    if (valor === '') {
+        input.value = '';
+        return;
+    }
+    
+    // Convertir a número y formatear con puntos como separadores de miles
+    const numero = parseInt(valor);
+    input.value = numero.toLocaleString('es-AR');
+}
 </script> 
