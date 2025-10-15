@@ -8281,6 +8281,11 @@ def recibo_contrato_24(request, contrato_id):
                 primer_movimiento = cuota_pagada.movimiento
         
         if primer_movimiento and primer_movimiento.concepto:
+            print(f"🔍 DEBUG RECIBO: Movimiento encontrado ID={primer_movimiento.id}")
+            print(f"🔍 DEBUG RECIBO: Concepto completo: '{primer_movimiento.concepto}'")
+            print(f"🔍 DEBUG RECIBO: Tipo de concepto: {type(primer_movimiento.concepto)}")
+            print(f"🔍 DEBUG RECIBO: Longitud: {len(primer_movimiento.concepto)}")
+            
             # Parsear los conceptos del movimiento
             try:
                 import json
