@@ -165,27 +165,27 @@
                                 </td>
                                 <td>
                                     {% if contrato.deposito_estado == 'pagado' %}
-                                        <span class="badge bg-success">✅ Pagado</span>
+                                        <span class="badge bg-success">✅ ${{ contrato.deposito_garantia|floatformat:0 }}</span>
                                     {% elif contrato.deposito_garantia > 0 %}
-                                        <span class="badge bg-warning">⏳ Pendiente</span>
+                                        <span class="badge bg-danger">⏳ ${{ contrato.deposito_garantia|floatformat:0 }}</span>
                                     {% else %}
                                         <span class="badge bg-secondary">N/A</span>
                                     {% endif %}
                                 </td>
                                 <td>
                                     {% if contrato.honorarios_estado == 'pagado' %}
-                                        <span class="badge bg-success">✅ Pagado</span>
+                                        <span class="badge bg-success">✅ ${{ contrato.honorarios|floatformat:0 }}</span>
                                     {% elif contrato.honorarios > 0 %}
-                                        <span class="badge bg-warning">⏳ Pendiente</span>
+                                        <span class="badge bg-danger">⏳ ${{ contrato.honorarios|floatformat:0 }}</span>
                                     {% else %}
                                         <span class="badge bg-secondary">N/A</span>
                                     {% endif %}
                                 </td>
                                 <td>
                                     {% if contrato.sellados_estado == 'pagado' %}
-                                        <span class="badge bg-success">✅ Pagado</span>
+                                        <span class="badge bg-success">✅ ${{ contrato.sellados|floatformat:0 }}</span>
                                     {% elif contrato.sellados > 0 %}
-                                        <span class="badge bg-warning">⏳ Pendiente</span>
+                                        <span class="badge bg-danger">⏳ ${{ contrato.sellados|floatformat:0 }}</span>
                                     {% else %}
                                         <span class="badge bg-secondary">N/A</span>
                                     {% endif %}
