@@ -8338,16 +8338,70 @@ def recibo_contrato_24(request, contrato_id):
                         else:
                             i += 1
                 
-                # Si no se pudo parsear nada, usar fallback
+                # Si no se pudo parsear nada, CREAR CONCEPTOS BASADOS EN LOS CAMPOS DEL MOVIMIENTO
                 if not conceptos_contrato:
-                    monto_total = (primer_movimiento.monto_efectivo or 0) + (primer_movimiento.monto_cheque or 0) + (primer_movimiento.monto_tarjeta or 0) + (primer_movimiento.monto_deposito or 0)
-                    conceptos_contrato.append({
-                        'fecha': primer_movimiento.fecha,
-                        'codigo': '90',
-                        'nombre': f'Contrato #{contrato.id} - {contrato.propiedad.direccion}',
-                        'importe': f"${float(monto_total):,.2f}".replace(',', '.'),
-                        'importe_numerico': float(monto_total)
-                    })
+                    print(f"🔧 FALLBACK: Creando conceptos desde campos del movimiento")
+                    
+                    # Obtener valores del movimiento
+                    monto_efectivo = float(primer_movimiento.monto_efectivo or 0)
+                    monto_cheque = float(primer_movimiento.monto_cheque or 0)
+                    monto_tarjeta = float(primer_movimiento.monto_tarjeta or 0)
+                    monto_deposito = float(primer_movimiento.monto_deposito or 0)
+                    honorarios_valor = float(primer_movimiento.honorarios or 0)
+                    sellados_valor = float(primer_movimiento.sellados or 0)
+                    
+                    # Crear conceptos basados en los valores del contrato y movimiento
+                    if contrato.precio_mensual and contrato.precio_mensual > 0:
+                        conceptos_contrato.append({
+                            'fecha': primer_movimiento.fecha,
+                            'codigo': '1',
+                            'nombre': 'Alquiler',
+                            'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
+                            'importe_numerico': float(contrato.precio_mensual)
+                        })
+                        print(f"  - Agregado: Alquiler ${contrato.precio_mensual}")
+                    
+                    if contrato.deposito_garantia and contrato.deposito_garantia > 0:
+                        conceptos_contrato.append({
+                            'fecha': primer_movimiento.fecha,
+                            'codigo': '10',
+                            'nombre': 'Depósito de garantía',
+                            'importe': f"${float(contrato.deposito_garantia):,.2f}".replace(',', '.'),
+                            'importe_numerico': float(contrato.deposito_garantia)
+                        })
+                        print(f"  - Agregado: Depósito ${contrato.deposito_garantia}")
+                    
+                    if honorarios_valor > 0:
+                        conceptos_contrato.append({
+                            'fecha': primer_movimiento.fecha,
+                            'codigo': '25',
+                            'nombre': 'Honorarios',
+                            'importe': f"${honorarios_valor:,.2f}".replace(',', '.'),
+                            'importe_numerico': honorarios_valor
+                        })
+                        print(f"  - Agregado: Honorarios ${honorarios_valor}")
+                    
+                    if sellados_valor > 0:
+                        conceptos_contrato.append({
+                            'fecha': primer_movimiento.fecha,
+                            'codigo': '26',
+                            'nombre': 'Sellados',
+                            'importe': f"${sellados_valor:,.2f}".replace(',', '.'),
+                            'importe_numerico': sellados_valor
+                        })
+                        print(f"  - Agregado: Sellados ${sellados_valor}")
+                    
+                    # Si no hay conceptos específicos, usar el monto total como concepto genérico
+                    if not conceptos_contrato:
+                        monto_total = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
+                        conceptos_contrato.append({
+                            'fecha': primer_movimiento.fecha,
+                            'codigo': '90',
+                            'nombre': f'Contrato #{contrato.id} - {contrato.propiedad.direccion}',
+                            'importe': f"${monto_total:,.2f}".replace(',', '.'),
+                            'importe_numerico': monto_total
+                        })
+                        print(f"  - Fallback final: Concepto genérico ${monto_total}")
         else:
             # Si no hay movimientos, usar datos básicos del contrato
             precio_mensual_valor = float(contrato.precio_mensual or 0)
