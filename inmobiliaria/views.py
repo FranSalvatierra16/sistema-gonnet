@@ -8247,19 +8247,22 @@ def recibo_contrato_24(request, contrato_id):
         
         alquiler_mensual = contrato.precio_mensual
         
-        # LÓGICA SIMPLIFICADA: El total es la suma de todos los conceptos + honorarios + sellados
+        # LÓGICA CORREGIDA: El total es SOLO la suma de los conceptos que se pagaron
         total_conceptos = sum(concepto['importe_numerico'] for concepto in conceptos_contrato)
         
-        # Honorarios y sellados desde el movimiento
+        # Honorarios y sellados SOLO si están como conceptos 25 y 26
         honorarios = Decimal('0')
         sellado = Decimal('0')
         
-        if primer_movimiento:
-            honorarios = getattr(primer_movimiento, 'honorarios', Decimal('0')) or Decimal('0')
-            sellado = getattr(primer_movimiento, 'sellados', Decimal('0')) or Decimal('0')
+        # Buscar si hay conceptos 25 (honorarios) y 26 (sellados) en los conceptos pagados
+        for concepto in conceptos_contrato:
+            if concepto.get('codigo') == '25' or concepto.get('id') == '25':
+                honorarios = Decimal(str(concepto['importe_numerico']))
+            elif concepto.get('codigo') == '26' or concepto.get('id') == '26':
+                sellado = Decimal(str(concepto['importe_numerico']))
         
-        # El total del recibo es: conceptos + honorarios + sellados
-        total_a_abonar = float(total_conceptos) + float(honorarios) + float(sellado)
+        # El total del recibo es SOLO la suma de conceptos (que ya incluye honorarios y sellados si se pagaron)
+        total_a_abonar = float(total_conceptos)
         subtotal = total_a_abonar
         total_contrato = total_a_abonar
         
