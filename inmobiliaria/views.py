@@ -7005,7 +7005,7 @@ def obtener_caja_abierta(request):
 def determinar_estado_concepto_contrato(contrato, concepto_id):
     """
     Determina si un concepto específico está pagado para un contrato.
-    Soporta tanto formato JSON nuevo como formato de texto antiguo.
+    LÓGICA MEJORADA: Si existe el concepto en JSON = PAGADO
     """
     from .models import MovimientoCaja
     import json
@@ -7016,55 +7016,51 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
         concepto__icontains=f'Contrato #{contrato.id}'
     )
     
-    print(f"🔍 DEBUG ESTADO CONCEPTO {concepto_id} - Contrato #{contrato.id}")
+    print(f"🔍 ESTADO CONCEPTO {concepto_id} - Contrato #{contrato.id}")
     print(f"   - Movimientos encontrados: {movimientos.count()}")
     
     # Verificar si algún movimiento contiene el concepto específico
     for i, movimiento in enumerate(movimientos):
-        print(f"   - Movimiento {i+1}: {movimiento.concepto[:100]}...")
+        print(f"   - Movimiento {i+1}: {movimiento.concepto[:50]}...")
         
         try:
-            # 1. INTENTAR PARSEAR COMO JSON (formato nuevo)
+            # ✅ PARSEAR COMO JSON (formato principal)
             conceptos_data = json.loads(movimiento.concepto)
-            print(f"     ✅ Parseado como JSON: {len(conceptos_data)} conceptos")
+            print(f"     ✅ JSON parseado: {len(conceptos_data)} conceptos")
             
             for concepto in conceptos_data:
                 concepto_id_actual = str(concepto.get('id', concepto.get('codigo', '')))
+                concepto_nombre = concepto.get('nombre', '')
+                concepto_importe = concepto.get('importe', 0)
+                
+                print(f"       - Concepto: ID={concepto_id_actual}, Nombre={concepto_nombre}, Importe=${concepto_importe}")
+                
                 if concepto_id_actual == str(concepto_id):
-                    print(f"     🎯 CONCEPTO {concepto_id} ENCONTRADO EN JSON!")
+                    print(f"     🎯 ¡CONCEPTO {concepto_id} ENCONTRADO! = PAGADO")
                     return 'pagado'
                     
-        except (json.JSONDecodeError, ValueError):
-            # 2. PARSEAR FORMATO TEXTO ANTIGUO
-            print(f"     ⚠️ No es JSON, intentando formato texto...")
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            print(f"     ⚠️ No es JSON: {e}")
             
-            # Formato con separadores |
-            conceptos_lineas = movimiento.concepto.split('\n')
-            for linea in conceptos_lineas:
-                if ' | ID:' in linea and ' | $' in linea:
-                    partes = linea.split(' | ')
-                    if len(partes) >= 3:
-                        # Buscar ID en la línea
-                        id_parte = [p for p in partes if p.startswith('ID:')]
-                        if id_parte:
-                            id_concepto = id_parte[0].replace('ID:', '').strip()
-                            if id_concepto == concepto_id:
-                                print(f"     🎯 CONCEPTO {concepto_id} ENCONTRADO EN TEXTO!")
-                                return 'pagado'
+            # FALLBACK: Buscar en formato texto (contratos antiguos)
+            concepto_texto = movimiento.concepto.lower()
             
-            # Formato estructurado |CONCEPTOS:
-            if "|CONCEPTOS:" in movimiento.concepto:
-                concepto_parts = movimiento.concepto.split("|CONCEPTOS:", 1)
-                if len(concepto_parts) > 1:
-                    conceptos_data = concepto_parts[1]
-                    if f"|{concepto_id}:" in conceptos_data:
-                        print(f"     🎯 CONCEPTO {concepto_id} ENCONTRADO EN ESTRUCTURA!")
-                        return 'pagado'
+            # Si el concepto está en el texto del movimiento
+            if concepto_id == '25' and ('honorario' in concepto_texto or 'concepto 25' in concepto_texto):
+                print(f"     🎯 HONORARIOS ENCONTRADO EN TEXTO!")
+                return 'pagado'
+            elif concepto_id == '26' and ('sellado' in concepto_texto or 'concepto 26' in concepto_texto):
+                print(f"     🎯 SELLADOS ENCONTRADO EN TEXTO!")
+                return 'pagado'
+            elif concepto_id == '10' and ('deposito' in concepto_texto or 'concepto 10' in concepto_texto):
+                print(f"     🎯 DEPÓSITO ENCONTRADO EN TEXTO!")
+                return 'pagado'
+                
         except Exception as e:
-            print(f"     ❌ Error parseando movimiento: {e}")
+            print(f"     ❌ Error: {e}")
             continue
     
-    print(f"   ❌ CONCEPTO {concepto_id} NO ENCONTRADO - Estado: pendiente")
+    print(f"   ❌ CONCEPTO {concepto_id} NO ENCONTRADO = PENDIENTE")
     return 'pendiente'
 
 def obtener_valor_concepto_contrato(contrato, campo):
