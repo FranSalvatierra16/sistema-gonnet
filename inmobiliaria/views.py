@@ -7007,7 +7007,6 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
     Determina si un concepto específico está pagado para un contrato.
     LÓGICA MEJORADA: Si existe el concepto en JSON = PAGADO
     """
-    from .models import MovimientoCaja
     import json
     
     # Buscar movimientos de caja relacionados con este contrato
@@ -7067,7 +7066,6 @@ def obtener_valor_concepto_contrato(contrato, campo):
     """
     Obtiene el valor de honorarios o sellados desde MovimientoCaja para un contrato.
     """
-    from .models import MovimientoCaja
     from decimal import Decimal
     
     # Buscar el primer movimiento de caja relacionado con este contrato
@@ -8356,7 +8354,6 @@ def recibo_contrato_24(request, contrato_id):
                 print(f"🔧 FALLBACK: Buscando conceptos en TODOS los movimientos del contrato...")
                 
                 # Buscar TODOS los movimientos de este contrato para encontrar conceptos pagados
-                from .models import MovimientoCaja
                 import json
                 
                 todos_movimientos = MovimientoCaja.objects.filter(
