@@ -8394,32 +8394,63 @@ def recibo_contrato_24(request, contrato_id):
                         # Fallback: buscar conceptos específicos en texto
                         concepto_texto = mov.concepto.lower()
                         
-                        # Verificar conceptos específicos
-                        if 'alquiler' in concepto_texto and '1' not in conceptos_encontrados:
-                            if contrato.precio_mensual and contrato.precio_mensual > 0:
-                                conceptos_encontrados['1'] = {
-                                    'fecha': mov.fecha,
-                                    'codigo': '1',
-                                    'nombre': 'Alquiler',
-                                    'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
-                                    'importe_numerico': float(contrato.precio_mensual)
-                                }
-                                print(f"        ✅ ALQUILER DETECTADO EN TEXTO")
+                        # ✅ VERIFICAR CONCEPTOS ESPECÍFICOS Y CAMPOS DEL MOVIMIENTO
                         
-                        if ('deposito' in concepto_texto or 'concepto 10' in concepto_texto) and '10' not in conceptos_encontrados:
-                            if contrato.deposito_garantia and contrato.deposito_garantia > 0:
+                        # 1. ALQUILER - siempre agregar si hay precio mensual
+                        if '1' not in conceptos_encontrados and contrato.precio_mensual and contrato.precio_mensual > 0:
+                            conceptos_encontrados['1'] = {
+                                'fecha': mov.fecha,
+                                'codigo': '1',
+                                'nombre': 'Alquiler',
+                                'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
+                                'importe_numerico': float(contrato.precio_mensual)
+                            }
+                            print(f"        ✅ ALQUILER AGREGADO (precio mensual)")
+                        
+                        # 2. DEPÓSITO - verificar campo Y texto
+                        if '10' not in conceptos_encontrados:
+                            deposito_detectado = False
+                            deposito_valor = 0
+                            
+                            # Verificar en texto
+                            if 'deposito' in concepto_texto or 'concepto 10' in concepto_texto:
+                                deposito_valor = float(contrato.deposito_garantia or 0)
+                                deposito_detectado = True
+                                print(f"        🔍 DEPÓSITO detectado en texto")
+                            
+                            if deposito_detectado and deposito_valor > 0:
                                 conceptos_encontrados['10'] = {
                                     'fecha': mov.fecha,
                                     'codigo': '10',
                                     'nombre': 'Depósito de garantía',
-                                    'importe': f"${float(contrato.deposito_garantia):,.2f}".replace(',', '.'),
-                                    'importe_numerico': float(contrato.deposito_garantia)
+                                    'importe': f"${deposito_valor:,.2f}".replace(',', '.'),
+                                    'importe_numerico': deposito_valor
                                 }
-                                print(f"        ✅ DEPÓSITO DETECTADO EN TEXTO")
+                                print(f"        ✅ DEPÓSITO AGREGADO: ${deposito_valor}")
                         
-                        if ('honorario' in concepto_texto or 'concepto 25' in concepto_texto) and '25' not in conceptos_encontrados:
-                            honorarios_valor = float(mov.honorarios or 0)
-                            if honorarios_valor > 0:
+                        # 3. HONORARIOS - verificar campo Y texto Y diferencia
+                        if '25' not in conceptos_encontrados:
+                            honorarios_detectado = False
+                            honorarios_valor = 0
+                            
+                            # Método 1: Campo honorarios del movimiento
+                            if mov.honorarios and mov.honorarios > 0:
+                                honorarios_valor = float(mov.honorarios)
+                                honorarios_detectado = True
+                                print(f"        🔍 HONORARIOS detectado en campo: ${honorarios_valor}")
+                            
+                            # Método 2: Texto del concepto
+                            elif 'honorario' in concepto_texto or 'concepto 25' in concepto_texto:
+                                # Buscar valor en el texto o usar diferencia
+                                total_mov = (float(mov.monto_efectivo or 0) + float(mov.monto_cheque or 0) + 
+                                           float(mov.monto_tarjeta or 0) + float(mov.monto_deposito or 0))
+                                diferencia = total_mov - float(contrato.precio_mensual or 0)
+                                if diferencia > 0:
+                                    honorarios_valor = diferencia
+                                    honorarios_detectado = True
+                                    print(f"        🔍 HONORARIOS detectado en texto, calculado: ${honorarios_valor}")
+                            
+                            if honorarios_detectado and honorarios_valor > 0:
                                 conceptos_encontrados['25'] = {
                                     'fecha': mov.fecha,
                                     'codigo': '25',
@@ -8427,11 +8458,25 @@ def recibo_contrato_24(request, contrato_id):
                                     'importe': f"${honorarios_valor:,.2f}".replace(',', '.'),
                                     'importe_numerico': honorarios_valor
                                 }
-                                print(f"        ✅ HONORARIOS DETECTADO EN TEXTO: ${honorarios_valor}")
+                                print(f"        ✅ HONORARIOS AGREGADO: ${honorarios_valor}")
                         
-                        if ('sellado' in concepto_texto or 'concepto 26' in concepto_texto) and '26' not in conceptos_encontrados:
-                            sellados_valor = float(mov.sellados or 0)
-                            if sellados_valor > 0:
+                        # 4. SELLADOS - verificar campo Y texto
+                        if '26' not in conceptos_encontrados:
+                            sellados_detectado = False
+                            sellados_valor = 0
+                            
+                            # Campo sellados del movimiento
+                            if mov.sellados and mov.sellados > 0:
+                                sellados_valor = float(mov.sellados)
+                                sellados_detectado = True
+                                print(f"        🔍 SELLADOS detectado en campo: ${sellados_valor}")
+                            
+                            # Texto del concepto
+                            elif 'sellado' in concepto_texto or 'concepto 26' in concepto_texto:
+                                sellados_detectado = True
+                                print(f"        🔍 SELLADOS detectado en texto")
+                            
+                            if sellados_detectado and sellados_valor > 0:
                                 conceptos_encontrados['26'] = {
                                     'fecha': mov.fecha,
                                     'codigo': '26',
@@ -8439,7 +8484,7 @@ def recibo_contrato_24(request, contrato_id):
                                     'importe': f"${sellados_valor:,.2f}".replace(',', '.'),
                                     'importe_numerico': sellados_valor
                                 }
-                                print(f"        ✅ SELLADOS DETECTADO EN TEXTO: ${sellados_valor}")
+                                print(f"        ✅ SELLADOS AGREGADO: ${sellados_valor}")
                 
                 # Agregar conceptos encontrados al recibo
                 for concepto_id, concepto_data in conceptos_encontrados.items():
@@ -8451,6 +8496,11 @@ def recibo_contrato_24(request, contrato_id):
             # ✅ SI AÚN NO HAY CONCEPTOS, FORZAR CREACIÓN DETALLADA
             if len(conceptos_contrato) == 0:
                 print(f"🚨 FORZANDO CONCEPTOS DETALLADOS - NO MÁS GENÉRICOS")
+                print(f"🚨 DATOS PARA FORZAR:")
+                print(f"   - Total pagado: ${total_pagado}")
+                print(f"   - Precio mensual: ${contrato.precio_mensual}")
+                print(f"   - Primer movimiento honorarios: ${primer_movimiento.honorarios if primer_movimiento else 'N/A'}")
+                print(f"   - Primer movimiento sellados: ${primer_movimiento.sellados if primer_movimiento else 'N/A'}")
                 
                 # FORZAR conceptos básicos siempre
                 # 1. ALQUILER (obligatorio)
@@ -8464,17 +8514,39 @@ def recibo_contrato_24(request, contrato_id):
                     })
                     print(f"  🔥 FORZADO FINAL: Alquiler ${contrato.precio_mensual}")
                 
-                # 2. HONORARIOS (diferencia)
-                diferencia_final = total_pagado - float(contrato.precio_mensual or 0)
-                if diferencia_final > 0:
+                # 2. HONORARIOS (desde campo del movimiento O diferencia)
+                honorarios_valor = 0
+                if primer_movimiento and primer_movimiento.honorarios and primer_movimiento.honorarios > 0:
+                    honorarios_valor = float(primer_movimiento.honorarios)
+                    print(f"  💰 HONORARIOS desde campo movimiento: ${honorarios_valor}")
+                else:
+                    # Calcular como diferencia
+                    diferencia_final = total_pagado - float(contrato.precio_mensual or 0)
+                    if diferencia_final > 0:
+                        honorarios_valor = diferencia_final
+                        print(f"  💰 HONORARIOS calculado como diferencia: ${honorarios_valor}")
+                
+                if honorarios_valor > 0:
                     conceptos_contrato.append({
                         'fecha': primer_movimiento.fecha,
                         'codigo': '25',
                         'nombre': 'Honorarios',
-                        'importe': f"${diferencia_final:,.2f}".replace(',', '.'),
-                        'importe_numerico': diferencia_final
+                        'importe': f"${honorarios_valor:,.2f}".replace(',', '.'),
+                        'importe_numerico': honorarios_valor
                     })
-                    print(f"  🔥 FORZADO FINAL: Honorarios ${diferencia_final}")
+                    print(f"  🔥 FORZADO FINAL: Honorarios ${honorarios_valor}")
+                
+                # 3. SELLADOS (desde campo del movimiento)
+                if primer_movimiento and primer_movimiento.sellados and primer_movimiento.sellados > 0:
+                    sellados_valor = float(primer_movimiento.sellados)
+                    conceptos_contrato.append({
+                        'fecha': primer_movimiento.fecha,
+                        'codigo': '26',
+                        'nombre': 'Sellados',
+                        'importe': f"${sellados_valor:,.2f}".replace(',', '.'),
+                        'importe_numerico': sellados_valor
+                    })
+                    print(f"  🔥 FORZADO FINAL: Sellados ${sellados_valor}")
                 
                 print(f"🔥 CONCEPTOS FORZADOS FINALES: {len(conceptos_contrato)}")
             
