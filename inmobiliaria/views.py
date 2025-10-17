@@ -8307,71 +8307,155 @@ def recibo_contrato_24(request, contrato_id):
             print(f"  - precio_mensual: ${contrato.precio_mensual}")
             print(f"  - deposito_garantia: ${contrato.deposito_garantia}")
             
-            # ✅ CREAR CONCEPTOS DETALLADOS SIEMPRE (sin parseo JSON complejo)
-            print(f"🔧 CREANDO CONCEPTOS DETALLADOS...")
+            # ✅ INTENTAR PRIMERO PARSEAR JSON (conceptos reales que agregaste)
+            print(f"🔍 CONTENIDO COMPLETO DEL CONCEPTO:")
+            print(f"'{primer_movimiento.concepto}'")
+            print(f"🔍 TIPO: {type(primer_movimiento.concepto)}")
+            print(f"🔍 LONGITUD: {len(primer_movimiento.concepto) if primer_movimiento.concepto else 0}")
             
-            # 1. ALQUILER (siempre presente)
-            if contrato.precio_mensual and contrato.precio_mensual > 0:
+            try:
+                import json
+                conceptos_data = json.loads(primer_movimiento.concepto)
+                print(f"🎯 CONCEPTOS JSON ENCONTRADOS: {len(conceptos_data)} conceptos")
+                print(f"🎯 DATOS COMPLETOS: {conceptos_data}")
+                
+                for i, concepto_data in enumerate(conceptos_data):
+                    print(f"  📋 CONCEPTO {i}: {concepto_data}")
+                    importe_valor = float(concepto_data.get('importe', 0))
+                    codigo = concepto_data.get('id', concepto_data.get('codigo', ''))
+                    nombre = concepto_data.get('nombre', concepto_data.get('concepto', ''))
+                    
+                    print(f"    - Importe: {importe_valor}")
+                    print(f"    - Código: '{codigo}'")
+                    print(f"    - Nombre: '{nombre}'")
+                    
+                    if importe_valor > 0:  # Solo agregar conceptos con importe > 0
+                        conceptos_contrato.append({
+                            'fecha': primer_movimiento.fecha,
+                            'codigo': codigo,
+                            'nombre': nombre,
+                            'importe': f"${importe_valor:,.2f}".replace(',', '.'),
+                            'importe_numerico': importe_valor
+                        })
+                        print(f"    ✅ CONCEPTO AGREGADO: {codigo} - {nombre} - ${importe_valor}")
+                    else:
+                        print(f"    ❌ CONCEPTO OMITIDO: Importe = {importe_valor}")
+                
+                if len(conceptos_contrato) > 0:
+                    print(f"🎉 USANDO CONCEPTOS REALES DEL JSON: {len(conceptos_contrato)} conceptos")
+                else:
+                    print(f"⚠️ JSON parseado pero sin conceptos válidos")
+                    
+            except (json.JSONDecodeError, ValueError, TypeError) as e:
+                print(f"⚠️ NO SE PUDO PARSEAR JSON: {e}")
+                print(f"⚠️ CONTENIDO QUE FALLÓ: '{primer_movimiento.concepto[:100]}...'")
+                conceptos_contrato = []  # Limpiar cualquier concepto previo
+            
+            # ✅ FALLBACK: Si no hay conceptos del JSON, crear desde datos básicos
+            if len(conceptos_contrato) == 0:
+                print(f"🔧 FALLBACK: Creando conceptos desde datos del contrato...")
+                
+                # Solo crear conceptos que realmente se pagaron
+                
+                # 1. ALQUILER (siempre presente si hay precio mensual)
+                if contrato.precio_mensual and contrato.precio_mensual > 0:
+                    conceptos_contrato.append({
+                        'fecha': primer_movimiento.fecha,
+                        'codigo': '1',
+                        'nombre': 'Alquiler',
+                        'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
+                        'importe_numerico': float(contrato.precio_mensual)
+                    })
+                    print(f"  ✅ FALLBACK: Alquiler ${contrato.precio_mensual}")
+                
+                # 2. DEPÓSITO - SOLO si realmente se pagó (diferencia de lógica)
+                # NO usar contrato.deposito_garantia, sino verificar si hay diferencia
+                conceptos_base_sin_deposito = float(contrato.precio_mensual or 0)
+                diferencia_total = total_pagado - conceptos_base_sin_deposito
+                
+                print(f"  - Alquiler base: ${conceptos_base_sin_deposito}")
+                print(f"  - Total pagado: ${total_pagado}")
+                print(f"  - Diferencia total: ${diferencia_total}")
+                
+                # Si la diferencia es exactamente el depósito del contrato, entonces se pagó
+                if contrato.deposito_garantia and abs(diferencia_total - float(contrato.deposito_garantia)) < 1:
+                    conceptos_contrato.append({
+                        'fecha': primer_movimiento.fecha,
+                        'codigo': '10',
+                        'nombre': 'Depósito de garantía',
+                        'importe': f"${float(contrato.deposito_garantia):,.2f}".replace(',', '.'),
+                        'importe_numerico': float(contrato.deposito_garantia)
+                    })
+                    diferencia_total -= float(contrato.deposito_garantia)
+                    print(f"  ✅ FALLBACK: Depósito ${contrato.deposito_garantia}")
+                
+                # 3. HONORARIOS (lo que quede de diferencia)
+                if diferencia_total > 0:
+                    conceptos_contrato.append({
+                        'fecha': primer_movimiento.fecha,
+                        'codigo': '25',
+                        'nombre': 'Honorarios',
+                        'importe': f"${diferencia_total:,.2f}".replace(',', '.'),
+                        'importe_numerico': diferencia_total
+                    })
+                    print(f"  ✅ FALLBACK: Honorarios ${diferencia_total}")
+                
+                # 4. SELLADOS (desde campo del movimiento si existe)
+                sellados_valor = float(primer_movimiento.sellados or 0)
+                if sellados_valor > 0:
+                    conceptos_contrato.append({
+                        'fecha': primer_movimiento.fecha,
+                        'codigo': '26',
+                        'nombre': 'Sellados',
+                        'importe': f"${sellados_valor:,.2f}".replace(',', '.'),
+                        'importe_numerico': sellados_valor
+                    })
+                    print(f"  ✅ FALLBACK: Sellados ${sellados_valor}")
+            
+            # ✅ SI AÚN NO HAY CONCEPTOS, FORZAR CREACIÓN DETALLADA
+            if len(conceptos_contrato) == 0:
+                print(f"🚨 FORZANDO CONCEPTOS DETALLADOS - NO MÁS GENÉRICOS")
+                
+                # FORZAR conceptos básicos siempre
+                # 1. ALQUILER (obligatorio)
+                if contrato.precio_mensual and contrato.precio_mensual > 0:
+                    conceptos_contrato.append({
+                        'fecha': primer_movimiento.fecha,
+                        'codigo': '1',
+                        'nombre': 'Alquiler',
+                        'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
+                        'importe_numerico': float(contrato.precio_mensual)
+                    })
+                    print(f"  🔥 FORZADO FINAL: Alquiler ${contrato.precio_mensual}")
+                
+                # 2. HONORARIOS (diferencia)
+                diferencia_final = total_pagado - float(contrato.precio_mensual or 0)
+                if diferencia_final > 0:
+                    conceptos_contrato.append({
+                        'fecha': primer_movimiento.fecha,
+                        'codigo': '25',
+                        'nombre': 'Honorarios',
+                        'importe': f"${diferencia_final:,.2f}".replace(',', '.'),
+                        'importe_numerico': diferencia_final
+                    })
+                    print(f"  🔥 FORZADO FINAL: Honorarios ${diferencia_final}")
+                
+                print(f"🔥 CONCEPTOS FORZADOS FINALES: {len(conceptos_contrato)}")
+            
+            print(f"🎯 TOTAL CONCEPTOS FINALES: {len(conceptos_contrato)}")
+        else:
+            # Si no hay movimientos, crear conceptos básicos (NO genéricos)
+            print(f"⚠️ NO HAY MOVIMIENTOS - CREANDO CONCEPTOS BÁSICOS")
+            precio_mensual_valor = float(contrato.precio_mensual or 0)
+            if precio_mensual_valor > 0:
                 conceptos_contrato.append({
-                    'fecha': primer_movimiento.fecha,
+                    'fecha': contrato.fecha_operacion,
                     'codigo': '1',
                     'nombre': 'Alquiler',
-                    'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
-                    'importe_numerico': float(contrato.precio_mensual)
+                    'importe': f"${precio_mensual_valor:,.2f}".replace(',', '.'),
+                    'importe_numerico': precio_mensual_valor
                 })
-                print(f"  ✅ AGREGADO: Alquiler ${contrato.precio_mensual}")
-            
-            # 2. DEPÓSITO (si existe)
-            if contrato.deposito_garantia and contrato.deposito_garantia > 0:
-                conceptos_contrato.append({
-                    'fecha': primer_movimiento.fecha,
-                    'codigo': '10',
-                    'nombre': 'Depósito de garantía',
-                    'importe': f"${float(contrato.deposito_garantia):,.2f}".replace(',', '.'),
-                    'importe_numerico': float(contrato.deposito_garantia)
-                })
-                print(f"  ✅ AGREGADO: Depósito ${contrato.deposito_garantia}")
-            
-            # 3. HONORARIOS (diferencia entre total pagado y conceptos base)
-            conceptos_base = float(contrato.precio_mensual or 0) + float(contrato.deposito_garantia or 0)
-            diferencia = total_pagado - conceptos_base
-            
-            print(f"  - Conceptos base (alquiler + depósito): ${conceptos_base}")
-            print(f"  - Diferencia (honorarios + sellados): ${diferencia}")
-            
-            if diferencia > 0:
-                conceptos_contrato.append({
-                    'fecha': primer_movimiento.fecha,
-                    'codigo': '25',
-                    'nombre': 'Honorarios',
-                    'importe': f"${diferencia:,.2f}".replace(',', '.'),
-                    'importe_numerico': diferencia
-                })
-                print(f"  ✅ AGREGADO: Honorarios ${diferencia}")
-            
-            # 4. SELLADOS (desde campo del movimiento si existe)
-            sellados_valor = float(primer_movimiento.sellados or 0)
-            if sellados_valor > 0:
-                conceptos_contrato.append({
-                    'fecha': primer_movimiento.fecha,
-                    'codigo': '26',
-                    'nombre': 'Sellados',
-                    'importe': f"${sellados_valor:,.2f}".replace(',', '.'),
-                    'importe_numerico': sellados_valor
-                })
-                print(f"  ✅ AGREGADO: Sellados ${sellados_valor}")
-            
-            print(f"🎯 TOTAL CONCEPTOS CREADOS: {len(conceptos_contrato)}")
-        else:
-            # Si no hay movimientos, usar datos básicos del contrato
-            precio_mensual_valor = float(contrato.precio_mensual or 0)
-            conceptos_contrato.append({
-                'fecha': contrato.fecha_operacion,
-                'codigo': '90',
-                'nombre': f'CONTRATO ALQUILER - {contrato.propiedad.direccion}',
-                'importe': f"${precio_mensual_valor:,.2f}".replace(',', '.'),
-                'importe_numerico': precio_mensual_valor  # Agregar valor numérico para cálculos
-            })
+                print(f"  ✅ SIN MOVIMIENTO: Alquiler ${precio_mensual_valor}")
         
         # Obtener valores de honorarios y sellados del movimiento (si existen)
         from decimal import Decimal
