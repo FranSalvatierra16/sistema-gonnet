@@ -1151,11 +1151,24 @@ async function cargarCuentasBancarias() {
         console.error('Error al cargar cuentas bancarias:', error);
         // Fallback a cuentas por defecto
         cuentasBancarias = [
-            {id: 1, nombre: 'Galicia', field_name: 'monto_deposito_galicia'},
-            {id: 2, nombre: 'Mercado Pago', field_name: 'monto_deposito_mp'}
+            {id: 1, nombre: 'Galicia', field_name: 'monto_deposito_galicia', tipo: 'banco'},
+            {id: 2, nombre: 'Mercado Pago', field_name: 'monto_deposito_mp', tipo: 'billetera'}
         ];
         generarCamposCuentas();
     }
+}
+
+// ✅ FORZAR FALLBACK SI NO HAY RESPUESTA EN 3 SEGUNDOS
+setTimeout(() => {
+    if (cuentasBancarias.length === 0) {
+        console.log('🚨 TIMEOUT: Forzando cuentas por defecto');
+        cuentasBancarias = [
+            {id: 1, nombre: 'Galicia', field_name: 'monto_deposito_galicia', tipo: 'banco'},
+            {id: 2, nombre: 'Mercado Pago', field_name: 'monto_deposito_mp', tipo: 'billetera'}
+        ];
+        generarCamposCuentas();
+    }
+}, 3000);
 }
 
 // Generar campos HTML para las cuentas
