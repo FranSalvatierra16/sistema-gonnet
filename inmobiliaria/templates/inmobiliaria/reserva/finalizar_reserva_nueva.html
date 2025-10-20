@@ -1431,41 +1431,7 @@ function resetearModalConcepto() {
 
 // Variables para conceptos
 
-// Función para buscar concepto por ID automáticamente
-function buscarConceptoPorId(conceptoId) {
-    const infoDiv = document.getElementById('infoConceptoSeleccionado');
-    const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
-    
-    if (!conceptoId || conceptoId.length === 0) {
-        infoDiv.style.display = 'none';
-        conceptoSeleccionadoActual = null;
-        return;
-    }
-    
-    // Buscar en la lista de conceptos
-    const conceptos = document.querySelectorAll('#tablaConceptosBusqueda tr[data-concepto-id]');
-    let conceptoEncontrado = null;
-    
-    conceptos.forEach(fila => {
-        if (fila.dataset.conceptoId === conceptoId) {
-            conceptoEncontrado = {
-                id: fila.dataset.conceptoId,
-                nombre: fila.dataset.conceptoNombre
-            };
-        }
-    });
-    
-    if (conceptoEncontrado) {
-        // Mostrar información del concepto
-        nombreSpan.textContent = `ID: ${conceptoEncontrado.id} - ${conceptoEncontrado.nombre}`;
-        infoDiv.style.display = 'block';
-        conceptoSeleccionadoActual = conceptoEncontrado;
-        console.log('Concepto encontrado automáticamente:', conceptoEncontrado);
-    } else {
-        infoDiv.style.display = 'none';
-        conceptoSeleccionadoActual = null;
-    }
-}
+// ✅ FUNCIÓN DUPLICADA ELIMINADA - Ya existe buscarConceptoPorId más arriba en línea 407
 
 // Función para mostrar modal de búsqueda
 function mostrarModalBuscarConcepto() {
