@@ -8360,8 +8360,8 @@ def recibo_contrato_24(request, contrato_id):
                     print(f"    - Nombre: '{nombre}'")
                     
                     if importe_valor > 0:  # Solo agregar conceptos con importe > 0
-                    conceptos_contrato.append({
-                        'fecha': primer_movimiento.fecha,
+                        conceptos_contrato.append({
+                            'fecha': primer_movimiento.fecha,
                             'codigo': codigo,
                             'nombre': nombre,
                             'importe': f"${importe_valor:,.2f}".replace(',', '.'),
@@ -8537,8 +8537,8 @@ def recibo_contrato_24(request, contrato_id):
                 # FORZAR conceptos básicos siempre
                 # 1. ALQUILER (obligatorio)
                 if contrato.precio_mensual and contrato.precio_mensual > 0:
-                conceptos_contrato.append({
-                    'fecha': primer_movimiento.fecha,
+                    conceptos_contrato.append({
+                        'fecha': primer_movimiento.fecha,
                         'codigo': '1',
                         'nombre': 'Alquiler',
                         'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
@@ -8551,7 +8551,7 @@ def recibo_contrato_24(request, contrato_id):
                 if primer_movimiento and primer_movimiento.honorarios and primer_movimiento.honorarios > 0:
                     honorarios_valor = float(primer_movimiento.honorarios)
                     print(f"  💰 HONORARIOS desde campo movimiento: ${honorarios_valor}")
-        else:
+                else:
                     # Calcular como diferencia
                     diferencia_final = total_pagado - float(contrato.precio_mensual or 0)
                     if diferencia_final > 0:
@@ -8588,8 +8588,8 @@ def recibo_contrato_24(request, contrato_id):
             print(f"⚠️ NO HAY MOVIMIENTOS - CREANDO CONCEPTOS BÁSICOS")
             precio_mensual_valor = float(contrato.precio_mensual or 0)
             if precio_mensual_valor > 0:
-            conceptos_contrato.append({
-                'fecha': contrato.fecha_operacion,
+                conceptos_contrato.append({
+                    'fecha': contrato.fecha_operacion,
                     'codigo': '1',
                     'nombre': 'Alquiler',
                     'importe': f"${precio_mensual_valor:,.2f}".replace(',', '.'),
