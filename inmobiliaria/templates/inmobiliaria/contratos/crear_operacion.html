@@ -228,20 +228,15 @@
                                     <input type="text" class="form-control" id="monto_tarjeta" name="monto_tarjeta" 
                                            placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
                                 </div>
-                                <div class="mb-3">
-                                    <label for="monto_deposito_galicia" class="form-label"><strong>🏛️ Depósito Galicia:</strong></label>
-                                    <input type="text" class="form-control" id="monto_deposito_galicia" name="monto_deposito_galicia" 
-                                           placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
+                                <!-- Campos dinámicos de cuentas bancarias -->
+                                <div id="cuentas-bancarias-container">
+                                    <!-- Se cargan dinámicamente via JavaScript -->
                                 </div>
                             </div>
                         </div>
                         <div class="row">
                             <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="monto_deposito_mp" class="form-label"><strong>💱 Mercado Pago:</strong></label>
-                                    <input type="text" class="form-control" id="monto_deposito_mp" name="monto_deposito_mp" 
-                                           placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
-                                </div>
+                                <!-- Espacio para cuentas adicionales -->
                             </div>
                             <div class="col-md-6">
                                 <div class="alert alert-info">
@@ -770,10 +765,25 @@ function calcularTotalPagos() {
     const efectivo = parsearValorFormateado(document.getElementById('monto_efectivo').value);
     const cheque = parsearValorFormateado(document.getElementById('monto_cheque').value);
     const tarjeta = parsearValorFormateado(document.getElementById('monto_tarjeta').value);
-    const depositoGalicia = parsearValorFormateado(document.getElementById('monto_deposito_galicia').value);
-    const depositoMp = parsearValorFormateado(document.getElementById('monto_deposito_mp').value);
     
-    return efectivo + cheque + tarjeta + depositoGalicia + depositoMp;
+    // Sumar todas las cuentas bancarias dinámicamente
+    let totalCuentas = 0;
+    if (cuentasBancarias && cuentasBancarias.length > 0) {
+        cuentasBancarias.forEach(cuenta => {
+            const input = document.getElementById(cuenta.field_name);
+            if (input) {
+                totalCuentas += parsearValorFormateado(input.value);
+            }
+        });
+    } else {
+        // Fallback para compatibilidad con campos fijos existentes
+        const depositoGalicia = document.getElementById('monto_deposito_galicia');
+        const depositoMp = document.getElementById('monto_deposito_mp');
+        if (depositoGalicia) totalCuentas += parsearValorFormateado(depositoGalicia.value);
+        if (depositoMp) totalCuentas += parsearValorFormateado(depositoMp.value);
+    }
+    
+    return efectivo + cheque + tarjeta + totalCuentas;
 }
 
 // Función para habilitar/deshabilitar el botón de procesar
@@ -1064,8 +1074,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Event listeners para los campos de pago
-    ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito_galicia', 'monto_deposito_mp'].forEach(id => {
+    // Event listeners para los campos de pago básicos
+    ['monto_efectivo', 'monto_cheque', 'monto_tarjeta'].forEach(id => {
         const input = document.getElementById(id);
         if (input) {
             input.addEventListener('input', function() {
@@ -1120,6 +1130,86 @@ function sincronizarSellados() {
     document.getElementById('sellados_top').value = valorVisible;
     calcularTotales();
 }
+
+// ================================
+// CUENTAS BANCARIAS DINÁMICAS
+// ================================
+
+// Variable global para almacenar las cuentas
+let cuentasBancarias = [];
+
+// Cargar cuentas bancarias de la sucursal
+async function cargarCuentasBancarias() {
+    try {
+        const response = await fetch('{% url "inmobiliaria:obtener_cuentas_bancarias_activas" %}');
+        const data = await response.json();
+        cuentasBancarias = data.cuentas;
+        
+        console.log('🏦 Cuentas bancarias cargadas:', cuentasBancarias);
+        generarCamposCuentas();
+    } catch (error) {
+        console.error('Error al cargar cuentas bancarias:', error);
+        // Fallback a cuentas por defecto
+        cuentasBancarias = [
+            {id: 1, nombre: 'Galicia', field_name: 'monto_deposito_galicia'},
+            {id: 2, nombre: 'Mercado Pago', field_name: 'monto_deposito_mp'}
+        ];
+        generarCamposCuentas();
+    }
+}
+
+// Generar campos HTML para las cuentas
+function generarCamposCuentas() {
+    const container = document.getElementById('cuentas-bancarias-container');
+    if (!container) return;
+    
+    let html = '<label class="form-label"><strong>TRANSFERENCIAS:</strong></label>';
+    
+    cuentasBancarias.forEach((cuenta, index) => {
+        const icono = obtenerIconoCuenta(cuenta.tipo);
+        html += `
+            <div class="mb-3">
+                <label for="${cuenta.field_name}" class="form-label">
+                    <strong>${icono} ${cuenta.nombre}:</strong>
+                </label>
+                <input type="text" class="form-control cuenta-bancaria-input" 
+                       id="${cuenta.field_name}" name="${cuenta.field_name}" 
+                       placeholder="0" 
+                       onchange="actualizarTotales()" 
+                       oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    
+    // Agregar event listeners para los nuevos campos
+    cuentasBancarias.forEach(cuenta => {
+        const input = document.getElementById(cuenta.field_name);
+        if (input) {
+            input.addEventListener('input', function() {
+                formatearNumeroEnTiempoReal(this);
+                calcularTotales();
+            });
+        }
+    });
+}
+
+// Obtener icono según el tipo de cuenta
+function obtenerIconoCuenta(tipo) {
+    switch(tipo) {
+        case 'banco': return '🏛️';
+        case 'billetera': return '💱';
+        case 'efectivo': return '💵';
+        default: return '💳';
+    }
+}
+
+
+// Inicializar cuentas bancarias al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    cargarCuentasBancarias();
+});
 
 </script>
 {% endblock %} 

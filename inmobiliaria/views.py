@@ -7095,19 +7095,50 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             except:
                 return Decimal('0')
         
-        # Métodos de pago
+        # Métodos de pago básicos
         monto_efectivo = limpiar_valor_monetario(request.POST.get('monto_efectivo', '0'))
         monto_cheque = limpiar_valor_monetario(request.POST.get('monto_cheque', '0'))
         monto_tarjeta = limpiar_valor_monetario(request.POST.get('monto_tarjeta', '0'))
+        
+        # ✅ PROCESAR CUENTAS BANCARIAS DINÁMICAMENTE
+        cuentas_bancarias = {}
+        total_cuentas = Decimal('0')
+        
+        # Buscar todos los campos que empiecen con 'monto_' y no sean los básicos
+        for key, value in request.POST.items():
+            if key.startswith('monto_') and key not in ['monto_efectivo', 'monto_cheque', 'monto_tarjeta']:
+                monto_cuenta = limpiar_valor_monetario(value)
+                if monto_cuenta > 0:
+                    # Extraer nombre de la cuenta del field_name
+                    nombre_cuenta = key.replace('monto_', '').replace('_', ' ').title()
+                    cuentas_bancarias[key] = {
+                        'nombre': nombre_cuenta,
+                        'monto': monto_cuenta
+                    }
+                    total_cuentas += monto_cuenta
+                    print(f"  💳 Cuenta detectada: {nombre_cuenta} = ${monto_cuenta}")
+        
+        # Mantener compatibilidad con campos fijos existentes
         monto_deposito_galicia = limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0'))
         monto_deposito_mp = limpiar_valor_monetario(request.POST.get('monto_deposito_mp', '0'))
+        
+        # Si no hay cuentas dinámicas, usar los campos fijos
+        if total_cuentas == 0:
+            total_cuentas = (monto_deposito_galicia or 0) + (monto_deposito_mp or 0)
+            if monto_deposito_galicia > 0:
+                cuentas_bancarias['monto_deposito_galicia'] = {'nombre': 'Galicia', 'monto': monto_deposito_galicia}
+            if monto_deposito_mp > 0:
+                cuentas_bancarias['monto_deposito_mp'] = {'nombre': 'Mercado Pago', 'monto': monto_deposito_mp}
         
         # Honorarios y sellados (campos movidos arriba)
         honorarios = limpiar_valor_monetario(request.POST.get('honorarios_top', '0'))
         sellados = limpiar_valor_monetario(request.POST.get('sellados_top', '0'))
         
-        total_movimiento = ((monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + 
-                          (monto_deposito_galicia or 0) + (monto_deposito_mp or 0))
+        total_movimiento = ((monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + total_cuentas)
+        
+        print(f"🏦 CUENTAS BANCARIAS PROCESADAS: {len(cuentas_bancarias)}")
+        for field_name, cuenta_info in cuentas_bancarias.items():
+            print(f"  - {cuenta_info['nombre']}: ${cuenta_info['monto']}")
         
         # ✅ PROCESAR CONCEPTOS INDIVIDUALES (igual que en alquiler por día)
         conceptos_count = int(request.POST.get('conceptos_count', 0))
@@ -7167,6 +7198,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             monto_efectivo=monto_efectivo,
             monto_cheque=monto_cheque,
             monto_tarjeta=monto_tarjeta,
+            monto_deposito=total_cuentas,  # ✅ Total de todas las cuentas bancarias
             fecha=timezone.now(),
             empleado=request.user,
             sucursal=request.user.sucursal,
