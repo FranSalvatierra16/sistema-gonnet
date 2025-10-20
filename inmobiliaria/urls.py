@@ -4,6 +4,7 @@ from django.views.generic.base import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
 from . import views
+from . import views_cuentas
 
 app_name = 'inmobiliaria'
 
@@ -224,5 +225,12 @@ urlpatterns = [
     
     # Gestión de Conceptos
     path('conceptos/', views.gestionar_conceptos, name='gestionar_conceptos'),
+    
+    # Gestión de Cuentas Bancarias
+    path('configuracion/cuentas-bancarias/', views_cuentas.gestionar_cuentas_bancarias, name='gestionar_cuentas_bancarias'),
+    path('configuracion/cuentas-bancarias/agregar/', views_cuentas.agregar_cuenta_bancaria, name='agregar_cuenta_bancaria'),
+    path('configuracion/cuentas-bancarias/<int:cuenta_id>/editar/', views_cuentas.editar_cuenta_bancaria, name='editar_cuenta_bancaria'),
+    path('configuracion/cuentas-bancarias/<int:cuenta_id>/eliminar/', views_cuentas.eliminar_cuenta_bancaria, name='eliminar_cuenta_bancaria'),
+    path('api/cuentas-bancarias-activas/', views_cuentas.obtener_cuentas_bancarias_activas, name='obtener_cuentas_bancarias_activas'),
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

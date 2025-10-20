@@ -14,7 +14,7 @@ from .models import (
     Vendedor, Inquilino, Propietario, Propiedad, Reserva, 
     Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, 
     Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, 
-    AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal,
+    AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal, CuentaBancaria,
     TipoMovimientoCajaEnum, ContratoAlquiler, CuotaMensual
 )
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm

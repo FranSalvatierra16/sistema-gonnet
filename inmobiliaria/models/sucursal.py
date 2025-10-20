@@ -72,7 +72,7 @@ class Sucursal(models.Model):
 
 @receiver(post_save, sender=Sucursal)
 def crear_caja_automatica(sender, instance, created, **kwargs):
-    """Señal para crear automáticamente una caja cuando se crea una sucursal"""
+    """Señal para crear automáticamente una caja y cuentas bancarias cuando se crea una sucursal"""
     if created:  # Solo si es una nueva sucursal
         User = get_user_model()
         usuario = User.objects.filter(is_superuser=True).first()
@@ -81,3 +81,83 @@ def crear_caja_automatica(sender, instance, created, **kwargs):
             
         if usuario:
             instance.crear_caja_inicial(usuario)
+        
+        # Crear cuentas bancarias por defecto
+        CuentaBancaria.crear_cuentas_por_defecto(instance)
+
+
+class CuentaBancaria(models.Model):
+    """
+    Modelo para manejar cuentas bancarias por sucursal
+    Permite agregar dinámicamente cuentas como Galicia, Mercado Pago, Banco Provincia, etc.
+    """
+    TIPO_CUENTA_CHOICES = [
+        ('banco', 'Banco'),
+        ('billetera', 'Billetera Digital'),
+        ('efectivo', 'Efectivo'),
+        ('otro', 'Otro'),
+    ]
+    
+    sucursal = models.ForeignKey(
+        Sucursal, 
+        on_delete=models.CASCADE, 
+        related_name='cuentas_bancarias'
+    )
+    nombre = models.CharField(
+        max_length=100,
+        help_text="Nombre de la cuenta (ej: Galicia, Mercado Pago, Banco Provincia)"
+    )
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CUENTA_CHOICES,
+        default='banco'
+    )
+    numero_cuenta = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Número de cuenta (opcional)"
+    )
+    cbu_alias = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="CBU o Alias (opcional)"
+    )
+    activa = models.BooleanField(
+        default=True,
+        help_text="Si está activa aparecerá en los formularios de pago"
+    )
+    orden = models.PositiveIntegerField(
+        default=0,
+        help_text="Orden de aparición en los formularios"
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['sucursal', 'orden', 'nombre']
+        unique_together = ['sucursal', 'nombre']
+        verbose_name = 'Cuenta Bancaria'
+        verbose_name_plural = 'Cuentas Bancarias'
+    
+    def __str__(self):
+        return f"{self.sucursal.nombre} - {self.nombre}"
+    
+    @classmethod
+    def crear_cuentas_por_defecto(cls, sucursal):
+        """Crear cuentas por defecto para una nueva sucursal"""
+        cuentas_defecto = [
+            {'nombre': 'Galicia', 'tipo': 'banco', 'orden': 1},
+            {'nombre': 'Mercado Pago', 'tipo': 'billetera', 'orden': 2},
+        ]
+        
+        for cuenta_data in cuentas_defecto:
+            cls.objects.get_or_create(
+                sucursal=sucursal,
+                nombre=cuenta_data['nombre'],
+                defaults={
+                    'tipo': cuenta_data['tipo'],
+                    'orden': cuenta_data['orden'],
+                    'activa': True
+                }
+            )
