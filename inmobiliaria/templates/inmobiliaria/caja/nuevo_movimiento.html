@@ -273,12 +273,15 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Transferencia</label>
-                            <div class="input-group">
-                                    <input type="number" name="monto_deposito" class="form-control monto" step="0.01" value="0.00">
-                                    <select name="destino_deposito" class="form-select" style="max-width: 120px;">
-                                        <option value="galicia">Galicia</option>
-                                        <option value="mp">MP</option>
-                                </select>
+                                <div id="transferencias-container">
+                                    <!-- Campos dinámicos de cuentas bancarias -->
+                                    <div class="input-group">
+                                        <input type="number" name="monto_deposito" class="form-control monto" step="0.01" value="0.00">
+                                        <select name="destino_deposito" class="form-select" id="select-cuentas-bancarias" style="max-width: 120px;">
+                                            <option value="">Seleccionar...</option>
+                                            <!-- Se cargan dinámicamente -->
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -957,6 +960,48 @@ $(document).ready(function() {
         $('#btn_buscar_operacion').click();
         $('#modalResultadosMovimientos').modal('hide');
     });
+
+    // ================================
+    // CARGAR CUENTAS BANCARIAS DINÁMICAS
+    // ================================
+    
+    // Cargar cuentas bancarias en el select
+    async function cargarCuentasBancarias() {
+        try {
+            const response = await fetch('{% url "inmobiliaria:obtener_cuentas_bancarias_activas" %}');
+            const data = await response.json();
+            
+            const select = document.getElementById('select-cuentas-bancarias');
+            if (select && data.cuentas) {
+                // Limpiar opciones existentes (excepto la primera)
+                select.innerHTML = '<option value="">Seleccionar...</option>';
+                
+                // Agregar cuentas dinámicamente
+                data.cuentas.forEach(cuenta => {
+                    const option = document.createElement('option');
+                    option.value = cuenta.nombre.toLowerCase().replace(' ', '_');
+                    option.textContent = cuenta.nombre;
+                    select.appendChild(option);
+                });
+                
+                console.log('🏦 Cuentas bancarias cargadas:', data.cuentas.length);
+            }
+        } catch (error) {
+            console.error('Error al cargar cuentas bancarias:', error);
+            // Fallback a opciones por defecto
+            const select = document.getElementById('select-cuentas-bancarias');
+            if (select) {
+                select.innerHTML = `
+                    <option value="">Seleccionar...</option>
+                    <option value="galicia">Galicia</option>
+                    <option value="mp">MP</option>
+                `;
+            }
+        }
+    }
+    
+    // Cargar cuentas al inicializar la página
+    cargarCuentasBancarias();
 });
 </script>
 {% endblock %} 
