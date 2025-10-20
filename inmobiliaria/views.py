@@ -7036,7 +7036,7 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
                 
                 if concepto_id_actual == str(concepto_id):
                     print(f"     🎯 ¡CONCEPTO {concepto_id} ENCONTRADO! = PAGADO")
-                                return 'pagado'
+                    return 'pagado'
                     
         except (json.JSONDecodeError, ValueError, TypeError) as e:
             print(f"     ⚠️ No es JSON: {e}")
@@ -7094,8 +7094,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
                 return Decimal(valor_limpio)
             except:
                 return Decimal('0')
-        
-fijate que 
+
         # Métodos de pago básicos
         monto_efectivo = limpiar_valor_monetario(request.POST.get('monto_efectivo', '0'))
         monto_cheque = limpiar_valor_monetario(request.POST.get('monto_cheque', '0'))
