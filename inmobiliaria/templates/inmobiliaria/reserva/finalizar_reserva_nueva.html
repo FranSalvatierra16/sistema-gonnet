@@ -406,6 +406,7 @@ function mostrarModalNuevoConcepto() {
 
 function buscarConceptoPorId(id) {
     console.log('🔧 buscarConceptoPorId llamada con ID:', id);
+    
     if (!id || id.trim() === '') {
         // Limpiar selección si no hay ID
         const infoDiv = document.getElementById('infoConceptoSeleccionado');
@@ -416,12 +417,23 @@ function buscarConceptoPorId(id) {
         return;
     }
     
+    // ✅ DEBUG: Verificar qué conceptos hay disponibles
+    const todasLasFilas = document.querySelectorAll('#tablaConceptosBusqueda tr[data-concepto-id]');
+    console.log('📋 Total de conceptos en tabla:', todasLasFilas.length);
+    todasLasFilas.forEach(fila => {
+        console.log(`   - ID: ${fila.dataset.conceptoId}, Nombre: ${fila.dataset.conceptoNombre}`);
+    });
+    
     // Buscar en la tabla de conceptos disponibles
     const filaConcepto = document.querySelector(`tr[data-concepto-id="${id}"]`);
+    console.log('🔍 Buscando concepto con ID:', id, 'Encontrado:', !!filaConcepto);
+    
     if (filaConcepto) {
         const nombre = filaConcepto.querySelector('td:nth-child(2)').textContent;
+        console.log('✅ Concepto encontrado:', { id, nombre });
         seleccionarConcepto(id, nombre);
     } else {
+        console.log('❌ Concepto NO encontrado para ID:', id);
         // Si no se encuentra, limpiar selección
         const infoDiv = document.getElementById('infoConceptoSeleccionado');
         if (infoDiv) {

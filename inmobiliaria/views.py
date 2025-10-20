@@ -7036,7 +7036,7 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
                 
                 if concepto_id_actual == str(concepto_id):
                     print(f"     🎯 ¡CONCEPTO {concepto_id} ENCONTRADO! = PAGADO")
-                    return 'pagado'
+                                return 'pagado'
                     
         except (json.JSONDecodeError, ValueError, TypeError) as e:
             print(f"     ⚠️ No es JSON: {e}")
@@ -7095,6 +7095,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             except:
                 return Decimal('0')
         
+fijate que 
         # Métodos de pago básicos
         monto_efectivo = limpiar_valor_monetario(request.POST.get('monto_efectivo', '0'))
         monto_cheque = limpiar_valor_monetario(request.POST.get('monto_cheque', '0'))
@@ -8360,8 +8361,8 @@ def recibo_contrato_24(request, contrato_id):
                     print(f"    - Nombre: '{nombre}'")
                     
                     if importe_valor > 0:  # Solo agregar conceptos con importe > 0
-                        conceptos_contrato.append({
-                            'fecha': primer_movimiento.fecha,
+                    conceptos_contrato.append({
+                        'fecha': primer_movimiento.fecha,
                             'codigo': codigo,
                             'nombre': nombre,
                             'importe': f"${importe_valor:,.2f}".replace(',', '.'),
@@ -8537,8 +8538,8 @@ def recibo_contrato_24(request, contrato_id):
                 # FORZAR conceptos básicos siempre
                 # 1. ALQUILER (obligatorio)
                 if contrato.precio_mensual and contrato.precio_mensual > 0:
-                    conceptos_contrato.append({
-                        'fecha': primer_movimiento.fecha,
+                conceptos_contrato.append({
+                    'fecha': primer_movimiento.fecha,
                         'codigo': '1',
                         'nombre': 'Alquiler',
                         'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
@@ -8551,7 +8552,7 @@ def recibo_contrato_24(request, contrato_id):
                 if primer_movimiento and primer_movimiento.honorarios and primer_movimiento.honorarios > 0:
                     honorarios_valor = float(primer_movimiento.honorarios)
                     print(f"  💰 HONORARIOS desde campo movimiento: ${honorarios_valor}")
-                else:
+        else:
                     # Calcular como diferencia
                     diferencia_final = total_pagado - float(contrato.precio_mensual or 0)
                     if diferencia_final > 0:
@@ -8588,8 +8589,8 @@ def recibo_contrato_24(request, contrato_id):
             print(f"⚠️ NO HAY MOVIMIENTOS - CREANDO CONCEPTOS BÁSICOS")
             precio_mensual_valor = float(contrato.precio_mensual or 0)
             if precio_mensual_valor > 0:
-                conceptos_contrato.append({
-                    'fecha': contrato.fecha_operacion,
+            conceptos_contrato.append({
+                'fecha': contrato.fecha_operacion,
                     'codigo': '1',
                     'nombre': 'Alquiler',
                     'importe': f"${precio_mensual_valor:,.2f}".replace(',', '.'),
