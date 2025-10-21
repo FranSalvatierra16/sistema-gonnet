@@ -34,15 +34,25 @@ function actualizarPagos() {
 
 // ✅ FUNCIÓN GLOBAL agregarConcepto (debe estar al principio para el onclick inline)
 function agregarConcepto() {
-    console.log('🔧 agregarConcepto llamada - VERSIÓN TEMPRANA');
+    console.log('🔧 agregarConcepto llamada - VERSIÓN SIMPLIFICADA');
     console.log('🔥 INICIANDO agregarConcepto - timestamp:', new Date().toLocaleTimeString());
     
     // Validar que hay un concepto seleccionado
     const conceptoIdInput = document.getElementById('conceptoId');
-    const observaciones = document.getElementById('observaciones')?.value || 'Sin observaciones';
-    const importe = parseFloat(document.getElementById('importe')?.value || '0');
+    const observacionesInput = document.getElementById('observaciones');
+    const importeInput = document.getElementById('importe');
     
-    if (!conceptoIdInput?.value || !conceptoSeleccionadoActual) {
+    const observaciones = observacionesInput ? observacionesInput.value : '';
+    const importe = importeInput ? parseFloat(importeInput.value) : 0;
+    
+    console.log('📋 Datos validados:', {
+        conceptoIdInput: conceptoIdInput?.value,
+        conceptoSeleccionadoActual: conceptoSeleccionadoActual,
+        observaciones: observaciones,
+        importe: importe
+    });
+    
+    if (!conceptoIdInput || !conceptoIdInput.value || !conceptoSeleccionadoActual) {
         alert('Por favor selecciona un concepto válido');
         return;
     }
@@ -57,7 +67,7 @@ function agregarConcepto() {
         // Actualizar concepto existente
         conceptoEditando.conceptoId = conceptoSeleccionadoActual.id;
         conceptoEditando.nombre = conceptoSeleccionadoActual.nombre;
-        conceptoEditando.observaciones = observaciones;
+        conceptoEditando.observaciones = observaciones || 'Sin observaciones';
         conceptoEditando.importe = importe;
         
         console.log('✅ Concepto actualizado:', conceptoEditando);
@@ -68,7 +78,7 @@ function agregarConcepto() {
             id: contadorConceptos++,
             conceptoId: conceptoSeleccionadoActual.id,
             nombre: conceptoSeleccionadoActual.nombre,
-            observaciones: observaciones,
+            observaciones: observaciones || 'Sin observaciones',
             importe: importe,
             fecha: new Date().toLocaleDateString('es-ES')
         };
@@ -77,17 +87,34 @@ function agregarConcepto() {
         console.log('✅ Nuevo concepto agregado:', nuevoConcepto);
     }
     
-    // Actualizar tabla si la función existe
-    if (typeof actualizarTablaConceptos === 'function') {
-        actualizarTablaConceptos();
+    // ACTUALIZAR TABLA DIRECTAMENTE
+    const tbody = document.getElementById('conceptosBody');
+    if (tbody) {
+        tbody.innerHTML = '';
+        conceptosAgregados.forEach((concepto) => {
+            const fila = document.createElement('tr');
+            fila.innerHTML = `
+                <td>${concepto.fecha}</td>
+                <td>${concepto.nombre}</td>
+                <td>${concepto.observaciones}</td>
+                <td class="text-end">$${concepto.importe.toLocaleString('es-ES')}</td>
+                <td>${concepto.conceptoId}</td>
+                <td>
+                    <button type="button" class="btn btn-warning btn-sm me-1" 
+                            onclick="editarConcepto(${concepto.id})" title="Editar">
+                        ✏️
+                    </button>
+                    <button type="button" class="btn btn-danger btn-sm" 
+                            onclick="eliminarConcepto(${concepto.id})" title="Eliminar">
+                        🗑️
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(fila);
+        });
     }
     
-    // Recalcular totales si las funciones existen
-    if (typeof calcularTotales === 'function') {
-        calcularTotales();
-    }
-    
-    // Cerrar modal
+    // Cerrar modal y limpiar formulario
     const modal = bootstrap.Modal.getInstance(document.getElementById('modalConcepto'));
     if (modal) {
         modal.hide();
@@ -106,14 +133,25 @@ function agregarConcepto() {
     
     conceptoSeleccionadoActual = null;
     
-    // Resetear modal si la función existe
-    if (typeof resetearModalConcepto === 'function') {
-        resetearModalConcepto();
-    }
+    // Recalcular totales si la función existe
+    setTimeout(function() {
+        if (typeof calcularTotales === 'function') {
+            calcularTotales();
+        }
+    }, 100);
+    
+    console.log('✅ agregarConcepto COMPLETADO');
 }
 
 // ✅ ASEGURAR DISPONIBILIDAD GLOBAL DE LA FUNCIÓN
 window.agregarConcepto = agregarConcepto;
+
+// ✅ VERIFICACIÓN ADICIONAL - Asegurar que esté disponible globalmente
+if (typeof window.agregarConcepto !== 'function') {
+    console.error('❌ ERROR: agregarConcepto no está disponible globalmente');
+} else {
+    console.log('✅ agregarConcepto disponible globalmente');
+}
 
 // Función para calcular saldo a ocupar (Queda por Pagar)
 function calcularSaldoOcupar() {
@@ -1220,7 +1258,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
-                <button type="button" class="btn btn-success" id="btnAgregarConcepto">✅ Agregar</button>
+                <button type="button" class="btn btn-success" id="btnAgregarConcepto" onclick="agregarConcepto()">✅ Agregar</button>
             </div>
         </div>
     </div>
