@@ -111,6 +111,9 @@ function agregarConcepto() {
     }
 }
 
+// ✅ ASEGURAR DISPONIBILIDAD GLOBAL DE LA FUNCIÓN
+window.agregarConcepto = agregarConcepto;
+
 // Función para calcular saldo a ocupar (Queda por Pagar)
 function calcularSaldoOcupar() {
     try {
@@ -734,6 +737,19 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
+    // ✅ EVENT LISTENER PARA EL BOTÓN AGREGAR CONCEPTO
+    const btnAgregarConcepto = document.getElementById('btnAgregarConcepto');
+    if (btnAgregarConcepto && typeof window.agregarConcepto === 'function') {
+        btnAgregarConcepto.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('🔧 Botón agregar concepto clickeado via event listener');
+            window.agregarConcepto();
+        });
+        console.log('✅ Event listener agregado al botón btnAgregarConcepto');
+    } else {
+        console.error('❌ No se pudo agregar event listener al botón - elemento:', btnAgregarConcepto, 'función:', typeof window.agregarConcepto);
+    }
 });
 </script>
 {% endblock %}
@@ -1203,7 +1219,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
-                <button type="button" class="btn btn-success" id="btnAgregarConcepto" onclick="agregarConcepto()">✅ Agregar</button>
+                <button type="button" class="btn btn-success" id="btnAgregarConcepto">✅ Agregar</button>
             </div>
         </div>
     </div>
@@ -1438,7 +1454,7 @@ function resetearModalConcepto() {
     const btnAgregar = document.getElementById('btnAgregarConcepto');
     if (btnAgregar) {
         btnAgregar.textContent = '✅ Agregar';
-        btnAgregar.setAttribute('onclick', 'agregarConcepto()');
+        // ✅ No necesitamos setAttribute porque ya tenemos event listener
         console.log('✅ Botón restaurado a "Agregar"');
     } else {
         console.error('❌ No se encontró el botón #btnAgregarConcepto para restaurar');
@@ -1882,7 +1898,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const btnAgregar = document.querySelector('#modalConcepto .btn-success');
         if (btnAgregar) {
             btnAgregar.textContent = '✅ Agregar';
-            btnAgregar.setAttribute('onclick', 'agregarConcepto()');
+            // ✅ No necesitamos setAttribute porque ya tenemos event listener
         }
         
         // Limpiar formulario
