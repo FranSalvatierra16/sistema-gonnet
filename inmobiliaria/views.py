@@ -1516,6 +1516,13 @@ def finalizar_reserva_nueva(request, reserva_id):
         # Obtener conceptos de caja disponibles
         conceptos_caja = Concepto.objects.all()
         
+        # ✅ Obtener cuentas bancarias activas de la sucursal
+        from inmobiliaria.models.sucursal import CuentaBancaria
+        cuentas_bancarias = CuentaBancaria.objects.filter(
+            sucursal=request.user.sucursal,
+            activa=True
+        ).order_by('nombre_banco', 'alias')
+        
         # ✅ CALCULAR SALDO PENDIENTE CONSIDERANDO SOLO LA SEÑA (NO EL DEPÓSITO)
         # Buscar todos los movimientos de caja pagados para esta reserva
         pagos_anteriores = MovimientoCaja.objects.filter(
@@ -1598,6 +1605,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'conceptos_pago': conceptos_caja,  # Conceptos disponibles
             'conceptos_caja': conceptos_caja,  # Para el template HTML
             'conceptos_json': list(conceptos_caja.values('id', 'nombre')),  # Para JavaScript
+            'cuentas_bancarias': cuentas_bancarias,  # ✅ Cuentas bancarias de la sucursal
             'cliente_id': reserva.cliente.id,
             'cliente_nombre': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
             'interno_caja': caja_actual.numero,
@@ -7776,6 +7784,13 @@ def finalizar_reserva_nueva(request, reserva_id):
         # Obtener conceptos de caja disponibles
         conceptos_caja = Concepto.objects.all()
         
+        # ✅ Obtener cuentas bancarias activas de la sucursal
+        from inmobiliaria.models.sucursal import CuentaBancaria
+        cuentas_bancarias = CuentaBancaria.objects.filter(
+            sucursal=request.user.sucursal,
+            activa=True
+        ).order_by('nombre_banco', 'alias')
+        
         # ✅ CALCULAR SALDO PENDIENTE CONSIDERANDO SOLO LA SEÑA (NO EL DEPÓSITO)
         # Buscar todos los movimientos de caja pagados para esta reserva
         pagos_anteriores = MovimientoCaja.objects.filter(
@@ -7869,6 +7884,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'conceptos_pago': conceptos_caja,  # Conceptos disponibles
             'conceptos_caja': conceptos_caja,  # Para el template HTML
             'conceptos_json': list(conceptos_caja.values('id', 'nombre')),  # Para JavaScript
+            'cuentas_bancarias': cuentas_bancarias,  # ✅ Cuentas bancarias de la sucursal
             'cliente_id': reserva.cliente.id,
             'cliente_nombre': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
             'interno_caja': caja_actual.numero,
