@@ -476,6 +476,9 @@ function agregarConcepto() {
     calcularTotales();
 }
 
+// ✅ Asegurar que la función esté disponible globalmente
+window.agregarConcepto = agregarConcepto;
+
 // Función para seleccionar un concepto
 function seleccionarConcepto(id, nombre) {
     console.log('🔧 seleccionarConcepto llamada:', id, nombre);
@@ -1189,7 +1192,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
-                <button type="button" class="btn btn-success" id="btnAgregarConcepto">✅ Agregar</button>
+                <button type="button" class="btn btn-success" id="btnAgregarConcepto" onclick="agregarConcepto()">✅ Agregar</button>
             </div>
         </div>
     </div>
@@ -1424,6 +1427,7 @@ function resetearModalConcepto() {
     const btnAgregar = document.getElementById('btnAgregarConcepto');
     if (btnAgregar) {
         btnAgregar.textContent = '✅ Agregar';
+        btnAgregar.setAttribute('onclick', 'agregarConcepto()');
         console.log('✅ Botón restaurado a "Agregar"');
     } else {
         console.error('❌ No se encontró el botón #btnAgregarConcepto para restaurar');
@@ -1853,18 +1857,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Event listener para el botón de agregar concepto
-    const btnAgregarConcepto = document.getElementById('btnAgregarConcepto');
-    if (btnAgregarConcepto) {
-        btnAgregarConcepto.addEventListener('click', function() {
-            if (typeof agregarConcepto === 'function') {
-                agregarConcepto();
-            } else {
-                console.error('❌ La función agregarConcepto no está definida');
-            }
-        });
-    }
-    
     // Event listener para resetear el modal cuando se cierre
     const modalConcepto = document.getElementById('modalConcepto');
     modalConcepto.addEventListener('hidden.bs.modal', function () {
@@ -1879,6 +1871,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const btnAgregar = document.querySelector('#modalConcepto .btn-success');
         if (btnAgregar) {
             btnAgregar.textContent = '✅ Agregar';
+            btnAgregar.setAttribute('onclick', 'agregarConcepto()');
         }
         
         // Limpiar formulario
