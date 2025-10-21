@@ -117,3 +117,11 @@ def get_caracteristicas(propiedad):
         return 'Sin características especiales'
     
     return ', '.join(caracteristicas)
+
+@register.filter
+def get_item(dictionary, key):
+    """Obtiene un elemento de un diccionario usando una clave"""
+    try:
+        return dictionary.get(key)
+    except (AttributeError, TypeError):
+        return None

@@ -5175,29 +5175,60 @@ def detalle_caja(request, numero):
     ingresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
     egresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
     
-    # Calcular totales para ingresos (valores positivos)
+    # ✅ Obtener cuentas bancarias dinámicamente
+    from inmobiliaria.models.sucursal import CuentaBancaria
+    cuentas_bancarias = CuentaBancaria.objects.filter(
+        sucursal=request.user.sucursal,
+        activa=True
+    ).order_by('nombre_banco', 'alias')
+    
+    # ✅ Calcular totales para ingresos con cuentas bancarias dinámicas
     totales_ingresos = {
         'efectivo': sum(m.monto_efectivo for m in ingresos),
         'cheque': sum(m.monto_cheque for m in ingresos),
         'tarjeta': sum(m.monto_tarjeta for m in ingresos),
         'deposito': sum(m.monto_deposito for m in ingresos),
-        'deposito_galicia': sum(m.monto_deposito for m in ingresos.filter(destino_deposito='galicia')),
-        'deposito_mp': sum(m.monto_deposito for m in ingresos.filter(destino_deposito='mp')),
         'total': sum(m.monto_total for m in ingresos)
     }
     
-    # Calcular totales para egresos (valores positivos)
+    # ✅ Agregar totales por cuenta bancaria dinámica
+    totales_ingresos['cuentas_bancarias'] = {}
+    for cuenta in cuentas_bancarias:
+        total_cuenta = sum(m.monto_deposito for m in ingresos.filter(destino_deposito=f'cuenta_{cuenta.id}'))
+        totales_ingresos['cuentas_bancarias'][cuenta.id] = {
+            'nombre': cuenta.nombre_banco,
+            'alias': cuenta.alias,
+            'total': total_cuenta
+        }
+    
+    # ✅ Mantener compatibilidad con campos legacy
+    totales_ingresos['deposito_galicia'] = sum(m.monto_deposito for m in ingresos.filter(destino_deposito='galicia'))
+    totales_ingresos['deposito_mp'] = sum(m.monto_deposito for m in ingresos.filter(destino_deposito='mp'))
+    
+    # ✅ Calcular totales para egresos con cuentas bancarias dinámicas
     totales_egresos = {
         'efectivo': sum(m.monto_efectivo for m in egresos),
         'cheque': sum(m.monto_cheque for m in egresos),
         'tarjeta': sum(m.monto_tarjeta for m in egresos),
         'deposito': sum(m.monto_deposito for m in egresos),
-        'deposito_galicia': sum(m.monto_deposito for m in egresos.filter(destino_deposito='galicia')),
-        'deposito_mp': sum(m.monto_deposito for m in egresos.filter(destino_deposito='mp')),
         'total': sum(m.monto_total for m in egresos)
     }
     
-    # Calcular saldo actual por método de pago (ingresos - egresos)
+    # ✅ Agregar totales por cuenta bancaria dinámica para egresos
+    totales_egresos['cuentas_bancarias'] = {}
+    for cuenta in cuentas_bancarias:
+        total_cuenta = sum(m.monto_deposito for m in egresos.filter(destino_deposito=f'cuenta_{cuenta.id}'))
+        totales_egresos['cuentas_bancarias'][cuenta.id] = {
+            'nombre': cuenta.nombre_banco,
+            'alias': cuenta.alias,
+            'total': total_cuenta
+        }
+    
+    # ✅ Mantener compatibilidad con campos legacy
+    totales_egresos['deposito_galicia'] = sum(m.monto_deposito for m in egresos.filter(destino_deposito='galicia'))
+    totales_egresos['deposito_mp'] = sum(m.monto_deposito for m in egresos.filter(destino_deposito='mp'))
+    
+    # ✅ Calcular saldo actual por método de pago (ingresos - egresos)
     saldo_actual = {
         'efectivo': totales_ingresos['efectivo'] - totales_egresos['efectivo'],
         'cheque': totales_ingresos['cheque'] - totales_egresos['cheque'],
@@ -5206,6 +5237,16 @@ def detalle_caja(request, numero):
         'deposito_galicia': totales_ingresos['deposito_galicia'] - totales_egresos['deposito_galicia'],
         'deposito_mp': totales_ingresos['deposito_mp'] - totales_egresos['deposito_mp']
     }
+    
+    # ✅ Agregar saldo por cuenta bancaria dinámica
+    saldo_actual['cuentas_bancarias'] = {}
+    for cuenta in cuentas_bancarias:
+        saldo_cuenta = totales_ingresos['cuentas_bancarias'][cuenta.id]['total'] - totales_egresos['cuentas_bancarias'][cuenta.id]['total']
+        saldo_actual['cuentas_bancarias'][cuenta.id] = {
+            'nombre': cuenta.nombre_banco,
+            'alias': cuenta.alias,
+            'saldo': saldo_cuenta
+        }
     
     # Calcular saldo total
     saldo_total = (
@@ -5225,6 +5266,7 @@ def detalle_caja(request, numero):
         'caja': caja,
         'movimientos': movimientos,
         'totales': totales,
+        'cuentas_bancarias': cuentas_bancarias,  # ✅ Agregar cuentas bancarias al contexto
         'es_saldo_positivo': saldo_total >= 0  # Para el color del saldo
     }
     

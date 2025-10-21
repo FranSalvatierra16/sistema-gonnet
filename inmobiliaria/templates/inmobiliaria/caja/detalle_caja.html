@@ -151,8 +151,20 @@
                             <p><strong>Tarjeta:</strong> ${{ totales.ingresos.tarjeta|floatformat:2 }}</p>
                             <p><strong>Transferencias:</strong> ${{ totales.ingresos.deposito|floatformat:2 }}</p>
                             <div class="ms-3">
-                                <small><strong>Galicia:</strong> ${{ totales.ingresos.deposito_galicia|floatformat:2 }}</small><br>
-                                <small><strong>MP:</strong> ${{ totales.ingresos.deposito_mp|floatformat:2 }}</small>
+                                <!-- ✅ Mostrar cuentas bancarias dinámicas -->
+                                {% for cuenta in cuentas_bancarias %}
+                                    {% if totales.ingresos.cuentas_bancarias|default_if_none:""|get_item:cuenta.id %}
+                                        <small><strong>{{ cuenta.nombre_banco }}{% if cuenta.alias %} - {{ cuenta.alias }}{% endif %}:</strong> ${{ totales.ingresos.cuentas_bancarias|get_item:cuenta.id.total|floatformat:2 }}</small><br>
+                                    {% endif %}
+                                {% empty %}
+                                    <!-- Fallback a campos legacy si no hay cuentas bancarias -->
+                                    {% if totales.ingresos.deposito_galicia > 0 %}
+                                        <small><strong>Galicia:</strong> ${{ totales.ingresos.deposito_galicia|floatformat:2 }}</small><br>
+                                    {% endif %}
+                                    {% if totales.ingresos.deposito_mp > 0 %}
+                                        <small><strong>MP:</strong> ${{ totales.ingresos.deposito_mp|floatformat:2 }}</small><br>
+                                    {% endif %}
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
@@ -176,8 +188,20 @@
                             <p><strong>Tarjeta:</strong> ${{ totales.egresos.tarjeta|floatformat:2 }}</p>
                             <p><strong>Transferencias:</strong> ${{ totales.egresos.deposito|floatformat:2 }}</p>
                             <div class="ms-3">
-                                <small><strong>Galicia:</strong> ${{ totales.egresos.deposito_galicia|floatformat:2 }}</small><br>
-                                <small><strong>MP:</strong> ${{ totales.egresos.deposito_mp|floatformat:2 }}</small>
+                                <!-- ✅ Mostrar cuentas bancarias dinámicas -->
+                                {% for cuenta in cuentas_bancarias %}
+                                    {% if totales.egresos.cuentas_bancarias|default_if_none:""|get_item:cuenta.id %}
+                                        <small><strong>{{ cuenta.nombre_banco }}{% if cuenta.alias %} - {{ cuenta.alias }}{% endif %}:</strong> ${{ totales.egresos.cuentas_bancarias|get_item:cuenta.id.total|floatformat:2 }}</small><br>
+                                    {% endif %}
+                                {% empty %}
+                                    <!-- Fallback a campos legacy si no hay cuentas bancarias -->
+                                    {% if totales.egresos.deposito_galicia > 0 %}
+                                        <small><strong>Galicia:</strong> ${{ totales.egresos.deposito_galicia|floatformat:2 }}</small><br>
+                                    {% endif %}
+                                    {% if totales.egresos.deposito_mp > 0 %}
+                                        <small><strong>MP:</strong> ${{ totales.egresos.deposito_mp|floatformat:2 }}</small><br>
+                                    {% endif %}
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
@@ -223,8 +247,20 @@
                                 <h6>Transferencias</h6>
                                 <p>${{ totales.saldo_actual.deposito|floatformat:2 }}</p>
                                 <div class="small">
-                                    <div><strong>Galicia:</strong> ${{ totales.saldo_actual.deposito_galicia|floatformat:2 }}</div>
-                                    <div><strong>MP:</strong> ${{ totales.saldo_actual.deposito_mp|floatformat:2 }}</div>
+                                    <!-- ✅ Mostrar cuentas bancarias dinámicas -->
+                                    {% for cuenta in cuentas_bancarias %}
+                                        {% if totales.saldo_actual.cuentas_bancarias|default_if_none:""|get_item:cuenta.id %}
+                                            <div><strong>{{ cuenta.nombre_banco }}{% if cuenta.alias %} - {{ cuenta.alias }}{% endif %}:</strong> ${{ totales.saldo_actual.cuentas_bancarias|get_item:cuenta.id.saldo|floatformat:2 }}</div>
+                                        {% endif %}
+                                    {% empty %}
+                                        <!-- Fallback a campos legacy si no hay cuentas bancarias -->
+                                        {% if totales.saldo_actual.deposito_galicia != 0 %}
+                                            <div><strong>Galicia:</strong> ${{ totales.saldo_actual.deposito_galicia|floatformat:2 }}</div>
+                                        {% endif %}
+                                        {% if totales.saldo_actual.deposito_mp != 0 %}
+                                            <div><strong>MP:</strong> ${{ totales.saldo_actual.deposito_mp|floatformat:2 }}</div>
+                                        {% endif %}
+                                    {% endfor %}
                                 </div>
                             </div>
                         </div>
