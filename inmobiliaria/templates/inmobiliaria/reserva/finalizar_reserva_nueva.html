@@ -360,34 +360,6 @@ function procesarMovimiento() {
 }
 
 // ✅ FUNCIONES FALTANTES PARA EL MODAL DE CONCEPTO
-function mostrarModalConcepto() {
-    console.log('🔧 mostrarModalConcepto llamada');
-    const modalElement = document.getElementById('modalConcepto');
-    if (!modalElement) {
-        console.error('❌ Modal element not found');
-        alert('Error: No se encontró el modal de concepto');
-        return;
-    }
-
-    // Resetear el formulario
-    const formElement = document.getElementById('formConcepto');
-    if (formElement) {
-        formElement.reset();
-    }
-
-    // Mostrar modal usando Bootstrap 5
-    try {
-        const modal = new bootstrap.Modal(modalElement);
-        modal.show();
-        console.log('✅ Modal mostrado correctamente');
-    } catch (error) {
-        console.error('❌ Error al mostrar modal:', error);
-        // Fallback: mostrar modal sin Bootstrap
-        modalElement.style.display = 'block';
-        modalElement.classList.add('show');
-    }
-}
-
 function mostrarModalBuscarConcepto() {
     console.log('🔧 mostrarModalBuscarConcepto llamada');
     const modalElement = document.getElementById('modalBuscarConcepto');
@@ -1341,6 +1313,7 @@ function mostrarModalConcepto() {
     // Mostrar el modal
     var modalConcepto = new bootstrap.Modal(document.getElementById('modalConcepto'));
     modalConcepto.show();
+}
 
 // Función para actualizar concepto existente
 function actualizarConcepto() {
