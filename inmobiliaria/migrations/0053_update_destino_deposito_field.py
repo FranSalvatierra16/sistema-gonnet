@@ -10,27 +10,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='caja',
-            name='id',
-            field=models.BigAutoField(auto_created=True, default=1, primary_key=True, serialize=False, verbose_name='ID'),
-            preserve_default=False,
-        ),
-        migrations.AddField(
-            model_name='propiedad',
-            name='titulo',
-            field=models.CharField(blank=True, help_text='Nombre o título para identificar fácilmente la propiedad', max_length=255, null=True, verbose_name='Título descriptivo'),
-        ),
-        migrations.AlterField(
-            model_name='caja',
-            name='numero',
-            field=models.PositiveIntegerField(),
-        ),
-        migrations.AlterField(
-            model_name='historialdisponibilidad',
-            name='estado',
-            field=models.CharField(choices=[('libre', 'Libre'), ('reservado', 'Reservado'), ('alquilado', 'Operación')], default='libre', max_length=20),
-        ),
+        # ✅ Solo actualizar destino_deposito (otros campos ya existen en Heroku)
         migrations.AlterField(
             model_name='movimientocaja',
             name='destino_deposito',
