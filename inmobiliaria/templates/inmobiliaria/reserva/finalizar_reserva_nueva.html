@@ -35,6 +35,7 @@ function actualizarPagos() {
 // ✅ FUNCIÓN GLOBAL agregarConcepto (debe estar al principio para el onclick inline)
 function agregarConcepto() {
     console.log('🔧 agregarConcepto llamada - VERSIÓN TEMPRANA');
+    console.log('🔥 INICIANDO agregarConcepto - timestamp:', new Date().toLocaleTimeString());
     
     // Validar que hay un concepto seleccionado
     const conceptoIdInput = document.getElementById('conceptoId');
@@ -247,7 +248,7 @@ function calcularTotalPagos() {
         
         // ✅ Calcular dinámicamente todos los campos de cuentas bancarias
         let totalCuentasBancarias = 0;
-        const camposCuentasBancarias = document.querySelectorAll('.cuenta-bancaria-dinamica');
+        // Usar la variable ya declarada arriba
         camposCuentasBancarias.forEach(campo => {
             const valor = parsearValor(campo);
             totalCuentasBancarias += valor;
@@ -1914,6 +1915,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     if (typeof habilitarBotonProcesar === 'function') {
         habilitarBotonProcesar();
+    }
+    
+    // ✅ ASEGURAR EVENT LISTENER DEL BOTÓN AGREGAR CONCEPTO (segundo bloque)
+    const btnAgregarConcepto2 = document.getElementById('btnAgregarConcepto');
+    if (btnAgregarConcepto2 && typeof window.agregarConcepto === 'function') {
+        // Remover cualquier listener previo para evitar duplicados
+        btnAgregarConcepto2.removeEventListener('click', window.agregarConcepto);
+        btnAgregarConcepto2.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('🔧 Botón agregar concepto clickeado via event listener BLOQUE 2');
+            window.agregarConcepto();
+        });
+        console.log('✅ Event listener BLOQUE 2 agregado al botón btnAgregarConcepto');
     }
     
     // 🔄 Asegurar que el cálculo inicial se ejecute después de que todo esté listo
