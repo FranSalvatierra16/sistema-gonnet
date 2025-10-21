@@ -798,16 +798,110 @@ document.addEventListener('DOMContentLoaded', function() {
     if (btnAgregarConcepto) {
         btnAgregarConcepto.addEventListener('click', function(e) {
             e.preventDefault();
-            console.log('🔧 Botón agregar concepto clickeado via event listener');
+            console.log('🔧 Botón agregar concepto clickeado via event listener - EJECUTANDO LÓGICA DIRECTA');
             
-            // Llamar a la función directamente (ya está definida arriba)
-            if (typeof agregarConcepto === 'function') {
-                agregarConcepto();
-            } else if (typeof window.agregarConcepto === 'function') {
-                window.agregarConcepto();
-            } else {
-                console.error('❌ agregarConcepto no está disponible en ningún scope');
-                alert('Error: La función para agregar conceptos no está disponible. Recarga la página.');
+            // IMPLEMENTAR LÓGICA DIRECTAMENTE SIN DEPENDER DE FUNCIONES EXTERNAS
+            try {
+                // Validar que hay un concepto seleccionado
+                const conceptoIdInput = document.getElementById('conceptoId');
+                const observacionesInput = document.getElementById('observaciones');
+                const importeInput = document.getElementById('importe');
+                
+                const observaciones = observacionesInput ? observacionesInput.value : '';
+                const importe = importeInput ? parseFloat(importeInput.value) : 0;
+                
+                console.log('📋 Datos validados en event listener:', {
+                    conceptoIdInput: conceptoIdInput?.value,
+                    conceptoSeleccionadoActual: conceptoSeleccionadoActual,
+                    observaciones: observaciones,
+                    importe: importe
+                });
+                
+                if (!conceptoIdInput || !conceptoIdInput.value || !conceptoSeleccionadoActual) {
+                    alert('Por favor selecciona un concepto válido');
+                    return;
+                }
+                
+                if (!importe || importe <= 0) {
+                    alert('Por favor ingresa un importe válido mayor a 0');
+                    return;
+                }
+                
+                // Verificar si estamos editando o agregando
+                if (conceptoEditando) {
+                    // Actualizar concepto existente
+                    conceptoEditando.conceptoId = conceptoSeleccionadoActual.id;
+                    conceptoEditando.nombre = conceptoSeleccionadoActual.nombre;
+                    conceptoEditando.observaciones = observaciones || 'Sin observaciones';
+                    conceptoEditando.importe = importe;
+                    
+                    console.log('✅ Concepto actualizado:', conceptoEditando);
+                    conceptoEditando = null;
+                } else {
+                    // Agregar nuevo concepto
+                    const nuevoConcepto = {
+                        id: contadorConceptos++,
+                        conceptoId: conceptoSeleccionadoActual.id,
+                        nombre: conceptoSeleccionadoActual.nombre,
+                        observaciones: observaciones || 'Sin observaciones',
+                        importe: importe,
+                        fecha: new Date().toLocaleDateString('es-ES')
+                    };
+                    
+                    conceptosAgregados.push(nuevoConcepto);
+                    console.log('✅ Nuevo concepto agregado:', nuevoConcepto);
+                }
+                
+                // ACTUALIZAR TABLA DIRECTAMENTE
+                const tbody = document.getElementById('conceptosBody');
+                if (tbody) {
+                    tbody.innerHTML = '';
+                    conceptosAgregados.forEach((concepto) => {
+                        const fila = document.createElement('tr');
+                        fila.innerHTML = `
+                            <td>${concepto.fecha}</td>
+                            <td>${concepto.nombre}</td>
+                            <td>${concepto.observaciones}</td>
+                            <td class="text-end">$${concepto.importe.toLocaleString('es-ES')}</td>
+                            <td>${concepto.conceptoId}</td>
+                            <td>
+                                <button type="button" class="btn btn-warning btn-sm me-1" 
+                                        onclick="editarConcepto(${concepto.id})" title="Editar">
+                                    ✏️
+                                </button>
+                                <button type="button" class="btn btn-danger btn-sm" 
+                                        onclick="eliminarConcepto(${concepto.id})" title="Eliminar">
+                                    🗑️
+                                </button>
+                            </td>
+                        `;
+                        tbody.appendChild(fila);
+                    });
+                }
+                
+                // Cerrar modal y limpiar formulario
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalConcepto'));
+                if (modal) {
+                    modal.hide();
+                }
+                
+                const formConcepto = document.getElementById('formConcepto');
+                if (formConcepto) {
+                    formConcepto.reset();
+                }
+                
+                const infoDiv = document.getElementById('infoConceptoSeleccionado');
+                if (infoDiv) {
+                    infoDiv.style.display = 'none';
+                }
+                
+                conceptoSeleccionadoActual = null;
+                
+                console.log('✅ agregarConcepto COMPLETADO desde event listener');
+                
+            } catch (error) {
+                console.error('❌ Error en event listener agregar concepto:', error);
+                alert('Error al agregar concepto: ' + error.message);
             }
         });
         console.log('✅ Event listener agregado al botón btnAgregarConcepto');
@@ -1980,24 +2074,13 @@ document.addEventListener('DOMContentLoaded', function() {
         habilitarBotonProcesar();
     }
     
-    // ✅ ASEGURAR EVENT LISTENER DEL BOTÓN AGREGAR CONCEPTO (segundo bloque)
+    // ✅ VERIFICAR QUE EL EVENT LISTENER DEL BOTÓN ESTÉ FUNCIONANDO (segundo bloque)
     const btnAgregarConcepto2 = document.getElementById('btnAgregarConcepto');
     if (btnAgregarConcepto2) {
-        btnAgregarConcepto2.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('🔧 Botón agregar concepto clickeado via event listener BLOQUE 2');
-            
-            // Llamar a la función directamente
-            if (typeof agregarConcepto === 'function') {
-                agregarConcepto();
-            } else if (typeof window.agregarConcepto === 'function') {
-                window.agregarConcepto();
-            } else {
-                console.error('❌ agregarConcepto no está disponible en ningún scope (BLOQUE 2)');
-                alert('Error: La función para agregar conceptos no está disponible. Recarga la página.');
-            }
-        });
-        console.log('✅ Event listener BLOQUE 2 agregado al botón btnAgregarConcepto');
+        console.log('✅ Botón btnAgregarConcepto encontrado en segundo bloque - event listener ya debe estar activo');
+        // No agregamos otro event listener para evitar duplicados
+    } else {
+        console.error('❌ No se encontró el botón btnAgregarConcepto en segundo bloque');
     }
     
     // 🔄 Asegurar que el cálculo inicial se ejecute después de que todo esté listo
