@@ -462,11 +462,16 @@ function agregarConcepto() {
         modal.hide();
     }
     
-    // Limpiar formulario
+    // Limpiar formulario y resetear modal
     document.getElementById('formConcepto').reset();
     document.getElementById('infoConceptoSeleccionado').style.display = 'none';
     conceptoSeleccionadoActual = null;
-me    
+    
+    // Resetear completamente el estado del modal
+    if (typeof resetearModalConcepto === 'function') {
+        resetearModalConcepto();
+    }
+    
     // ✅ Recalcular totales después de agregar/editar concepto
     calcularTotales();
 }
@@ -1829,10 +1834,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Inicializar cálculos
-    calcularSaldoOcupar(); // ✅ Inicializar saldo a ocupar primero
-    calcularTotales(); // ✅ Inicializar totales primero
-    calcularTotalPagos();
+    // Inicializar cálculos (con verificación de existencia)
+    if (typeof calcularSaldoOcupar === 'function') {
+        calcularSaldoOcupar(); // ✅ Inicializar saldo a ocupar primero
+    }
+    if (typeof calcularTotales === 'function') {
+        calcularTotales(); // ✅ Inicializar totales primero
+    }
+    if (typeof calcularTotalPagos === 'function') {
+        calcularTotalPagos();
+    }
     
     // Event listeners para los botones de seleccionar concepto
     document.addEventListener('click', function(e) {
@@ -1863,13 +1874,21 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // ✅ Inicializar cálculos al cargar la página
-    calcularTotales();
-    calcularSaldoOcupar();
-    habilitarBotonProcesar();
+    if (typeof calcularTotales === 'function') {
+        calcularTotales();
+    }
+    if (typeof calcularSaldoOcupar === 'function') {
+        calcularSaldoOcupar();
+    }
+    if (typeof habilitarBotonProcesar === 'function') {
+        habilitarBotonProcesar();
+    }
     
     // 🔄 Asegurar que el cálculo inicial se ejecute después de que todo esté listo
     setTimeout(function() {
-        calcularSaldoOcupar();
+        if (typeof calcularSaldoOcupar === 'function') {
+            calcularSaldoOcupar();
+        }
         console.log('🎯 CÁLCULO INICIAL ejecutado');
     }, 100);
 });
