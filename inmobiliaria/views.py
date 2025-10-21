@@ -2796,20 +2796,40 @@ def procesar_movimiento_reserva(request):
             # Crear movimientos separados para transferencias si existen
             movimientos_creados = [movimiento_principal]
             
-            # ✅ ASIGNAR DESTINO DE TRANSFERENCIA AL MOVIMIENTO PRINCIPAL
-            if monto_deposito_galicia > 0 and monto_deposito_mp == 0:
-                # Solo Galicia
-                movimiento_principal.destino_deposito = 'galicia'
+            # ✅ ASIGNAR DESTINO DE TRANSFERENCIA DINÁMICAMENTE
+            cuentas_con_monto = [data for data in montos_cuentas_bancarias.values() if data['monto'] > 0]
+            
+            if len(cuentas_con_monto) == 1:
+                # Solo una cuenta bancaria con monto
+                cuenta_usada = cuentas_con_monto[0]['cuenta']
+                movimiento_principal.destino_deposito = f"cuenta_{cuenta_usada.id}"
                 movimiento_principal.save()
-            elif monto_deposito_mp > 0 and monto_deposito_galicia == 0:
-                # Solo Mercado Pago
-                movimiento_principal.destino_deposito = 'mp'
-                movimiento_principal.save()
-            elif monto_deposito_galicia > 0 and monto_deposito_mp > 0:
-                # Ambos: dejar como "mixto" o crear nota en concepto
-                concepto_actualizado = f"Operaci\u00f3n {reserva.id} - Galicia: ${monto_deposito_galicia}, MP: ${monto_deposito_mp}"
+                print(f"✅ Destino asignado: Cuenta {cuenta_usada.nombre_banco} (ID: {cuenta_usada.id})")
+            elif len(cuentas_con_monto) > 1:
+                # Múltiples cuentas bancarias con monto - actualizar concepto
+                detalles_cuentas = []
+                for data in cuentas_con_monto:
+                    cuenta = data['cuenta']
+                    monto = data['monto']
+                    detalles_cuentas.append(f"{cuenta.nombre_banco}: ${monto}")
+                
+                concepto_actualizado = f"Operaci\u00f3n {reserva.id} - " + ", ".join(detalles_cuentas)
                 movimiento_principal.concepto = concepto_actualizado
+                movimiento_principal.destino_deposito = 'mixto'
                 movimiento_principal.save()
+                print(f"✅ Destino mixto asignado: {', '.join(detalles_cuentas)}")
+            elif monto_deposito_legacy > 0:
+                # Fallback a lógica legacy si hay montos en campos antiguos
+                if monto_deposito_galicia > 0 and monto_deposito_mp == 0:
+                    movimiento_principal.destino_deposito = 'galicia'
+                    movimiento_principal.save()
+                elif monto_deposito_mp > 0 and monto_deposito_galicia == 0:
+                    movimiento_principal.destino_deposito = 'mp'
+                    movimiento_principal.save()
+                elif monto_deposito_galicia > 0 and monto_deposito_mp > 0:
+                    concepto_actualizado = f"Operaci\u00f3n {reserva.id} - Galicia: ${monto_deposito_galicia}, MP: ${monto_deposito_mp}"
+                    movimiento_principal.concepto = concepto_actualizado
+                    movimiento_principal.save()
             
             total_movimiento_creado = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
             print(f"✅ MOVIMIENTO ÚNICO CREADO - ID: {movimiento_principal.id}, Total: ${total_movimiento_creado}")
@@ -7112,19 +7132,42 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             except:
                 return Decimal('0')
         
-        # Métodos de pago
-        monto_efectivo = limpiar_valor_monetario(request.POST.get('monto_efectivo', '0'))
-        monto_cheque = limpiar_valor_monetario(request.POST.get('monto_cheque', '0'))
-        monto_tarjeta = limpiar_valor_monetario(request.POST.get('monto_tarjeta', '0'))
+        # ✅ Obtener cuentas bancarias dinámicamente
+        from inmobiliaria.models.sucursal import CuentaBancaria
+        cuentas_bancarias = CuentaBancaria.objects.filter(
+            sucursal=request.user.sucursal,
+            activa=True
+        ).order_by('nombre_banco', 'alias')
+        
+        # ✅ Procesar montos de cuentas bancarias dinámicamente
+        montos_cuentas_bancarias = {}
+        monto_deposito_total = Decimal('0')
+        
+        for cuenta in cuentas_bancarias:
+            campo_name = cuenta.field_name  # ej: monto_deposito_1
+            monto_cuenta = limpiar_valor_monetario(request.POST.get(campo_name, '0'))
+            montos_cuentas_bancarias[cuenta.id] = {
+                'cuenta': cuenta,
+                'monto': monto_cuenta,
+                'campo': campo_name
+            }
+            monto_deposito_total += monto_cuenta
+            print(f"💰 Cuenta {cuenta.nombre_banco}: ${monto_cuenta}")
+        
+        # Mantener compatibilidad con campos antiguos (fallback)
         monto_deposito_galicia = limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0'))
         monto_deposito_mp = limpiar_valor_monetario(request.POST.get('monto_deposito_mp', '0'))
+        monto_deposito_legacy = monto_deposito_galicia + monto_deposito_mp
+        
+        # Usar el total dinámico o el legacy como fallback
+        monto_deposito_final = monto_deposito_total if monto_deposito_total > 0 else monto_deposito_legacy
         
         # Honorarios y sellados (campos movidos arriba)
         honorarios = limpiar_valor_monetario(request.POST.get('honorarios_top', '0'))
         sellados = limpiar_valor_monetario(request.POST.get('sellados_top', '0'))
         
         total_movimiento = ((monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + 
-                          (monto_deposito_galicia or 0) + (monto_deposito_mp or 0))
+                          (monto_deposito_final or 0))
         
         # ✅ PROCESAR CONCEPTOS INDIVIDUALES (igual que en alquiler por día)
         conceptos_count = int(request.POST.get('conceptos_count', 0))
@@ -7192,13 +7235,28 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             sellados=sellados
         )
         
-        # Si hay depósitos bancarios, guardarlos
-        if monto_deposito_galicia > 0:
-            movimiento.destino_deposito = 'galicia'
-            movimiento.monto_deposito = monto_deposito_galicia
-        elif monto_deposito_mp > 0:
-            movimiento.destino_deposito = 'mp'
-            movimiento.monto_deposito = monto_deposito_mp
+        # ✅ ASIGNAR DESTINO DE TRANSFERENCIA DINÁMICAMENTE
+        cuentas_con_monto = [data for data in montos_cuentas_bancarias.values() if data['monto'] > 0]
+        
+        if len(cuentas_con_monto) == 1:
+            # Solo una cuenta bancaria con monto
+            cuenta_usada = cuentas_con_monto[0]['cuenta']
+            movimiento.destino_deposito = f"cuenta_{cuenta_usada.id}"
+            movimiento.monto_deposito = cuentas_con_monto[0]['monto']
+            print(f"✅ Destino asignado: Cuenta {cuenta_usada.nombre_banco} (ID: {cuenta_usada.id})")
+        elif len(cuentas_con_monto) > 1:
+            # Múltiples cuentas bancarias con monto
+            movimiento.destino_deposito = 'mixto'
+            movimiento.monto_deposito = monto_deposito_final
+            print(f"✅ Destino mixto asignado: {len(cuentas_con_monto)} cuentas")
+        elif monto_deposito_legacy > 0:
+            # Fallback a lógica legacy si hay montos en campos antiguos
+            if monto_deposito_galicia > 0:
+                movimiento.destino_deposito = 'galicia'
+                movimiento.monto_deposito = monto_deposito_galicia
+            elif monto_deposito_mp > 0:
+                movimiento.destino_deposito = 'mp'
+                movimiento.monto_deposito = monto_deposito_mp
         
         movimiento.save()
         

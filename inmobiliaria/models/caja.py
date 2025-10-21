@@ -86,13 +86,15 @@ class MovimientoCaja(models.Model):
     monto_tarjeta = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     monto_deposito = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     destino_deposito = models.CharField(
-        max_length=10,
+        max_length=50,  # ✅ Aumentado para permitir "cuenta_1", "cuenta_2", etc.
         choices=[
             ('galicia', 'Galicia'),
-            ('mp', 'Mercado Pago')
+            ('mp', 'Mercado Pago'),
+            ('mixto', 'Mixto'),
         ],
         null=True,
-        blank=True
+        blank=True,
+        help_text="Puede ser 'galicia', 'mp', 'mixto', o 'cuenta_X' para cuentas bancarias dinámicas"
     )
     a_descontar = models.CharField(
         max_length=20, 
