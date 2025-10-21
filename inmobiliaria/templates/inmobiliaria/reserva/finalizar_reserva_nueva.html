@@ -388,6 +388,13 @@ function mostrarModalBuscarConcepto() {
     if (modalElement) {
         const modal = new bootstrap.Modal(modalElement);
         modal.show();
+        
+        // Limpiar búsqueda anterior
+        const buscarTexto = document.getElementById('buscarConceptoTexto');
+        if (buscarTexto) {
+            buscarTexto.value = '';
+            filtrarConceptos('');
+        }
     } else {
         alert('Modal de búsqueda no encontrado');
     }
@@ -500,7 +507,7 @@ function agregarConcepto() {
     document.getElementById('formConcepto').reset();
     document.getElementById('infoConceptoSeleccionado').style.display = 'none';
     conceptoSeleccionadoActual = null;
-me    
+    
     // ✅ Recalcular totales después de agregar/editar concepto
     calcularTotales();
 }
@@ -1327,6 +1334,7 @@ function mostrarModalConcepto() {
     // Mostrar el modal
     var modalConcepto = new bootstrap.Modal(document.getElementById('modalConcepto'));
     modalConcepto.show();
+}
 
 // Función para actualizar concepto existente
 function actualizarConcepto() {
@@ -1445,15 +1453,7 @@ function resetearModalConcepto() {
 
 // ✅ FUNCIÓN DUPLICADA ELIMINADA - Ya existe buscarConceptoPorId más arriba en línea 407
 
-// Función para mostrar modal de búsqueda
-function mostrarModalBuscarConcepto() {
-    const modalBuscar = new bootstrap.Modal(document.getElementById('modalBuscarConcepto'));
-    modalBuscar.show();
-    
-    // Limpiar búsqueda anterior
-    document.getElementById('buscarConceptoTexto').value = '';
-    filtrarConceptos('');
-}
+// Función para mostrar modal de búsqueda (ya definida arriba)
 
 // Función para cerrar modal de búsqueda
 function cerrarModalBuscar() {
@@ -1880,12 +1880,17 @@ setTimeout(() => {
         generarCamposTransferencias();
     }
 }, 3000);
-}
 
 // Generar campos HTML para las transferencias
 function generarCamposTransferencias() {
     const container = document.getElementById('transferencias-dinamicas-container');
     if (!container) return;
+    
+    // Verificar que la variable esté definida
+    if (!cuentasBancariasDinamicas || !Array.isArray(cuentasBancariasDinamicas)) {
+        console.warn('⚠️ cuentasBancariasDinamicas no está definida o no es un array');
+        return;
+    }
     
     let html = '';
     
