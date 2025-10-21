@@ -2681,19 +2681,45 @@ def procesar_movimiento_reserva(request):
             monto_cheque = Decimal(limpiar_valor_monetario(request.POST.get('monto_cheque', '0')))
             monto_tarjeta = Decimal(limpiar_valor_monetario(request.POST.get('monto_tarjeta', '0')))
             
-            # Transferencias separadas
+            # ✅ Obtener cuentas bancarias dinámicamente
+            from inmobiliaria.models.sucursal import CuentaBancaria
+            cuentas_bancarias = CuentaBancaria.objects.filter(
+                sucursal=request.user.sucursal,
+                activa=True
+            ).order_by('nombre_banco', 'alias')
+            
+            # ✅ Procesar montos de cuentas bancarias dinámicamente
+            montos_cuentas_bancarias = {}
+            monto_deposito_total = Decimal('0')
+            
+            for cuenta in cuentas_bancarias:
+                campo_name = cuenta.field_name  # ej: monto_deposito_1
+                monto_cuenta = Decimal(limpiar_valor_monetario(request.POST.get(campo_name, '0')))
+                montos_cuentas_bancarias[cuenta.id] = {
+                    'cuenta': cuenta,
+                    'monto': monto_cuenta,
+                    'campo': campo_name
+                }
+                monto_deposito_total += monto_cuenta
+                print(f"💰 Cuenta {cuenta.nombre_banco}: ${monto_cuenta}")
+            
+            # Mantener compatibilidad con campos antiguos (fallback)
             monto_deposito_galicia = Decimal(limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0')))
             monto_deposito_mp = Decimal(limpiar_valor_monetario(request.POST.get('monto_deposito_mp', '0')))
-            monto_deposito = monto_deposito_galicia + monto_deposito_mp
+            monto_deposito_legacy = monto_deposito_galicia + monto_deposito_mp
+            
+            # Usar el total dinámico o el legacy como fallback
+            monto_deposito = monto_deposito_total if monto_deposito_total > 0 else monto_deposito_legacy
             
             print(f"=== VALORES RAW RECIBIDOS ===")
             print(f"monto_efectivo RAW: '{request.POST.get('monto_efectivo', '0')}'")
-            print(f"monto_deposito_galicia RAW: '{request.POST.get('monto_deposito_galicia', '0')}'")
-            print(f"monto_deposito_mp RAW: '{request.POST.get('monto_deposito_mp', '0')}'")
+            print(f"Cuentas bancarias dinámicas: {len(montos_cuentas_bancarias)}")
+            for cuenta_id, data in montos_cuentas_bancarias.items():
+                print(f"  {data['cuenta'].nombre_banco} ({data['campo']}): '{request.POST.get(data['campo'], '0')}'")
             
             print(f"=== VALORES CONVERTIDOS A DECIMAL ===")
             print(f"Montos recibidos - Efectivo: {monto_efectivo}, Cheque: {monto_cheque}, Tarjeta: {monto_tarjeta}")
-            print(f"Transferencias - Galicia: {monto_deposito_galicia}, MP: {monto_deposito_mp}, Total: {monto_deposito}")
+            print(f"Transferencias dinámicas: ${monto_deposito_total}, Legacy: ${monto_deposito_legacy}, Total final: ${monto_deposito}")
             total_movimientos = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
             print(f"TOTAL A CREAR EN MOVIMIENTOS: {total_movimientos}")
             
