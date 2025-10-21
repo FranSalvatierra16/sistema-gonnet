@@ -225,4 +225,7 @@ urlpatterns = [
     # Gestión de Conceptos
     path('conceptos/', views.gestionar_conceptos, name='gestionar_conceptos'),
     
+    # API para cuentas bancarias
+    path('api/cuentas-bancarias-activas/', views.obtener_cuentas_bancarias_activas, name='obtener_cuentas_bancarias_activas'),
+    
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1578,6 +1578,13 @@ def finalizar_reserva_nueva(request, reserva_id):
         print(f"   - Seña ya pagada: ${reserva.senia or 0}")
         print(f"   - Seña pendiente a mostrar: ${senia_pendiente}")
 
+        # ✅ Obtener cuentas bancarias activas de la sucursal
+        from inmobiliaria.models.sucursal import CuentaBancaria
+        cuentas_bancarias = CuentaBancaria.objects.filter(
+            sucursal=request.user.sucursal,
+            activa=True
+        ).order_by('nombre_banco', 'alias')
+
         # Datos para el formulario (solo lectura)
         # ✅ VARIABLES PARA EL TEMPLATE ORIGINAL (igual que finalizar_reserva)
         context = {
@@ -1606,6 +1613,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'deposito_garantia': reserva.deposito_garantia,
             'fecha_desde': reserva.fecha_inicio.strftime('%d/%m/%Y'),
             'fecha_hasta': reserva.fecha_fin.strftime('%d/%m/%Y'),
+            'cuentas_bancarias': cuentas_bancarias,  # ✅ Cuentas bancarias de la sucursal
         }
         
         return render(request, 'inmobiliaria/reserva/finalizar_reserva_nueva.html', context)
@@ -2602,6 +2610,43 @@ def crear_concepto_ajax(request):
             })
     
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+@login_required
+def obtener_cuentas_bancarias_activas(request):
+    """
+    Vista AJAX para obtener las cuentas bancarias activas de la sucursal
+    """
+    try:
+        from inmobiliaria.models.sucursal import CuentaBancaria
+        
+        cuentas = CuentaBancaria.objects.filter(
+            sucursal=request.user.sucursal,
+            activa=True
+        ).order_by('nombre_banco', 'alias')
+        
+        data = {
+            'success': True,
+            'cuentas': [
+                {
+                    'id': cuenta.id,
+                    'nombre_banco': cuenta.nombre_banco,
+                    'alias': cuenta.alias,
+                    'numero_cuenta': cuenta.numero_cuenta,
+                    'tipo_cuenta': cuenta.tipo_cuenta,
+                    'field_name': cuenta.field_name
+                }
+                for cuenta in cuentas
+            ]
+        }
+        
+        return JsonResponse(data)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'cuentas': []
+        })
 
 @login_required
 @transaction.atomic
