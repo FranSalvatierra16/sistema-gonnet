@@ -1,0 +1,214 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid fade-in-up">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="text-gradient">🏛️ Gestión de Cuentas Bancarias</h1>
+                    <p class="lead text-muted">Administra las cuentas bancarias de {{ sucursal.nombre }}</p>
+                </div>
+                <a href="{% url 'inmobiliaria:crear_cuenta_bancaria' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Nueva Cuenta
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-modern border-radius-modern">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-university"></i> Cuentas Bancarias de la Sucursal
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if cuentas %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Banco</th>
+                                        <th>Alias</th>
+                                        <th>Número de Cuenta</th>
+                                        <th>Tipo</th>
+                                        <th>Estado</th>
+                                        <th>Fecha Creación</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for cuenta in cuentas %}
+                                    <tr>
+                                        <td>
+                                            {% if cuenta.tipo_cuenta == 'banco' %}
+                                                <i class="fas fa-university text-primary"></i>
+                                            {% else %}
+                                                <i class="fas fa-mobile-alt text-success"></i>
+                                            {% endif %}
+                                            {{ cuenta.nombre_banco }}
+                                        </td>
+                                        <td>{{ cuenta.alias }}</td>
+                                        <td>{{ cuenta.numero_cuenta }}</td>
+                                        <td>
+                                            {% if cuenta.tipo_cuenta == 'banco' %}
+                                                <span class="badge bg-primary">Banco</span>
+                                            {% else %}
+                                                <span class="badge bg-success">Billetera</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if cuenta.activa %}
+                                                <span class="badge bg-success">Activa</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Inactiva</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ cuenta.fecha_creacion|date:"d/m/Y" }}</td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <a href="{% url 'inmobiliaria:editar_cuenta_bancaria' cuenta.id %}" 
+                                                   class="btn btn-warning btn-sm" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <button type="button" 
+                                                        class="btn btn-{% if cuenta.activa %}secondary{% else %}success{% endif %} btn-sm toggle-cuenta" 
+                                                        data-cuenta-id="{{ cuenta.id }}"
+                                                        title="{% if cuenta.activa %}Desactivar{% else %}Activar{% endif %}">
+                                                    <i class="fas fa-{% if cuenta.activa %}pause{% else %}play{% endif %}"></i>
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-danger btn-sm eliminar-cuenta" 
+                                                        data-cuenta-id="{{ cuenta.id }}"
+                                                        data-cuenta-nombre="{{ cuenta.nombre_banco }}"
+                                                        title="Eliminar">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-university fa-3x text-muted mb-3"></i>
+                            <h4 class="text-muted">No hay cuentas bancarias configuradas</h4>
+                            <p class="text-muted">Comienza agregando la primera cuenta bancaria de tu sucursal.</p>
+                            <a href="{% url 'inmobiliaria:crear_cuenta_bancaria' %}" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Agregar Primera Cuenta
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle"></i> Información Importante
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>Las cuentas bancarias aparecerán automáticamente en los formularios de pago</li>
+                        <li>Solo las cuentas <strong>activas</strong> se mostrarán en los formularios</li>
+                        <li>Puedes desactivar una cuenta sin eliminarla para mantener el historial</li>
+                        <li>El alias es opcional pero recomendado para identificar fácilmente cada cuenta</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación para eliminar -->
+<div class="modal fade" id="modalEliminar" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Eliminación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar la cuenta bancaria <strong id="nombreCuentaEliminar"></strong>?</p>
+                <p class="text-danger"><strong>Esta acción no se puede deshacer.</strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmarEliminar">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle activar/desactivar cuenta
+    document.querySelectorAll('.toggle-cuenta').forEach(button => {
+        button.addEventListener('click', function() {
+            const cuentaId = this.dataset.cuentaId;
+            
+            fetch(`/cuentas-bancarias/${cuentaId}/toggle/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload(); // Recargar para mostrar el nuevo estado
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al cambiar el estado de la cuenta');
+            });
+        });
+    });
+
+    // Eliminar cuenta
+    let cuentaIdAEliminar = null;
+    
+    document.querySelectorAll('.eliminar-cuenta').forEach(button => {
+        button.addEventListener('click', function() {
+            cuentaIdAEliminar = this.dataset.cuentaId;
+            document.getElementById('nombreCuentaEliminar').textContent = this.dataset.cuentaNombre;
+            new bootstrap.Modal(document.getElementById('modalEliminar')).show();
+        });
+    });
+
+    document.getElementById('confirmarEliminar').addEventListener('click', function() {
+        if (cuentaIdAEliminar) {
+            window.location.href = `/cuentas-bancarias/${cuentaIdAEliminar}/eliminar/`;
+        }
+    });
+});
+</script>
+
+<style>
+.table th {
+    border-top: none;
+}
+
+.btn-group .btn {
+    margin-right: 2px;
+}
+
+.btn-group .btn:last-child {
+    margin-right: 0;
+}
+</style>
+{% endblock %}

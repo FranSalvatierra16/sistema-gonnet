@@ -1,0 +1,175 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid fade-in-up">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-modern border-radius-modern">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-edit"></i> Editar Cuenta Bancaria
+                        </h5>
+                        <a href="{% url 'inmobiliaria:gestionar_cuentas_bancarias' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> Volver
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="nombre_banco" class="form-label">
+                                    <i class="fas fa-university"></i> Nombre del Banco *
+                                </label>
+                                <input type="text" class="form-control" id="nombre_banco" name="nombre_banco" 
+                                       value="{{ cuenta.nombre_banco }}" required>
+                                <div class="form-text">Nombre completo del banco o billetera virtual</div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="alias" class="form-label">
+                                    <i class="fas fa-tag"></i> Alias (Opcional)
+                                </label>
+                                <input type="text" class="form-control" id="alias" name="alias" 
+                                       value="{{ cuenta.alias }}">
+                                <div class="form-text">Alias para identificar fácilmente esta cuenta</div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="numero_cuenta" class="form-label">
+                                    <i class="fas fa-hashtag"></i> Número de Cuenta *
+                                </label>
+                                <input type="text" class="form-control" id="numero_cuenta" name="numero_cuenta" 
+                                       value="{{ cuenta.numero_cuenta }}" required>
+                                <div class="form-text">Número de cuenta bancaria o CBU</div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="tipo_cuenta" class="form-label">
+                                    <i class="fas fa-list"></i> Tipo de Cuenta *
+                                </label>
+                                <select class="form-select" id="tipo_cuenta" name="tipo_cuenta" required>
+                                    <option value="banco" {% if cuenta.tipo_cuenta == 'banco' %}selected{% endif %}>🏛️ Banco</option>
+                                    <option value="billetera" {% if cuenta.tipo_cuenta == 'billetera' %}selected{% endif %}>💰 Billetera Virtual</option>
+                                </select>
+                                <div class="form-text">Selecciona el tipo de cuenta</div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="activa" name="activa" 
+                                           {% if cuenta.activa %}checked{% endif %}>
+                                    <label class="form-check-label" for="activa">
+                                        <i class="fas fa-check-circle"></i> Cuenta Activa
+                                    </label>
+                                    <div class="form-text">Las cuentas activas aparecerán en los formularios de pago</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                    <a href="{% url 'inmobiliaria:gestionar_cuentas_bancarias' %}" class="btn btn-secondary me-md-2">
+                                        <i class="fas fa-times"></i> Cancelar
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Actualizar Cuenta
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Información de la cuenta -->
+            <div class="card border-info mt-4">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle"></i> Información de la Cuenta
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Creada:</strong> {{ cuenta.fecha_creacion|date:"d/m/Y H:i" }}</p>
+                            <p><strong>Estado:</strong> 
+                                {% if cuenta.activa %}
+                                    <span class="badge bg-success">Activa</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactiva</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Tipo:</strong> 
+                                {% if cuenta.tipo_cuenta == 'banco' %}
+                                    <span class="badge bg-primary">Banco</span>
+                                {% else %}
+                                    <span class="badge bg-success">Billetera</span>
+                                {% endif %}
+                            </p>
+                            <p><strong>Campo en formularios:</strong> <code>{{ cuenta.field_name }}</code></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Formatear número de cuenta mientras se escribe
+    const numeroCuentaInput = document.getElementById('numero_cuenta');
+    numeroCuentaInput.addEventListener('input', function() {
+        // Remover espacios y caracteres especiales
+        let value = this.value.replace(/\s+/g, '').replace(/[^0-9]/g, '');
+        
+        // Limitar a 22 caracteres (CBU típico)
+        if (value.length > 22) {
+            value = value.substring(0, 22);
+        }
+        
+        this.value = value;
+    });
+
+    // Validación del formulario
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const nombreBanco = document.getElementById('nombre_banco').value.trim();
+        const numeroCuenta = document.getElementById('numero_cuenta').value.trim();
+        
+        if (!nombreBanco) {
+            e.preventDefault();
+            alert('Por favor ingresa el nombre del banco');
+            document.getElementById('nombre_banco').focus();
+            return;
+        }
+        
+        if (!numeroCuenta) {
+            e.preventDefault();
+            alert('Por favor ingresa el número de cuenta');
+            document.getElementById('numero_cuenta').focus();
+            return;
+        }
+        
+        if (numeroCuenta.length < 10) {
+            e.preventDefault();
+            alert('El número de cuenta debe tener al menos 10 dígitos');
+            document.getElementById('numero_cuenta').focus();
+            return;
+        }
+    });
+});
+</script>
+{% endblock %}

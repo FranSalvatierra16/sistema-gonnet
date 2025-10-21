@@ -8,6 +8,15 @@ from datetime import datetime
 from django.forms import inlineformset_factory
 from django.template.loader import render_to_string
 from django.contrib.auth import authenticate
+
+# Importar vistas de cuentas bancarias
+from .views_cuentas_bancarias import (
+    gestionar_cuentas_bancarias,
+    crear_cuenta_bancaria,
+    editar_cuenta_bancaria,
+    eliminar_cuenta_bancaria,
+    toggle_cuenta_bancaria
+)
 from xhtml2pdf import pisa
 from io import BytesIO
 from .models import (
