@@ -19,6 +19,14 @@ let conceptoSeleccionadoActual = null;
 let conceptoEditando = null;
 let contadorConceptos = 1;
 
+// ✅ DECLARACIÓN GLOBAL TEMPRANA PARA evitar errores de referencia
+// Esta función será redefinida más abajo, pero esto previene errores
+if (typeof window.agregarConcepto === 'undefined') {
+    window.agregarConcepto = function() {
+        console.log('⚠️ Función agregarConcepto temporal - será redefinida');
+    };
+}
+
 // ✅ FUNCIÓN GLOBAL PARA ACTUALIZAR PAGOS (debe estar al principio para los event listeners inline)
 function actualizarPagos() {
     console.log('🔄 ACTUALIZANDO PAGOS...');
@@ -145,6 +153,14 @@ function agregarConcepto() {
 
 // ✅ ASEGURAR DISPONIBILIDAD GLOBAL DE LA FUNCIÓN
 window.agregarConcepto = agregarConcepto;
+
+// ✅ ASEGURAR DISPONIBILIDAD GLOBAL INMEDIATA
+if (typeof window.agregarConcepto === 'function') {
+    window.agregarConcepto = agregarConcepto;
+    console.log('✅ agregarConcepto asignado a window globalmente');
+} else {
+    console.error('❌ ERROR: No se pudo asignar agregarConcepto a window');
+}
 
 // ✅ VERIFICACIÓN ADICIONAL - Asegurar que esté disponible globalmente
 if (typeof window.agregarConcepto !== 'function') {
@@ -779,15 +795,24 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ✅ EVENT LISTENER PARA EL BOTÓN AGREGAR CONCEPTO
     const btnAgregarConcepto = document.getElementById('btnAgregarConcepto');
-    if (btnAgregarConcepto && typeof window.agregarConcepto === 'function') {
+    if (btnAgregarConcepto) {
         btnAgregarConcepto.addEventListener('click', function(e) {
             e.preventDefault();
             console.log('🔧 Botón agregar concepto clickeado via event listener');
-            window.agregarConcepto();
+            
+            // Llamar a la función directamente (ya está definida arriba)
+            if (typeof agregarConcepto === 'function') {
+                agregarConcepto();
+            } else if (typeof window.agregarConcepto === 'function') {
+                window.agregarConcepto();
+            } else {
+                console.error('❌ agregarConcepto no está disponible en ningún scope');
+                alert('Error: La función para agregar conceptos no está disponible. Recarga la página.');
+            }
         });
         console.log('✅ Event listener agregado al botón btnAgregarConcepto');
     } else {
-        console.error('❌ No se pudo agregar event listener al botón - elemento:', btnAgregarConcepto, 'función:', typeof window.agregarConcepto);
+        console.error('❌ No se encontró el botón btnAgregarConcepto');
     }
 });
 </script>
@@ -1258,7 +1283,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
-                <button type="button" class="btn btn-success" id="btnAgregarConcepto" onclick="agregarConcepto()">✅ Agregar</button>
+                <button type="button" class="btn btn-success" id="btnAgregarConcepto">✅ Agregar</button>
             </div>
         </div>
     </div>
@@ -1957,13 +1982,20 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ✅ ASEGURAR EVENT LISTENER DEL BOTÓN AGREGAR CONCEPTO (segundo bloque)
     const btnAgregarConcepto2 = document.getElementById('btnAgregarConcepto');
-    if (btnAgregarConcepto2 && typeof window.agregarConcepto === 'function') {
-        // Remover cualquier listener previo para evitar duplicados
-        btnAgregarConcepto2.removeEventListener('click', window.agregarConcepto);
+    if (btnAgregarConcepto2) {
         btnAgregarConcepto2.addEventListener('click', function(e) {
             e.preventDefault();
             console.log('🔧 Botón agregar concepto clickeado via event listener BLOQUE 2');
-            window.agregarConcepto();
+            
+            // Llamar a la función directamente
+            if (typeof agregarConcepto === 'function') {
+                agregarConcepto();
+            } else if (typeof window.agregarConcepto === 'function') {
+                window.agregarConcepto();
+            } else {
+                console.error('❌ agregarConcepto no está disponible en ningún scope (BLOQUE 2)');
+                alert('Error: La función para agregar conceptos no está disponible. Recarga la página.');
+            }
         });
         console.log('✅ Event listener BLOQUE 2 agregado al botón btnAgregarConcepto');
     }
