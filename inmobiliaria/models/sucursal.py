@@ -81,3 +81,37 @@ def crear_caja_automatica(sender, instance, created, **kwargs):
             
         if usuario:
             instance.crear_caja_inicial(usuario)
+
+
+class CuentaBancaria(models.Model):
+    """
+    Modelo para almacenar las cuentas bancarias de cada sucursal
+    """
+    sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='cuentas_bancarias')
+    nombre_banco = models.CharField(max_length=100, help_text="Nombre del banco (ej: Banco Provincia)")
+    alias = models.CharField(max_length=100, blank=True, help_text="Alias de la cuenta (ej: GONNET-ALQUILERES)")
+    numero_cuenta = models.CharField(max_length=50, help_text="Número de cuenta bancaria")
+    tipo_cuenta = models.CharField(
+        max_length=20,
+        choices=[
+            ('banco', 'Banco'),
+            ('billetera', 'Billetera Virtual'),
+        ],
+        default='banco',
+        help_text="Tipo de cuenta"
+    )
+    activa = models.BooleanField(default=True, help_text="Si la cuenta está activa para usar")
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "Cuenta Bancaria"
+        verbose_name_plural = "Cuentas Bancarias"
+        ordering = ['nombre_banco', 'alias']
+        
+    def __str__(self):
+        return f"{self.nombre_banco} - {self.alias} ({self.numero_cuenta})"
+    
+    @property
+    def field_name(self):
+        """Genera el nombre del campo dinámico para el formulario"""
+        return f"monto_deposito_{self.id}"
