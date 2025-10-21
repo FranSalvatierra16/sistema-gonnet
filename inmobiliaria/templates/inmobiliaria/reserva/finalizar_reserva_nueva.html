@@ -799,6 +799,11 @@ document.addEventListener('DOMContentLoaded', function() {
         btnAgregarConcepto.addEventListener('click', function(e) {
             e.preventDefault();
             console.log('🔧 Botón agregar concepto clickeado via event listener - EJECUTANDO LÓGICA DIRECTA');
+            console.log('🔍 Estado del botón:', {
+                textContent: btnAgregarConcepto.textContent,
+                conceptoEditando: conceptoEditando,
+                conceptoSeleccionadoActual: conceptoSeleccionadoActual
+            });
             
             // IMPLEMENTAR LÓGICA DIRECTAMENTE SIN DEPENDER DE FUNCIONES EXTERNAS
             try {
@@ -828,7 +833,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 // Verificar si estamos editando o agregando
-                if (conceptoEditando) {
+                const btnText = btnAgregarConcepto.textContent;
+                const isEditing = conceptoEditando || btnText.includes('Actualizar');
+                
+                if (isEditing) {
                     // Actualizar concepto existente
                     conceptoEditando.conceptoId = conceptoSeleccionadoActual.id;
                     conceptoEditando.nombre = conceptoSeleccionadoActual.nombre;
@@ -1377,7 +1385,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Cancelar</button>
-                <button type="button" class="btn btn-success" id="btnAgregarConcepto">✅ Agregar</button>
+                <button type="button" class="btn btn-success" id="btnAgregarConcepto" onclick="console.log('🔧 ONCLICK INLINE FUNCIONA'); alert('Botón clickeado - onclick inline funciona');">✅ Agregar</button>
             </div>
         </div>
     </div>
@@ -1848,7 +1856,7 @@ function editarConcepto(conceptoId) {
         const btnAgregar = document.getElementById('btnAgregarConcepto');
         if (btnAgregar) {
             btnAgregar.textContent = '✅ Actualizar';
-            btnAgregar.setAttribute('onclick', 'actualizarConcepto()');
+            // ✅ NO usar setAttribute - el event listener manejará el comportamiento
             console.log('✅ Botón cambiado a "Actualizar"');
         } else {
             console.error('❌ No se encontró el botón #btnAgregarConcepto');
