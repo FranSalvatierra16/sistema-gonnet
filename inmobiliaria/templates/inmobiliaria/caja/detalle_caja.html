@@ -153,9 +153,11 @@
                             <div class="ms-3">
                                 <!-- ✅ Mostrar cuentas bancarias dinámicas -->
                                 {% for cuenta in cuentas_bancarias %}
-                                    {% if totales.ingresos.cuentas_bancarias|default_if_none:""|get_item:cuenta.id %}
-                                        <small><strong>{{ cuenta.nombre_banco }}{% if cuenta.alias %} - {{ cuenta.alias }}{% endif %}:</strong> ${{ totales.ingresos.cuentas_bancarias|get_item:cuenta.id.total|floatformat:2 }}</small><br>
-                                    {% endif %}
+                                    {% with cuenta_data=totales.ingresos.cuentas_bancarias|get_item:cuenta.id %}
+                                        {% if cuenta_data and cuenta_data.total > 0 %}
+                                            <small><strong>{{ cuenta.nombre_banco }}{% if cuenta.alias %} - {{ cuenta.alias }}{% endif %}:</strong> ${{ cuenta_data.total|floatformat:2 }}</small><br>
+                                        {% endif %}
+                                    {% endwith %}
                                 {% empty %}
                                     <!-- Fallback a campos legacy si no hay cuentas bancarias -->
                                     {% if totales.ingresos.deposito_galicia > 0 %}
@@ -190,9 +192,11 @@
                             <div class="ms-3">
                                 <!-- ✅ Mostrar cuentas bancarias dinámicas -->
                                 {% for cuenta in cuentas_bancarias %}
-                                    {% if totales.egresos.cuentas_bancarias|default_if_none:""|get_item:cuenta.id %}
-                                        <small><strong>{{ cuenta.nombre_banco }}{% if cuenta.alias %} - {{ cuenta.alias }}{% endif %}:</strong> ${{ totales.egresos.cuentas_bancarias|get_item:cuenta.id.total|floatformat:2 }}</small><br>
-                                    {% endif %}
+                                    {% with cuenta_data=totales.egresos.cuentas_bancarias|get_item:cuenta.id %}
+                                        {% if cuenta_data and cuenta_data.total > 0 %}
+                                            <small><strong>{{ cuenta.nombre_banco }}{% if cuenta.alias %} - {{ cuenta.alias }}{% endif %}:</strong> ${{ cuenta_data.total|floatformat:2 }}</small><br>
+                                        {% endif %}
+                                    {% endwith %}
                                 {% empty %}
                                     <!-- Fallback a campos legacy si no hay cuentas bancarias -->
                                     {% if totales.egresos.deposito_galicia > 0 %}
@@ -249,9 +253,11 @@
                                 <div class="small">
                                     <!-- ✅ Mostrar cuentas bancarias dinámicas -->
                                     {% for cuenta in cuentas_bancarias %}
-                                        {% if totales.saldo_actual.cuentas_bancarias|default_if_none:""|get_item:cuenta.id %}
-                                            <div><strong>{{ cuenta.nombre_banco }}{% if cuenta.alias %} - {{ cuenta.alias }}{% endif %}:</strong> ${{ totales.saldo_actual.cuentas_bancarias|get_item:cuenta.id.saldo|floatformat:2 }}</div>
-                                        {% endif %}
+                                        {% with cuenta_data=totales.saldo_actual.cuentas_bancarias|get_item:cuenta.id %}
+                                            {% if cuenta_data and cuenta_data.saldo != 0 %}
+                                                <div><strong>{{ cuenta.nombre_banco }}{% if cuenta.alias %} - {{ cuenta.alias }}{% endif %}:</strong> ${{ cuenta_data.saldo|floatformat:2 }}</div>
+                                            {% endif %}
+                                        {% endwith %}
                                     {% empty %}
                                         <!-- Fallback a campos legacy si no hay cuentas bancarias -->
                                         {% if totales.saldo_actual.deposito_galicia != 0 %}
