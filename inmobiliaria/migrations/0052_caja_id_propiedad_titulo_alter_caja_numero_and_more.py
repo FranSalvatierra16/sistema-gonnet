@@ -11,17 +11,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # ✅ Removido AddField para caja.id porque ya existe
-        migrations.AddField(
-            model_name='propiedad',
-            name='titulo',
-            field=models.CharField(blank=True, help_text='Nombre o título para identificar fácilmente la propiedad', max_length=255, null=True, verbose_name='Título descriptivo'),
-        ),
-        migrations.AlterField(
-            model_name='historialdisponibilidad',
-            name='estado',
-            field=models.CharField(choices=[('libre', 'Libre'), ('reservado', 'Reservado'), ('alquilado', 'Operación')], default='libre', max_length=20),
-        ),
+        # ✅ Solo crear CuentaBancaria (otros campos ya existen en Heroku)
         migrations.CreateModel(
             name='CuentaBancaria',
             fields=[
