@@ -32,6 +32,85 @@ function actualizarPagos() {
     }
 }
 
+// ✅ FUNCIÓN GLOBAL agregarConcepto (debe estar al principio para el onclick inline)
+function agregarConcepto() {
+    console.log('🔧 agregarConcepto llamada - VERSIÓN TEMPRANA');
+    
+    // Validar que hay un concepto seleccionado
+    const conceptoIdInput = document.getElementById('conceptoId');
+    const observaciones = document.getElementById('observaciones')?.value || 'Sin observaciones';
+    const importe = parseFloat(document.getElementById('importe')?.value || '0');
+    
+    if (!conceptoIdInput?.value || !conceptoSeleccionadoActual) {
+        alert('Por favor selecciona un concepto válido');
+        return;
+    }
+    
+    if (!importe || importe <= 0) {
+        alert('Por favor ingresa un importe válido mayor a 0');
+        return;
+    }
+    
+    // Verificar si estamos editando o agregando
+    if (conceptoEditando) {
+        // Actualizar concepto existente
+        conceptoEditando.conceptoId = conceptoSeleccionadoActual.id;
+        conceptoEditando.nombre = conceptoSeleccionadoActual.nombre;
+        conceptoEditando.observaciones = observaciones;
+        conceptoEditando.importe = importe;
+        
+        console.log('✅ Concepto actualizado:', conceptoEditando);
+        conceptoEditando = null;
+    } else {
+        // Agregar nuevo concepto
+        const nuevoConcepto = {
+            id: contadorConceptos++,
+            conceptoId: conceptoSeleccionadoActual.id,
+            nombre: conceptoSeleccionadoActual.nombre,
+            observaciones: observaciones,
+            importe: importe,
+            fecha: new Date().toLocaleDateString('es-ES')
+        };
+        
+        conceptosAgregados.push(nuevoConcepto);
+        console.log('✅ Nuevo concepto agregado:', nuevoConcepto);
+    }
+    
+    // Actualizar tabla si la función existe
+    if (typeof actualizarTablaConceptos === 'function') {
+        actualizarTablaConceptos();
+    }
+    
+    // Recalcular totales si las funciones existen
+    if (typeof calcularTotales === 'function') {
+        calcularTotales();
+    }
+    
+    // Cerrar modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalConcepto'));
+    if (modal) {
+        modal.hide();
+    }
+    
+    // Limpiar formulario
+    const formConcepto = document.getElementById('formConcepto');
+    if (formConcepto) {
+        formConcepto.reset();
+    }
+    
+    const infoDiv = document.getElementById('infoConceptoSeleccionado');
+    if (infoDiv) {
+        infoDiv.style.display = 'none';
+    }
+    
+    conceptoSeleccionadoActual = null;
+    
+    // Resetear modal si la función existe
+    if (typeof resetearModalConcepto === 'function') {
+        resetearModalConcepto();
+    }
+}
+
 // Función para calcular saldo a ocupar (Queda por Pagar)
 function calcularSaldoOcupar() {
     try {
