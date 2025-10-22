@@ -96,8 +96,8 @@ class ValeVendedor(models.Model):
             monto=monto,
             concepto=concepto,
             observaciones=observaciones,
-            usuario_creador=usuario_creador,
-            fecha=timezone.now()
+            usuario_creador=usuario_creador
+            # fecha se asigna automáticamente por el default=timezone.now
         )
         
         return vale
