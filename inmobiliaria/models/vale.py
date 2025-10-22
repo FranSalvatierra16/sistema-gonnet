@@ -77,29 +77,44 @@ class ValeVendedor(models.Model):
         """
         from .caja import TipoMovimientoCajaEnum
         
-        # Crear movimiento de caja (egreso en efectivo)
-        movimiento = MovimientoCaja.objects.create(
-            caja=caja,
-            sucursal=vendedor.sucursal,
-            tipo=TipoMovimientoCajaEnum.EGRESO,
-            concepto=f"Vale para {vendedor.nombre_completo_vendedor()} - {concepto}",
-            monto_efectivo=monto,
-            monto_total=monto,
-            empleado=usuario_creador or vendedor
-        )
-        
-        # Crear el vale
-        vale = cls.objects.create(
-            vendedor=vendedor,
-            movimiento_caja=movimiento,
-            monto=monto,
-            concepto=concepto,
-            observaciones=observaciones,
-            usuario_creador=usuario_creador,
-            fecha=timezone.now()  # Especificar explícitamente la fecha
-        )
-        
-        return vale
+        try:
+            print(f"🔍 DEBUG - Creando vale:")
+            print(f"   Vendedor: {vendedor}")
+            print(f"   Monto: {monto}")
+            print(f"   Caja: {caja}")
+            
+            # Crear movimiento de caja (egreso en efectivo)
+            movimiento = MovimientoCaja.objects.create(
+                caja=caja,
+                sucursal=vendedor.sucursal,
+                tipo=TipoMovimientoCajaEnum.EGRESO,
+                concepto=f"Vale para {vendedor.nombre_completo_vendedor()} - {concepto}",
+                monto_efectivo=monto,
+                monto_total=monto,
+                empleado=usuario_creador or vendedor
+            )
+            print(f"✅ Movimiento creado: {movimiento.id}")
+            
+            # Crear el vale
+            vale = cls.objects.create(
+                vendedor=vendedor,
+                movimiento_caja=movimiento,
+                monto=monto,
+                concepto=concepto,
+                observaciones=observaciones,
+                usuario_creador=usuario_creador,
+                fecha=timezone.now()
+            )
+            print(f"✅ Vale creado: {vale.id}")
+            
+            return vale
+            
+        except Exception as e:
+            print(f"❌ ERROR en crear_vale: {str(e)}")
+            print(f"   Tipo de error: {type(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
     
     def get_mes_año(self):
         """
