@@ -11,6 +11,15 @@ from django.contrib.auth import authenticate
 from django.db import models
 from django.db import transaction
 
+# Importar vistas de cuentas bancarias
+from .views_cuentas_bancarias import (
+    gestionar_cuentas_bancarias,
+    crear_cuenta_bancaria,
+    editar_cuenta_bancaria,
+    eliminar_cuenta_bancaria,
+    toggle_cuenta_bancaria
+)
+
 # ✅ VISTAS PARA COMISIONES DE VENDEDORES
 
 @login_required
