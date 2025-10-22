@@ -1,0 +1,378 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Todos los Movimientos - Histórico{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="page-title">
+                            <i class="fas fa-history text-primary"></i>
+                            Historial Completo de Movimientos
+                        </h1>
+                        <p class="page-subtitle">Todos los movimientos de todas las cajas</p>
+                    </div>
+                    <div>
+                        <a href="{% url 'inmobiliaria:dashboard_caja' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> Volver a Caja
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros de Búsqueda -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-filter"></i> Filtros de Búsqueda
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="GET" action="{% url 'inmobiliaria:todos_movimientos_caja' %}">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label for="busqueda" class="form-label">
+                                    <i class="fas fa-search"></i> Buscar
+                                </label>
+                                <input type="text" class="form-control" id="busqueda" name="busqueda" 
+                                       value="{{ busqueda }}"
+                                       placeholder="ID, concepto, empleado, DNI, N° liquidación...">
+                                <small class="form-text text-muted">Busca por cualquier dato del movimiento</small>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="tipo" class="form-label">
+                                    <i class="fas fa-exchange-alt"></i> Tipo
+                                </label>
+                                <select class="form-control" id="tipo" name="tipo">
+                                    <option value="">Todos</option>
+                                    <option value="IN" {% if tipo_filtro == 'IN' %}selected{% endif %}>Ingresos</option>
+                                    <option value="EG" {% if tipo_filtro == 'EG' %}selected{% endif %}>Egresos</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="fecha_desde" class="form-label">
+                                    <i class="fas fa-calendar"></i> Desde
+                                </label>
+                                <input type="date" class="form-control" id="fecha_desde" name="fecha_desde" 
+                                       value="{{ fecha_desde }}">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="fecha_hasta" class="form-label">
+                                    <i class="fas fa-calendar"></i> Hasta
+                                </label>
+                                <input type="date" class="form-control" id="fecha_hasta" name="fecha_hasta" 
+                                       value="{{ fecha_hasta }}">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search"></i> Buscar
+                                </button>
+                            </div>
+                        </div>
+                        {% if busqueda or tipo_filtro or fecha_desde or fecha_hasta %}
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <a href="{% url 'inmobiliaria:todos_movimientos_caja' %}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-times"></i> Limpiar Filtros
+                                </a>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen de Totales -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="info-box bg-info text-white">
+                <div class="info-box-icon">
+                    <i class="fas fa-list"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Total Movimientos</span>
+                    <span class="info-box-number">{{ total_movimientos }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="info-box bg-success text-white">
+                <div class="info-box-icon">
+                    <i class="fas fa-arrow-down"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Total Ingresos</span>
+                    <span class="info-box-number">${{ total_ingresos|format_price }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="info-box bg-danger text-white">
+                <div class="info-box-icon">
+                    <i class="fas fa-arrow-up"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Total Egresos</span>
+                    <span class="info-box-number">${{ total_egresos|format_price }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="info-box {% if total_ingresos|sub:total_egresos >= 0 %}bg-primary{% else %}bg-warning{% endif %} text-white">
+                <div class="info-box-icon">
+                    <i class="fas fa-balance-scale"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Balance</span>
+                    <span class="info-box-number">${{ total_ingresos|sub:total_egresos|format_price }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Movimientos -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-list-ul"></i>
+                        Movimientos
+                        {% if busqueda %}
+                            <span class="badge bg-primary">Búsqueda: "{{ busqueda }}"</span>
+                        {% endif %}
+                    </h3>
+                </div>
+                <div class="card-body p-0">
+                    {% if movimientos %}
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Fecha</th>
+                                        <th>Caja</th>
+                                        <th>Tipo</th>
+                                        <th>Concepto</th>
+                                        <th>Empleado</th>
+                                        <th class="text-end">Efectivo</th>
+                                        <th class="text-end">Transferencia</th>
+                                        <th class="text-end">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for movimiento in movimientos %}
+                                    <tr class="{% if movimiento.tipo == 'IN' %}table-success-light{% else %}table-danger-light{% endif %}">
+                                        <td>
+                                            <strong class="text-primary">#{{ movimiento.id }}</strong>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ movimiento.fecha|date:"d/m/Y" }}<br>
+                                                {{ movimiento.fecha|time:"H:i" }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            {% if movimiento.caja %}
+                                                <a href="{% url 'inmobiliaria:detalle_caja' movimiento.caja.numero %}" 
+                                                   class="badge bg-secondary text-decoration-none">
+                                                    Caja #{{ movimiento.caja.numero }}
+                                                </a>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if movimiento.tipo == 'IN' %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-arrow-down"></i> Ingreso
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-danger">
+                                                    <i class="fas fa-arrow-up"></i> Egreso
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <strong>{{ movimiento.concepto|truncatewords:10 }}</strong>
+                                            {% if movimiento.numero_liquidacion %}
+                                                <br><small class="text-muted">Liq: {{ movimiento.numero_liquidacion }}</small>
+                                            {% endif %}
+                                            {% if movimiento.propiedad %}
+                                                <br><small class="text-info">
+                                                    <i class="fas fa-home"></i> {{ movimiento.propiedad.direccion|truncatewords:5 }}
+                                                </small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if movimiento.empleado %}
+                                                <small>{{ movimiento.empleado.nombre }} {{ movimiento.empleado.apellido }}</small>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            {% if movimiento.monto_efectivo > 0 %}
+                                                <strong>${{ movimiento.monto_efectivo|format_price }}</strong>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            {% if movimiento.monto_deposito > 0 %}
+                                                <strong>${{ movimiento.monto_deposito|format_price }}</strong>
+                                                {% if movimiento.destino_deposito %}
+                                                    <br><small class="text-muted">{{ movimiento.destino_deposito }}</small>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            <strong class="{% if movimiento.tipo == 'IN' %}text-success{% else %}text-danger{% endif %}">
+                                                ${{ movimiento.monto_total|format_price }}
+                                            </strong>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Paginación -->
+                        {% if movimientos.has_other_pages %}
+                        <div class="card-footer">
+                            <nav aria-label="Paginación de movimientos">
+                                <ul class="pagination justify-content-center mb-0">
+                                    {% if movimientos.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ movimientos.previous_page_number }}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                                <i class="fas fa-angle-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+
+                                    <li class="page-item active">
+                                        <span class="page-link">
+                                            Página {{ movimientos.number }} de {{ movimientos.paginator.num_pages }}
+                                        </span>
+                                    </li>
+
+                                    {% if movimientos.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ movimientos.next_page_number }}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                                <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ movimientos.paginator.num_pages }}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <h4 class="text-muted">No se encontraron movimientos</h4>
+                            {% if busqueda or tipo_filtro or fecha_desde or fecha_hasta %}
+                                <p class="text-muted">Intenta ajustar los filtros de búsqueda</p>
+                                <a href="{% url 'inmobiliaria:todos_movimientos_caja' %}" class="btn btn-primary">
+                                    <i class="fas fa-redo"></i> Ver Todos los Movimientos
+                                </a>
+                            {% else %}
+                                <p class="text-muted">No hay movimientos registrados aún</p>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.info-box {
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.info-box-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+}
+
+.info-box-content {
+    text-align: center;
+}
+
+.info-box-text {
+    display: block;
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+}
+
+.info-box-number {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.page-header {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.page-title {
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.page-subtitle {
+    color: #6c757d;
+    margin: 0;
+}
+
+.table-success-light {
+    background-color: #f0f9f4 !important;
+}
+
+.table-danger-light {
+    background-color: #fef5f5 !important;
+}
+
+.sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+thead.sticky-top th {
+    background-color: #f8f9fa !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+</style>
+{% endblock %}
+

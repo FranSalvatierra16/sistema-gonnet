@@ -256,6 +256,95 @@ def lista_vales_vendedor(request, vendedor_id):
     
     return render(request, 'inmobiliaria/vales/lista_vales.html', context)
 
+# ✅ VISTA PARA MOVIMIENTOS HISTÓRICOS DE TODAS LAS CAJAS
+
+@login_required
+def todos_movimientos_caja(request):
+    """
+    Vista para mostrar TODOS los movimientos de TODAS las cajas
+    Con filtros de búsqueda por ID, concepto, empleado, etc.
+    """
+    # Obtener todos los movimientos de la sucursal del usuario
+    movimientos = MovimientoCaja.objects.filter(
+        sucursal=request.user.sucursal
+    ).select_related(
+        'caja', 'empleado', 'propiedad', 'cuenta'
+    ).order_by('-fecha')
+    
+    # Aplicar filtros de búsqueda
+    busqueda = request.GET.get('busqueda', '').strip()
+    tipo_filtro = request.GET.get('tipo', '')
+    fecha_desde = request.GET.get('fecha_desde', '')
+    fecha_hasta = request.GET.get('fecha_hasta', '')
+    
+    if busqueda:
+        # Buscar por ID, concepto, número de liquidación, o empleado
+        movimientos = movimientos.filter(
+            Q(id__icontains=busqueda) |
+            Q(concepto__icontains=busqueda) |
+            Q(numero_liquidacion__icontains=busqueda) |
+            Q(empleado__nombre__icontains=busqueda) |
+            Q(empleado__apellido__icontains=busqueda) |
+            Q(empleado__dni__icontains=busqueda)
+        )
+    
+    if tipo_filtro:
+        movimientos = movimientos.filter(tipo=tipo_filtro)
+    
+    if fecha_desde:
+        movimientos = movimientos.filter(fecha__gte=fecha_desde)
+    
+    if fecha_hasta:
+        movimientos = movimientos.filter(fecha__lte=fecha_hasta)
+    
+    # Calcular totales
+    ingresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(
+        efectivo=Sum('monto_efectivo'),
+        cheque=Sum('monto_cheque'),
+        tarjeta=Sum('monto_tarjeta'),
+        deposito=Sum('monto_deposito')
+    )
+    
+    egresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.EGRESO).aggregate(
+        efectivo=Sum('monto_efectivo'),
+        cheque=Sum('monto_cheque'),
+        tarjeta=Sum('monto_tarjeta'),
+        deposito=Sum('monto_deposito')
+    )
+    
+    total_ingresos = (
+        (ingresos['efectivo'] or Decimal('0')) +
+        (ingresos['cheque'] or Decimal('0')) +
+        (ingresos['tarjeta'] or Decimal('0')) +
+        (ingresos['deposito'] or Decimal('0'))
+    )
+    
+    total_egresos = (
+        (egresos['efectivo'] or Decimal('0')) +
+        (egresos['cheque'] or Decimal('0')) +
+        (egresos['tarjeta'] or Decimal('0')) +
+        (egresos['deposito'] or Decimal('0'))
+    )
+    
+    # Paginación
+    from django.core.paginator import Paginator
+    paginator = Paginator(movimientos, 50)  # 50 movimientos por página
+    page_number = request.GET.get('page')
+    movimientos_paginados = paginator.get_page(page_number)
+    
+    context = {
+        'movimientos': movimientos_paginados,
+        'total_movimientos': movimientos.count(),
+        'total_ingresos': total_ingresos,
+        'total_egresos': total_egresos,
+        'busqueda': busqueda,
+        'tipo_filtro': tipo_filtro,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+    }
+    
+    return render(request, 'inmobiliaria/caja/todos_movimientos.html', context)
+
 from xhtml2pdf import pisa
 from io import BytesIO
 from .models import (
