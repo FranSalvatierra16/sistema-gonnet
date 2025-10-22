@@ -4,6 +4,7 @@ from .sucursal import Sucursal, crear_caja_automatica, CuentaBancaria
 from .caja import *
 from .contrato import TipoOperacion, ContratoAlquiler, CuotaMensual
 from .recibo import Recibo
+from .comision import ComisionVendedor
 
 __all__ = [
     'Sucursal',
@@ -15,4 +16,5 @@ __all__ = [
     'ContratoAlquiler',
     'CuotaMensual',
     'Recibo',
+    'ComisionVendedor',
 ]
