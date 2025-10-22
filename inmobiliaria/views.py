@@ -8,15 +8,102 @@ from datetime import datetime
 from django.forms import inlineformset_factory
 from django.template.loader import render_to_string
 from django.contrib.auth import authenticate
+from django.db import models
+from django.db import transaction
 
-# Importar vistas de cuentas bancarias
-from .views_cuentas_bancarias import (
-    gestionar_cuentas_bancarias,
-    crear_cuenta_bancaria,
-    editar_cuenta_bancaria,
-    eliminar_cuenta_bancaria,
-    toggle_cuenta_bancaria
-)
+# ✅ VISTAS PARA COMISIONES DE VENDEDORES
+
+@login_required
+def historial_comisiones(request):
+    """
+    Vista para mostrar el historial de comisiones del vendedor logueado
+    """
+    vendedor = request.user
+    comisiones = ComisionVendedor.objects.filter(vendedor=vendedor).order_by('-fecha_operacion')
+    
+    # Calcular totales
+    total_comisiones = comisiones.aggregate(
+        total=models.Sum('monto_comision')
+    )['total'] or Decimal('0')
+    
+    # Calcular totales por mes
+    from django.db.models import Sum
+    from datetime import datetime
+    
+    comisiones_por_mes = {}
+    for comision in comisiones:
+        mes_key = comision.fecha_operacion.strftime('%Y-%m')
+        if mes_key not in comisiones_por_mes:
+            comisiones_por_mes[mes_key] = {
+                'mes': comision.fecha_operacion.strftime('%B %Y'),
+                'total': Decimal('0'),
+                'cantidad': 0
+            }
+        comisiones_por_mes[mes_key]['total'] += comision.monto_comision
+        comisiones_por_mes[mes_key]['cantidad'] += 1
+    
+    # Calcular comisiones del mes actual
+    mes_actual = datetime.now().strftime('%Y-%m')
+    comision_mes_actual = comisiones_por_mes.get(mes_actual, {'total': Decimal('0'), 'cantidad': 0})
+    
+    context = {
+        'comisiones': comisiones,
+        'total_comisiones': total_comisiones,
+        'comisiones_por_mes': comisiones_por_mes,
+        'comision_mes_actual': comision_mes_actual,
+        'vendedor': vendedor,
+        'porcentaje_comision': vendedor.comision or 0
+    }
+    
+    return render(request, 'inmobiliaria/comisiones/historial_comisiones.html', context)
+
+@login_required
+def detalle_comision(request, comision_id):
+    """
+    Vista para mostrar el detalle de una comisión específica
+    """
+    comision = get_object_or_404(ComisionVendedor, id=comision_id, vendedor=request.user)
+    
+    context = {
+        'comision': comision
+    }
+    
+    return render(request, 'inmobiliaria/comisiones/detalle_comision.html', context)
+
+@login_required
+def resumen_comisiones_mensual(request, año=None, mes=None):
+    """
+    Vista para mostrar un resumen de comisiones por mes
+    """
+    from datetime import datetime
+    from calendar import month_name
+    
+    if not año or not mes:
+        ahora = datetime.now()
+        año = ahora.year
+        mes = ahora.month
+    
+    vendedor = request.user
+    comisiones_mes = ComisionVendedor.objects.filter(
+        vendedor=vendedor,
+        fecha_operacion__year=año,
+        fecha_operacion__month=mes
+    ).order_by('-fecha_operacion')
+    
+    total_mes = comisiones_mes.aggregate(
+        total=models.Sum('monto_comision')
+    )['total'] or Decimal('0')
+    
+    context = {
+        'comisiones': comisiones_mes,
+        'total_mes': total_mes,
+        'año': año,
+        'mes': mes,
+        'nombre_mes': month_name[mes],
+        'vendedor': vendedor
+    }
+    
+    return render(request, 'inmobiliaria/comisiones/resumen_mensual.html', context)
 from xhtml2pdf import pisa
 from io import BytesIO
 from .models import (
@@ -2860,6 +2947,7 @@ def procesar_movimiento_reserva(request):
             total_movimiento_creado = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
             print(f"✅ MOVIMIENTO ÚNICO CREADO - ID: {movimiento_principal.id}, Total: ${total_movimiento_creado}")
             
+
             # ✅ CALCULAR COMISIÓN DEL VENDEDOR
             if reserva.vendedor and reserva.vendedor.comision:
                 from inmobiliaria.models.comision import ComisionVendedor
