@@ -5,6 +5,7 @@ from .caja import *
 from .contrato import TipoOperacion, ContratoAlquiler, CuotaMensual
 from .recibo import Recibo
 from .comision import ComisionVendedor
+from .vale import ValeVendedor
 
 __all__ = [
     'Sucursal',
@@ -17,4 +18,5 @@ __all__ = [
     'CuotaMensual',
     'Recibo',
     'ComisionVendedor',
+    'ValeVendedor',
 ]

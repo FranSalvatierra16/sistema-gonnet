@@ -35,11 +35,19 @@ def historial_comisiones_vendedor(request, vendedor_id):
     
     vendedor = get_object_or_404(Vendedor, id=vendedor_id)
     comisiones = ComisionVendedor.objects.filter(vendedor=vendedor).order_by('-fecha_operacion')
+    vales = ValeVendedor.objects.filter(vendedor=vendedor).order_by('-fecha')
     
     # Calcular totales
     total_comisiones = comisiones.aggregate(
         total=models.Sum('monto_comision')
     )['total'] or Decimal('0')
+    
+    total_vales = vales.aggregate(
+        total=models.Sum('monto')
+    )['total'] or Decimal('0')
+    
+    # Calcular neto (comisiones - vales)
+    total_neto = total_comisiones - total_vales
     
     # Calcular totales por mes
     from django.db.models import Sum
@@ -51,21 +59,52 @@ def historial_comisiones_vendedor(request, vendedor_id):
         if mes_key not in comisiones_por_mes:
             comisiones_por_mes[mes_key] = {
                 'mes': comision.fecha_operacion.strftime('%B %Y'),
-                'total': Decimal('0'),
+                'total_comisiones': Decimal('0'),
+                'total_vales': Decimal('0'),
                 'cantidad': 0
             }
-        comisiones_por_mes[mes_key]['total'] += comision.monto_comision
+        comisiones_por_mes[mes_key]['total_comisiones'] += comision.monto_comision
         comisiones_por_mes[mes_key]['cantidad'] += 1
+    
+    # Agregar vales por mes
+    for vale in vales:
+        mes_key = vale.fecha.strftime('%Y-%m')
+        if mes_key not in comisiones_por_mes:
+            comisiones_por_mes[mes_key] = {
+                'mes': vale.fecha.strftime('%B %Y'),
+                'total_comisiones': Decimal('0'),
+                'total_vales': Decimal('0'),
+                'cantidad': 0
+            }
+        comisiones_por_mes[mes_key]['total_vales'] += vale.monto
+    
+    # Calcular neto por mes
+    for mes_key in comisiones_por_mes:
+        comisiones_por_mes[mes_key]['total_neto'] = (
+            comisiones_por_mes[mes_key]['total_comisiones'] - 
+            comisiones_por_mes[mes_key]['total_vales']
+        )
     
     # Calcular comisiones del mes actual
     mes_actual = datetime.now().strftime('%Y-%m')
-    comision_mes_actual = comisiones_por_mes.get(mes_actual, {'total': Decimal('0'), 'cantidad': 0})
+    datos_mes_actual = comisiones_por_mes.get(mes_actual, {
+        'total_comisiones': Decimal('0'),
+        'total_vales': Decimal('0'),
+        'total_neto': Decimal('0'),
+        'cantidad': 0
+    })
     
     context = {
         'comisiones': comisiones,
+        'vales': vales,
         'total_comisiones': total_comisiones,
+        'total_vales': total_vales,
+        'total_neto': total_neto,
         'comisiones_por_mes': comisiones_por_mes,
-        'comision_mes_actual': comision_mes_actual,
+        'comision_mes_actual': datos_mes_actual.get('total_comisiones', Decimal('0')),
+        'vale_mes_actual': datos_mes_actual.get('total_vales', Decimal('0')),
+        'neto_mes_actual': datos_mes_actual.get('total_neto', Decimal('0')),
+        'cantidad_operaciones': datos_mes_actual.get('cantidad', 0),
         'vendedor': vendedor,
         'porcentaje_comision': vendedor.comision or 0
     }
@@ -131,6 +170,92 @@ def resumen_comisiones_mensual(request, vendedor_id, año=None, mes=None):
     }
     
     return render(request, 'inmobiliaria/comisiones/resumen_mensual.html', context)
+
+# ✅ VISTAS PARA VALES DE VENDEDORES
+
+@login_required
+def crear_vale(request):
+    """
+    Vista para crear un vale (préstamo) a un vendedor
+    El vale se descuenta del efectivo de caja
+    """
+    if request.method == 'POST':
+        try:
+            # Obtener datos del formulario
+            vendedor_id = request.POST.get('vendedor_id')
+            monto = Decimal(request.POST.get('monto', '0').replace('.', '').replace(',', '.'))
+            concepto = request.POST.get('concepto', 'Vale')
+            observaciones = request.POST.get('observaciones', '')
+            
+            # Validar monto
+            if monto <= 0:
+                messages.error(request, 'El monto debe ser mayor a cero.')
+                return redirect('inmobiliaria:dashboard_caja')
+            
+            # Obtener vendedor
+            vendedor = get_object_or_404(Vendedor, id=vendedor_id)
+            
+            # Obtener caja activa
+            caja_actual = Caja.objects.filter(
+                sucursal=request.user.sucursal,
+                cerrada=False
+            ).first()
+            
+            if not caja_actual:
+                messages.error(request, 'No hay una caja abierta. Debes abrir una caja primero.')
+                return redirect('inmobiliaria:dashboard_caja')
+            
+            # Crear el vale
+            vale = ValeVendedor.crear_vale(
+                vendedor=vendedor,
+                monto=monto,
+                caja=caja_actual,
+                concepto=concepto,
+                observaciones=observaciones,
+                usuario_creador=request.user
+            )
+            
+            messages.success(request, f'Vale de ${monto:,.0f} creado exitosamente para {vendedor.nombre_completo_vendedor()}.')
+            return redirect('inmobiliaria:dashboard_caja')
+            
+        except Exception as e:
+            messages.error(request, f'Error al crear el vale: {str(e)}')
+            return redirect('inmobiliaria:dashboard_caja')
+    
+    # GET - Mostrar formulario
+    vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('nombre', 'apellido')
+    context = {
+        'vendedores': vendedores
+    }
+    return render(request, 'inmobiliaria/vales/crear_vale.html', context)
+
+@login_required
+def lista_vales_vendedor(request, vendedor_id):
+    """
+    Vista para mostrar todos los vales de un vendedor específico
+    Solo accesible para administradores (nivel 4)
+    """
+    # Verificar que el usuario sea nivel 4
+    if request.user.nivel != 4:
+        messages.error(request, 'No tienes permisos para acceder a esta sección.')
+        return redirect('inmobiliaria:dashboard')
+    
+    vendedor = get_object_or_404(Vendedor, id=vendedor_id)
+    vales = ValeVendedor.objects.filter(vendedor=vendedor).order_by('-fecha')
+    
+    # Calcular total de vales
+    total_vales = vales.aggregate(
+        total=models.Sum('monto')
+    )['total'] or Decimal('0')
+    
+    context = {
+        'vendedor': vendedor,
+        'vales': vales,
+        'total_vales': total_vales
+    }
+    
+    return render(request, 'inmobiliaria/vales/lista_vales.html', context)
+
 from xhtml2pdf import pisa
 from io import BytesIO
 from .models import (
@@ -138,7 +263,7 @@ from .models import (
     Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, 
     Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, 
     AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal,
-    TipoMovimientoCajaEnum, ContratoAlquiler, CuotaMensual, ComisionVendedor
+    TipoMovimientoCajaEnum, ContratoAlquiler, CuotaMensual, ComisionVendedor, ValeVendedor
 )
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm

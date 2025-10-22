@@ -237,4 +237,8 @@ urlpatterns = [
     path('comisiones/<int:comision_id>/', views.detalle_comision, name='detalle_comision'),
     path('vendedores/<int:vendedor_id>/comisiones/mes/<int:año>/<int:mes>/', views.resumen_comisiones_mensual, name='resumen_comisiones_mensual'),
     
+    # ✅ URLs para Vales de Vendedores
+    path('vales/crear/', views.crear_vale, name='crear_vale'),
+    path('vendedores/<int:vendedor_id>/vales/', views.lista_vales_vendedor, name='lista_vales_vendedor'),
+    
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
