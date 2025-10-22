@@ -84,13 +84,13 @@ class ValeVendedor(models.Model):
             print(f"   Caja: {caja}")
             
             # Crear movimiento de caja (egreso en efectivo)
+            # NOTA: monto_total es una @property calculada, no se asigna manualmente
             movimiento = MovimientoCaja.objects.create(
                 caja=caja,
                 sucursal=vendedor.sucursal,
                 tipo=TipoMovimientoCajaEnum.EGRESO,
                 concepto=f"Vale para {vendedor.nombre_completo_vendedor()} - {concepto}",
                 monto_efectivo=monto,
-                monto_total=monto,
                 empleado=usuario_creador or vendedor
             )
             print(f"✅ Movimiento creado: {movimiento.id}")
