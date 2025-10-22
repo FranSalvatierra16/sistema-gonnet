@@ -2975,23 +2975,27 @@ def procesar_movimiento_reserva(request):
             print(f"✅ MOVIMIENTO ÚNICO CREADO - ID: {movimiento_principal.id}, Total: ${total_movimiento_creado}")
             
 
-            # ✅ CALCULAR COMISIÓN DEL VENDEDOR
+            # ✅ CALCULAR COMISIÓN DEL VENDEDOR (SOBRE EL TOTAL DE LA RESERVA)
             if reserva.vendedor and reserva.vendedor.comision:
                 from inmobiliaria.models.comision import ComisionVendedor
                 
                 try:
+                    # La comisión se calcula sobre el precio_total de la reserva, no sobre lo pagado
+                    monto_total_reserva = reserva.precio_total or Decimal('0')
+                    
                     comision = ComisionVendedor.crear_comision(
                         vendedor=reserva.vendedor,
                         reserva=reserva,
                         movimiento_caja=movimiento_principal,
-                        monto_total=total_movimiento_creado,
+                        monto_total=monto_total_reserva,  # ✅ Usar precio total de la reserva
                         concepto=f"Operación {reserva.id} - {reserva.propiedad.direccion}"
                     )
                     
                     if comision:
                         print(f"💰 COMISIÓN CALCULADA - Vendedor: {reserva.vendedor.nombre_completo_vendedor()}")
                         print(f"   - Porcentaje: {comision.porcentaje_comision}%")
-                        print(f"   - Monto Operación: ${comision.monto_total_operacion}")
+                        print(f"   - Monto Total Reserva: ${monto_total_reserva}")
+                        print(f"   - Monto Pagado Ahora: ${total_movimiento_creado}")
                         print(f"   - Comisión Ganada: ${comision.monto_comision}")
                     else:
                         print(f"⚠️ No se pudo crear comisión para vendedor {reserva.vendedor.nombre_completo_vendedor()}")
