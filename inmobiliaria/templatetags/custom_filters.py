@@ -72,6 +72,18 @@ def sub(value, arg):
         return 0
 
 @register.filter
+def div(value, arg):
+    """Divides the value by the argument"""
+    try:
+        if arg == 0:
+            return 0
+        if isinstance(value, Decimal) and isinstance(arg, (int, float, Decimal)):
+            return value / Decimal(str(arg))
+        return float(value) / float(arg)
+    except (ValueError, TypeError, ZeroDivisionError):
+        return 0
+
+@register.filter
 def get_caracteristicas(propiedad):
     """Genera una lista de características de la propiedad basada en sus campos booleanos"""
     caracteristicas = []
