@@ -198,7 +198,7 @@ def crear_vale(request):
             # Obtener caja activa
             caja_actual = Caja.objects.filter(
                 sucursal=request.user.sucursal,
-                cerrada=False
+                estado='abierta'
             ).first()
             
             if not caja_actual:
