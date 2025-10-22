@@ -164,6 +164,13 @@
                                                title="Historial">
                                                 <i class="fas fa-history"></i>
                                             </a>
+                                            {% if user.nivel == 4 %}
+                                            <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' vendedor.id %}" 
+                                               class="btn btn-outline-success btn-sm action-btn" 
+                                               title="Ver Comisiones">
+                                                <i class="fas fa-chart-line"></i>
+                                            </a>
+                                            {% endif %}
                                         </div>
                                     </td>
                                 </tr>

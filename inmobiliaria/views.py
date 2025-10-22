@@ -20,14 +20,20 @@ from .views_cuentas_bancarias import (
     toggle_cuenta_bancaria
 )
 
-# ✅ VISTAS PARA COMISIONES DE VENDEDORES
+# ✅ VISTAS PARA COMISIONES DE VENDEDORES (SOLO ADMINS)
 
 @login_required
-def historial_comisiones(request):
+def historial_comisiones_vendedor(request, vendedor_id):
     """
-    Vista para mostrar el historial de comisiones del vendedor logueado
+    Vista para mostrar el historial de comisiones de un vendedor específico
+    Solo accesible para administradores (nivel 4)
     """
-    vendedor = request.user
+    # Verificar que el usuario sea nivel 4
+    if request.user.nivel != 4:
+        messages.error(request, 'No tienes permisos para acceder a esta sección.')
+        return redirect('inmobiliaria:dashboard')
+    
+    vendedor = get_object_or_404(Vendedor, id=vendedor_id)
     comisiones = ComisionVendedor.objects.filter(vendedor=vendedor).order_by('-fecha_operacion')
     
     # Calcular totales
@@ -70,8 +76,14 @@ def historial_comisiones(request):
 def detalle_comision(request, comision_id):
     """
     Vista para mostrar el detalle de una comisión específica
+    Solo accesible para administradores (nivel 4)
     """
-    comision = get_object_or_404(ComisionVendedor, id=comision_id, vendedor=request.user)
+    # Verificar que el usuario sea nivel 4
+    if request.user.nivel != 4:
+        messages.error(request, 'No tienes permisos para acceder a esta sección.')
+        return redirect('inmobiliaria:dashboard')
+    
+    comision = get_object_or_404(ComisionVendedor, id=comision_id)
     
     context = {
         'comision': comision
@@ -80,10 +92,16 @@ def detalle_comision(request, comision_id):
     return render(request, 'inmobiliaria/comisiones/detalle_comision.html', context)
 
 @login_required
-def resumen_comisiones_mensual(request, año=None, mes=None):
+def resumen_comisiones_mensual(request, vendedor_id, año=None, mes=None):
     """
-    Vista para mostrar un resumen de comisiones por mes
+    Vista para mostrar un resumen de comisiones por mes de un vendedor específico
+    Solo accesible para administradores (nivel 4)
     """
+    # Verificar que el usuario sea nivel 4
+    if request.user.nivel != 4:
+        messages.error(request, 'No tienes permisos para acceder a esta sección.')
+        return redirect('inmobiliaria:dashboard')
+    
     from datetime import datetime
     from calendar import month_name
     
@@ -92,7 +110,7 @@ def resumen_comisiones_mensual(request, año=None, mes=None):
         año = ahora.year
         mes = ahora.month
     
-    vendedor = request.user
+    vendedor = get_object_or_404(Vendedor, id=vendedor_id)
     comisiones_mes = ComisionVendedor.objects.filter(
         vendedor=vendedor,
         fecha_operacion__year=año,

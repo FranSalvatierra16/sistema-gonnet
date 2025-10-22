@@ -232,9 +232,9 @@ urlpatterns = [
     path('cuentas-bancarias/<int:cuenta_id>/eliminar/', views.eliminar_cuenta_bancaria, name='eliminar_cuenta_bancaria'),
     path('cuentas-bancarias/<int:cuenta_id>/toggle/', views.toggle_cuenta_bancaria, name='toggle_cuenta_bancaria'),
     
-    # ✅ URLs para Comisiones de Vendedores
-    path('comisiones/', views.historial_comisiones, name='historial_comisiones'),
+    # ✅ URLs para Comisiones de Vendedores (Solo Admins)
+    path('vendedores/<int:vendedor_id>/comisiones/', views.historial_comisiones_vendedor, name='historial_comisiones_vendedor'),
     path('comisiones/<int:comision_id>/', views.detalle_comision, name='detalle_comision'),
-    path('comisiones/mes/<int:año>/<int:mes>/', views.resumen_comisiones_mensual, name='resumen_comisiones_mensual'),
+    path('vendedores/<int:vendedor_id>/comisiones/mes/<int:año>/<int:mes>/', views.resumen_comisiones_mensual, name='resumen_comisiones_mensual'),
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
