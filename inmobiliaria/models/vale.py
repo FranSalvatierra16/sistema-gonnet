@@ -46,7 +46,6 @@ class ValeVendedor(models.Model):
     
     # Fechas
     fecha = models.DateTimeField(
-        default=timezone.now,
         verbose_name="Fecha del Vale"
     )
     fecha_creacion = models.DateTimeField(
@@ -96,8 +95,8 @@ class ValeVendedor(models.Model):
             monto=monto,
             concepto=concepto,
             observaciones=observaciones,
-            usuario_creador=usuario_creador
-            # fecha se asigna automáticamente por el default=timezone.now
+            usuario_creador=usuario_creador,
+            fecha=timezone.now()  # Especificar explícitamente la fecha
         )
         
         return vale
