@@ -1,0 +1,215 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load bootstrap4 %}
+
+{% block title %}Crear Vale{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="page-title">
+                            <i class="fas fa-money-bill-wave text-warning"></i>
+                            Crear Vale para Vendedor
+                        </h1>
+                        <p class="page-subtitle">El vale se descuenta del efectivo de caja</p>
+                    </div>
+                    <div>
+                        <a href="{% url 'inmobiliaria:dashboard_caja' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> Volver a Caja
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-white">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        Datos del Vale
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{% url 'inmobiliaria:crear_vale' %}">
+                        {% csrf_token %}
+                        
+                        <!-- Vendedor -->
+                        <div class="mb-4">
+                            <label for="vendedor_id" class="form-label">
+                                <i class="fas fa-user"></i> Vendedor *
+                            </label>
+                            <select class="form-control form-control-lg" id="vendedor_id" name="vendedor_id" required>
+                                <option value="">Seleccione un vendedor...</option>
+                                {% for vendedor in vendedores %}
+                                <option value="{{ vendedor.id }}" data-comision="{{ vendedor.comision|default:0 }}">
+                                    {{ vendedor.nombre }} {{ vendedor.apellido }} ({{ vendedor.dni }})
+                                    {% if vendedor.comision %} - Comisión: {{ vendedor.comision }}%{% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">
+                                Selecciona el vendedor que recibirá el vale (préstamo)
+                            </small>
+                        </div>
+
+                        <!-- Monto -->
+                        <div class="mb-4">
+                            <label for="monto" class="form-label">
+                                <i class="fas fa-dollar-sign"></i> Monto del Vale *
+                            </label>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text">$</span>
+                                <input type="text" class="form-control" id="monto" name="monto" 
+                                       placeholder="0" required
+                                       onkeyup="formatearMoneda(this)">
+                            </div>
+                            <small class="form-text text-muted">
+                                Este monto se descontará del efectivo de caja y de las comisiones del vendedor
+                            </small>
+                        </div>
+
+                        <!-- Concepto -->
+                        <div class="mb-4">
+                            <label for="concepto" class="form-label">
+                                <i class="fas fa-tag"></i> Concepto
+                            </label>
+                            <input type="text" class="form-control" id="concepto" name="concepto" 
+                                   value="Vale" maxlength="200"
+                                   placeholder="Ej: Vale, Adelanto, Préstamo">
+                            <small class="form-text text-muted">
+                                Descripción breve del vale (opcional)
+                            </small>
+                        </div>
+
+                        <!-- Observaciones -->
+                        <div class="mb-4">
+                            <label for="observaciones" class="form-label">
+                                <i class="fas fa-comment"></i> Observaciones
+                            </label>
+                            <textarea class="form-control" id="observaciones" name="observaciones" 
+                                      rows="3" placeholder="Detalles adicionales (opcional)"></textarea>
+                        </div>
+
+                        <!-- Alerta informativa -->
+                        <div class="alert alert-warning" role="alert">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Importante:</strong> Este vale se descontará del efectivo de caja inmediatamente 
+                            y se restará de las comisiones del vendedor en su historial.
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'inmobiliaria:dashboard_caja' %}" class="btn btn-secondary btn-lg">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-warning btn-lg">
+                                <i class="fas fa-check"></i> Crear Vale
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function formatearMoneda(input) {
+    // Remover todo excepto números
+    let valor = input.value.replace(/\D/g, '');
+    
+    // Formatear con puntos como separadores de miles
+    if (valor) {
+        valor = parseInt(valor).toLocaleString('es-AR');
+    }
+    
+    input.value = valor;
+}
+
+// Validación del formulario
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    
+    form.addEventListener('submit', function(e) {
+        const vendedorSelect = document.getElementById('vendedor_id');
+        const montoInput = document.getElementById('monto');
+        
+        // Validar que se haya seleccionado un vendedor
+        if (!vendedorSelect.value) {
+            e.preventDefault();
+            alert('Por favor, selecciona un vendedor.');
+            vendedorSelect.focus();
+            return false;
+        }
+        
+        // Validar que el monto sea mayor a 0
+        const monto = parseInt(montoInput.value.replace(/\D/g, ''));
+        if (!monto || monto <= 0) {
+            e.preventDefault();
+            alert('Por favor, ingresa un monto válido mayor a 0.');
+            montoInput.focus();
+            return false;
+        }
+        
+        // Confirmar la operación
+        const vendedorTexto = vendedorSelect.options[vendedorSelect.selectedIndex].text;
+        const confirmacion = confirm(
+            `¿Confirmar creación de vale?\n\n` +
+            `Vendedor: ${vendedorTexto}\n` +
+            `Monto: $${montoInput.value}\n\n` +
+            `Este monto se descontará del efectivo de caja.`
+        );
+        
+        if (!confirmacion) {
+            e.preventDefault();
+            return false;
+        }
+    });
+});
+</script>
+
+<style>
+.page-header {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.page-title {
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.page-subtitle {
+    color: #6c757d;
+    margin: 0;
+}
+
+.card {
+    border-radius: 10px;
+    border: none;
+}
+
+.card-header {
+    border-radius: 10px 10px 0 0 !important;
+}
+
+.form-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.btn-lg {
+    padding: 12px 30px;
+    font-size: 1.1rem;
+}
+</style>
+{% endblock %}
+
