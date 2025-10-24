@@ -6394,16 +6394,37 @@ def historial_caja(request):
 
 @login_required
 def buscar_conceptos(request):
-    termino = request.POST.get('termino', '')
+    termino = request.POST.get('termino', '').strip()
     sucursal = request.user.sucursal
     
-    # Buscar por ID o nombre dentro de la sucursal actual
+    if not termino:
+        return JsonResponse({
+            'conceptos': []
+        })
+    
+    # Primero intentar buscar por ID exacto si el término es numérico
+    try:
+        termino_int = int(termino)
+        conceptos_por_id = Concepto.objects.filter(
+            sucursal=sucursal,
+            id=termino_int
+        )
+        if conceptos_por_id.exists():
+            return JsonResponse({
+                'conceptos': [{
+                    'id': c.id,
+                    'nombre': c.nombre,
+                    'fecha_creacion': c.fecha_creacion.strftime('%d/%m/%Y %H:%M')
+                } for c in conceptos_por_id]
+            })
+    except ValueError:
+        pass
+    
+    # Si no es numérico o no encontró por ID exacto, buscar por nombre
     conceptos = Concepto.objects.filter(
-        sucursal=sucursal
-    ).filter(
-        Q(id__icontains=termino) |
-        Q(nombre__icontains=termino)
-    ).order_by('id')[:10]  # Limitar a 10 resultados, ordenados por ID
+        sucursal=sucursal,
+        nombre__icontains=termino
+    ).order_by('nombre')[:20]  # Aumentar límite y ordenar por nombre
     
     return JsonResponse({
         'conceptos': [{
