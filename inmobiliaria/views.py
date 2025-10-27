@@ -1500,77 +1500,77 @@ def buscar_propiedades_reserva(request):
             if form.cleaned_data.get(caracteristica):
                 propiedades = propiedades.filter(**{caracteristica: True})
 
-        # ✅ LÓGICA SIMPLE: Buscar fechas libres entre disponibilidades y reservas
+        # ✅ LÓGICA MEJORADA: Verificar cobertura completa con disponibilidades contiguas
         for propiedad in propiedades:
             from datetime import timedelta
             print(f"🔍 PROCESANDO PROPIEDAD {propiedad.id}: {propiedad}")
-            print(f"   🔎 Buscando disponibilidades que contengan {fecha_inicio} al {fecha_fin}")
+            print(f"   🔎 Buscando disponibilidades para {fecha_inicio} al {fecha_fin}")
             
-            # 1️⃣ BUSCAR DISPONIBILIDADES QUE CONTENGAN EL PERÍODO
-            disponibilidades = Disponibilidad.objects.filter(
+            # 1️⃣ BUSCAR TODAS LAS DISPONIBILIDADES QUE SE SUPERPONEN CON EL PERÍODO
+            disponibilidades_superpuestas = Disponibilidad.objects.filter(
                 propiedad=propiedad,
-                fecha_inicio__lte=fecha_inicio,
-                fecha_fin__gte=fecha_fin,
-            )
+                fecha_inicio__lt=fecha_fin,   # Empieza antes de que termine la búsqueda
+                fecha_fin__gt=fecha_inicio,   # Termina después de que empiece la búsqueda
+            ).order_by('fecha_inicio')
             
-            if disponibilidades.exists():
-                # 2️⃣ BUSCAR ÚLTIMA FECHA FINAL ANTES DEL PERÍODO BUSCADO
-                # Combinar disponibilidades y reservas para encontrar la fecha más reciente
+            # 2️⃣ VERIFICAR SI LAS DISPONIBILIDADES CUBREN TODO EL RANGO (permitiendo contiguas)
+            periodo_cubierto = False
+            if disponibilidades_superpuestas.exists():
+                # Verificar si las disponibilidades contiguas cubren todo el rango
+                disponibilidades_list = list(disponibilidades_superpuestas)
                 
-                # Fechas finales de disponibilidades que terminan antes del período
-                disp_anteriores = Disponibilidad.objects.filter(
-                    propiedad=propiedad,
-                    fecha_fin__lte=fecha_inicio
-                ).order_by('-fecha_fin').first()
+                # Ordenar por fecha de inicio
+                disponibilidades_list.sort(key=lambda d: d.fecha_inicio)
                 
-                # Fechas finales de reservas que terminan antes del período
+                # Verificar cobertura continua
+                cobertura_inicio = disponibilidades_list[0].fecha_inicio
+                cobertura_fin = disponibilidades_list[0].fecha_fin
+                
+                for i in range(1, len(disponibilidades_list)):
+                    disp_actual = disponibilidades_list[i]
+                    # Si la disponibilidad actual empieza el mismo día o antes que termine la anterior
+                    # (permitiendo fechas contiguas como 07-11 y 11-15)
+                    if disp_actual.fecha_inicio <= cobertura_fin:
+                        # Extender la cobertura
+                        cobertura_fin = max(cobertura_fin, disp_actual.fecha_fin)
+                    else:
+                        # Hay un hueco
+                        break
+                
+                # Verificar si la cobertura completa incluye el período buscado
+                if cobertura_inicio <= fecha_inicio and cobertura_fin >= fecha_fin:
+                    periodo_cubierto = True
+                    print(f"   ✅ Período CUBIERTO por disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
+                else:
+                    print(f"   ❌ Período NO cubierto. Cobertura: {cobertura_inicio} al {cobertura_fin}, necesario: {fecha_inicio} al {fecha_fin}")
+            
+            # Usar la variable disponibilidades para mantener compatibilidad con el resto del código
+            disponibilidades = disponibilidades_superpuestas if periodo_cubierto else Disponibilidad.objects.none()
+            
+            if periodo_cubierto:
+                # 3️⃣ CALCULAR PERÍODO LIBRE usando la cobertura de disponibilidades contiguas
+                # Usar la cobertura calculada anteriormente (cobertura_inicio y cobertura_fin)
+                fecha_disponible_desde = cobertura_inicio
+                fecha_disponible_hasta = cobertura_fin
+                
+                # 4️⃣ AJUSTAR POR RESERVAS ANTERIORES Y POSTERIORES
+                # Fechas finales de reservas que terminan antes o en la fecha de inicio
                 reservas_anteriores = propiedad.reservas.filter(
                     fecha_fin__lte=fecha_inicio
                 ).order_by('-fecha_fin').first()
                 
-                # Determinar la fecha final más reciente
-                ultima_fecha_fin = None
-                if disp_anteriores and reservas_anteriores:
-                    ultima_fecha_fin = max(disp_anteriores.fecha_fin, reservas_anteriores.fecha_fin)
-                elif disp_anteriores:
-                    ultima_fecha_fin = disp_anteriores.fecha_fin
-                elif reservas_anteriores:
-                    ultima_fecha_fin = reservas_anteriores.fecha_fin
+                if reservas_anteriores:
+                    # 🏨 LÓGICA HOTEL: Si reserva termina el 17, el 17 ya está disponible
+                    fecha_disponible_desde = max(fecha_disponible_desde, reservas_anteriores.fecha_fin)
                 
-                # 3️⃣ BUSCAR PRIMERA FECHA INICIAL DESPUÉS DEL PERÍODO BUSCADO
-                
-                # Fechas iniciales de disponibilidades que empiezan después del período
-                disp_posteriores = Disponibilidad.objects.filter(
-                    propiedad=propiedad,
-                    fecha_inicio__gte=fecha_fin
-                ).order_by('fecha_inicio').first()
-                
-                # Fechas iniciales de reservas que empiezan después del período
+                # Fechas iniciales de reservas que empiezan después o en la fecha de fin
                 reservas_posteriores = propiedad.reservas.filter(
                     fecha_inicio__gte=fecha_fin
                 ).order_by('fecha_inicio').first()
                 
-                # Determinar la fecha inicial más próxima
-                proxima_fecha_inicio = None
-                if disp_posteriores and reservas_posteriores:
-                    proxima_fecha_inicio = min(disp_posteriores.fecha_inicio, reservas_posteriores.fecha_inicio)
-                elif disp_posteriores:
-                    proxima_fecha_inicio = disp_posteriores.fecha_inicio
-                elif reservas_posteriores:
-                    proxima_fecha_inicio = reservas_posteriores.fecha_inicio
-                
-                # 4️⃣ CALCULAR PERÍODO LIBRE
-                disponibilidad_base = disponibilidades.first()
-                
-                fecha_disponible_desde = disponibilidad_base.fecha_inicio
-                if ultima_fecha_fin:
-                    # 🏨 LÓGICA HOTEL: Si reserva termina el 17, el 17 ya está disponible
-                    fecha_disponible_desde = ultima_fecha_fin
-                
-                fecha_disponible_hasta = disponibilidad_base.fecha_fin
-                if proxima_fecha_inicio:
+                if reservas_posteriores:
                     # 🏨 LÓGICA HOTEL: Si próxima reserva empieza el 25, hasta el 25 está disponible
-                    fecha_disponible_hasta = proxima_fecha_inicio
+                    fecha_disponible_hasta = min(fecha_disponible_hasta, reservas_posteriores.fecha_inicio)
                 
                 # 5️⃣ ASIGNAR FECHAS CALCULADAS
                 propiedad.disponibilidad_inicio = fecha_disponible_desde
@@ -1579,11 +1579,11 @@ def buscar_propiedades_reserva(request):
                 print(f"🎯 PROP {propiedad.id}: Libre desde {fecha_disponible_desde} hasta {fecha_disponible_hasta}")
                 print(f"   📅 Asignado: disponibilidad_inicio={propiedad.disponibilidad_inicio}")
                 print(f"   📅 Asignado: disponibilidad_fin={propiedad.disponibilidad_fin}")
-                print(f"   📊 Disponibilidad base: {disponibilidad_base.fecha_inicio} al {disponibilidad_base.fecha_fin}")
-                if ultima_fecha_fin:
-                    print(f"   ⏪ Última fecha final anterior: {ultima_fecha_fin}")
-                if proxima_fecha_inicio:
-                    print(f"   ⏩ Próxima fecha inicial posterior: {proxima_fecha_inicio}")
+                print(f"   📊 Cobertura de disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
+                if reservas_anteriores:
+                    print(f"   ⏪ Reserva anterior termina: {reservas_anteriores.fecha_fin}")
+                if reservas_posteriores:
+                    print(f"   ⏩ Próxima reserva empieza: {reservas_posteriores.fecha_inicio}")
             else:
                 print(f"❌ PROP {propiedad.id}: NO tiene disponibilidades que contengan el período {fecha_inicio} al {fecha_fin}")
                 disponibilidades = Disponibilidad.objects.none()
