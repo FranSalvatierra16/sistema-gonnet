@@ -638,6 +638,32 @@ class Disponibilidad(models.Model):
         default=True,
         help_text='True si fue creada manualmente, False si fue generada automáticamente'
     )
+    
+    # Campos para registrar pagos adelantados (informativo)
+    asegurado = models.BooleanField(
+        default=False,
+        verbose_name='Asegurado',
+        help_text='Indica si se realizó un pago adelantado'
+    )
+    monto_asegurado = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Monto Asegurado',
+        help_text='Monto del pago adelantado'
+    )
+    moneda_asegurado = models.CharField(
+        max_length=10,
+        choices=[
+            ('ARS', 'Pesos'),
+            ('USD', 'Dólares')
+        ],
+        null=True,
+        blank=True,
+        default='ARS',
+        verbose_name='Moneda'
+    )
 
     def save(self, *args, **kwargs):
         from datetime import timedelta

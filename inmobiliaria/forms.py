@@ -450,10 +450,17 @@ class BuscarPropiedadesForm(forms.Form):
 class DisponibilidadForm(forms.ModelForm):
     class Meta:
         model = Disponibilidad
-        fields = ['fecha_inicio', 'fecha_fin']
+        fields = ['fecha_inicio', 'fecha_fin', 'asegurado', 'monto_asegurado', 'moneda_asegurado']
         widgets = {
             'fecha_inicio': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'fecha_fin': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
+            'fecha_fin': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'monto_asegurado': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Monto'}),
+            'moneda_asegurado': forms.Select(attrs={'class': 'form-control'}),
+        }
+        labels = {
+            'asegurado': 'Marcar como asegurado',
+            'monto_asegurado': 'Monto',
+            'moneda_asegurado': 'Moneda',
         }
 
     def __init__(self, propiedad=None, *args, **kwargs):
