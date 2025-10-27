@@ -3174,16 +3174,16 @@ def procesar_movimiento_reserva(request):
                 print(f"✅ Destino mixto asignado: {', '.join(detalles_cuentas)}")
             elif monto_deposito_legacy > 0:
                 # Fallback a lógica legacy si hay montos en campos antiguos
-                if monto_deposito_galicia > 0 and monto_deposito_mp == 0:
-                    movimiento_principal.destino_deposito = 'galicia'
-                    movimiento_principal.save()
-                elif monto_deposito_mp > 0 and monto_deposito_galicia == 0:
-                    movimiento_principal.destino_deposito = 'mp'
-                    movimiento_principal.save()
-                elif monto_deposito_galicia > 0 and monto_deposito_mp > 0:
-                    concepto_actualizado = f"Operaci\u00f3n {reserva.id} - Galicia: ${monto_deposito_galicia}, MP: ${monto_deposito_mp}"
-                    movimiento_principal.concepto = concepto_actualizado
-                    movimiento_principal.save()
+            if monto_deposito_galicia > 0 and monto_deposito_mp == 0:
+                movimiento_principal.destino_deposito = 'galicia'
+                movimiento_principal.save()
+            elif monto_deposito_mp > 0 and monto_deposito_galicia == 0:
+                movimiento_principal.destino_deposito = 'mp'
+                movimiento_principal.save()
+            elif monto_deposito_galicia > 0 and monto_deposito_mp > 0:
+                concepto_actualizado = f"Operaci\u00f3n {reserva.id} - Galicia: ${monto_deposito_galicia}, MP: ${monto_deposito_mp}"
+                movimiento_principal.concepto = concepto_actualizado
+                movimiento_principal.save()
             
             total_movimiento_creado = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
             print(f"✅ MOVIMIENTO ÚNICO CREADO - ID: {movimiento_principal.id}, Total: ${total_movimiento_creado}")
@@ -5629,7 +5629,7 @@ def detalle_caja(request, numero):
             'nombre': cuenta.nombre_banco,
             'alias': cuenta.alias,
             'saldo': saldo_cuenta
-        }
+    }
     
     # Calcular saldo total
     saldo_total = (
@@ -6427,14 +6427,15 @@ def buscar_conceptos(request):
         })
     
     # Buscar por ID exacto (el ID es CharField, no IntegerField)
+    # Incluir conceptos de la sucursal Y conceptos sin sucursal (None)
     conceptos_por_id = Concepto.objects.filter(
-        sucursal=sucursal,
+        Q(sucursal=sucursal) | Q(sucursal__isnull=True),
         id__iexact=termino
     )
     
     # Buscar por nombre con icontains
     conceptos_por_nombre = Concepto.objects.filter(
-        sucursal=sucursal,
+        Q(sucursal=sucursal) | Q(sucursal__isnull=True),
         nombre__icontains=termino
     )
     
@@ -7537,7 +7538,7 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
                 
                 if concepto_id_actual == str(concepto_id):
                     print(f"     🎯 ¡CONCEPTO {concepto_id} ENCONTRADO! = PAGADO")
-                    return 'pagado'
+                                return 'pagado'
                     
         except (json.JSONDecodeError, ValueError, TypeError) as e:
             print(f"     ⚠️ No es JSON: {e}")
@@ -7715,12 +7716,12 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             print(f"✅ Destino mixto asignado: {len(cuentas_con_monto)} cuentas")
         elif monto_deposito_legacy > 0:
             # Fallback a lógica legacy si hay montos en campos antiguos
-            if monto_deposito_galicia > 0:
-                movimiento.destino_deposito = 'galicia'
-                movimiento.monto_deposito = monto_deposito_galicia
-            elif monto_deposito_mp > 0:
-                movimiento.destino_deposito = 'mp'
-                movimiento.monto_deposito = monto_deposito_mp
+        if monto_deposito_galicia > 0:
+            movimiento.destino_deposito = 'galicia'
+            movimiento.monto_deposito = monto_deposito_galicia
+        elif monto_deposito_mp > 0:
+            movimiento.destino_deposito = 'mp'
+            movimiento.monto_deposito = monto_deposito_mp
         
         movimiento.save()
         
@@ -8893,8 +8894,8 @@ def recibo_contrato_24(request, contrato_id):
                     print(f"    - Nombre: '{nombre}'")
                     
                     if importe_valor > 0:  # Solo agregar conceptos con importe > 0
-                        conceptos_contrato.append({
-                            'fecha': primer_movimiento.fecha,
+                    conceptos_contrato.append({
+                        'fecha': primer_movimiento.fecha,
                             'codigo': codigo,
                             'nombre': nombre,
                             'importe': f"${importe_valor:,.2f}".replace(',', '.'),
@@ -9070,8 +9071,8 @@ def recibo_contrato_24(request, contrato_id):
                 # FORZAR conceptos básicos siempre
                 # 1. ALQUILER (obligatorio)
                 if contrato.precio_mensual and contrato.precio_mensual > 0:
-                    conceptos_contrato.append({
-                        'fecha': primer_movimiento.fecha,
+                conceptos_contrato.append({
+                    'fecha': primer_movimiento.fecha,
                         'codigo': '1',
                         'nombre': 'Alquiler',
                         'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
@@ -9084,7 +9085,7 @@ def recibo_contrato_24(request, contrato_id):
                 if primer_movimiento and primer_movimiento.honorarios and primer_movimiento.honorarios > 0:
                     honorarios_valor = float(primer_movimiento.honorarios)
                     print(f"  💰 HONORARIOS desde campo movimiento: ${honorarios_valor}")
-                else:
+        else:
                     # Calcular como diferencia
                     diferencia_final = total_pagado - float(contrato.precio_mensual or 0)
                     if diferencia_final > 0:
@@ -9121,8 +9122,8 @@ def recibo_contrato_24(request, contrato_id):
             print(f"⚠️ NO HAY MOVIMIENTOS - CREANDO CONCEPTOS BÁSICOS")
             precio_mensual_valor = float(contrato.precio_mensual or 0)
             if precio_mensual_valor > 0:
-                conceptos_contrato.append({
-                    'fecha': contrato.fecha_operacion,
+            conceptos_contrato.append({
+                'fecha': contrato.fecha_operacion,
                     'codigo': '1',
                     'nombre': 'Alquiler',
                     'importe': f"${precio_mensual_valor:,.2f}".replace(',', '.'),
