@@ -8612,6 +8612,23 @@ def editar_disponibilidad(request, disponibilidad_id):
             
             disponibilidad.fecha_inicio = nueva_fecha_inicio
             disponibilidad.fecha_fin = nueva_fecha_fin
+            
+            # Actualizar campos de asegurado
+            disponibilidad.asegurado = request.POST.get('asegurado', 'false').lower() == 'true'
+            
+            if disponibilidad.asegurado:
+                monto_asegurado = request.POST.get('monto_asegurado', '').strip()
+                if monto_asegurado:
+                    disponibilidad.monto_asegurado = Decimal(monto_asegurado)
+                else:
+                    disponibilidad.monto_asegurado = None
+                    
+                disponibilidad.moneda_asegurado = request.POST.get('moneda_asegurado', 'ARS')
+            else:
+                # Si no está asegurado, limpiar los campos
+                disponibilidad.monto_asegurado = None
+                disponibilidad.moneda_asegurado = None
+            
             disponibilidad.save()
             
             return JsonResponse({
