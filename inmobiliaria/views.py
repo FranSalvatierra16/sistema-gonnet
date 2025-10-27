@@ -8417,6 +8417,8 @@ def eliminar_disponibilidad(request, disponibilidad_id):
     """
     if request.method == 'POST':
         try:
+            from .models.propiedad import Reserva  # ✅ Importar al inicio
+            
             disponibilidad = get_object_or_404(Disponibilidad, id=disponibilidad_id)
             
             # Verificar que la disponibilidad pertenezca a la sucursal del usuario
@@ -8487,7 +8489,6 @@ def eliminar_disponibilidad(request, disponibilidad_id):
             disponibilidad.delete()
             
             # ✅ Reconstruir historial cronológico para reflejar los cambios
-            from .models.propiedad import Reserva
             # Buscar una reserva de esta propiedad para usar su método de reconstruir historial
             reserva_ejemplo = Reserva.objects.filter(propiedad=propiedad).first()
             if reserva_ejemplo:
