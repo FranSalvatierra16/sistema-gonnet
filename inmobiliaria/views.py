@@ -4336,8 +4336,22 @@ def agregar_disponibilidad_masiva(request):
                         sucursal=sucursal  # Usar la sucursal del usuario
                     )
                     
-                    # 🎯 INTENTAR CREAR DISPONIBILIDAD (como antes)
-                    # Si falla por cualquier razón, capturar el error pero continuar con las demás
+                    # ✅ VALIDAR SUPERPOSICIÓN ANTES DE CREAR
+                    solapamiento = Disponibilidad.objects.filter(
+                        propiedad=propiedad,
+                        fecha_fin__gte=fecha_inicio,
+                        fecha_inicio__lte=fecha_fin
+                    )
+                    
+                    if solapamiento.exists():
+                        # Obtener info de las disponibilidades que se superponen
+                        fechas_conflicto = []
+                        for disp in solapamiento:
+                            fechas_conflicto.append(f"{disp.fecha_inicio.strftime('%d/%m/%Y')} - {disp.fecha_fin.strftime('%d/%m/%Y')}")
+                        
+                        raise ValueError(f"Se superpone con disponibilidades existentes: {', '.join(fechas_conflicto)}")
+                    
+                    # 🎯 CREAR DISPONIBILIDAD (solo si no hay superposición)
                     nueva_disponibilidad = Disponibilidad.objects.create(
                         propiedad=propiedad,
                         fecha_inicio=fecha_inicio,
@@ -4352,7 +4366,9 @@ def agregar_disponibilidad_masiva(request):
                     propiedades_actualizadas += 1
                     propiedades_exitosas.append({
                         'propiedad_id': propiedad_id,
-                        'direccion': f"{propiedad.direccion}"
+                        'direccion': f"{propiedad.direccion}",
+                        'piso': propiedad.piso or '-',
+                        'departamento': propiedad.departamento or '-'
                     })
                         
                 except Propiedad.DoesNotExist:
@@ -4367,14 +4383,20 @@ def agregar_disponibilidad_masiva(request):
                     try:
                         propiedad = Propiedad.objects.get(id=propiedad_id)
                         direccion = f"{propiedad.direccion}"
+                        piso = propiedad.piso or '-'
+                        departamento = propiedad.departamento or '-'
                     except:
                         direccion = 'Desconocida'
+                        piso = '-'
+                        departamento = '-'
                     
                     # 🔍 Clasificar el tipo de error para mayor claridad
                     error_msg = str(e)
                     tipo_error = 'error_general'
                     
-                    if 'UNIQUE constraint failed' in error_msg or 'duplicate' in error_msg.lower():
+                    if 'superpone con disponibilidades' in error_msg.lower():
+                        tipo_error = 'solapamiento'
+                    elif 'UNIQUE constraint failed' in error_msg or 'duplicate' in error_msg.lower():
                         error_msg = 'Ya existe disponibilidad para estas fechas'
                         tipo_error = 'solapamiento'
                     elif 'date' in error_msg.lower():
@@ -4387,6 +4409,8 @@ def agregar_disponibilidad_masiva(request):
                     errores_detallados.append({
                         'propiedad_id': propiedad_id,
                         'direccion': direccion,
+                        'piso': piso,
+                        'departamento': departamento,
                         'error': error_msg,
                         'tipo': tipo_error,
                         'error_original': str(e)  # Para debugging si es necesario

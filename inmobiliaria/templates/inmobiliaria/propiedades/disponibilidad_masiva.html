@@ -41,8 +41,9 @@
                     <th><input type="checkbox" id="checkbox-principal"></th>
                     <th>ID</th>
                     <th>Dirección</th>
+                    <th>Piso</th>
+                    <th>Dpto</th>
                     <th>Propietario</th>
-                    
                 </tr>
             </thead>
             <tbody>
@@ -53,8 +54,9 @@
                     </td>
                     <td>{{ propiedad.id }}</td>
                     <td>{{ propiedad.direccion }}</td>
+                    <td>{{ propiedad.piso|default:"-" }}</td>
+                    <td>{{ propiedad.departamento|default:"-" }}</td>
                     <td>{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</td>
-                    
                 </tr>
                 {% endfor %}
             </tbody>
@@ -152,48 +154,107 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Preparar mensaje de éxito con detalles
-                let mensaje = data.message;
+                // Preparar HTML con tablas de resultados
+                let html = `<div style="text-align: left;">`;
+                html += `<p><strong>${data.message}</strong></p>`;
                 
-                if (data.detalles && data.detalles.detalles_errores.length > 0) {
-                    // Si hay errores, mostrar detalles
-                    mensaje += '\n\n📋 DETALLES DE ERRORES:';
-                    data.detalles.detalles_errores.forEach((error, index) => {
-                        mensaje += `\n${index + 1}. ${error.direccion} (ID: ${error.propiedad_id}): ${error.error}`;
+                // Tabla de exitosas
+                if (data.detalles && data.detalles.detalles_exitosas.length > 0) {
+                    html += `<h4 style="color: green; margin-top: 15px;">✅ Propiedades Exitosas (${data.detalles.detalles_exitosas.length}):</h4>`;
+                    html += `<table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">`;
+                    html += `<thead><tr style="background-color: #d4edda;">
+                        <th style="border: 1px solid #ddd; padding: 8px;">ID</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Dirección</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Piso</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Dpto</th>
+                    </tr></thead><tbody>`;
+                    data.detalles.detalles_exitosas.forEach(prop => {
+                        html += `<tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${prop.propiedad_id}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${prop.direccion}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${prop.piso}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${prop.departamento}</td>
+                        </tr>`;
                     });
+                    html += `</tbody></table>`;
                 }
+                
+                // Tabla de errores
+                if (data.detalles && data.detalles.detalles_errores.length > 0) {
+                    html += `<h4 style="color: red; margin-top: 15px;">❌ Propiedades con Errores (${data.detalles.detalles_errores.length}):</h4>`;
+                    html += `<table style="width: 100%; border-collapse: collapse;">`;
+                    html += `<thead><tr style="background-color: #f8d7da;">
+                        <th style="border: 1px solid #ddd; padding: 8px;">ID</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Dirección</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Piso</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Dpto</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Error</th>
+                    </tr></thead><tbody>`;
+                    data.detalles.detalles_errores.forEach(error => {
+                        html += `<tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${error.propiedad_id}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${error.direccion}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${error.piso}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${error.departamento}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px; color: red;">${error.error}</td>
+                        </tr>`;
+                    });
+                    html += `</tbody></table>`;
+                }
+                
+                html += `</div>`;
                 
                 Swal.fire({
                     icon: data.detalles && data.detalles.detalles_errores.length > 0 ? 'warning' : 'success',
                     title: data.detalles && data.detalles.detalles_errores.length > 0 ? '¡Completado con errores!' : '¡Éxito!',
-                    text: mensaje,
+                    html: html,
                     showConfirmButton: true,
                     confirmButtonText: 'Entendido',
-                    timer: data.detalles && data.detalles.detalles_errores.length > 0 ? null : 3000,
-                    width: '600px'
+                    width: '800px',
+                    customClass: {
+                        popup: 'swal-wide'
+                    }
                 }).then(() => {
                     // Recargar la página después de guardar
                     window.location.reload();
                 });
                 
             } else {
-                // Preparar mensaje de error con detalles
-                let mensaje = data.message;
+                // Preparar HTML con tabla de errores
+                let html = `<div style="text-align: left;">`;
+                html += `<p><strong>${data.message}</strong></p>`;
                 
                 if (data.detalles && data.detalles.detalles_errores.length > 0) {
-                    mensaje += '\n\n📋 DETALLES DE ERRORES:';
-                    data.detalles.detalles_errores.forEach((error, index) => {
-                        mensaje += `\n${index + 1}. ${error.direccion} (ID: ${error.propiedad_id}): ${error.error}`;
+                    html += `<h4 style="color: red; margin-top: 15px;">❌ Errores Encontrados:</h4>`;
+                    html += `<table style="width: 100%; border-collapse: collapse;">`;
+                    html += `<thead><tr style="background-color: #f8d7da;">
+                        <th style="border: 1px solid #ddd; padding: 8px;">ID</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Dirección</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Piso</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Dpto</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Error</th>
+                    </tr></thead><tbody>`;
+                    data.detalles.detalles_errores.forEach(error => {
+                        html += `<tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${error.propiedad_id}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${error.direccion}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${error.piso}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${error.departamento}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px; color: red;">${error.error}</td>
+                        </tr>`;
                     });
+                    html += `</tbody></table>`;
                 }
+                
+                html += `</div>`;
                 
                 Swal.fire({
                     icon: 'error',
                     title: 'Error en Disponibilidad Masiva',
-                    text: mensaje,
+                    html: html,
                     showConfirmButton: true,
                     confirmButtonText: 'Entendido',
-                    width: '600px'
+                    width: '800px'
                 });
             }
         })
