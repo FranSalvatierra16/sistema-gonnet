@@ -7716,12 +7716,12 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             print(f"✅ Destino mixto asignado: {len(cuentas_con_monto)} cuentas")
         elif monto_deposito_legacy > 0:
             # Fallback a lógica legacy si hay montos en campos antiguos
-        if monto_deposito_galicia > 0:
-            movimiento.destino_deposito = 'galicia'
-            movimiento.monto_deposito = monto_deposito_galicia
-        elif monto_deposito_mp > 0:
-            movimiento.destino_deposito = 'mp'
-            movimiento.monto_deposito = monto_deposito_mp
+            if monto_deposito_galicia > 0:
+                movimiento.destino_deposito = 'galicia'
+                movimiento.monto_deposito = monto_deposito_galicia
+            elif monto_deposito_mp > 0:
+                movimiento.destino_deposito = 'mp'
+                movimiento.monto_deposito = monto_deposito_mp
         
         movimiento.save()
         
