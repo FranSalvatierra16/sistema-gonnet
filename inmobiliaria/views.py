@@ -6402,29 +6402,20 @@ def buscar_conceptos(request):
             'conceptos': []
         })
     
-    # Primero intentar buscar por ID exacto si el término es numérico
-    try:
-        termino_int = int(termino)
-        conceptos_por_id = Concepto.objects.filter(
-            sucursal=sucursal,
-            id=termino_int
-        )
-        if conceptos_por_id.exists():
-            return JsonResponse({
-                'conceptos': [{
-                    'id': c.id,
-                    'nombre': c.nombre,
-                    'fecha_creacion': c.fecha_creacion.strftime('%d/%m/%Y %H:%M')
-                } for c in conceptos_por_id]
-            })
-    except ValueError:
-        pass
+    # Buscar por ID exacto (el ID es CharField, no IntegerField)
+    conceptos_por_id = Concepto.objects.filter(
+        sucursal=sucursal,
+        id__iexact=termino
+    )
     
-    # Si no es numérico o no encontró por ID exacto, buscar por nombre
-    conceptos = Concepto.objects.filter(
+    # Buscar por nombre con icontains
+    conceptos_por_nombre = Concepto.objects.filter(
         sucursal=sucursal,
         nombre__icontains=termino
-    ).order_by('nombre')[:20]  # Aumentar límite y ordenar por nombre
+    )
+    
+    # Combinar ambos resultados y eliminar duplicados
+    conceptos = (conceptos_por_id | conceptos_por_nombre).distinct().order_by('id')[:20]
     
     return JsonResponse({
         'conceptos': [{
