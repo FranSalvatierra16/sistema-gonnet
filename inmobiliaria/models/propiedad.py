@@ -229,17 +229,46 @@ class Propiedad(models.Model):
         return f"{self.id} - {self.direccion}"
 
     def esta_disponible_en_fecha(self, fecha_inicio, fecha_fin):
-        """Verifica si una propiedad está disponible entre las fechas dadas."""
+        """Verifica si una propiedad está disponible entre las fechas dadas, reconociendo disponibilidades contiguas."""
         if not fecha_inicio or not fecha_fin:
             return False
 
-        # ✅ CORREGIDO: Verificar si hay disponibilidades que cubran COMPLETAMENTE el período
-        disponibilidades = self.disponibilidades.filter(
-            fecha_inicio__lte=fecha_inicio,  # Disponibilidad empieza antes o igual al inicio solicitado
-            fecha_fin__gte=fecha_fin         # Disponibilidad termina después o igual al fin solicitado
-        ).exists()
+        # ✅ MEJORADO: Verificar cobertura completa con disponibilidades contiguas
+        # 1️⃣ Buscar TODAS las disponibilidades que se superponen con el período
+        disponibilidades_superpuestas = self.disponibilidades.filter(
+            fecha_inicio__lt=fecha_fin,   # Empieza antes de que termine la búsqueda
+            fecha_fin__gt=fecha_inicio,   # Termina después de que empiece la búsqueda
+        ).order_by('fecha_inicio')
+        
+        # 2️⃣ Verificar si las disponibilidades cubren TODO el rango (permitiendo contiguas)
+        periodo_cubierto = False
+        if disponibilidades_superpuestas.exists():
+            # Verificar si las disponibilidades contiguas cubren todo el rango
+            disponibilidades_list = list(disponibilidades_superpuestas)
+            
+            # Ordenar por fecha de inicio
+            disponibilidades_list.sort(key=lambda d: d.fecha_inicio)
+            
+            # Verificar cobertura continua
+            cobertura_inicio = disponibilidades_list[0].fecha_inicio
+            cobertura_fin = disponibilidades_list[0].fecha_fin
+            
+            for i in range(1, len(disponibilidades_list)):
+                disp_actual = disponibilidades_list[i]
+                # Si la disponibilidad actual empieza el mismo día o antes que termine la anterior
+                # (permitiendo fechas contiguas como 07-11 y 11-15)
+                if disp_actual.fecha_inicio <= cobertura_fin:
+                    # Extender la cobertura
+                    cobertura_fin = max(cobertura_fin, disp_actual.fecha_fin)
+                else:
+                    # Hay un hueco
+                    break
+            
+            # Verificar si la cobertura completa incluye el período buscado
+            if cobertura_inicio <= fecha_inicio and cobertura_fin >= fecha_fin:
+                periodo_cubierto = True
 
-        # Verificar si hay reservas que se superpongan
+        # 3️⃣ Verificar si hay reservas que se superpongan
         reservas_superpuestas = self.reservas.filter(
             fecha_inicio__lt=fecha_fin,
             fecha_fin__gt=fecha_inicio,
@@ -247,9 +276,9 @@ class Propiedad(models.Model):
         ).exists()
 
         # La propiedad está disponible si:
-        # 1. Hay una disponibilidad que se superpone con el período
+        # 1. El período está cubierto por disponibilidades (contiguas o no)
         # 2. Y no hay reservas que se superpongan
-        return disponibilidades and not reservas_superpuestas
+        return periodo_cubierto and not reservas_superpuestas
     
     def obtener_historial_cronologico(self):
         """
