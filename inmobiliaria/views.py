@@ -1769,15 +1769,22 @@ def crear_disponibilidad(request, propiedad_id):
                     es_manual=True  # Marcada explícitamente como manual
                 )
                 
-                # Verificar solapamiento manualmente
-                solapamiento = Disponibilidad.objects.filter(
-                    propiedad=propiedad,
-                    fecha_fin__gte=nueva_disponibilidad.fecha_inicio,
-                    fecha_inicio__lte=nueva_disponibilidad.fecha_fin
-                ).exists()
+                # ✅ MEJORADO: Verificar superposición REAL (permitir fechas contiguas)
+                todas_disponibilidades = Disponibilidad.objects.filter(
+                    propiedad=propiedad
+                )
                 
-                if solapamiento:
-                    messages.error(request, 'Ya existe una disponibilidad para estas fechas')
+                # Verificar VERDADERA superposición (excluir fechas contiguas)
+                solapamiento_real = False
+                for disp in todas_disponibilidades:
+                    # Superposición REAL: comparten MÁS de un día
+                    # Si solo se tocan en UN día (contiguas como 10-15 y 15-20), es válido
+                    if disp.fecha_fin > nueva_disponibilidad.fecha_inicio and disp.fecha_inicio < nueva_disponibilidad.fecha_fin:
+                        solapamiento_real = True
+                        break
+                
+                if solapamiento_real:
+                    messages.error(request, 'Ya existe una disponibilidad que se superpone con estas fechas')
                 else:
                     nueva_disponibilidad.save()
                     
@@ -4336,17 +4343,23 @@ def agregar_disponibilidad_masiva(request):
                         sucursal=sucursal  # Usar la sucursal del usuario
                     )
                     
-                    # ✅ VALIDAR SUPERPOSICIÓN ANTES DE CREAR
-                    solapamiento = Disponibilidad.objects.filter(
-                        propiedad=propiedad,
-                        fecha_fin__gte=fecha_inicio,
-                        fecha_inicio__lte=fecha_fin
+                    # ✅ VALIDAR SUPERPOSICIÓN REAL (permitir fechas contiguas)
+                    todas_disponibilidades = Disponibilidad.objects.filter(
+                        propiedad=propiedad
                     )
                     
-                    if solapamiento.exists():
-                        # Obtener info de las disponibilidades que se superponen
+                    # Verificar VERDADERA superposición (excluir fechas contiguas)
+                    solapamientos_reales = []
+                    for disp in todas_disponibilidades:
+                        # Superposición REAL: comparten MÁS de un día
+                        # Si solo se tocan en UN día (contiguas como 10-15 y 15-20), es válido
+                        if disp.fecha_fin > fecha_inicio and disp.fecha_inicio < fecha_fin:
+                            solapamientos_reales.append(disp)
+                    
+                    if solapamientos_reales:
+                        # Obtener info de las disponibilidades que se superponen REALMENTE
                         fechas_conflicto = []
-                        for disp in solapamiento:
+                        for disp in solapamientos_reales:
                             fechas_conflicto.append(f"{disp.fecha_inicio.strftime('%d/%m/%Y')} - {disp.fecha_fin.strftime('%d/%m/%Y')}")
                         
                         raise ValueError(f"Se superpone con disponibilidades existentes: {', '.join(fechas_conflicto)}")
@@ -8610,27 +8623,28 @@ def editar_disponibilidad(request, disponibilidad_id):
                         'limite_fin_minimo': limite_fin_minimo.strftime('%Y-%m-%d')
                     })
                 
-            # Verificar solapamiento con otras disponibilidades
+            # ✅ MEJORADO: Verificar superposición REAL con otras disponibilidades (permitir contiguas)
             otras_disponibilidades = Disponibilidad.objects.filter(
                 propiedad=disponibilidad.propiedad
-            ).exclude(id=disponibilidad.id).filter(
-                fecha_inicio__lt=nueva_fecha_fin,
-                fecha_fin__gt=nueva_fecha_inicio
-            )
+            ).exclude(id=disponibilidad.id)
             
-            if otras_disponibilidades.exists():
-                conflictos = []
-                for otra in otras_disponibilidades:
-                    conflictos.append({
+            # Verificar VERDADERA superposición (excluir fechas contiguas)
+            conflictos_reales = []
+            for otra in otras_disponibilidades:
+                # Superposición REAL: comparten MÁS de un día
+                # Si solo se tocan en UN día (contiguas como 10-15 y 15-20), es válido
+                if otra.fecha_fin > nueva_fecha_inicio and otra.fecha_inicio < nueva_fecha_fin:
+                    conflictos_reales.append({
                         'id': otra.id,
                         'fecha_inicio': otra.fecha_inicio.strftime('%d/%m/%Y'),
                         'fecha_fin': otra.fecha_fin.strftime('%d/%m/%Y')
                     })
-                
+            
+            if conflictos_reales:
                 return JsonResponse({
                     'success': False,
                     'error': 'Las nuevas fechas se superponen con otras disponibilidades',
-                    'conflictos': conflictos
+                    'conflictos': conflictos_reales
                 })
             
             # Si todas las validaciones pasan, actualizar la disponibilidad

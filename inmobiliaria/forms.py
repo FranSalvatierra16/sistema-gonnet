@@ -477,21 +477,30 @@ class DisponibilidadForm(forms.ModelForm):
                 raise ValidationError('La fecha de fin debe ser posterior a la fecha de inicio')
 
             if self.propiedad:
-                # Verificar solapamiento solo con fechas que se superponen
-                solapamiento = Disponibilidad.objects.filter(
-                    propiedad=self.propiedad,
-                    fecha_fin__gte=fecha_inicio,
-                    fecha_inicio__lte=fecha_fin
+                # ✅ MEJORADO: Verificar superposición REAL (excluir fechas contiguas)
+                # Fechas contiguas son PERMITIDAS (ej: 10-15 y 15-20)
+                # Solo rechazar si hay superposición de MÁS de un día
+                todas_disponibilidades = Disponibilidad.objects.filter(
+                    propiedad=self.propiedad
                 )
                 
                 # Si estamos editando, excluir la disponibilidad actual
                 if self.instance.pk:
-                    solapamiento = solapamiento.exclude(pk=self.instance.pk)
+                    todas_disponibilidades = todas_disponibilidades.exclude(pk=self.instance.pk)
                 
-                if solapamiento.exists():
+                # Verificar cada disponibilidad para detectar VERDADERA superposición
+                solapamientos_reales = []
+                for disp in todas_disponibilidades:
+                    # Superposición REAL ocurre cuando comparten MÁS de un día
+                    # Si solo se tocan en UN día (contiguas), es válido
+                    if disp.fecha_fin > fecha_inicio and disp.fecha_inicio < fecha_fin:
+                        # Hay superposición de al menos un día
+                        solapamientos_reales.append(disp)
+                
+                if solapamientos_reales:
                     fechas_ocupadas = [
                         f"({d.fecha_inicio.strftime('%d/%m/%Y')} - {d.fecha_fin.strftime('%d/%m/%Y')})"
-                        for d in solapamiento
+                        for d in solapamientos_reales
                     ]
                     raise ValidationError(
                         f'Las fechas se solapan con disponibilidades existentes: {", ".join(fechas_ocupadas)}'
