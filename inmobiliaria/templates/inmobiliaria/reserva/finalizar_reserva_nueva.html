@@ -1861,16 +1861,25 @@ document.addEventListener('DOMContentLoaded', function() {
     calcularTotalPagos();
     
     // Event listeners para los botones de seleccionar concepto
-    document.addEventListener('click', function(e) {
-        const botonSeleccionar = e.target.closest('.btn-seleccionar-concepto');
-        if (botonSeleccionar) {
-            console.log('🖱️ Click en botón seleccionar concepto');
-            const conceptoId = botonSeleccionar.dataset.conceptoId;
-            const conceptoNombre = botonSeleccionar.dataset.conceptoNombre;
-            console.log('📋 Datos del concepto:', { id: conceptoId, nombre: conceptoNombre });
-            seleccionarConcepto(conceptoId, conceptoNombre);
-        }
-    });
+    // Usar delegación de eventos en la tabla específica
+    const tablaBusqueda = document.getElementById('tablaConceptosBusqueda');
+    if (tablaBusqueda) {
+        tablaBusqueda.addEventListener('click', function(e) {
+            const botonSeleccionar = e.target.closest('.btn-seleccionar-concepto');
+            if (botonSeleccionar) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🖱️ Click en botón seleccionar concepto');
+                const conceptoId = botonSeleccionar.dataset.conceptoId;
+                const conceptoNombre = botonSeleccionar.dataset.conceptoNombre;
+                console.log('📋 Datos del concepto:', { id: conceptoId, nombre: conceptoNombre });
+                seleccionarConcepto(conceptoId, conceptoNombre);
+            }
+        });
+        console.log('✅ Event listener agregado a tabla de conceptos');
+    } else {
+        console.error('❌ No se encontró la tabla de conceptos');
+    }
     
     // Event listener para resetear el modal cuando se cierre
     const modalConcepto = document.getElementById('modalConcepto');
