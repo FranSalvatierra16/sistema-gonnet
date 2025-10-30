@@ -242,4 +242,9 @@ urlpatterns = [
     path('vales/crear/', views.crear_vale, name='crear_vale'),
     path('vendedores/<int:vendedor_id>/vales/', views.lista_vales_vendedor, name='lista_vales_vendedor'),
     
+    # ✅ URLs para Liquidaciones de Propietarios
+    path('liquidaciones/', views.liquidaciones_propietarios, name='liquidaciones_propietarios'),
+    path('liquidaciones/propietario/<int:propietario_id>/', views.liquidacion_propietario, name='liquidacion_propietario'),
+    path('liquidaciones/propiedad/<int:propiedad_id>/', views.liquidacion_propiedad, name='liquidacion_propiedad'),
+    
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

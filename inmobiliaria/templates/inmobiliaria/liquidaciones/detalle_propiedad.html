@@ -1,0 +1,235 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Liquidación - {{ propiedad.direccion }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="page-title">
+                            <i class="fas fa-file-invoice text-success"></i>
+                            Liquidación de Propiedad
+                        </h1>
+                        <p class="page-subtitle">
+                            <strong>{{ propiedad.direccion }}</strong> - ID: {{ propiedad.id }}
+                        </p>
+                        <p class="text-muted mb-0">
+                            Propietario: {{ propietario.apellido }}, {{ propietario.nombre }}
+                        </p>
+                    </div>
+                    <div>
+                        <a href="{% url 'inmobiliaria:liquidacion_propietario' propietario.id %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> Volver a Propietario
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen de Totales -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="info-box bg-info text-white">
+                <div class="info-box-icon">
+                    <i class="fas fa-list"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Total Movimientos</span>
+                    <span class="info-box-number">{{ total_movimientos }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="info-box bg-success text-white">
+                <div class="info-box-icon">
+                    <i class="fas fa-arrow-down"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Ingresos</span>
+                    <span class="info-box-number">${{ total_ingresos|format_price }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="info-box bg-danger text-white">
+                <div class="info-box-icon">
+                    <i class="fas fa-arrow-up"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Egresos (Gastos)</span>
+                    <span class="info-box-number">${{ total_egresos|format_price }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="info-box {% if balance >= 0 %}bg-primary{% else %}bg-warning{% endif %} text-white">
+                <div class="info-box-icon">
+                    <i class="fas fa-balance-scale"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Balance</span>
+                    <span class="info-box-number">${{ balance|format_price }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalle de Movimientos -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-list-ul"></i> Detalle de Movimientos
+                    </h3>
+                </div>
+                <div class="card-body p-0">
+                    {% if movimientos %}
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Fecha</th>
+                                        <th>Caja</th>
+                                        <th>Concepto</th>
+                                        <th>Empleado</th>
+                                        <th>Tipo</th>
+                                        <th class="text-end">Efectivo</th>
+                                        <th class="text-end">Transferencia</th>
+                                        <th class="text-end">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for movimiento in movimientos %}
+                                    <tr>
+                                        <td><strong class="text-primary">#{{ movimiento.id }}</strong></td>
+                                        <td>
+                                            <small>
+                                                {{ movimiento.fecha|date:"d/m/Y" }}<br>
+                                                {{ movimiento.fecha|time:"H:i" }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            {% if movimiento.caja %}
+                                                <a href="{% url 'inmobiliaria:detalle_caja' movimiento.caja.numero %}" 
+                                                   class="badge bg-secondary">
+                                                    Caja #{{ movimiento.caja.numero }}
+                                                </a>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ movimiento.concepto|truncatewords:8 }}</td>
+                                        <td>
+                                            {% if movimiento.empleado %}
+                                                <small>{{ movimiento.empleado.nombre }} {{ movimiento.empleado.apellido }}</small>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if movimiento.tipo == 'IN' %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-arrow-down"></i> Ingreso
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-danger">
+                                                    <i class="fas fa-arrow-up"></i> Egreso
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            {% if movimiento.monto_efectivo > 0 %}
+                                                ${{ movimiento.monto_efectivo|format_price }}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            {% if movimiento.monto_deposito > 0 %}
+                                                ${{ movimiento.monto_deposito|format_price }}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            <strong class="{% if movimiento.tipo == 'IN' %}text-success{% else %}text-danger{% endif %}">
+                                                ${{ movimiento.monto_total|format_price }}
+                                            </strong>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <h4 class="text-muted">No hay movimientos para esta propiedad</h4>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.info-box {
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.info-box-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.info-box-content {
+    text-align: center;
+}
+
+.info-box-text {
+    display: block;
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+}
+
+.info-box-number {
+    display: block;
+    font-size: 1.8rem;
+    font-weight: bold;
+}
+
+.page-header {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.page-title {
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.page-subtitle {
+    color: #6c757d;
+    margin: 0;
+}
+
+.border-left-success {
+    border-left: 4px solid #28a745 !important;
+}
+</style>
+{% endblock %}
+

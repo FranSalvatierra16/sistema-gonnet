@@ -1,0 +1,140 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+
+{% block title %}Liquidaciones - Propietarios{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <h1 class="page-title">
+                    <i class="fas fa-file-invoice-dollar text-success"></i>
+                    Liquidaciones por Propietario
+                </h1>
+                <p class="page-subtitle">Busca un propietario para ver su liquidación completa</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Búsqueda de Propietarios -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-search"></i> Buscar Propietario
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="GET" action="{% url 'inmobiliaria:liquidaciones_propietarios' %}">
+                        <div class="row">
+                            <div class="col-md-10">
+                                <input type="text" class="form-control" name="busqueda" 
+                                       value="{{ busqueda }}"
+                                       placeholder="Buscar por ID, nombre, apellido o DNI...">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search"></i> Buscar
+                                </button>
+                            </div>
+                        </div>
+                        {% if busqueda %}
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <a href="{% url 'inmobiliaria:liquidaciones_propietarios' %}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-times"></i> Limpiar Búsqueda
+                                </a>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Propietarios -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-users"></i>
+                        Propietarios
+                        {% if busqueda %}
+                            <span class="badge bg-primary">Búsqueda: "{{ busqueda }}"</span>
+                        {% endif %}
+                    </h3>
+                </div>
+                <div class="card-body p-0">
+                    {% if propietarios %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Apellido y Nombre</th>
+                                        <th>DNI</th>
+                                        <th>Teléfono</th>
+                                        <th>Email</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for propietario in propietarios %}
+                                    <tr>
+                                        <td><strong class="text-primary">#{{ propietario.id }}</strong></td>
+                                        <td>{{ propietario.apellido }}, {{ propietario.nombre }}</td>
+                                        <td>{{ propietario.dni }}</td>
+                                        <td>{{ propietario.telefono|default:"-" }}</td>
+                                        <td>{{ propietario.email|default:"-" }}</td>
+                                        <td>
+                                            <a href="{% url 'inmobiliaria:liquidacion_propietario' propietario.id %}" 
+                                               class="btn btn-sm btn-success">
+                                                <i class="fas fa-file-invoice-dollar"></i> Ver Liquidación
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <h4 class="text-muted">No se encontraron propietarios</h4>
+                            {% if busqueda %}
+                                <p class="text-muted">Intenta ajustar tu búsqueda</p>
+                                <a href="{% url 'inmobiliaria:liquidaciones_propietarios' %}" class="btn btn-primary">
+                                    <i class="fas fa-redo"></i> Ver Todos los Propietarios
+                                </a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.page-header {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.page-title {
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.page-subtitle {
+    color: #6c757d;
+    margin: 0;
+}
+</style>
+{% endblock %}
+

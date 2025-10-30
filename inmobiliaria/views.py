@@ -229,6 +229,132 @@ def crear_vale(request):
     }
     return render(request, 'inmobiliaria/vales/crear_vale.html', context)
 
+# ============================================================================
+# LIQUIDACIONES - SISTEMA DE LIQUIDACIÓN DE PROPIETARIOS
+# ============================================================================
+
+@login_required
+def liquidaciones_propietarios(request):
+    """
+    Vista principal de liquidaciones - Búsqueda de propietarios
+    """
+    sucursal = request.user.sucursal
+    propietarios = Propietario.objects.filter(sucursal=sucursal).order_by('apellido', 'nombre')
+    
+    # Aplicar búsqueda si existe
+    busqueda = request.GET.get('busqueda', '').strip()
+    if busqueda:
+        propietarios = propietarios.filter(
+            Q(id__icontains=busqueda) |
+            Q(nombre__icontains=busqueda) |
+            Q(apellido__icontains=busqueda) |
+            Q(dni__icontains=busqueda)
+        )
+    
+    context = {
+        'propietarios': propietarios,
+        'busqueda': busqueda
+    }
+    
+    return render(request, 'inmobiliaria/liquidaciones/lista_propietarios.html', context)
+
+@login_required
+def liquidacion_propietario(request, propietario_id):
+    """
+    Vista de liquidación completa de un propietario
+    Muestra todos los gastos y desglose por propiedad
+    """
+    propietario = get_object_or_404(Propietario, id=propietario_id)
+    
+    # Verificar que pertenezca a la sucursal del usuario
+    if propietario.sucursal != request.user.sucursal:
+        messages.error(request, 'No tienes permisos para ver esta liquidación.')
+        return redirect('inmobiliaria:liquidaciones_propietarios')
+    
+    # Obtener todas las propiedades del propietario
+    propiedades = Propiedad.objects.filter(propietario=propietario)
+    
+    # Obtener todos los movimientos de caja relacionados con las propiedades del propietario
+    # Buscar en movimientos que tengan la propiedad asignada
+    movimientos_totales = MovimientoCaja.objects.filter(
+        propiedad__propietario=propietario
+    ).select_related('caja', 'propiedad', 'empleado').order_by('-fecha')
+    
+    # Calcular totales generales
+    total_gastos = Decimal('0')
+    for mov in movimientos_totales:
+        if mov.tipo == TipoMovimientoCajaEnum.EGRESO:
+            total_gastos += mov.monto_total
+    
+    # Calcular gastos por propiedad
+    propiedades_con_gastos = []
+    for propiedad in propiedades:
+        movimientos_prop = MovimientoCaja.objects.filter(
+            propiedad=propiedad
+        ).order_by('-fecha')
+        
+        total_gastos_prop = Decimal('0')
+        for mov in movimientos_prop:
+            if mov.tipo == TipoMovimientoCajaEnum.EGRESO:
+                total_gastos_prop += mov.monto_total
+        
+        propiedades_con_gastos.append({
+            'propiedad': propiedad,
+            'movimientos': movimientos_prop,
+            'total_gastos': total_gastos_prop,
+            'cantidad_movimientos': movimientos_prop.count()
+        })
+    
+    context = {
+        'propietario': propietario,
+        'movimientos_totales': movimientos_totales,
+        'total_gastos': total_gastos,
+        'propiedades_con_gastos': propiedades_con_gastos,
+        'total_propiedades': propiedades.count()
+    }
+    
+    return render(request, 'inmobiliaria/liquidaciones/detalle_propietario.html', context)
+
+@login_required
+def liquidacion_propiedad(request, propiedad_id):
+    """
+    Vista de liquidación detallada de una propiedad específica
+    """
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    
+    # Verificar que pertenezca a la sucursal del usuario
+    if propiedad.sucursal != request.user.sucursal:
+        messages.error(request, 'No tienes permisos para ver esta liquidación.')
+        return redirect('inmobiliaria:liquidaciones_propietarios')
+    
+    # Obtener todos los movimientos de esta propiedad
+    movimientos = MovimientoCaja.objects.filter(
+        propiedad=propiedad
+    ).select_related('caja', 'empleado').order_by('-fecha')
+    
+    # Separar por tipo
+    ingresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
+    egresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
+    
+    # Calcular totales
+    total_ingresos = sum(mov.monto_total for mov in ingresos)
+    total_egresos = sum(mov.monto_total for mov in egresos)
+    balance = total_ingresos - total_egresos
+    
+    context = {
+        'propiedad': propiedad,
+        'propietario': propiedad.propietario,
+        'movimientos': movimientos,
+        'ingresos': ingresos,
+        'egresos': egresos,
+        'total_ingresos': total_ingresos,
+        'total_egresos': total_egresos,
+        'balance': balance,
+        'total_movimientos': movimientos.count()
+    }
+    
+    return render(request, 'inmobiliaria/liquidaciones/detalle_propiedad.html', context)
+
 @login_required
 def lista_vales_vendedor(request, vendedor_id):
     """
