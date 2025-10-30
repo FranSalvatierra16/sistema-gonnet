@@ -8786,7 +8786,7 @@ def editar_disponibilidad(request, disponibilidad_id):
             
             # Verificar VERDADERA superposición (excluir fechas contiguas)
             conflictos_reales = []
-                for otra in otras_disponibilidades:
+            for otra in otras_disponibilidades:
                 # Superposición REAL: comparten MÁS de un día
                 # Si solo se tocan en UN día (contiguas como 10-15 y 15-20), es válido
                 if otra.fecha_fin > nueva_fecha_inicio and otra.fecha_inicio < nueva_fecha_fin:
@@ -9064,8 +9064,8 @@ def recibo_contrato_24(request, contrato_id):
                     print(f"    - Nombre: '{nombre}'")
                     
                     if importe_valor > 0:  # Solo agregar conceptos con importe > 0
-                    conceptos_contrato.append({
-                        'fecha': primer_movimiento.fecha,
+                        conceptos_contrato.append({
+                            'fecha': primer_movimiento.fecha,
                             'codigo': codigo,
                             'nombre': nombre,
                             'importe': f"${importe_valor:,.2f}".replace(',', '.'),
@@ -9241,8 +9241,8 @@ def recibo_contrato_24(request, contrato_id):
                 # FORZAR conceptos básicos siempre
                 # 1. ALQUILER (obligatorio)
                 if contrato.precio_mensual and contrato.precio_mensual > 0:
-                conceptos_contrato.append({
-                    'fecha': primer_movimiento.fecha,
+                    conceptos_contrato.append({
+                        'fecha': primer_movimiento.fecha,
                         'codigo': '1',
                         'nombre': 'Alquiler',
                         'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
