@@ -271,6 +271,10 @@ def liquidacion_propietario(request, propietario_id):
         messages.error(request, 'No tienes permisos para ver esta liquidación.')
         return redirect('inmobiliaria:liquidaciones_propietarios')
     
+    # Obtener filtros de fecha
+    fecha_desde = request.GET.get('fecha_desde', '')
+    fecha_hasta = request.GET.get('fecha_hasta', '')
+    
     # Obtener todas las propiedades del propietario
     propiedades = Propiedad.objects.filter(propietario=propietario)
     
@@ -280,18 +284,30 @@ def liquidacion_propietario(request, propietario_id):
         propiedad__propietario=propietario
     ).select_related('caja', 'propiedad', 'empleado').order_by('-fecha')
     
+    # Aplicar filtros de fecha
+    if fecha_desde:
+        movimientos_totales = movimientos_totales.filter(fecha__gte=fecha_desde)
+    if fecha_hasta:
+        movimientos_totales = movimientos_totales.filter(fecha__lte=fecha_hasta)
+    
     # Calcular totales generales
     total_gastos = Decimal('0')
     for mov in movimientos_totales:
         if mov.tipo == TipoMovimientoCajaEnum.EGRESO:
             total_gastos += mov.monto_total
     
-    # Calcular gastos por propiedad
+    # Calcular gastos por propiedad (aplicando mismos filtros de fecha)
     propiedades_con_gastos = []
     for propiedad in propiedades:
         movimientos_prop = MovimientoCaja.objects.filter(
             propiedad=propiedad
         ).order_by('-fecha')
+        
+        # Aplicar filtros de fecha también aquí
+        if fecha_desde:
+            movimientos_prop = movimientos_prop.filter(fecha__gte=fecha_desde)
+        if fecha_hasta:
+            movimientos_prop = movimientos_prop.filter(fecha__lte=fecha_hasta)
         
         total_gastos_prop = Decimal('0')
         for mov in movimientos_prop:
@@ -310,7 +326,9 @@ def liquidacion_propietario(request, propietario_id):
         'movimientos_totales': movimientos_totales,
         'total_gastos': total_gastos,
         'propiedades_con_gastos': propiedades_con_gastos,
-        'total_propiedades': propiedades.count()
+        'total_propiedades': propiedades.count(),
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta
     }
     
     return render(request, 'inmobiliaria/liquidaciones/detalle_propietario.html', context)
@@ -327,10 +345,20 @@ def liquidacion_propiedad(request, propiedad_id):
         messages.error(request, 'No tienes permisos para ver esta liquidación.')
         return redirect('inmobiliaria:liquidaciones_propietarios')
     
+    # Obtener filtros de fecha
+    fecha_desde = request.GET.get('fecha_desde', '')
+    fecha_hasta = request.GET.get('fecha_hasta', '')
+    
     # Obtener todos los movimientos de esta propiedad
     movimientos = MovimientoCaja.objects.filter(
         propiedad=propiedad
     ).select_related('caja', 'empleado').order_by('-fecha')
+    
+    # Aplicar filtros de fecha
+    if fecha_desde:
+        movimientos = movimientos.filter(fecha__gte=fecha_desde)
+    if fecha_hasta:
+        movimientos = movimientos.filter(fecha__lte=fecha_hasta)
     
     # Separar por tipo
     ingresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
@@ -350,7 +378,9 @@ def liquidacion_propiedad(request, propiedad_id):
         'total_ingresos': total_ingresos,
         'total_egresos': total_egresos,
         'balance': balance,
-        'total_movimientos': movimientos.count()
+        'total_movimientos': movimientos.count(),
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta
     }
     
     return render(request, 'inmobiliaria/liquidaciones/detalle_propiedad.html', context)
@@ -3307,16 +3337,16 @@ def procesar_movimiento_reserva(request):
                 print(f"✅ Destino mixto asignado: {', '.join(detalles_cuentas)}")
             elif monto_deposito_legacy > 0:
                 # Fallback a lógica legacy si hay montos en campos antiguos
-                if monto_deposito_galicia > 0 and monto_deposito_mp == 0:
-                    movimiento_principal.destino_deposito = 'galicia'
-                    movimiento_principal.save()
-                elif monto_deposito_mp > 0 and monto_deposito_galicia == 0:
-                    movimiento_principal.destino_deposito = 'mp'
-                    movimiento_principal.save()
-                elif monto_deposito_galicia > 0 and monto_deposito_mp > 0:
-                    concepto_actualizado = f"Operaci\u00f3n {reserva.id} - Galicia: ${monto_deposito_galicia}, MP: ${monto_deposito_mp}"
-                    movimiento_principal.concepto = concepto_actualizado
-                    movimiento_principal.save()
+            if monto_deposito_galicia > 0 and monto_deposito_mp == 0:
+                movimiento_principal.destino_deposito = 'galicia'
+                movimiento_principal.save()
+            elif monto_deposito_mp > 0 and monto_deposito_galicia == 0:
+                movimiento_principal.destino_deposito = 'mp'
+                movimiento_principal.save()
+            elif monto_deposito_galicia > 0 and monto_deposito_mp > 0:
+                concepto_actualizado = f"Operaci\u00f3n {reserva.id} - Galicia: ${monto_deposito_galicia}, MP: ${monto_deposito_mp}"
+                movimiento_principal.concepto = concepto_actualizado
+                movimiento_principal.save()
             
             total_movimiento_creado = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
             print(f"✅ MOVIMIENTO ÚNICO CREADO - ID: {movimiento_principal.id}, Total: ${total_movimiento_creado}")
@@ -7677,7 +7707,7 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
                 
                 if concepto_id_actual == str(concepto_id):
                     print(f"     🎯 ¡CONCEPTO {concepto_id} ENCONTRADO! = PAGADO")
-                    return 'pagado'
+                                return 'pagado'
                     
         except (json.JSONDecodeError, ValueError, TypeError) as e:
             print(f"     ⚠️ No es JSON: {e}")
@@ -7855,12 +7885,12 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             print(f"✅ Destino mixto asignado: {len(cuentas_con_monto)} cuentas")
         elif monto_deposito_legacy > 0:
             # Fallback a lógica legacy si hay montos en campos antiguos
-            if monto_deposito_galicia > 0:
-                movimiento.destino_deposito = 'galicia'
-                movimiento.monto_deposito = monto_deposito_galicia
-            elif monto_deposito_mp > 0:
-                movimiento.destino_deposito = 'mp'
-                movimiento.monto_deposito = monto_deposito_mp
+        if monto_deposito_galicia > 0:
+            movimiento.destino_deposito = 'galicia'
+            movimiento.monto_deposito = monto_deposito_galicia
+        elif monto_deposito_mp > 0:
+            movimiento.destino_deposito = 'mp'
+            movimiento.monto_deposito = monto_deposito_mp
         
         movimiento.save()
         
@@ -8756,7 +8786,7 @@ def editar_disponibilidad(request, disponibilidad_id):
             
             # Verificar VERDADERA superposición (excluir fechas contiguas)
             conflictos_reales = []
-            for otra in otras_disponibilidades:
+                for otra in otras_disponibilidades:
                 # Superposición REAL: comparten MÁS de un día
                 # Si solo se tocan en UN día (contiguas como 10-15 y 15-20), es válido
                 if otra.fecha_fin > nueva_fecha_inicio and otra.fecha_inicio < nueva_fecha_fin:
@@ -8765,7 +8795,7 @@ def editar_disponibilidad(request, disponibilidad_id):
                         'fecha_inicio': otra.fecha_inicio.strftime('%d/%m/%Y'),
                         'fecha_fin': otra.fecha_fin.strftime('%d/%m/%Y')
                     })
-            
+                
             if conflictos_reales:
                 return JsonResponse({
                     'success': False,
@@ -9034,8 +9064,8 @@ def recibo_contrato_24(request, contrato_id):
                     print(f"    - Nombre: '{nombre}'")
                     
                     if importe_valor > 0:  # Solo agregar conceptos con importe > 0
-                        conceptos_contrato.append({
-                            'fecha': primer_movimiento.fecha,
+                    conceptos_contrato.append({
+                        'fecha': primer_movimiento.fecha,
                             'codigo': codigo,
                             'nombre': nombre,
                             'importe': f"${importe_valor:,.2f}".replace(',', '.'),
@@ -9211,8 +9241,8 @@ def recibo_contrato_24(request, contrato_id):
                 # FORZAR conceptos básicos siempre
                 # 1. ALQUILER (obligatorio)
                 if contrato.precio_mensual and contrato.precio_mensual > 0:
-                    conceptos_contrato.append({
-                        'fecha': primer_movimiento.fecha,
+                conceptos_contrato.append({
+                    'fecha': primer_movimiento.fecha,
                         'codigo': '1',
                         'nombre': 'Alquiler',
                         'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
@@ -9225,7 +9255,7 @@ def recibo_contrato_24(request, contrato_id):
                 if primer_movimiento and primer_movimiento.honorarios and primer_movimiento.honorarios > 0:
                     honorarios_valor = float(primer_movimiento.honorarios)
                     print(f"  💰 HONORARIOS desde campo movimiento: ${honorarios_valor}")
-                else:
+        else:
                     # Calcular como diferencia
                     diferencia_final = total_pagado - float(contrato.precio_mensual or 0)
                     if diferencia_final > 0:
@@ -9262,8 +9292,8 @@ def recibo_contrato_24(request, contrato_id):
             print(f"⚠️ NO HAY MOVIMIENTOS - CREANDO CONCEPTOS BÁSICOS")
             precio_mensual_valor = float(contrato.precio_mensual or 0)
             if precio_mensual_valor > 0:
-                conceptos_contrato.append({
-                    'fecha': contrato.fecha_operacion,
+            conceptos_contrato.append({
+                'fecha': contrato.fecha_operacion,
                     'codigo': '1',
                     'nombre': 'Alquiler',
                     'importe': f"${precio_mensual_valor:,.2f}".replace(',', '.'),
