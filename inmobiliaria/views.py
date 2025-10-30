@@ -3337,16 +3337,16 @@ def procesar_movimiento_reserva(request):
                 print(f"✅ Destino mixto asignado: {', '.join(detalles_cuentas)}")
             elif monto_deposito_legacy > 0:
                 # Fallback a lógica legacy si hay montos en campos antiguos
-            if monto_deposito_galicia > 0 and monto_deposito_mp == 0:
-                movimiento_principal.destino_deposito = 'galicia'
-                movimiento_principal.save()
+                if monto_deposito_galicia > 0 and monto_deposito_mp == 0:
+                    movimiento_principal.destino_deposito = 'galicia'
+                    movimiento_principal.save()
             elif monto_deposito_mp > 0 and monto_deposito_galicia == 0:
-                movimiento_principal.destino_deposito = 'mp'
-                movimiento_principal.save()
+                    movimiento_principal.destino_deposito = 'mp'
+                    movimiento_principal.save()
             elif monto_deposito_galicia > 0 and monto_deposito_mp > 0:
-                concepto_actualizado = f"Operaci\u00f3n {reserva.id} - Galicia: ${monto_deposito_galicia}, MP: ${monto_deposito_mp}"
-                movimiento_principal.concepto = concepto_actualizado
-                movimiento_principal.save()
+                    concepto_actualizado = f"Operaci\u00f3n {reserva.id} - Galicia: ${monto_deposito_galicia}, MP: ${monto_deposito_mp}"
+                    movimiento_principal.concepto = concepto_actualizado
+                    movimiento_principal.save()
             
             total_movimiento_creado = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
             print(f"✅ MOVIMIENTO ÚNICO CREADO - ID: {movimiento_principal.id}, Total: ${total_movimiento_creado}")
@@ -7707,7 +7707,7 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
                 
                 if concepto_id_actual == str(concepto_id):
                     print(f"     🎯 ¡CONCEPTO {concepto_id} ENCONTRADO! = PAGADO")
-                                return 'pagado'
+                    return 'pagado'
                     
         except (json.JSONDecodeError, ValueError, TypeError) as e:
             print(f"     ⚠️ No es JSON: {e}")
@@ -7885,12 +7885,12 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             print(f"✅ Destino mixto asignado: {len(cuentas_con_monto)} cuentas")
         elif monto_deposito_legacy > 0:
             # Fallback a lógica legacy si hay montos en campos antiguos
-        if monto_deposito_galicia > 0:
-            movimiento.destino_deposito = 'galicia'
-            movimiento.monto_deposito = monto_deposito_galicia
-        elif monto_deposito_mp > 0:
-            movimiento.destino_deposito = 'mp'
-            movimiento.monto_deposito = monto_deposito_mp
+            if monto_deposito_galicia > 0:
+                movimiento.destino_deposito = 'galicia'
+                movimiento.monto_deposito = monto_deposito_galicia
+            elif monto_deposito_mp > 0:
+                movimiento.destino_deposito = 'mp'
+                movimiento.monto_deposito = monto_deposito_mp
         
         movimiento.save()
         
