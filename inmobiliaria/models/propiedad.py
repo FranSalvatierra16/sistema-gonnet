@@ -874,9 +874,15 @@ class Precio(models.Model):
         return round(base_price, 2)
 
     def save(self, *args, **kwargs):
-        # Solo recalcular precio_total si no se está estableciendo manualmente
-        # y si precio_por_dia tiene un valor
-        if self.precio_por_dia is not None and not kwargs.get('skip_price_calculation', False):
+        # ✅ LÓGICA MEJORADA: Respetar precio_total manual del usuario
+        # Si precio_total está en update_fields Y es diferente del calculado, es MANUAL
+        
+        update_fields = kwargs.get('update_fields', [])
+        skip_calculation = kwargs.get('skip_price_calculation', False)
+        
+        # Calcular precio automático (para comparar)
+        precio_automatico = None
+        if self.precio_por_dia is not None and not skip_calculation:
             # Calcular el precio total basado en el tipo de precio
             if 'QUINCENA' in self.tipo_precio or self.tipo_precio == 'VACACIONES_INVIERNO':
                 if 'ENERO' in self.tipo_precio or 'MARZO' in self.tipo_precio or 'DICIEMBRE' in self.tipo_precio:
@@ -886,17 +892,34 @@ class Precio(models.Model):
             elif self.tipo_precio == 'FINDE_LARGO':
                 base_price = self.precio_por_dia * 4
             elif self.tipo_precio == 'TEMPORADA_BAJA':
-                base_price = self.precio_por_dia * 15  # Cambiar de None a 15 días
+                base_price = self.precio_por_dia * 15
             else:
                 base_price = self.precio_por_dia
 
             # Aplicar ajuste porcentual si se ha establecido
             if base_price is not None and self.ajuste_porcentaje != 0:
                 base_price *= (1 - self.ajuste_porcentaje / 100)
-
-            # Solo actualizar precio_total si no se está estableciendo manualmente
-            if 'precio_total' not in kwargs.get('update_fields', []):
-                self.precio_total = round(base_price, 2) if base_price is not None else None
+            
+            precio_automatico = round(base_price, 2) if base_price is not None else None
+        
+        # ✅ DECISIÓN: ¿Usar precio automático o manual?
+        # Si precio_total está en update_fields (viene del form) Y es diferente del automático, es MANUAL
+        if 'precio_total' in update_fields:
+            # Verificar si el precio_total es diferente del automático
+            if precio_automatico is not None and self.precio_total != precio_automatico:
+                # Es un valor MANUAL, respetar el del usuario
+                print(f"🖊️  PRECIO MANUAL detectado: {self.precio_total} (auto sería {precio_automatico})")
+                pass  # No modificar precio_total, usar el del usuario
+            elif self.precio_total == 0 or self.precio_total is None:
+                # Está vacío, usar el automático
+                self.precio_total = precio_automatico
+                print(f"🔢 PRECIO AUTOMÁTICO aplicado: {precio_automatico}")
+            else:
+                # Es igual al automático, dejarlo como está
+                pass
+        elif precio_automatico is not None:
+            # No está en update_fields, usar el automático
+            self.precio_total = precio_automatico
 
         # Remover el parámetro personalizado antes de llamar al save padre
         kwargs.pop('skip_price_calculation', None)
