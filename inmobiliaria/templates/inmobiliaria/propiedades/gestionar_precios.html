@@ -92,4 +92,97 @@
 
     <button type="submit" class="btn btn-primary">Guardar Precios</button>
 </form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ Script de recalculo de precios cargado');
+    
+    // Mapeo de tipos de precio a cantidad de días
+    const diasPorTipo = {
+        'QUINCENA_1_DICIEMBRE': 16,
+        'QUINCENA_2_DICIEMBRE': 16,
+        'QUINCENA_1_ENERO': 16,
+        'QUINCENA_2_ENERO': 16,
+        'QUINCENA_1_FEBRERO': 15,
+        'QUINCENA_2_FEBRERO': 15,
+        'QUINCENA_1_MARZO': 16,
+        'QUINCENA_2_MARZO': 16,
+        'FINDE_LARGO': 4,
+        'TEMPORADA_BAJA': 15,
+        'VACACIONES_INVIERNO': 15,
+        'ESTUDIANTE': 1
+    };
+    
+    // Función para calcular precio total
+    function calcularPrecioTotal(precioPorDia, tipoPrecio, ajuste) {
+        const dias = diasPorTipo[tipoPrecio] || 1;
+        let precioTotal = precioPorDia * dias;
+        
+        // Aplicar ajuste porcentual si existe
+        if (ajuste && ajuste != 0) {
+            precioTotal *= (1 - ajuste / 100);
+        }
+        
+        return Math.round(precioTotal * 100) / 100; // Redondear a 2 decimales
+    }
+    
+    // Obtener todas las filas de la tabla
+    const filas = document.querySelectorAll('tbody tr');
+    
+    filas.forEach((fila, index) => {
+        // Obtener los inputs de esta fila
+        const inputPorDia = fila.querySelector('input[name$="precio_por_dia"]');
+        const inputTotal = fila.querySelector('input[name$="precio_total"]');
+        const inputAjuste = fila.querySelector('input[name$="ajuste_porcentaje"]');
+        const selectTipo = fila.querySelector('select[name$="tipo_precio"]');
+        
+        if (!inputPorDia || !inputTotal || !selectTipo) {
+            console.warn(`⚠️ Fila ${index}: Faltan campos necesarios`);
+            return;
+        }
+        
+        // Marcar si el usuario editó manualmente precio_total
+        inputTotal.addEventListener('input', function() {
+            this.dataset.manualEdit = 'true';
+            console.log(`✏️ Fila ${index}: Usuario editó precio_total manualmente`);
+        });
+        
+        // Cuando cambia precio_por_dia o ajuste, recalcular automáticamente
+        function recalcularSiNoManual() {
+            // Si el usuario NO editó manualmente precio_total, recalcular
+            if (!inputTotal.dataset.manualEdit) {
+                const precioPorDia = parseFloat(inputPorDia.value) || 0;
+                const tipoPrecio = selectTipo.value;
+                const ajuste = parseFloat(inputAjuste?.value || 0);
+                
+                const precioTotal = calcularPrecioTotal(precioPorDia, tipoPrecio, ajuste);
+                inputTotal.value = precioTotal.toFixed(2);
+                
+                console.log(`🔢 Fila ${index}: Recalculado automáticamente ${precioPorDia} × ${diasPorTipo[tipoPrecio] || 1} = ${precioTotal}`);
+            } else {
+                console.log(`⏭️ Fila ${index}: Saltando recalculo (editado manualmente)`);
+            }
+        }
+        
+        // Cuando cambia precio_por_dia → resetear flag manual y recalcular
+        inputPorDia.addEventListener('input', function() {
+            // ✅ RESETEAR el flag de edición manual cuando cambia precio_por_dia
+            inputTotal.dataset.manualEdit = '';
+            console.log(`🔄 Fila ${index}: precio_por_dia cambió → reseteando flag manual`);
+            
+            recalcularSiNoManual();
+        });
+        
+        // Cuando cambia ajuste_porcentaje → recalcular solo si no es manual
+        if (inputAjuste) {
+            inputAjuste.addEventListener('input', recalcularSiNoManual);
+        }
+        
+        // Cuando cambia tipo_precio → recalcular solo si no es manual
+        selectTipo.addEventListener('change', recalcularSiNoManual);
+    });
+    
+    console.log(`✅ Configurados ${filas.length} filas para recalculo automático`);
+});
+</script>
 {% endblock %}
