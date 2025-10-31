@@ -8280,14 +8280,24 @@ def guardar_precios_propiedad(request):
                 }
             )
             
-            # Actualizar valores
-            precio_toma_nuevo = precio_info.get('precio_toma', 0)
-            precio_dia_toma_nuevo = precio_info.get('precio_dia_toma', 0)
-            precio_por_dia_nuevo = precio_info.get('precio_por_dia', 0)
-            precio_total_nuevo = precio_info.get('precio_total', 0)
-            ajuste_porcentaje_nuevo = precio_info.get('ajuste_porcentaje', 0)
+            # Actualizar valores - Convertir a Decimal/float explícitamente
+            from decimal import Decimal
             
-            print(f"💰 Valores a guardar - Toma: {precio_toma_nuevo}, Día Toma: {precio_dia_toma_nuevo}, Por Día: {precio_por_dia_nuevo}")
+            precio_toma_nuevo = Decimal(str(precio_info.get('precio_toma', 0) or 0))
+            precio_dia_toma_nuevo = Decimal(str(precio_info.get('precio_dia_toma', 0) or 0))
+            precio_por_dia_nuevo = Decimal(str(precio_info.get('precio_por_dia', 0) or 0))
+            precio_total_nuevo = Decimal(str(precio_info.get('precio_total', 0) or 0))
+            ajuste_porcentaje_nuevo = Decimal(str(precio_info.get('ajuste_porcentaje', 0) or 0))
+            
+            print(f"💰 Valores RECIBIDOS del form:")
+            print(f"   - precio_toma: {precio_toma_nuevo}")
+            print(f"   - precio_dia_toma: {precio_dia_toma_nuevo}")
+            print(f"   - precio_por_dia: {precio_por_dia_nuevo}")
+            print(f"   - precio_total: {precio_total_nuevo} ⬅️ VALOR QUE QUIERE GUARDAR")
+            print(f"   - ajuste_porcentaje: {ajuste_porcentaje_nuevo}")
+            
+            # Guardar valores actuales antes de modificar (para comparación)
+            precio_total_antes = precio.precio_total
             
             precio.precio_toma = precio_toma_nuevo
             precio.precio_dia_toma = precio_dia_toma_nuevo
@@ -8295,11 +8305,20 @@ def guardar_precios_propiedad(request):
             precio.precio_total = precio_total_nuevo
             precio.ajuste_porcentaje = ajuste_porcentaje_nuevo
             
+            print(f"📝 Valores ASIGNADOS al objeto:")
+            print(f"   - precio_total asignado: {precio.precio_total}")
+            
             # Usar update_fields para evitar el recálculo automático del precio_total
             precio.save(update_fields=['precio_toma', 'precio_dia_toma', 'precio_por_dia', 'precio_total', 'ajuste_porcentaje'])
             
+            # Recargar desde BD para ver qué se guardó realmente
+            precio.refresh_from_db()
+            
             print(f"✅ Actualizado precio {tipo_precio} para propiedad {propiedad_id}")
-            print(f"📋 Valores guardados - Toma: {precio.precio_toma}, Día Toma: {precio.precio_dia_toma}")
+            print(f"📋 Valores FINALES guardados en BD:")
+            print(f"   - precio_total ANTES: {precio_total_antes}")
+            print(f"   - precio_total DESPUÉS: {precio.precio_total}")
+            print(f"   - precio_por_dia: {precio.precio_por_dia}")
         
         return JsonResponse({
             'success': True,

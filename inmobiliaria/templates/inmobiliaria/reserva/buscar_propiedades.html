@@ -3769,13 +3769,48 @@ function generarTablaGestionPrecios(precios, propiedadId) {
 
 // Función para agregar eventos de cálculo de precios
 function agregarEventosCalculoPrecios() {
-    const inputs = document.querySelectorAll('.precio-input');
+    // ✅ SOLO recalcular automáticamente cuando cambian precio_por_dia o ajuste_porcentaje
+    // NO recalcular cuando el usuario edita precio_total manualmente
     
-    inputs.forEach(input => {
-        input.addEventListener('input', function() {
-            const fila = this.closest('tr');
-            calcularPrecioQuincena(fila);
-        });
+    const filas = document.querySelectorAll('#tablaPreciosCompleta tr[data-precio-id]');
+    
+    filas.forEach(fila => {
+        // Agregar flag para saber si el usuario editó manualmente precio_total
+        const inputTotal = fila.querySelector('[data-field="precio_total"]');
+        if (inputTotal) {
+            inputTotal.addEventListener('input', function() {
+                // Marcar que el usuario editó manualmente
+                this.dataset.manualEdit = 'true';
+                console.log('✏️ Usuario editó precio_total manualmente:', this.value);
+            });
+        }
+        
+        // Listener para precio_por_dia - recalcular automáticamente
+        const inputPorDia = fila.querySelector('[data-field="precio_por_dia"]');
+        if (inputPorDia) {
+            inputPorDia.addEventListener('input', function() {
+                // Si el usuario NO editó manualmente precio_total, recalcular
+                const inputTotal = fila.querySelector('[data-field="precio_total"]');
+                if (inputTotal && !inputTotal.dataset.manualEdit) {
+                    calcularPrecioQuincena(fila);
+                }
+            });
+        }
+        
+        // Listener para ajuste_porcentaje - recalcular automáticamente
+        const inputAjuste = fila.querySelector('[data-field="ajuste_porcentaje"]');
+        if (inputAjuste) {
+            inputAjuste.addEventListener('input', function() {
+                // Si el usuario NO editó manualmente precio_total, recalcular
+                const inputTotal = fila.querySelector('[data-field="precio_total"]');
+                if (inputTotal && !inputTotal.dataset.manualEdit) {
+                    calcularPrecioQuincena(fila);
+                }
+            });
+        }
+        
+        // Listener para precio_toma y precio_dia_toma - no afectan precio_total
+        // (no necesitan hacer nada)
     });
 }
 
@@ -3795,7 +3830,10 @@ function calcularPrecioQuincena(fila) {
     } else if (tipoPrecio === 'TEMPORADA_BAJA') {
         dias = 15;
         // Para temporada baja no calculamos precio total
-        fila.querySelector('[data-field="precio_total"]').value = '0.00';
+        const inputTotal = fila.querySelector('[data-field="precio_total"]');
+        if (inputTotal && !inputTotal.dataset.manualEdit) {
+            inputTotal.value = '0.00';
+        }
         return;
     }
     
@@ -3806,7 +3844,12 @@ function calcularPrecioQuincena(fila) {
         precioTotal *= (1 + ajuste / 100);
     }
     
-    fila.querySelector('[data-field="precio_total"]').value = precioTotal.toFixed(2);
+    // Solo actualizar si el usuario NO lo editó manualmente
+    const inputTotal = fila.querySelector('[data-field="precio_total"]');
+    if (inputTotal && !inputTotal.dataset.manualEdit) {
+        inputTotal.value = precioTotal.toFixed(2);
+        console.log('🔢 Precio total recalculado automáticamente:', precioTotal.toFixed(2));
+    }
 }
 
 // Agregar evento click a la tabla de precios
@@ -4049,13 +4092,48 @@ function generarTablaGestionPrecios(precios, propiedadId) {
 
 // Función para agregar eventos de cálculo de precios
 function agregarEventosCalculoPrecios() {
-    const inputs = document.querySelectorAll('.precio-input');
+    // ✅ SOLO recalcular automáticamente cuando cambian precio_por_dia o ajuste_porcentaje
+    // NO recalcular cuando el usuario edita precio_total manualmente
     
-    inputs.forEach(input => {
-        input.addEventListener('input', function() {
-            const fila = this.closest('tr');
-            calcularPrecioQuincena(fila);
-        });
+    const filas = document.querySelectorAll('#tablaPreciosCompleta tr[data-precio-id]');
+    
+    filas.forEach(fila => {
+        // Agregar flag para saber si el usuario editó manualmente precio_total
+        const inputTotal = fila.querySelector('[data-field="precio_total"]');
+        if (inputTotal) {
+            inputTotal.addEventListener('input', function() {
+                // Marcar que el usuario editó manualmente
+                this.dataset.manualEdit = 'true';
+                console.log('✏️ Usuario editó precio_total manualmente:', this.value);
+            });
+        }
+        
+        // Listener para precio_por_dia - recalcular automáticamente
+        const inputPorDia = fila.querySelector('[data-field="precio_por_dia"]');
+        if (inputPorDia) {
+            inputPorDia.addEventListener('input', function() {
+                // Si el usuario NO editó manualmente precio_total, recalcular
+                const inputTotal = fila.querySelector('[data-field="precio_total"]');
+                if (inputTotal && !inputTotal.dataset.manualEdit) {
+                    calcularPrecioQuincena(fila);
+                }
+            });
+        }
+        
+        // Listener para ajuste_porcentaje - recalcular automáticamente
+        const inputAjuste = fila.querySelector('[data-field="ajuste_porcentaje"]');
+        if (inputAjuste) {
+            inputAjuste.addEventListener('input', function() {
+                // Si el usuario NO editó manualmente precio_total, recalcular
+                const inputTotal = fila.querySelector('[data-field="precio_total"]');
+                if (inputTotal && !inputTotal.dataset.manualEdit) {
+                    calcularPrecioQuincena(fila);
+                }
+            });
+        }
+        
+        // Listener para precio_toma y precio_dia_toma - no afectan precio_total
+        // (no necesitan hacer nada)
     });
 }
 
@@ -4075,7 +4153,10 @@ function calcularPrecioQuincena(fila) {
     } else if (tipoPrecio === 'TEMPORADA_BAJA') {
         dias = 15;
         // Para temporada baja no calculamos precio total
-        fila.querySelector('[data-field="precio_total"]').value = '0.00';
+        const inputTotal = fila.querySelector('[data-field="precio_total"]');
+        if (inputTotal && !inputTotal.dataset.manualEdit) {
+            inputTotal.value = '0.00';
+        }
         return;
     }
     
@@ -4086,7 +4167,12 @@ function calcularPrecioQuincena(fila) {
         precioTotal *= (1 + ajuste / 100);
     }
     
-    fila.querySelector('[data-field="precio_total"]').value = precioTotal.toFixed(2);
+    // Solo actualizar si el usuario NO lo editó manualmente
+    const inputTotal = fila.querySelector('[data-field="precio_total"]');
+    if (inputTotal && !inputTotal.dataset.manualEdit) {
+        inputTotal.value = precioTotal.toFixed(2);
+        console.log('🔢 Precio total recalculado automáticamente:', precioTotal.toFixed(2));
+    }
 }
 
 // Agregar evento click a la tabla de precios

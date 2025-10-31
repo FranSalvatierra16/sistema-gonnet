@@ -904,21 +904,35 @@ class Precio(models.Model):
         
         # ✅ DECISIÓN: ¿Usar precio automático o manual?
         # Si precio_total está en update_fields (viene del form) Y es diferente del automático, es MANUAL
+        from decimal import Decimal
+        
         if 'precio_total' in update_fields:
+            # Convertir ambos a Decimal para comparación precisa
+            precio_total_actual = Decimal(str(self.precio_total)) if self.precio_total else Decimal('0')
+            precio_auto_decimal = Decimal(str(precio_automatico)) if precio_automatico is not None else None
+            
+            print(f"🔍 DECISIÓN en save() - tipo_precio: {self.tipo_precio}")
+            print(f"   - precio_total recibido: {precio_total_actual}")
+            print(f"   - precio_automatico calculado: {precio_auto_decimal}")
+            print(f"   - precio_por_dia: {self.precio_por_dia}")
+            
             # Verificar si el precio_total es diferente del automático
-            if precio_automatico is not None and self.precio_total != precio_automatico:
+            if precio_auto_decimal is not None and precio_total_actual != precio_auto_decimal:
                 # Es un valor MANUAL, respetar el del usuario
-                print(f"🖊️  PRECIO MANUAL detectado: {self.precio_total} (auto sería {precio_automatico})")
+                print(f"🖊️  ✅ PRECIO MANUAL detectado: {precio_total_actual} (auto sería {precio_auto_decimal})")
+                print(f"   → Respetando valor manual del usuario")
                 pass  # No modificar precio_total, usar el del usuario
-            elif self.precio_total == 0 or self.precio_total is None:
+            elif precio_total_actual == Decimal('0') or precio_total_actual is None:
                 # Está vacío, usar el automático
                 self.precio_total = precio_automatico
-                print(f"🔢 PRECIO AUTOMÁTICO aplicado: {precio_automatico}")
+                print(f"🔢 PRECIO AUTOMÁTICO aplicado: {precio_automatico} (estaba vacío)")
             else:
                 # Es igual al automático, dejarlo como está
+                print(f"⚖️  Precio igual al automático: {precio_total_actual}")
                 pass
         elif precio_automatico is not None:
             # No está en update_fields, usar el automático
+            print(f"🔢 PRECIO AUTOMÁTICO aplicado: {precio_automatico} (no está en update_fields)")
             self.precio_total = precio_automatico
 
         # Remover el parámetro personalizado antes de llamar al save padre
