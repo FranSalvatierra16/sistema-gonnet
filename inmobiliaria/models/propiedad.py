@@ -875,10 +875,13 @@ class Precio(models.Model):
 
     def save(self, *args, **kwargs):
         # ✅ LÓGICA MEJORADA: Respetar precio_total manual del usuario
-        # Si precio_total está en update_fields Y es diferente del calculado, es MANUAL
+        from decimal import Decimal
         
         update_fields = kwargs.get('update_fields', [])
         skip_calculation = kwargs.get('skip_price_calculation', False)
+        
+        # Si el usuario está editando y no es una creación nueva
+        is_updating = self.pk is not None
         
         # Calcular precio automático (para comparar)
         precio_automatico = None
@@ -902,38 +905,38 @@ class Precio(models.Model):
             
             precio_automatico = round(base_price, 2) if base_price is not None else None
         
-        # ✅ DECISIÓN: ¿Usar precio automático o manual?
-        # Si precio_total está en update_fields (viene del form) Y es diferente del automático, es MANUAL
-        from decimal import Decimal
+        # Convertir a Decimal para comparación precisa
+        precio_total_actual = Decimal(str(self.precio_total)) if self.precio_total else Decimal('0')
+        precio_auto_decimal = Decimal(str(precio_automatico)) if precio_automatico is not None else None
         
-        if 'precio_total' in update_fields:
-            # Convertir ambos a Decimal para comparación precisa
-            precio_total_actual = Decimal(str(self.precio_total)) if self.precio_total else Decimal('0')
-            precio_auto_decimal = Decimal(str(precio_automatico)) if precio_automatico is not None else None
+        print(f"🔍 DECISIÓN en save() - tipo_precio: {self.tipo_precio}")
+        print(f"   - is_updating: {is_updating}")
+        print(f"   - precio_total recibido: {precio_total_actual}")
+        print(f"   - precio_automatico calculado: {precio_auto_decimal}")
+        print(f"   - precio_por_dia: {self.precio_por_dia}")
+        print(f"   - update_fields: {update_fields}")
+        
+        # ✅ DECISIÓN: ¿Usar precio automático o manual?
+        # Si precio_total es diferente del automático → ES MANUAL → RESPETAR
+        if precio_auto_decimal is not None:
+            # Permitir una pequeña diferencia de redondeo (0.01)
+            diferencia = abs(precio_total_actual - precio_auto_decimal)
             
-            print(f"🔍 DECISIÓN en save() - tipo_precio: {self.tipo_precio}")
-            print(f"   - precio_total recibido: {precio_total_actual}")
-            print(f"   - precio_automatico calculado: {precio_auto_decimal}")
-            print(f"   - precio_por_dia: {self.precio_por_dia}")
-            
-            # Verificar si el precio_total es diferente del automático
-            if precio_auto_decimal is not None and precio_total_actual != precio_auto_decimal:
+            if diferencia > Decimal('0.01'):
                 # Es un valor MANUAL, respetar el del usuario
                 print(f"🖊️  ✅ PRECIO MANUAL detectado: {precio_total_actual} (auto sería {precio_auto_decimal})")
                 print(f"   → Respetando valor manual del usuario")
-                pass  # No modificar precio_total, usar el del usuario
-            elif precio_total_actual == Decimal('0') or precio_total_actual is None:
-                # Está vacío, usar el automático
+                # NO modificar precio_total, ya tiene el valor correcto
+            elif precio_total_actual == Decimal('0') and not is_updating:
+                # Es una creación nueva y está vacío, usar el automático
                 self.precio_total = precio_automatico
-                print(f"🔢 PRECIO AUTOMÁTICO aplicado: {precio_automatico} (estaba vacío)")
+                print(f"🔢 PRECIO AUTOMÁTICO aplicado: {precio_automatico} (creación nueva)")
             else:
-                # Es igual al automático, dejarlo como está
+                # Es igual o muy cercano al automático, está bien como está
                 print(f"⚖️  Precio igual al automático: {precio_total_actual}")
-                pass
-        elif precio_automatico is not None:
-            # No está en update_fields, usar el automático
-            print(f"🔢 PRECIO AUTOMÁTICO aplicado: {precio_automatico} (no está en update_fields)")
-            self.precio_total = precio_automatico
+        elif not is_updating:
+            # Es una creación nueva sin precio_por_dia, dejar en 0
+            print(f"⚠️  Creación nueva sin precio_por_dia")
 
         # Remover el parámetro personalizado antes de llamar al save padre
         kwargs.pop('skip_price_calculation', None)
