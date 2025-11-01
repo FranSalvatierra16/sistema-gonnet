@@ -7371,6 +7371,18 @@ def buscar_propiedades(request):
         Q(sucursal=sucursal_vendedor) | Q(sucursal__isnull=True)
     ).order_by('nombre')
 
+    # ✅ Calcular totales de propiedades disponibles y reservadas
+    total_propiedades_disponibles = 0
+    total_propiedades_reservadas = 0
+    
+    for propiedad in propiedades_disponibles:
+        if hasattr(propiedad, 'estado_reserva') and propiedad.estado_reserva == 'confirmada_no_pagada':
+            total_propiedades_reservadas += 1
+        else:
+            total_propiedades_disponibles += 1
+    
+    print(f"📊 TOTALES: {total_propiedades_disponibles} disponibles, {total_propiedades_reservadas} reservadas")
+
     return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
         'form': form,
         'propiedades_disponibles': propiedades_disponibles,
@@ -7382,6 +7394,8 @@ def buscar_propiedades(request):
         'vendedores': vendedores,
         'tipos_precio': TipoPrecio,
         'conceptos': conceptos,
+        'total_propiedades_disponibles': total_propiedades_disponibles,
+        'total_propiedades_reservadas': total_propiedades_reservadas,
         'debugging_info': f"🔍 DEBUGGING: Se encontraron {len(propiedades_disponibles)} propiedades. Función ejecutada correctamente."
     })
 

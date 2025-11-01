@@ -1064,6 +1064,32 @@
             {% if propiedades_disponibles %}
             <h3 class="text-center mt-4">Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h3>
         
+            <!-- ✅ Resumen de totales -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card shadow-sm" style="border-left: 4px solid #28a745;">
+                        <div class="card-body text-center">
+                            <h5 class="card-title text-success mb-3">
+                                <i class="fas fa-check-circle me-2"></i>Propiedades Disponibles
+                            </h5>
+                            <h2 class="display-4 fw-bold text-success">{{ total_propiedades_disponibles }}</h2>
+                            <p class="text-muted mb-0">Listas para reservar</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card shadow-sm" style="border-left: 4px solid #f44336;">
+                        <div class="card-body text-center">
+                            <h5 class="card-title text-danger mb-3">
+                                <i class="fas fa-calendar-times me-2"></i>Propiedades Reservadas
+                            </h5>
+                            <h2 class="display-4 fw-bold text-danger">{{ total_propiedades_reservadas }}</h2>
+                            <p class="text-muted mb-0">Confirmadas sin pagar</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        
         {% if debugging_info %}
      
         {% endif %}
