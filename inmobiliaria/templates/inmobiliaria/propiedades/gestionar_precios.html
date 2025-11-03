@@ -117,11 +117,29 @@ document.addEventListener('DOMContentLoaded', function() {
     // Aplicar formateo a todos los campos de precio
     const camposPrecios = document.querySelectorAll('input[name*="precio"], input[name*="ajuste"]');
     
-    camposPrecios.forEach(input => {
-        // Formatear el valor inicial si existe
-        if (input.value && input.value !== '0.00' && input.value !== '0') {
-            const valorSinFormato = desformatearNumero(input.value.split('.')[0]); // Tomar solo la parte entera
-            input.value = formatearNumero(valorSinFormato);
+    console.log(`🔍 Total campos encontrados: ${camposPrecios.length}`);
+    
+    camposPrecios.forEach((input, index) => {
+        console.log(`📝 Campo ${index + 1}: name="${input.name}", value="${input.value}"`);
+        
+        // Formatear el valor inicial si existe y no es 0
+        if (input.value && input.value !== '0.00' && input.value !== '0' && input.value !== '') {
+            const valorOriginal = input.value;
+            
+            // Quitar decimales (.00) del final
+            let valorLimpio = valorOriginal.replace(/\.0+$/, '');
+            
+            // Quitar cualquier punto que ya tenga
+            valorLimpio = desformatearNumero(valorLimpio);
+            
+            // Formatear con puntos
+            const valorFormateado = formatearNumero(valorLimpio);
+            
+            console.log(`   ✏️ "${valorOriginal}" → limpio: "${valorLimpio}" → formateado: "${valorFormateado}"`);
+            
+            input.value = valorFormateado;
+        } else {
+            console.log(`   ⏭️ Saltando (valor es 0 o vacío)`);
         }
         
         // Evento al escribir
