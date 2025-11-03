@@ -259,8 +259,13 @@
 }
 </style>
 
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 function confirmarEliminacion(propiedadId) {
+    console.log('🗑️ Botón eliminar clickeado para propiedad:', propiedadId);
+    
     Swal.fire({
         title: '¿Está seguro?',
         text: "Esta acción no se puede deshacer. Se eliminará la propiedad #" + propiedadId,
@@ -272,40 +277,81 @@ function confirmarEliminacion(propiedadId) {
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            // Crear formulario dinámicamente y enviarlo
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = "{% url 'inmobiliaria:propiedad_eliminar' 0 %}".replace('/0/', '/' + propiedadId + '/');
+            console.log('✅ Usuario confirmó eliminación de propiedad:', propiedadId);
             
-            // Agregar CSRF token
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-            if (csrfToken) {
-                const csrfInput = document.createElement('input');
-                csrfInput.type = 'hidden';
-                csrfInput.name = 'csrfmiddlewaretoken';
-                csrfInput.value = csrfToken.value;
-                form.appendChild(csrfInput);
-            } else {
-                // Obtener CSRF del cookie si no está en el DOM
-                const csrfCookie = document.cookie.split('; ')
-                    .find(row => row.startsWith('csrftoken='));
-                if (csrfCookie) {
-                    const csrfInput = document.createElement('input');
-                    csrfInput.type = 'hidden';
-                    csrfInput.name = 'csrfmiddlewaretoken';
-                    csrfInput.value = csrfCookie.split('=')[1];
-                    form.appendChild(csrfInput);
+            // Obtener CSRF token
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
                 }
+                return cookieValue;
             }
             
-            // Agregar al body, enviar y eliminar
+            const csrftoken = getCookie('csrftoken');
+            const url = "{% url 'inmobiliaria:propiedad_eliminar' 0 %}".replace('/0/', '/' + propiedadId + '/');
+            
+            console.log('📤 Enviando petición DELETE a:', url);
+            
+            // Crear formulario y enviarlo
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = url;
+            
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrftoken;
+            form.appendChild(csrfInput);
+            
             document.body.appendChild(form);
+            console.log('📋 Formulario creado, enviando...');
             form.submit();
+        } else {
+            console.log('❌ Usuario canceló eliminación');
         }
     });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ Página lista.html cargada');
+    
+    // Verificar que SweetAlert2 esté disponible
+    if (typeof Swal === 'undefined') {
+        console.error('❌ ERROR: SweetAlert2 no está cargado!');
+        alert('Error: SweetAlert2 no está disponible. La funcionalidad de eliminar no funcionará.');
+    } else {
+        console.log('✅ SweetAlert2 está disponible');
+    }
+    
+    // Verificar que los botones de eliminar existan
+    const botonesEliminar = document.querySelectorAll('button[onclick*="confirmarEliminacion"]');
+    console.log('🔍 Botones de eliminar encontrados:', botonesEliminar.length);
+    
+    // Agregar event listeners también por si el onclick no funciona
+    botonesEliminar.forEach((btn, index) => {
+        const onclickAttr = btn.getAttribute('onclick');
+        console.log(`Botón ${index + 1}: onclick="${onclickAttr}"`);
+        
+        // Remover onclick y agregar event listener directo
+        const propiedadId = onclickAttr.match(/'(\d+)'/)?.[1];
+        if (propiedadId) {
+            btn.removeAttribute('onclick');
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('🖱️ Click directo en botón eliminar, propiedad:', propiedadId);
+                confirmarEliminacion(propiedadId);
+            });
+        }
+    });
+    
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
