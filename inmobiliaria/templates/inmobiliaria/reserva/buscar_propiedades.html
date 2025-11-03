@@ -1633,13 +1633,8 @@
     };
 
     function formatPrice(value) {
-        if (typeof value === 'string') {
-            value = parseFloat(value.replace(/[^\d.-]/g, ''));
-        }
-        return value.toLocaleString('es-AR', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        });
+        // ✅ Usar la función global que formatea con PUNTOS (no comas)
+        return window.formatearPrecio(value);
     }
     function autenticarYFinalizar() {
     var usuario = document.getElementById('usuarioVendedor').value;
@@ -2084,13 +2079,8 @@ function autenticarYReservar() {
 
     // Función auxiliar para formatear precios
     function formatPrice(value) {
-        if (typeof value === 'string') {
-            value = parseFloat(value.replace(/[^\d.-]/g, ''));
-        }
-        return value.toLocaleString('es-AR', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        });
+        // ✅ Usar la función global que formatea con PUNTOS (no comas)
+        return window.formatearPrecio(value);
     }
 
     // Event listener para actualizar thumbnails y contador
@@ -3628,8 +3618,8 @@ function actualizarTablaPrecios(precios) {
             const row = `
                 <tr>
                     <td>${precio.tipo_precio_display || precio.tipo_precio}</td>
-                                         <td class="text-end">$${precioPorDia.toLocaleString('es-AR')}</td>
-                                         <td class="text-end">$${precioTotal.toLocaleString('es-AR')}</td>
+                                         <td class="text-end">$${window.formatearPrecio(precioPorDia)}</td>
+                                         <td class="text-end">$${window.formatearPrecio(precioTotal)}</td>
                 </tr>
             `;
             tbody.innerHTML += row;
@@ -4549,6 +4539,17 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
+// ✅ FUNCIÓN GLOBAL PARA FORMATEAR PRECIOS CON PUNTOS (sin decimales)
+window.formatearPrecio = function(valor) {
+    if (!valor || valor === 0) return '0';
+    
+    // Convertir a número entero (sin decimales)
+    const numero = Math.round(parseFloat(valor));
+    
+    // Agregar puntos cada 3 dígitos
+    return numero.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+};
+
 // Función para obtener datos adicionales de la propiedad
 function obtenerDatosPropiedad(propiedadId, estadoReserva) {
     fetch(`/inmobiliaria/api/propiedad/${propiedadId}/`)
@@ -4609,14 +4610,17 @@ function actualizarTablaPrecios(precios) {
     }
     
     precios.forEach(precio => {
-        const row = `
-            <tr>
-                <td>${precio.tipo_precio_display || precio.tipo_precio}</td>
-                <td class="text-end">$${precio.precio_por_dia.toLocaleString()}</td>
-                <td class="text-end">$${precio.precio_total.toLocaleString()}</td>
-            </tr>
-        `;
-        tbody.innerHTML += row;
+        // Solo mostrar si tiene precios > 0
+        if (precio.precio_total > 0 || precio.precio_por_dia > 0) {
+            const row = `
+                <tr>
+                    <td>${precio.tipo_precio_display || precio.tipo_precio}</td>
+                    <td class="text-end">$${window.formatearPrecio(precio.precio_por_dia)}</td>
+                    <td class="text-end">$${window.formatearPrecio(precio.precio_total)}</td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        }
     });
 }
 </script>
