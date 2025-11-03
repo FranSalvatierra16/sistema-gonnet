@@ -5,6 +5,7 @@
 {% block title %}Listado de Propiedades{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="container-fluid fade-in-up">
     <div class="row">
         <div class="col-12">
@@ -262,7 +263,7 @@
 function confirmarEliminacion(propiedadId) {
     Swal.fire({
         title: '¿Está seguro?',
-        text: "Esta acción no se puede deshacer",
+        text: "Esta acción no se puede deshacer. Se eliminará la propiedad #" + propiedadId,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',
@@ -271,7 +272,35 @@ function confirmarEliminacion(propiedadId) {
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            document.querySelector(`form[action="{% url 'inmobiliaria:propiedad_eliminar' 0 %}".replace('0', propiedadId)]`).submit();
+            // Crear formulario dinámicamente y enviarlo
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = "{% url 'inmobiliaria:propiedad_eliminar' 0 %}".replace('/0/', '/' + propiedadId + '/');
+            
+            // Agregar CSRF token
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (csrfToken) {
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                csrfInput.value = csrfToken.value;
+                form.appendChild(csrfInput);
+            } else {
+                // Obtener CSRF del cookie si no está en el DOM
+                const csrfCookie = document.cookie.split('; ')
+                    .find(row => row.startsWith('csrftoken='));
+                if (csrfCookie) {
+                    const csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = 'csrfmiddlewaretoken';
+                    csrfInput.value = csrfCookie.split('=')[1];
+                    form.appendChild(csrfInput);
+                }
+            }
+            
+            // Agregar al body, enviar y eliminar
+            document.body.appendChild(form);
+            form.submit();
         }
     });
 }
