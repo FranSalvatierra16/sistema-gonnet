@@ -219,12 +219,21 @@ document.addEventListener('DOMContentLoaded', function() {
         function recalcularSiNoManual() {
             // Si el usuario NO editó manualmente precio_total, recalcular
             if (!inputTotal.dataset.manualEdit) {
-                const precioPorDia = parseFloat(inputPorDia.value) || 0;
+                // ✅ DESFORMATEAR antes de parsear para evitar errores con puntos
+                const valorPorDiaFormateado = inputPorDia.value || '0';
+                const valorPorDiaSinFormato = desformatearNumero(valorPorDiaFormateado);
+                const precioPorDia = parseFloat(valorPorDiaSinFormato) || 0;
+                
+                const valorAjusteFormateado = inputAjuste?.value || '0';
+                const valorAjusteSinFormato = desformatearNumero(valorAjusteFormateado);
+                const ajuste = parseFloat(valorAjusteSinFormato) || 0;
+                
                 const tipoPrecio = selectTipo.value;
-                const ajuste = parseFloat(inputAjuste?.value || 0);
                 
                 const precioTotal = calcularPrecioTotal(precioPorDia, tipoPrecio, ajuste);
-                inputTotal.value = precioTotal.toFixed(2);
+                
+                // ✅ FORMATEAR el resultado antes de mostrarlo
+                inputTotal.value = formatearNumero(Math.round(precioTotal).toString());
                 
                 console.log(`🔢 Fila ${index}: Recalculado automáticamente ${precioPorDia} × ${diasPorTipo[tipoPrecio] || 1} = ${precioTotal}`);
             } else {
