@@ -97,6 +97,74 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ Script de recalculo de precios cargado');
     
+    // ✅ FORMATEO AUTOMÁTICO DE PRECIOS CON PUNTOS
+    function formatearNumero(valor) {
+        // Quitar todo lo que no sea número
+        const numero = valor.replace(/\D/g, '');
+        
+        // Si está vacío, devolver vacío
+        if (!numero) return '';
+        
+        // Agregar puntos cada 3 dígitos
+        return numero.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+    
+    function desformatearNumero(valor) {
+        // Quitar todos los puntos para obtener el número puro
+        return valor.replace(/\./g, '');
+    }
+    
+    // Aplicar formateo a todos los campos de precio
+    const camposPrecios = document.querySelectorAll('input[name*="precio"], input[name*="ajuste"]');
+    
+    camposPrecios.forEach(input => {
+        // Formatear el valor inicial si existe
+        if (input.value && input.value !== '0.00' && input.value !== '0') {
+            const valorSinFormato = desformatearNumero(input.value.split('.')[0]); // Tomar solo la parte entera
+            input.value = formatearNumero(valorSinFormato);
+        }
+        
+        // Evento al escribir
+        input.addEventListener('input', function(e) {
+            const cursorPos = this.selectionStart;
+            const valorAnterior = this.value;
+            const valorSinFormato = desformatearNumero(this.value);
+            const valorFormateado = formatearNumero(valorSinFormato);
+            
+            // Calcular nueva posición del cursor
+            let nuevaPosicion = cursorPos;
+            const puntosAntes = (valorAnterior.substring(0, cursorPos).match(/\./g) || []).length;
+            const puntosDespues = (valorFormateado.substring(0, cursorPos).match(/\./g) || []).length;
+            
+            if (puntosDespues > puntosAntes) {
+                // Se agregó un punto antes del cursor, mover cursor adelante
+                nuevaPosicion = cursorPos + (puntosDespues - puntosAntes);
+            } else if (puntosDespues < puntosAntes) {
+                // Se quitó un punto antes del cursor, mover cursor atrás
+                nuevaPosicion = Math.max(0, cursorPos - (puntosAntes - puntosDespues));
+            }
+            
+            this.value = valorFormateado;
+            
+            // Restaurar posición del cursor
+            this.setSelectionRange(nuevaPosicion, nuevaPosicion);
+        });
+    });
+    
+    // Al enviar el formulario, desformatear antes de enviar
+    const formulario = document.querySelector('form');
+    if (formulario) {
+        formulario.addEventListener('submit', function(e) {
+            camposPrecios.forEach(campo => {
+                if (campo.value) {
+                    campo.value = desformatearNumero(campo.value);
+                }
+            });
+        });
+    }
+    
+    console.log(`✅ Formateo automático aplicado a ${camposPrecios.length} campos`);
+    
     // Mapeo de tipos de precio a cantidad de días
     const diasPorTipo = {
         'QUINCENA_1_DICIEMBRE': 16,
