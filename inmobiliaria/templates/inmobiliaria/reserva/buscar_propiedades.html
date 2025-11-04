@@ -3737,31 +3737,31 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                 <td class="fw-bold">${precio.tipo_precio_display}</td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="number" class="form-control precio-input" data-field="precio_toma" value="${precioToma}" step="0.01">` :
+                        `<input type="text" class="form-control precio-input" data-field="precio_toma" value="${window.formatearPrecio ? window.formatearPrecio(precioToma) : precioToma}">` :
                         `<span class="precio-display">$${precioToma.toLocaleString('es-AR')}</span>`
                     }
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="number" class="form-control precio-input" data-field="precio_dia_toma" value="${precioDiaToma}" step="0.01">` :
+                        `<input type="text" class="form-control precio-input" data-field="precio_dia_toma" value="${window.formatearPrecio ? window.formatearPrecio(precioDiaToma) : precioDiaToma}">` :
                         `<span class="precio-display">$${precioDiaToma.toLocaleString('es-AR')}</span>`
                     }
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="number" class="form-control precio-input" data-field="precio_por_dia" value="${precioPorDia}" step="0.01">` :
+                        `<input type="text" class="form-control precio-input" data-field="precio_por_dia" value="${window.formatearPrecio ? window.formatearPrecio(precioPorDia) : precioPorDia}">` :
                         `<span class="precio-display">$${precioPorDia.toLocaleString('es-AR')}</span>`
                     }
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="number" class="form-control precio-input" data-field="precio_total" value="${precioTotal}" step="0.01">` :
+                        `<input type="text" class="form-control precio-input" data-field="precio_total" value="${window.formatearPrecio ? window.formatearPrecio(precioTotal) : precioTotal}">` :
                         `<span class="precio-display">$${precioTotal.toLocaleString('es-AR')}</span>`
                     }
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="number" class="form-control precio-input" data-field="ajuste_porcentaje" value="0.00" step="0.01" min="-100" max="100">` :
+                        `<input type="text" class="form-control precio-input" data-field="ajuste_porcentaje" value="0.00">` :
                         `<span class="precio-display">0.00%</span>`
                     }
                 </td>
@@ -3783,6 +3783,25 @@ function generarTablaGestionPrecios(precios, propiedadId) {
         guardarBtn.style.display = 'inline-block';
         // Agregar eventos para calcular precios automáticamente
         agregarEventosCalculoPrecios();
+        
+        // ✅ AGREGAR FORMATEO MIENTRAS EL USUARIO ESCRIBE
+        document.querySelectorAll('.precio-input').forEach(input => {
+            input.addEventListener('input', function() {
+                const valorSinFormato = this.value.replace(/\D/g, '');
+                const valorFormateado = valorSinFormato.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                
+                if (this.value !== valorFormateado) {
+                    const start = this.selectionStart;
+                    const originalLength = this.value.length;
+                    this.value = valorFormateado;
+                    
+                    // Ajustar posición del cursor
+                    const newLength = valorFormateado.length;
+                    const diff = newLength - originalLength;
+                    this.selectionStart = this.selectionEnd = start + diff;
+                }
+            });
+        });
     } else {
         guardarBtn.style.display = 'none';
     }
@@ -3837,8 +3856,12 @@ function agregarEventosCalculoPrecios() {
 
 // Función para calcular precio de quincena automáticamente
 function calcularPrecioQuincena(fila) {
-    const precioPorDia = parseFloat(fila.querySelector('[data-field="precio_por_dia"]').value) || 0;
-    const ajuste = parseFloat(fila.querySelector('[data-field="ajuste_porcentaje"]').value) || 0;
+    // ✅ Desformatear antes de parsear
+    const desformatear = (valor) => (valor || '').toString().replace(/\./g, '');
+    const formatear = (numero) => Math.round(numero).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    
+    const precioPorDia = parseFloat(desformatear(fila.querySelector('[data-field="precio_por_dia"]').value)) || 0;
+    const ajuste = parseFloat(desformatear(fila.querySelector('[data-field="ajuste_porcentaje"]').value)) || 0;
     
     // Calcular precio base (15 días para la mayoría, 16 para enero, marzo, diciembre)
     const tipoPrecio = fila.dataset.precioId;
@@ -3853,7 +3876,7 @@ function calcularPrecioQuincena(fila) {
         // Para temporada baja no calculamos precio total
         const inputTotal = fila.querySelector('[data-field="precio_total"]');
         if (inputTotal && !inputTotal.dataset.manualEdit) {
-            inputTotal.value = '0.00';
+            inputTotal.value = '0';
         }
         return;
     }
@@ -3868,8 +3891,8 @@ function calcularPrecioQuincena(fila) {
     // Solo actualizar si el usuario NO lo editó manualmente
     const inputTotal = fila.querySelector('[data-field="precio_total"]');
     if (inputTotal && !inputTotal.dataset.manualEdit) {
-        inputTotal.value = precioTotal.toFixed(2);
-        console.log('🔢 Precio total recalculado automáticamente:', precioTotal.toFixed(2));
+        inputTotal.value = formatear(precioTotal);
+        console.log('🔢 Precio total recalculado automáticamente:', formatear(precioTotal));
     }
 }
 
@@ -3938,13 +3961,16 @@ function guardarCambiosPrecios() {
         console.log('  - Input Día Toma:', inputDiaToma, inputDiaToma ? inputDiaToma.value : 'NO ENCONTRADO');
         console.log('  - Input Por Día:', inputPorDia, inputPorDia ? inputPorDia.value : 'NO ENCONTRADO');
         
+        // ✅ Desformatear antes de convertir a número (quitar puntos)
+        const desformatear = (valor) => (valor || '').toString().replace(/\./g, '');
+        
         const precioData = {
             tipo_precio: tipoPrecio,
-            precio_toma: parseFloat(inputToma ? inputToma.value : 0) || 0,
-            precio_dia_toma: parseFloat(inputDiaToma ? inputDiaToma.value : 0) || 0,
-            precio_por_dia: parseFloat(inputPorDia ? inputPorDia.value : 0) || 0,
-            precio_total: parseFloat(inputTotal ? inputTotal.value : 0) || 0,
-            ajuste_porcentaje: parseFloat(inputAjuste ? inputAjuste.value : 0) || 0
+            precio_toma: parseFloat(desformatear(inputToma ? inputToma.value : 0)) || 0,
+            precio_dia_toma: parseFloat(desformatear(inputDiaToma ? inputDiaToma.value : 0)) || 0,
+            precio_por_dia: parseFloat(desformatear(inputPorDia ? inputPorDia.value : 0)) || 0,
+            precio_total: parseFloat(desformatear(inputTotal ? inputTotal.value : 0)) || 0,
+            ajuste_porcentaje: parseFloat(desformatear(inputAjuste ? inputAjuste.value : 0)) || 0
         };
         
         console.log(`💰 Datos para ${tipoPrecio}:`, precioData);
@@ -4060,31 +4086,31 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                 <td class="fw-bold">${precio.tipo_precio_display}</td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="number" class="form-control precio-input" data-field="precio_toma" value="${precioToma}" step="0.01">` :
+                        `<input type="text" class="form-control precio-input" data-field="precio_toma" value="${window.formatearPrecio ? window.formatearPrecio(precioToma) : precioToma}">` :
                         `<span class="precio-display">$${precioToma.toLocaleString('es-AR')}</span>`
                     }
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="number" class="form-control precio-input" data-field="precio_dia_toma" value="${precioDiaToma}" step="0.01">` :
+                        `<input type="text" class="form-control precio-input" data-field="precio_dia_toma" value="${window.formatearPrecio ? window.formatearPrecio(precioDiaToma) : precioDiaToma}">` :
                         `<span class="precio-display">$${precioDiaToma.toLocaleString('es-AR')}</span>`
                     }
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="number" class="form-control precio-input" data-field="precio_por_dia" value="${precioPorDia}" step="0.01">` :
+                        `<input type="text" class="form-control precio-input" data-field="precio_por_dia" value="${window.formatearPrecio ? window.formatearPrecio(precioPorDia) : precioPorDia}">` :
                         `<span class="precio-display">$${precioPorDia.toLocaleString('es-AR')}</span>`
                     }
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="number" class="form-control precio-input" data-field="precio_total" value="${precioTotal}" step="0.01">` :
+                        `<input type="text" class="form-control precio-input" data-field="precio_total" value="${window.formatearPrecio ? window.formatearPrecio(precioTotal) : precioTotal}">` :
                         `<span class="precio-display">$${precioTotal.toLocaleString('es-AR')}</span>`
                     }
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="number" class="form-control precio-input" data-field="ajuste_porcentaje" value="0.00" step="0.01" min="-100" max="100">` :
+                        `<input type="text" class="form-control precio-input" data-field="ajuste_porcentaje" value="0.00">` :
                         `<span class="precio-display">0.00%</span>`
                     }
                 </td>
@@ -4106,6 +4132,25 @@ function generarTablaGestionPrecios(precios, propiedadId) {
         guardarBtn.style.display = 'inline-block';
         // Agregar eventos para calcular precios automáticamente
         agregarEventosCalculoPrecios();
+        
+        // ✅ AGREGAR FORMATEO MIENTRAS EL USUARIO ESCRIBE
+        document.querySelectorAll('.precio-input').forEach(input => {
+            input.addEventListener('input', function() {
+                const valorSinFormato = this.value.replace(/\D/g, '');
+                const valorFormateado = valorSinFormato.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                
+                if (this.value !== valorFormateado) {
+                    const start = this.selectionStart;
+                    const originalLength = this.value.length;
+                    this.value = valorFormateado;
+                    
+                    // Ajustar posición del cursor
+                    const newLength = valorFormateado.length;
+                    const diff = newLength - originalLength;
+                    this.selectionStart = this.selectionEnd = start + diff;
+                }
+            });
+        });
     } else {
         guardarBtn.style.display = 'none';
     }
@@ -4160,8 +4205,12 @@ function agregarEventosCalculoPrecios() {
 
 // Función para calcular precio de quincena automáticamente
 function calcularPrecioQuincena(fila) {
-    const precioPorDia = parseFloat(fila.querySelector('[data-field="precio_por_dia"]').value) || 0;
-    const ajuste = parseFloat(fila.querySelector('[data-field="ajuste_porcentaje"]').value) || 0;
+    // ✅ Desformatear antes de parsear
+    const desformatear = (valor) => (valor || '').toString().replace(/\./g, '');
+    const formatear = (numero) => Math.round(numero).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    
+    const precioPorDia = parseFloat(desformatear(fila.querySelector('[data-field="precio_por_dia"]').value)) || 0;
+    const ajuste = parseFloat(desformatear(fila.querySelector('[data-field="ajuste_porcentaje"]').value)) || 0;
     
     // Calcular precio base (15 días para la mayoría, 16 para enero, marzo, diciembre)
     const tipoPrecio = fila.dataset.precioId;
@@ -4176,7 +4225,7 @@ function calcularPrecioQuincena(fila) {
         // Para temporada baja no calculamos precio total
         const inputTotal = fila.querySelector('[data-field="precio_total"]');
         if (inputTotal && !inputTotal.dataset.manualEdit) {
-            inputTotal.value = '0.00';
+            inputTotal.value = '0';
         }
         return;
     }
@@ -4191,8 +4240,8 @@ function calcularPrecioQuincena(fila) {
     // Solo actualizar si el usuario NO lo editó manualmente
     const inputTotal = fila.querySelector('[data-field="precio_total"]');
     if (inputTotal && !inputTotal.dataset.manualEdit) {
-        inputTotal.value = precioTotal.toFixed(2);
-        console.log('🔢 Precio total recalculado automáticamente:', precioTotal.toFixed(2));
+        inputTotal.value = formatear(precioTotal);
+        console.log('🔢 Precio total recalculado automáticamente:', formatear(precioTotal));
     }
 }
 
@@ -4261,13 +4310,16 @@ function guardarCambiosPrecios() {
         console.log('  - Input Día Toma:', inputDiaToma, inputDiaToma ? inputDiaToma.value : 'NO ENCONTRADO');
         console.log('  - Input Por Día:', inputPorDia, inputPorDia ? inputPorDia.value : 'NO ENCONTRADO');
         
+        // ✅ Desformatear antes de convertir a número (quitar puntos)
+        const desformatear = (valor) => (valor || '').toString().replace(/\./g, '');
+        
         const precioData = {
             tipo_precio: tipoPrecio,
-            precio_toma: parseFloat(inputToma ? inputToma.value : 0) || 0,
-            precio_dia_toma: parseFloat(inputDiaToma ? inputDiaToma.value : 0) || 0,
-            precio_por_dia: parseFloat(inputPorDia ? inputPorDia.value : 0) || 0,
-            precio_total: parseFloat(inputTotal ? inputTotal.value : 0) || 0,
-            ajuste_porcentaje: parseFloat(inputAjuste ? inputAjuste.value : 0) || 0
+            precio_toma: parseFloat(desformatear(inputToma ? inputToma.value : 0)) || 0,
+            precio_dia_toma: parseFloat(desformatear(inputDiaToma ? inputDiaToma.value : 0)) || 0,
+            precio_por_dia: parseFloat(desformatear(inputPorDia ? inputPorDia.value : 0)) || 0,
+            precio_total: parseFloat(desformatear(inputTotal ? inputTotal.value : 0)) || 0,
+            ajuste_porcentaje: parseFloat(desformatear(inputAjuste ? inputAjuste.value : 0)) || 0
         };
         
         console.log(`💰 Datos para ${tipoPrecio}:`, precioData);
