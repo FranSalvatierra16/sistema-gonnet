@@ -105,12 +105,14 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD', 'it2cxhq71iiubhlj'),
         'HOST': os.environ.get('DB_HOST', 'tj5iv8piornf713y.cbetxkdyhwsb.us-east-1.rds.amazonaws.com'),
         'PORT': os.environ.get('DB_PORT', '3306'),
-        # ✅ FIX: Cerrar conexiones después de cada request (sin pool)
-        'CONN_MAX_AGE': 0,  # Cerrar conexiones inmediatamente después de cada request
+
+        # ✅ FIX: Reutilizar conexiones por 1 minuto (reduce carga en MySQL)
+        'CONN_MAX_AGE': 60,
+
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
             'charset': 'utf8mb4',
-            'connect_timeout': 10,  # Timeout de conexión
+            'connect_timeout': 10,
         },
     }
 }
