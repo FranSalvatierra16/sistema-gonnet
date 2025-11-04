@@ -199,14 +199,18 @@ document.addEventListener('DOMContentLoaded', function() {
         'ESTUDIANTE': 1
     };
     
-    // Función para calcular precio total
+    // Función para calcular precio total (asegurando número limpio)
     function calcularPrecioTotal(precioPorDia, tipoPrecio, ajuste) {
+        // ✅ ASEGURAR que sea un número limpio
+        const precioLimpio = typeof precioPorDia === 'string' ? parseFloat(desformatearNumero(precioPorDia)) : precioPorDia;
+        const ajusteLimpio = typeof ajuste === 'string' ? parseFloat(desformatearNumero(ajuste)) : ajuste;
+        
         const dias = diasPorTipo[tipoPrecio] || 1;
-        let precioTotal = precioPorDia * dias;
+        let precioTotal = (precioLimpio || 0) * dias;
         
         // Aplicar ajuste porcentual si existe
-        if (ajuste && ajuste != 0) {
-            precioTotal *= (1 - ajuste / 100);
+        if (ajusteLimpio && ajusteLimpio != 0) {
+            precioTotal *= (1 - ajusteLimpio / 100);
         }
         
         return Math.round(precioTotal * 100) / 100; // Redondear a 2 decimales
