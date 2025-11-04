@@ -819,10 +819,10 @@ def propiedad_detalle(request, propiedad_id):
     
     # Obtener imágenes usando el related_name correcto
     imagenes = propiedad.imagenes.all()
-    print("Propiedad ID:", propiedad_id)
-    print("Número de imágenes encontradas:", imagenes.count())
+# print("Propiedad ID:", propiedad_id)
+# print("Número de imágenes encontradas:", imagenes.count())
     for imagen in imagenes:
-        print("URL de imagen:", imagen.imagen.url if imagen.imagen else "No hay URL")
+# print("URL de imagen:", imagen.imagen.url if imagen.imagen else "No hay URL")
 
     # Definir el orden personalizado para los tipos de precio
     orden_tipo_precio = Case(
@@ -847,9 +847,9 @@ def propiedad_detalle(request, propiedad_id):
 
     # Debug de imágenes
     try:
-        print("Imágenes de la propiedad:", [imagen.imagen.url for imagen in imagenes])
+# print("Imágenes de la propiedad:", [imagen.imagen.url for imagen in imagenes])
     except Exception as e:
-        print("Error al acceder a las imágenes:", str(e))
+# print("Error al acceder a las imágenes:", str(e))
 
     # ✅ Obtener información de venta si existe
     try:
@@ -957,57 +957,57 @@ def propiedad_eliminar(request, propiedad_id):
 def register(request):
     if request.method == 'POST':
         form = VendedorUserCreationForm(request.POST)
-        print("\n=== DATOS DEL FORMULARIO RECIBIDOS ===")
-        print(f"Datos POST: {request.POST}")
+# print("\n=== DATOS DEL FORMULARIO RECIBIDOS ===")
+# print(f"Datos POST: {request.POST}")
         
         if form.is_valid():
-            print("\n=== DATOS VALIDADOS ===")
-            print(f"Username: {form.cleaned_data.get('username')}")
-            print(f"DNI: {form.cleaned_data.get('dni')}")
-            print(f"Nombre: {form.cleaned_data.get('nombre')}")
-            print(f"Apellido: {form.cleaned_data.get('apellido')}")
-            print(f"Email: {form.cleaned_data.get('email')}")
-            print(f"Comisión: {form.cleaned_data.get('comision')}")
-            print(f"Fecha Nacimiento: {form.cleaned_data.get('fecha_nacimiento')}")
-            print(f"Nivel: {form.cleaned_data.get('nivel')}")
-            print(f"Sucursal: {form.cleaned_data.get('sucursal')}")
-            print(f"Password1 presente: {'password1' in form.cleaned_data}")
-            print(f"Password2 presente: {'password2' in form.cleaned_data}")
-            print(f"Passwords coinciden: {form.cleaned_data.get('password1') == form.cleaned_data.get('password2')}")
+# print("\n=== DATOS VALIDADOS ===")
+# print(f"Username: {form.cleaned_data.get('username')}")
+# print(f"DNI: {form.cleaned_data.get('dni')}")
+# print(f"Nombre: {form.cleaned_data.get('nombre')}")
+# print(f"Apellido: {form.cleaned_data.get('apellido')}")
+# print(f"Email: {form.cleaned_data.get('email')}")
+# print(f"Comisión: {form.cleaned_data.get('comision')}")
+# print(f"Fecha Nacimiento: {form.cleaned_data.get('fecha_nacimiento')}")
+# print(f"Nivel: {form.cleaned_data.get('nivel')}")
+# print(f"Sucursal: {form.cleaned_data.get('sucursal')}")
+# print(f"Password1 presente: {'password1' in form.cleaned_data}")
+# print(f"Password2 presente: {'password2' in form.cleaned_data}")
+# print(f"Passwords coinciden: {form.cleaned_data.get('password1') == form.cleaned_data.get('password2')}")
             
             vendedor = form.save()
             
             # Verificar que la contraseña se guardó correctamente
-            print("\n=== VENDEDOR CREADO ===")
-            print(f"ID: {vendedor.id}")
-            print(f"Username: {vendedor.username}")
-            print(f"Nombre completo: {vendedor.nombre} {vendedor.apellido}")
-            print(f"Es activo: {vendedor.is_active}")
-            print(f"Es staff: {vendedor.is_staff}")
-            print(f"Es superusuario: {vendedor.is_superuser}")
-            print(f"Sucursal asignada: {vendedor.sucursal}")
-            print(f"Contraseña hasheada guardada: {bool(vendedor.password)}")
-            print(f"Longitud del hash de la contraseña: {len(vendedor.password)}")
+# print("\n=== VENDEDOR CREADO ===")
+# print(f"ID: {vendedor.id}")
+# print(f"Username: {vendedor.username}")
+# print(f"Nombre completo: {vendedor.nombre} {vendedor.apellido}")
+# print(f"Es activo: {vendedor.is_active}")
+# print(f"Es staff: {vendedor.is_staff}")
+# print(f"Es superusuario: {vendedor.is_superuser}")
+# print(f"Sucursal asignada: {vendedor.sucursal}")
+# print(f"Contraseña hasheada guardada: {bool(vendedor.password)}")
+# print(f"Longitud del hash de la contraseña: {len(vendedor.password)}")
             
             # Verificar que podemos autenticar con la contraseña
             from django.contrib.auth import authenticate
             test_auth = authenticate(username=vendedor.username, 
                                   password=form.cleaned_data.get('password1'))
-            print(f"Prueba de autenticación exitosa: {test_auth is not None}")
+# print(f"Prueba de autenticación exitosa: {test_auth is not None}")
             
             messages.success(request, 'Registro exitoso. Ahora puedes iniciar sesión.')
             return redirect('inmobiliaria:login')
         else:
-            print("\n=== ERRORES EN EL FORMULARIO ===")
-            print(f"Errores: {form.errors}")
+# print("\n=== ERRORES EN EL FORMULARIO ===")
+# print(f"Errores: {form.errors}")
             if 'password1' in form.errors:
-                print(f"Errores de password1: {form.errors['password1']}")
+# print(f"Errores de password1: {form.errors['password1']}")
             if 'password2' in form.errors:
-                print(f"Errores de password2: {form.errors['password2']}")
+# print(f"Errores de password2: {form.errors['password2']}")
     else:
         form = VendedorUserCreationForm()
-        print("\n=== NUEVO FORMULARIO CREADO ===")
-        print("Método GET - Mostrando formulario vacío")
+# print("\n=== NUEVO FORMULARIO CREADO ===")
+# print("Método GET - Mostrando formulario vacío")
     
     return render(request, 'inmobiliaria/autenticacion/register.html', {'form': form})
 
@@ -1104,16 +1104,16 @@ def operaciones(request):
         
         # ❌ FILTRO: Si no hay movimientos de pago, no incluir en operaciones
         if not movimientos.exists():
-            print(f"⚠️ OPERACIONES - Reserva {reserva.id} SIN PAGOS - No se incluye en operaciones")
+# print(f"⚠️ OPERACIONES - Reserva {reserva.id} SIN PAGOS - No se incluye en operaciones")
             continue
         
         # ✅ LÓGICA SIMPLE: SALDO = PRECIO TOTAL - SEÑA DEL CASILLERO
         saldo_pendiente = reserva.precio_total - (reserva.senia or 0)
         
-        print(f"💰 OPERACIONES - CÁLCULO DIRECTO:")
-        print(f"   - Precio Total: ${reserva.precio_total}")
-        print(f"   - Seña: ${reserva.senia or 0}")
-        print(f"   - Saldo Pendiente: ${saldo_pendiente}")
+# print(f"💰 OPERACIONES - CÁLCULO DIRECTO:")
+# print(f"   - Precio Total: ${reserva.precio_total}")
+# print(f"   - Seña: ${reserva.senia or 0}")
+# print(f"   - Saldo Pendiente: ${saldo_pendiente}")
         
         # ✅ VERIFICAR QUE HAYA AL MENOS ALGÚN PAGO REAL
         total_pagado = sum(
@@ -1143,7 +1143,7 @@ def operaciones(request):
             # Agregar estado del depósito
             reserva.deposito_estado = 'pagado' if deposito_pagado else 'pendiente'
             
-            print(f"✅ OPERACIONES - Reserva {reserva.id}: Precio Total: {reserva.precio_total}, Seña: {reserva.senia or 0}, Depósito: {reserva.deposito_garantia or 0} ({reserva.deposito_estado}), Saldo: {reserva.saldo_pendiente}")
+# print(f"✅ OPERACIONES - Reserva {reserva.id}: Precio Total: {reserva.precio_total}, Seña: {reserva.senia or 0}, Depósito: {reserva.deposito_garantia or 0} ({reserva.deposito_estado}), Saldo: {reserva.saldo_pendiente}")
             
             # Obtener el movimiento más reciente para el enlace del recibo
             reserva.movimiento_reciente = movimientos.first() if movimientos.exists() else None
@@ -1153,20 +1153,20 @@ def operaciones(request):
             recibos_reserva = Recibo.objects.filter(reserva=reserva).order_by('-fecha_emision')
             reserva.todos_recibos = recibos_reserva
             
-            print(f"🔍 DEBUG RECIBOS - Reserva {reserva.id}:")
-            print(f"   - Cantidad de recibos: {recibos_reserva.count()}")
-            print(f"   - QuerySet evaluado: {list(recibos_reserva.values('id', 'numero_recibo', 'monto_este_pago'))}")
+# print(f"🔍 DEBUG RECIBOS - Reserva {reserva.id}:")
+# print(f"   - Cantidad de recibos: {recibos_reserva.count()}")
+# print(f"   - QuerySet evaluado: {list(recibos_reserva.values('id', 'numero_recibo', 'monto_este_pago'))}")
             
             # ✅ VERIFICAR SI HAY MÚLTIPLES RECIBOS
             if recibos_reserva.count() > 1:
-                print(f"🎯 MÚLTIPLES RECIBOS DETECTADOS: {recibos_reserva.count()} recibos")
+# print(f"🎯 MÚLTIPLES RECIBOS DETECTADOS: {recibos_reserva.count()} recibos")
                 for i, recibo in enumerate(recibos_reserva):
-                    print(f"   [{i+1}] {recibo.numero_recibo}: ${recibo.monto_este_pago:,.0f} (Movimiento {recibo.movimiento_caja.id})")
+# print(f"   [{i+1}] {recibo.numero_recibo}: ${recibo.monto_este_pago:,.0f} (Movimiento {recibo.movimiento_caja.id})")
             elif recibos_reserva.count() == 1:
                 recibo = recibos_reserva.first()
-                print(f"📋 UN SOLO RECIBO: {recibo.numero_recibo}: ${recibo.monto_este_pago:,.0f}")
+# print(f"📋 UN SOLO RECIBO: {recibo.numero_recibo}: ${recibo.monto_este_pago:,.0f}")
             else:
-                print(f"❌ NO HAY RECIBOS para esta reserva")
+# print(f"❌ NO HAY RECIBOS para esta reserva")
             
             # ✅ Contar estadísticas
             total_operaciones += 1
@@ -1181,7 +1181,7 @@ def operaciones(request):
             # Agregar a la lista de reservas con pagos
             reservas_con_pagos.append(reserva)
         else:
-            print(f"❌ OPERACIONES - Reserva {reserva.id} SIN PAGOS REALES - No se incluye en operaciones")
+# print(f"❌ OPERACIONES - Reserva {reserva.id} SIN PAGOS REALES - No se incluye en operaciones")
     
     return render(request, 'inmobiliaria/reserva/operaciones.html', {
         'reservas': reservas_con_pagos,
@@ -1257,8 +1257,8 @@ def reserva_eliminar(request, reserva_id):
     if request.method == "POST":
         try:
             # ✅ NUEVO: Cancelar la reserva primero para restaurar disponibilidades
-            print(f"🗑️ ELIMINANDO RESERVA {reserva_id}: {reserva.fecha_inicio} al {reserva.fecha_fin}")
-            print(f"   Propiedad: {reserva.propiedad.id} - {reserva.propiedad.direccion}")
+# print(f"🗑️ ELIMINANDO RESERVA {reserva_id}: {reserva.fecha_inicio} al {reserva.fecha_fin}")
+# print(f"   Propiedad: {reserva.propiedad.id} - {reserva.propiedad.direccion}")
             
             # Guardar datos para el mensaje
             fecha_inicio = reserva.fecha_inicio
@@ -1271,11 +1271,11 @@ def reserva_eliminar(request, reserva_id):
             # 2️⃣ Ahora sí eliminar físicamente la reserva
             reserva.delete()
             
-            print(f"✅ Reserva eliminada y disponibilidades restauradas: {fecha_inicio} al {fecha_fin}")
+# print(f"✅ Reserva eliminada y disponibilidades restauradas: {fecha_inicio} al {fecha_fin}")
             messages.success(request, f'Reserva eliminada exitosamente. Las fechas del {fecha_inicio.strftime("%d/%m/%Y")} al {fecha_fin.strftime("%d/%m/%Y")} vuelven a estar disponibles.')
             
         except Exception as e:
-            print(f"❌ Error al eliminar reserva: {e}")
+# print(f"❌ Error al eliminar reserva: {e}")
             messages.error(request, f'Error al eliminar la reserva: {str(e)}')
             
         return redirect('inmobiliaria:reservas')  # Redirige a la lista de reservas después de eliminar
@@ -1357,18 +1357,18 @@ def confirmar_reserva(request):
                     })
 
                 # 🔍 DEBUG: Ver qué precio llega del frontend
-                print(f"🔍 PRECIO RECIBIDO DEL FRONTEND:")
-                print(f"   - precio original: '{precio}' (tipo: {type(precio)})")
+# print(f"🔍 PRECIO RECIBIDO DEL FRONTEND:")
+# print(f"   - precio original: '{precio}' (tipo: {type(precio)})")
                 
                 # Limpiar el precio y convertirlo a float
                 precio_limpio = precio.replace('$', '').replace(',', '').replace('.', '').strip()
-                print(f"   - precio limpio: '{precio_limpio}'")
+# print(f"   - precio limpio: '{precio_limpio}'")
                 
                 try:
                     precio_float = float(precio_limpio)  # Ya no dividir por 100
-                    print(f"   - precio float: {precio_float}")
+# print(f"   - precio float: {precio_float}")
                 except ValueError:
-                    print(f"   - ERROR: No se pudo convertir '{precio_limpio}' a float")
+# print(f"   - ERROR: No se pudo convertir '{precio_limpio}' a float")
                     return JsonResponse({
                         'success': False,
                         'error': 'El precio no tiene un formato válido'
@@ -1387,8 +1387,8 @@ def confirmar_reserva(request):
                 )
 
                 # ✅ MANTENER DISPONIBILIDADES FIJAS - Solo actualizar historial
-                print(f"✅ Reserva creada correctamente. ID: {reserva.id}")
-                print(f"📋 Las disponibilidades se mantienen fijas, solo se actualiza el historial")
+# print(f"✅ Reserva creada correctamente. ID: {reserva.id}")
+# print(f"📋 Las disponibilidades se mantienen fijas, solo se actualiza el historial")
 
                 # Si es operación directa, crear el movimiento de caja
                 if es_operacion_directa:
@@ -1490,7 +1490,7 @@ def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_in
     )
     
     if not disponibilidades_validas.exists():
-        print(f"🚫 No hay disponibilidades que se superpongan con el período {fecha_inicio} a {fecha_fin}")
+# print(f"🚫 No hay disponibilidades que se superpongan con el período {fecha_inicio} a {fecha_fin}")
         return None
     
     # Obtener todas las reservas confirmadas o pagadas que se superponen
@@ -1568,13 +1568,13 @@ def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_in
     if periodos_libres:
         # Buscar el período que mejor cubra las fechas solicitadas o el más amplio
         mejor_periodo = max(periodos_libres, key=lambda p: p['dias'])
-        print(f"✅ Período disponible encontrado: {mejor_periodo['inicio']} a {mejor_periodo['fin']} ({mejor_periodo['dias']} días)")
+# print(f"✅ Período disponible encontrado: {mejor_periodo['inicio']} a {mejor_periodo['fin']} ({mejor_periodo['dias']} días)")
         return {
             'inicio': mejor_periodo['inicio'],
             'fin': mejor_periodo['fin']
         }
     
-    print(f"🚫 No se encontraron períodos libres para {fecha_inicio} a {fecha_fin}")
+# print(f"🚫 No se encontraron períodos libres para {fecha_inicio} a {fecha_fin}")
     return None
 
 
@@ -1659,8 +1659,8 @@ def buscar_propiedades_reserva(request):
         # ✅ LÓGICA MEJORADA: Verificar cobertura completa con disponibilidades contiguas
         for propiedad in propiedades:
             from datetime import timedelta
-            print(f"🔍 PROCESANDO PROPIEDAD {propiedad.id}: {propiedad}")
-            print(f"   🔎 Buscando disponibilidades para {fecha_inicio} al {fecha_fin}")
+# print(f"🔍 PROCESANDO PROPIEDAD {propiedad.id}: {propiedad}")
+# print(f"   🔎 Buscando disponibilidades para {fecha_inicio} al {fecha_fin}")
             
             # 1️⃣ BUSCAR TODAS LAS DISPONIBILIDADES QUE SE SUPERPONEN CON EL PERÍODO
             disponibilidades_superpuestas = Disponibilidad.objects.filter(
@@ -1696,9 +1696,9 @@ def buscar_propiedades_reserva(request):
                 # Verificar si la cobertura completa incluye el período buscado
                 if cobertura_inicio <= fecha_inicio and cobertura_fin >= fecha_fin:
                     periodo_cubierto = True
-                    print(f"   ✅ Período CUBIERTO por disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
+# print(f"   ✅ Período CUBIERTO por disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
                 else:
-                    print(f"   ❌ Período NO cubierto. Cobertura: {cobertura_inicio} al {cobertura_fin}, necesario: {fecha_inicio} al {fecha_fin}")
+# print(f"   ❌ Período NO cubierto. Cobertura: {cobertura_inicio} al {cobertura_fin}, necesario: {fecha_inicio} al {fecha_fin}")
             
             # Usar la variable disponibilidades para mantener compatibilidad con el resto del código
             disponibilidades = disponibilidades_superpuestas if periodo_cubierto else Disponibilidad.objects.none()
@@ -1732,23 +1732,23 @@ def buscar_propiedades_reserva(request):
                 propiedad.disponibilidad_inicio = fecha_disponible_desde
                 propiedad.disponibilidad_fin = fecha_disponible_hasta
                 
-                print(f"🎯 PROP {propiedad.id}: Libre desde {fecha_disponible_desde} hasta {fecha_disponible_hasta}")
-                print(f"   📅 Asignado: disponibilidad_inicio={propiedad.disponibilidad_inicio}")
-                print(f"   📅 Asignado: disponibilidad_fin={propiedad.disponibilidad_fin}")
-                print(f"   📊 Cobertura de disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
+# print(f"🎯 PROP {propiedad.id}: Libre desde {fecha_disponible_desde} hasta {fecha_disponible_hasta}")
+# print(f"   📅 Asignado: disponibilidad_inicio={propiedad.disponibilidad_inicio}")
+# print(f"   📅 Asignado: disponibilidad_fin={propiedad.disponibilidad_fin}")
+# print(f"   📊 Cobertura de disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
                 if reservas_anteriores:
-                    print(f"   ⏪ Reserva anterior termina: {reservas_anteriores.fecha_fin}")
+# print(f"   ⏪ Reserva anterior termina: {reservas_anteriores.fecha_fin}")
                 if reservas_posteriores:
-                    print(f"   ⏩ Próxima reserva empieza: {reservas_posteriores.fecha_inicio}")
+# print(f"   ⏩ Próxima reserva empieza: {reservas_posteriores.fecha_inicio}")
             else:
-                print(f"❌ PROP {propiedad.id}: NO tiene disponibilidades que contengan el período {fecha_inicio} al {fecha_fin}")
+# print(f"❌ PROP {propiedad.id}: NO tiene disponibilidades que contengan el período {fecha_inicio} al {fecha_fin}")
                 disponibilidades = Disponibilidad.objects.none()
                 
                 # Para debugging: mostrar todas las disponibilidades de esta propiedad
                 todas_disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad)
-                print(f"   📋 Disponibilidades existentes ({todas_disponibilidades.count()}):")
+# print(f"   📋 Disponibilidades existentes ({todas_disponibilidades.count()}):")
                 for disp in todas_disponibilidades:
-                    print(f"     - {disp.fecha_inicio} al {disp.fecha_fin}")
+# print(f"     - {disp.fecha_inicio} al {disp.fecha_fin}")
 
             # Obtener las reservas asociadas a la propiedad
             reservas = propiedad.reservas.filter(
@@ -1772,18 +1772,18 @@ def buscar_propiedades_reserva(request):
 
                 # Calcular el precio total de la reserva según las fechas seleccionadas
                 precio_total = 0
-                print('fecha de inicio',fecha_inicio)
-                print('fecha de fin',fecha_fin)
+# print('fecha de inicio',fecha_inicio)
+# print('fecha de fin',fecha_fin)
                 # Calcular noches, no días (del 13 al 15 = 2 noches)
                 noches_reserva = (fecha_fin - fecha_inicio).days
                 total_dias_reserva = noches_reserva
 
                 # 🔍 DEBUGGING CRÍTICO: Ver todos los precios de esta propiedad
-                print(f"🔍 DEBUGGING PRECIOS - Propiedad {propiedad.id} (fechas: {fecha_inicio} al {fecha_fin}):")
+# print(f"🔍 DEBUGGING PRECIOS - Propiedad {propiedad.id} (fechas: {fecha_inicio} al {fecha_fin}):")
                 todos_precios = Precio.objects.filter(propiedad=propiedad)
-                print(f"   Total precios configurados: {todos_precios.count()}")
+# print(f"   Total precios configurados: {todos_precios.count()}")
                 for precio in todos_precios:
-                    print(f"   - {precio.tipo_precio}: ${precio.precio_por_dia}")
+# print(f"   - {precio.tipo_precio}: ${precio.precio_por_dia}")
                 
 
                 
@@ -1811,10 +1811,10 @@ def buscar_propiedades_reserva(request):
                     try:
                         precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
                         precio_dia = precio.precio_por_dia or 0
-                        print(f"✅ {single_date}: {tipo_precio} = ${precio_dia}")
+# print(f"✅ {single_date}: {tipo_precio} = ${precio_dia}")
                     except Precio.DoesNotExist:
                         precio_dia = 0
-                        print(f"❌ {single_date}: {tipo_precio} = NO EXISTE")
+# print(f"❌ {single_date}: {tipo_precio} = NO EXISTE")
 
                     if precio_dia > precio_mas_caro:
                         precio_mas_caro = precio_dia
@@ -1826,7 +1826,7 @@ def buscar_propiedades_reserva(request):
 
                 precio_final_calculado = precio_total + precio_mas_caro
                 propiedad.precio_total_reserva = precio_final_calculado
-                print(f"🔥 PROPIEDAD {propiedad.id}: precio_total={precio_total}, precio_mas_caro={precio_mas_caro}, FINAL={precio_final_calculado}")
+# print(f"🔥 PROPIEDAD {propiedad.id}: precio_total={precio_total}, precio_mas_caro={precio_mas_caro}, FINAL={precio_final_calculado}")
 
                 # Calcular la disponibilidad real considerando las reservas existentes
                 disponibilidad_calculada = calcular_disponibilidad_real(
@@ -1879,14 +1879,14 @@ def buscar_propiedades_reserva(request):
                         
                     propiedad.todos_precios = sorted(propiedad.todos_precios, key=get_precio_order)
                 except Exception as e:
-                    print(f"Error ordenando precios para propiedad {propiedad.id}: {e}")
+# print(f"Error ordenando precios para propiedad {propiedad.id}: {e}")
                     # En caso de error, no ordenar los precios
                     pass
 
     # Alerta si hay propiedades sin precio
     alerta_sin_precio = len(propiedades_sin_precio) > 0
-    print("las fechas de inicio y fin son ",fecha_inicio,fecha_fin)
-    print("los dias de reserva son ",total_dias_reserva)
+# print("las fechas de inicio y fin son ",fecha_inicio,fecha_fin)
+# print("los dias de reserva son ",total_dias_reserva)
 
     # ❌ ELIMINADO: El cálculo duplicado que estaba sobrescribiendo el precio correcto
     # El precio ya se calculó correctamente arriba en las líneas 1132-1167
@@ -1967,7 +1967,7 @@ def crear_disponibilidad(request, propiedad_id):
 def reserva_exitosa(request, reserva_id):
     
     reserva = Reserva.objects.get(id=reserva_id)
-    print("la reserva es ",reserva.precio_total)
+# print("la reserva es ",reserva.precio_total)
     
     context = {
         'reserva': reserva
@@ -1985,7 +1985,7 @@ def finalizar_reserva_nueva(request, reserva_id):
         
         # 🚀 SOLUCIÓN: Si la reserva tiene precio 0, recalcularlo
         if reserva.precio_total == 0:
-            print(f"⚠️ Reserva {reserva.id} tiene precio 0, recalculando...")
+# print(f"⚠️ Reserva {reserva.id} tiene precio 0, recalculando...")
             recalcular_precio_reserva(reserva)
             # Refrescar desde la base de datos
             reserva.refresh_from_db()
@@ -2047,13 +2047,13 @@ def finalizar_reserva_nueva(request, reserva_id):
                                 try:
                                     importe_num = Decimal(concepto_importe.replace(',', ''))
                                     total_senia_anteriores += importe_num
-                                    print(f"💰 SEÑA ANTERIOR DETECTADA: Concepto {concepto_id} - ${importe_num}")
+# print(f"💰 SEÑA ANTERIOR DETECTADA: Concepto {concepto_id} - ${importe_num}")
                                 except:
                                     pass
         
-        print(f"📊 CÁLCULO PAGOS ANTERIORES:")
-        print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
-        print(f"   - Seña anteriores (conceptos 1,15,103): ${total_senia_anteriores}")
+# print(f"📊 CÁLCULO PAGOS ANTERIORES:")
+# print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
+# print(f"   - Seña anteriores (conceptos 1,15,103): ${total_senia_anteriores}")
         
         es_completar_pago = total_pagos_anteriores > 0
         
@@ -2065,13 +2065,13 @@ def finalizar_reserva_nueva(request, reserva_id):
             saldo_a_ocupar = reserva.precio_total
         
         tipo_operacion = "COMPLETAR PAGO" if es_completar_pago else "FINALIZAR RESERVA"
-        print(f"✅ CÁLCULO {tipo_operacion}:")
-        print(f"   - Precio Total: ${reserva.precio_total}")
-        print(f"   - Seña: ${reserva.senia or 0}")
+# print(f"✅ CÁLCULO {tipo_operacion}:")
+# print(f"   - Precio Total: ${reserva.precio_total}")
+# print(f"   - Seña: ${reserva.senia or 0}")
         if es_completar_pago:
-            print(f"   - Pagos Anteriores: ${total_pagos_anteriores}")
-        print(f"   - Saldo Pendiente: ${saldo_a_ocupar}")
-        print(f"   - Depósito: ${reserva.deposito_garantia or 0}")
+# print(f"   - Pagos Anteriores: ${total_pagos_anteriores}")
+# print(f"   - Saldo Pendiente: ${saldo_a_ocupar}")
+# print(f"   - Depósito: ${reserva.deposito_garantia or 0}")
 
         
         # ✅ CALCULAR SEÑA PENDIENTE: Si ya pagó seña, mostrar 0
@@ -2081,9 +2081,9 @@ def finalizar_reserva_nueva(request, reserva_id):
             # Pero normalmente en "finalizar reserva" ya se pagó todo
             senia_pendiente = 0
         
-        print(f"✅ SEÑA PENDIENTE CALCULADA:")
-        print(f"   - Seña ya pagada: ${reserva.senia or 0}")
-        print(f"   - Seña pendiente a mostrar: ${senia_pendiente}")
+# print(f"✅ SEÑA PENDIENTE CALCULADA:")
+# print(f"   - Seña ya pagada: ${reserva.senia or 0}")
+# print(f"   - Seña pendiente a mostrar: ${senia_pendiente}")
 
         # Datos para el formulario (solo lectura)
         # ✅ VARIABLES PARA EL TEMPLATE ORIGINAL (igual que finalizar_reserva)
@@ -2292,15 +2292,15 @@ def terminar_reserva(request, reserva_id):
             
             if es_deposito:
                 total_deposito_pagado += pago.monto
-                print(f"💳 DEPÓSITO TERMINAR - Concepto: '{concepto_lower}', Monto: {pago.monto}")
+# print(f"💳 DEPÓSITO TERMINAR - Concepto: '{concepto_lower}', Monto: {pago.monto}")
             else:
                 total_senia_pagada += pago.monto
-                print(f"💰 SEÑA TERMINAR - Concepto: '{concepto_lower}', Monto: {pago.monto}")
+# print(f"💰 SEÑA TERMINAR - Concepto: '{concepto_lower}', Monto: {pago.monto}")
         
         # ✅ SALDO PENDIENTE = Precio total - SOLO LA SEÑA (NO EL DEPÓSITO)
         saldo_pendiente = reserva.precio_total - total_senia_pagada
         
-        print(f"💰 TERMINAR RESERVA - Precio Total: {reserva.precio_total}, Seña: {total_senia_pagada}, Depósito: {total_deposito_pagado}, Saldo: {saldo_pendiente}")
+# print(f"💰 TERMINAR RESERVA - Precio Total: {reserva.precio_total}, Seña: {total_senia_pagada}, Depósito: {total_deposito_pagado}, Saldo: {saldo_pendiente}")
         
         context = {
             'reserva': reserva,
@@ -2323,8 +2323,8 @@ def terminar_reserva(request, reserva_id):
 @login_required
 def ver_recibo(request, reserva_id):
     # DEBUG: Confirmar que estamos en la función correcta
-    print("🧾 EJECUTANDO ver_recibo desde views.py (FUNCIÓN ACTUALIZADA)")
-    print(f"🧾 Reserva ID: {reserva_id}")
+# print("🧾 EJECUTANDO ver_recibo desde views.py (FUNCIÓN ACTUALIZADA)")
+# print(f"🧾 Reserva ID: {reserva_id}")
     try:
         reserva = get_object_or_404(Reserva, id=reserva_id)
         
@@ -2529,14 +2529,14 @@ def ver_recibo(request, reserva_id):
                 deposito_estado = 'pendiente'
         
         # DEBUG: Confirmar template y datos
-        print("🧾 TEMPLATE USADO: inmobiliaria/reserva/recibo.html")
-        print(f"🧾 PRECIO TOTAL: ${precio_total:,.0f}")
-        print(f"🧾 SEÑA PAGADA: ${senia_pagada:,.0f}")
-        print(f"🧾 SALDO RESTANTE: ${saldo_restante:,.0f}")
-        print(f"🧾 DEPÓSITO: ${deposito_pagado:,.0f} ({deposito_estado})")
-        print(f"🧾 TOTAL PAGADO: {f'${total_pagado:,.0f}'}")
-        print(f"🧾 FORMAS DE PAGO: {', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO'}")
-        print(f"🧾 PAGOS COUNT: {len(pagos)}")
+# print("🧾 TEMPLATE USADO: inmobiliaria/reserva/recibo.html")
+# print(f"🧾 PRECIO TOTAL: ${precio_total:,.0f}")
+# print(f"🧾 SEÑA PAGADA: ${senia_pagada:,.0f}")
+# print(f"🧾 SALDO RESTANTE: ${saldo_restante:,.0f}")
+# print(f"🧾 DEPÓSITO: ${deposito_pagado:,.0f} ({deposito_estado})")
+# print(f"🧾 TOTAL PAGADO: {f'${total_pagado:,.0f}'}")
+# print(f"🧾 FORMAS DE PAGO: {', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO'}")
+# print(f"🧾 PAGOS COUNT: {len(pagos)}")
         
         # Obtener honorarios y sellados del movimiento si existe
         honorarios_monto = 0
@@ -2807,7 +2807,7 @@ def gestionar_precios(request, propiedad_id):
     
     # Si la propiedad no tiene precios, crearlos TODOS
     if not precios.exists():
-        print("Creando precios iniciales para la propiedad")
+# print("Creando precios iniciales para la propiedad")
         for tipo_choice in TipoPrecio.choices:
             tipo_key = tipo_choice[0]
             Precio.objects.create(
@@ -2820,7 +2820,7 @@ def gestionar_precios(request, propiedad_id):
                 ajuste_porcentaje=0
             )
         precios = Precio.objects.filter(propiedad=propiedad)
-        print(f"Precios creados: {precios.count()}")
+# print(f"Precios creados: {precios.count()}")
 
     if request.method == 'POST':
         formset = PrecioFormSet(request.POST, queryset=precios)
@@ -2985,7 +2985,7 @@ def autenticar_seguridad(request):
         usuario = request.POST.get('usuario', '').strip()
         contrasena = request.POST.get('contrasena', '')
         
-        print(f"🔐 AUTENTICACIÓN SEGURIDAD - Usuario: {usuario}")
+# print(f"🔐 AUTENTICACIÓN SEGURIDAD - Usuario: {usuario}")
         
         if not usuario or not contrasena:
             return JsonResponse({
@@ -2999,7 +2999,7 @@ def autenticar_seguridad(request):
         if user is not None:
             # Verificar que el usuario esté activo
             if not user.is_active:
-                print(f"❌ Usuario {usuario} no está activo")
+# print(f"❌ Usuario {usuario} no está activo")
                 return JsonResponse({
                     'success': False, 
                     'error': 'Tu cuenta no está activa. Contacta al administrador.'
@@ -3011,13 +3011,13 @@ def autenticar_seguridad(request):
                 
                 # Verificar nivel mínimo (nivel 1 o superior para operaciones - permitir usuarios básicos)
                 if vendedor.nivel < 1:
-                    print(f"❌ Usuario {usuario} sin permisos suficientes (nivel: {vendedor.nivel})")
+# print(f"❌ Usuario {usuario} sin permisos suficientes (nivel: {vendedor.nivel})")
                     return JsonResponse({
                         'success': False, 
                         'error': 'No tienes permisos suficientes para esta operación'
                     })
                 
-                print(f"✅ Autenticación exitosa - Usuario: {usuario}, Nivel: {vendedor.nivel}")
+# print(f"✅ Autenticación exitosa - Usuario: {usuario}, Nivel: {vendedor.nivel}")
                 return JsonResponse({
                     'success': True,
                     'usuario': vendedor.nombre_completo_vendedor(),
@@ -3025,14 +3025,14 @@ def autenticar_seguridad(request):
                 })
                 
             except Exception as e:
-                print(f"❌ Error verificando vendedor: {e}")
+# print(f"❌ Error verificando vendedor: {e}")
                 return JsonResponse({
                     'success': False, 
                     'error': 'Error interno. Contacta al administrador.'
                 })
             
         else:
-            print(f"❌ Credenciales incorrectas para usuario: {usuario}")
+# print(f"❌ Credenciales incorrectas para usuario: {usuario}")
             return JsonResponse({
                 'success': False, 
                 'error': 'Usuario o contraseña incorrectos'
@@ -3117,16 +3117,16 @@ def procesar_movimiento_reserva(request):
     """
     Vista para procesar el movimiento de caja completo y cambiar estado de reserva
     """
-    print(f"Usuario autenticado: {request.user.is_authenticated}")
-    print(f"Método de request: {request.method}")
-    print(f"Headers: {dict(request.headers)}")
+# print(f"Usuario autenticado: {request.user.is_authenticated}")
+# print(f"Método de request: {request.method}")
+# print(f"Headers: {dict(request.headers)}")
     
     if request.method == 'POST':
         try:
-            print("=== INICIANDO PROCESAMIENTO DE MOVIMIENTO ===")
+# print("=== INICIANDO PROCESAMIENTO DE MOVIMIENTO ===")
             reserva_id = request.POST.get('reserva_id')
-            print(f"Reserva ID recibido: {reserva_id}")
-            print(f"Todos los datos POST: {dict(request.POST)}")
+# print(f"Reserva ID recibido: {reserva_id}")
+# print(f"Todos los datos POST: {dict(request.POST)}")
             
             if not reserva_id:
                 return JsonResponse({'success': False, 'error': 'ID de reserva requerido'})
@@ -3143,10 +3143,10 @@ def procesar_movimiento_reserva(request):
             total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
             es_completar_pago = total_pagos_anteriores > 0
             
-            print(f"🔍 DETECTANDO TIPO DE OPERACIÓN:")
-            print(f"   - Pagos anteriores encontrados: {pagos_anteriores.count()}")
-            print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
-            print(f"   - Es completar pago: {es_completar_pago}")
+# print(f"🔍 DETECTANDO TIPO DE OPERACIÓN:")
+# print(f"   - Pagos anteriores encontrados: {pagos_anteriores.count()}")
+# print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
+# print(f"   - Es completar pago: {es_completar_pago}")
             
             # Obtener la caja actual
             caja_actual = Caja.objects.filter(
@@ -3192,7 +3192,7 @@ def procesar_movimiento_reserva(request):
                     'campo': campo_name
                 }
                 monto_deposito_total += monto_cuenta
-                print(f"💰 Cuenta {cuenta.nombre_banco}: ${monto_cuenta}")
+# print(f"💰 Cuenta {cuenta.nombre_banco}: ${monto_cuenta}")
             
             # Mantener compatibilidad con campos antiguos (fallback)
             monto_deposito_galicia = Decimal(limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0')))
@@ -3202,17 +3202,17 @@ def procesar_movimiento_reserva(request):
             # Usar el total dinámico o el legacy como fallback
             monto_deposito = monto_deposito_total if monto_deposito_total > 0 else monto_deposito_legacy
             
-            print(f"=== VALORES RAW RECIBIDOS ===")
-            print(f"monto_efectivo RAW: '{request.POST.get('monto_efectivo', '0')}'")
-            print(f"Cuentas bancarias dinámicas: {len(montos_cuentas_bancarias)}")
+# print(f"=== VALORES RAW RECIBIDOS ===")
+# print(f"monto_efectivo RAW: '{request.POST.get('monto_efectivo', '0')}'")
+# print(f"Cuentas bancarias dinámicas: {len(montos_cuentas_bancarias)}")
             for cuenta_id, data in montos_cuentas_bancarias.items():
-                print(f"  {data['cuenta'].nombre_banco} ({data['campo']}): '{request.POST.get(data['campo'], '0')}'")
+# print(f"  {data['cuenta'].nombre_banco} ({data['campo']}): '{request.POST.get(data['campo'], '0')}'")
             
-            print(f"=== VALORES CONVERTIDOS A DECIMAL ===")
-            print(f"Montos recibidos - Efectivo: {monto_efectivo}, Cheque: {monto_cheque}, Tarjeta: {monto_tarjeta}")
-            print(f"Transferencias dinámicas: ${monto_deposito_total}, Legacy: ${monto_deposito_legacy}, Total final: ${monto_deposito}")
+# print(f"=== VALORES CONVERTIDOS A DECIMAL ===")
+# print(f"Montos recibidos - Efectivo: {monto_efectivo}, Cheque: {monto_cheque}, Tarjeta: {monto_tarjeta}")
+# print(f"Transferencias dinámicas: ${monto_deposito_total}, Legacy: ${monto_deposito_legacy}, Total final: ${monto_deposito}")
             total_movimientos = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
-            print(f"TOTAL A CREAR EN MOVIMIENTOS: {total_movimientos}")
+# print(f"TOTAL A CREAR EN MOVIMIENTOS: {total_movimientos}")
             
             # Datos adicionales
             banco = request.POST.get('banco', '').strip()
@@ -3261,7 +3261,7 @@ def procesar_movimiento_reserva(request):
                     if concepto_id == '10':
                         concepto_10_presente = True
                         concepto_10_importe = Decimal(limpiar_valor_monetario(concepto_importe or '0'))
-                        print(f"🏦 CONCEPTO 10 (DEPÓSITO) DETECTADO: ${concepto_10_importe}")
+# print(f"🏦 CONCEPTO 10 (DEPÓSITO) DETECTADO: ${concepto_10_importe}")
                     
                     # ✅ SUMAR AL TOTAL DE CONCEPTOS
                     importe_limpio = Decimal(limpiar_valor_monetario(concepto_importe or '0'))
@@ -3274,8 +3274,8 @@ def procesar_movimiento_reserva(request):
                         'importe': concepto_importe or '0'
                     }
                     conceptos_completos.append(concepto_completo)
-                    print(f"💰 CONCEPTO {i}: ID={concepto_id}, {concepto_nombre} - ${concepto_importe}")
-                    print(f"💰 CONCEPTO COMPLETO GUARDADO: {concepto_completo}")
+# print(f"💰 CONCEPTO {i}: ID={concepto_id}, {concepto_nombre} - ${concepto_importe}")
+# print(f"💰 CONCEPTO COMPLETO GUARDADO: {concepto_completo}")
             
             # Construir concepto detallado con los conceptos individuales
             if conceptos_detalle:
@@ -3291,7 +3291,7 @@ def procesar_movimiento_reserva(request):
             else:
                 concepto_detallado = f"Operaci\u00f3n {reserva.id} - {reserva.propiedad.direccion}"
             
-            print(f"📝 CONCEPTO FINAL: {concepto_detallado}")
+# print(f"📝 CONCEPTO FINAL: {concepto_detallado}")
             
             # Crear movimiento principal con concepto detallado
             movimiento_principal = MovimientoCaja.objects.create(
@@ -3321,7 +3321,7 @@ def procesar_movimiento_reserva(request):
                 cuenta_usada = cuentas_con_monto[0]['cuenta']
                 movimiento_principal.destino_deposito = f"cuenta_{cuenta_usada.id}"
                 movimiento_principal.save()
-                print(f"✅ Destino asignado: Cuenta {cuenta_usada.nombre_banco} (ID: {cuenta_usada.id})")
+# print(f"✅ Destino asignado: Cuenta {cuenta_usada.nombre_banco} (ID: {cuenta_usada.id})")
             elif len(cuentas_con_monto) > 1:
                 # Múltiples cuentas bancarias con monto - actualizar concepto
                 detalles_cuentas = []
@@ -3334,7 +3334,7 @@ def procesar_movimiento_reserva(request):
                 movimiento_principal.concepto = concepto_actualizado
                 movimiento_principal.destino_deposito = 'mixto'
                 movimiento_principal.save()
-                print(f"✅ Destino mixto asignado: {', '.join(detalles_cuentas)}")
+# print(f"✅ Destino mixto asignado: {', '.join(detalles_cuentas)}")
             elif monto_deposito_legacy > 0:
                 # Fallback a lógica legacy si hay montos en campos antiguos
                 if monto_deposito_galicia > 0 and monto_deposito_mp == 0:
@@ -3349,7 +3349,7 @@ def procesar_movimiento_reserva(request):
                     movimiento_principal.save()
             
             total_movimiento_creado = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
-            print(f"✅ MOVIMIENTO ÚNICO CREADO - ID: {movimiento_principal.id}, Total: ${total_movimiento_creado}")
+# print(f"✅ MOVIMIENTO ÚNICO CREADO - ID: {movimiento_principal.id}, Total: ${total_movimiento_creado}")
             
 
             # ✅ CALCULAR COMISIÓN DEL VENDEDOR (SOBRE EL TOTAL DE LA RESERVA)
@@ -3369,18 +3369,18 @@ def procesar_movimiento_reserva(request):
                     )
                     
                     if comision:
-                        print(f"💰 COMISIÓN CALCULADA - Vendedor: {reserva.vendedor.nombre_completo_vendedor()}")
-                        print(f"   - Porcentaje: {comision.porcentaje_comision}%")
-                        print(f"   - Monto Total Reserva: ${monto_total_reserva}")
-                        print(f"   - Monto Pagado Ahora: ${total_movimiento_creado}")
-                        print(f"   - Comisión Ganada: ${comision.monto_comision}")
+# print(f"💰 COMISIÓN CALCULADA - Vendedor: {reserva.vendedor.nombre_completo_vendedor()}")
+# print(f"   - Porcentaje: {comision.porcentaje_comision}%")
+# print(f"   - Monto Total Reserva: ${monto_total_reserva}")
+# print(f"   - Monto Pagado Ahora: ${total_movimiento_creado}")
+# print(f"   - Comisión Ganada: ${comision.monto_comision}")
                     else:
-                        print(f"⚠️ No se pudo crear comisión para vendedor {reserva.vendedor.nombre_completo_vendedor()}")
+# print(f"⚠️ No se pudo crear comisión para vendedor {reserva.vendedor.nombre_completo_vendedor()}")
                         
                 except Exception as e:
-                    print(f"❌ ERROR calculando comisión: {str(e)}")
+# print(f"❌ ERROR calculando comisión: {str(e)}")
             else:
-                print(f"ℹ️ Sin comisión - Vendedor: {reserva.vendedor.nombre_completo_vendedor() if reserva.vendedor else 'No asignado'}")
+# print(f"ℹ️ Sin comisión - Vendedor: {reserva.vendedor.nombre_completo_vendedor() if reserva.vendedor else 'No asignado'}")
             
             # Usar el movimiento principal para la respuesta
             movimiento = movimiento_principal
@@ -3403,17 +3403,17 @@ def procesar_movimiento_reserva(request):
             )
             
             # 🔍 DEBUGGING CRÍTICO: Ver qué llega del formulario
-            print(f"🔥 VALORES CRUDOS DEL FORMULARIO:")
-            print(f"   - request.POST.get('senia'): '{request.POST.get('senia', 'NO_ENVIADO')}'")
-            print(f"   - request.POST.get('deposito_garantia'): '{request.POST.get('deposito_garantia', 'NO_ENVIADO')}'")
-            print(f"   - request.POST.get('importe_locacion'): '{request.POST.get('importe_locacion', 'NO_ENVIADO')}'")
-            print(f"   - senia_input (limpiado): '{senia_input}'")
-            print(f"   - deposito_garantia_input (limpiado): '{deposito_garantia_input}'")
-            print(f"   - importe_locacion_input (limpiado): '{importe_locacion_input}'")
-            print(f"🔥 TODOS LOS CAMPOS DEL POST:")
+# print(f"🔥 VALORES CRUDOS DEL FORMULARIO:")
+# print(f"   - request.POST.get('senia'): '{request.POST.get('senia', 'NO_ENVIADO')}'")
+# print(f"   - request.POST.get('deposito_garantia'): '{request.POST.get('deposito_garantia', 'NO_ENVIADO')}'")
+# print(f"   - request.POST.get('importe_locacion'): '{request.POST.get('importe_locacion', 'NO_ENVIADO')}'")
+# print(f"   - senia_input (limpiado): '{senia_input}'")
+# print(f"   - deposito_garantia_input (limpiado): '{deposito_garantia_input}'")
+# print(f"   - importe_locacion_input (limpiado): '{importe_locacion_input}'")
+# print(f"🔥 TODOS LOS CAMPOS DEL POST:")
             for key, value in request.POST.items():
                 if 'csrf' not in key.lower():
-                    print(f"   - {key}: '{value}'")
+# print(f"   - {key}: '{value}'")
             
             try:
                 senia = Decimal(senia_input) if senia_input else Decimal('0')
@@ -3422,20 +3422,20 @@ def procesar_movimiento_reserva(request):
                 
                 # ✅ VALIDACIÓN CONCEPTO 10 vs DEPÓSITO DE GARANTÍA (después de definir variables)
                 if deposito_garantia > 0 and not concepto_10_presente:
-                    print(f"⚠️  ADVERTENCIA: Se indicó depósito de ${deposito_garantia} pero no se cargó el concepto 10")
-                    print(f"   El depósito NO será considerado como pagado hasta que se cargue el concepto 10")
+# print(f"⚠️  ADVERTENCIA: Se indicó depósito de ${deposito_garantia} pero no se cargó el concepto 10")
+# print(f"   El depósito NO será considerado como pagado hasta que se cargue el concepto 10")
                 elif concepto_10_presente and concepto_10_importe != deposito_garantia:
-                    print(f"⚠️  ADVERTENCIA: Concepto 10 (${concepto_10_importe}) no coincide con depósito de garantía (${deposito_garantia})")
-                    print(f"   Se usará el monto del concepto 10 como depósito realmente pagado")
+# print(f"⚠️  ADVERTENCIA: Concepto 10 (${concepto_10_importe}) no coincide con depósito de garantía (${deposito_garantia})")
+# print(f"   Se usará el monto del concepto 10 como depósito realmente pagado")
                     # Actualizar el depósito para que coincida con el concepto 10
                     deposito_garantia = concepto_10_importe
                 
                 # 🔄 NUEVA LÓGICA: No validar conceptos vs seña+depósito
                 # Los conceptos pueden ser diferentes a la seña (ej: gastos bancarios extras)
                 # Solo validamos que formas de pago = total conceptos (se hace más abajo)
-                print(f"✅ NUEVA VALIDACIÓN: Total conceptos: ${total_conceptos}, Seña del campo: ${senia}")
-                print(f"   Los conceptos pueden incluir extras como gastos bancarios")
-                print(f"   Validación principal: formas de pago = total conceptos")
+# print(f"✅ NUEVA VALIDACIÓN: Total conceptos: ${total_conceptos}, Seña del campo: ${senia}")
+# print(f"   Los conceptos pueden incluir extras como gastos bancarios")
+# print(f"   Validación principal: formas de pago = total conceptos")
                 
                 # ✅ CORREGIDO: MONTO DE ESTE PAGO debe ser la SEÑA DEL CASILLERO, no el total pagado
                 monto_total_pagado = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
@@ -3444,19 +3444,19 @@ def procesar_movimiento_reserva(request):
                 monto_este_pago = senia  # Usar la seña del casillero
                 monto_seña_este_pago = senia  # La seña siempre es la del casillero
                 
-                print(f"✅ VALORES DIRECTOS DEL FORMULARIO:")
-                print(f"   - Seña nueva a agregar: ${senia}")
-                print(f"   - Depósito nuevo a agregar: ${deposito_garantia}")
-                print(f"   - Importe Locación TOTAL: ${importe_locacion}")
-                print(f"   - Monto total pagado: ${monto_total_pagado}")
-                print(f"   - Monto para seña: ${monto_seña_este_pago}")
-                print(f"   - Total pagado anteriormente: ${total_pagado_anteriormente}")
-                print(f"   - Seña anterior en reserva: ${reserva.senia or 0}")
-                print(f"   - Depósito anterior en reserva: ${reserva.deposito_garantia or 0}")
+# print(f"✅ VALORES DIRECTOS DEL FORMULARIO:")
+# print(f"   - Seña nueva a agregar: ${senia}")
+# print(f"   - Depósito nuevo a agregar: ${deposito_garantia}")
+# print(f"   - Importe Locación TOTAL: ${importe_locacion}")
+# print(f"   - Monto total pagado: ${monto_total_pagado}")
+# print(f"   - Monto para seña: ${monto_seña_este_pago}")
+# print(f"   - Total pagado anteriormente: ${total_pagado_anteriormente}")
+# print(f"   - Seña anterior en reserva: ${reserva.senia or 0}")
+# print(f"   - Depósito anterior en reserva: ${reserva.deposito_garantia or 0}")
                 
                 # ✅ ACTUALIZAR PRECIO TOTAL SI SE PROPORCIONA IMPORTE LOCACIÓN
                 if importe_locacion > 0 and importe_locacion != reserva.precio_total:
-                    print(f"🔄 ACTUALIZANDO PRECIO TOTAL: ${reserva.precio_total} -> ${importe_locacion}")
+# print(f"🔄 ACTUALIZANDO PRECIO TOTAL: ${reserva.precio_total} -> ${importe_locacion}")
                     reserva.precio_total = importe_locacion
                 
                 # ✅ CORREGIDO: CALCULAR SEÑA SOLO CON CONCEPTOS QUE NO SEAN DEPÓSITO
@@ -3474,7 +3474,7 @@ def procesar_movimiento_reserva(request):
                     if concepto_id in ['1', '15', '103']:
                         importe_limpio = Decimal(limpiar_valor_monetario(concepto_importe or '0'))
                         senia_real += importe_limpio
-                        print(f"💰 SEÑA DETECTADA: Concepto {concepto_id} - ${importe_limpio}")
+# print(f"💰 SEÑA DETECTADA: Concepto {concepto_id} - ${importe_limpio}")
                 
                 # ✅ CORREGIDO: En completar pago, sumar seña anterior + nueva seña
                 if es_completar_pago:
@@ -3484,15 +3484,15 @@ def procesar_movimiento_reserva(request):
                     # En finalizar reserva, usar solo la seña de este pago
                     reserva.senia = senia_real
                 
-                print(f"🔧 CORRECCIÓN SEÑA:")
-                print(f"   - Seña anterior: ${senia_anterior}")
-                print(f"   - Seña nueva (conceptos 1,15,103): ${senia_real}")
-                print(f"   - Es completar pago: {es_completar_pago}")
+# print(f"🔧 CORRECCIÓN SEÑA:")
+# print(f"   - Seña anterior: ${senia_anterior}")
+# print(f"   - Seña nueva (conceptos 1,15,103): ${senia_real}")
+# print(f"   - Es completar pago: {es_completar_pago}")
                 if es_completar_pago:
-                    print(f"   - Seña total (anterior + nueva): ${reserva.senia}")
+# print(f"   - Seña total (anterior + nueva): ${reserva.senia}")
                 else:
-                    print(f"   - Seña total (solo nueva): ${reserva.senia}")
-                print(f"   - Saldo restante esperado: ${reserva.precio_total - reserva.senia}")
+# print(f"   - Seña total (solo nueva): ${reserva.senia}")
+# print(f"   - Saldo restante esperado: ${reserva.precio_total - reserva.senia}")
                 
                 # ✅ ACTUALIZAR DEPÓSITO (siempre se guarda, pero solo se marca como pagado con concepto 10)
                 if deposito_garantia > 0:
@@ -3500,27 +3500,27 @@ def procesar_movimiento_reserva(request):
                     reserva.deposito_garantia = deposito_garantia
                     
                     if concepto_10_presente:
-                        print(f"💳 DEPÓSITO PAGADO: ${deposito_garantia} (confirmado por concepto 10)")
+# print(f"💳 DEPÓSITO PAGADO: ${deposito_garantia} (confirmado por concepto 10)")
                     else:
-                        print(f"💰 DEPÓSITO REGISTRADO: ${deposito_garantia} (PENDIENTE - falta concepto 10 para pagar)")
+# print(f"💰 DEPÓSITO REGISTRADO: ${deposito_garantia} (PENDIENTE - falta concepto 10 para pagar)")
                 else:
-                    print(f"ℹ️  Sin depósito en este pago")
+# print(f"ℹ️  Sin depósito en este pago")
                 
                 # ✅ CALCULAR SALDO PENDIENTE (precio total - solo seña)
                 saldo_pendiente = reserva.precio_total - reserva.senia
                 
-                print(f"🔥 CÁLCULOS FINALES:")
-                print(f"   - Precio Total: ${reserva.precio_total}")
-                print(f"   - Total Pagado (seña): ${reserva.senia}")
-                print(f"   - Depósito: ${reserva.deposito_garantia}")
-                print(f"   - Saldo Pendiente: ${saldo_pendiente}")
+# print(f"🔥 CÁLCULOS FINALES:")
+# print(f"   - Precio Total: ${reserva.precio_total}")
+# print(f"   - Total Pagado (seña): ${reserva.senia}")
+# print(f"   - Depósito: ${reserva.deposito_garantia}")
+# print(f"   - Saldo Pendiente: ${saldo_pendiente}")
                 
                 reserva.save()
                 
                 # ✅ ACTUALIZAR HISTORIAL: Cambiar estado de "Reservado" a "Operación" si hay seña
-                print(f"🔄 ACTUALIZANDO HISTORIAL después del pago...")
+# print(f"🔄 ACTUALIZANDO HISTORIAL después del pago...")
                 reserva.actualizar_historial_disponibilidad()
-                print(f"✅ HISTORIAL ACTUALIZADO - Estado debería ser 'Operación'")
+# print(f"✅ HISTORIAL ACTUALIZADO - Estado debería ser 'Operación'")
                 
                 # ✅ CREAR RECIBO PARA ESTE PAGO
                 from .models.recibo import Recibo
@@ -3528,17 +3528,17 @@ def procesar_movimiento_reserva(request):
                 sucursal = request.user.sucursal
                 if sucursal.usar_numeracion_automatica and sucursal.prefijo_recibo:
                     numero_recibo = sucursal.generar_numero_recibo()
-                    print(f"🧾 NÚMERO AUTOMÁTICO GENERADO: {numero_recibo}")
+# print(f"🧾 NÚMERO AUTOMÁTICO GENERADO: {numero_recibo}")
                 else:
                     # Fallback al formato anterior si no hay numeración automática
                     numero_recibo = f"R{reserva.id:06d}-{len(pagos_anteriores) + 1:02d}"
-                    print(f"🧾 NÚMERO MANUAL GENERADO: {numero_recibo}")
+# print(f"🧾 NÚMERO MANUAL GENERADO: {numero_recibo}")
                 
-                print(f"🧾 DEBUG CREACIÓN RECIBO:")
-                print(f"   - precio_total_operacion (reserva.precio_total): ${reserva.precio_total}")
-                print(f"   - monto_este_pago (senia): ${monto_este_pago}")
-                print(f"   - total_pagado_antes (senia_anterior): ${senia_anterior}")
-                print(f"   - saldo_pendiente: ${saldo_pendiente}")
+# print(f"🧾 DEBUG CREACIÓN RECIBO:")
+# print(f"   - precio_total_operacion (reserva.precio_total): ${reserva.precio_total}")
+# print(f"   - monto_este_pago (senia): ${monto_este_pago}")
+# print(f"   - total_pagado_antes (senia_anterior): ${senia_anterior}")
+# print(f"   - saldo_pendiente: ${saldo_pendiente}")
                 
                 recibo = Recibo.objects.create(
                     numero_recibo=numero_recibo,
@@ -3562,10 +3562,10 @@ def procesar_movimiento_reserva(request):
                     }
                 )
                 
-                print(f"✅ RECIBO CREADO: {numero_recibo}")
+# print(f"✅ RECIBO CREADO: {numero_recibo}")
                 
             except (ValueError, TypeError) as e:
-                print(f"❌ Error al convertir valores: {e}")
+# print(f"❌ Error al convertir valores: {e}")
                 # Si hay error en la conversión, usar valores por defecto
                 reserva.senia = Decimal('0')
                 deposito_garantia = Decimal('0')
@@ -3576,10 +3576,10 @@ def procesar_movimiento_reserva(request):
                 try:
                     nuevo_vendedor = Vendedor.objects.get(id=int(productor_id))
                     if reserva.vendedor != nuevo_vendedor:
-                        print(f"🔄 Cambiando vendedor de {reserva.vendedor} a {nuevo_vendedor}")
+# print(f"🔄 Cambiando vendedor de {reserva.vendedor} a {nuevo_vendedor}")
                         reserva.vendedor = nuevo_vendedor
                 except (Vendedor.DoesNotExist, ValueError) as e:
-                    print(f"⚠️ Error al cambiar vendedor: {e}")
+# print(f"⚠️ Error al cambiar vendedor: {e}")
                     # No cambiar el vendedor si hay error, mantener el original
             
             # Cambiar estado de la reserva
@@ -3590,7 +3590,7 @@ def procesar_movimiento_reserva(request):
             # reserva.propiedad.estado = 'reservada'
             # reserva.propiedad.save()
             
-            print(f"=== MOVIMIENTO CREADO EXITOSAMENTE - ID: {movimiento.id} ===")
+# print(f"=== MOVIMIENTO CREADO EXITOSAMENTE - ID: {movimiento.id} ===")
             
             return JsonResponse({
                 'success': True,
@@ -3601,8 +3601,8 @@ def procesar_movimiento_reserva(request):
         except Exception as e:
             import traceback
             error_traceback = traceback.format_exc()
-            print(f"Error en procesar_movimiento_reserva: {str(e)}")
-            print(f"Traceback: {error_traceback}")
+# print(f"Error en procesar_movimiento_reserva: {str(e)}")
+# print(f"Traceback: {error_traceback}")
             return JsonResponse({
                 'success': False, 
                 'error': str(e),
@@ -3626,13 +3626,13 @@ def api_propiedad_detalle(request, propiedad_id):
         except Propiedad.DoesNotExist:
             # Si no está en la sucursal del usuario, buscar en cualquier sucursal
             propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-            print(f"⚠️ Propiedad {propiedad_id} encontrada en sucursal {propiedad.sucursal.nombre}, no en {request.user.sucursal.nombre}")
+# print(f"⚠️ Propiedad {propiedad_id} encontrada en sucursal {propiedad.sucursal.nombre}, no en {request.user.sucursal.nombre}")
         
-        print(f"🏠 API Propiedad {propiedad_id}:")
-        print(f"   Ambientes: {propiedad.ambientes}")
-        print(f"   Descripcion: {propiedad.descripcion}")
-        print(f"   Caracteristicas: {propiedad.caracteristicas}")
-        print(f"   Estado: {propiedad.estado}")
+# print(f"🏠 API Propiedad {propiedad_id}:")
+# print(f"   Ambientes: {propiedad.ambientes}")
+# print(f"   Descripcion: {propiedad.descripcion}")
+# print(f"   Caracteristicas: {propiedad.caracteristicas}")
+# print(f"   Estado: {propiedad.estado}")
         
         # Obtener precios de la propiedad
         precios = PrecioPropiedad.objects.filter(propiedad=propiedad).order_by('fecha_desde')
@@ -3671,11 +3671,11 @@ def api_propiedad_detalle(request, propiedad_id):
             'info_meses': info_meses_data
         }
         
-        print(f"📤 Datos enviados: {data}")
+# print(f"📤 Datos enviados: {data}")
         return JsonResponse(data)
         
     except Propiedad.DoesNotExist:
-        print(f"❌ Propiedad {propiedad_id} no encontrada")
+# print(f"❌ Propiedad {propiedad_id} no encontrada")
         return JsonResponse({
             'error': f'Propiedad {propiedad_id} no encontrada',
             'id': propiedad_id,
@@ -3689,7 +3689,7 @@ def api_propiedad_detalle(request, propiedad_id):
             'info_meses': None
         }, status=404)
     except Exception as e:
-        print(f"❌ Error en API propiedad: {str(e)}")
+# print(f"❌ Error en API propiedad: {str(e)}")
         return JsonResponse({
             'error': str(e),
             'id': propiedad_id,
@@ -3708,10 +3708,10 @@ def determinar_estado_deposito_completo(reserva):
     Determina si el depósito fue pagado en CUALQUIER movimiento de la reserva.
     Revisa todos los movimientos de caja de la reserva para ver si alguno tiene concepto 10.
     """
-    print(f"🔍 VERIFICANDO ESTADO DEPÓSITO GLOBAL - Reserva {reserva.id}")
+# print(f"🔍 VERIFICANDO ESTADO DEPÓSITO GLOBAL - Reserva {reserva.id}")
     
     if not reserva or not reserva.deposito_garantia:
-        print(f"❌ No hay depósito para verificar: reserva={reserva}, deposito={reserva.deposito_garantia if reserva else 'N/A'}")
+# print(f"❌ No hay depósito para verificar: reserva={reserva}, deposito={reserva.deposito_garantia if reserva else 'N/A'}")
         return 'no_aplica'  # No hay depósito
     
     # Buscar todos los movimientos de esta reserva
@@ -3721,29 +3721,29 @@ def determinar_estado_deposito_completo(reserva):
         concepto__icontains=f"Operaci\u00f3n {reserva.id}"
     )
     
-    print(f"📋 MOVIMIENTOS ENCONTRADOS: {todos_movimientos.count()}")
+# print(f"📋 MOVIMIENTOS ENCONTRADOS: {todos_movimientos.count()}")
     
     # Verificar si algún movimiento tiene concepto 10
     for i, movimiento in enumerate(todos_movimientos):
-        print(f"🔍 Movimiento {i+1} (ID: {movimiento.id}): {movimiento.concepto[:100]}...")
+# print(f"🔍 Movimiento {i+1} (ID: {movimiento.id}): {movimiento.concepto[:100]}...")
         
         if movimiento.concepto and "|CONCEPTOS:" in movimiento.concepto:
             concepto_parts = movimiento.concepto.split("|CONCEPTOS:", 1)
             if len(concepto_parts) > 1:
                 conceptos_data = concepto_parts[1]
-                print(f"   📝 Conceptos data: {conceptos_data}")
+# print(f"   📝 Conceptos data: {conceptos_data}")
                 
                 if "|10:" in conceptos_data:  # Concepto 10 presente
-                    print(f"💳 DEPÓSITO GLOBAL PAGADO: Encontrado concepto 10 en movimiento {movimiento.id}")
+# print(f"💳 DEPÓSITO GLOBAL PAGADO: Encontrado concepto 10 en movimiento {movimiento.id}")
                     return 'pagado'
                 else:
-                    print(f"   ❌ No encontrado concepto 10 en: {conceptos_data}")
+# print(f"   ❌ No encontrado concepto 10 en: {conceptos_data}")
             else:
-                print(f"   ❌ No se pudo parsear conceptos estructurados")
+# print(f"   ❌ No se pudo parsear conceptos estructurados")
         else:
-            print(f"   ❌ Sin estructura |CONCEPTOS: o concepto vacío")
+# print(f"   ❌ Sin estructura |CONCEPTOS: o concepto vacío")
     
-    print(f"⏳ DEPÓSITO GLOBAL PENDIENTE: No se encontró concepto 10 en ningún movimiento")
+# print(f"⏳ DEPÓSITO GLOBAL PENDIENTE: No se encontró concepto 10 en ningún movimiento")
     return 'pendiente'
 
 @login_required
@@ -3751,11 +3751,11 @@ def ver_recibo_movimiento(request, movimiento_id):
     """
     Vista para mostrar el recibo basado en un MovimientoCaja
     """
-    print("🧾 EJECUTANDO ver_recibo_movimiento desde views.py (FUNCIÓN ACTUALIZADA)")
-    print(f"🧾 Movimiento ID: {movimiento_id}")
-    print("="*50)
-    print("🔧 VERSIÓN ACTUALIZADA DE LA FUNCIÓN - DICIEMBRE 2024")
-    print("="*50)
+# print("🧾 EJECUTANDO ver_recibo_movimiento desde views.py (FUNCIÓN ACTUALIZADA)")
+# print(f"🧾 Movimiento ID: {movimiento_id}")
+# print("="*50)
+# print("🔧 VERSIÓN ACTUALIZADA DE LA FUNCIÓN - DICIEMBRE 2024")
+# print("="*50)
     try:
         # Obtener el movimiento de caja principal
         movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
@@ -3770,16 +3770,16 @@ def ver_recibo_movimiento(request, movimiento_id):
                 if match:
                     reserva_id = int(match.group(1))
                     reserva = Reserva.objects.filter(id=reserva_id).first()
-                    print(f"🔍 RESERVA ENCONTRADA desde concepto: ID {reserva_id}, Estado: {reserva.estado if reserva else 'No encontrada'}")
+# print(f"🔍 RESERVA ENCONTRADA desde concepto: ID {reserva_id}, Estado: {reserva.estado if reserva else 'No encontrada'}")
                 else:
-                    print(f"⚠️ No se pudo extraer ID de reserva del concepto: '{movimiento.concepto}'")
+# print(f"⚠️ No se pudo extraer ID de reserva del concepto: '{movimiento.concepto}'")
             except Exception as e:
-                print(f"❌ Error al buscar reserva desde concepto: {e}")
+# print(f"❌ Error al buscar reserva desde concepto: {e}")
         
         # Fallback: buscar por propiedad si no se encontró por concepto
         if not reserva and movimiento.propiedad:
             reserva = movimiento.propiedad.reservas.filter(estado__in=['pagada', 'confirmada_no_pagada']).first()
-            print(f"🔍 RESERVA FALLBACK desde propiedad: {reserva.id if reserva else 'No encontrada'}")
+# print(f"🔍 RESERVA FALLBACK desde propiedad: {reserva.id if reserva else 'No encontrada'}")
         
         # ✅ CORRECCIÓN: Buscar movimientos DE ESTA OPERACIÓN ESPECÍFICA (mismo número de recibo)
         movimientos_relacionados = MovimientoCaja.objects.filter(
@@ -3818,10 +3818,10 @@ def ver_recibo_movimiento(request, movimiento_id):
         
         total_movimiento = total_efectivo + total_cheque + total_tarjeta + total_deposito
         
-        print(f"🧾 RECIBO ÚNICO - Movimiento ID: {movimiento.id}, Número: {movimiento.numero_liquidacion}")
-        print(f"🧾 DESGLOSE - Efectivo: {total_efectivo}, Cheque: {total_cheque}, Tarjeta: {total_tarjeta}")
-        print(f"🧾 TRANSFERENCIAS - Galicia: {total_deposito_galicia}, MP: {total_deposito_mp}, Total Depósitos: {total_deposito}")
-        print(f"🧾 TOTAL OPERACIÓN: {total_movimiento} (debe coincidir con lo pagado)")
+# print(f"🧾 RECIBO ÚNICO - Movimiento ID: {movimiento.id}, Número: {movimiento.numero_liquidacion}")
+# print(f"🧾 DESGLOSE - Efectivo: {total_efectivo}, Cheque: {total_cheque}, Tarjeta: {total_tarjeta}")
+# print(f"🧾 TRANSFERENCIAS - Galicia: {total_deposito_galicia}, MP: {total_deposito_mp}, Total Depósitos: {total_deposito}")
+# print(f"🧾 TOTAL OPERACIÓN: {total_movimiento} (debe coincidir con lo pagado)")
         
         # Calcular saldo pendiente si hay reserva
         saldo_pendiente = 0
@@ -3838,20 +3838,20 @@ def ver_recibo_movimiento(request, movimiento_id):
                 concepto__icontains=f"Operaci\u00f3n {reserva.id}"
             )
             
-            print(f"🔍 BÚSQUEDA MOVIMIENTOS - Buscando concepto: 'Operaci\u00f3n {reserva.id}'")
-            print(f"🔍 MOVIMIENTOS ENCONTRADOS: {todos_movimientos.count()}")
+# print(f"🔍 BÚSQUEDA MOVIMIENTOS - Buscando concepto: 'Operaci\u00f3n {reserva.id}'")
+# print(f"🔍 MOVIMIENTOS ENCONTRADOS: {todos_movimientos.count()}")
             for mov in todos_movimientos:
                 total_mov = (mov.monto_efectivo or 0) + (mov.monto_cheque or 0) + (mov.monto_tarjeta or 0) + (mov.monto_deposito or 0)
-                print(f"🔍 Movimiento ID: {mov.id}, Concepto: '{mov.concepto}', Total: {total_mov}")
+# print(f"🔍 Movimiento ID: {mov.id}, Concepto: '{mov.concepto}', Total: {total_mov}")
             
             # ✅ INTENTAR OBTENER EL RECIBO ASOCIADO A ESTE MOVIMIENTO
             recibo_obj = None
             try:
                 from .models.recibo import Recibo
                 recibo_obj = Recibo.objects.get(movimiento_caja=movimiento)
-                print(f"🧾 RECIBO ENCONTRADO: {recibo_obj.numero_recibo}")
+# print(f"🧾 RECIBO ENCONTRADO: {recibo_obj.numero_recibo}")
             except Recibo.DoesNotExist:
-                print("⚠️ No se encontró recibo asociado a este movimiento")
+# print("⚠️ No se encontró recibo asociado a este movimiento")
             
             if recibo_obj:
                 # ✅ USAR DATOS DEL RECIBO (MÁS PRECISOS)
@@ -3859,12 +3859,12 @@ def ver_recibo_movimiento(request, movimiento_id):
                 saldo_pendiente = recibo_obj.saldo_pendiente
                 precio_total_operacion = recibo_obj.precio_total_operacion
                 
-                print(f"✅ USANDO DATOS DEL RECIBO:")
-                print(f"   - Precio Total Operación: ${precio_total_operacion}")
-                print(f"   - Monto Este Pago: ${recibo_obj.monto_este_pago}")
-                print(f"   - Total Pagado Antes: ${recibo_obj.total_pagado_antes}")
-                print(f"   - Total Pagado Ahora: ${total_pagado_reserva}")
-                print(f"   - Saldo Pendiente: ${saldo_pendiente}")
+# print(f"✅ USANDO DATOS DEL RECIBO:")
+# print(f"   - Precio Total Operación: ${precio_total_operacion}")
+# print(f"   - Monto Este Pago: ${recibo_obj.monto_este_pago}")
+# print(f"   - Total Pagado Antes: ${recibo_obj.total_pagado_antes}")
+# print(f"   - Total Pagado Ahora: ${total_pagado_reserva}")
+# print(f"   - Saldo Pendiente: ${saldo_pendiente}")
                 
             else:
                 # ✅ SIMPLIFICADO: USAR DIRECTAMENTE VALORES DEL CASILLERO DE LA RESERVA
@@ -3885,10 +3885,10 @@ def ver_recibo_movimiento(request, movimiento_id):
                 except:
                     pass
                 
-                print(f"✅ USANDO VALORES DIRECTOS DE LA RESERVA:")
-                print(f"   - Seña (reserva.senia): ${total_senia_pagada_recibo}")
-                print(f"   - Depósito (reserva.deposito_garantia): ${total_deposito_pagado_recibo}")
-                print(f"   - Concepto 10 presente: {concepto_10_en_recibo}")
+# print(f"✅ USANDO VALORES DIRECTOS DE LA RESERVA:")
+# print(f"   - Seña (reserva.senia): ${total_senia_pagada_recibo}")
+# print(f"   - Depósito (reserva.deposito_garantia): ${total_deposito_pagado_recibo}")
+# print(f"   - Concepto 10 presente: {concepto_10_en_recibo}")
             
             # ✅ CORREGIDO: Solo la seña cuenta para el total pagado (el depósito es aparte)
             total_pagado_reserva = total_senia_pagada_recibo
@@ -3896,7 +3896,7 @@ def ver_recibo_movimiento(request, movimiento_id):
             # ✅ NUEVO CÁLCULO: El saldo pendiente es precio total - SOLO LA SEÑA (NO EL DEPÓSITO)
             saldo_pendiente = reserva.precio_total - total_senia_pagada_recibo
             
-            print(f"💰 SALDO RECIBO - Precio Total: {reserva.precio_total}, Seña Pagada: {total_senia_pagada_recibo}, Depósito: {total_deposito_pagado_recibo}, Saldo Pendiente: {saldo_pendiente}")
+# print(f"💰 SALDO RECIBO - Precio Total: {reserva.precio_total}, Seña Pagada: {total_senia_pagada_recibo}, Depósito: {total_deposito_pagado_recibo}, Saldo Pendiente: {saldo_pendiente}")
         else:
             total_pagado_reserva = total_movimiento
         
@@ -3912,8 +3912,8 @@ def ver_recibo_movimiento(request, movimiento_id):
             formas_de_pago = []
             
             # Búsqueda simple de conceptos para evitar errores
-            print(f"🔍 DEBUG SIMPLE - Movimiento ID: {movimiento.id}")
-            print(f"🔍 Número liquidación: '{movimiento.numero_liquidacion}'")
+# print(f"🔍 DEBUG SIMPLE - Movimiento ID: {movimiento.id}")
+# print(f"🔍 Número liquidación: '{movimiento.numero_liquidacion}'")
             
             conceptos_operacion = None
             
@@ -3923,9 +3923,9 @@ def ver_recibo_movimiento(request, movimiento_id):
                 conceptos_operacion = Registro.objects.filter(
                     interno_caja=movimiento.numero_liquidacion
                 ).order_by('fecha')
-                print(f"🔍 CONCEPTOS ENCONTRADOS: {conceptos_operacion.count()}")
+# print(f"🔍 CONCEPTOS ENCONTRADOS: {conceptos_operacion.count()}")
             except Exception as e:
-                print(f"❌ Error en búsqueda básica: {e}")
+# print(f"❌ Error en búsqueda básica: {e}")
                 conceptos_operacion = None
             
             if conceptos_operacion and conceptos_operacion.exists():
@@ -3937,7 +3937,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                     else:
                         concepto_desc = 'Concepto no especificado'
                     
-                    print(f"💰 CONCEPTO: {concepto_desc} - ${registro.liquidacion}")
+# print(f"💰 CONCEPTO: {concepto_desc} - ${registro.liquidacion}")
                     
                     pagos.append({
                         'fecha': registro.fecha_comprobante.strftime('%d/%m/%Y'),
@@ -3948,7 +3948,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                     total_pagado += registro.liquidacion
             else:
                 # Fallback: extraer conceptos individuales del campo concepto del movimiento
-                print("📋 FALLBACK: Extrayendo conceptos individuales desde movimiento.concepto")
+# print("📋 FALLBACK: Extrayendo conceptos individuales desde movimiento.concepto")
                 
                 # ✅ INICIALIZAR VARIABLE DE CONTROL
                 conceptos_procesados = False
@@ -3960,9 +3960,9 @@ def ver_recibo_movimiento(request, movimiento_id):
                     # Intentar extraer conceptos individuales del campo concepto
                     # Nuevo formato esperado: "Reserva 85 - limpieza + alquiler + deposito|CONCEPTOS:11:limpieza:35000|1:alquiler:35000|10:deposito:20000|"
                     concepto_texto = movimiento.concepto or ""
-                    print(f"📝 CONCEPTO COMPLETO: {concepto_texto}")
-                    print(f"📝 LONGITUD: {len(concepto_texto)} caracteres")
-                    print(f"📝 TIPO: {type(concepto_texto)}")
+# print(f"📝 CONCEPTO COMPLETO: {concepto_texto}")
+# print(f"📝 LONGITUD: {len(concepto_texto)} caracteres")
+# print(f"📝 TIPO: {type(concepto_texto)}")
                     
                     # ✅ MEJORADO: Detectar si tiene formato estructurado |CONCEPTOS:
                     conceptos_procesados = False
@@ -3974,7 +3974,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                         if len(concepto_parts) > 1:
                             conceptos_data = concepto_parts[1]  # "11:limpieza:35000|1:alquiler:35000|10:deposito:20000|"
                             conceptos_items = [item for item in conceptos_data.split("|") if item.strip()]
-                            print(f"✅ CONCEPTOS ENCONTRADOS: {len(conceptos_items)} items")
+# print(f"✅ CONCEPTOS ENCONTRADOS: {len(conceptos_items)} items")
                             
                             # Crear una entrada por cada concepto individual
                             for i, concepto_item in enumerate(conceptos_items):
@@ -3997,13 +3997,13 @@ def ver_recibo_movimiento(request, movimiento_id):
                                         'monto': f'${importe_num:,.0f}'
                                     })
                                     total_pagado += importe_num
-                                    print(f"💰 CONCEPTO: ID={concepto_id}, {concepto_nombre} - ${importe_num:,.0f}")
+# print(f"💰 CONCEPTO: ID={concepto_id}, {concepto_nombre} - ${importe_num:,.0f}")
                             
                             conceptos_procesados = True
-                            print(f"✅ CONCEPTOS PROCESADOS: {len(pagos)} conceptos")
+# print(f"✅ CONCEPTOS PROCESADOS: {len(pagos)} conceptos")
                         else:
                             # Fallback al método anterior
-                            print("⚠️ No se pudo parsear información estructurada, usando método anterior")
+# print("⚠️ No se pudo parsear información estructurada, usando método anterior")
                             conceptos_procesados = False
                     
                     # ✅ SOLO EJECUTAR FALLBACK SI NO HAY CONCEPTOS PROCESADOS
@@ -4013,7 +4013,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                         if len(parts) > 1:
                             conceptos_parte = parts[1].split("|")[0]  # Tomar solo la parte antes de |CONCEPTOS si existe
                             conceptos_individuales = [c.strip() for c in conceptos_parte.split(" + ")]
-                            print(f"🔍 CONCEPTOS ENCONTRADOS (método anterior): {conceptos_individuales}")
+# print(f"🔍 CONCEPTOS ENCONTRADOS (método anterior): {conceptos_individuales}")
                             
                             # Crear una entrada por cada concepto individual
                             for i, concepto_nombre in enumerate(conceptos_individuales):
@@ -4026,18 +4026,18 @@ def ver_recibo_movimiento(request, movimiento_id):
                                     'concepto': concepto_nombre,
                                     'monto': f'${monto_por_concepto:,.0f}'
                                 })
-                                print(f"💰 CONCEPTO {i+1}: {concepto_nombre} - ${monto_por_concepto:,.0f}")
+# print(f"💰 CONCEPTO {i+1}: {concepto_nombre} - ${monto_por_concepto:,.0f}")
                             
                             total_pagado += movimiento.monto_total
                         else:
                             # No se pudo parsear, usar concepto único
-                            print("⚠️ No se pudieron extraer conceptos individuales, usando concepto único")
+# print("⚠️ No se pudieron extraer conceptos individuales, usando concepto único")
                     
                     # ✅ FALLBACK FINAL: Si no se procesaron conceptos, usar el concepto completo
                     if not conceptos_procesados and not pagos:
                         # Si es un concepto simple como "Operación X - Dirección", crear un concepto genérico
                         if concepto_texto and "Operación" in concepto_texto and " - " in concepto_texto:
-                            print(f"🔄 CONCEPTO SIMPLE DETECTADO: {concepto_texto}")
+# print(f"🔄 CONCEPTO SIMPLE DETECTADO: {concepto_texto}")
                             # Extraer información básica
                             partes = concepto_texto.split(" - ", 1)
                             if len(partes) > 1:
@@ -4055,13 +4055,13 @@ def ver_recibo_movimiento(request, movimiento_id):
                             'monto': f'${movimiento.monto_total:,.0f}'
                         })
                         total_pagado += movimiento.monto_total
-                        print(f"💰 CONCEPTO FALLBACK: {concepto_nombre} - ${movimiento.monto_total:,.0f}")
+# print(f"💰 CONCEPTO FALLBACK: {concepto_nombre} - ${movimiento.monto_total:,.0f}")
                     
                 except Exception as e:
-                    print(f"❌ Error en fallback: {e}")
+# print(f"❌ Error en fallback: {e}")
                     # Solo usar fallback ultra simple si no se procesaron conceptos
                     if not conceptos_procesados:
-                        print("🚨 USANDO FALLBACK ULTRA SIMPLE")
+# print("🚨 USANDO FALLBACK ULTRA SIMPLE")
                         pagos.append({
                             'fecha': '15/09/2025',
                             'codigo': 'M0001',
@@ -4070,7 +4070,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                         })
                         total_pagado = 130000
                     else:
-                        print("✅ CONCEPTOS YA PROCESADOS - No usar fallback ultra simple")
+# print("✅ CONCEPTOS YA PROCESADOS - No usar fallback ultra simple")
             
             # Obtener formas de pago del movimiento con montos detallados
             formas_con_montos = []
@@ -4170,15 +4170,15 @@ def ver_recibo_movimiento(request, movimiento_id):
             }
             
             # DEBUG: Confirmar template y datos en ver_recibo_movimiento
-            print("🧾 TEMPLATE USADO en ver_recibo_movimiento: inmobiliaria/reserva/recibo.html") 
-            print(f"🧾 TOTAL PAGADO: {f'${total_pagado:,.0f}'}")
-            print(f"🧾 FORMAS DE PAGO: {', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO'}")
-            print(f"🧾 PAGOS COUNT: {len(pagos)}")
-            print(f"🧾 MONTO MOVIMIENTO: ${movimiento.monto_total:,.0f}")
+# print("🧾 TEMPLATE USADO en ver_recibo_movimiento: inmobiliaria/reserva/recibo.html") 
+# print(f"🧾 TOTAL PAGADO: {f'${total_pagado:,.0f}'}")
+# print(f"🧾 FORMAS DE PAGO: {', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO'}")
+# print(f"🧾 PAGOS COUNT: {len(pagos)}")
+# print(f"🧾 MONTO MOVIMIENTO: ${movimiento.monto_total:,.0f}")
             
             # Si no hay pagos específicos, usar el total del movimiento
             if total_pagado == 0:
-                print("⚠️ TOTAL PAGADO ES 0 - USANDO MONTO DEL MOVIMIENTO")
+# print("⚠️ TOTAL PAGADO ES 0 - USANDO MONTO DEL MOVIMIENTO")
                 total_pagado = movimiento.monto_total
             
             # Generar logo en base64 para evitar problemas de carga
@@ -4193,7 +4193,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                     logo_data = base64.b64encode(logo_file.read()).decode()
                     logo_base64 = f'data:image/png;base64,{logo_data}'
             except Exception as e:
-                print(f"⚠️ Error al cargar logo: {e}")
+# print(f"⚠️ Error al cargar logo: {e}")
                 logo_base64 = None
             
             # ✅ PREPARAR DATOS CORREGIDOS PARA EL RECIBO
@@ -4203,10 +4203,10 @@ def ver_recibo_movimiento(request, movimiento_id):
                 saldo_pendiente_mostrar = recibo_obj.saldo_pendiente
                 monto_este_pago_mostrar = recibo_obj.monto_este_pago
                 
-                print(f"🧾 DEBUG RECIBO - USANDO DATOS DEL RECIBO:")
-                print(f"   - precio_total_operacion: ${precio_total_mostrar}")
-                print(f"   - monto_este_pago: ${monto_este_pago_mostrar}")
-                print(f"   - saldo_pendiente: ${saldo_pendiente_mostrar}")
+# print(f"🧾 DEBUG RECIBO - USANDO DATOS DEL RECIBO:")
+# print(f"   - precio_total_operacion: ${precio_total_mostrar}")
+# print(f"   - monto_este_pago: ${monto_este_pago_mostrar}")
+# print(f"   - saldo_pendiente: ${saldo_pendiente_mostrar}")
             else:
                 numero_recibo_mostrar = f'R{reserva.id:06d}'
                 precio_total_mostrar = reserva.precio_total
@@ -4452,7 +4452,7 @@ def obtener_vendedor(request, vendedor_id):
     try:
         vendedor = Vendedor.objects.get(id=vendedor_id)
         logger.info(f"Vendedor encontrado: {vendedor.nombre} {vendedor.apellido}")
-        print(f"Vendedor encontrado: {vendedor.nombre} {vendedor.apellido}")
+# print(f"Vendedor encontrado: {vendedor.nombre} {vendedor.apellido}")
         return JsonResponse({
             'success': True,
             'vendedor': {
@@ -4662,8 +4662,8 @@ def login_view(request):
             
             try:
                 vendedor = Vendedor.objects.get(username=username)
-                print(f"Usuario encontrado: {username}")
-                print(f"¿Usuario activo?: {vendedor.is_active}")
+# print(f"Usuario encontrado: {username}")
+# print(f"¿Usuario activo?: {vendedor.is_active}")
                 
                 if not vendedor.is_active:
                     messages.error(request, 'Tu cuenta no está activa. Contacta al administrador.')
@@ -4678,14 +4678,14 @@ def login_view(request):
                     return redirect('inmobiliaria:index')
                 else:
                     messages.error(request, 'Contraseña incorrecta.')
-                    print("Contraseña incorrecta para el usuario:", username)
+# print("Contraseña incorrecta para el usuario:", username)
                 
             except Vendedor.DoesNotExist:
                 messages.error(request, f'El usuario {username} no existe.')
-                print(f"Usuario no encontrado: {username}")
+# print(f"Usuario no encontrado: {username}")
         else:
             messages.error(request, 'Por favor, corrige los errores del formulario.')
-            print("Errores del formulario:", form.errors)
+# print("Errores del formulario:", form.errors)
     else:
         form = LoginForm()
     
@@ -4931,16 +4931,16 @@ def agregar_pago(request, reserva_id):
                     
                     if es_deposito:
                         total_deposito_only += pago_item.monto
-                        print(f"💳 DEPÓSITO AGREGAR_PAGO - Concepto: '{concepto_lower}', Monto: {pago_item.monto}")
+# print(f"💳 DEPÓSITO AGREGAR_PAGO - Concepto: '{concepto_lower}', Monto: {pago_item.monto}")
                     else:
                         total_senia_only += pago_item.monto
-                        print(f"💰 SEÑA AGREGAR_PAGO - Concepto: '{concepto_lower}', Monto: {pago_item.monto}")
+# print(f"💰 SEÑA AGREGAR_PAGO - Concepto: '{concepto_lower}', Monto: {pago_item.monto}")
                 
                 # Actualizar reserva solo con la seña
                 reserva.senia = total_senia_only  # ✅ Solo seña
                 reserva.cuota_pendiente = reserva.precio_total - total_senia_only  # ✅ Solo descontar seña
                 
-                print(f"💰 AGREGAR_PAGO - Precio Total: {reserva.precio_total}, Seña: {total_senia_only}, Depósito: {total_deposito_only}, Saldo: {reserva.cuota_pendiente}")
+# print(f"💰 AGREGAR_PAGO - Precio Total: {reserva.precio_total}, Seña: {total_senia_only}, Depósito: {total_deposito_only}, Saldo: {reserva.cuota_pendiente}")
                 
                 # Si se completó el pago, finalizar la reserva
                 if reserva.cuota_pendiente <= 0:
@@ -5189,7 +5189,7 @@ def reconstruir_historial_propiedad(propiedad):
     - Solo necesitamos crear entradas del historial para disponibilidades + reservas
     - SIN duplicar períodos
     """
-    print(f"🔄 Reconstruyendo historial para propiedad {propiedad.id}")
+# print(f"🔄 Reconstruyendo historial para propiedad {propiedad.id}")
     
     # Obtener todas las disponibilidades (períodos libres ya fragmentados)
     disponibilidades = propiedad.disponibilidades.all().order_by('fecha_inicio')
@@ -5200,7 +5200,7 @@ def reconstruir_historial_propiedad(propiedad):
             fecha_fin=disp.fecha_fin,
             estado='libre'
         )
-        print(f"   📅 Agregado período LIBRE: {disp.fecha_inicio} al {disp.fecha_fin}")
+# print(f"   📅 Agregado período LIBRE: {disp.fecha_inicio} al {disp.fecha_fin}")
     
     # Obtener todas las reservas (períodos reservados)
     reservas = propiedad.reservas.filter(
@@ -5215,7 +5215,7 @@ def reconstruir_historial_propiedad(propiedad):
             estado='reservado',
             reserva=reserva
         )
-        print(f"   🎯 Agregado período RESERVADO: {reserva.fecha_inicio} al {reserva.fecha_fin} (Reserva #{reserva.id})")
+# print(f"   🎯 Agregado período RESERVADO: {reserva.fecha_inicio} al {reserva.fecha_fin} (Reserva #{reserva.id})")
 
 @login_required
 def editar_info_venta(request, propiedad_id):
@@ -5303,26 +5303,26 @@ def ventas(request):
     ).select_related('info_venta', 'sucursal').prefetch_related('imagenes')
 
     # Debug: Imprimir información sobre las propiedades y sus imágenes
-    print("\n=== DEBUG IMÁGENES DE PROPIEDADES ===")
-    print(f"MEDIA_ROOT: {settings.MEDIA_ROOT}")
-    print(f"MEDIA_URL: {settings.MEDIA_URL}")
-    print(f"DEBUG: {settings.DEBUG}")
-    print(f"AWS_ACCESS_KEY_ID presente: {'AWS_ACCESS_KEY_ID' in os.environ}")
-    print(f"AWS_STORAGE_BUCKET_NAME presente: {'AWS_STORAGE_BUCKET_NAME' in os.environ}")
+# print("\n=== DEBUG IMÁGENES DE PROPIEDADES ===")
+# print(f"MEDIA_ROOT: {settings.MEDIA_ROOT}")
+# print(f"MEDIA_URL: {settings.MEDIA_URL}")
+# print(f"DEBUG: {settings.DEBUG}")
+# print(f"AWS_ACCESS_KEY_ID presente: {'AWS_ACCESS_KEY_ID' in os.environ}")
+# print(f"AWS_STORAGE_BUCKET_NAME presente: {'AWS_STORAGE_BUCKET_NAME' in os.environ}")
     
     for propiedad in propiedades_venta:
-        print(f"\nPropiedad ID: {propiedad.id}")
-        print(f"Dirección: {propiedad.direccion}")
+# print(f"\nPropiedad ID: {propiedad.id}")
+# print(f"Dirección: {propiedad.direccion}")
         imagenes = propiedad.imagenes.all()
-        print(f"Número de imágenes: {imagenes.count()}")
+# print(f"Número de imágenes: {imagenes.count()}")
         for img in imagenes:
-            print(f"- Imagen ID: {img.id}")
-            print(f"  URL: {img.imagen.url if img.imagen else 'No hay URL'}")
-            print(f"  Nombre archivo: {img.imagen.name if img.imagen else 'No hay archivo'}")
+# print(f"- Imagen ID: {img.id}")
+# print(f"  URL: {img.imagen.url if img.imagen else 'No hay URL'}")
+# print(f"  Nombre archivo: {img.imagen.name if img.imagen else 'No hay archivo'}")
             if img.imagen:
                 ruta_completa = os.path.join(settings.MEDIA_ROOT, img.imagen.name)
-                print(f"  ¿Archivo existe localmente?: {os.path.exists(ruta_completa)}")
-    print("=== FIN DEBUG ===\n")
+# print(f"  ¿Archivo existe localmente?: {os.path.exists(ruta_completa)}")
+# print("=== FIN DEBUG ===\n")
 
     # Calcular los contadores
     total_propiedades = propiedades_venta.count()
@@ -5546,8 +5546,8 @@ def ver_caja(request, caja_id):
         messages.error(request, 'Caja no encontrada')
         return redirect('inmobiliaria:lista_cajas')
     except Exception as e:
-        print("Error en ver_caja:")
-        print(traceback.format_exc())
+# print("Error en ver_caja:")
+# print(traceback.format_exc())
         messages.error(request, f'Error: {str(e)}')
         return redirect('inmobiliaria:lista_cajas')
 
@@ -6079,8 +6079,8 @@ def buscar_propiedades_select2(request):
         return JsonResponse({'results': results})
     except Exception as e:
         import traceback
-        print(f"Error en buscar_propiedades_select2: {str(e)}")
-        print(traceback.format_exc())
+# print(f"Error en buscar_propiedades_select2: {str(e)}")
+# print(traceback.format_exc())
         return JsonResponse({'results': [], 'error': str(e)})
 
 # Asegúrate de que tu función original de alquiler por día siga intacta
@@ -6130,7 +6130,7 @@ def buscar_productores(request):
     term = request.GET.get('term', '')
     
     # IMPORTANTE: Depuración para verificar la consulta
-    print(f"Buscando vendedores con término: '{term}'")
+# print(f"Buscando vendedores con término: '{term}'")
     
     try:
         # Buscar TODOS los vendedores sin filtros de sucursal
@@ -6143,9 +6143,9 @@ def buscar_productores(request):
             )[:15]
         
         # Imprimir resultados para depuración
-        print(f"Encontrados {vendedores.count()} vendedores")
+# print(f"Encontrados {vendedores.count()} vendedores")
         for v in vendedores:
-            print(f"Vendedor: ID={v.id}, Nombre={v.nombre}")
+# print(f"Vendedor: ID={v.id}, Nombre={v.nombre}")
         
         # Formatear resultados
         resultados = []
@@ -6162,7 +6162,7 @@ def buscar_productores(request):
         })
     
     except Exception as e:
-        print(f"Error en buscar_productores: {str(e)}")
+# print(f"Error en buscar_productores: {str(e)}")
         return JsonResponse({
             'success': False,
             'message': str(e)
@@ -6331,22 +6331,22 @@ def editar_sucursal(request, sucursal_id):
 def sucursales(request):
     """Lista todas las sucursales"""
     # Debug: Imprimir información del usuario
-    print(f"Usuario: {request.user}")
-    print(f"Nivel del usuario: {request.user.nivel}")
-    print(f"¿Es administrador?: {request.user.nivel == 4}")
+# print(f"Usuario: {request.user}")
+# print(f"Nivel del usuario: {request.user.nivel}")
+# print(f"¿Es administrador?: {request.user.nivel == 4}")
     
     # Total de sucursales en la BD
     total_sucursales = Sucursal.objects.all().count()
-    print(f"Total de sucursales en BD: {total_sucursales}")
+# print(f"Total de sucursales en BD: {total_sucursales}")
     
     # Mostrar todas las sucursales solo si es administrador (nivel 4)
     if request.user.nivel == 4:
         sucursales = Sucursal.objects.all()
-        print(f"Usuario es administrador - mostrando {sucursales.count()} sucursales")
+# print(f"Usuario es administrador - mostrando {sucursales.count()} sucursales")
     else:
         # Solo mostrar la sucursal del usuario actual
         sucursales = Sucursal.objects.filter(id=request.user.sucursal.id)
-        print(f"Usuario NO es administrador - mostrando {sucursales.count()} sucursales")
+# print(f"Usuario NO es administrador - mostrando {sucursales.count()} sucursales")
     
     return render(request, 'inmobiliaria/sucursal/lista.html', {
         'sucursales': sucursales
@@ -6417,16 +6417,16 @@ def crear_sucursal(request):
 @require_http_methods(["GET"])
 def obtener_fotos_propiedad(request, propiedad_id):
     """Obtiene las fotos de una propiedad específica"""
-    print(f"=== OBTENER FOTOS PROPIEDAD ===")
-    print(f"Propiedad ID: {propiedad_id}")
+# print(f"=== OBTENER FOTOS PROPIEDAD ===")
+# print(f"Propiedad ID: {propiedad_id}")
     
     try:
         propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-        print(f"Propiedad encontrada: {propiedad}")
+# print(f"Propiedad encontrada: {propiedad}")
         
         # Obtener todas las fotos de la propiedad usando la relación correcta y ordenadas
         imagenes = propiedad.imagenes.all().order_by('orden')
-        print(f"Imágenes encontradas: {imagenes.count()}")
+# print(f"Imágenes encontradas: {imagenes.count()}")
         
         # Obtener el dominio base de la aplicación
         domain = request.get_host()
@@ -6436,12 +6436,12 @@ def obtener_fotos_propiedad(request, propiedad_id):
         imagenes_data = []
         for imagen in imagenes:
             try:
-                print(f"Procesando imagen: {imagen}")
+# print(f"Procesando imagen: {imagen}")
                 url_imagen = imagen.imagen.url if imagen.imagen else ''
                 # Asegurar que la URL sea absoluta
                 if url_imagen.startswith('/'):
                     url_imagen = base_url + url_imagen
-                print(f"URL de imagen: {url_imagen}")
+# print(f"URL de imagen: {url_imagen}")
                 
                 imagenes_data.append({
                     'id': imagen.id,
@@ -6449,7 +6449,7 @@ def obtener_fotos_propiedad(request, propiedad_id):
                     'orden': imagen.orden
                 })
             except Exception as e:
-                print(f"Error procesando imagen {imagen.id}: {e}")
+# print(f"Error procesando imagen {imagen.id}: {e}")
                 continue
         
         response_data = {
@@ -6458,11 +6458,11 @@ def obtener_fotos_propiedad(request, propiedad_id):
             'total': len(imagenes_data)
         }
         
-        print(f"Respuesta imágenes: {response_data}")
+# print(f"Respuesta imágenes: {response_data}")
         return JsonResponse(response_data)
         
     except Exception as e:
-        print(f"Error en obtener_fotos_propiedad: {e}")
+# print(f"Error en obtener_fotos_propiedad: {e}")
         import traceback
         traceback.print_exc()
         return JsonResponse({
@@ -6474,8 +6474,8 @@ def obtener_fotos_propiedad(request, propiedad_id):
 @require_http_methods(["GET"])
 def obtener_precios_propiedad(request, propiedad_id):
     """Obtiene los precios de una propiedad para un período específico"""
-    print(f"=== OBTENER PRECIOS PROPIEDAD ===")
-    print(f"Propiedad ID: {propiedad_id}")
+# print(f"=== OBTENER PRECIOS PROPIEDAD ===")
+# print(f"Propiedad ID: {propiedad_id}")
     
     try:
         propiedad = get_object_or_404(Propiedad, id=propiedad_id)
@@ -6525,11 +6525,11 @@ def obtener_precios_propiedad(request, propiedad_id):
             'precios': precios_data
         }
         
-        print(f"Respuesta precios: {response_data}")
+# print(f"Respuesta precios: {response_data}")
         return JsonResponse(response_data)
         
     except Exception as e:
-        print(f"Error en obtener_precios_propiedad: {e}")
+# print(f"Error en obtener_precios_propiedad: {e}")
         import traceback
         traceback.print_exc()
         return JsonResponse({
@@ -6909,12 +6909,12 @@ def buscar_propiedades_caja(request):
 @login_required
 def buscar_propiedades(request):
     # FUNCIÓN: buscar_propiedades - función que está siendo usada en producción ✅
-    print("🚀 INICIO DE BUSCAR_PROPIEDADES - FUNCIÓN EJECUTÁNDOSE")
-    print("🔍 DEBUGGING: Esta es la función que se está ejecutando para ordenamiento")
+# print("🚀 INICIO DE BUSCAR_PROPIEDADES - FUNCIÓN EJECUTÁNDOSE")
+# print("🔍 DEBUGGING: Esta es la función que se está ejecutando para ordenamiento")
     
     # Obtener la sucursal del vendedor logueado
     sucursal_vendedor = request.user.sucursal
-    print(f"👤 Usuario: {request.user}, Sucursal: {sucursal_vendedor}")
+# print(f"👤 Usuario: {request.user}, Sucursal: {sucursal_vendedor}")
     
     inquilinos = Inquilino.objects.filter(sucursal=sucursal_vendedor)
     form = BuscarPropiedadesForm(request.POST or None)
@@ -6938,7 +6938,7 @@ def buscar_propiedades(request):
         
         # VALIDACIÓN: Verificar que las fechas son válidas
         if not fecha_inicio or not fecha_fin:
-            print("❌ Error: Fechas de inicio o fin faltantes")
+# print("❌ Error: Fechas de inicio o fin faltantes")
             return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
                 'form': form,
                 'error_fechas': 'Por favor, ingresa fechas de inicio y fin válidas.',
@@ -6963,17 +6963,17 @@ def buscar_propiedades(request):
         ES_BUSCAR_PROPIEDADES_PRINCIPAL = True
         
         # 🎯 DEBUGGING: Verificar fechas de búsqueda
-        print(f"🎯 BUSCAR_PROPIEDADES_PRINCIPAL: Buscando desde {fecha_inicio} hasta {fecha_fin}")
+# print(f"🎯 BUSCAR_PROPIEDADES_PRINCIPAL: Buscando desde {fecha_inicio} hasta {fecha_fin}")
         
         # 🎯 DEBUGGING: Ver qué propiedades tienen reservas en estas fechas
         from inmobiliaria.models import Reserva
         reservas_en_fechas = Reserva.objects.filter(
             Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
         )
-        print(f"🔍 RESERVAS EN ESTAS FECHAS: {reservas_en_fechas.count()} encontradas")
+# print(f"🔍 RESERVAS EN ESTAS FECHAS: {reservas_en_fechas.count()} encontradas")
         for r in reservas_en_fechas:
-            print(f"   - Reserva {r.id}: Propiedad {r.propiedad.id} ({r.propiedad.ubicacion})")
-            print(f"     Fechas: {r.fecha_inicio} al {r.fecha_fin}, Estado: '{r.estado}'")
+# print(f"   - Reserva {r.id}: Propiedad {r.propiedad.id} ({r.propiedad.ubicacion})")
+# print(f"     Fechas: {r.fecha_inicio} al {r.fecha_fin}, Estado: '{r.estado}'")
         
         # FLAG para identificar esta función específica para debugging posterior
         DEBUGGING_FUNCION_PRINCIPAL = True
@@ -7027,8 +7027,8 @@ def buscar_propiedades(request):
         # Filtrar propiedades que están disponibles en las fechas indicadas
         for propiedad in propiedades:
             from datetime import timedelta
-            print(f"🔍 PROCESANDO PROPIEDAD {propiedad.id}: {propiedad}")
-            print(f"   🔎 Buscando disponibilidades para {fecha_inicio} al {fecha_fin}")
+# print(f"🔍 PROCESANDO PROPIEDAD {propiedad.id}: {propiedad}")
+# print(f"   🔎 Buscando disponibilidades para {fecha_inicio} al {fecha_fin}")
             
             # 1️⃣ BUSCAR TODAS LAS DISPONIBILIDADES QUE SE SUPERPONEN CON EL PERÍODO
             disponibilidades_superpuestas = Disponibilidad.objects.filter(
@@ -7064,9 +7064,9 @@ def buscar_propiedades(request):
                 # Verificar si la cobertura completa incluye el período buscado
                 if cobertura_inicio <= fecha_inicio and cobertura_fin >= fecha_fin:
                     periodo_cubierto = True
-                    print(f"   ✅ Período CUBIERTO por disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
+# print(f"   ✅ Período CUBIERTO por disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
                 else:
-                    print(f"   ❌ Período NO cubierto. Cobertura: {cobertura_inicio} al {cobertura_fin}, necesario: {fecha_inicio} al {fecha_fin}")
+# print(f"   ❌ Período NO cubierto. Cobertura: {cobertura_inicio} al {cobertura_fin}, necesario: {fecha_inicio} al {fecha_fin}")
             
             # Usar la variable disponibilidades para mantener compatibilidad con el resto del código
             disponibilidades = disponibilidades_superpuestas if periodo_cubierto else Disponibilidad.objects.none()
@@ -7100,26 +7100,26 @@ def buscar_propiedades(request):
                 propiedad.disponibilidad_inicio = fecha_disponible_desde
                 propiedad.disponibilidad_fin = fecha_disponible_hasta
                 
-                print(f"🎯 PROP {propiedad.id}: Libre desde {fecha_disponible_desde} hasta {fecha_disponible_hasta}")
-                print(f"   📅 Asignado: disponibilidad_inicio={propiedad.disponibilidad_inicio}")
-                print(f"   📅 Asignado: disponibilidad_fin={propiedad.disponibilidad_fin}")
-                print(f"   📊 Cobertura de disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
+# print(f"🎯 PROP {propiedad.id}: Libre desde {fecha_disponible_desde} hasta {fecha_disponible_hasta}")
+# print(f"   📅 Asignado: disponibilidad_inicio={propiedad.disponibilidad_inicio}")
+# print(f"   📅 Asignado: disponibilidad_fin={propiedad.disponibilidad_fin}")
+# print(f"   📊 Cobertura de disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
                 if reservas_anteriores:
-                    print(f"   ⏪ Reserva anterior termina: {reservas_anteriores.fecha_fin}")
+# print(f"   ⏪ Reserva anterior termina: {reservas_anteriores.fecha_fin}")
                 if reservas_posteriores:
-                    print(f"   ⏩ Próxima reserva empieza: {reservas_posteriores.fecha_inicio}")
+# print(f"   ⏩ Próxima reserva empieza: {reservas_posteriores.fecha_inicio}")
             else:
-                print(f"❌ PROP {propiedad.id}: NO tiene disponibilidades que contengan el período {fecha_inicio} al {fecha_fin}")
+# print(f"❌ PROP {propiedad.id}: NO tiene disponibilidades que contengan el período {fecha_inicio} al {fecha_fin}")
                 disponibilidades = Disponibilidad.objects.none()
                 
                 # Para debugging: mostrar todas las disponibilidades de esta propiedad
                 todas_disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad)
-                print(f"   📋 Disponibilidades existentes ({todas_disponibilidades.count()}):")
+# print(f"   📋 Disponibilidades existentes ({todas_disponibilidades.count()}):")
                 for disp in todas_disponibilidades:
-                    print(f"     - {disp.fecha_inicio} al {disp.fecha_fin}")
+# print(f"     - {disp.fecha_inicio} al {disp.fecha_fin}")
                 
                 # 🚫 SALTEAR: Esta propiedad no tiene disponibilidades para el período buscado
-                print(f"   🚫 SALTANDO PROPIEDAD {propiedad.id} - No aparecerá en resultados")
+# print(f"   🚫 SALTANDO PROPIEDAD {propiedad.id} - No aparecerá en resultados")
                 continue
             
             # ✅ CALCULAR DISPONIBILIDADES FRAGMENTADAS POR RESERVAS
@@ -7133,25 +7133,25 @@ def buscar_propiedades(request):
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
 
             # 🎯 DEBUGGING: Ver todas las reservas encontradas
-            print(f"🏠 Propiedad {propiedad.id} - Búsqueda: {fecha_inicio} al {fecha_fin}")
-            print(f"   Reservas encontradas: {reservas.count()}")
+# print(f"🏠 Propiedad {propiedad.id} - Búsqueda: {fecha_inicio} al {fecha_fin}")
+# print(f"   Reservas encontradas: {reservas.count()}")
             for r in reservas:
-                print(f"   - Reserva {r.id}: {r.fecha_inicio} al {r.fecha_fin}, estado='{r.estado}'")
+# print(f"   - Reserva {r.id}: {r.fecha_inicio} al {r.fecha_fin}, estado='{r.estado}'")
             
             # Verificar si existe una reserva confirmada no pagada, confirmada o en espera
             reserva_confirmada_no_pagada = reservas.filter(Q(estado='confirmada_no_pagada') | Q(estado='confirmada') | Q(estado='en_espera')).first()
-            print(f"   ¿Reserva para mostrar en rojo? {bool(reserva_confirmada_no_pagada)}")
+# print(f"   ¿Reserva para mostrar en rojo? {bool(reserva_confirmada_no_pagada)}")
             if reserva_confirmada_no_pagada:
-                print(f"     → Estado: {reserva_confirmada_no_pagada.estado}")
-                print(f"     → Fechas: {reserva_confirmada_no_pagada.fecha_inicio} al {reserva_confirmada_no_pagada.fecha_fin}")
-                print(f"     → Precio: ${reserva_confirmada_no_pagada.precio_total}")
+# print(f"     → Estado: {reserva_confirmada_no_pagada.estado}")
+# print(f"     → Fechas: {reserva_confirmada_no_pagada.fecha_inicio} al {reserva_confirmada_no_pagada.fecha_fin}")
+# print(f"     → Precio: ${reserva_confirmada_no_pagada.precio_total}")
             else:
-                print(f"     → No hay reservas confirmada_no_pagada/confirmada/en_espera en estas fechas")
+# print(f"     → No hay reservas confirmada_no_pagada/confirmada/en_espera en estas fechas")
 
             # ✅ CORREGIDO: Mostrar propiedades con reservas confirmada_no_pagada en las fechas buscadas
             if reservas.exists():
                 for r in reservas:
-                    print(f"   Reserva {r.id}: {r.fecha_inicio} al {r.fecha_fin}, estado='{r.estado}'")
+# print(f"   Reserva {r.id}: {r.fecha_inicio} al {r.fecha_fin}, estado='{r.estado}'")
             
             # Evaluar la disponibilidad y las reservas de la propiedad
             # 🎯 CORREGIDO: Manejar propiedades CON O SIN disponibilidades
@@ -7162,18 +7162,18 @@ def buscar_propiedades(request):
             )
             
             if reservas_conflictivas.exists():
-                print(f"   ❌ Saltando por reservas conflictivas: {reservas_conflictivas.count()}")
+# print(f"   ❌ Saltando por reservas conflictivas: {reservas_conflictivas.count()}")
                 continue  # Saltar si hay reservas pagadas o confirmadas en estas fechas
             
             # Si hay una reserva para mostrar en rojo, mostrarla SIEMPRE (es información importante)
             if reserva_confirmada_no_pagada:
-                print(f"   ✅ MOSTRANDO EN ROJO: Reserva {reserva_confirmada_no_pagada.id} con estado '{reserva_confirmada_no_pagada.estado}'")
+# print(f"   ✅ MOSTRANDO EN ROJO: Reserva {reserva_confirmada_no_pagada.id} con estado '{reserva_confirmada_no_pagada.estado}'")
                 propiedad.reserva = reserva_confirmada_no_pagada
                 propiedad.estado_reserva = 'confirmada_no_pagada'  # Siempre mostrar como confirmada_no_pagada en frontend
                 # ✅ USAR PRECIO DE LA RESERVA EXISTENTE, NO RECALCULAR
                 propiedad.precio_total_reserva = reserva_confirmada_no_pagada.precio_total
-                print(f"   💰 Precio de reserva existente: ${reserva_confirmada_no_pagada.precio_total}")
-                print(f"   🔴 Estado asignado para mostrar: {propiedad.estado_reserva}")
+# print(f"   💰 Precio de reserva existente: ${reserva_confirmada_no_pagada.precio_total}")
+# print(f"   🔴 Estado asignado para mostrar: {propiedad.estado_reserva}")
                 
                 # Asignar fechas de la reserva
                 propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio
@@ -7181,22 +7181,22 @@ def buscar_propiedades(request):
                 
                 # Agregar a la lista y continuar sin recalcular precios
                 propiedades_disponibles.append(propiedad)
-                print(f"   ✅ Propiedad {propiedad.id} agregada a la lista con reserva en rojo")
+# print(f"   ✅ Propiedad {propiedad.id} agregada a la lista con reserva en rojo")
                 continue
             else:
                 # ✅ PROPIEDADES SIN RESERVAS - Calcular precios y agregar a lista
                 propiedad.estado_reserva = 'disponible'
-                print(f"   ✅ DISPONIBLE: Sin reservas para mostrar en rojo")
+# print(f"   ✅ DISPONIBLE: Sin reservas para mostrar en rojo")
 
             # Calcular el precio total según las fechas seleccionadas
                 precio_total = 0
-                print('fecha de inicio',fecha_inicio)
-                print('fecha de fin',fecha_fin)
+# print('fecha de inicio',fecha_inicio)
+# print('fecha de fin',fecha_fin)
             # Para cálculos de precio: usar días completos (lógica original)
                 dias_reserva = (fecha_fin - fecha_inicio).days + 1
 
-                print(f"🔥 INICIANDO CÁLCULO para propiedad {propiedad.id} del {fecha_inicio} al {fecha_fin}")
-                print(f"🔥 Días a calcular: {dias_reserva}")
+# print(f"🔥 INICIANDO CÁLCULO para propiedad {propiedad.id} del {fecha_inicio} al {fecha_fin}")
+# print(f"🔥 Días a calcular: {dias_reserva}")
                 
                 # Calcular día por día usando tu función para determinar temporadas
                 for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
@@ -7226,18 +7226,18 @@ def buscar_propiedades(request):
                             precio_dia *= (1 - precio_obj.ajuste_porcentaje / 100)
                         
                         precio_total += precio_dia
-                        print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
+# print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
                     except Precio.DoesNotExist:
-                        print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = $0 (sin precio configurado)")
-                        print(f"🚨 PRECIO FALTANTE - Propiedad {propiedad.id} NO tiene precio para {tipo_precio}")
+# print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = $0 (sin precio configurado)")
+# print(f"🚨 PRECIO FALTANTE - Propiedad {propiedad.id} NO tiene precio para {tipo_precio}")
                         # Mostrar qué precios SÍ tiene esta propiedad
                         precios_existentes = Precio.objects.filter(propiedad=propiedad)
-                        print(f"🔍 Precios configurados para esta propiedad: {precios_existentes.count()}")
+# print(f"🔍 Precios configurados para esta propiedad: {precios_existentes.count()}")
                         for p in precios_existentes:
-                            print(f"   - {p.tipo_precio}: ${p.precio_por_dia}")
+# print(f"   - {p.tipo_precio}: ${p.precio_por_dia}")
 
                 # ✅ ASIGNAR EL PRECIO CALCULADO CON TU FUNCIÓN
-                print(f"🔥 PRECIO FINAL CALCULADO para propiedad {propiedad.id}: ${precio_total}")
+# print(f"🔥 PRECIO FINAL CALCULADO para propiedad {propiedad.id}: ${precio_total}")
                 propiedad.precio_total_reserva = precio_total
                 
                 # ✅ Las fechas de disponibilidad ya fueron calculadas dinámicamente en el primer bucle
@@ -7253,8 +7253,8 @@ def buscar_propiedades(request):
     if fecha_inicio and fecha_fin:
         total_dias_reserva = (fecha_fin - fecha_inicio).days
     
-    print("las fechas de inicio y fin son ",fecha_inicio,fecha_fin)
-    print("los dias de reserva son ",total_dias_reserva)
+# print("las fechas de inicio y fin son ",fecha_inicio,fecha_fin)
+# print("los dias de reserva son ",total_dias_reserva)
 
     # Los precios ya fueron calculados correctamente arriba para cada propiedad
     # No es necesario recalcular aquí
@@ -7277,20 +7277,20 @@ def buscar_propiedades(request):
                 dias_perdidos = (fecha_inicio_busqueda - propiedad.disponibilidad_inicio).days
                 dias_resultado = max(dias_perdidos, 0)
                 
-                print(f"🔍 Propiedad {propiedad.id}: Disponible desde {propiedad.disponibilidad_inicio}, búsqueda {fecha_inicio_busqueda} → {dias_resultado} días perdidos")
-                print(f"    📊 CÁLCULO SIMPLE: ({fecha_inicio_busqueda} - {propiedad.disponibilidad_inicio}).days = {dias_perdidos} → max(0, {dias_perdidos}) = {dias_resultado}")
+# print(f"🔍 Propiedad {propiedad.id}: Disponible desde {propiedad.disponibilidad_inicio}, búsqueda {fecha_inicio_busqueda} → {dias_resultado} días perdidos")
+# print(f"    📊 CÁLCULO SIMPLE: ({fecha_inicio_busqueda} - {propiedad.disponibilidad_inicio}).days = {dias_perdidos} → max(0, {dias_perdidos}) = {dias_resultado}")
                 return dias_resultado
             else:
-                print(f"🔍 Propiedad {propiedad.id}: Sin disponibilidad_inicio, usando 999999")
+# print(f"🔍 Propiedad {propiedad.id}: Sin disponibilidad_inicio, usando 999999")
                 return 999999
             
         except Exception as e:
-            print(f"Error calculando días libres para propiedad {propiedad.id}: {e}")
+# print(f"Error calculando días libres para propiedad {propiedad.id}: {e}")
             return 999999
 
     # ✅ APLICAR ORDENAMIENTO MEJORADO: Rojas primero, luego por días libres
     if propiedades_disponibles:
-        print("🔄 APLICANDO ORDENAMIENTO PERSONALIZADO...")
+# print("🔄 APLICANDO ORDENAMIENTO PERSONALIZADO...")
         
         # Agregar días libres a cada propiedad para debugging
         for propiedad in propiedades_disponibles:
@@ -7304,46 +7304,46 @@ def buscar_propiedades(request):
                     propiedad.dias_libres_calculados = 999999  # Disponibles después
             
             estado_debug = getattr(propiedad, 'estado_reserva', 'N/A')
-            print(f"🏠 Propiedad {propiedad.id}: Estado={estado_debug}, Días libres={propiedad.dias_libres_calculados}")
+# print(f"🏠 Propiedad {propiedad.id}: Estado={estado_debug}, Días libres={propiedad.dias_libres_calculados}")
             
             # DEBUG ESPECIAL para propiedad 44554
             if propiedad.id == 44554:
-                print(f"🔍 DEBUG ESPECIAL 44554:")
-                print(f"   - Estado reserva: {estado_debug}")
-                print(f"   - Fecha inicio búsqueda: {fecha_inicio}")
-                print(f"   - Fecha fin búsqueda: {fecha_fin}")
-                print(f"   - Días libres calculados: {propiedad.dias_libres_calculados}")
+# print(f"🔍 DEBUG ESPECIAL 44554:")
+# print(f"   - Estado reserva: {estado_debug}")
+# print(f"   - Fecha inicio búsqueda: {fecha_inicio}")
+# print(f"   - Fecha fin búsqueda: {fecha_fin}")
+# print(f"   - Días libres calculados: {propiedad.dias_libres_calculados}")
                 
                 # Revisar reservas y disponibilidades
                 reservas = propiedad.reservas.filter(fecha_fin__lt=fecha_inicio).order_by('-fecha_fin')
-                print(f"   - Reservas anteriores: {list(reservas.values('id', 'fecha_fin'))}")
+# print(f"   - Reservas anteriores: {list(reservas.values('id', 'fecha_fin'))}")
                 
                 disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad, fecha_fin__lt=fecha_inicio).order_by('-fecha_fin')
-                print(f"   - Disponibilidades anteriores: {list(disponibilidades.values('id', 'fecha_fin'))}")
+# print(f"   - Disponibilidades anteriores: {list(disponibilidades.values('id', 'fecha_fin'))}")
         
         # ✅ ORDENAR: primero las rojas (días libres = -1), luego por menos días libres, luego por ID
-        print("🔧 ANTES DEL ORDENAMIENTO:")
-        print(f"📅 Fechas de búsqueda: {fecha_inicio} al {fecha_fin}")
+# print("🔧 ANTES DEL ORDENAMIENTO:")
+# print(f"📅 Fechas de búsqueda: {fecha_inicio} al {fecha_fin}")
         for prop in propiedades_disponibles:
             disponibilidad_info = "Sin info"
             if hasattr(prop, 'disponibilidad_inicio') and hasattr(prop, 'disponibilidad_fin'):
                 disponibilidad_info = f"{prop.disponibilidad_inicio} al {prop.disponibilidad_fin}"
-            print(f"   Propiedad {prop.id}: dias_libres_calculados = {prop.dias_libres_calculados} | Disponibilidad: {disponibilidad_info}")
+# print(f"   Propiedad {prop.id}: dias_libres_calculados = {prop.dias_libres_calculados} | Disponibilidad: {disponibilidad_info}")
         
         propiedades_disponibles.sort(key=lambda p: (p.dias_libres_calculados, p.id))
         
-        print("🔧 DESPUÉS DEL ORDENAMIENTO:")
+# print("🔧 DESPUÉS DEL ORDENAMIENTO:")
         for i, prop in enumerate(propiedades_disponibles, 1):
             disponibilidad_info = "Sin info"
             if hasattr(prop, 'disponibilidad_inicio') and hasattr(prop, 'disponibilidad_fin'):
                 disponibilidad_info = f"{prop.disponibilidad_inicio} al {prop.disponibilidad_fin}"
-            print(f"   {i}. Propiedad {prop.id}: dias_libres_calculados = {prop.dias_libres_calculados} | Disponibilidad: {disponibilidad_info}")
+# print(f"   {i}. Propiedad {prop.id}: dias_libres_calculados = {prop.dias_libres_calculados} | Disponibilidad: {disponibilidad_info}")
         
         # ✅ DEBUG DETALLADO PARA VERIFICAR ORDENAMIENTO
-        print("=" * 80)
-        print("📋 PROPIEDADES ORDENADAS POR DÍAS PERDIDOS:")
-        print(f"Total propiedades encontradas: {len(propiedades_disponibles)}")
-        print("=" * 80)
+# print("=" * 80)
+# print("📋 PROPIEDADES ORDENADAS POR DÍAS PERDIDOS:")
+# print(f"Total propiedades encontradas: {len(propiedades_disponibles)}")
+# print("=" * 80)
         
         # Mostrar TODAS las propiedades con sus cálculos para debug
         for i, propiedad in enumerate(propiedades_disponibles, 1):
@@ -7359,12 +7359,12 @@ def buscar_propiedades(request):
                 except:
                     disponibilidad_info = "Error obteniendo fechas"
                 
-                print(f"  {i:2d}. ID:{propiedad.id:5d} | {estado:20s} | {str(dias):>6s} días | {disponibilidad_info}")
+# print(f"  {i:2d}. ID:{propiedad.id:5d} | {estado:20s} | {str(dias):>6s} días | {disponibilidad_info}")
                 
             except Exception as e:
-                print(f"  {i:2d}. ID:{propiedad.id} | ERROR: {e}")
+# print(f"  {i:2d}. ID:{propiedad.id} | ERROR: {e}")
         
-        print("=" * 80)
+# print("=" * 80)
 
     # Obtener conceptos para el template
     conceptos = Concepto.objects.filter(
@@ -7381,7 +7381,7 @@ def buscar_propiedades(request):
         else:
             total_propiedades_disponibles += 1
     
-    print(f"📊 TOTALES: {total_propiedades_disponibles} disponibles, {total_propiedades_reservadas} reservadas")
+# print(f"📊 TOTALES: {total_propiedades_disponibles} disponibles, {total_propiedades_reservadas} reservadas")
 
     return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
         'form': form,
@@ -7700,51 +7700,51 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
         concepto__icontains=f'Contrato #{contrato.id}'
     )
     
-    print(f"🔍 ESTADO CONCEPTO {concepto_id} - Contrato #{contrato.id}")
-    print(f"   - Movimientos encontrados: {movimientos.count()}")
+# print(f"🔍 ESTADO CONCEPTO {concepto_id} - Contrato #{contrato.id}")
+# print(f"   - Movimientos encontrados: {movimientos.count()}")
     
     # Verificar si algún movimiento contiene el concepto específico
     for i, movimiento in enumerate(movimientos):
-        print(f"   - Movimiento {i+1}: {movimiento.concepto[:50]}...")
+# print(f"   - Movimiento {i+1}: {movimiento.concepto[:50]}...")
         
         try:
             # ✅ PARSEAR COMO JSON (formato principal)
             conceptos_data = json.loads(movimiento.concepto)
-            print(f"     ✅ JSON parseado: {len(conceptos_data)} conceptos")
+# print(f"     ✅ JSON parseado: {len(conceptos_data)} conceptos")
             
             for concepto in conceptos_data:
                 concepto_id_actual = str(concepto.get('id', concepto.get('codigo', '')))
                 concepto_nombre = concepto.get('nombre', '')
                 concepto_importe = concepto.get('importe', 0)
                 
-                print(f"       - Concepto: ID={concepto_id_actual}, Nombre={concepto_nombre}, Importe=${concepto_importe}")
+# print(f"       - Concepto: ID={concepto_id_actual}, Nombre={concepto_nombre}, Importe=${concepto_importe}")
                 
                 if concepto_id_actual == str(concepto_id):
-                    print(f"     🎯 ¡CONCEPTO {concepto_id} ENCONTRADO! = PAGADO")
+# print(f"     🎯 ¡CONCEPTO {concepto_id} ENCONTRADO! = PAGADO")
                     return 'pagado'
                     
         except (json.JSONDecodeError, ValueError, TypeError) as e:
-            print(f"     ⚠️ No es JSON: {e}")
+# print(f"     ⚠️ No es JSON: {e}")
             
             # FALLBACK: Buscar en formato texto (contratos antiguos)
             concepto_texto = movimiento.concepto.lower()
             
             # Si el concepto está en el texto del movimiento
             if concepto_id == '25' and ('honorario' in concepto_texto or 'concepto 25' in concepto_texto):
-                print(f"     🎯 HONORARIOS ENCONTRADO EN TEXTO!")
+# print(f"     🎯 HONORARIOS ENCONTRADO EN TEXTO!")
                 return 'pagado'
             elif concepto_id == '26' and ('sellado' in concepto_texto or 'concepto 26' in concepto_texto):
-                print(f"     🎯 SELLADOS ENCONTRADO EN TEXTO!")
+# print(f"     🎯 SELLADOS ENCONTRADO EN TEXTO!")
                 return 'pagado'
             elif concepto_id == '10' and ('deposito' in concepto_texto or 'concepto 10' in concepto_texto):
-                print(f"     🎯 DEPÓSITO ENCONTRADO EN TEXTO!")
+# print(f"     🎯 DEPÓSITO ENCONTRADO EN TEXTO!")
                 return 'pagado'
                 
         except Exception as e:
-            print(f"     ❌ Error: {e}")
+# print(f"     ❌ Error: {e}")
             continue
     
-    print(f"   ❌ CONCEPTO {concepto_id} NO ENCONTRADO = PENDIENTE")
+# print(f"   ❌ CONCEPTO {concepto_id} NO ENCONTRADO = PENDIENTE")
     return 'pendiente'
 
 def obtener_valor_concepto_contrato(contrato, campo):
@@ -7800,7 +7800,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
                 'campo': campo_name
             }
             monto_deposito_total += monto_cuenta
-            print(f"💰 Cuenta {cuenta.nombre_banco}: ${monto_cuenta}")
+# print(f"💰 Cuenta {cuenta.nombre_banco}: ${monto_cuenta}")
         
         # Mantener compatibilidad con campos antiguos (fallback)
         monto_deposito_galicia = limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0'))
@@ -7822,11 +7822,11 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         conceptos_data = []
         conceptos_detalle = []
         
-        print(f"🔍 DEBUG CONTRATOS: Procesando {conceptos_count} conceptos")
-        print(f"🔍 DEBUG CONTRATOS: Todos los datos POST:")
+# print(f"🔍 DEBUG CONTRATOS: Procesando {conceptos_count} conceptos")
+# print(f"🔍 DEBUG CONTRATOS: Todos los datos POST:")
         for key, value in request.POST.items():
             if 'concepto' in key.lower():
-                print(f"  - {key}: {value}")
+# print(f"  - {key}: {value}")
         
         for i in range(conceptos_count):
             concepto_id = request.POST.get(f'concepto_{i}_id')
@@ -7835,7 +7835,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             concepto_observaciones = request.POST.get(f'concepto_{i}_observaciones', '')
             concepto_fecha = request.POST.get(f'concepto_{i}_fecha')
             
-            print(f"  - Concepto {i}: ID='{concepto_id}', Nombre='{concepto_nombre}', Importe='{concepto_importe}', Obs='{concepto_observaciones}', Fecha='{concepto_fecha}'")
+# print(f"  - Concepto {i}: ID='{concepto_id}', Nombre='{concepto_nombre}', Importe='{concepto_importe}', Obs='{concepto_observaciones}', Fecha='{concepto_fecha}'")
             
             if concepto_id and concepto_nombre and concepto_importe:
                 # Limpiar el importe
@@ -7853,19 +7853,19 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
                 # Agregar al detalle para mostrar
                 conceptos_detalle.append(f"{concepto_nombre} ${importe_limpio}")
                 
-                print(f"    ✅ Concepto {i} AGREGADO: ID={concepto_id}, Nombre={concepto_nombre}, Importe=${importe_limpio}")
+# print(f"    ✅ Concepto {i} AGREGADO: ID={concepto_id}, Nombre={concepto_nombre}, Importe=${importe_limpio}")
             else:
-                print(f"    ❌ Concepto {i} OMITIDO: Faltan datos")
+# print(f"    ❌ Concepto {i} OMITIDO: Faltan datos")
         
         # Construir concepto final
         if conceptos_data:
             # Guardar como JSON para parsing posterior
             concepto_json = json.dumps(conceptos_data)
-            print(f"💾 CONCEPTO JSON GUARDADO: {concepto_json}")
+# print(f"💾 CONCEPTO JSON GUARDADO: {concepto_json}")
         else:
             # Fallback si no hay conceptos
             concepto_json = f'Contrato #{contrato.id} - {contrato.propiedad.direccion}'
-            print(f"💾 CONCEPTO FALLBACK: {concepto_json}")
+# print(f"💾 CONCEPTO FALLBACK: {concepto_json}")
         
         # Crear movimiento de caja
         movimiento = MovimientoCaja.objects.create(
@@ -7891,12 +7891,12 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             cuenta_usada = cuentas_con_monto[0]['cuenta']
             movimiento.destino_deposito = f"cuenta_{cuenta_usada.id}"
             movimiento.monto_deposito = cuentas_con_monto[0]['monto']
-            print(f"✅ Destino asignado: Cuenta {cuenta_usada.nombre_banco} (ID: {cuenta_usada.id})")
+# print(f"✅ Destino asignado: Cuenta {cuenta_usada.nombre_banco} (ID: {cuenta_usada.id})")
         elif len(cuentas_con_monto) > 1:
             # Múltiples cuentas bancarias con monto
             movimiento.destino_deposito = 'mixto'
             movimiento.monto_deposito = monto_deposito_final
-            print(f"✅ Destino mixto asignado: {len(cuentas_con_monto)} cuentas")
+# print(f"✅ Destino mixto asignado: {len(cuentas_con_monto)} cuentas")
         elif monto_deposito_legacy > 0:
             # Fallback a lógica legacy si hay montos en campos antiguos
             if monto_deposito_galicia > 0:
@@ -7911,7 +7911,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         return movimiento, total_movimiento
         
     except Exception as e:
-        print("Error al procesar conceptos:", str(e))
+# print("Error al procesar conceptos:", str(e))
         return None, 0
 
 @login_required
@@ -8160,7 +8160,7 @@ def pagar_cuota(request, cuota_id):
             })
             
     except Exception as e:
-        print("Error al procesar pago de cuota:", str(e))
+# print("Error al procesar pago de cuota:", str(e))
         return JsonResponse({'error': str(e)}, status=400)
 
 @login_required
@@ -8188,7 +8188,7 @@ def cancelar_contrato(request, contrato_id):
         messages.success(request, f'El contrato #{contrato.id} ha sido cancelado exitosamente')
         return JsonResponse({'success': True})
     except Exception as e:
-        print(f"Error al cancelar contrato: {str(e)}")
+# print(f"Error al cancelar contrato: {str(e)}")
         return JsonResponse({'error': str(e)}, status=400)
 
 @login_required
@@ -8209,7 +8209,7 @@ def reactivar_propiedad_24_meses(request, propiedad_id):
             return JsonResponse({'error': 'La propiedad no está configurada para 24 meses'}, status=400)
             
     except Exception as e:
-        print(f"Error al reactivar propiedad: {str(e)}")
+# print(f"Error al reactivar propiedad: {str(e)}")
         return JsonResponse({'error': str(e)}, status=400)
 
 @login_required
@@ -8237,21 +8237,21 @@ def desactivar_propiedad_24_meses(request, propiedad_id):
             return JsonResponse({'error': 'La propiedad no está configurada para 24 meses'}, status=400)
             
     except Exception as e:
-        print(f"Error al desactivar propiedad: {str(e)}")
+# print(f"Error al desactivar propiedad: {str(e)}")
         return JsonResponse({'error': str(e)}, status=400)
 
 @login_required
 @require_POST
 def guardar_precios_propiedad(request):
     """Guarda los precios modificados de una propiedad"""
-    print("=== GUARDAR PRECIOS PROPIEDAD ===")
+# print("=== GUARDAR PRECIOS PROPIEDAD ===")
     
     try:
         propiedad_id = request.POST.get('propiedad_id')
         precios_json = request.POST.get('precios')
         
-        print(f"Propiedad ID: {propiedad_id}")
-        print(f"Precios JSON: {precios_json}")
+# print(f"Propiedad ID: {propiedad_id}")
+# print(f"Precios JSON: {precios_json}")
         
         if not propiedad_id or not precios_json:
             return JsonResponse({
@@ -8261,11 +8261,11 @@ def guardar_precios_propiedad(request):
         
         propiedad = get_object_or_404(Propiedad, id=propiedad_id)
         
-        print(f"👤 Usuario: {request.user.username}, Nivel: {request.user.nivel}")
+# print(f"👤 Usuario: {request.user.username}, Nivel: {request.user.nivel}")
         
         # Solo usuarios nivel 3 o superior pueden modificar precios
         if request.user.nivel < 3:
-            print(f"❌ Usuario sin permisos - Nivel {request.user.nivel} < 3")
+# print(f"❌ Usuario sin permisos - Nivel {request.user.nivel} < 3")
             return JsonResponse({
                 'success': False,
                 'error': 'No tienes permisos para modificar precios'
@@ -8278,8 +8278,8 @@ def guardar_precios_propiedad(request):
         for precio_info in precios_data:
             tipo_precio = precio_info.get('tipo_precio')
             
-            print(f"🔍 Procesando precio: {tipo_precio}")
-            print(f"📊 Datos recibidos: {precio_info}")
+# print(f"🔍 Procesando precio: {tipo_precio}")
+# print(f"📊 Datos recibidos: {precio_info}")
             
             # Buscar o crear el precio
             precio, created = Precio.objects.get_or_create(
@@ -8303,12 +8303,12 @@ def guardar_precios_propiedad(request):
             precio_total_nuevo = Decimal(str(precio_info.get('precio_total', 0) or 0))
             ajuste_porcentaje_nuevo = Decimal(str(precio_info.get('ajuste_porcentaje', 0) or 0))
             
-            print(f"💰 Valores RECIBIDOS del form:")
-            print(f"   - precio_toma: {precio_toma_nuevo}")
-            print(f"   - precio_dia_toma: {precio_dia_toma_nuevo}")
-            print(f"   - precio_por_dia: {precio_por_dia_nuevo}")
-            print(f"   - precio_total: {precio_total_nuevo} ⬅️ VALOR QUE QUIERE GUARDAR")
-            print(f"   - ajuste_porcentaje: {ajuste_porcentaje_nuevo}")
+# print(f"💰 Valores RECIBIDOS del form:")
+# print(f"   - precio_toma: {precio_toma_nuevo}")
+# print(f"   - precio_dia_toma: {precio_dia_toma_nuevo}")
+# print(f"   - precio_por_dia: {precio_por_dia_nuevo}")
+# print(f"   - precio_total: {precio_total_nuevo} ⬅️ VALOR QUE QUIERE GUARDAR")
+# print(f"   - ajuste_porcentaje: {ajuste_porcentaje_nuevo}")
             
             # Guardar valores actuales antes de modificar (para comparación)
             precio_total_antes = precio.precio_total
@@ -8319,8 +8319,8 @@ def guardar_precios_propiedad(request):
             precio.precio_total = precio_total_nuevo
             precio.ajuste_porcentaje = ajuste_porcentaje_nuevo
             
-            print(f"📝 Valores ASIGNADOS al objeto:")
-            print(f"   - precio_total asignado: {precio.precio_total}")
+# print(f"📝 Valores ASIGNADOS al objeto:")
+# print(f"   - precio_total asignado: {precio.precio_total}")
             
             # Usar update_fields para evitar el recálculo automático del precio_total
             precio.save(update_fields=['precio_toma', 'precio_dia_toma', 'precio_por_dia', 'precio_total', 'ajuste_porcentaje'])
@@ -8328,11 +8328,11 @@ def guardar_precios_propiedad(request):
             # Recargar desde BD para ver qué se guardó realmente
             precio.refresh_from_db()
             
-            print(f"✅ Actualizado precio {tipo_precio} para propiedad {propiedad_id}")
-            print(f"📋 Valores FINALES guardados en BD:")
-            print(f"   - precio_total ANTES: {precio_total_antes}")
-            print(f"   - precio_total DESPUÉS: {precio.precio_total}")
-            print(f"   - precio_por_dia: {precio.precio_por_dia}")
+# print(f"✅ Actualizado precio {tipo_precio} para propiedad {propiedad_id}")
+# print(f"📋 Valores FINALES guardados en BD:")
+# print(f"   - precio_total ANTES: {precio_total_antes}")
+# print(f"   - precio_total DESPUÉS: {precio.precio_total}")
+# print(f"   - precio_por_dia: {precio.precio_por_dia}")
         
         return JsonResponse({
             'success': True,
@@ -8340,7 +8340,7 @@ def guardar_precios_propiedad(request):
         })
         
     except Exception as e:
-        print(f"Error en guardar_precios_propiedad: {e}")
+# print(f"Error en guardar_precios_propiedad: {e}")
         import traceback
         traceback.print_exc()
         return JsonResponse({
@@ -8418,7 +8418,7 @@ def recalcular_precio_reserva(reserva):
     """
     Recalcula el precio de una reserva usando la misma lógica que buscar_propiedades_reserva
     """
-    print(f"🔄 RECALCULANDO PRECIO para reserva {reserva.id}")
+# print(f"🔄 RECALCULANDO PRECIO para reserva {reserva.id}")
     
     try:
         fecha_inicio = reserva.fecha_inicio
@@ -8427,7 +8427,7 @@ def recalcular_precio_reserva(reserva):
         
         # Calcular noches de reserva
         noches_reserva = (fecha_fin - fecha_inicio).days
-        print(f"   📅 Fechas: {fecha_inicio} al {fecha_fin} ({noches_reserva} noches)")
+# print(f"   📅 Fechas: {fecha_inicio} al {fecha_fin} ({noches_reserva} noches)")
         
         # ✅ LÓGICA ORIGINAL QUE FUNCIONABA (copiada exacta de views_temp.py)
         precio_total = 0
@@ -8467,20 +8467,20 @@ def recalcular_precio_reserva(reserva):
         
         precio_total = precio_total + precio_mas_caro
         
-        print(f"   💰 PRECIO TOTAL RECALCULADO: ${precio_total:,.0f}")
+# print(f"   💰 PRECIO TOTAL RECALCULADO: ${precio_total:,.0f}")
         
         # Actualizar la reserva si el precio es diferente
         if precio_total != reserva.precio_total:
             reserva.precio_total = precio_total
             reserva.save()
-            print(f"   ✅ RESERVA ACTUALIZADA con nuevo precio: ${precio_total:,.0f}")
+# print(f"   ✅ RESERVA ACTUALIZADA con nuevo precio: ${precio_total:,.0f}")
         else:
-            print(f"   ℹ️ El precio ya era correcto: ${precio_total:,.0f}")
+# print(f"   ℹ️ El precio ya era correcto: ${precio_total:,.0f}")
             
         return precio_total
         
     except Exception as e:
-        print(f"   ❌ ERROR recalculando precio: {str(e)}")
+# print(f"   ❌ ERROR recalculando precio: {str(e)}")
         return 0
 
 @login_required
@@ -8549,13 +8549,13 @@ def finalizar_reserva_nueva(request, reserva_id):
                                 try:
                                     importe_num = Decimal(concepto_importe.replace(',', ''))
                                     total_senia_anteriores += importe_num
-                                    print(f"💰 SEÑA ANTERIOR DETECTADA: Concepto {concepto_id} - ${importe_num}")
+# print(f"💰 SEÑA ANTERIOR DETECTADA: Concepto {concepto_id} - ${importe_num}")
                                 except:
                                     pass
         
-        print(f"📊 CÁLCULO PAGOS ANTERIORES:")
-        print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
-        print(f"   - Seña anteriores (conceptos 1,15,103): ${total_senia_anteriores}")
+# print(f"📊 CÁLCULO PAGOS ANTERIORES:")
+# print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
+# print(f"   - Seña anteriores (conceptos 1,15,103): ${total_senia_anteriores}")
         
         es_completar_pago = total_pagos_anteriores > 0
         
@@ -8570,11 +8570,11 @@ def finalizar_reserva_nueva(request, reserva_id):
         # El usuario decide cuánto de la seña pagar en este momento
         senia_pendiente = saldo_a_ocupar  # Por defecto el saldo pendiente, pero el usuario puede cambiarlo
         
-        print(f"🔧 CÁLCULO SALDO Y SEÑA:")
-        print(f"   - Precio Total: ${reserva.precio_total}")
-        print(f"   - Seña Anteriores (conceptos 1,15,103): ${total_senia_anteriores}")
-        print(f"   - Saldo a Ocupar: ${saldo_a_ocupar}")
-        print(f"   - Seña Pendiente: ${senia_pendiente}")
+# print(f"🔧 CÁLCULO SALDO Y SEÑA:")
+# print(f"   - Precio Total: ${reserva.precio_total}")
+# print(f"   - Seña Anteriores (conceptos 1,15,103): ${total_senia_anteriores}")
+# print(f"   - Saldo a Ocupar: ${saldo_a_ocupar}")
+# print(f"   - Seña Pendiente: ${senia_pendiente}")
         
         # ✅ DETECTAR SI EL DEPÓSITO YA FUE PAGADO (concepto 10)
         deposito_pagado = False
@@ -8591,12 +8591,12 @@ def finalizar_reserva_nueva(request, reserva_id):
         
         deposito_estado = 'pagado' if deposito_pagado else 'pendiente'
         
-        print(f"✅ CÁLCULO FINALIZAR RESERVA:")
-        print(f"   - Precio Total (Importe Locación): ${reserva.precio_total}")
-        print(f"   - Seña ya pagada: ${reserva.senia or 0}")
-        print(f"   - Saldo Pendiente: ${saldo_a_ocupar}")
-        print(f"   - Seña sugerida para este pago: ${senia_pendiente}")
-        print(f"   - Depósito: ${reserva.deposito_garantia or 0} ({deposito_estado})")
+# print(f"✅ CÁLCULO FINALIZAR RESERVA:")
+# print(f"   - Precio Total (Importe Locación): ${reserva.precio_total}")
+# print(f"   - Seña ya pagada: ${reserva.senia or 0}")
+# print(f"   - Saldo Pendiente: ${saldo_a_ocupar}")
+# print(f"   - Seña sugerida para este pago: ${senia_pendiente}")
+# print(f"   - Depósito: ${reserva.deposito_garantia or 0} ({deposito_estado})")
 
         
         # ✅ VARIABLES PARA EL TEMPLATE ORIGINAL (igual que finalizar_reserva)
@@ -8673,15 +8673,15 @@ def eliminar_disponibilidad(request, disponibilidad_id):
             
             reservas_futuras = reservas_existentes.filter(fecha_fin__gte=hoy)  # Reservas que no han terminado
             
-            print(f"🔍 VALIDANDO ELIMINACIÓN DE DISPONIBILIDAD {disponibilidad.id}")
-            print(f"📅 Disponibilidad: {disponibilidad.fecha_inicio} - {disponibilidad.fecha_fin}")
-            print(f"🏠 Propiedad: {disponibilidad.propiedad.id}")
-            print(f"📋 Reservas encontradas: {reservas_existentes.count()}")
-            print(f"📋 Reservas futuras/activas: {reservas_futuras.count()}")
+# print(f"🔍 VALIDANDO ELIMINACIÓN DE DISPONIBILIDAD {disponibilidad.id}")
+# print(f"📅 Disponibilidad: {disponibilidad.fecha_inicio} - {disponibilidad.fecha_fin}")
+# print(f"🏠 Propiedad: {disponibilidad.propiedad.id}")
+# print(f"📋 Reservas encontradas: {reservas_existentes.count()}")
+# print(f"📋 Reservas futuras/activas: {reservas_futuras.count()}")
             
             for reserva in reservas_existentes:
                 es_futura = reserva.fecha_fin >= hoy
-                print(f"   - Reserva {reserva.id}: {reserva.fecha_inicio} - {reserva.fecha_fin} ({reserva.estado}) {'[ACTIVA]' if es_futura else '[PASADA]'}")
+# print(f"   - Reserva {reserva.id}: {reserva.fecha_inicio} - {reserva.fecha_fin} ({reserva.estado}) {'[ACTIVA]' if es_futura else '[PASADA]'}")
             
             if reservas_futuras.exists():
                 # Si hay reservas futuras/activas, preparar la información para mostrar
@@ -8711,7 +8711,7 @@ def eliminar_disponibilidad(request, disponibilidad_id):
             fecha_fin = disponibilidad.fecha_fin.strftime('%d/%m/%Y')
             propiedad = disponibilidad.propiedad
             
-            print(f"🗑️ ELIMINANDO DISPONIBILIDAD: {fecha_inicio} al {fecha_fin} para {propiedad_direccion}")
+# print(f"🗑️ ELIMINANDO DISPONIBILIDAD: {fecha_inicio} al {fecha_fin} para {propiedad_direccion}")
             
             # ✅ NUEVO: Eliminar la disponibilidad Y reconstruir historial
             disponibilidad.delete()
@@ -8721,9 +8721,9 @@ def eliminar_disponibilidad(request, disponibilidad_id):
             reserva_ejemplo = Reserva.objects.filter(propiedad=propiedad).first()
             if reserva_ejemplo:
                 reserva_ejemplo.reconstruir_historial_cronologico()
-                print(f"✅ Historial reconstruido para propiedad {propiedad.id}")
+# print(f"✅ Historial reconstruido para propiedad {propiedad.id}")
             else:
-                print(f"⚠️ No se encontraron reservas para reconstruir historial de propiedad {propiedad.id}")
+# print(f"⚠️ No se encontraron reservas para reconstruir historial de propiedad {propiedad.id}")
             
             return JsonResponse({
                 'success': True,
@@ -8775,10 +8775,10 @@ def editar_disponibilidad(request, disponibilidad_id):
                 estado__in=['confirmada', 'pagada', 'confirmada_no_pagada']
             ).order_by('fecha_inicio')
             
-            print(f"🔍 EDITANDO DISPONIBILIDAD {disponibilidad.id}")
-            print(f"📅 Original: {disponibilidad.fecha_inicio} - {disponibilidad.fecha_fin}")
-            print(f"📅 Nueva: {nueva_fecha_inicio} - {nueva_fecha_fin}")
-            print(f"📋 Reservas en disponibilidad: {reservas_en_disponibilidad.count()}")
+# print(f"🔍 EDITANDO DISPONIBILIDAD {disponibilidad.id}")
+# print(f"📅 Original: {disponibilidad.fecha_inicio} - {disponibilidad.fecha_fin}")
+# print(f"📅 Nueva: {nueva_fecha_inicio} - {nueva_fecha_fin}")
+# print(f"📋 Reservas en disponibilidad: {reservas_en_disponibilidad.count()}")
             
             if reservas_en_disponibilidad.exists():
                 # HAY RESERVAS: Calcular límites permitidos
@@ -8791,9 +8791,9 @@ def editar_disponibilidad(request, disponibilidad_id):
                 # Límites para fecha de fin
                 limite_fin_minimo = ultima_reserva.fecha_fin  # No puede ser antes de la última reserva
                 
-                print(f"🚧 LÍMITES CALCULADOS:")
-                print(f"   Fecha inicio: puede ir hasta {limite_inicio_maximo} (primera reserva)")
-                print(f"   Fecha fin: debe ser desde {limite_fin_minimo} (última reserva) en adelante")
+# print(f"🚧 LÍMITES CALCULADOS:")
+# print(f"   Fecha inicio: puede ir hasta {limite_inicio_maximo} (primera reserva)")
+# print(f"   Fecha fin: debe ser desde {limite_fin_minimo} (última reserva) en adelante")
                 
                 # Validar que las nuevas fechas respeten los límites
                 if nueva_fecha_inicio > limite_inicio_maximo:
@@ -8955,8 +8955,8 @@ def configurar_numeracion_recibos(request, sucursal_id):
             
             usar_numeracion = request.POST.get('usar_numeracion_automatica') == 'on'
             
-            print(f"🔧 CONFIGURANDO NUMERACIÓN RECIBOS - Sucursal: {sucursal.nombre}")
-            print(f"   Usar numeración automática: {usar_numeracion}")
+# print(f"🔧 CONFIGURANDO NUMERACIÓN RECIBOS - Sucursal: {sucursal.nombre}")
+# print(f"   Usar numeración automática: {usar_numeracion}")
             
             if usar_numeracion:
                 prefijo = request.POST.get('prefijo_recibo', '').strip()
@@ -8968,9 +8968,9 @@ def configurar_numeracion_recibos(request, sucursal_id):
                 if not ultimo_numero:
                     ultimo_numero = '1'  # Valor por defecto
                 
-                print(f"   📋 DATOS RECIBIDOS:")
-                print(f"      - Prefijo: '{prefijo}'")
-                print(f"      - Último número: '{ultimo_numero}'")
+# print(f"   📋 DATOS RECIBIDOS:")
+# print(f"      - Prefijo: '{prefijo}'")
+# print(f"      - Último número: '{ultimo_numero}'")
                 
                 # Validaciones
                 try:
@@ -8992,14 +8992,14 @@ def configurar_numeracion_recibos(request, sucursal_id):
                 # Si ya tenía numeración automática y se está cambiando el prefijo/número
                 if sucursal.usar_numeracion_automatica:
                     if sucursal.prefijo_recibo != prefijo_int:
-                        print(f"   📝 Cambiando prefijo: {sucursal.prefijo_recibo} → {prefijo_int}")
+# print(f"   📝 Cambiando prefijo: {sucursal.prefijo_recibo} → {prefijo_int}")
                     if sucursal.ultimo_numero_recibo != ultimo_numero_int:
                         # Solo permitir incrementar el número, no decrementar
                         if ultimo_numero_int < sucursal.ultimo_numero_recibo:
                             messages.warning(request, 
                                 f'No se puede decrementar el contador. Último número usado: {sucursal.ultimo_numero_recibo}')
                             return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
-                        print(f"   📈 Ajustando número: {sucursal.ultimo_numero_recibo} → {ultimo_numero_int}")
+# print(f"   📈 Ajustando número: {sucursal.ultimo_numero_recibo} → {ultimo_numero_int}")
                 
                 # Actualizar configuración
                 sucursal.usar_numeracion_automatica = True
@@ -9009,19 +9009,19 @@ def configurar_numeracion_recibos(request, sucursal_id):
                 
                 proximo_numero = sucursal.obtener_proximo_numero_recibo()
                 messages.success(request, f'✅ Numeración automática configurada. Próximo recibo: {proximo_numero}')
-                print(f"   ✅ Configuración guardada. Próximo número: {proximo_numero}")
+# print(f"   ✅ Configuración guardada. Próximo número: {proximo_numero}")
                 
             else:
                 # Desactivar numeración automática
                 sucursal.usar_numeracion_automatica = False
                 sucursal.save()
                 messages.success(request, '✅ Numeración automática desactivada. Los recibos se ingresarán manualmente.')
-                print(f"   ✅ Numeración automática desactivada")
+# print(f"   ✅ Numeración automática desactivada")
             
             return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
             
         except Exception as e:
-            print(f"❌ Error al configurar numeración: {e}")
+# print(f"❌ Error al configurar numeración: {e}")
             messages.error(request, f'Error al guardar configuración: {str(e)}')
             return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
     
@@ -9053,8 +9053,8 @@ def recibo_contrato_24(request, contrato_id):
         
         # ✅ LÓGICA SIMPLIFICADA: SIEMPRE CREAR CONCEPTOS DETALLADOS
         if primer_movimiento:
-            print(f"🔍 DEBUG RECIBO: Movimiento encontrado ID={primer_movimiento.id}")
-            print(f"🔍 DEBUG RECIBO: Concepto: '{primer_movimiento.concepto}'")
+# print(f"🔍 DEBUG RECIBO: Movimiento encontrado ID={primer_movimiento.id}")
+# print(f"🔍 DEBUG RECIBO: Concepto: '{primer_movimiento.concepto}'")
             
             # Obtener valores del movimiento
             monto_efectivo = float(primer_movimiento.monto_efectivo or 0)
@@ -9063,38 +9063,38 @@ def recibo_contrato_24(request, contrato_id):
             monto_deposito = float(primer_movimiento.monto_deposito or 0)
             total_pagado = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
             
-            print(f"🔍 VALORES DEL MOVIMIENTO:")
-            print(f"  - monto_efectivo: ${monto_efectivo}")
-            print(f"  - monto_cheque: ${monto_cheque}")
-            print(f"  - monto_tarjeta: ${monto_tarjeta}")
-            print(f"  - monto_deposito: ${monto_deposito}")
-            print(f"  - TOTAL PAGADO: ${total_pagado}")
+# print(f"🔍 VALORES DEL MOVIMIENTO:")
+# print(f"  - monto_efectivo: ${monto_efectivo}")
+# print(f"  - monto_cheque: ${monto_cheque}")
+# print(f"  - monto_tarjeta: ${monto_tarjeta}")
+# print(f"  - monto_deposito: ${monto_deposito}")
+# print(f"  - TOTAL PAGADO: ${total_pagado}")
             
-            print(f"🔍 VALORES DEL CONTRATO:")
-            print(f"  - precio_mensual: ${contrato.precio_mensual}")
-            print(f"  - deposito_garantia: ${contrato.deposito_garantia}")
+# print(f"🔍 VALORES DEL CONTRATO:")
+# print(f"  - precio_mensual: ${contrato.precio_mensual}")
+# print(f"  - deposito_garantia: ${contrato.deposito_garantia}")
             
             # ✅ INTENTAR PRIMERO PARSEAR JSON (conceptos reales que agregaste)
-            print(f"🔍 CONTENIDO COMPLETO DEL CONCEPTO:")
-            print(f"'{primer_movimiento.concepto}'")
-            print(f"🔍 TIPO: {type(primer_movimiento.concepto)}")
-            print(f"🔍 LONGITUD: {len(primer_movimiento.concepto) if primer_movimiento.concepto else 0}")
+# print(f"🔍 CONTENIDO COMPLETO DEL CONCEPTO:")
+# print(f"'{primer_movimiento.concepto}'")
+# print(f"🔍 TIPO: {type(primer_movimiento.concepto)}")
+# print(f"🔍 LONGITUD: {len(primer_movimiento.concepto) if primer_movimiento.concepto else 0}")
             
             try:
                 import json
                 conceptos_data = json.loads(primer_movimiento.concepto)
-                print(f"🎯 CONCEPTOS JSON ENCONTRADOS: {len(conceptos_data)} conceptos")
-                print(f"🎯 DATOS COMPLETOS: {conceptos_data}")
+# print(f"🎯 CONCEPTOS JSON ENCONTRADOS: {len(conceptos_data)} conceptos")
+# print(f"🎯 DATOS COMPLETOS: {conceptos_data}")
                 
                 for i, concepto_data in enumerate(conceptos_data):
-                    print(f"  📋 CONCEPTO {i}: {concepto_data}")
+# print(f"  📋 CONCEPTO {i}: {concepto_data}")
                     importe_valor = float(concepto_data.get('importe', 0))
                     codigo = concepto_data.get('id', concepto_data.get('codigo', ''))
                     nombre = concepto_data.get('nombre', concepto_data.get('concepto', ''))
                     
-                    print(f"    - Importe: {importe_valor}")
-                    print(f"    - Código: '{codigo}'")
-                    print(f"    - Nombre: '{nombre}'")
+# print(f"    - Importe: {importe_valor}")
+# print(f"    - Código: '{codigo}'")
+# print(f"    - Nombre: '{nombre}'")
                     
                     if importe_valor > 0:  # Solo agregar conceptos con importe > 0
                         conceptos_contrato.append({
@@ -9104,23 +9104,23 @@ def recibo_contrato_24(request, contrato_id):
                             'importe': f"${importe_valor:,.2f}".replace(',', '.'),
                             'importe_numerico': importe_valor
                         })
-                        print(f"    ✅ CONCEPTO AGREGADO: {codigo} - {nombre} - ${importe_valor}")
+# print(f"    ✅ CONCEPTO AGREGADO: {codigo} - {nombre} - ${importe_valor}")
                     else:
-                        print(f"    ❌ CONCEPTO OMITIDO: Importe = {importe_valor}")
+# print(f"    ❌ CONCEPTO OMITIDO: Importe = {importe_valor}")
                 
                 if len(conceptos_contrato) > 0:
-                    print(f"🎉 USANDO CONCEPTOS REALES DEL JSON: {len(conceptos_contrato)} conceptos")
+# print(f"🎉 USANDO CONCEPTOS REALES DEL JSON: {len(conceptos_contrato)} conceptos")
                 else:
-                    print(f"⚠️ JSON parseado pero sin conceptos válidos")
+# print(f"⚠️ JSON parseado pero sin conceptos válidos")
                     
             except (json.JSONDecodeError, ValueError, TypeError) as e:
-                print(f"⚠️ NO SE PUDO PARSEAR JSON: {e}")
-                print(f"⚠️ CONTENIDO QUE FALLÓ: '{primer_movimiento.concepto[:100]}...'")
+# print(f"⚠️ NO SE PUDO PARSEAR JSON: {e}")
+# print(f"⚠️ CONTENIDO QUE FALLÓ: '{primer_movimiento.concepto[:100]}...'")
                 conceptos_contrato = []  # Limpiar cualquier concepto previo
             
             # ✅ FALLBACK: Si no hay conceptos del JSON, crear desde TODOS los movimientos
             if len(conceptos_contrato) == 0:
-                print(f"🔧 FALLBACK: Buscando conceptos en TODOS los movimientos del contrato...")
+# print(f"🔧 FALLBACK: Buscando conceptos en TODOS los movimientos del contrato...")
                 
                 # Buscar TODOS los movimientos de este contrato para encontrar conceptos pagados
                 import json
@@ -9130,17 +9130,17 @@ def recibo_contrato_24(request, contrato_id):
                     concepto__icontains=f'Contrato #{contrato.id}'
                 ).order_by('fecha')
                 
-                print(f"  🔍 Movimientos encontrados: {todos_movimientos.count()}")
+# print(f"  🔍 Movimientos encontrados: {todos_movimientos.count()}")
                 
                 conceptos_encontrados = {}  # Para evitar duplicados
                 
                 for mov in todos_movimientos:
-                    print(f"    📋 Revisando movimiento ID={mov.id}, Fecha={mov.fecha}")
+# print(f"    📋 Revisando movimiento ID={mov.id}, Fecha={mov.fecha}")
                     
                     try:
                         # Intentar parsear JSON
                         conceptos_mov = json.loads(mov.concepto)
-                        print(f"      ✅ JSON parseado: {len(conceptos_mov)} conceptos")
+# print(f"      ✅ JSON parseado: {len(conceptos_mov)} conceptos")
                         
                         for concepto in conceptos_mov:
                             concepto_id = str(concepto.get('id', concepto.get('codigo', '')))
@@ -9155,10 +9155,10 @@ def recibo_contrato_24(request, contrato_id):
                                     'importe': f"${concepto_importe:,.2f}".replace(',', '.'),
                                     'importe_numerico': concepto_importe
                                 }
-                                print(f"        ✅ CONCEPTO ENCONTRADO: {concepto_id} - {concepto_nombre} - ${concepto_importe}")
+# print(f"        ✅ CONCEPTO ENCONTRADO: {concepto_id} - {concepto_nombre} - ${concepto_importe}")
                             
                     except (json.JSONDecodeError, ValueError, TypeError):
-                        print(f"      ⚠️ No es JSON, revisando texto...")
+# print(f"      ⚠️ No es JSON, revisando texto...")
                         
                         # Fallback: buscar conceptos específicos en texto
                         concepto_texto = mov.concepto.lower()
@@ -9174,7 +9174,7 @@ def recibo_contrato_24(request, contrato_id):
                                 'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
                                 'importe_numerico': float(contrato.precio_mensual)
                             }
-                            print(f"        ✅ ALQUILER AGREGADO (precio mensual)")
+# print(f"        ✅ ALQUILER AGREGADO (precio mensual)")
                         
                         # 2. DEPÓSITO - verificar campo Y texto
                         if '10' not in conceptos_encontrados:
@@ -9185,7 +9185,7 @@ def recibo_contrato_24(request, contrato_id):
                             if 'deposito' in concepto_texto or 'concepto 10' in concepto_texto:
                                 deposito_valor = float(contrato.deposito_garantia or 0)
                                 deposito_detectado = True
-                                print(f"        🔍 DEPÓSITO detectado en texto")
+# print(f"        🔍 DEPÓSITO detectado en texto")
                             
                             if deposito_detectado and deposito_valor > 0:
                                 conceptos_encontrados['10'] = {
@@ -9195,7 +9195,7 @@ def recibo_contrato_24(request, contrato_id):
                                     'importe': f"${deposito_valor:,.2f}".replace(',', '.'),
                                     'importe_numerico': deposito_valor
                                 }
-                                print(f"        ✅ DEPÓSITO AGREGADO: ${deposito_valor}")
+# print(f"        ✅ DEPÓSITO AGREGADO: ${deposito_valor}")
                         
                         # 3. HONORARIOS - verificar campo Y texto Y diferencia
                         if '25' not in conceptos_encontrados:
@@ -9206,7 +9206,7 @@ def recibo_contrato_24(request, contrato_id):
                             if mov.honorarios and mov.honorarios > 0:
                                 honorarios_valor = float(mov.honorarios)
                                 honorarios_detectado = True
-                                print(f"        🔍 HONORARIOS detectado en campo: ${honorarios_valor}")
+# print(f"        🔍 HONORARIOS detectado en campo: ${honorarios_valor}")
                             
                             # Método 2: Texto del concepto
                             elif 'honorario' in concepto_texto or 'concepto 25' in concepto_texto:
@@ -9217,7 +9217,7 @@ def recibo_contrato_24(request, contrato_id):
                                 if diferencia > 0:
                                     honorarios_valor = diferencia
                                     honorarios_detectado = True
-                                    print(f"        🔍 HONORARIOS detectado en texto, calculado: ${honorarios_valor}")
+# print(f"        🔍 HONORARIOS detectado en texto, calculado: ${honorarios_valor}")
                             
                             if honorarios_detectado and honorarios_valor > 0:
                                 conceptos_encontrados['25'] = {
@@ -9227,7 +9227,7 @@ def recibo_contrato_24(request, contrato_id):
                                     'importe': f"${honorarios_valor:,.2f}".replace(',', '.'),
                                     'importe_numerico': honorarios_valor
                                 }
-                                print(f"        ✅ HONORARIOS AGREGADO: ${honorarios_valor}")
+# print(f"        ✅ HONORARIOS AGREGADO: ${honorarios_valor}")
                         
                         # 4. SELLADOS - verificar campo Y texto
                         if '26' not in conceptos_encontrados:
@@ -9238,12 +9238,12 @@ def recibo_contrato_24(request, contrato_id):
                             if mov.sellados and mov.sellados > 0:
                                 sellados_valor = float(mov.sellados)
                                 sellados_detectado = True
-                                print(f"        🔍 SELLADOS detectado en campo: ${sellados_valor}")
+# print(f"        🔍 SELLADOS detectado en campo: ${sellados_valor}")
                             
                             # Texto del concepto
                             elif 'sellado' in concepto_texto or 'concepto 26' in concepto_texto:
                                 sellados_detectado = True
-                                print(f"        🔍 SELLADOS detectado en texto")
+# print(f"        🔍 SELLADOS detectado en texto")
                             
                             if sellados_detectado and sellados_valor > 0:
                                 conceptos_encontrados['26'] = {
@@ -9253,23 +9253,23 @@ def recibo_contrato_24(request, contrato_id):
                                     'importe': f"${sellados_valor:,.2f}".replace(',', '.'),
                                     'importe_numerico': sellados_valor
                                 }
-                                print(f"        ✅ SELLADOS AGREGADO: ${sellados_valor}")
+# print(f"        ✅ SELLADOS AGREGADO: ${sellados_valor}")
                 
                 # Agregar conceptos encontrados al recibo
                 for concepto_id, concepto_data in conceptos_encontrados.items():
                     conceptos_contrato.append(concepto_data)
-                    print(f"  🎯 CONCEPTO AGREGADO AL RECIBO: {concepto_id} - {concepto_data['nombre']}")
+# print(f"  🎯 CONCEPTO AGREGADO AL RECIBO: {concepto_id} - {concepto_data['nombre']}")
                 
-                print(f"  📊 TOTAL CONCEPTOS ENCONTRADOS: {len(conceptos_contrato)}")
+# print(f"  📊 TOTAL CONCEPTOS ENCONTRADOS: {len(conceptos_contrato)}")
             
             # ✅ SI AÚN NO HAY CONCEPTOS, FORZAR CREACIÓN DETALLADA
             if len(conceptos_contrato) == 0:
-                print(f"🚨 FORZANDO CONCEPTOS DETALLADOS - NO MÁS GENÉRICOS")
-                print(f"🚨 DATOS PARA FORZAR:")
-                print(f"   - Total pagado: ${total_pagado}")
-                print(f"   - Precio mensual: ${contrato.precio_mensual}")
-                print(f"   - Primer movimiento honorarios: ${primer_movimiento.honorarios if primer_movimiento else 'N/A'}")
-                print(f"   - Primer movimiento sellados: ${primer_movimiento.sellados if primer_movimiento else 'N/A'}")
+# print(f"🚨 FORZANDO CONCEPTOS DETALLADOS - NO MÁS GENÉRICOS")
+# print(f"🚨 DATOS PARA FORZAR:")
+# print(f"   - Total pagado: ${total_pagado}")
+# print(f"   - Precio mensual: ${contrato.precio_mensual}")
+# print(f"   - Primer movimiento honorarios: ${primer_movimiento.honorarios if primer_movimiento else 'N/A'}")
+# print(f"   - Primer movimiento sellados: ${primer_movimiento.sellados if primer_movimiento else 'N/A'}")
                 
                 # FORZAR conceptos básicos siempre
                 # 1. ALQUILER (obligatorio)
@@ -9281,19 +9281,19 @@ def recibo_contrato_24(request, contrato_id):
                         'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
                         'importe_numerico': float(contrato.precio_mensual)
                     })
-                    print(f"  🔥 FORZADO FINAL: Alquiler ${contrato.precio_mensual}")
+# print(f"  🔥 FORZADO FINAL: Alquiler ${contrato.precio_mensual}")
                 
                 # 2. HONORARIOS (desde campo del movimiento O diferencia)
                 honorarios_valor = 0
                 if primer_movimiento and primer_movimiento.honorarios and primer_movimiento.honorarios > 0:
                     honorarios_valor = float(primer_movimiento.honorarios)
-                    print(f"  💰 HONORARIOS desde campo movimiento: ${honorarios_valor}")
+# print(f"  💰 HONORARIOS desde campo movimiento: ${honorarios_valor}")
                 else:
                     # Calcular como diferencia
                     diferencia_final = total_pagado - float(contrato.precio_mensual or 0)
                     if diferencia_final > 0:
                         honorarios_valor = diferencia_final
-                        print(f"  💰 HONORARIOS calculado como diferencia: ${honorarios_valor}")
+# print(f"  💰 HONORARIOS calculado como diferencia: ${honorarios_valor}")
                 
                 if honorarios_valor > 0:
                     conceptos_contrato.append({
@@ -9303,7 +9303,7 @@ def recibo_contrato_24(request, contrato_id):
                         'importe': f"${honorarios_valor:,.2f}".replace(',', '.'),
                         'importe_numerico': honorarios_valor
                     })
-                    print(f"  🔥 FORZADO FINAL: Honorarios ${honorarios_valor}")
+# print(f"  🔥 FORZADO FINAL: Honorarios ${honorarios_valor}")
                 
                 # 3. SELLADOS (desde campo del movimiento)
                 if primer_movimiento and primer_movimiento.sellados and primer_movimiento.sellados > 0:
@@ -9315,14 +9315,14 @@ def recibo_contrato_24(request, contrato_id):
                         'importe': f"${sellados_valor:,.2f}".replace(',', '.'),
                         'importe_numerico': sellados_valor
                     })
-                    print(f"  🔥 FORZADO FINAL: Sellados ${sellados_valor}")
+# print(f"  🔥 FORZADO FINAL: Sellados ${sellados_valor}")
                 
-                print(f"🔥 CONCEPTOS FORZADOS FINALES: {len(conceptos_contrato)}")
+# print(f"🔥 CONCEPTOS FORZADOS FINALES: {len(conceptos_contrato)}")
             
-            print(f"🎯 TOTAL CONCEPTOS FINALES: {len(conceptos_contrato)}")
+# print(f"🎯 TOTAL CONCEPTOS FINALES: {len(conceptos_contrato)}")
         else:
             # Si no hay movimientos, crear conceptos básicos (NO genéricos)
-            print(f"⚠️ NO HAY MOVIMIENTOS - CREANDO CONCEPTOS BÁSICOS")
+# print(f"⚠️ NO HAY MOVIMIENTOS - CREANDO CONCEPTOS BÁSICOS")
             precio_mensual_valor = float(contrato.precio_mensual or 0)
             if precio_mensual_valor > 0:
                 conceptos_contrato.append({
@@ -9332,7 +9332,7 @@ def recibo_contrato_24(request, contrato_id):
                     'importe': f"${precio_mensual_valor:,.2f}".replace(',', '.'),
                     'importe_numerico': precio_mensual_valor
                 })
-                print(f"  ✅ SIN MOVIMIENTO: Alquiler ${precio_mensual_valor}")
+# print(f"  ✅ SIN MOVIMIENTO: Alquiler ${precio_mensual_valor}")
         
         # Obtener valores de honorarios y sellados del movimiento (si existen)
         from decimal import Decimal
@@ -9376,7 +9376,7 @@ def recibo_contrato_24(request, contrato_id):
                 with open(logo_path, 'rb') as logo_file:
                     logo_base64 = base64.b64encode(logo_file.read()).decode('utf-8')
         except Exception as e:
-            print(f"Error al cargar logo: {e}")
+# print(f"Error al cargar logo: {e}")
         
         # Función para convertir número a texto (básica)
         def numero_a_texto(numero):

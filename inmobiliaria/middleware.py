@@ -22,6 +22,7 @@ class CloseDBConnectionMiddleware:
             # ✅ Cerrar conexión explícitamente al final del request
             if connection.connection is not None:
                 connection.close()
+                # print(f"🔌 Conexión DB cerrada para request: {request.path}")  # Comentado para reducir overhead
         
         return response
 
