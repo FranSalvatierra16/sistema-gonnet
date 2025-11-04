@@ -298,6 +298,13 @@ class PrecioForm(forms.ModelForm):
     class Meta:
         model = Precio
         fields = ['tipo_precio','precio_toma', 'precio_dia_toma', 'precio_por_dia', 'precio_total', 'ajuste_porcentaje']
+        widgets = {
+            'precio_toma': forms.TextInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'precio_dia_toma': forms.TextInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'precio_por_dia': forms.TextInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'precio_total': forms.TextInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'ajuste_porcentaje': forms.TextInput(attrs={'class': 'form-control', 'step': '0.01'}),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

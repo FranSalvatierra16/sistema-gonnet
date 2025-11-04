@@ -142,30 +142,15 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log(`   ⏭️ Saltando (valor es 0 o vacío)`);
         }
         
-        // Evento al escribir
+        // Evento al escribir - simplificado sin manejo de cursor
         input.addEventListener('input', function(e) {
-            const cursorPos = this.selectionStart;
-            const valorAnterior = this.value;
             const valorSinFormato = desformatearNumero(this.value);
             const valorFormateado = formatearNumero(valorSinFormato);
             
-            // Calcular nueva posición del cursor
-            let nuevaPosicion = cursorPos;
-            const puntosAntes = (valorAnterior.substring(0, cursorPos).match(/\./g) || []).length;
-            const puntosDespues = (valorFormateado.substring(0, cursorPos).match(/\./g) || []).length;
-            
-            if (puntosDespues > puntosAntes) {
-                // Se agregó un punto antes del cursor, mover cursor adelante
-                nuevaPosicion = cursorPos + (puntosDespues - puntosAntes);
-            } else if (puntosDespues < puntosAntes) {
-                // Se quitó un punto antes del cursor, mover cursor atrás
-                nuevaPosicion = Math.max(0, cursorPos - (puntosAntes - puntosDespues));
+            // Solo actualizar si cambió
+            if (this.value !== valorFormateado) {
+                this.value = valorFormateado;
             }
-            
-            this.value = valorFormateado;
-            
-            // Restaurar posición del cursor
-            this.setSelectionRange(nuevaPosicion, nuevaPosicion);
         });
     });
     
