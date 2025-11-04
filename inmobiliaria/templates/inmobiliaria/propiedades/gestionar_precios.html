@@ -209,12 +209,37 @@ document.addEventListener('DOMContentLoaded', function() {
         const inputPorDia = fila.querySelector('input[name$="precio_por_dia"]');
         const inputTotal = fila.querySelector('input[name$="precio_total"]');
         const inputAjuste = fila.querySelector('input[name$="ajuste_porcentaje"]');
+        const inputToma = fila.querySelector('input[name$="precio_toma"]');
+        const inputDiaToma = fila.querySelector('input[name$="precio_dia_toma"]');
         const selectTipo = fila.querySelector('select[name$="tipo_precio"]');
         
         if (!inputPorDia || !inputTotal || !selectTipo) {
             console.warn(`⚠️ Fila ${index}: Faltan campos necesarios`);
             return;
         }
+        
+        // ✅ FORMATEAR VALORES INICIALES al cargar la página
+        [inputPorDia, inputTotal, inputAjuste, inputToma, inputDiaToma].forEach(input => {
+            if (input && input.value) {
+                const valorSinFormato = desformatearNumero(input.value);
+                input.value = formatearNumero(valorSinFormato);
+            }
+        });
+        
+        // ✅ FORMATEAR mientras el usuario escribe (para todos los campos de precio)
+        [inputPorDia, inputTotal, inputAjuste, inputToma, inputDiaToma].forEach(input => {
+            if (input) {
+                input.addEventListener('input', function(e) {
+                    const valorSinFormato = desformatearNumero(this.value);
+                    const valorFormateado = formatearNumero(valorSinFormato);
+                    
+                    // Solo actualizar si cambió (evita loops infinitos)
+                    if (this.value !== valorFormateado) {
+                        this.value = valorFormateado;
+                    }
+                });
+            }
+        });
         
         // Marcar si el usuario editó manualmente precio_total
         inputTotal.addEventListener('input', function() {
