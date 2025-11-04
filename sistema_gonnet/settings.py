@@ -104,6 +104,13 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD', 'it2cxhq71iiubhlj'),
         'HOST': os.environ.get('DB_HOST', 'tj5iv8piornf713y.cbetxkdyhwsb.us-east-1.rds.amazonaws.com'),
         'PORT': os.environ.get('DB_PORT', '3306'),
+        # ✅ Configuración para evitar "max_user_connections exceeded"
+        'CONN_MAX_AGE': 60,  # Reutilizar conexiones por 60 segundos
+        'CONN_HEALTH_CHECKS': True,  # Verificar que las conexiones estén vivas
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            'charset': 'utf8mb4',
+        },
     }
 }
 
@@ -117,7 +124,11 @@ EMAIL_HOST_PASSWORD = 'mfzt dvrp rqmb cbek'  # Contraseña de aplicación de Goo
 
 # Configuración para Heroku
 if 'DATABASE_URL' in os.environ:
-    DATABASES['default'] = dj_database_url.config(conn_max_age=600, ssl_require=True)
+    DATABASES['default'] = dj_database_url.config(
+        conn_max_age=60,  # Reutilizar conexiones por 60 segundos (reducido de 600)
+        ssl_require=True,
+        conn_health_checks=True  # Verificar que las conexiones estén vivas
+    )
 
 # Custom user model
 AUTH_USER_MODEL = 'inmobiliaria.Vendedor'
