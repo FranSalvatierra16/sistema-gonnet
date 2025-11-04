@@ -806,7 +806,7 @@ class Precio(models.Model):
     # Precios por día
 
     precio_toma = models.DecimalField(
-        max_digits=10, 
+        max_digits=15, 
         decimal_places=2, 
         blank=True, 
         null=True,
@@ -815,14 +815,14 @@ class Precio(models.Model):
     
     # Precios por toma
     precio_dia_toma = models.DecimalField(
-        max_digits=10, 
+        max_digits=15, 
         decimal_places=2, 
         blank=True, 
         null=True,
         verbose_name="Precio dia: Toma"
     )
     precio_por_dia = models.DecimalField(
-        max_digits=10, 
+        max_digits=15, 
         decimal_places=2, 
         blank=True, 
         null=True,
@@ -833,7 +833,7 @@ class Precio(models.Model):
   
     # Precio total (calculado)
     precio_total = models.DecimalField(
-        max_digits=10, 
+        max_digits=15, 
         decimal_places=2, 
         blank=True, 
         null=True,
