@@ -1811,6 +1811,7 @@ def buscar_propiedades_reserva(request):
                 # ✅ CÁLCULO POR NOCHES: Cada noche usa el precio del día de LLEGADA
                 # Ejemplo: 29/12→30/12 usa precio del 30/12 (2da dic)
                 #          31/12→01/01 usa precio del 01/01 (1ra ene)
+                precio_mas_caro = 0
                 
                 for noche in range(noches_reserva):
                     # Para cada noche, usar el precio del día de LLEGADA (día siguiente)
@@ -1840,11 +1841,16 @@ def buscar_propiedades_reserva(request):
                         precio_dia = 0
 # print(f"❌ Noche {noche+1}: {tipo_precio} = NO EXISTE")
 
+                    # Rastrear el día más caro
+                    if precio_dia > precio_mas_caro:
+                        precio_mas_caro = precio_dia
+
                     precio_total += precio_dia
 
-                precio_final_calculado = precio_total
+                # ✅ AGREGAR DÍA DE COMISIÓN (día más caro)
+                precio_final_calculado = precio_total + precio_mas_caro
                 propiedad.precio_total_reserva = precio_final_calculado
-# print(f"🔥 PROPIEDAD {propiedad.id}: PRECIO FINAL={precio_final_calculado}")
+# print(f"🔥 PROPIEDAD {propiedad.id}: suma_noches=${precio_total}, dia_mas_caro=${precio_mas_caro}, FINAL=${precio_final_calculado}")
 
                 # Calcular la disponibilidad real considerando las reservas existentes
                 disponibilidad_calculada = calcular_disponibilidad_real(
@@ -7276,6 +7282,7 @@ def buscar_propiedades(request):
             # Ejemplo: 29/12→30/12 usa precio del 30/12 (2da dic)
             #          31/12→01/01 usa precio del 01/01 (1ra ene)
                 precio_total = 0
+                precio_mas_caro = 0
 # print('fecha de inicio',fecha_inicio)
 # print('fecha de fin',fecha_fin)
                 # Calcular noches de reserva
@@ -7314,15 +7321,20 @@ def buscar_propiedades(request):
                         if precio_obj.ajuste_porcentaje != 0:
                             precio_dia *= (1 - precio_obj.ajuste_porcentaje / 100)
                         
+                        # Rastrear el día más caro
+                        if precio_dia > precio_mas_caro:
+                            precio_mas_caro = precio_dia
+                        
                         precio_total += precio_dia
 # print(f"📅 Noche {noche+1} ({fecha_inicio + timedelta(noche)}→{dia_llegada.strftime('%d/%m')}): {tipo_precio} = ${precio_dia:,.0f} - Total: ${precio_total:,.0f}")
                     except Precio.DoesNotExist:
                         pass  # ✅ Bloque vacío
 # print(f"📅 Noche {noche+1}: {tipo_precio} = $0 (sin precio configurado)")
 
-                # ✅ ASIGNAR EL PRECIO CALCULADO
-# print(f"🔥 PRECIO FINAL CALCULADO para propiedad {propiedad.id}: ${precio_total}")
-                propiedad.precio_total_reserva = precio_total
+                # ✅ AGREGAR DÍA DE COMISIÓN (día más caro)
+                precio_final_calculado = precio_total + precio_mas_caro
+# print(f"🔥 PRECIO FINAL: suma_noches=${precio_total}, dia_comision=${precio_mas_caro}, TOTAL=${precio_final_calculado}")
+                propiedad.precio_total_reserva = precio_final_calculado
                 
                 # ✅ Las fechas de disponibilidad ya fueron calculadas dinámicamente en el primer bucle
                 # No sobrescribir con las fechas de búsqueda
@@ -8538,6 +8550,7 @@ def recalcular_precio_reserva(reserva):
         # Ejemplo: 29/12→30/12 usa precio del 30/12 (2da dic)
         #          31/12→01/01 usa precio del 01/01 (1ra ene)
         precio_total = 0
+        precio_mas_caro = 0
         
         for noche in range(noches_reserva):
             # Para cada noche, usar el precio del día de LLEGADA (día siguiente)
@@ -8567,9 +8580,16 @@ def recalcular_precio_reserva(reserva):
                 precio_dia = 0
 # print(f"   ❌ Noche {noche+1}: {tipo_precio} = NO EXISTE")
 
+            # Rastrear el día más caro
+            if precio_dia > precio_mas_caro:
+                precio_mas_caro = precio_dia
+
             precio_total += precio_dia
         
-# print(f"   💰 PRECIO TOTAL RECALCULADO: ${precio_total:,.0f}")
+        # ✅ AGREGAR DÍA DE COMISIÓN (día más caro)
+        precio_total = precio_total + precio_mas_caro
+        
+# print(f"   💰 PRECIO TOTAL RECALCULADO: suma_noches + dia_comision = ${precio_total:,.0f}")
         
         # Actualizar la reserva si el precio es diferente
         if precio_total != reserva.precio_total:
