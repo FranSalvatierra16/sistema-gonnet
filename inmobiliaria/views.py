@@ -1808,46 +1808,43 @@ def buscar_propiedades_reserva(request):
                 
 
                 
-                # ✅ LÓGICA ORIGINAL QUE FUNCIONABA (copiada exacta de views_temp.py)
-                precio_mas_caro = 0
-                primer_dia = True
+                # ✅ CÁLCULO POR NOCHES: Cada noche usa el precio del día de LLEGADA
+                # Ejemplo: 29/12→30/12 usa precio del 30/12 (2da dic)
+                #          31/12→01/01 usa precio del 01/01 (1ra ene)
                 
-                for single_date in (fecha_inicio + timedelta(n) for n in range(noches_reserva)):
-                    # Determinar el tipo de precio según la fecha
+                for noche in range(noches_reserva):
+                    # Para cada noche, usar el precio del día de LLEGADA (día siguiente)
+                    dia_llegada = fecha_inicio + timedelta(noche + 1)
+                    
+                    # Determinar el tipo de precio según la fecha de llegada
                     tipo_precio = None
-                    if single_date.month == 1:  # Enero
-                        tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
-                    elif single_date.month == 2:  # Febrero
-                        tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day <= 15 else 'QUINCENA_2_FEBRERO'
-                    elif single_date.month == 3:  # Marzo
-                        tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
-                    elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
+                    if dia_llegada.month == 1:  # Enero
+                        tipo_precio = 'QUINCENA_1_ENERO' if dia_llegada.day <= 15 else 'QUINCENA_2_ENERO'
+                    elif dia_llegada.month == 2:  # Febrero
+                        tipo_precio = 'QUINCENA_1_FEBRERO' if dia_llegada.day <= 15 else 'QUINCENA_2_FEBRERO'
+                    elif dia_llegada.month == 3:  # Marzo
+                        tipo_precio = 'QUINCENA_1_MARZO' if dia_llegada.day <= 15 else 'QUINCENA_2_MARZO'
+                    elif dia_llegada.month == 7:  # Julio (Vacaciones de Invierno)
                         tipo_precio = 'VACACIONES_INVIERNO'
-                    elif single_date.month == 12:  # Diciembre
-                        tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
+                    elif dia_llegada.month == 12:  # Diciembre
+                        tipo_precio = 'QUINCENA_1_DICIEMBRE' if dia_llegada.day <= 15 else 'QUINCENA_2_DICIEMBRE'
                     else:
-                        tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
+                        tipo_precio = 'TEMPORADA_BAJA'
 
                     # Obtener el precio para la propiedad y la quincena correspondiente
                     try:
                         precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
                         precio_dia = precio.precio_por_dia or 0
-# print(f"✅ {single_date}: {tipo_precio} = ${precio_dia}")
+# print(f"✅ Noche {noche+1} ({fecha_inicio + timedelta(noche)}→{dia_llegada}): {tipo_precio} = ${precio_dia}")
                     except Precio.DoesNotExist:
                         precio_dia = 0
-# print(f"❌ {single_date}: {tipo_precio} = NO EXISTE")
+# print(f"❌ Noche {noche+1}: {tipo_precio} = NO EXISTE")
 
-                    if precio_dia > precio_mas_caro:
-                        precio_mas_caro = precio_dia
+                    precio_total += precio_dia
 
-                    if not primer_dia:
-                        precio_total += precio_dia
-                    else:
-                        primer_dia = False
-
-                precio_final_calculado = precio_total + precio_mas_caro
+                precio_final_calculado = precio_total
                 propiedad.precio_total_reserva = precio_final_calculado
-# print(f"🔥 PROPIEDAD {propiedad.id}: precio_total={precio_total}, precio_mas_caro={precio_mas_caro}, FINAL={precio_final_calculado}")
+# print(f"🔥 PROPIEDAD {propiedad.id}: PRECIO FINAL={precio_final_calculado}")
 
                 # Calcular la disponibilidad real considerando las reservas existentes
                 disponibilidad_calculada = calcular_disponibilidad_real(
@@ -7275,32 +7272,37 @@ def buscar_propiedades(request):
                 propiedad.estado_reserva = 'disponible'
 # print(f"   ✅ DISPONIBLE: Sin reservas para mostrar en rojo")
 
-            # Calcular el precio total según las fechas seleccionadas
+            # ✅ CÁLCULO POR NOCHES: Cada noche usa el precio del día de LLEGADA
+            # Ejemplo: 29/12→30/12 usa precio del 30/12 (2da dic)
+            #          31/12→01/01 usa precio del 01/01 (1ra ene)
                 precio_total = 0
 # print('fecha de inicio',fecha_inicio)
 # print('fecha de fin',fecha_fin)
-            # Para cálculos de precio: usar días completos (lógica original)
-                dias_reserva = (fecha_fin - fecha_inicio).days + 1
+                # Calcular noches de reserva
+                noches_reserva = (fecha_fin - fecha_inicio).days
 
 # print(f"🔥 INICIANDO CÁLCULO para propiedad {propiedad.id} del {fecha_inicio} al {fecha_fin}")
-# print(f"🔥 Días a calcular: {dias_reserva}")
+# print(f"🔥 Noches a calcular: {noches_reserva}")
                 
-                # Calcular día por día usando tu función para determinar temporadas
-                for single_date in (fecha_inicio + timedelta(n) for n in range(dias_reserva)):
-                    # Determinar el tipo de precio según la fecha
+                # Calcular noche por noche
+                for noche in range(noches_reserva):
+                    # Para cada noche, usar el precio del día de LLEGADA (día siguiente)
+                    dia_llegada = fecha_inicio + timedelta(noche + 1)
+                    
+                    # Determinar el tipo de precio según el día de llegada
                     tipo_precio = None
-                    if single_date.month == 1:  # Enero
-                        tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
-                    elif single_date.month == 2:  # Febrero
-                        tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day < 15 else 'QUINCENA_2_FEBRERO'
-                    elif single_date.month == 3:  # Marzo
-                        tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
-                    elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
+                    if dia_llegada.month == 1:  # Enero
+                        tipo_precio = 'QUINCENA_1_ENERO' if dia_llegada.day <= 15 else 'QUINCENA_2_ENERO'
+                    elif dia_llegada.month == 2:  # Febrero
+                        tipo_precio = 'QUINCENA_1_FEBRERO' if dia_llegada.day <= 15 else 'QUINCENA_2_FEBRERO'
+                    elif dia_llegada.month == 3:  # Marzo
+                        tipo_precio = 'QUINCENA_1_MARZO' if dia_llegada.day <= 15 else 'QUINCENA_2_MARZO'
+                    elif dia_llegada.month == 7:  # Julio (Vacaciones de Invierno)
                         tipo_precio = 'VACACIONES_INVIERNO'
-                    elif single_date.month == 12:  # Diciembre
-                        tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
+                    elif dia_llegada.month == 12:  # Diciembre
+                        tipo_precio = 'QUINCENA_1_DICIEMBRE' if dia_llegada.day <= 15 else 'QUINCENA_2_DICIEMBRE'
                     else:
-                        tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
+                        tipo_precio = 'TEMPORADA_BAJA'
 
                     # Obtener el precio por día para esta temporada
                     try:
@@ -7313,19 +7315,12 @@ def buscar_propiedades(request):
                             precio_dia *= (1 - precio_obj.ajuste_porcentaje / 100)
                         
                         precio_total += precio_dia
-# print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = ${precio_dia:,.0f} - Total acumulado: ${precio_total:,.0f}")
+# print(f"📅 Noche {noche+1} ({fecha_inicio + timedelta(noche)}→{dia_llegada.strftime('%d/%m')}): {tipo_precio} = ${precio_dia:,.0f} - Total: ${precio_total:,.0f}")
                     except Precio.DoesNotExist:
                         pass  # ✅ Bloque vacío
-# print(f"📅 {single_date.strftime('%d/%m')}: {tipo_precio} = $0 (sin precio configurado)")
-# print(f"🚨 PRECIO FALTANTE - Propiedad {propiedad.id} NO tiene precio para {tipo_precio}")
-                        # Mostrar qué precios SÍ tiene esta propiedad
-                        precios_existentes = Precio.objects.filter(propiedad=propiedad)
-# print(f"🔍 Precios configurados para esta propiedad: {precios_existentes.count()}")
-                        for p in precios_existentes:
-                            pass  # ✅ Bloque vacío
-# print(f"   - {p.tipo_precio}: ${p.precio_por_dia}")
+# print(f"📅 Noche {noche+1}: {tipo_precio} = $0 (sin precio configurado)")
 
-                # ✅ ASIGNAR EL PRECIO CALCULADO CON TU FUNCIÓN
+                # ✅ ASIGNAR EL PRECIO CALCULADO
 # print(f"🔥 PRECIO FINAL CALCULADO para propiedad {propiedad.id}: ${precio_total}")
                 propiedad.precio_total_reserva = precio_total
                 
@@ -8539,43 +8534,40 @@ def recalcular_precio_reserva(reserva):
         noches_reserva = (fecha_fin - fecha_inicio).days
 # print(f"   📅 Fechas: {fecha_inicio} al {fecha_fin} ({noches_reserva} noches)")
         
-        # ✅ LÓGICA ORIGINAL QUE FUNCIONABA (copiada exacta de views_temp.py)
+        # ✅ CÁLCULO POR NOCHES: Cada noche usa el precio del día de LLEGADA
+        # Ejemplo: 29/12→30/12 usa precio del 30/12 (2da dic)
+        #          31/12→01/01 usa precio del 01/01 (1ra ene)
         precio_total = 0
-        precio_mas_caro = 0
-        primer_dia = True
         
-        for single_date in (fecha_inicio + timedelta(n) for n in range(noches_reserva)):
-            # Determinar el tipo de precio según la fecha
+        for noche in range(noches_reserva):
+            # Para cada noche, usar el precio del día de LLEGADA (día siguiente)
+            dia_llegada = fecha_inicio + timedelta(noche + 1)
+            
+            # Determinar el tipo de precio según la fecha de llegada
             tipo_precio = None
-            if single_date.month == 1:  # Enero
-                tipo_precio = 'QUINCENA_1_ENERO' if single_date.day <= 15 else 'QUINCENA_2_ENERO'
-            elif single_date.month == 2:  # Febrero
-                tipo_precio = 'QUINCENA_1_FEBRERO' if single_date.day <= 15 else 'QUINCENA_2_FEBRERO'
-            elif single_date.month == 3:  # Marzo
-                tipo_precio = 'QUINCENA_1_MARZO' if single_date.day <= 15 else 'QUINCENA_2_MARZO'
-            elif single_date.month == 7:  # Julio (Vacaciones de Invierno)
+            if dia_llegada.month == 1:  # Enero
+                tipo_precio = 'QUINCENA_1_ENERO' if dia_llegada.day <= 15 else 'QUINCENA_2_ENERO'
+            elif dia_llegada.month == 2:  # Febrero
+                tipo_precio = 'QUINCENA_1_FEBRERO' if dia_llegada.day <= 15 else 'QUINCENA_2_FEBRERO'
+            elif dia_llegada.month == 3:  # Marzo
+                tipo_precio = 'QUINCENA_1_MARZO' if dia_llegada.day <= 15 else 'QUINCENA_2_MARZO'
+            elif dia_llegada.month == 7:  # Julio (Vacaciones de Invierno)
                 tipo_precio = 'VACACIONES_INVIERNO'
-            elif single_date.month == 12:  # Diciembre
-                tipo_precio = 'QUINCENA_1_DICIEMBRE' if single_date.day <= 15 else 'QUINCENA_2_DICIEMBRE'
+            elif dia_llegada.month == 12:  # Diciembre
+                tipo_precio = 'QUINCENA_1_DICIEMBRE' if dia_llegada.day <= 15 else 'QUINCENA_2_DICIEMBRE'
             else:
-                tipo_precio = 'TEMPORADA_BAJA'  # Asumir temporada baja para otros meses
+                tipo_precio = 'TEMPORADA_BAJA'
 
             # Obtener el precio para la propiedad y la quincena correspondiente
             try:
                 precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
                 precio_dia = precio.precio_por_dia or 0
+# print(f"   ✅ Noche {noche+1} ({fecha_inicio + timedelta(noche)}→{dia_llegada}): {tipo_precio} = ${precio_dia}")
             except Precio.DoesNotExist:
                 precio_dia = 0
+# print(f"   ❌ Noche {noche+1}: {tipo_precio} = NO EXISTE")
 
-            if precio_dia > precio_mas_caro:
-                precio_mas_caro = precio_dia
-
-            if not primer_dia:
-                precio_total += precio_dia
-            else:
-                primer_dia = False
-        
-        precio_total = precio_total + precio_mas_caro
+            precio_total += precio_dia
         
 # print(f"   💰 PRECIO TOTAL RECALCULADO: ${precio_total:,.0f}")
         
