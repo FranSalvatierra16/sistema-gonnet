@@ -5,6 +5,25 @@ from django.contrib.auth import logout
 from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
+from django.db import connection
+
+class CloseDBConnectionMiddleware:
+    """
+    Middleware para cerrar conexiones de base de datos al final de cada request.
+    Previene el error: max_user_connections exceeded
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        try:
+            response = self.get_response(request)
+        finally:
+            # ✅ Cerrar conexión explícitamente al final del request
+            if connection.connection is not None:
+                connection.close()
+        
+        return response
 
 class SucursalMiddleware:
     def __init__(self, get_response):
