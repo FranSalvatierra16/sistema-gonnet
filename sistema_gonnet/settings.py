@@ -106,13 +106,16 @@ DATABASES = {
         'HOST': os.environ.get('DB_HOST', 'tj5iv8piornf713y.cbetxkdyhwsb.us-east-1.rds.amazonaws.com'),
         'PORT': os.environ.get('DB_PORT', '3306'),
 
-        # ✅ FIX: Reutilizar conexiones por 1 minuto (reduce carga en MySQL)
-        'CONN_MAX_AGE': 60,
+        # ✅ FIX URGENTE: Cerrar conexiones inmediatamente (evita max_user_connections)
+        'CONN_MAX_AGE': 0,
+        'CONN_HEALTH_CHECKS': False,  # No hacer queries extra
 
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
             'charset': 'utf8mb4',
             'connect_timeout': 10,
+            'read_timeout': 30,
+            'write_timeout': 30,
         },
     }
 }
@@ -128,14 +131,17 @@ EMAIL_HOST_PASSWORD = 'mfzt dvrp rqmb cbek'  # Contraseña de aplicación de Goo
 # Configuración para Heroku
 if 'DATABASE_URL' in os.environ:
     DATABASES['default'] = dj_database_url.config(
-        conn_max_age=60,  # ✅ Reutilizar conexiones por 1 minuto (reduce carga en MySQL)
+        conn_max_age=0,  # ✅ FIX URGENTE: Cerrar conexiones inmediatamente
         ssl_require=True
     )
     # Agregar opciones adicionales
+    DATABASES['default']['CONN_HEALTH_CHECKS'] = False  # No hacer queries extra
     DATABASES['default']['OPTIONS'] = {
         'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
         'charset': 'utf8mb4',
         'connect_timeout': 10,
+        'read_timeout': 30,
+        'write_timeout': 30,
     }
 
 # Custom user model
