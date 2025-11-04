@@ -128,7 +128,7 @@ EMAIL_HOST_PASSWORD = 'mfzt dvrp rqmb cbek'  # Contraseña de aplicación de Goo
 # Configuración para Heroku
 if 'DATABASE_URL' in os.environ:
     DATABASES['default'] = dj_database_url.config(
-        conn_max_age=0,  # ✅ Cerrar conexiones inmediatamente (sin pool)
+        conn_max_age=60,  # ✅ Reutilizar conexiones por 1 minuto (reduce carga en MySQL)
         ssl_require=True
     )
     # Agregar opciones adicionales
