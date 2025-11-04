@@ -248,12 +248,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 const tipoPrecio = selectTipo.value;
                 
+                console.log(`🔍 DEBUG Fila ${index}:`);
+                console.log(`   - valorPorDiaFormateado: "${valorPorDiaFormateado}"`);
+                console.log(`   - valorPorDiaSinFormato: "${valorPorDiaSinFormato}"`);
+                console.log(`   - precioPorDia (parseFloat): ${precioPorDia}`);
+                console.log(`   - tipoPrecio: ${tipoPrecio}`);
+                console.log(`   - dias: ${diasPorTipo[tipoPrecio] || 1}`);
+                
                 const precioTotal = calcularPrecioTotal(precioPorDia, tipoPrecio, ajuste);
                 
-                // ✅ FORMATEAR el resultado antes de mostrarlo
-                inputTotal.value = formatearNumero(Math.round(precioTotal).toString());
+                console.log(`   - precioTotal calculado: ${precioTotal}`);
+                console.log(`   - Math.round(precioTotal): ${Math.round(precioTotal)}`);
                 
-                console.log(`🔢 Fila ${index}: Recalculado automáticamente ${precioPorDia} × ${diasPorTipo[tipoPrecio] || 1} = ${precioTotal}`);
+                // ✅ FORMATEAR el resultado antes de mostrarlo
+                const valorFinal = formatearNumero(Math.round(precioTotal).toString());
+                console.log(`   - valorFinal formateado: "${valorFinal}"`);
+                
+                inputTotal.value = valorFinal;
+                
+                console.log(`✅ Fila ${index}: Recalculado ${precioPorDia} × ${diasPorTipo[tipoPrecio] || 1} = ${precioTotal}`);
             } else {
                 console.log(`⏭️ Fila ${index}: Saltando recalculo (editado manualmente)`);
             }
