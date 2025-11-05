@@ -284,6 +284,30 @@ function procesarMovimiento() {
     // Crear FormData del formulario
     const formData = new FormData(form);
     
+    // ✅ DESFORMATEAR VALORES NUMÉRICOS antes de enviar
+    const camposNumericos = [
+        'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'saldo_ocupar',
+        'monto_deposito_galicia', 'monto_deposito_mp'
+    ];
+    
+    // También incluir cuentas bancarias dinámicas
+    const cuentasBancarias = document.querySelectorAll('[name^="monto_deposito_"]');
+    cuentasBancarias.forEach(campo => {
+        if (campo.name && !camposNumericos.includes(campo.name)) {
+            camposNumericos.push(campo.name);
+        }
+    });
+    
+    camposNumericos.forEach(nombreCampo => {
+        const campo = document.querySelector(`[name="${nombreCampo}"]`);
+        if (campo && campo.value) {
+            // Quitar puntos de miles antes de enviar
+            const valorDesformateado = campo.value.replace(/\./g, '');
+            formData.set(nombreCampo, valorDesformateado);
+            console.log(`🔧 Desformateado ${nombreCampo}: "${campo.value}" → "${valorDesformateado}"`);
+        }
+    });
+    
             // ✅ Agregar conceptos al FormData
             conceptosAgregados.forEach((concepto, index) => {
                 formData.append(`concepto_${index}_id`, concepto.conceptoId);
