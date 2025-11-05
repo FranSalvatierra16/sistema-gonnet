@@ -1808,27 +1808,36 @@ def buscar_propiedades_reserva(request):
                 
 
                 
-                # ✅ CÁLCULO POR NOCHES: Cada noche usa el precio del día de LLEGADA
-                # Ejemplo: 29/12→30/12 usa precio del 30/12 (2da dic)
-                #          31/12→01/01 usa precio del 01/01 (1ra ene)
+                # ✅ CÁLCULO POR NOCHES: Usar precio del día de SALIDA, EXCEPTO Año Nuevo
+                # Ejemplo: 29/12→30/12 usa precio del 29/12
+                #          30/12→31/12 usa precio del 30/12
+                #          31/12→01/01 usa precio del 01/01 (EXCEPCIÓN: Año Nuevo)
+                #          01/01→02/01 usa precio del 01/01
                 precio_mas_caro = 0
                 
                 for noche in range(noches_reserva):
-                    # Para cada noche, usar el precio del día de LLEGADA (día siguiente)
+                    # Día de salida (el día actual de la noche)
+                    dia_salida = fecha_inicio + timedelta(noche)
                     dia_llegada = fecha_inicio + timedelta(noche + 1)
                     
-                    # Determinar el tipo de precio según la fecha de llegada
+                    # ✅ EXCEPCIÓN: Año Nuevo (31/12 → 01/01) usa precio del 01/01
+                    if dia_salida.month == 12 and dia_salida.day == 31 and dia_llegada.month == 1 and dia_llegada.day == 1:
+                        dia_a_usar = dia_llegada  # Usar precio del 01/01
+                    else:
+                        dia_a_usar = dia_salida  # Usar precio del día de salida
+                    
+                    # Determinar el tipo de precio según el día a usar
                     tipo_precio = None
-                    if dia_llegada.month == 1:  # Enero
-                        tipo_precio = 'QUINCENA_1_ENERO' if dia_llegada.day <= 15 else 'QUINCENA_2_ENERO'
-                    elif dia_llegada.month == 2:  # Febrero
-                        tipo_precio = 'QUINCENA_1_FEBRERO' if dia_llegada.day <= 15 else 'QUINCENA_2_FEBRERO'
-                    elif dia_llegada.month == 3:  # Marzo
-                        tipo_precio = 'QUINCENA_1_MARZO' if dia_llegada.day <= 15 else 'QUINCENA_2_MARZO'
-                    elif dia_llegada.month == 7:  # Julio (Vacaciones de Invierno)
+                    if dia_a_usar.month == 1:  # Enero
+                        tipo_precio = 'QUINCENA_1_ENERO' if dia_a_usar.day <= 15 else 'QUINCENA_2_ENERO'
+                    elif dia_a_usar.month == 2:  # Febrero
+                        tipo_precio = 'QUINCENA_1_FEBRERO' if dia_a_usar.day <= 15 else 'QUINCENA_2_FEBRERO'
+                    elif dia_a_usar.month == 3:  # Marzo
+                        tipo_precio = 'QUINCENA_1_MARZO' if dia_a_usar.day <= 15 else 'QUINCENA_2_MARZO'
+                    elif dia_a_usar.month == 7:  # Julio (Vacaciones de Invierno)
                         tipo_precio = 'VACACIONES_INVIERNO'
-                    elif dia_llegada.month == 12:  # Diciembre
-                        tipo_precio = 'QUINCENA_1_DICIEMBRE' if dia_llegada.day <= 15 else 'QUINCENA_2_DICIEMBRE'
+                    elif dia_a_usar.month == 12:  # Diciembre
+                        tipo_precio = 'QUINCENA_1_DICIEMBRE' if dia_a_usar.day <= 15 else 'QUINCENA_2_DICIEMBRE'
                     else:
                         tipo_precio = 'TEMPORADA_BAJA'
 
