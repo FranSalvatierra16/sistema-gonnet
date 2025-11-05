@@ -1453,8 +1453,8 @@
                         <thead>
                             <tr style="background-color: #007bff; color: white;">
                                 <th>PERÍODO</th>
-                                <th class="text-end">Precio por Día</th>
                                 <th class="text-end">Precio por Quincena</th>
+                                <th class="text-end">Precio por Día</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -3618,8 +3618,8 @@ function actualizarTablaPrecios(precios) {
         const row = `
             <tr>
                 <td>${precio.tipo_precio_display || precio.tipo_precio}</td>
-                <td class="text-end">$${window.formatearPrecio(precioPorDia)}</td>
                 <td class="text-end">$${window.formatearPrecio(precioTotal)}</td>
+                <td class="text-end">$${window.formatearPrecio(precioPorDia)}</td>
             </tr>
         `;
         tbody.innerHTML += row;
@@ -3718,8 +3718,8 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                         <th>Tipo de Precio</th>
                         <th>Precio por Toma</th>
                         <th>Precio por Día: Toma</th>
-                        <th>Precio por Día</th>
                         <th>Precio por Quincena</th>
+                        <th>Precio por Día</th>
                         <th>Ajuste (%)</th>
                     </tr>
                 </thead>
@@ -3749,14 +3749,14 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="text" class="form-control precio-input" data-field="precio_por_dia" value="${window.formatearPrecio ? window.formatearPrecio(precioPorDia) : precioPorDia}">` :
-                        `<span class="precio-display">$${precioPorDia.toLocaleString('es-AR')}</span>`
+                        `<input type="text" class="form-control precio-input" data-field="precio_total" data-tipo-precio="${precio.tipo_precio}" value="${['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'].includes(precio.tipo_precio) ? '' : (window.formatearPrecio ? window.formatearPrecio(precioTotal) : precioTotal)}" ${['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'].includes(precio.tipo_precio) ? 'disabled style="background-color: #f5f5f5; cursor: not-allowed;"' : ''}>` :
+                        `<span class="precio-display">$${precioTotal.toLocaleString('es-AR')}</span>`
                     }
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="text" class="form-control precio-input" data-field="precio_total" data-tipo-precio="${precio.tipo_precio}" value="${['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'].includes(precio.tipo_precio) ? '' : (window.formatearPrecio ? window.formatearPrecio(precioTotal) : precioTotal)}" ${['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'].includes(precio.tipo_precio) ? 'disabled style="background-color: #f5f5f5; cursor: not-allowed;"' : ''}>` :
-                        `<span class="precio-display">$${precioTotal.toLocaleString('es-AR')}</span>`
+                        `<input type="text" class="form-control precio-input" data-field="precio_por_dia" value="${window.formatearPrecio ? window.formatearPrecio(precioPorDia) : precioPorDia}">` :
+                        `<span class="precio-display">$${precioPorDia.toLocaleString('es-AR')}</span>`
                     }
                 </td>
                 <td>
@@ -4070,8 +4070,8 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                         <th>Tipo de Precio</th>
                         <th>Precio por Toma</th>
                         <th>Precio por Día: Toma</th>
-                        <th>Precio por Día</th>
                         <th>Precio por Quincena</th>
+                        <th>Precio por Día</th>
                         <th>Ajuste (%)</th>
                     </tr>
                 </thead>
@@ -4101,14 +4101,14 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="text" class="form-control precio-input" data-field="precio_por_dia" value="${window.formatearPrecio ? window.formatearPrecio(precioPorDia) : precioPorDia}">` :
-                        `<span class="precio-display">$${precioPorDia.toLocaleString('es-AR')}</span>`
+                        `<input type="text" class="form-control precio-input" data-field="precio_total" data-tipo-precio="${precio.tipo_precio}" value="${['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'].includes(precio.tipo_precio) ? '' : (window.formatearPrecio ? window.formatearPrecio(precioTotal) : precioTotal)}" ${['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'].includes(precio.tipo_precio) ? 'disabled style="background-color: #f5f5f5; cursor: not-allowed;"' : ''}>` :
+                        `<span class="precio-display">$${precioTotal.toLocaleString('es-AR')}</span>`
                     }
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="text" class="form-control precio-input" data-field="precio_total" data-tipo-precio="${precio.tipo_precio}" value="${['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'].includes(precio.tipo_precio) ? '' : (window.formatearPrecio ? window.formatearPrecio(precioTotal) : precioTotal)}" ${['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'].includes(precio.tipo_precio) ? 'disabled style="background-color: #f5f5f5; cursor: not-allowed;"' : ''}>` :
-                        `<span class="precio-display">$${precioTotal.toLocaleString('es-AR')}</span>`
+                        `<input type="text" class="form-control precio-input" data-field="precio_por_dia" value="${window.formatearPrecio ? window.formatearPrecio(precioPorDia) : precioPorDia}">` :
+                        `<span class="precio-display">$${precioPorDia.toLocaleString('es-AR')}</span>`
                     }
                 </td>
                 <td>

@@ -57,8 +57,8 @@
                     <th>Precio por Toma</th>
                     <th>Precio por Día: Toma</th>
                 {% endif %}
-                <th>Precio por Día</th>
                 <th>Precio por Quincena</th>
+                <th>Precio por Día</th>
                 <th>Ajuste (%)</th>
               
             </tr>
@@ -74,8 +74,8 @@
                         <td>{% bootstrap_field form.precio_toma show_label=False %}</td>
                         <td>{% bootstrap_field form.precio_dia_toma show_label=False %}</td>
                     {% endif %}
-                    <td>{% bootstrap_field form.precio_por_dia show_label=False %}</td>
                     <td>{% bootstrap_field form.precio_total show_label=False %}</td>
+                    <td>{% bootstrap_field form.precio_por_dia show_label=False %}</td>
                     <td>{% bootstrap_field form.ajuste_porcentaje show_label=False %}</td>
                     
                   
