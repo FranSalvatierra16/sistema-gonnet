@@ -103,7 +103,7 @@ DATABASES = {
         'NAME': os.environ.get('DB_NAME', 'vgd8ktskappw7cmj'),
         'USER': os.environ.get('DB_USER', 'oaai2ab9qsc7xvyn'),
         'PASSWORD': os.environ.get('DB_PASSWORD', 'it2cxhq71iiubhlj'),
-        'HOST': os.environ.get('DB_HOST', 'tj5iv8piornf713y.cbetxkdyhwsb.us-east-1.rds.amazonaws.com'),
+        'HOST': os.environ.get('DB_HOST', 'usa tj5iv8piornf713y.cbetxkdyhwsb.us-east-1.rds.amazonaws.com'),
         'PORT': os.environ.get('DB_PORT', '3306'),
 
         # ✅ FIX URGENTE: Cerrar conexiones inmediatamente (evita max_user_connections)
@@ -128,21 +128,34 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'gonnetinterno@gmail.com'  # Tu correo
 EMAIL_HOST_PASSWORD = 'mfzt dvrp rqmb cbek'  # Contraseña de aplicación de Google
 
-# Configuración para Heroku
+# Configuración para Heroku/Railway
 if 'DATABASE_URL' in os.environ:
     DATABASES['default'] = dj_database_url.config(
-        conn_max_age=0,  # ✅ FIX URGENTE: Cerrar conexiones inmediatamente
-        ssl_require=True
+        conn_max_age=600,  # 10 minutos (Railway/PostgreSQL soporta más conexiones)
+        ssl_require=False  # Railway maneja SSL automáticamente
     )
-    # Agregar opciones adicionales
-    DATABASES['default']['CONN_HEALTH_CHECKS'] = False  # No hacer queries extra
-    DATABASES['default']['OPTIONS'] = {
-        'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-        'charset': 'utf8mb4',
-        'connect_timeout': 10,
-        'read_timeout': 30,
-        'write_timeout': 30,
-    }
+    
+    # Configuración específica según el motor de base de datos
+    db_engine = DATABASES['default']['ENGINE']
+    
+    if 'mysql' in db_engine:
+        # Configuración para MySQL (Heroku + JawsDB)
+        DATABASES['default']['CONN_MAX_AGE'] = 0  # Cerrar inmediatamente para MySQL
+        DATABASES['default']['CONN_HEALTH_CHECKS'] = False
+        DATABASES['default']['OPTIONS'] = {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            'charset': 'utf8mb4',
+            'connect_timeout': 10,
+            'read_timeout': 30,
+            'write_timeout': 30,
+        }
+    elif 'postgresql' in db_engine or 'postgres' in db_engine:
+        # Configuración para PostgreSQL (Railway)
+        DATABASES['default']['CONN_MAX_AGE'] = 600  # Mantener conexiones 10 min
+        DATABASES['default']['CONN_HEALTH_CHECKS'] = True
+        DATABASES['default']['OPTIONS'] = {
+            'connect_timeout': 10,
+        }
 
 # Custom user model
 AUTH_USER_MODEL = 'inmobiliaria.Vendedor'
