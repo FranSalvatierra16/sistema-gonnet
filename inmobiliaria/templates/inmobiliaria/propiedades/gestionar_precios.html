@@ -179,10 +179,15 @@ document.addEventListener('DOMContentLoaded', function() {
         'QUINCENA_1_MARZO': 16,
         'QUINCENA_2_MARZO': 16,
         'FINDE_LARGO': 5,
+        'SEMANA_SANTA': 5,
+        'CARNAVALES': 5,
         'TEMPORADA_BAJA': 15,
         'VACACIONES_INVIERNO': 15,
         'ESTUDIANTE': 1
     };
+    
+    // Tipos que NO deben tener "Precio por Quincena"
+    const tiposSinQuincena = ['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'];
     
     // Función para calcular precio total (asegurando número limpio)
     function calcularPrecioTotal(precioPorDia, tipoPrecio, ajuste) {
@@ -218,6 +223,34 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // ✅ Función para manejar el campo precio_total según el tipo
+        function actualizarCampoPrecioTotal() {
+            const tipoPrecio = selectTipo.value;
+            if (tiposSinQuincena.includes(tipoPrecio)) {
+                // Deshabilitar y vaciar el campo
+                inputTotal.disabled = true;
+                inputTotal.value = '';
+                inputTotal.style.backgroundColor = '#f5f5f5';
+                inputTotal.style.cursor = 'not-allowed';
+                console.log(`🚫 Fila ${index}: Precio por Quincena deshabilitado para ${tipoPrecio}`);
+            } else {
+                // Habilitar el campo
+                inputTotal.disabled = false;
+                inputTotal.style.backgroundColor = '';
+                inputTotal.style.cursor = '';
+                console.log(`✅ Fila ${index}: Precio por Quincena habilitado para ${tipoPrecio}`);
+            }
+        }
+        
+        // Aplicar al cargar la página
+        actualizarCampoPrecioTotal();
+        
+        // Cuando cambia el tipo_precio → actualizar el campo
+        selectTipo.addEventListener('change', function() {
+            actualizarCampoPrecioTotal();
+            recalcularSiNoManual();
+        });
+        
         // Marcar si el usuario editó manualmente precio_total
         inputTotal.addEventListener('input', function() {
             this.dataset.manualEdit = 'true';
@@ -226,6 +259,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Cuando cambia precio_por_dia o ajuste, recalcular automáticamente
         function recalcularSiNoManual() {
+            const tipoPrecio = selectTipo.value;
+            // ✅ NO recalcular si el tipo NO debe tener precio_total
+            if (tiposSinQuincena.includes(tipoPrecio)) {
+                return;
+            }
             // Si el usuario NO editó manualmente precio_total, recalcular
             if (!inputTotal.dataset.manualEdit) {
                 // ✅ DESFORMATEAR antes de parsear para evitar errores con puntos
@@ -276,9 +314,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (inputAjuste) {
             inputAjuste.addEventListener('input', recalcularSiNoManual);
         }
-        
-        // Cuando cambia tipo_precio → recalcular solo si no es manual
-        selectTipo.addEventListener('change', recalcularSiNoManual);
     });
     
     console.log(`✅ Configurados ${filas.length} filas para recalculo automático`);

@@ -837,7 +837,9 @@ def propiedad_detalle(request, propiedad_id):
         When(tipo_precio=TipoPrecio.QUINCENA_2_MARZO, then=7),
         When(tipo_precio=TipoPrecio.TEMPORADA_BAJA, then=8),
         When(tipo_precio=TipoPrecio.FINDE_LARGO, then=9),
-        When(tipo_precio=TipoPrecio.VACACIONES_INVIERNO, then=10),
+        When(tipo_precio=TipoPrecio.SEMANA_SANTA, then=10),
+        When(tipo_precio=TipoPrecio.CARNAVALES, then=11),
+        When(tipo_precio=TipoPrecio.VACACIONES_INVIERNO, then=12),
         output_field=IntegerField(),
     )
 
@@ -1820,7 +1822,7 @@ def buscar_propiedades_reserva(request):
                     dia_salida = fecha_inicio + timedelta(noche)
                     dia_llegada = fecha_inicio + timedelta(noche + 1)
                     
-                    # ✅ EXCEPCIÓN: Año Nuevo (31/12 → 01/01) usa precio del 01/01
+                    # ✅ EXCEPCIÓN: Año Nuevo (31/12 → 01/01) usa precio del 0e1/01
                     if dia_salida.month == 12 and dia_salida.day == 31 and dia_llegada.month == 1 and dia_llegada.day == 1:
                         dia_a_usar = dia_llegada  # Usar precio del 01/01
                     else:

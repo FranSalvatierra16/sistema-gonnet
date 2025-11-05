@@ -795,6 +795,8 @@ class TipoPrecio(models.TextChoices):
     TEMPORADA_BAJA = 'TEMPORADA_BAJA', _('Temporada baja')
     VACACIONES_INVIERNO = 'VACACIONES_INVIERNO', _('Vacaciones Invierno')
     FINDE_LARGO = 'FINDE_LARGO', _('Finde largo (5 noches)')
+    SEMANA_SANTA = 'SEMANA_SANTA', _('Semana Santa (5 noches)')
+    CARNAVALES = 'CARNAVALES', _('Carnavales (5 noches)')
 
     ESTUDIANTE = 'ESTUDIANTE', _('Estudiante')
     
@@ -860,7 +862,7 @@ class Precio(models.Model):
                     base_price = self.precio_por_dia * 16
                 else:
                     base_price = self.precio_por_dia * 15
-            elif self.tipo_precio == 'FINDE_LARGO':
+            elif self.tipo_precio == 'FINDE_LARGO' or self.tipo_precio == 'SEMANA_SANTA' or self.tipo_precio == 'CARNAVALES':
                 base_price = self.precio_por_dia * 5
             elif self.tipo_precio == 'TEMPORADA_BAJA':
                 base_price = self.precio_por_dia * 15
@@ -892,7 +894,7 @@ class Precio(models.Model):
                     base_price = self.precio_por_dia * 16
                 else:
                     base_price = self.precio_por_dia * 15
-            elif self.tipo_precio == 'FINDE_LARGO':
+            elif self.tipo_precio == 'FINDE_LARGO' or self.tipo_precio == 'SEMANA_SANTA' or self.tipo_precio == 'CARNAVALES':
                 base_price = self.precio_por_dia * 5
             elif self.tipo_precio == 'TEMPORADA_BAJA':
                 base_price = self.precio_por_dia * 15

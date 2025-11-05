@@ -3869,7 +3869,7 @@ function calcularPrecioQuincena(fila) {
     
     if (tipoPrecio.includes('ENERO') || tipoPrecio.includes('MARZO') || tipoPrecio.includes('DICIEMBRE')) {
         dias = 16;
-    } else if (tipoPrecio === 'FINDE_LARGO') {
+    } else if (tipoPrecio === 'FINDE_LARGO' || tipoPrecio === 'SEMANA_SANTA' || tipoPrecio === 'CARNAVALES') {
         dias = 5;
     } else if (tipoPrecio === 'TEMPORADA_BAJA') {
         dias = 15;
@@ -4218,7 +4218,7 @@ function calcularPrecioQuincena(fila) {
     
     if (tipoPrecio.includes('ENERO') || tipoPrecio.includes('MARZO') || tipoPrecio.includes('DICIEMBRE')) {
         dias = 16;
-    } else if (tipoPrecio === 'FINDE_LARGO') {
+    } else if (tipoPrecio === 'FINDE_LARGO' || tipoPrecio === 'SEMANA_SANTA' || tipoPrecio === 'CARNAVALES') {
         dias = 5;
     } else if (tipoPrecio === 'TEMPORADA_BAJA') {
         dias = 15;
