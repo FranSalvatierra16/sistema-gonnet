@@ -3755,7 +3755,7 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="text" class="form-control precio-input" data-field="precio_total" value="${window.formatearPrecio ? window.formatearPrecio(precioTotal) : precioTotal}">` :
+                        `<input type="text" class="form-control precio-input" data-field="precio_total" data-tipo-precio="${precio.tipo_precio}" value="${['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'].includes(precio.tipo_precio) ? '' : (window.formatearPrecio ? window.formatearPrecio(precioTotal) : precioTotal)}" ${['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'].includes(precio.tipo_precio) ? 'disabled style="background-color: #f5f5f5; cursor: not-allowed;"' : ''}>` :
                         `<span class="precio-display">$${precioTotal.toLocaleString('es-AR')}</span>`
                     }
                 </td>
@@ -3964,12 +3964,15 @@ function guardarCambiosPrecios() {
         // ✅ Desformatear antes de convertir a número (quitar puntos)
         const desformatear = (valor) => (valor || '').toString().replace(/\./g, '');
         
+        // ✅ Tipos que NO deben tener precio_total
+        const tiposSinQuincena = ['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'];
+        
         const precioData = {
             tipo_precio: tipoPrecio,
             precio_toma: parseFloat(desformatear(inputToma ? inputToma.value : 0)) || 0,
             precio_dia_toma: parseFloat(desformatear(inputDiaToma ? inputDiaToma.value : 0)) || 0,
             precio_por_dia: parseFloat(desformatear(inputPorDia ? inputPorDia.value : 0)) || 0,
-            precio_total: parseFloat(desformatear(inputTotal ? inputTotal.value : 0)) || 0,
+            precio_total: tiposSinQuincena.includes(tipoPrecio) ? null : (parseFloat(desformatear(inputTotal ? inputTotal.value : 0)) || 0),
             ajuste_porcentaje: parseFloat(desformatear(inputAjuste ? inputAjuste.value : 0)) || 0
         };
         
@@ -4104,7 +4107,7 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="text" class="form-control precio-input" data-field="precio_total" value="${window.formatearPrecio ? window.formatearPrecio(precioTotal) : precioTotal}">` :
+                        `<input type="text" class="form-control precio-input" data-field="precio_total" data-tipo-precio="${precio.tipo_precio}" value="${['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'].includes(precio.tipo_precio) ? '' : (window.formatearPrecio ? window.formatearPrecio(precioTotal) : precioTotal)}" ${['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'].includes(precio.tipo_precio) ? 'disabled style="background-color: #f5f5f5; cursor: not-allowed;"' : ''}>` :
                         `<span class="precio-display">$${precioTotal.toLocaleString('es-AR')}</span>`
                     }
                 </td>
@@ -4313,12 +4316,15 @@ function guardarCambiosPrecios() {
         // ✅ Desformatear antes de convertir a número (quitar puntos)
         const desformatear = (valor) => (valor || '').toString().replace(/\./g, '');
         
+        // ✅ Tipos que NO deben tener precio_total
+        const tiposSinQuincena = ['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'];
+        
         const precioData = {
             tipo_precio: tipoPrecio,
             precio_toma: parseFloat(desformatear(inputToma ? inputToma.value : 0)) || 0,
             precio_dia_toma: parseFloat(desformatear(inputDiaToma ? inputDiaToma.value : 0)) || 0,
             precio_por_dia: parseFloat(desformatear(inputPorDia ? inputPorDia.value : 0)) || 0,
-            precio_total: parseFloat(desformatear(inputTotal ? inputTotal.value : 0)) || 0,
+            precio_total: tiposSinQuincena.includes(tipoPrecio) ? null : (parseFloat(desformatear(inputTotal ? inputTotal.value : 0)) || 0),
             ajuste_porcentaje: parseFloat(desformatear(inputAjuste ? inputAjuste.value : 0)) || 0
         };
         

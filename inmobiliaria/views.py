@@ -1822,7 +1822,7 @@ def buscar_propiedades_reserva(request):
                     dia_salida = fecha_inicio + timedelta(noche)
                     dia_llegada = fecha_inicio + timedelta(noche + 1)
                     
-                    # ✅ EXCEPCIÓN: Año Nuevo (31/12 → 01/01) usa precio del 0e1/01
+                    # ✅ EXCEPCIÓN: Año Nuevo (31/12 → 01/01) usa precio del 0ew1/01
                     if dia_salida.month == 12 and dia_salida.day == 31 and dia_llegada.month == 1 and dia_llegada.day == 1:
                         dia_a_usar = dia_llegada  # Usar precio del 01/01
                     else:
@@ -8436,7 +8436,14 @@ def guardar_precios_propiedad(request):
             precio_toma_nuevo = Decimal(str(precio_info.get('precio_toma', 0) or 0))
             precio_dia_toma_nuevo = Decimal(str(precio_info.get('precio_dia_toma', 0) or 0))
             precio_por_dia_nuevo = Decimal(str(precio_info.get('precio_por_dia', 0) or 0))
-            precio_total_nuevo = Decimal(str(precio_info.get('precio_total', 0) or 0))
+            
+            # ✅ Tipos que NO deben tener precio_total (se guarda como None)
+            tipos_sin_quincena = ['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES']
+            if tipo_precio in tipos_sin_quincena:
+                precio_total_nuevo = None
+            else:
+                precio_total_nuevo = Decimal(str(precio_info.get('precio_total', 0) or 0))
+            
             ajuste_porcentaje_nuevo = Decimal(str(precio_info.get('ajuste_porcentaje', 0) or 0))
             
 # print(f"💰 Valores RECIBIDOS del form:")
