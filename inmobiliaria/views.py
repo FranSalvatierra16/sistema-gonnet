@@ -275,8 +275,8 @@ def liquidacion_propietario(request, propietario_id):
     fecha_desde = request.GET.get('fecha_desde', '')
     fecha_hasta = request.GET.get('fecha_hasta', '')
     
-    # Obtener todas las propiedades del propietario
-    propiedades = Propiedad.objects.filter(propietario=propietario)
+    # Obtener todas las propiedades del propietario ordenadas por número de propiedad
+    propiedades = Propiedad.objects.filter(propietario=propietario).order_by('numero_por_propietario')
     
     # Obtener todos los movimientos de caja relacionados con las propiedades del propietario
     # Buscar en movimientos que tengan la propiedad asignada
@@ -6314,17 +6314,13 @@ def guardar_movimiento(request):
 def propiedades_propietario(request, propietario_id):
     propietario = get_object_or_404(Propietario, pk=propietario_id)
 
-    # Obtener propiedades ordenadas por número de ficha (ID) numéricamente
-    propiedades = Propiedad.objects.filter(propietario=propietario).select_related('sucursal')
-    
-    # Convertir a lista y ordenar numéricamente por ID (número de ficha)
-    propiedades_list = list(propiedades)
-    propiedades_list.sort(key=lambda p: int(p.id) if str(p.id).isdigit() else float('inf'))
+    # Obtener propiedades ordenadas por número de propiedad (no por ID/ficha)
+    propiedades = Propiedad.objects.filter(propietario=propietario).select_related('sucursal').order_by('numero_por_propietario')
 
     return render(
         request,
         "inmobiliaria/propietarios/propiedades_propietario.html",
-        {"propietario": propietario, "propiedades": propiedades_list},
+        {"propietario": propietario, "propiedades": propiedades},
     )
 
 @require_POST
