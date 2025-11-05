@@ -2993,7 +2993,7 @@ def propietario_nuevo_ajax(request):
     
 def propiedades_por_propietario(request, propietario_id):
     propietario = get_object_or_404(Propietario, pk=propietario_id)
-    propiedades = Propiedad.objects.filter(propietario=propietario)
+    propiedades = Propiedad.objects.filter(propietario=propietario).order_by('numero_por_propietario')
     return render(request, 'inmobiliaria/propietarios/propiedades_propietario.html', {
         'propietario': propietario,
         'propiedades': propiedades
