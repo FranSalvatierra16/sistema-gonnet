@@ -130,32 +130,18 @@ EMAIL_HOST_PASSWORD = 'mfzt dvrp rqmb cbek'  # Contraseña de aplicación de Goo
 
 # Configuración para Heroku/Railway
 if 'DATABASE_URL' in os.environ:
+    # Railway/Heroku proporcionan DATABASE_URL
+    import dj_database_url
     DATABASES['default'] = dj_database_url.config(
-        conn_max_age=600,  # 10 minutos (Railway/PostgreSQL soporta más conexiones)
-        ssl_require=False  # Railway maneja SSL automáticamente
+        conn_max_age=600,
+        ssl_require=False,
+        engine='django.db.backends.postgresql'  # Forzar PostgreSQL
     )
-    
-    # Configuración específica según el motor de base de datos
-    db_engine = DATABASES['default']['ENGINE']
-    
-    if 'mysql' in db_engine:
-        # Configuración para MySQL (Heroku + JawsDB)
-        DATABASES['default']['CONN_MAX_AGE'] = 0  # Cerrar inmediatamente para MySQL
-        DATABASES['default']['CONN_HEALTH_CHECKS'] = False
-        DATABASES['default']['OPTIONS'] = {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-            'charset': 'utf8mb4',
-            'connect_timeout': 10,
-            'read_timeout': 30,
-            'write_timeout': 30,
-        }
-    elif 'postgresql' in db_engine or 'postgres' in db_engine:
-        # Configuración para PostgreSQL (Railway)
-        DATABASES['default']['CONN_MAX_AGE'] = 600  # Mantener conexiones 10 min
-        DATABASES['default']['CONN_HEALTH_CHECKS'] = True
-        DATABASES['default']['OPTIONS'] = {
-            'connect_timeout': 10,
-        }
+    # Configuración para PostgreSQL
+    DATABASES['default']['CONN_HEALTH_CHECKS'] = True
+    DATABASES['default']['OPTIONS'] = {
+        'connect_timeout': 10,
+    }
 
 # Custom user model
 AUTH_USER_MODEL = 'inmobiliaria.Vendedor'
