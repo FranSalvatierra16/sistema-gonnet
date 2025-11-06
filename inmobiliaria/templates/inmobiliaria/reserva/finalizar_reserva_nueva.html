@@ -85,7 +85,9 @@ function calcularTotales() {
         let totalConceptos = 0;
         if (conceptosAgregados && conceptosAgregados.length > 0) {
             totalConceptos = conceptosAgregados.reduce((sum, concepto) => {
-                return sum + (parseFloat(concepto.importe) || 0);
+                // ✅ Desformatear por si acaso (aunque ya debería estar desformateado)
+                const importeStr = concepto.importe.toString().replace(/\./g, '').replace(',', '.');
+                return sum + (parseFloat(importeStr) || 0);
             }, 0);
         }
         
@@ -470,7 +472,13 @@ function agregarConcepto() {
     // Validar que hay un concepto seleccionado
     const conceptoIdInput = document.getElementById('conceptoId');
     const observaciones = document.getElementById('observaciones').value || 'Sin observaciones';
-    const importe = parseFloat(document.getElementById('importe').value);
+    
+    // ✅ DESFORMATEAR el importe ANTES de parseFloat (quitar puntos de miles)
+    const importeRaw = document.getElementById('importe').value;
+    const importeDesformateado = importeRaw.toString().replace(/\./g, '').replace(',', '.');
+    const importe = parseFloat(importeDesformateado) || 0;
+    
+    console.log(`💰 Importe capturado: "${importeRaw}" → "${importeDesformateado}" → ${importe}`);
     
     if (!conceptoIdInput.value || !conceptoSeleccionadoActual) {
         alert('Por favor selecciona un concepto válido');
