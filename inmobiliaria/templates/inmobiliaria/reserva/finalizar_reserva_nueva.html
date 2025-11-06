@@ -286,17 +286,22 @@ function procesarMovimiento() {
     // Crear FormData del formulario
     const formData = new FormData(form);
     
-    // ✅ DESFORMATEAR VALORES NUMÉRICOS antes de enviar (quitar puntos de miles)
+    // ✅ DESFORMATEAR VALORES NUMÉRICOS antes de enviar (quitar puntos de miles y signos $)
     const camposNumericos = [
-        'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'saldo_ocupar'
+        'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'saldo_ocupar',
+        'senia', 'deposito_garantia', 'importe_locacion'  // ✅ AGREGADOS
     ];
     
     // Desformatear campos numéricos estándar
     camposNumericos.forEach(nombreCampo => {
         const campo = form.querySelector(`[name="${nombreCampo}"]`);
         if (campo && campo.value) {
-            // Quitar puntos de miles antes de enviar
-            const valorDesformateado = campo.value.toString().replace(/\./g, '').replace(',', '.');
+            // Quitar puntos de miles, signos $, y espacios antes de enviar
+            const valorDesformateado = campo.value.toString()
+                .replace(/\$/g, '')  // Quitar $
+                .replace(/\./g, '')  // Quitar puntos
+                .replace(/\s/g, '')  // Quitar espacios
+                .replace(',', '.');  // Reemplazar coma decimal por punto
             formData.set(nombreCampo, valorDesformateado);
             console.log(`🔧 Desformateado ${nombreCampo}: "${campo.value}" → "${valorDesformateado}"`);
         }
@@ -306,7 +311,11 @@ function procesarMovimiento() {
     const camposCuentasBancarias = form.querySelectorAll('.cuenta-bancaria-dinamica');
     camposCuentasBancarias.forEach(campo => {
         if (campo.name && campo.value) {
-            const valorDesformateado = campo.value.toString().replace(/\./g, '').replace(',', '.');
+            const valorDesformateado = campo.value.toString()
+                .replace(/\$/g, '')  // Quitar $
+                .replace(/\./g, '')  // Quitar puntos
+                .replace(/\s/g, '')  // Quitar espacios
+                .replace(',', '.');  // Reemplazar coma decimal por punto
             formData.set(campo.name, valorDesformateado);
             console.log(`🔧 Desformateado ${campo.name}: "${campo.value}" → "${valorDesformateado}"`);
         }
@@ -317,8 +326,12 @@ function procesarMovimiento() {
         formData.append(`concepto_${index}_id`, concepto.conceptoId);
         formData.append(`concepto_${index}_nombre`, concepto.nombre);
         formData.append(`concepto_${index}_observaciones`, concepto.observaciones);
-        // Desformatear importe del concepto
-        const importeDesformateado = (concepto.importe || '0').toString().replace(/\./g, '').replace(',', '.');
+        // Desformatear importe del concepto (quitar $, puntos, espacios)
+        const importeDesformateado = (concepto.importe || '0').toString()
+            .replace(/\$/g, '')  // Quitar $
+            .replace(/\./g, '')  // Quitar puntos
+            .replace(/\s/g, '')  // Quitar espacios
+            .replace(',', '.');  // Reemplazar coma decimal por punto
         formData.append(`concepto_${index}_importe`, importeDesformateado);
         formData.append(`concepto_${index}_fecha`, concepto.fecha);
     });
