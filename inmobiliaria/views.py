@@ -3654,12 +3654,12 @@ def procesar_movimiento_reserva(request):
                 
 # print(f"✅ RECIBO CREADO: {numero_recibo}")
                 
-            except (ValueError, TypeError) as e:
-                pass  # ✅ Bloque vacío
-# print(f"❌ Error al convertir valores: {e}")
-                # Si hay error en la conversión, usar valores por defecto
-                reserva.senia = Decimal('0')
-                deposito_garantia = Decimal('0')
+            except Exception as e:
+                # ✅ Capturar TODO tipo de error (ValueError, TypeError, decimal.ConversionSyntax, etc.)
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'❌ Error al convertir valores numéricos: {str(e)}\n\nValores recibidos:\n- seña: "{senia_input}"\n- depósito: "{deposito_garantia_input}"\n- importe_locacion: "{importe_locacion_input}"'
+                })
                 
             # ✅ ACTUALIZAR VENDEDOR SI SE CAMBIÓ EN EL FORMULARIO
             productor_id = request.POST.get('productor_id')
