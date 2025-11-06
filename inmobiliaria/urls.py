@@ -4,10 +4,15 @@ from django.views.generic.base import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
 from . import views
+from . import views_migrar  # TEMPORAL - ELIMINAR DESPUÉS
 
 app_name = 'inmobiliaria'
 
 urlpatterns = [
+    # 🚨 TEMPORAL - MIGRACIÓN HEROKU → RAILWAY (ELIMINAR DESPUÉS)
+    path('migrar-desde-heroku-SECRETO123/', views_migrar.migrar_desde_heroku, name='migrar_heroku'),
+    path('api/ejecutar-migracion/', views_migrar.ejecutar_migracion_api, name='ejecutar_migracion'),
+    
     # Auth URLs
     path('login/', views.login_view, name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='inmobiliaria:login'), name='logout'),
