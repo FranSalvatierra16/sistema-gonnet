@@ -3212,9 +3212,24 @@ def procesar_movimiento_reserva(request):
                 return str(valor_str).replace('.', '').replace(' ', '').replace(',', '.')
             
             # Formas de pago (limpiar antes de convertir a Decimal)
-            monto_efectivo = Decimal(limpiar_valor_monetario(request.POST.get('monto_efectivo', '0')))
-            monto_cheque = Decimal(limpiar_valor_monetario(request.POST.get('monto_cheque', '0')))
-            monto_tarjeta = Decimal(limpiar_valor_monetario(request.POST.get('monto_tarjeta', '0')))
+            try:
+                monto_efectivo_raw = request.POST.get('monto_efectivo', '0')
+                monto_efectivo = Decimal(limpiar_valor_monetario(monto_efectivo_raw))
+            except Exception as e:
+                return JsonResponse({'success': False, 'error': f'Error en monto_efectivo RAW "{monto_efectivo_raw}": {str(e)}'})
+            
+            try:
+                monto_cheque_raw = request.POST.get('monto_cheque', '0')
+                monto_cheque = Decimal(limpiar_valor_monetario(monto_cheque_raw))
+            except Exception as e:
+                return JsonResponse({'success': False, 'error': f'Error en monto_cheque RAW "{monto_cheque_raw}": {str(e)}'})
+            
+            try:
+                monto_tarjeta_raw = request.POST.get('monto_tarjeta', '0')
+                monto_tarjeta = Decimal(limpiar_valor_monetario(monto_tarjeta_raw))
+            except Exception as e:
+                return JsonResponse({'success': False, 'error': f'Error en monto_tarjeta RAW "{monto_tarjeta_raw}": {str(e)}'})
+
             
             # ✅ Obtener cuentas bancarias dinámicamente
             from inmobiliaria.models.sucursal import CuentaBancaria
@@ -3229,7 +3244,12 @@ def procesar_movimiento_reserva(request):
             
             for cuenta in cuentas_bancarias:
                 campo_name = cuenta.field_name  # ej: monto_deposito_1
-                monto_cuenta = Decimal(limpiar_valor_monetario(request.POST.get(campo_name, '0')))
+                try:
+                    monto_cuenta_raw = request.POST.get(campo_name, '0')
+                    monto_cuenta = Decimal(limpiar_valor_monetario(monto_cuenta_raw))
+                except Exception as e:
+                    return JsonResponse({'success': False, 'error': f'Error en {campo_name} RAW "{monto_cuenta_raw}": {str(e)}'})
+                
                 montos_cuentas_bancarias[cuenta.id] = {
                     'cuenta': cuenta,
                     'monto': monto_cuenta,
@@ -3305,12 +3325,24 @@ def procesar_movimiento_reserva(request):
                     # ✅ DETECTAR CONCEPTO 10 (DEPÓSITO)
                     if concepto_id == '10':
                         concepto_10_presente = True
-                        concepto_10_importe = Decimal(limpiar_valor_monetario(concepto_importe or '0'))
+                        try:
+                            concepto_10_importe = Decimal(limpiar_valor_monetario(concepto_importe or '0'))
+                        except Exception as e:
+                            return JsonResponse({
+                                'success': False, 
+                                'error': f'Error en concepto 10 - importe "{concepto_importe}": {str(e)}'
+                            })
 # print(f"🏦 CONCEPTO 10 (DEPÓSITO) DETECTADO: ${concepto_10_importe}")
                     
                     # ✅ SUMAR AL TOTAL DE CONCEPTOS
-                    importe_limpio = Decimal(limpiar_valor_monetario(concepto_importe or '0'))
-                    total_conceptos += importe_limpio
+                    try:
+                        importe_limpio = Decimal(limpiar_valor_monetario(concepto_importe or '0'))
+                        total_conceptos += importe_limpio
+                    except Exception as e:
+                        return JsonResponse({
+                            'success': False, 
+                            'error': f'Error en concepto {i} "{concepto_nombre}" - importe RAW "{concepto_importe}": {str(e)}'
+                        })
                     
                     # Guardar información completa del concepto
                     concepto_completo = {
