@@ -1,2 +1,2 @@
-web: gunicorn sistema_gonnet.wsgi --workers=1 --threads=1 --timeout=120 --max-requests=500 --max-requests-jitter=25 --log-file -
+web: gunicorn sistema_gonnet.wsgi --bind 0.0.0.0:$PORT --workers=2 --threads=2 --timeout=120 --max-requests=1000 --max-requests-jitter=50 --log-file -
 

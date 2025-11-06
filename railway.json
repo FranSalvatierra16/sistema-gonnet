@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "gunicorn sistema_gonnet.wsgi --workers=2 --threads=2 --timeout=120 --max-requests=1000 --max-requests-jitter=50 --log-file -",
+    "startCommand": "gunicorn sistema_gonnet.wsgi --bind 0.0.0.0:$PORT --workers=2 --threads=2 --timeout=120 --max-requests=1000 --max-requests-jitter=50 --log-file -",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
