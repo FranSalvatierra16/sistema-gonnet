@@ -284,14 +284,42 @@ function procesarMovimiento() {
     // Crear FormData del formulario
     const formData = new FormData(form);
     
-            // ✅ Agregar conceptos al FormData
-            conceptosAgregados.forEach((concepto, index) => {
-                formData.append(`concepto_${index}_id`, concepto.conceptoId);
-                formData.append(`concepto_${index}_nombre`, concepto.nombre);
-                formData.append(`concepto_${index}_observaciones`, concepto.observaciones);
-                formData.append(`concepto_${index}_importe`, concepto.importe);
-                formData.append(`concepto_${index}_fecha`, concepto.fecha);
-            });
+    // ✅ DESFORMATEAR VALORES NUMÉRICOS antes de enviar (quitar puntos de miles)
+    const camposNumericos = [
+        'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'saldo_ocupar'
+    ];
+    
+    // Desformatear campos numéricos estándar
+    camposNumericos.forEach(nombreCampo => {
+        const campo = form.querySelector(`[name="${nombreCampo}"]`);
+        if (campo && campo.value) {
+            // Quitar puntos de miles antes de enviar
+            const valorDesformateado = campo.value.toString().replace(/\./g, '').replace(',', '.');
+            formData.set(nombreCampo, valorDesformateado);
+            console.log(`🔧 Desformateado ${nombreCampo}: "${campo.value}" → "${valorDesformateado}"`);
+        }
+    });
+    
+    // Desformatear campos dinámicos de cuentas bancarias
+    const camposCuentasBancarias = form.querySelectorAll('.cuenta-bancaria-dinamica');
+    camposCuentasBancarias.forEach(campo => {
+        if (campo.name && campo.value) {
+            const valorDesformateado = campo.value.toString().replace(/\./g, '').replace(',', '.');
+            formData.set(campo.name, valorDesformateado);
+            console.log(`🔧 Desformateado ${campo.name}: "${campo.value}" → "${valorDesformateado}"`);
+        }
+    });
+    
+    // ✅ Agregar conceptos al FormData (también desformatear importes)
+    conceptosAgregados.forEach((concepto, index) => {
+        formData.append(`concepto_${index}_id`, concepto.conceptoId);
+        formData.append(`concepto_${index}_nombre`, concepto.nombre);
+        formData.append(`concepto_${index}_observaciones`, concepto.observaciones);
+        // Desformatear importe del concepto
+        const importeDesformateado = (concepto.importe || '0').toString().replace(/\./g, '').replace(',', '.');
+        formData.append(`concepto_${index}_importe`, importeDesformateado);
+        formData.append(`concepto_${index}_fecha`, concepto.fecha);
+    });
     
     console.log('📋 Enviando', conceptosAgregados.length, 'conceptos al servidor');
     console.log('🌐 URL de destino:', form.action || window.location.href);
