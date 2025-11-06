@@ -2,6 +2,12 @@
 
 from django.db import migrations
 
+
+def skip_on_postgresql(apps, schema_editor):
+    """Esta tabla se crea con migraciones normales de Django"""
+    pass
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -9,41 +15,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunSQL(
-            # Crear la tabla con la estructura básica
-            """
-            CREATE TABLE IF NOT EXISTS inmobiliaria_caja (
-                id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                numero INT UNSIGNED NOT NULL,
-                sucursal_id BIGINT NOT NULL,
-                fecha_apertura DATETIME(6) NOT NULL,
-                fecha_cierre DATETIME(6) NULL,
-                saldo_inicial DECIMAL(10,2) NOT NULL,
-                saldo_final DECIMAL(10,2) NULL,
-                estado VARCHAR(10) NOT NULL,
-                usuario_apertura_id BIGINT NOT NULL,
-                usuario_cierre_id BIGINT NULL,
-                observaciones_apertura LONGTEXT NOT NULL,
-                observaciones_cierre LONGTEXT NOT NULL
-            );
-            """,
-            reverse_sql="DROP TABLE IF EXISTS inmobiliaria_caja;"
-        ),
-        # Agregar las restricciones después de crear la tabla
-        migrations.RunSQL(
-            """
-            ALTER TABLE inmobiliaria_caja
-            ADD CONSTRAINT unique_numero_sucursal UNIQUE (numero, sucursal_id),
-            ADD CONSTRAINT fk_caja_sucursal 
-                FOREIGN KEY (sucursal_id) 
-                REFERENCES inmobiliaria_sucursal (id),
-            ADD CONSTRAINT fk_caja_usuario_apertura 
-                FOREIGN KEY (usuario_apertura_id) 
-                REFERENCES inmobiliaria_vendedor (id),
-            ADD CONSTRAINT fk_caja_usuario_cierre 
-                FOREIGN KEY (usuario_cierre_id) 
-                REFERENCES inmobiliaria_vendedor (id);
-            """,
-            reverse_sql="ALTER TABLE inmobiliaria_caja DROP FOREIGN KEY fk_caja_sucursal, DROP FOREIGN KEY fk_caja_usuario_apertura, DROP FOREIGN KEY fk_caja_usuario_cierre;"
-        ),
+        # Vaciado para PostgreSQL - las tablas se crean con migraciones normales de Django
+        migrations.RunPython(skip_on_postgresql, reverse_code=migrations.RunPython.noop),
     ] 

@@ -3,6 +3,11 @@
 from django.db import migrations
 
 
+def skip_on_postgresql(apps, schema_editor):
+    """Esta modificación no es necesaria en PostgreSQL"""
+    pass
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,14 +15,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunSQL(
-            """
-            ALTER TABLE inmobiliaria_caja
-            MODIFY COLUMN numero INT UNSIGNED NOT NULL;
-            """,
-            reverse_sql="""
-            ALTER TABLE inmobiliaria_caja
-            MODIFY COLUMN numero INT UNSIGNED NOT NULL AUTO_INCREMENT;
-            """
-        ),
+        migrations.RunPython(skip_on_postgresql, reverse_code=migrations.RunPython.noop),
     ]

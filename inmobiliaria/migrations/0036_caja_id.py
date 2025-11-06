@@ -4,7 +4,12 @@ from django.db import migrations, models
 
 
 def restructure_caja_table(apps, schema_editor):
-    """Restructurar tabla Caja completamente"""
+    """Restructurar tabla Caja - Solo para MySQL"""
+    # En PostgreSQL, Django crea la tabla correctamente
+    if schema_editor.connection.vendor == 'postgresql':
+        return
+    
+    # Solo para MySQL
     with schema_editor.connection.cursor() as cursor:
         # Verificar si ya existe un campo id
         cursor.execute("""
@@ -30,20 +35,16 @@ def restructure_caja_table(apps, schema_editor):
             numero_is_auto = result and 'auto_increment' in result[1].lower()
             
             if numero_is_pk:
-                # Remover primary key de numero
                 cursor.execute("ALTER TABLE inmobiliaria_caja DROP PRIMARY KEY")
             
             if numero_is_auto:
-                # Cambiar numero para que no sea auto_increment
                 cursor.execute("ALTER TABLE inmobiliaria_caja MODIFY numero int NOT NULL")
             
-            # Agregar campo id como primary key al principio
             cursor.execute("""
                 ALTER TABLE inmobiliaria_caja 
                 ADD COLUMN id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST
             """)
             
-            # Asegurar que numero sea un PositiveIntegerField normal
             cursor.execute("""
                 ALTER TABLE inmobiliaria_caja 
                 MODIFY numero int UNSIGNED NOT NULL

@@ -4,9 +4,13 @@ from django.db import migrations, models
 
 
 def add_titulo_if_not_exists(apps, schema_editor):
-    """Agregar campo titulo solo si no existe"""
+    """Agregar campo titulo solo si no existe (compatibleMySQL/PostgreSQL)"""
+    # En PostgreSQL, Django crea los campos automáticamente
+    if schema_editor.connection.vendor == 'postgresql':
+        return
+    
+    # Solo para MySQL
     with schema_editor.connection.cursor() as cursor:
-        # Verificar si el campo titulo ya existe
         cursor.execute("""
             SELECT COUNT(*) 
             FROM INFORMATION_SCHEMA.COLUMNS 
@@ -16,7 +20,6 @@ def add_titulo_if_not_exists(apps, schema_editor):
         """)
         titulo_exists = cursor.fetchone()[0] > 0
         
-        # Solo agregar si no existe
         if not titulo_exists:
             cursor.execute("""
                 ALTER TABLE inmobiliaria_propiedad 

@@ -6,7 +6,12 @@ import django.db.models.deletion
 
 
 def add_all_missing_fields(apps, schema_editor):
-    """Agregar campos que falten en propiedad"""
+    """Agregar campos que falten en propiedad - Solo para MySQL"""
+    # En PostgreSQL, Django crea los campos automáticamente
+    if schema_editor.connection.vendor == 'postgresql':
+        return
+    
+    # Solo para MySQL
     with schema_editor.connection.cursor() as cursor:
         # Verificar titulo
         cursor.execute("""
