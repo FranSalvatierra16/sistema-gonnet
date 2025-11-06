@@ -3,6 +3,36 @@
 from django.db import migrations
 
 
+def allow_null_fields(apps, schema_editor):
+    """Permitir NULL en fecha_nacimiento y tipo_ins - Compatible MySQL/PostgreSQL"""
+    with schema_editor.connection.cursor() as cursor:
+        if schema_editor.connection.vendor == 'mysql':
+            cursor.execute("ALTER TABLE inmobiliaria_inquilino MODIFY COLUMN fecha_nacimiento DATE NULL;")
+            cursor.execute("ALTER TABLE inmobiliaria_propietario MODIFY COLUMN fecha_nacimiento DATE NULL;")
+            cursor.execute("ALTER TABLE inmobiliaria_inquilino MODIFY COLUMN tipo_ins VARCHAR(4) NULL;")
+            cursor.execute("ALTER TABLE inmobiliaria_propietario MODIFY COLUMN tipo_ins VARCHAR(4) NULL;")
+        elif schema_editor.connection.vendor == 'postgresql':
+            cursor.execute("ALTER TABLE inmobiliaria_inquilino ALTER COLUMN fecha_nacimiento DROP NOT NULL;")
+            cursor.execute("ALTER TABLE inmobiliaria_propietario ALTER COLUMN fecha_nacimiento DROP NOT NULL;")
+            cursor.execute("ALTER TABLE inmobiliaria_inquilino ALTER COLUMN tipo_ins DROP NOT NULL;")
+            cursor.execute("ALTER TABLE inmobiliaria_propietario ALTER COLUMN tipo_ins DROP NOT NULL;")
+
+
+def disallow_null_fields(apps, schema_editor):
+    """Revertir - NOT NULL en fecha_nacimiento y tipo_ins"""
+    with schema_editor.connection.cursor() as cursor:
+        if schema_editor.connection.vendor == 'mysql':
+            cursor.execute("ALTER TABLE inmobiliaria_inquilino MODIFY COLUMN fecha_nacimiento DATE NOT NULL;")
+            cursor.execute("ALTER TABLE inmobiliaria_propietario MODIFY COLUMN fecha_nacimiento DATE NOT NULL;")
+            cursor.execute("ALTER TABLE inmobiliaria_inquilino MODIFY COLUMN tipo_ins VARCHAR(4) NOT NULL;")
+            cursor.execute("ALTER TABLE inmobiliaria_propietario MODIFY COLUMN tipo_ins VARCHAR(4) NOT NULL;")
+        elif schema_editor.connection.vendor == 'postgresql':
+            cursor.execute("ALTER TABLE inmobiliaria_inquilino ALTER COLUMN fecha_nacimiento SET NOT NULL;")
+            cursor.execute("ALTER TABLE inmobiliaria_propietario ALTER COLUMN fecha_nacimiento SET NOT NULL;")
+            cursor.execute("ALTER TABLE inmobiliaria_inquilino ALTER COLUMN tipo_ins SET NOT NULL;")
+            cursor.execute("ALTER TABLE inmobiliaria_propietario ALTER COLUMN tipo_ins SET NOT NULL;")
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,19 +40,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunSQL(
-            # Permitir NULL en fecha_nacimiento para todas las tablas que heredan de Persona
-            sql=[
-                "ALTER TABLE inmobiliaria_inquilino MODIFY COLUMN fecha_nacimiento DATE NULL;",
-                "ALTER TABLE inmobiliaria_propietario MODIFY COLUMN fecha_nacimiento DATE NULL;",
-                "ALTER TABLE inmobiliaria_inquilino MODIFY COLUMN tipo_ins VARCHAR(4) NULL;",
-                "ALTER TABLE inmobiliaria_propietario MODIFY COLUMN tipo_ins VARCHAR(4) NULL;",
-            ],
-            reverse_sql=[
-                "ALTER TABLE inmobiliaria_inquilino MODIFY COLUMN fecha_nacimiento DATE NOT NULL;",
-                "ALTER TABLE inmobiliaria_propietario MODIFY COLUMN fecha_nacimiento DATE NOT NULL;",
-                "ALTER TABLE inmobiliaria_inquilino MODIFY COLUMN tipo_ins VARCHAR(4) NOT NULL;",
-                "ALTER TABLE inmobiliaria_propietario MODIFY COLUMN tipo_ins VARCHAR(4) NOT NULL;",
-            ]
-        ),
+        migrations.RunPython(allow_null_fields, reverse_code=disallow_null_fields),
     ]
