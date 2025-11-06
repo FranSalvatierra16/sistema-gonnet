@@ -1453,8 +1453,8 @@
                         <thead>
                             <tr style="background-color: #007bff; color: white;">
                                 <th>PERÍODO</th>
-                                <th class="text-end">Precio por Quincena</th>
                                 <th class="text-end">Precio por Día</th>
+                                <th class="text-end">Precio por Quincena</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -3618,8 +3618,8 @@ function actualizarTablaPrecios(precios) {
         const row = `
             <tr>
                 <td>${precio.tipo_precio_display || precio.tipo_precio}</td>
-                <td class="text-end">$${window.formatearPrecio(precioTotal)}</td>
                 <td class="text-end">$${window.formatearPrecio(precioPorDia)}</td>
+                <td class="text-end">$${window.formatearPrecio(precioTotal)}</td>
             </tr>
         `;
         tbody.innerHTML += row;
