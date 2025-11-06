@@ -25,9 +25,13 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = 'django-insecure-#ry=f1tqj+=1*32^c54&0qk2)1xt02qpg-%r)ae6%-+3ip*fx^'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['gonnet-interno-052a6cec3da9.herokuapp.com', '.herokuapp.com', 'localhost', '127.0.0.1']
+# ✅ Leer ALLOWED_HOSTS de variable de entorno o usar defaults
+ALLOWED_HOSTS = os.environ.get(
+    'ALLOWED_HOSTS', 
+    'gonnet-interno-052a6cec3da9.herokuapp.com,.herokuapp.com,localhost,127.0.0.1'
+).split(',')
 
 # Configuración de sesión
 SESSION_COOKIE_AGE = 1200  # 20 minutos en segundos
