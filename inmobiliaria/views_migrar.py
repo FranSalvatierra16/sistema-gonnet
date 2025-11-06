@@ -4,8 +4,9 @@ ELIMINAR DESPUÉS DE LA MIGRACIÓN
 """
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-import mysql.connector
 from django.db import connection
+import json
+import os
 
 @csrf_exempt
 def migrar_desde_heroku(request):
@@ -41,56 +42,29 @@ def migrar_desde_heroku(request):
 @csrf_exempt
 def ejecutar_migracion_api(request):
     """
-    API que ejecuta la migración real
+    API que ejecuta la migración desde el backup JSON
     """
-    import mysql.connector
+    # ✅ Usar el backup JSON que ya está en el código
+    backup_file = 'backup_heroku_20251106_124257.json'
     
-    # Configuración MySQL (Heroku)
-    mysql_config = {
-        'host': 'tj5iv8piornf713y.cbetxkdyhwsb.us-east-1.rds.amazonaws.com',
-        'user': 'oaai2ab9qsc7xvyn',
-        'password': 'it2cxhq71iiubhlj',
-        'database': 'vgd8ktskappw7cmj',
-        'port': 3306,
-        'use_pure': True
-    }
-    
-    # Tablas a migrar
-    tables = [
-        'inmobiliaria_sucursal',
-        'inmobiliaria_vendedor',
-        'inmobiliaria_concepto',
-        'inmobiliaria_cuentabancaria',
-        'inmobiliaria_propietario',
-        'inmobiliaria_inquilino',
-        'inmobiliaria_propiedad',
-        'inmobiliaria_disponibilidad',
-        'inmobiliaria_historialdisponibilidad',
-        'inmobiliaria_precio',
-        'inmobiliaria_reserva',
-        'inmobiliaria_contratoalquiler',
-        'inmobiliaria_cuotamensual',
-        'inmobiliaria_caja',
-        'inmobiliaria_movimientocaja',
-        'inmobiliaria_recibo',
-        'inmobiliaria_comisionvendedor',
-        'inmobiliaria_valevendedor',
-    ]
+    if not os.path.exists(backup_file):
+        return JsonResponse({
+            'success': False,
+            'error': f'Archivo {backup_file} no encontrado. Archivos disponibles: {os.listdir(".")[:20]}'
+        })
     
     try:
-        mysql_conn = mysql.connector.connect(**mysql_config)
-        mysql_cursor = mysql_conn.cursor(dictionary=True)
+        # Leer backup JSON
+        with open(backup_file, 'r', encoding='utf-8') as f:
+            all_data = json.load(f)
         
         results = {}
         total_migrated = 0
         
-        for table in tables:
+        for table_name, rows in all_data.items():
             try:
-                mysql_cursor.execute(f"SELECT * FROM {table}")
-                rows = mysql_cursor.fetchall()
-                
                 if not rows:
-                    results[table] = 0
+                    results[table_name] = 0
                     continue
                 
                 # Preparar INSERT para PostgreSQL
@@ -98,7 +72,7 @@ def ejecutar_migracion_api(request):
                 placeholders = ', '.join(['%s'] * len(columns))
                 columns_str = ', '.join([f'"{col}"' for col in columns])
                 
-                insert_sql = f'INSERT INTO {table} ({columns_str}) VALUES ({placeholders}) ON CONFLICT DO NOTHING'
+                insert_sql = f'INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders}) ON CONFLICT DO NOTHING'
                 
                 migrated = 0
                 with connection.cursor() as postgres_cursor:
@@ -107,19 +81,16 @@ def ejecutar_migracion_api(request):
                             values = [row[col] for col in columns]
                             postgres_cursor.execute(insert_sql, values)
                             migrated += 1
-                        except:
-                            pass
+                        except Exception as row_error:
+                            pass  # Ignorar errores de FK
                     
                     connection.commit()
                 
-                results[table] = migrated
+                results[table_name] = migrated
                 total_migrated += migrated
                 
             except Exception as e:
-                results[table] = f"Error: {str(e)[:100]}"
-        
-        mysql_cursor.close()
-        mysql_conn.close()
+                results[table_name] = f"Error: {str(e)[:100]}"
         
         return JsonResponse({
             'success': True,
@@ -128,8 +99,10 @@ def ejecutar_migracion_api(request):
         })
         
     except Exception as e:
+        import traceback
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': str(e),
+            'traceback': traceback.format_exc()
         })
 
