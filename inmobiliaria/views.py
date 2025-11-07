@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, HttpResponseServerError
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
@@ -780,31 +780,45 @@ def propietario_eliminar(request, propietario_id):
     return render(request, 'inmobiliaria/propietarios/confirmar_eliminar.html', {'propietario': propietario})
 @login_required
 def propiedades(request):
-    form = PropiedadSearchForm(request.GET or None)
-    # Obtener propiedades de la sucursal
-    propiedades = Propiedad.objects.filter(sucursal=request.user.sucursal)
+    try:
+        form = PropiedadSearchForm(request.GET or None)
 
-    if form.is_valid():
-        query = form.cleaned_data.get('query')
-        if query:
-            propiedades = propiedades.filter(
-                Q(direccion__icontains=query) |
-                Q(id__icontains=query) |
-                Q(propietario__nombre__icontains=query) |
-                Q(propietario__apellido__icontains=query) |
-                Q(fichado_por__nombre__icontains=query) |
-                Q(fichado_por__apellido__icontains=query) |
-                Q(fichado_por__username__icontains=query)
-            )
+        try:
+            sucursal_usuario = request.user.sucursal
+        except Exception as inner_exc:
+            import logging
+            logging.exception("❌ Error obteniendo la sucursal del usuario")
+            return HttpResponseServerError("Error: el usuario no tiene una sucursal asociada. Detalle registrado en logs.")
 
-    # Ordenar numéricamente por ID en Python
-    propiedades_list = list(propiedades)
-    propiedades_list.sort(key=lambda p: int(p.id) if p.id.isdigit() else float('inf'))
+        propiedades = Propiedad.objects.filter(sucursal=sucursal_usuario)
 
-    return render(request, 'inmobiliaria/propiedades/lista.html', {
-        'form': form,
-        'propiedades': propiedades_list
-    })
+        if form.is_valid():
+            query = form.cleaned_data.get('query')
+            if query:
+                propiedades = propiedades.filter(
+                    Q(direccion__icontains=query) |
+                    Q(id__icontains=query) |
+                    Q(propietario__nombre__icontains=query) |
+                    Q(propietario__apellido__icontains=query) |
+                    Q(fichado_por__nombre__icontains=query) |
+                    Q(fichado_por__apellido__icontains=query) |
+                    Q(fichado_por__username__icontains=query)
+                )
+
+        propiedades_list = list(propiedades)
+        propiedades_list.sort(key=lambda p: int(p.id) if p.id.isdigit() else float('inf'))
+
+        return render(request, 'inmobiliaria/propiedades/lista.html', {
+            'form': form,
+            'propiedades': propiedades_list
+        })
+
+    except Exception as e:
+        import logging
+        import traceback
+        logging.exception("❌ Error en vista propiedades")
+        detalle = traceback.format_exc()
+        return HttpResponseServerError(f"Error interno en propiedades: {e}\n\n{detalle}")
 
 @login_required
 def propiedad_detalle(request, propiedad_id):
