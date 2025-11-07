@@ -61,6 +61,7 @@ def ejecutar_migracion_api(request):
         
         results = {}
         total_migrated = 0
+        errores_por_tabla = {}
         
         for table_name, rows in all_data.items():
             try:
@@ -83,7 +84,9 @@ def ejecutar_migracion_api(request):
                             postgres_cursor.execute(insert_sql, values)
                             migrated += 1
                         except Exception as row_error:
-                            pass  # Ignorar errores de FK
+                            lista = errores_por_tabla.setdefault(table_name, [])
+                            if len(lista) < 5:
+                                lista.append(str(row_error))
                     
                     connection.commit()
                 
@@ -91,12 +94,16 @@ def ejecutar_migracion_api(request):
                 total_migrated += migrated
                 
             except Exception as e:
+                lista = errores_por_tabla.setdefault(table_name, [])
+                if len(lista) < 5:
+                    lista.append(str(e))
                 results[table_name] = f"Error: {str(e)[:100]}"
         
         return JsonResponse({
             'success': True,
             'total_migrated': total_migrated,
-            'results': results
+            'results': results,
+            'errores': errores_por_tabla
         })
         
     except Exception as e:
