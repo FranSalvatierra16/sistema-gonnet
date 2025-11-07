@@ -21,6 +21,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
+
+def _get_env_list(key: str, default: str):
+    return [item.strip() for item in os.environ.get(key, default).split(',') if item.strip()]
+
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-#ry=f1tqj+=1*32^c54&0qk2)1xt02qpg-%r)ae6%-+3ip*fx^'
 
@@ -28,10 +33,16 @@ SECRET_KEY = 'django-insecure-#ry=f1tqj+=1*32^c54&0qk2)1xt02qpg-%r)ae6%-+3ip*fx^
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 # ✅ Leer ALLOWED_HOSTS de variable de entorno o usar defaults
-ALLOWED_HOSTS = os.environ.get(
-    'ALLOWED_HOSTS', 
+ALLOWED_HOSTS = _get_env_list(
+    'ALLOWED_HOSTS',
     'gonnet-interno-052a6cec3da9.herokuapp.com,.herokuapp.com,localhost,127.0.0.1'
-).split(',')
+)
+
+# ✅ CSRF Trusted Origins (necesita esquema https://)
+CSRF_TRUSTED_ORIGINS = _get_env_list(
+    'CSRF_TRUSTED_ORIGINS',
+    'https://gonnet-interno-052a6cec3da9.herokuapp.com,https://*.up.railway.app,https://*.railway.app,https://localhost,https://127.0.0.1'
+)
 
 # Configuración de sesión
 SESSION_COOKIE_AGE = 1200  # 20 minutos en segundos
