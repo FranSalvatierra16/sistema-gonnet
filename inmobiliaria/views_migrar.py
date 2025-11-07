@@ -58,47 +58,123 @@ def ejecutar_migracion_api(request):
         # Leer backup JSON
         with open(backup_file, 'r', encoding='utf-8') as f:
             all_data = json.load(f)
-        
+
+        # Orden recomendado para respetar dependencias FK
+        orden_prioritario = [
+            'inmobiliaria_sucursal',
+            'inmobiliaria_vendedor',
+            'inmobiliaria_concepto',
+            'inmobiliaria_cuentabancaria',
+            'inmobiliaria_propietario',
+            'inmobiliaria_inquilino',
+            'inmobiliaria_propiedad',
+            'inmobiliaria_disponibilidad',
+            'inmobiliaria_historialdisponibilidad',
+            'inmobiliaria_precio',
+            'inmobiliaria_reserva',
+            'inmobiliaria_contratoalquiler',
+            'inmobiliaria_cuotamensual',
+            'inmobiliaria_caja',
+            'inmobiliaria_movimientocaja',
+            'inmobiliaria_recibo',
+            'inmobiliaria_comisionvendedor',
+            'inmobiliaria_valevendedor',
+        ]
+
+        # Añadir cualquier otra tabla que no esté en la lista manteniendo el orden original
+        tablas_ordenadas = []
+        for tabla in orden_prioritario:
+            if tabla in all_data:
+                tablas_ordenadas.append(tabla)
+        for tabla in all_data.keys():
+            if tabla not in tablas_ordenadas:
+                tablas_ordenadas.append(tabla)
+
         results = {}
         total_migrated = 0
         errores_por_tabla = {}
-        
-        for table_name, rows in all_data.items():
+
+        table_columns_cache = {}
+        boolean_columns_cache = {}
+
+        def obtener_columnas_validas(nombre_tabla):
+            if nombre_tabla in table_columns_cache:
+                return table_columns_cache[nombre_tabla]
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT column_name, data_type
+                    FROM information_schema.columns
+                    WHERE table_name = %s AND table_schema = 'public'
+                """, [nombre_tabla])
+                columnas = []
+                booleanos = set()
+                for column_name, data_type in cursor.fetchall():
+                    columnas.append(column_name)
+                    if data_type == 'boolean':
+                        booleanos.add(column_name)
+            table_columns_cache[nombre_tabla] = columnas
+            boolean_columns_cache[nombre_tabla] = booleanos
+            return columnas
+
+        def limpiar_valor(columna, valor, booleanos):
+            if columna in booleanos and valor is not None:
+                if isinstance(valor, bool):
+                    return valor
+                if isinstance(valor, (int, float)):
+                    return bool(valor)
+                valor_str = str(valor).strip().lower()
+                if valor_str in ('1', 'true', 't', 'yes', 'si'):
+                    return True
+                if valor_str in ('0', 'false', 'f', 'no'):
+                    return False
+            return valor
+
+        for table_name in tablas_ordenadas:
+            rows = all_data.get(table_name, [])
             try:
                 if not rows:
                     results[table_name] = 0
                     continue
-                
-                # Preparar INSERT para PostgreSQL
-                columns = list(rows[0].keys())
-                placeholders = ', '.join(['%s'] * len(columns))
-                columns_str = ', '.join([f'"{col}"' for col in columns])
-                
-                insert_sql = f'INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders}) ON CONFLICT DO NOTHING'
-                
+
+                columnas_validas = obtener_columnas_validas(table_name)
+                booleanos = boolean_columns_cache.get(table_name, set())
+
+                columnas_presentes = [c for c in rows[0].keys() if c in columnas_validas]
+                if not columnas_presentes:
+                    results[table_name] = 0
+                    continue
+
+                placeholders = ', '.join(['%s'] * len(columnas_presentes))
+                columnas_str = ', '.join([f'"{col}"' for col in columnas_presentes])
+
+                insert_sql = f'INSERT INTO {table_name} ({columnas_str}) VALUES ({placeholders}) ON CONFLICT DO NOTHING'
+
                 migrated = 0
                 with connection.cursor() as postgres_cursor:
                     for row in rows:
                         try:
-                            values = [row[col] for col in columns]
-                            postgres_cursor.execute(insert_sql, values)
+                            valores = []
+                            for col in columnas_presentes:
+                                valor = row.get(col)
+                                valor_limpio = limpiar_valor(col, valor, booleanos)
+                                valores.append(valor_limpio)
+                            postgres_cursor.execute(insert_sql, valores)
                             migrated += 1
                         except Exception as row_error:
                             lista = errores_por_tabla.setdefault(table_name, [])
                             if len(lista) < 5:
                                 lista.append(str(row_error))
-                    
                     connection.commit()
-                
+
                 results[table_name] = migrated
                 total_migrated += migrated
-                
+
             except Exception as e:
                 lista = errores_por_tabla.setdefault(table_name, [])
                 if len(lista) < 5:
                     lista.append(str(e))
                 results[table_name] = f"Error: {str(e)[:100]}"
-        
+
         return JsonResponse({
             'success': True,
             'total_migrated': total_migrated,
