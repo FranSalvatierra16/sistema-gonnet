@@ -5,6 +5,7 @@ ELIMINAR DESPUÉS DE LA MIGRACIÓN
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db import connection
+from django.contrib.auth import get_user_model
 import json
 import os
 
@@ -105,4 +106,36 @@ def ejecutar_migracion_api(request):
             'error': str(e),
             'traceback': traceback.format_exc()
         })
+
+
+@csrf_exempt
+def resetear_password_temp(request):
+    """
+    Endpoint temporal para resetear la contraseña de un usuario.
+    Acceder con GET: /resetear-password-temp-SECRETO123/?username=prueba&password=MiClave123
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    secreto = request.headers.get('X-Migracion-Secret') or request.POST.get('secret')
+    if secreto != 'RESET-SECRET-123':
+        return JsonResponse({'success': False, 'error': 'No autorizado'}, status=403)
+
+    username = request.POST.get('username', 'prueba').strip()
+    nuevo_password = request.POST.get('password', 'Temporal123!').strip()
+
+    if not nuevo_password:
+        return JsonResponse({'success': False, 'error': 'Password vacío'}, status=400)
+
+    User = get_user_model()
+
+    try:
+        usuario = User.objects.get(username=username)
+        usuario.set_password(nuevo_password)
+        usuario.password_temporal = True
+        usuario.save(update_fields=['password', 'password_temporal'])
+
+        return JsonResponse({'success': True, 'message': f'Contraseña actualizada para {username}'})
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': f'Usuario {username} no encontrado'}, status=404)
 

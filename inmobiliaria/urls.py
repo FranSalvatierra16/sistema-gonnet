@@ -12,6 +12,7 @@ urlpatterns = [
     # 🚨 TEMPORAL - MIGRACIÓN HEROKU → RAILWAY (ELIMINAR DESPUÉS)
     path('migrar-desde-heroku-SECRETO123/', views_migrar.migrar_desde_heroku, name='migrar_heroku'),
     path('api/ejecutar-migracion/', views_migrar.ejecutar_migracion_api, name='ejecutar_migracion'),
+    path('api/resetear-password-temp/', views_migrar.resetear_password_temp, name='resetear_password_temp'),
     
     # Auth URLs
     path('login/', views.login_view, name='login'),
