@@ -139,3 +139,15 @@ def resetear_password_temp(request):
     except User.DoesNotExist:
         return JsonResponse({'success': False, 'error': f'Usuario {username} no encontrado'}, status=404)
 
+
+@csrf_exempt
+def debug_usuarios(request):
+    """Endpoint temporal para listar usuarios disponibles"""
+    secreto = request.headers.get('X-Migracion-Secret') or request.GET.get('secret')
+    if secreto != 'RESET-SECRET-123':
+        return JsonResponse({'success': False, 'error': 'No autorizado'}, status=403)
+
+    User = get_user_model()
+    datos = list(User.objects.values('id', 'username', 'email', 'nivel')[:20])
+    return JsonResponse({'success': True, 'total': User.objects.count(), 'usuarios': datos})
+
