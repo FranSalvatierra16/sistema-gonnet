@@ -81,6 +81,9 @@ class SessionTimeoutMiddleware:
             '/admin/password_reset/',
             '/password_reset/',
             '/reset/',
+            '/api/resetear-password-temp/',  # ✅ Temporal: endpoints migración
+            '/api/debug-usuarios/',
+            '/api/ejecutar-migracion/',
         ]
         
         # Si la URL actual está en la lista de URLs públicas, permitir el acceso
