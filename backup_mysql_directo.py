@@ -47,6 +47,8 @@ tables = [
     'inmobiliaria_propietario',
     'inmobiliaria_inquilino',
     'inmobiliaria_propiedad',
+    'inmobiliaria_ventapropiedad',
+    'inmobiliaria_alquilermeses',
     'inmobiliaria_disponibilidad',
     'inmobiliaria_historialdisponibilidad',
     'inmobiliaria_precio',
