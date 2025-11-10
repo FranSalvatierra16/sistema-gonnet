@@ -24,7 +24,7 @@ class Caja(models.Model):
         ('cerrada', 'Cerrada'),
     ]
     
-    numero = models.PositiveIntegerField()  # ✅ Ya no es primary_key
+    numero = models.AutoField(primary_key=True)
     sucursal = models.ForeignKey('Sucursal', on_delete=models.PROTECT)
     fecha_apertura = models.DateTimeField(auto_now_add=True)
     fecha_cierre = models.DateTimeField(null=True, blank=True)
