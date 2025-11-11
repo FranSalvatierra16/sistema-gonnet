@@ -3,7 +3,7 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from django.forms import inlineformset_factory
 from django.template.loader import render_to_string
@@ -3208,11 +3208,27 @@ def procesar_movimiento_reserva(request):
                     return '0'
                 # Remover puntos de miles y espacios
                 return str(valor_str).replace('.', '').replace(' ', '').replace(',', '.')
+
+            def obtener_decimal(nombre_campo, etiqueta=None):
+                """
+                Convierte el valor de un campo enviado en el POST a Decimal.
+                Si la conversión falla, levanta un ValueError con un mensaje descriptivo.
+                """
+                raw_value = request.POST.get(nombre_campo, '')
+                valor_limpio = limpiar_valor_monetario(raw_value or '0')
+                try:
+                    return Decimal(valor_limpio)
+                except (InvalidOperation, ValueError):
+                    campo_descripcion = etiqueta or nombre_campo
+                    raise ValueError(f"Valor inválido en {campo_descripcion}: '{raw_value}'")
             
             # Formas de pago (limpiar antes de convertir a Decimal)
-            monto_efectivo = Decimal(limpiar_valor_monetario(request.POST.get('monto_efectivo', '0')))
-            monto_cheque = Decimal(limpiar_valor_monetario(request.POST.get('monto_cheque', '0')))
-            monto_tarjeta = Decimal(limpiar_valor_monetario(request.POST.get('monto_tarjeta', '0')))
+            try:
+                monto_efectivo = obtener_decimal('monto_efectivo', 'Importe efectivo')
+                monto_cheque = obtener_decimal('monto_cheque', 'Importe cheque')
+                monto_tarjeta = obtener_decimal('monto_tarjeta', 'Importe tarjeta')
+            except ValueError as exc:
+                return JsonResponse({'success': False, 'error': str(exc)})
             
             # ✅ Obtener cuentas bancarias dinámicamente
             from inmobiliaria.models.sucursal import CuentaBancaria
@@ -3227,7 +3243,13 @@ def procesar_movimiento_reserva(request):
             
             for cuenta in cuentas_bancarias:
                 campo_name = cuenta.field_name  # ej: monto_deposito_1
-                monto_cuenta = Decimal(limpiar_valor_monetario(request.POST.get(campo_name, '0')))
+                etiqueta_cuenta = cuenta.nombre_banco
+                if cuenta.alias:
+                    etiqueta_cuenta = f"{etiqueta_cuenta} - {cuenta.alias}"
+                try:
+                    monto_cuenta = obtener_decimal(campo_name, f"Transferencia {etiqueta_cuenta}")
+                except ValueError as exc:
+                    return JsonResponse({'success': False, 'error': str(exc)})
                 montos_cuentas_bancarias[cuenta.id] = {
                     'cuenta': cuenta,
                     'monto': monto_cuenta,
@@ -3237,8 +3259,11 @@ def procesar_movimiento_reserva(request):
 # print(f"💰 Cuenta {cuenta.nombre_banco}: ${monto_cuenta}")
             
             # Mantener compatibilidad con campos antiguos (fallback)
-            monto_deposito_galicia = Decimal(limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0')))
-            monto_deposito_mp = Decimal(limpiar_valor_monetario(request.POST.get('monto_deposito_mp', '0')))
+            try:
+                monto_deposito_galicia = obtener_decimal('monto_deposito_galicia', 'Transferencia Galicia')
+                monto_deposito_mp = obtener_decimal('monto_deposito_mp', 'Transferencia Mercado Pago')
+            except ValueError as exc:
+                return JsonResponse({'success': False, 'error': str(exc)})
             monto_deposito_legacy = monto_deposito_galicia + monto_deposito_mp
             
             # Usar el total dinámico o el legacy como fallback
@@ -3303,11 +3328,17 @@ def procesar_movimiento_reserva(request):
                     # ✅ DETECTAR CONCEPTO 10 (DEPÓSITO)
                     if concepto_id == '10':
                         concepto_10_presente = True
-                        concepto_10_importe = Decimal(limpiar_valor_monetario(concepto_importe or '0'))
+                        try:
+                            concepto_10_importe = obtener_decimal(f'concepto_{i}_importe', 'Concepto 10 (Depósito)')
+                        except ValueError as exc:
+                            return JsonResponse({'success': False, 'error': str(exc)})
 # print(f"🏦 CONCEPTO 10 (DEPÓSITO) DETECTADO: ${concepto_10_importe}")
                     
                     # ✅ SUMAR AL TOTAL DE CONCEPTOS
-                    importe_limpio = Decimal(limpiar_valor_monetario(concepto_importe or '0'))
+                    try:
+                        importe_limpio = obtener_decimal(f'concepto_{i}_importe', f'Concepto {concepto_nombre}')
+                    except ValueError as exc:
+                        return JsonResponse({'success': False, 'error': str(exc)})
                     total_conceptos += importe_limpio
                     
                     # Guardar información completa del concepto
