@@ -3310,6 +3310,7 @@ def procesar_movimiento_reserva(request):
             conceptos_count = len([key for key in request.POST.keys() if key.startswith('concepto_') and key.endswith('_nombre')])
             conceptos_detalle = []
             conceptos_completos = []  # Para guardar información completa
+            conceptos_importes_decimal = {}
             
             # ✅ VARIABLES PARA VALIDAR CONCEPTO 10 (DEPÓSITO)
             concepto_10_presente = False
@@ -3340,6 +3341,7 @@ def procesar_movimiento_reserva(request):
                     except ValueError as exc:
                         return JsonResponse({'success': False, 'error': str(exc)})
                     total_conceptos += importe_limpio
+                    conceptos_importes_decimal[i] = importe_limpio
                     
                     # Guardar información completa del concepto
                     concepto_completo = {
@@ -3554,7 +3556,7 @@ def procesar_movimiento_reserva(request):
                     
                     # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA: 1, 15, 103
                     if concepto_id in ['1', '15', '103']:
-                        importe_limpio = Decimal(limpiar_valor_monetario(concepto_importe or '0'))
+                        importe_limpio = conceptos_importes_decimal.get(i, Decimal('0'))
                         senia_real += importe_limpio
 # print(f"💰 SEÑA DETECTADA: Concepto {concepto_id} - ${importe_limpio}")
                 
