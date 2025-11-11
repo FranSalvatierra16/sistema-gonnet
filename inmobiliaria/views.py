@@ -3345,7 +3345,7 @@ def procesar_movimiento_reserva(request):
                     concepto_completo = {
                         'id': concepto_id or f'C{i+1:02d}',
                         'nombre': concepto_nombre,
-                        'importe': concepto_importe or '0'
+                        'importe': str(importe_limpio.quantize(Decimal('0.01'))) if isinstance(importe_limpio, Decimal) else str(importe_limpio)
                     }
                     conceptos_completos.append(concepto_completo)
 # print(f"💰 CONCEPTO {i}: ID={concepto_id}, {concepto_nombre} - ${concepto_importe}")
