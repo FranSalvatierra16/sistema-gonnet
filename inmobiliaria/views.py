@@ -10,6 +10,7 @@ from django.template.loader import render_to_string
 from django.contrib.auth import authenticate
 from django.db import models
 from django.db import transaction
+import re
 
 # Importar vistas de cuentas bancarias
 from .views_cuentas_bancarias import (
@@ -3206,8 +3207,23 @@ def procesar_movimiento_reserva(request):
             def limpiar_valor_monetario(valor_str):
                 if not valor_str:
                     return '0'
-                # Remover puntos de miles y espacios
-                return str(valor_str).replace('.', '').replace(' ', '').replace(',', '.')
+                valor = str(valor_str).strip()
+                # Quitar cualquier carácter que no sea dígito, punto, coma o signo
+                valor = re.sub(r'[^\d.,\-]', '', valor)
+                if not valor:
+                    return '0'
+                valor = valor.replace(' ', '')
+                # Normalizar múltiples separadores
+                if valor.count('.') > 1:
+                    partes = valor.split('.')
+                    valor = ''.join(partes[:-1]) + '.' + partes[-1]
+                if valor.count(',') > 1:
+                    partes = valor.split(',')
+                    valor = ''.join(partes[:-1]) + ',' + partes[-1]
+                valor = valor.replace('.', '').replace(',', '.')
+                if valor in {'', '-', '.'}:
+                    return '0'
+                return valor
 
             def obtener_decimal(nombre_campo, etiqueta=None):
                 """
