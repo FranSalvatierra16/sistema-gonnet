@@ -1,29 +1,44 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
+import json
+import os
 import requests
 
 class Command(BaseCommand):
     help = 'Migra datos desde MySQL de Heroku a PostgreSQL de Railway'
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--archivo',
+            help='Ruta local o URL (HTTP/HTTPS) del backup JSON a importar'
+        )
+
     def handle(self, *args, **options):
         self.stdout.write("🔄 MIGRACIÓN MYSQL → POSTGRESQL")
         self.stdout.write("=" * 60)
         
-        # Descargar el backup JSON desde una URL (GitHub raw)
-        backup_url = 'https://raw.githubusercontent.com/FranSalvatierra16/sistema-gonnet/finalizacion10/backup_heroku_20251106_124257.json'
+        origen = options.get('archivo') or \
+            'https://raw.githubusercontent.com/FranSalvatierra16/sistema-gonnet/finalizacion10/backup_heroku_20251111_213534.json'
         
-        self.stdout.write(f"\n📥 Descargando backup desde GitHub...")
+        self.stdout.write(f"\n📥 Cargando backup desde: {origen}")
         
+        all_data = None
         try:
-            response = requests.get(backup_url, timeout=60)
-            response.raise_for_status()
-            all_data = response.json()
-            
-            self.stdout.write(f"✅ Backup descargado ({len(response.content) / 1024 / 1024:.2f} MB)")
-            
+            if origen.startswith('http://') or origen.startswith('https://'):
+                response = requests.get(origen, timeout=120)
+                response.raise_for_status()
+                all_data = response.json()
+                self.stdout.write(f"✅ Backup descargado ({len(response.content) / 1024 / 1024:.2f} MB)")
+            else:
+                ruta = os.path.abspath(origen)
+                if not os.path.exists(ruta):
+                    raise CommandError(f"El archivo '{ruta}' no existe")
+                with open(ruta, 'r', encoding='utf-8') as f:
+                    all_data = json.load(f)
+                size_mb = os.path.getsize(ruta) / 1024 / 1024
+                self.stdout.write(f"✅ Backup leído localmente ({size_mb:.2f} MB)")
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f"❌ Error descargando backup: {e}"))
-            return
+            raise CommandError(f"No se pudo cargar el backup: {e}")
         
         # Migrar datos
         results = {}
