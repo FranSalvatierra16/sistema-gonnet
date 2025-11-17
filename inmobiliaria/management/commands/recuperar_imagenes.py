@@ -198,25 +198,38 @@ class Command(BaseCommand):
                 
                 for img_idx, img_info in enumerate(imagenes_s3, start=1):
                     nombre_archivo = img_info['key'].replace('media/propiedades/', '')
+                    imagen_path = f'propiedades/{nombre_archivo}'
                     
-                    # Verificar si ya existe
+                    # Verificar si ya existe para esta propiedad (verificación exacta)
                     existe = ImagenPropiedad.objects.filter(
                         propiedad=propiedad,
-                        imagen__icontains=nombre_archivo
+                        imagen=imagen_path
                     ).exists()
                     
                     if existe:
                         ya_existentes_en_esta += 1
                         continue
                     
-                    # Crear registro
+                    # Verificar que la imagen no esté asociada a otra propiedad
+                    existe_en_otra = ImagenPropiedad.objects.filter(
+                        imagen=imagen_path
+                    ).exclude(propiedad=propiedad).exists()
+                    
+                    if existe_en_otra:
+                        # La imagen ya está asociada a otra propiedad, saltarla
+                        continue
+                    
+                    # Crear registro usando get_or_create para evitar duplicados
                     try:
-                        ImagenPropiedad.objects.create(
+                        img, created = ImagenPropiedad.objects.get_or_create(
                             propiedad=propiedad,
-                            imagen=f'propiedades/{nombre_archivo}',
-                            orden=img_idx
+                            imagen=imagen_path,
+                            defaults={'orden': img_idx}
                         )
-                        creadas_en_esta += 1
+                        if created:
+                            creadas_en_esta += 1
+                        else:
+                            ya_existentes_en_esta += 1
                     except Exception:
                         pass
                 
