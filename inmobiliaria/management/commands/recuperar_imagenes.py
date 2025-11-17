@@ -60,9 +60,9 @@ class Command(BaseCommand):
                 f'media/propiedades/{prop_id_str}1',  # Ej: 120010.jpg, 120011.jpg
             ])
         
-        # Buscar por ficha si es diferente del ID y tiene sentido
-        if ficha and ficha != prop_id_str and len(ficha) >= 2:
-            # Solo buscar por ficha si no es muy corta (para evitar falsos positivos)
+        # Buscar por ficha solo si es diferente del ID y tiene al menos 3 caracteres
+        # (para evitar falsos positivos con fichas cortas como "1")
+        if ficha and ficha != prop_id_str and len(ficha) >= 3:
             patrones_ficha = [
                 f'media/propiedades/{ficha}00',
                 f'media/propiedades/{ficha}01',
@@ -71,6 +71,11 @@ class Command(BaseCommand):
             if len(ficha) >= 4:
                 patrones_ficha.append(f'media/propiedades/{ficha}0')
             patrones_especificos.extend(patrones_ficha)
+        
+        # Obtener todos los IDs de propiedades para validación
+        todos_ids_propiedades = set(
+            Propiedad.objects.values_list('id', flat=True)
+        )
         
         for patron in patrones_especificos:
             try:
@@ -104,8 +109,26 @@ class Command(BaseCommand):
                                 es_valida = True
                         
                         # Verificar por ficha si no pasó la validación por ID
-                        if not es_valida and ficha and ficha != prop_id_str:
+                        if not es_valida and ficha and ficha != prop_id_str and len(ficha) >= 3:
                             if nombre_archivo.startswith(ficha):
+                                # Verificar que no sea de otra propiedad
+                                # Extraer los primeros dígitos numéricos del nombre
+                                match = re.match(r'^(\d+)', nombre_archivo)
+                                if match:
+                                    primeros_digitos = match.group(1)
+                                    # Si los primeros dígitos forman un ID de otra propiedad, no es válido
+                                    if len(primeros_digitos) >= 4:
+                                        # Intentar encontrar un ID de propiedad en los primeros dígitos
+                                        es_otra_propiedad = False
+                                        for longitud in range(4, min(len(primeros_digitos) + 1, 7)):
+                                            posible_id = int(primeros_digitos[:longitud])
+                                            if posible_id in todos_ids_propiedades and posible_id != propiedad.id:
+                                                es_otra_propiedad = True
+                                                break
+                                        
+                                        if es_otra_propiedad:
+                                            continue  # Esta imagen pertenece a otra propiedad
+                                
                                 if len(nombre_archivo) > len(ficha):
                                     siguiente = nombre_archivo[len(ficha):]
                                     if re.match(r'^(\d{2,}|\d{1,}_|_)', siguiente):
