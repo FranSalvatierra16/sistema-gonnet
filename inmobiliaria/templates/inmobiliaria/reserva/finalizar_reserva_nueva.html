@@ -68,7 +68,7 @@ function calcularSaldoOcupar() {
         // Actualizar resumen si existe
         const resumenPendiente = document.querySelector('#resumen-pendiente, .pendiente-amount');
         if (resumenPendiente) {
-            resumenPendiente.textContent = `$${quedaPorPagar.toLocaleString('es-ES')}`;
+            resumenPendiente.textContent = `${quedaPorPagar.toLocaleString('es-ES')}`;
         }
         
     } catch (error) {
@@ -568,7 +568,7 @@ function actualizarTablaConceptos() {
             <td>${concepto.fecha}</td>
             <td>${concepto.nombre}</td>
             <td>${concepto.observaciones}</td>
-            <td class="text-end">$${concepto.importe.toLocaleString('es-ES')}</td>
+            <td class="text-end">${concepto.importe.toLocaleString('es-ES')}</td>
             <td>${concepto.conceptoId}</td>
             <td>
                 <button type="button" class="btn btn-warning btn-sm me-1" 
@@ -1089,12 +1089,12 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                                 <div class="mt-2 p-2" style="background-color: #e7f3ff; border-radius: 5px; border-left: 4px solid #007bff;">
                                     <small class="text-primary">
                                         <strong>📊 RESUMEN:</strong><br>
-                                        💰 Precio Total: ${{ reserva.precio_total|format_price }}<br>
-                                        ✅ Seña Pagada: ${{ total_senia_pagada|format_price }}<br>
+                                        💰 Precio Total: {{ reserva.precio_total|format_price }}<br>
+                                        ✅ Seña Pagada: {{ total_senia_pagada|format_price }}<br>
                                         {% if total_deposito_pagado > 0 %}
-                                        🛡️ Depósito Pagado: ${{ total_deposito_pagado|format_price }}<br>
+                                        🛡️ Depósito Pagado: {{ total_deposito_pagado|format_price }}<br>
                                         {% endif %}
-                                        ⏳ Pendiente: ${{ saldo_a_ocupar|format_price }}
+                                        ⏳ Pendiente: {{ saldo_a_ocupar|format_price }}
                                     </small>
                                 </div>
                             </div>
