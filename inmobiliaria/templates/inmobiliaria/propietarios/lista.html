@@ -125,10 +125,11 @@
                                             <span class="text-muted">-</span>
                                         {% endif %}
                                     </td>
-                                    <td>
+                                    <td style="padding: 0;">
                                         <a href="{% url 'inmobiliaria:propiedades_propietario' propietario.id %}" 
                                            class="propiedades-badge propiedades-clickable" 
-                                           title="Ver propiedades">
+                                           title="Ver propiedades"
+                                           style="display: block; width: 100%; padding: 15px;">
                                             <i class="fas fa-home me-1"></i>
                                             {{ propietario.propiedades.count|default:0 }} propiedad{{ propietario.propiedades.count|pluralize:"es" }}
                                         </a>
@@ -253,10 +254,11 @@ $(document).ready(function() {
                             '<span class="text-muted">-</span>'
                         }
                     </td>
-                    <td>
+                    <td style="padding: 0;">
                         <a href="/propietario/${propietario.id}/propiedades/" 
                            class="propiedades-badge propiedades-clickable" 
-                           title="Ver propiedades">
+                           title="Ver propiedades"
+                           style="display: block; width: 100%; padding: 15px;">
                             <i class="fas fa-home me-1"></i>
                             ${propietario.propiedades_count || 0} propiedad${(propietario.propiedades_count || 0) !== 1 ? 'es' : ''}
                         </a>
@@ -395,14 +397,13 @@ $(document).ready(function() {
 .propiedades-badge {
     background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%);
     color: #11998e;
-    padding: 6px 12px;
     border-radius: 15px;
     font-size: 0.8rem;
     border: 1px solid #c3e6cb;
     font-weight: 600;
     text-decoration: none;
-    display: inline-block;
     transition: all 0.3s ease;
+    box-sizing: border-box;
 }
 
 .propiedades-clickable:hover {
