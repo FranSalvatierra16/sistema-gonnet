@@ -18,6 +18,11 @@ class Command(BaseCommand):
             type=int,
             help='ID de una propiedad específica para procesar',
         )
+        parser.add_argument(
+            '--limpiar',
+            action='store_true',
+            help='Eliminar todas las imágenes existentes antes de recuperar',
+        )
 
     def obtener_imagenes_s3_por_propiedad(self, propiedad, s3_client, bucket_name):
         """Busca las imágenes en S3 que realmente pertenecen a una propiedad"""
@@ -132,6 +137,14 @@ class Command(BaseCommand):
         if not access_key or not secret_key:
             self.stdout.write(self.style.ERROR('❌ Error: AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY deben estar configurados'))
             return
+        
+        # Limpiar imágenes existentes si se solicita
+        if options['limpiar']:
+            self.stdout.write("🧹 Limpiando imágenes existentes...")
+            total_eliminadas = ImagenPropiedad.objects.count()
+            ImagenPropiedad.objects.all().delete()
+            self.stdout.write(self.style.SUCCESS(f"✅ Eliminadas {total_eliminadas} imágenes existentes"))
+            self.stdout.write("=" * 60)
         
         s3_client = boto3.client(
             's3',
