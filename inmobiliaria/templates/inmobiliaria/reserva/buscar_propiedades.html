@@ -3876,7 +3876,12 @@ function calcularPrecioQuincena(fila) {
     if (tipoPrecio.includes('ENERO') || tipoPrecio.includes('MARZO') || tipoPrecio.includes('DICIEMBRE')) {
         dias = 16;
     } else if (tipoPrecio === 'FINDE_LARGO' || tipoPrecio === 'SEMANA_SANTA' || tipoPrecio === 'CARNAVALES') {
-        dias = 5;
+        // Para estos tipos, el precio por quincena debe quedarse vacío
+        const inputTotal = fila.querySelector('[data-field="precio_total"]');
+        if (inputTotal && !inputTotal.dataset.manualEdit) {
+            inputTotal.value = '';
+        }
+        return;
     } else if (tipoPrecio === 'TEMPORADA_BAJA') {
         dias = 15;
         // Para temporada baja no calculamos precio total
@@ -4228,7 +4233,12 @@ function calcularPrecioQuincena(fila) {
     if (tipoPrecio.includes('ENERO') || tipoPrecio.includes('MARZO') || tipoPrecio.includes('DICIEMBRE')) {
         dias = 16;
     } else if (tipoPrecio === 'FINDE_LARGO' || tipoPrecio === 'SEMANA_SANTA' || tipoPrecio === 'CARNAVALES') {
-        dias = 5;
+        // Para estos tipos, el precio por quincena debe quedarse vacío
+        const inputTotal = fila.querySelector('[data-field="precio_total"]');
+        if (inputTotal && !inputTotal.dataset.manualEdit) {
+            inputTotal.value = '';
+        }
+        return;
     } else if (tipoPrecio === 'TEMPORADA_BAJA') {
         dias = 15;
         // Para temporada baja no calculamos precio total
