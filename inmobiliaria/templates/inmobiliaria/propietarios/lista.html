@@ -98,7 +98,9 @@
                             </thead>
                             <tbody id="propietarios-body">
                                 {% for propietario in propietarios %}
-                                <tr class="table-row-hover">
+                                <tr class="table-row-hover" 
+                                    data-href="{% url 'inmobiliaria:propiedades_propietario' propietario.id %}"
+                                    style="cursor: pointer;">
                                     <td>
                                         <div class="d-flex align-items-center">
                                             <div class="avatar-circle-owner me-2">
@@ -134,8 +136,8 @@
                                             {{ propietario.propiedades.count|default:0 }} propiedad{{ propietario.propiedades.count|pluralize:"es" }}
                                         </a>
                                     </td>
-                                    <td>
-                                        <div class="btn-group" role="group">
+                                    <td class="no-click">
+                                        <div class="btn-group" role="group" onclick="event.stopPropagation();">
                                             <a href="{% url 'inmobiliaria:propietario_detalle' propietario.id %}" 
                                                class="btn btn-outline-info btn-sm action-btn" 
                                                title="Ver detalles">
@@ -229,7 +231,9 @@ $(document).ready(function() {
 
         $.each(propietarios, function(i, propietario) {
             tbody.append(`
-                <tr class="table-row-hover">
+                <tr class="table-row-hover" 
+                    data-href="/propietario/${propietario.id}/propiedades/"
+                    style="cursor: pointer;">
                     <td>
                         <div class="d-flex align-items-center">
                             <div class="avatar-circle-owner me-2">
@@ -263,8 +267,8 @@ $(document).ready(function() {
                             ${propietario.propiedades_count || 0} propiedad${(propietario.propiedades_count || 0) !== 1 ? 'es' : ''}
                         </a>
                     </td>
-                    <td>
-                        <div class="btn-group" role="group">
+                    <td class="no-click">
+                        <div class="btn-group" role="group" onclick="event.stopPropagation();">
                             <a href="/propietarios/${propietario.id}/" 
                                class="btn btn-outline-info btn-sm action-btn" 
                                title="Ver detalles">
@@ -288,6 +292,15 @@ $(document).ready(function() {
 
     // Tooltips para botones
     $('[data-bs-toggle="tooltip"]').tooltip();
+    
+    // Hacer que toda la fila sea clicable (excepto botones de acción)
+    $(document).on('click', 'tr[data-href]', function(e) {
+        // No hacer nada si se clickeó en un botón o enlace
+        if ($(e.target).closest('.btn-group, .action-btn, a').length) {
+            return;
+        }
+        window.location.href = $(this).data('href');
+    });
 });
 </script>
 
@@ -371,6 +384,14 @@ $(document).ready(function() {
     background-color: #f0fff0;
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(17, 153, 142, 0.1);
+}
+
+.table-row-hover[data-href]:hover {
+    background-color: #e8f5e8;
+}
+
+.no-click {
+    cursor: default !important;
 }
 
 .table-row-hover td {
