@@ -5184,12 +5184,6 @@ window.verHistorial = function() {
                         `<small>Reserva #${h.reserva_id}<br>Cliente: ${h.cliente || '-'}</small>` : 
                         '-';
                     
-                    const acciones = h.reserva_id ? 
-                        `<button type="button" class="btn btn-info btn-sm" onclick="window.location.href='/reservas/${h.reserva_id}/'" title="Ver reserva">
-                            <i class="fas fa-eye"></i> Ver
-                        </button>` : 
-                        '-';
-                    
                     return `
                         <tr class="${estadoClass}">
                             <td>${h.fecha_inicio}</td>
@@ -5199,7 +5193,7 @@ window.verHistorial = function() {
                             </td>
                             <td>${reservaInfo}</td>
                             <td>${h.ultima_actualizacion}</td>
-                            <td>${acciones}</td>
+                            <td>-</td>
                         </tr>
                     `;
                 }).join('');
