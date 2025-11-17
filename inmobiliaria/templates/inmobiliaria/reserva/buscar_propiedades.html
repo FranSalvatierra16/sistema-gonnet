@@ -1231,9 +1231,6 @@
                                 <button type="button" class="btn btn-success btn-finalizar" data-url="{% url 'inmobiliaria:finalizar_reserva_nueva' 0 %}" data-reserva-id="${reserva_id}">
                                     <i class="fas fa-check-circle"></i> Finalizar Operación
                                 </button>
-                                <button type="button" class="btn btn-info" onclick="window.verPrecios()">
-                                    <i class="fas fa-dollar-sign"></i> Ver Precios
-                                </button>
                                 <button type="button" class="btn btn-secondary" onclick="window.verHistorial()">
                                     <i class="fas fa-history"></i> Ver Historial
                                 </button>
@@ -1244,9 +1241,6 @@
                                     </button>
                                     <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
                                         <i class="fas fa-check-circle"></i> Operación Directa
-                                    </button>
-                                    <button type="button" class="btn btn-info" onclick="window.verPrecios()">
-                                        <i class="fas fa-dollar-sign"></i> Ver Precios
                                     </button>
                                     <button type="button" class="btn btn-secondary" onclick="window.verHistorial()">
                                         <i class="fas fa-history"></i> Ver Historial
@@ -1638,6 +1632,11 @@
         obtenerFotos: "{% url 'inmobiliaria:obtener_fotos_propiedad' 0 %}".slice(0, -1),
         obtenerHistorial: "{% url 'inmobiliaria:historial_disponibilidad' 0 %}".replace('/0/', '/')
     };
+    
+    // Función helper para construir URL de historial
+    function getHistorialUrl(propiedadId) {
+        return "{% url 'inmobiliaria:historial_disponibilidad' 0 %}".replace('/0/', `/${propiedadId}/`);
+    }
 
     function formatPrice(value) {
         // ✅ Usar la función global que formatea con PUNTOS (no comas)
@@ -2273,9 +2272,6 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
                 <button type="button" class="btn btn-success btn-finalizar" data-url="{% url 'inmobiliaria:finalizar_reserva_nueva' 0 %}" data-reserva-id="${reserva_id}">
                     <i class="fas fa-check-circle"></i> Finalizar Operación
                 </button>
-                <button type="button" class="btn btn-info" onclick="window.verPrecios()">
-                    <i class="fas fa-dollar-sign"></i> Ver Precios
-                </button>
                 <button type="button" class="btn btn-secondary" onclick="window.verHistorial()">
                     <i class="fas fa-history"></i> Ver Historial
                 </button>
@@ -2289,9 +2285,6 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
                 </button>
                 <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
                     <i class="fas fa-check-circle"></i> Operación Directa
-                </button>
-                <button type="button" class="btn btn-info" onclick="window.verPrecios()">
-                    <i class="fas fa-dollar-sign"></i> Ver Precios
                 </button>
                 <button type="button" class="btn btn-secondary" onclick="window.verHistorial()">
                     <i class="fas fa-history"></i> Ver Historial
@@ -5164,11 +5157,16 @@ window.verHistorial = function() {
     modalHistorial.show();
     
     // Cargar el historial vía AJAX
-    const url = `${URLS.obtenerHistorial}${propiedadId}/`;
+    const url = getHistorialUrl(propiedadId);
     console.log('Cargando historial desde:', url);
     
     fetch(url)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             console.log('Historial recibido:', data);
             
@@ -5211,7 +5209,11 @@ window.verHistorial = function() {
         })
         .catch(error => {
             console.error('Error al cargar historial:', error);
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error al cargar el historial</td></tr>';
+            console.error('URL intentada:', url);
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">
+                Error al cargar el historial: ${error.message}<br>
+                <small>URL: ${url}</small>
+            </td></tr>`;
         });
 };
 </script>
