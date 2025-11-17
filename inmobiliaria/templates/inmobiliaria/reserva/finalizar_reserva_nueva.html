@@ -864,6 +864,15 @@ function limpiarInfoVendedor() {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
+    // ✅ FORZAR SEÑA A 0 POR DEFECTO
+    const seniaInput = document.getElementById('senia');
+    if (seniaInput) {
+        const seniaValue = seniaInput.value.trim().replace(/[^0-9]/g, ''); // Remover $, puntos, etc.
+        if (!seniaValue || seniaValue === '0' || seniaValue === '') {
+            seniaInput.value = '0';
+        }
+    }
+    
     const productorIdInput = document.getElementById('productor_id');
     
     if (productorIdInput) {
