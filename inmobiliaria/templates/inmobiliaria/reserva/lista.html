@@ -424,6 +424,13 @@
                                     </span>
                                     <span class="detail-value-small">{{ reserva.propiedad.piso|default:"-" }}{% if reserva.propiedad.departamento %}/{{ reserva.propiedad.departamento }}{% endif %}</span>
                                 </div>
+                                <div class="detail-item-small">
+                                    <span class="detail-label-small">
+                                        <i class="fas fa-calendar-plus"></i>
+                                        Fecha Reserva:
+                                    </span>
+                                    <span class="detail-value-small">{{ reserva.fecha_creacion|date:"d/m/Y" }}</span>
+                                </div>
                             </div>
 
                             <div class="detail-item">
