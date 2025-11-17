@@ -38,6 +38,7 @@ urlpatterns = [
     path('inquilinos/<int:inquilino_id>/editar/', views.inquilino_editar, name='inquilino_editar'),
     path('inquilinos/<int:inquilino_id>/eliminar/', views.inquilino_eliminar, name='inquilino_eliminar'),
     path('historial-reservas-inquilino/<int:inquilino_id>/', views.historial_reservas_inquilino, name='historial_reservas_inquilino'),
+    path('inquilinos/<int:inquilino_id>/historial/', views.historial_reservas_inquilino, name='inquilino_historial_alias'),
     # Propietario URLs
     path('propietarios/', views.propietarios, name='propietarios'),
     path('propietarios/<int:propietario_id>/', views.propietario_detalle, name='propietario_detalle'),

@@ -1234,6 +1234,9 @@
                                 <button type="button" class="btn btn-info" onclick="window.verPrecios()">
                                     <i class="fas fa-dollar-sign"></i> Ver Precios
                                 </button>
+                                <button type="button" class="btn btn-secondary" onclick="window.verHistorial()">
+                                    <i class="fas fa-history"></i> Ver Historial
+                                </button>
                             {% else %}
                                 <div class="d-flex gap-2">
                                     <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
@@ -1244,6 +1247,9 @@
                                     </button>
                                     <button type="button" class="btn btn-info" onclick="window.verPrecios()">
                                         <i class="fas fa-dollar-sign"></i> Ver Precios
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" onclick="window.verHistorial()">
+                                        <i class="fas fa-history"></i> Ver Historial
                                     </button>
                                 </div>
                             {% endif %}
@@ -1629,7 +1635,8 @@
     // Añade esto al principio de tus scripts
     const URLS = {
         obtenerPrecios: "{% url 'inmobiliaria:obtener_precios_propiedad' 0 %}".slice(0, -1),
-        obtenerFotos: "{% url 'inmobiliaria:obtener_fotos_propiedad' 0 %}".slice(0, -1)
+        obtenerFotos: "{% url 'inmobiliaria:obtener_fotos_propiedad' 0 %}".slice(0, -1),
+        obtenerHistorial: "{% url 'inmobiliaria:historial_disponibilidad' 0 %}".replace('/0/', '/')
     };
 
     function formatPrice(value) {
@@ -2269,6 +2276,9 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
                 <button type="button" class="btn btn-info" onclick="window.verPrecios()">
                     <i class="fas fa-dollar-sign"></i> Ver Precios
                 </button>
+                <button type="button" class="btn btn-secondary" onclick="window.verHistorial()">
+                    <i class="fas fa-history"></i> Ver Historial
+                </button>
             </div>
         `;
     } else {
@@ -2282,6 +2292,9 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
                 </button>
                 <button type="button" class="btn btn-info" onclick="window.verPrecios()">
                     <i class="fas fa-dollar-sign"></i> Ver Precios
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="window.verHistorial()">
+                    <i class="fas fa-history"></i> Ver Historial
                 </button>
             </div>
         `;
@@ -5125,6 +5138,120 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Función para ver el historial de disponibilidad
+window.verHistorial = function() {
+    console.log('=== ABRIENDO MODAL DE HISTORIAL ===');
+    
+    if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
+        alert('Por favor, selecciona una propiedad primero.');
+        return;
+    }
+    
+    const propiedadId = propiedadSeleccionada.id;
+    const direccion = propiedadSeleccionada.direccion || `ID: ${propiedadId}`;
+    
+    // Actualizar el título del modal
+    document.getElementById('modalHistorialLabel').innerHTML = 
+        `<i class="fas fa-history"></i> Historial de Disponibilidad - ${direccion}`;
+    
+    // Limpiar el contenido anterior
+    const tbody = document.getElementById('historialTableBody');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>';
+    
+    // Mostrar el modal
+    const modalHistorial = new bootstrap.Modal(document.getElementById('modalHistorial'));
+    modalHistorial.show();
+    
+    // Cargar el historial vía AJAX
+    const url = `${URLS.obtenerHistorial}${propiedadId}/`;
+    console.log('Cargando historial desde:', url);
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Historial recibido:', data);
+            
+            if (data.success && data.historial && data.historial.length > 0) {
+                // Generar las filas de la tabla
+                tbody.innerHTML = data.historial.map(h => {
+                    const estadoClass = h.estado === 'libre' ? 'table-success' : 
+                                      h.estado === 'reservado' ? 'table-warning' : 'table-danger';
+                    const estadoBadge = h.estado === 'libre' ? 'bg-success' : 
+                                       h.estado === 'reservado' ? 'bg-warning' : 'bg-danger';
+                    const estadoDisplay = h.estado === 'libre' ? 'Libre' : 
+                                         h.estado === 'reservado' ? 'Reservado' : 'Operación';
+                    
+                    const reservaInfo = h.reserva_id ? 
+                        `<small>Reserva #${h.reserva_id}<br>Cliente: ${h.cliente || '-'}</small>` : 
+                        '-';
+                    
+                    const acciones = h.reserva_id ? 
+                        `<button type="button" class="btn btn-info btn-sm" onclick="window.location.href='/reservas/${h.reserva_id}/'" title="Ver reserva">
+                            <i class="fas fa-eye"></i> Ver
+                        </button>` : 
+                        '-';
+                    
+                    return `
+                        <tr class="${estadoClass}">
+                            <td>${h.fecha_inicio}</td>
+                            <td>${h.fecha_fin}</td>
+                            <td>
+                                <span class="badge ${estadoBadge}">${estadoDisplay}</span>
+                            </td>
+                            <td>${reservaInfo}</td>
+                            <td>${h.ultima_actualizacion}</td>
+                            <td>${acciones}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay registros en el historial</td></tr>';
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar historial:', error);
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error al cargar el historial</td></tr>';
+        });
+};
 </script>
+
+<!-- Modal para historial de disponibilidad -->
+<div class="modal fade" id="modalHistorial" tabindex="-1" aria-labelledby="modalHistorialLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalHistorialLabel">
+                    <i class="fas fa-history"></i> Historial de Disponibilidad
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>Fecha Inicio</th>
+                                <th>Fecha Fin</th>
+                                <th>Estado</th>
+                                <th>Reserva</th>
+                                <th>Última Actualización</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historialTableBody">
+                            <tr>
+                                <td colspan="6" class="text-center">Selecciona una propiedad para ver su historial</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock extra_js %}
 
