@@ -26,27 +26,48 @@ class Command(BaseCommand):
         
         imagenes_encontradas = []
         
-        # Buscar por ID de propiedad
-        patrones_id = [
+        # Verificar si la imagen ya está asociada a otra propiedad
+        todas_imagenes_bd = set(
+            ImagenPropiedad.objects.exclude(propiedad=propiedad)
+            .values_list('imagen', flat=True)
+        )
+        
+        # Buscar imágenes que empiecen exactamente con el ID seguido de números o guión bajo
+        # Patrones más específicos para evitar falsos positivos
+        patrones_especificos = [
             f'media/propiedades/{prop_id_str}00',  # Ej: 120000.jpg
             f'media/propiedades/{prop_id_str}01',  # Ej: 120001.jpg
-            f'media/propiedades/{prop_id_str}0',   # Ej: 12000.jpg, 12001.jpg
+            f'media/propiedades/{prop_id_str}02',  # Ej: 120002.jpg
+            f'media/propiedades/{prop_id_str}03',  # Ej: 120003.jpg
+            f'media/propiedades/{prop_id_str}04',  # Ej: 120004.jpg
+            f'media/propiedades/{prop_id_str}05',  # Ej: 120005.jpg
+            f'media/propiedades/{prop_id_str}06',  # Ej: 120006.jpg
+            f'media/propiedades/{prop_id_str}07',  # Ej: 120007.jpg
+            f'media/propiedades/{prop_id_str}08',  # Ej: 120008.jpg
+            f'media/propiedades/{prop_id_str}09',  # Ej: 120009.jpg
             f'media/propiedades/{prop_id_str}_',   # Ej: 1200_xxx.jpg
         ]
         
-        # Buscar por ficha si es diferente del ID
-        patrones_ficha = []
-        if ficha and ficha != prop_id_str:
+        # Si el ID tiene 4 o más dígitos, también buscar con un solo dígito adicional
+        if len(prop_id_str) >= 4:
+            patrones_especificos.extend([
+                f'media/propiedades/{prop_id_str}0',  # Ej: 12000.jpg, 12001.jpg
+                f'media/propiedades/{prop_id_str}1',  # Ej: 120010.jpg, 120011.jpg
+            ])
+        
+        # Buscar por ficha si es diferente del ID y tiene sentido
+        if ficha and ficha != prop_id_str and len(ficha) >= 2:
+            # Solo buscar por ficha si no es muy corta (para evitar falsos positivos)
             patrones_ficha = [
                 f'media/propiedades/{ficha}00',
                 f'media/propiedades/{ficha}01',
-                f'media/propiedades/{ficha}0',
                 f'media/propiedades/{ficha}_',
             ]
+            if len(ficha) >= 4:
+                patrones_ficha.append(f'media/propiedades/{ficha}0')
+            patrones_especificos.extend(patrones_ficha)
         
-        todos_patrones = patrones_id + patrones_ficha
-        
-        for patron in todos_patrones:
+        for patron in patrones_especificos:
             try:
                 response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=patron)
                 if 'Contents' in response:
@@ -57,38 +78,42 @@ class Command(BaseCommand):
                         if not key.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
                             continue
                         
-                        # Verificar que realmente pertenece a esta propiedad
-                        if nombre_archivo.startswith(prop_id_str):
-                            # Si el ID tiene menos de 4 dígitos, verificar que no sea de otra propiedad
-                            if len(prop_id_str) < 4:
-                                match = re.match(r'^(\d+)', nombre_archivo)
-                                if match:
-                                    primeros_digitos = match.group(1)
-                                    if not (primeros_digitos == prop_id_str or primeros_digitos.startswith(prop_id_str + '0')):
-                                        continue
-                            
-                            if key not in [img['key'] for img in imagenes_encontradas]:
-                                imagenes_encontradas.append({
-                                    'key': key,
-                                    'name': nombre_archivo,
-                                    'size': obj['Size']
-                                })
+                        # Verificar que no esté ya asociada a otra propiedad
+                        nombre_relativo = key.replace('media/', '')
+                        if nombre_relativo in todas_imagenes_bd:
+                            continue
                         
-                        # También verificar por ficha
-                        if ficha and nombre_archivo.startswith(ficha) and ficha != prop_id_str:
-                            if len(ficha) < 4:
-                                match = re.match(r'^(\d+)', nombre_archivo)
-                                if match:
-                                    primeros_digitos = match.group(1)
-                                    if not (primeros_digitos == ficha or primeros_digitos.startswith(ficha + '0')):
-                                        continue
-                            
-                            if key not in [img['key'] for img in imagenes_encontradas]:
-                                imagenes_encontradas.append({
-                                    'key': key,
-                                    'name': nombre_archivo,
-                                    'size': obj['Size']
-                                })
+                        # Validación estricta: debe empezar exactamente con el ID o ficha
+                        es_valida = False
+                        
+                        # Verificar por ID
+                        if nombre_archivo.startswith(prop_id_str):
+                            # Si el siguiente carácter es un dígito, debe ser parte del orden (00-99)
+                            if len(nombre_archivo) > len(prop_id_str):
+                                siguiente = nombre_archivo[len(prop_id_str):]
+                                # Debe ser: números seguidos de extensión, o guión bajo
+                                if re.match(r'^(\d{2,}|\d{1,}_|_)', siguiente):
+                                    es_valida = True
+                            else:
+                                # Nombre exacto como "1200.jpg"
+                                es_valida = True
+                        
+                        # Verificar por ficha si no pasó la validación por ID
+                        if not es_valida and ficha and ficha != prop_id_str:
+                            if nombre_archivo.startswith(ficha):
+                                if len(nombre_archivo) > len(ficha):
+                                    siguiente = nombre_archivo[len(ficha):]
+                                    if re.match(r'^(\d{2,}|\d{1,}_|_)', siguiente):
+                                        es_valida = True
+                                else:
+                                    es_valida = True
+                        
+                        if es_valida and key not in [img['key'] for img in imagenes_encontradas]:
+                            imagenes_encontradas.append({
+                                'key': key,
+                                'name': nombre_archivo,
+                                'size': obj['Size']
+                            })
             except Exception:
                 pass
         
