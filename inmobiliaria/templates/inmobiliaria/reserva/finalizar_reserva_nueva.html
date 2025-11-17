@@ -1060,7 +1060,7 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Seña:</strong></label>
                                 <input type="text" class="form-control form-control-sm" name="senia" id="senia"
-                                       value="{{ senia_pendiente|format_price }}" placeholder="0">
+                                       value="{% if senia_pendiente and senia_pendiente != 0 %}{{ senia_pendiente|format_price }}{% else %}0{% endif %}" placeholder="0">
                                 <small class="text-muted">💡 Monto a pagar en este momento</small>
                             </div>
                             
