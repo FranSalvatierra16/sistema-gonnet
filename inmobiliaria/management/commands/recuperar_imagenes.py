@@ -112,7 +112,9 @@ class Command(BaseCommand):
                             if len(nombre_archivo) > len(prop_id_str):
                                 siguiente = nombre_archivo[len(prop_id_str):]
                                 # Debe ser: números seguidos de extensión, o guión bajo
-                                if re.match(r'^(\d{2,}|\d{1,}_|_)', siguiente):
+                                # Aceptar: 00.jpeg, 01.jpg, 0.jpg, _xxx.jpg, etc.
+                                # La regex busca: dígitos seguidos de punto (extensión) o guión bajo
+                                if re.match(r'^\d+\.', siguiente) or re.match(r'^_', siguiente) or re.match(r'^\d{2,}', siguiente):
                                     es_valida = True
                             else:
                                 # Nombre exacto como "1200.jpg"
@@ -150,7 +152,8 @@ class Command(BaseCommand):
                                     
                                     if len(nombre_archivo) > len(ficha):
                                         siguiente = nombre_archivo[len(ficha):]
-                                        if re.match(r'^(\d{2,}|\d{1,}_|_)', siguiente):
+                                        # Aceptar: dígitos seguidos de punto (extensión) o guión bajo
+                                        if re.match(r'^\d+\.', siguiente) or re.match(r'^_', siguiente) or re.match(r'^\d{2,}', siguiente):
                                             es_valida = True
                                     else:
                                         es_valida = True

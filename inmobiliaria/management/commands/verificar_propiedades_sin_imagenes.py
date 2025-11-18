@@ -19,7 +19,14 @@ class Command(BaseCommand):
         
         imagenes_encontradas = []
         
+        # Verificar si la imagen ya está asociada a otra propiedad
+        todas_imagenes_bd = set(
+            ImagenPropiedad.objects.exclude(propiedad=propiedad)
+            .values_list('imagen', flat=True)
+        )
+        
         # Buscar imágenes que empiecen exactamente con el ID seguido de números o guión bajo
+        # Patrones más específicos para evitar falsos positivos
         patrones_especificos = [
             f'media/propiedades/{prop_id_str}00',  # Ej: 120000.jpg
             f'media/propiedades/{prop_id_str}01',  # Ej: 120001.jpg
@@ -41,27 +48,34 @@ class Command(BaseCommand):
                 f'media/propiedades/{prop_id_str}1',  # Ej: 120010.jpg, 120011.jpg
             ])
         
-        # Buscar por ficha si es diferente del ID
-        if ficha and ficha != prop_id_str and len(ficha) >= 2:
-            patrones_ficha = [
-                f'media/propiedades/{ficha}00',
-                f'media/propiedades/{ficha}01',
-                f'media/propiedades/{ficha}_',
-            ]
-            if len(ficha) >= 4:
-                patrones_ficha.append(f'media/propiedades/{ficha}0')
-            patrones_especificos.extend(patrones_ficha)
-        
-        # También buscar cualquier imagen que empiece con el ID o ficha (búsqueda más amplia)
-        patrones_amplios = [
-            f'media/propiedades/{prop_id_str}',
-        ]
+        # Buscar por ficha solo si es diferente del ID y tiene al menos 4 caracteres
+        # (para evitar falsos positivos con fichas cortas como "1", "2", etc.)
+        # Si la ficha es muy corta, solo buscar imágenes con formato específico (ej: "1_xxx.jpg")
         if ficha and ficha != prop_id_str:
-            patrones_amplios.append(f'media/propiedades/{ficha}')
+            if len(ficha) >= 4:
+                # Ficha larga: buscar normalmente
+                patrones_ficha = [
+                    f'media/propiedades/{ficha}00',
+                    f'media/propiedades/{ficha}01',
+                    f'media/propiedades/{ficha}_',
+                    f'media/propiedades/{ficha}0',
+                ]
+                patrones_especificos.extend(patrones_ficha)
+            elif len(ficha) >= 2:
+                # Ficha corta (1-3 caracteres): solo buscar con guión bajo o punto
+                # Esto evita encontrar imágenes de otras propiedades (ej: "10002000.jpg" cuando ficha es "1")
+                patrones_ficha = [
+                    f'media/propiedades/{ficha}_',  # Ej: 1_xxx.jpg
+                    f'media/propiedades/{ficha}.',  # Ej: 1.xxx.jpg
+                ]
+                patrones_especificos.extend(patrones_ficha)
         
-        todos_patrones = patrones_especificos + patrones_amplios
+        # Obtener todos los IDs de propiedades para validación
+        todos_ids_propiedades = set(
+            Propiedad.objects.values_list('id', flat=True)
+        )
         
-        for patron in todos_patrones:
+        for patron in patrones_especificos:
             try:
                 response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=patron)
                 if 'Contents' in response:
@@ -72,25 +86,65 @@ class Command(BaseCommand):
                         if not key.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
                             continue
                         
-                        # Validación: debe empezar exactamente con el ID o ficha
+                        # Verificar que no esté ya asociada a otra propiedad
+                        nombre_relativo = key.replace('media/', '')
+                        if nombre_relativo in todas_imagenes_bd:
+                            continue
+                        
+                        # Validación estricta: debe empezar exactamente con el ID o ficha
                         es_valida = False
                         
+                        # Verificar por ID
                         if nombre_archivo.startswith(prop_id_str):
+                            # Si el siguiente carácter es un dígito, debe ser parte del orden (00-99)
                             if len(nombre_archivo) > len(prop_id_str):
                                 siguiente = nombre_archivo[len(prop_id_str):]
-                                if re.match(r'^(\d{2,}|\d{1,}_|_)', siguiente):
+                                # Debe ser: números seguidos de extensión, o guión bajo
+                                # Aceptar: 00.jpeg, 01.jpg, 0.jpg, _xxx.jpg, etc.
+                                # La regex busca: dígitos seguidos de punto (extensión) o guión bajo
+                                if re.match(r'^\d+\.', siguiente) or re.match(r'^_', siguiente) or re.match(r'^\d{2,}', siguiente):
                                     es_valida = True
                             else:
+                                # Nombre exacto como "1200.jpg"
                                 es_valida = True
                         
+                        # Verificar por ficha si no pasó la validación por ID
                         if not es_valida and ficha and ficha != prop_id_str:
                             if nombre_archivo.startswith(ficha):
-                                if len(nombre_archivo) > len(ficha):
-                                    siguiente = nombre_archivo[len(ficha):]
-                                    if re.match(r'^(\d{2,}|\d{1,}_|_)', siguiente):
+                                # Si la ficha es corta (1-3 caracteres), solo aceptar si sigue con guión bajo o punto
+                                if len(ficha) < 4:
+                                    if len(nombre_archivo) > len(ficha):
+                                        siguiente_char = nombre_archivo[len(ficha)]
+                                        # Solo aceptar si sigue con guión bajo o punto (no números)
+                                        if siguiente_char in ['_', '.']:
+                                            es_valida = True
+                                    else:
+                                        # Nombre exacto como "1.jpg"
                                         es_valida = True
                                 else:
-                                    es_valida = True
+                                    # Ficha larga: validación normal
+                                    # Verificar que no sea de otra propiedad
+                                    match = re.match(r'^(\d+)', nombre_archivo)
+                                    if match:
+                                        primeros_digitos = match.group(1)
+                                        if len(primeros_digitos) >= 4:
+                                            es_otra_propiedad = False
+                                            for longitud in range(4, min(len(primeros_digitos) + 1, 7)):
+                                                posible_id = int(primeros_digitos[:longitud])
+                                                if posible_id in todos_ids_propiedades and posible_id != propiedad.id:
+                                                    es_otra_propiedad = True
+                                                    break
+                                            
+                                            if es_otra_propiedad:
+                                                continue
+                                    
+                                    if len(nombre_archivo) > len(ficha):
+                                        siguiente = nombre_archivo[len(ficha):]
+                                        # Aceptar: dígitos seguidos de punto (extensión) o guión bajo
+                                        if re.match(r'^\d+\.', siguiente) or re.match(r'^_', siguiente) or re.match(r'^\d{2,}', siguiente):
+                                            es_valida = True
+                                    else:
+                                        es_valida = True
                         
                         if es_valida and key not in [img['key'] for img in imagenes_encontradas]:
                             imagenes_encontradas.append({
