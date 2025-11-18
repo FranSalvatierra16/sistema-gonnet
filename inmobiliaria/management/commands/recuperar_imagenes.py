@@ -60,17 +60,27 @@ class Command(BaseCommand):
                 f'media/propiedades/{prop_id_str}1',  # Ej: 120010.jpg, 120011.jpg
             ])
         
-        # Buscar por ficha solo si es diferente del ID y tiene al menos 3 caracteres
-        # (para evitar falsos positivos con fichas cortas como "1")
-        if ficha and ficha != prop_id_str and len(ficha) >= 3:
-            patrones_ficha = [
-                f'media/propiedades/{ficha}00',
-                f'media/propiedades/{ficha}01',
-                f'media/propiedades/{ficha}_',
-            ]
+        # Buscar por ficha solo si es diferente del ID y tiene al menos 4 caracteres
+        # (para evitar falsos positivos con fichas cortas como "1", "2", etc.)
+        # Si la ficha es muy corta, solo buscar imágenes con formato específico (ej: "1_xxx.jpg")
+        if ficha and ficha != prop_id_str:
             if len(ficha) >= 4:
-                patrones_ficha.append(f'media/propiedades/{ficha}0')
-            patrones_especificos.extend(patrones_ficha)
+                # Ficha larga: buscar normalmente
+                patrones_ficha = [
+                    f'media/propiedades/{ficha}00',
+                    f'media/propiedades/{ficha}01',
+                    f'media/propiedades/{ficha}_',
+                    f'media/propiedades/{ficha}0',
+                ]
+                patrones_especificos.extend(patrones_ficha)
+            elif len(ficha) >= 2:
+                # Ficha corta (1-3 caracteres): solo buscar con guión bajo o punto
+                # Esto evita encontrar imágenes de otras propiedades (ej: "10002000.jpg" cuando ficha es "1")
+                patrones_ficha = [
+                    f'media/propiedades/{ficha}_',  # Ej: 1_xxx.jpg
+                    f'media/propiedades/{ficha}.',  # Ej: 1.xxx.jpg
+                ]
+                patrones_especificos.extend(patrones_ficha)
         
         # Obtener todos los IDs de propiedades para validación
         todos_ids_propiedades = set(
@@ -109,32 +119,41 @@ class Command(BaseCommand):
                                 es_valida = True
                         
                         # Verificar por ficha si no pasó la validación por ID
-                        if not es_valida and ficha and ficha != prop_id_str and len(ficha) >= 3:
+                        if not es_valida and ficha and ficha != prop_id_str:
                             if nombre_archivo.startswith(ficha):
-                                # Verificar que no sea de otra propiedad
-                                # Extraer los primeros dígitos numéricos del nombre
-                                match = re.match(r'^(\d+)', nombre_archivo)
-                                if match:
-                                    primeros_digitos = match.group(1)
-                                    # Si los primeros dígitos forman un ID de otra propiedad, no es válido
-                                    if len(primeros_digitos) >= 4:
-                                        # Intentar encontrar un ID de propiedad en los primeros dígitos
-                                        es_otra_propiedad = False
-                                        for longitud in range(4, min(len(primeros_digitos) + 1, 7)):
-                                            posible_id = int(primeros_digitos[:longitud])
-                                            if posible_id in todos_ids_propiedades and posible_id != propiedad.id:
-                                                es_otra_propiedad = True
-                                                break
-                                        
-                                        if es_otra_propiedad:
-                                            continue  # Esta imagen pertenece a otra propiedad
-                                
-                                if len(nombre_archivo) > len(ficha):
-                                    siguiente = nombre_archivo[len(ficha):]
-                                    if re.match(r'^(\d{2,}|\d{1,}_|_)', siguiente):
+                                # Si la ficha es corta (1-3 caracteres), solo aceptar si sigue con guión bajo o punto
+                                if len(ficha) < 4:
+                                    if len(nombre_archivo) > len(ficha):
+                                        siguiente_char = nombre_archivo[len(ficha)]
+                                        # Solo aceptar si sigue con guión bajo o punto (no números)
+                                        if siguiente_char in ['_', '.']:
+                                            es_valida = True
+                                    else:
+                                        # Nombre exacto como "1.jpg"
                                         es_valida = True
                                 else:
-                                    es_valida = True
+                                    # Ficha larga: validación normal
+                                    # Verificar que no sea de otra propiedad
+                                    match = re.match(r'^(\d+)', nombre_archivo)
+                                    if match:
+                                        primeros_digitos = match.group(1)
+                                        if len(primeros_digitos) >= 4:
+                                            es_otra_propiedad = False
+                                            for longitud in range(4, min(len(primeros_digitos) + 1, 7)):
+                                                posible_id = int(primeros_digitos[:longitud])
+                                                if posible_id in todos_ids_propiedades and posible_id != propiedad.id:
+                                                    es_otra_propiedad = True
+                                                    break
+                                            
+                                            if es_otra_propiedad:
+                                                continue
+                                    
+                                    if len(nombre_archivo) > len(ficha):
+                                        siguiente = nombre_archivo[len(ficha):]
+                                        if re.match(r'^(\d{2,}|\d{1,}_|_)', siguiente):
+                                            es_valida = True
+                                    else:
+                                        es_valida = True
                         
                         if es_valida and key not in [img['key'] for img in imagenes_encontradas]:
                             imagenes_encontradas.append({
