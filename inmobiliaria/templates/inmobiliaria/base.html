@@ -109,7 +109,9 @@
                             Utilidades
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="utilidadesDropdown">
-                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:vendedores' %}">Vendedores</a></li>
+                            {% if user.nivel >= 2 %}
+                                <li><a class="dropdown-item" href="{% url 'inmobiliaria:vendedores' %}">Vendedores</a></li>
+                            {% endif %}
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:inquilinos' %}">Inquilinos</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:propietarios' %}">Propietarios</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:propiedades' %}">Propiedades</a></li>
@@ -118,9 +120,13 @@
                             {% if user.nivel == 4 %}
                                 <li><a class="dropdown-item" href="{% url 'inmobiliaria:register' %}">Registrar Usuario</a></li>
                             {% endif %}
-                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:crear_sucursal' %}">Crear Sucursal</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:gestionar_conceptos' %}"><i class="fas fa-tags"></i> Gestión de Conceptos</a></li>
+                            {% if user.nivel >= 2 %}
+                                <li><a class="dropdown-item" href="{% url 'inmobiliaria:crear_sucursal' %}">Crear Sucursal</a></li>
+                            {% endif %}
+                            {% if user.nivel >= 2 %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'inmobiliaria:gestionar_conceptos' %}"><i class="fas fa-tags"></i> Gestión de Conceptos</a></li>
+                            {% endif %}
                         </ul>
                     </div>
                 </div>
