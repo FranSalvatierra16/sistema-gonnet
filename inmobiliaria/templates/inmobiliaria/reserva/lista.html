@@ -62,7 +62,7 @@
 
     .reservas-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+        grid-template-columns: 1fr;
         gap: 1.5rem;
         margin-top: 2rem;
     }
@@ -403,6 +403,13 @@
 
                             <!-- Información adicional en tamaño pequeño -->
                             <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0, 0, 0, 0.05);">
+                                <div class="detail-item-small">
+                                    <span class="detail-label-small">
+                                        <i class="fas fa-user"></i>
+                                        Cliente:
+                                    </span>
+                                    <span class="detail-value-small">{% if reserva.cliente %}{{ reserva.cliente.nombre }} {{ reserva.cliente.apellido }}{% else %}-{% endif %}</span>
+                                </div>
                                 <div class="detail-item-small">
                                     <span class="detail-label-small">
                                         <i class="fas fa-hashtag"></i>
