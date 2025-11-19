@@ -1052,9 +1052,29 @@ def reservas(request):
     if search_id:
         reservas = reservas.filter(id__icontains=search_id)
     
+    # ✅ Filtro por fecha (fecha de inicio de la reserva)
+    fecha_desde = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta = request.GET.get('fecha_hasta', '').strip()
+    
+    if fecha_desde:
+        try:
+            fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
+            reservas = reservas.filter(fecha_inicio__gte=fecha_desde_obj)
+        except ValueError:
+            pass
+    
+    if fecha_hasta:
+        try:
+            fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
+            reservas = reservas.filter(fecha_inicio__lte=fecha_hasta_obj)
+        except ValueError:
+            pass
+    
     return render(request, 'inmobiliaria/reserva/lista.html', {
         'reservas': reservas,
-        'search_id': search_id
+        'search_id': search_id,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta
     })
 def operaciones(request):
     # Obtener solo reservas pagadas (completas o con saldo pendiente) ordenadas por fecha más reciente
