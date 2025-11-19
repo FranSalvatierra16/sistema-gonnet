@@ -54,6 +54,7 @@
         </div>
 
         <!-- Contratos 24 Meses -->
+        {% if user.nivel >= 2 %}
         <div class="col-md-4 mb-4">
             <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:lista_contratos' %}'">
                 <div class="card-icon">
@@ -64,8 +65,10 @@
                 <span class="badge bg-success">24 Meses</span>
             </div>
         </div>
+        {% endif %}
 
         <!-- Caja -->
+        {% if user.nivel >= 2 %}
         <div class="col-md-4 mb-4">
             <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:dashboard_caja' %}'">
                 <div class="card-icon">
@@ -75,8 +78,10 @@
                 <p>Control de ingresos y egresos</p>
             </div>
         </div>
+        {% endif %}
 
         <!-- Sucursales -->
+        {% if user.nivel >= 2 %}
         <div class="col-md-4 mb-4">
             <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:sucursales' %}'">
                 <div class="card-icon">
@@ -86,6 +91,7 @@
                 <p>Gestión de sucursales</p>
             </div>
         </div>
+        {% endif %}
 
         <!-- Estudiantes -->
         <div class="col-md-4 mb-4">
