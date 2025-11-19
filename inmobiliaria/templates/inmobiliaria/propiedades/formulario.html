@@ -1136,10 +1136,21 @@ $(document).ready(function() {
             console.log('🔄 Respuesta recibida:', response);
             console.log('🔄 Status:', response.status);
             console.log('🔄 OK:', response.ok);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
+            
+            // Intentar parsear JSON incluso si hay error HTTP
+            return response.json().then(data => {
+                if (!response.ok) {
+                    // Si hay error HTTP pero tenemos JSON, lanzar error con el mensaje
+                    throw new Error(data.error || `Error HTTP ${response.status}`);
+                }
+                return data;
+            }).catch(err => {
+                // Si no se puede parsear JSON, lanzar error HTTP
+                if (!response.ok) {
+                    throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
+                }
+                throw err;
+            });
         })
         .then(data => {
             if (data.success) {
@@ -1164,20 +1175,24 @@ $(document).ready(function() {
                 
                 // Cerrar modal y limpiar formulario
                 const modal = bootstrap.Modal.getInstance(document.getElementById('modal-propietario'));
-                modal.hide();
+                if (modal) {
+                    modal.hide();
+                }
                 form.reset();
                 
                 // Mostrar mensaje de éxito
                 showToast('✅ Propietario creado exitosamente', 'success');
                 
             } else {
-                console.error('❌ Error:', data.error);
-                alert('Error: ' + data.error);
+                console.error('❌ Error:', data.error || data.errors);
+                const mensajeError = data.error || (data.errors ? JSON.stringify(data.errors) : 'Error desconocido');
+                alert('Error: ' + mensajeError);
             }
         })
         .catch(error => {
             console.error('❌ Error de conexión:', error);
-            alert('Error de conexión. Intenta nuevamente.');
+            const mensajeError = error.message || 'Error de conexión. Intenta nuevamente.';
+            alert('Error: ' + mensajeError);
         })
         .finally(() => {
             // Restaurar botón

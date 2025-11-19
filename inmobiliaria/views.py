@@ -1019,29 +1019,6 @@ def register(request):
     
     return render(request, 'inmobiliaria/autenticacion/register.html', {'form': form})
 
-@login_required
-def crear_propietario_ajax(request):
-    if request.method == "POST":
-        form = PropietarioForm(request.POST, user=request.user)
-        if form.is_valid():
-            propietario = form.save()
-           
-            messages.success(request, 'Propietario creado exitosamente.')
-
-            return JsonResponse({
-                'success': True,
-                'propietario_id': propietario.id,
-                'propietario_nombre': f"{propietario.nombre} {propietario.apellido}"
-            })
-        else:
-            # Asegurarse de que los errores se envíen de manera adecuada al frontend
-            errors = {}
-            for field, error_list in form.errors.items():
-                errors[field] = error_list
-
-            return JsonResponse({'success': False, 'errors': errors})
-
-
 @receiver(user_logged_in)
 def user_logged_in_handler(sender, request, user, **kwargs):
     if hasattr(user, 'vendedor'):
@@ -4485,6 +4462,7 @@ def crear_inquilino_ajax(request):
             })
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
+@login_required
 def crear_propietario_ajax(request):
     if request.method == 'POST':
         try:
@@ -4495,6 +4473,16 @@ def crear_propietario_ajax(request):
             fecha_nacimiento = request.POST.get('fecha_nacimiento')
             if fecha_nacimiento == '':
                 fecha_nacimiento = None
+                
+            # Validar campos requeridos
+            campos_requeridos = ['nombre', 'apellido', 'email', 'celular', 'tipo_doc', 'dni', 'localidad', 'provincia', 'domicilio', 'codigo_postal']
+            campos_faltantes = [campo for campo in campos_requeridos if not request.POST.get(campo)]
+            
+            if campos_faltantes:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Faltan campos requeridos: {", ".join(campos_faltantes)}'
+                })
                 
             propietario = Propietario.objects.create(
                 nombre=request.POST['nombre'],
@@ -4523,10 +4511,17 @@ def crear_propietario_ajax(request):
                     'dni': propietario.dni
                 }
             })
-        except Exception as e:
+        except KeyError as e:
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': f'Campo faltante: {str(e)}'
+            })
+        except Exception as e:
+            import traceback
+            error_detail = traceback.format_exc()
+            return JsonResponse({
+                'success': False,
+                'error': f'Error al crear propietario: {str(e)}'
             })
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
