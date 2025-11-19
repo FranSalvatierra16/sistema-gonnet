@@ -1602,6 +1602,7 @@ def buscar_propiedades_reserva(request):
     inquilino_form = InquilinoForm(request.POST)
     propiedades_disponibles = []
     propiedades_sin_precio = []
+    alerta_sin_precio = False
     vendedores = Vendedor.objects.filter(sucursal=sucursal_vendedor)
     total_dias_reserva = 0
 
@@ -1618,10 +1619,11 @@ def buscar_propiedades_reserva(request):
         ver_todas = form.cleaned_data.get('ver_todas', False)
 
         # Filtrar propiedades según la opción seleccionada
+        # Usar defer para evitar cargar el campo titulo si no existe en la BD
         if ver_todas:
-            propiedades = Propiedad.objects.all()
+            propiedades = Propiedad.objects.all().defer('titulo')
         else:
-            propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor)
+            propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor).defer('titulo')
 
         # Prefetch los precios para cada propiedad
         propiedades = propiedades.prefetch_related(
