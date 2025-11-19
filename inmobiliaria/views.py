@@ -7067,6 +7067,7 @@ def buscar_propiedades(request):
     inquilino_form = InquilinoForm(request.POST)
     propiedades_disponibles = []
     propiedades_sin_precio = []
+    alerta_sin_precio = False
     vendedores = Vendedor.objects.filter(sucursal=sucursal_vendedor)
     total_dias_reserva = 0
     
