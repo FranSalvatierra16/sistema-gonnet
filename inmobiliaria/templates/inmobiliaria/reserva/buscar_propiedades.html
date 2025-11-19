@@ -1802,8 +1802,8 @@ function autenticarYReservar() {
                         const row = document.createElement('tr');
                         row.innerHTML = `
                             <td>${precio.tipo_precio}</td>
-                            <td class="text-end">$${window.formatearPrecio(precio.precio_por_dia || 0)}</td>
                             <td class="text-end">$${window.formatearPrecio(precio.precio_total || 0)}</td>
+                            <td class="text-end">$${window.formatearPrecio(precio.precio_por_dia || 0)}</td>
                         `;
                         tbody.appendChild(row);
                     });
