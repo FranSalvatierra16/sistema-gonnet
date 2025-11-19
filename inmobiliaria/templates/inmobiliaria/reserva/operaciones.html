@@ -560,14 +560,14 @@
                         <div style="display: flex; flex-direction: column; align-items: end; text-align: right; min-width: 250px;">
                             <div style="margin-bottom: 0.5rem;">
                                 <div style="font-size: 1.2rem; font-weight: bold; color: #2c3e50;">
-                                    💰 ${{ reserva.precio_total|format_price }}
+                                    💰 {{ reserva.precio_total|format_price }}
                                 </div>
                                 <small class="text-muted">Precio Total</small>
                             </div>
                             
                             <div style="margin-bottom: 0.5rem;">
                                 <div style="font-size: 1rem; color: #28a745; font-weight: 600;">
-                                    ✅ ${{ reserva.total_pagado|format_price }}
+                                    ✅ {{ reserva.total_pagado|format_price }}
                                 </div>
                                 <small class="text-muted">Pagado</small>
                             </div>
@@ -575,7 +575,7 @@
                             {% if reserva.total_deposito_pagado > 0 %}
                             <div style="margin-bottom: 0.5rem;">
                                 <div style="font-size: 0.9rem; {% if reserva.deposito_estado == 'pagado' %}color: #28a745;{% else %}color: #dc3545;{% endif %} font-weight: 600;">
-                                    {% if reserva.deposito_estado == 'pagado' %}✅{% else %}⏳{% endif %} ${{ reserva.total_deposito_pagado|format_price }}
+                                    {% if reserva.deposito_estado == 'pagado' %}✅{% else %}⏳{% endif %} {{ reserva.total_deposito_pagado|format_price }}
                                 </div>
                                 <small class="{% if reserva.deposito_estado == 'pagado' %}text-success{% else %}text-danger{% endif %}">
                                     Depósito {% if reserva.deposito_estado == 'pagado' %}Pagado{% else %}Pendiente{% endif %}
@@ -586,7 +586,7 @@
                             {% if reserva.saldo_pendiente > 0 %}
                             <div style="margin-bottom: 0.5rem;">
                                 <div style="font-size: 1.1rem; color: #dc3545; font-weight: 600;">
-                                    ⏰ ${{ reserva.saldo_pendiente|format_price }}
+                                    ⏰ {{ reserva.saldo_pendiente|format_price }}
                                 </div>
                                 <small class="text-muted">Saldo Pendiente</small>
                             </div>
