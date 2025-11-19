@@ -17,13 +17,18 @@ def format_price(value):
         
         # Si es string, intentar convertir a float
         if isinstance(value, str):
-            # Remover puntos y comas existentes y convertir
-            cleaned_value = value.replace(".", "").replace(",", ".")
+            # Remover signos de pesos, puntos y comas existentes y convertir
+            cleaned_value = value.replace("$", "").replace(".", "").replace(",", ".")
             value = float(cleaned_value)
         
-        # Formatear el número con signo $
+        # Formatear el número con signo $ (solo uno)
         if isinstance(value, (int, float)):
-            return "${:,.0f}".format(value).replace(',', '.')
+            # Asegurarse de que el valor sea positivo para formateo
+            formatted = "${:,.0f}".format(abs(value)).replace(',', '.')
+            # Si el valor original era negativo, agregar el signo menos
+            if value < 0:
+                formatted = "-" + formatted
+            return formatted
         
         # Si llegamos aquí, devolver el valor original como string
         return str(value)
