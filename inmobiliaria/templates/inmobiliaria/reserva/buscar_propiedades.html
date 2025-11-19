@@ -4685,8 +4685,8 @@ function actualizarTablaPrecios(precios) {
         const row = `
             <tr>
                 <td>${precio.tipo_precio_display || precio.tipo_precio}</td>
-                <td class="text-end">$${window.formatearPrecio(precio.precio_por_dia)}</td>
                 <td class="text-end">$${window.formatearPrecio(precio.precio_total)}</td>
+                <td class="text-end">$${window.formatearPrecio(precio.precio_por_dia)}</td>
             </tr>
         `;
         tbody.innerHTML += row;
