@@ -7103,10 +7103,11 @@ def buscar_propiedades(request):
         ver_todas = form.cleaned_data.get('ver_todas', False)
 
         # Filtrar propiedades según la opción seleccionada
+        # Usar defer para evitar cargar el campo titulo si no existe en la BD
         if ver_todas:
-            propiedades = Propiedad.objects.all()
+            propiedades = Propiedad.objects.all().defer('titulo')
         else:
-            propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor)
+            propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor).defer('titulo')
         
         # AGREGAR FLAG: Para editar específicamente el filtro de esta función
         ES_BUSCAR_PROPIEDADES_PRINCIPAL = True
