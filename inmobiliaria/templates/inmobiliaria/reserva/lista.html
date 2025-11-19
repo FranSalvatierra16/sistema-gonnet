@@ -423,12 +423,14 @@
                             <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn-action btn-ver">
                                 <i class="fas fa-eye"></i>Ver
                             </a>
+                            {% if user.nivel >= 2 %}
                             <a href="{% url 'inmobiliaria:reserva_editar' reserva.id %}" class="btn-action btn-editar">
                                 <i class="fas fa-edit"></i>Editar
                             </a>
                             <a href="{% url 'inmobiliaria:reserva_eliminar' reserva.id %}" class="btn-action btn-eliminar">
                                 <i class="fas fa-trash"></i>Eliminar
                             </a>
+                            {% endif %}
                             <a href="{% url 'inmobiliaria:finalizar_reserva_nueva' reserva.id %}" class="btn-action btn-finalizar">
                                 <i class="fas fa-check"></i>Finalizar
                             </a>

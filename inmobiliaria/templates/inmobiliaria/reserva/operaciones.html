@@ -640,9 +640,11 @@
                                 </a>
                             {% endif %}
                             
+                            {% if user.nivel >= 2 %}
                             <a href="{% url 'inmobiliaria:reserva_eliminar' reserva.id %}" class="btn-action btn-eliminar">
                                 <i class="fas fa-trash"></i>Eliminar
                             </a>
+                            {% endif %}
                         </div>
                     </div>
                 {% endfor %}
