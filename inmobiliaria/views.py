@@ -7058,8 +7058,9 @@ def buscar_propiedades(request):
 # print("🚀 INICIO DE BUSCAR_PROPIEDADES - FUNCIÓN EJECUTÁNDOSE")
 # print("🔍 DEBUGGING: Esta es la función que se está ejecutando para ordenamiento")
     
-    # Obtener la sucursal del vendedor logueado
-    sucursal_vendedor = request.user.sucursal
+    try:
+        # Obtener la sucursal del vendedor logueado
+        sucursal_vendedor = request.user.sucursal
 # print(f"👤 Usuario: {request.user}, Sucursal: {sucursal_vendedor}")
     
     inquilinos = Inquilino.objects.filter(sucursal=sucursal_vendedor)
@@ -7578,6 +7579,14 @@ def buscar_propiedades(request):
         'total_propiedades_reservadas': total_propiedades_reservadas,
         'debugging_info': f"🔍 DEBUGGING: Se encontraron {len(propiedades_disponibles)} propiedades. Función ejecutada correctamente."
     })
+    except Exception as e:
+        import traceback
+        # Log del error para debugging
+        print(f"ERROR en buscar_propiedades: {str(e)}")
+        print(traceback.format_exc())
+        # Retornar una respuesta de error más informativa
+        from django.http import HttpResponseServerError
+        return HttpResponseServerError(f"Error en buscar_propiedades: {str(e)}")
 
 # ============================
 # VISTAS API PARA CONTRATOS 24 MESES
