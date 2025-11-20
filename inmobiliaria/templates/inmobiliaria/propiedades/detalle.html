@@ -725,20 +725,16 @@
                     <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" class="btn btn-primary">
                         <i class="fas fa-edit"></i> Editar
                     </a>
+                    {% if user.nivel >= 2 %}
                     <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad_id=propiedad.id %}" class="btn btn-danger">
                         <i class="fas fa-trash"></i> Eliminar
                     </a>
                     <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-success">
                         <i class="fas fa-calendar-plus"></i> Agregar Disponibilidad
                     </a>
-                    {% if user.nivel >= 2 %}
                     <a href="{% url 'inmobiliaria:gestionar_precios' propiedad_id=propiedad.id %}" class="btn btn-success">
                         <i class="fas fa-dollar-sign"></i> Gestionar Precios
                     </a>
-                    {% endif %}
-                    <button type="button" class="btn btn-info" onclick="verHistorial()">
-                        <i class="fas fa-history"></i> Ver Historial
-                    </button>
                     <!-- Botón de WhatsApp con más información -->
                     <a href="https://wa.me/549{{ telefono_empresa }}?text={% spaceless %}
                         *Consulta por propiedad en {{ propiedad.direccion }}*%0A
@@ -752,6 +748,10 @@
                        class="btn btn-success">
                         <i class="fab fa-whatsapp"></i> Consultar por WhatsApp
                     </a>
+                    {% endif %}
+                    <button type="button" class="btn btn-info" onclick="verHistorial()">
+                        <i class="fas fa-history"></i> Ver Historial
+                    </button>
                 </div>
             
 
