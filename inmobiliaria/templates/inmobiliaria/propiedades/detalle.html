@@ -731,9 +731,11 @@
                     <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-success">
                         <i class="fas fa-calendar-plus"></i> Agregar Disponibilidad
                     </a>
+                    {% if user.nivel >= 2 %}
                     <a href="{% url 'inmobiliaria:gestionar_precios' propiedad_id=propiedad.id %}" class="btn btn-success">
                         <i class="fas fa-dollar-sign"></i> Gestionar Precios
                     </a>
+                    {% endif %}
                     <button type="button" class="btn btn-info" onclick="verHistorial()">
                         <i class="fas fa-history"></i> Ver Historial
                     </button>
