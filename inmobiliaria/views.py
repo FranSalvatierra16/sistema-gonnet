@@ -3384,6 +3384,10 @@ def procesar_movimiento_reserva(request):
             else:
                 concepto_detallado = f"Operaci\u00f3n {reserva.id} - {reserva.propiedad.direccion}"
             
+            # ✅ Truncar concepto a 200 caracteres para evitar error de base de datos
+            if len(concepto_detallado) > 200:
+                concepto_detallado = concepto_detallado[:197] + "..."
+            
 # print(f"📝 CONCEPTO FINAL: {concepto_detallado}")
             
             # Crear movimiento principal con concepto detallado
@@ -3391,7 +3395,7 @@ def procesar_movimiento_reserva(request):
                 caja=caja_actual,
                 sucursal=request.user.sucursal,
                 tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto=concepto_detallado,  # ✅ Usar concepto con detalles
+                concepto=concepto_detallado,  # ✅ Usar concepto con detalles (truncado si es necesario)
                 propiedad=reserva.propiedad,
                 fecha_desde=reserva.fecha_inicio,
                 fecha_hasta=reserva.fecha_fin,
@@ -5996,13 +6000,18 @@ def nuevo_movimiento(request, numero_caja=None):
                     'fecha_actual': timezone.now()
                 })
 
+            # ✅ Truncar concepto a 200 caracteres para evitar error de base de datos
+            concepto_valor = request.POST.get('concepto_id', '')
+            if len(concepto_valor) > 200:
+                concepto_valor = concepto_valor[:197] + "..."
+            
             # Crear el movimiento con valores iniciales
             movimiento = MovimientoCaja(
                 caja=caja,
                 tipo=request.POST.get('tipo'),
                 tipo_comprobante=request.POST.get('tipo_comprobante'),
                 numero_liquidacion=request.POST.get('numero_liquidacion', ''),
-                concepto=request.POST.get('concepto_id', ''),
+                concepto=concepto_valor,  # ✅ Truncado si es necesario
                 propiedad_id=request.POST.get('propiedad_id') if request.POST.get('propiedad_id') else None,
                 fecha_desde=fecha_desde,
                 fecha_hasta=fecha_hasta,
@@ -8059,11 +8068,15 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             concepto_json = f'Contrato #{contrato.id} - {contrato.propiedad.direccion}'
 # print(f"💾 CONCEPTO FALLBACK: {concepto_json}")
         
+        # ✅ Truncar concepto a 200 caracteres para evitar error de base de datos
+        if len(concepto_json) > 200:
+            concepto_json = concepto_json[:197] + "..."
+        
         # Crear movimiento de caja
         movimiento = MovimientoCaja.objects.create(
             caja=caja,
             tipo='INGRESO',
-            concepto=concepto_json,  # ✅ Guardar JSON o fallback
+            concepto=concepto_json,  # ✅ Guardar JSON o fallback (truncado si es necesario)
             monto_efectivo=monto_efectivo,
             monto_cheque=monto_cheque,
             monto_tarjeta=monto_tarjeta,
