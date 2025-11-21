@@ -2869,10 +2869,14 @@ def gestionar_precios(request, propiedad_id):
     else:
         formset = PrecioFormSet(queryset=precios)
 
+    # Obtener la última disponibilidad agregada
+    ultima_disponibilidad = propiedad.disponibilidades.order_by('-id').first()
+    
     return render(request, 'inmobiliaria/propiedades/gestionar_precios.html', {
         'propiedad': propiedad,
         'formset': formset,
-        'nivel_vendedor': vendedor.nivel
+        'nivel_vendedor': vendedor.nivel,
+        'ultima_disponibilidad': ultima_disponibilidad
     })
 
 def historial_reservas_vendedor(request, vendedor_id):
