@@ -1,5 +1,6 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}  <!-- Carga las etiquetas de Bootstrap -->
+{% load custom_filters %}
 
 {% block content %}
 <style>
@@ -65,7 +66,7 @@
                 </p>
                 {% if ultima_disponibilidad.monto_asegurado %}
                     <p class="mb-0"><strong>Precio Asegurado:</strong> 
-                        ${{ ultima_disponibilidad.monto_asegurado|floatformat:2 }} 
+                        {{ ultima_disponibilidad.monto_asegurado|format_price|slice:"1:" }} 
                         {{ ultima_disponibilidad.get_moneda_asegurado_display }}
                     </p>
                 {% endif %}
