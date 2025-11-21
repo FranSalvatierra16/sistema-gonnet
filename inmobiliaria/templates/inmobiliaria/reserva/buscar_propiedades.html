@@ -5331,16 +5331,13 @@ function consultarReserva(reservaId) {
                             <p><strong>Fecha Fin:</strong> ${reserva.fecha_fin || 'N/A'}</p>
                             <p><strong>Precio Total:</strong> ${reserva.precio_total || 'N/A'}</p>
                             <hr>
-                            <h6 class="card-title"><i class="fas fa-user"></i> Información del Cliente</h6>
+                            <h6 class="card-title"><i class="fas fa-user"></i> Información de Contacto</h6>
                             <hr>
                             <p><strong>Nombre:</strong> ${cliente.nombre || 'N/A'} ${cliente.apellido || ''}</p>
                             <p><strong>DNI:</strong> ${cliente.dni || 'N/A'}</p>
                             <p><strong>Celular:</strong> 
                                 ${cliente.celular ? `<a href="tel:${cliente.celular}" class="text-primary"><i class="fas fa-phone"></i> ${cliente.celular}</a>` : 'N/A'}
                             </p>
-                            <p><strong>Email:</strong> ${cliente.email || 'N/A'}</p>
-                            <p><strong>Domicilio:</strong> ${cliente.domicilio || 'N/A'}</p>
-                            <p><strong>Localidad:</strong> ${cliente.localidad || 'N/A'}</p>
                         </div>
                     </div>
                 `;
