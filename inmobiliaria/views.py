@@ -1501,9 +1501,16 @@ def obtener_info_reserva(request, reserva_id):
                 'localidad': reserva.cliente.localidad or '',
             }
         
+        # Determinar el estado a mostrar
+        estado_display = reserva.estado
+        if reserva.estado == 'confirmada_no_pagada':
+            estado_display = 'Reservado'
+        elif hasattr(reserva, 'get_estado_display'):
+            estado_display = reserva.get_estado_display()
+        
         reserva_data = {
             'id': reserva.id,
-            'estado': reserva.get_estado_display() if hasattr(reserva, 'get_estado_display') else reserva.estado,
+            'estado': estado_display,
             'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y') if reserva.fecha_inicio else '',
             'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y') if reserva.fecha_fin else '',
             'precio_total': f'${reserva.precio_total:,.0f}' if reserva.precio_total else 'N/A',
