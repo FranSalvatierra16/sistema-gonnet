@@ -1479,6 +1479,47 @@ def consolidar_disponibilidades(propiedad):
 def reserva_detalle(request, reserva_id):
     reserva = get_object_or_404(Reserva, pk=reserva_id)
     return render(request, 'inmobiliaria/reserva/detalle.html', {'reserva': reserva})
+
+@login_required
+@require_http_methods(["GET"])
+def obtener_info_reserva(request, reserva_id):
+    """
+    API endpoint para obtener información básica de una reserva (cliente y celular)
+    """
+    try:
+        reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
+        
+        cliente_data = {}
+        if reserva.cliente:
+            cliente_data = {
+                'nombre': reserva.cliente.nombre or '',
+                'apellido': reserva.cliente.apellido or '',
+                'dni': str(reserva.cliente.dni) if reserva.cliente.dni else '',
+                'celular': str(reserva.cliente.celular) if reserva.cliente.celular else '',
+                'email': reserva.cliente.email or '',
+                'domicilio': reserva.cliente.domicilio or '',
+                'localidad': reserva.cliente.localidad or '',
+            }
+        
+        reserva_data = {
+            'id': reserva.id,
+            'estado': reserva.get_estado_display() if hasattr(reserva, 'get_estado_display') else reserva.estado,
+            'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y') if reserva.fecha_inicio else '',
+            'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y') if reserva.fecha_fin else '',
+            'precio_total': f'${reserva.precio_total:,.0f}' if reserva.precio_total else 'N/A',
+            'cliente': cliente_data
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'reserva': reserva_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Error al cargar información: {str(e)}'
+        })
 # inmobiliaria/views.py
 def formato_fecha(fecha):
     return fecha.strftime('%d/%m/%Y') if fecha else ''

@@ -1079,6 +1079,7 @@
                             <th>Propietario</th>
                             <th>Precio</th>
                             <th>Sucursal</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1109,6 +1110,13 @@
                             <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
                             <td style="color: red;">{{ propiedad.precio_total_reserva|format_price }}</td>
                             <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
+                            <td>
+                                {% if propiedad.reserva.id %}
+                                <button type="button" class="btn btn-sm btn-info" onclick="consultarReserva({{ propiedad.reserva.id }})" title="Consultar Reserva">
+                                    <i class="fas fa-info-circle"></i> Ver Reserva
+                                </button>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% else %}
                         <tr style="background-color: white;" 
@@ -1136,6 +1144,7 @@
                             <td>{{ propiedad.propietario.apellido }}</td>
                             <td>{{ propiedad.precio_total_reserva|format_price }}</td>
                             <td>{{ propiedad.sucursal.nombre }}</td>
+                            <td></td>
                         </tr>
                         {% endif %}
                         {% endfor %}
@@ -5259,5 +5268,99 @@ window.verHistorial = function() {
         </div>
     </div>
 </div>
+
+<!-- Modal para información de reserva -->
+<div class="modal fade" id="modalInfoReserva" tabindex="-1" aria-labelledby="modalInfoReservaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="modalInfoReservaLabel">
+                    <i class="fas fa-info-circle"></i> Información de la Reserva
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modalInfoReservaBody">
+                <div class="text-center">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p>Cargando información...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Función para consultar información de la reserva
+function consultarReserva(reservaId) {
+    if (!reservaId) {
+        alert('No se pudo obtener el ID de la reserva');
+        return;
+    }
+    
+    // Mostrar el modal
+    const modal = new bootstrap.Modal(document.getElementById('modalInfoReserva'));
+    modal.show();
+    
+    // Mostrar loading
+    document.getElementById('modalInfoReservaBody').innerHTML = `
+        <div class="text-center">
+            <i class="fas fa-spinner fa-spin fa-2x"></i>
+            <p>Cargando información...</p>
+        </div>
+    `;
+    
+    // Hacer petición al backend
+    fetch(`{% url 'inmobiliaria:obtener_info_reserva' 0 %}`.replace('0', reservaId))
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const reserva = data.reserva;
+                const cliente = reserva.cliente || {};
+                
+                document.getElementById('modalInfoReservaBody').innerHTML = `
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="fas fa-calendar"></i> Información de la Reserva</h6>
+                            <hr>
+                            <p><strong>ID Reserva:</strong> #${reserva.id}</p>
+                            <p><strong>Estado:</strong> <span class="badge bg-warning">${reserva.estado || 'N/A'}</span></p>
+                            <p><strong>Fecha Inicio:</strong> ${reserva.fecha_inicio || 'N/A'}</p>
+                            <p><strong>Fecha Fin:</strong> ${reserva.fecha_fin || 'N/A'}</p>
+                            <p><strong>Precio Total:</strong> ${reserva.precio_total || 'N/A'}</p>
+                            <hr>
+                            <h6 class="card-title"><i class="fas fa-user"></i> Información del Cliente</h6>
+                            <hr>
+                            <p><strong>Nombre:</strong> ${cliente.nombre || 'N/A'} ${cliente.apellido || ''}</p>
+                            <p><strong>DNI:</strong> ${cliente.dni || 'N/A'}</p>
+                            <p><strong>Celular:</strong> 
+                                ${cliente.celular ? `<a href="tel:${cliente.celular}" class="text-primary"><i class="fas fa-phone"></i> ${cliente.celular}</a>` : 'N/A'}
+                            </p>
+                            <p><strong>Email:</strong> ${cliente.email || 'N/A'}</p>
+                            <p><strong>Domicilio:</strong> ${cliente.domicilio || 'N/A'}</p>
+                            <p><strong>Localidad:</strong> ${cliente.localidad || 'N/A'}</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                document.getElementById('modalInfoReservaBody').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> ${data.error || 'Error al cargar la información de la reserva'}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error al consultar reserva:', error);
+            document.getElementById('modalInfoReservaBody').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> Error de conexión al consultar la reserva
+                </div>
+            `;
+        });
+}
+</script>
 {% endblock extra_js %}
 

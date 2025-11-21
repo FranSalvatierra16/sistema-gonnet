@@ -112,6 +112,7 @@ urlpatterns = [
     path('recibo-movimiento-publico/<int:movimiento_id>/<str:token>/', views.ver_recibo_movimiento_publico, name='ver_recibo_movimiento_publico'),
     path('generar-enlace-publico/', views.generar_enlace_publico, name='generar_enlace_publico'),
     path('reservas/<int:reserva_id>/detalles-operacion/', views.detalles_operacion_reserva, name='detalles_operacion_reserva'),
+    path('reservas/<int:reserva_id>/info/', views.obtener_info_reserva, name='obtener_info_reserva'),
    
     path('password_reset/done/', 
          auth_views.PasswordResetDoneView.as_view(
