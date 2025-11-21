@@ -111,64 +111,32 @@
     
     #propiedadesTable {
         width: 100% !important;
-        table-layout: fixed !important;
-        font-size: 0.85rem !important;
+        table-layout: auto !important;
+        font-size: 0.75rem !important;
     }
     
     #propiedadesTable th,
     #propiedadesTable td {
         overflow: hidden !important;
         text-overflow: ellipsis !important;
-        padding: 8px 4px !important;
+        padding: 5px 2px !important;
+        white-space: nowrap !important;
     }
     
     #propiedadesTable th:nth-child(1),
     #propiedadesTable td:nth-child(1) {
-        width: 10% !important;
         overflow: visible !important;
         text-overflow: clip !important;
-        white-space: nowrap !important;
-        min-width: 90px !important;
-    }
-    
-    #propiedadesTable th:nth-child(2),
-    #propiedadesTable td:nth-child(2) {
-        width: 19% !important;
-    }
-    
-    #propiedadesTable th:nth-child(3),
-    #propiedadesTable td:nth-child(3) {
-        width: 15% !important;
-    }
-    
-    #propiedadesTable th:nth-child(4),
-    #propiedadesTable td:nth-child(4) {
-        width: 6% !important;
-    }
-    
-    #propiedadesTable th:nth-child(5),
-    #propiedadesTable td:nth-child(5) {
-        width: 6% !important;
-    }
-    
-    #propiedadesTable th:nth-child(6),
-    #propiedadesTable td:nth-child(6) {
-        width: 12% !important;
-    }
-    
-    #propiedadesTable th:nth-child(7),
-    #propiedadesTable td:nth-child(7) {
-        width: 10% !important;
-    }
-    
-    #propiedadesTable th:nth-child(8),
-    #propiedadesTable td:nth-child(8) {
-        width: 12% !important;
+        width: auto !important;
+        min-width: 70px !important;
+        max-width: 10% !important;
     }
     
     #propiedadesTable th:nth-child(9),
     #propiedadesTable td:nth-child(9) {
-        width: 5% !important;
+        width: auto !important;
+        min-width: 90px !important;
+        max-width: 10% !important;
     }
 
     #propiedadesTable thead th {
