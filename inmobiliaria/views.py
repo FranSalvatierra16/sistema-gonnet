@@ -3361,10 +3361,16 @@ def procesar_movimiento_reserva(request):
                     conceptos_importes_decimal[i] = importe_limpio
                     
                     # Guardar información completa del concepto
+                    # ✅ Formatear el importe como número entero sin decimales para evitar problemas de parseo
+                    if isinstance(importe_limpio, Decimal):
+                        importe_str = str(int(importe_limpio.quantize(Decimal('1'))))
+                    else:
+                        importe_str = str(int(float(importe_limpio))) if importe_limpio else '0'
+                    
                     concepto_completo = {
                         'id': concepto_id or f'C{i+1:02d}',
                         'nombre': concepto_nombre,
-                        'importe': str(importe_limpio.quantize(Decimal('0.01'))) if isinstance(importe_limpio, Decimal) else str(importe_limpio)
+                        'importe': importe_str
                     }
                     conceptos_completos.append(concepto_completo)
 # print(f"💰 CONCEPTO {i}: ID={concepto_id}, {concepto_nombre} - ${concepto_importe}")
@@ -3385,8 +3391,24 @@ def procesar_movimiento_reserva(request):
                 concepto_detallado = f"Operaci\u00f3n {reserva.id} - {reserva.propiedad.direccion}"
             
             # ✅ Truncar concepto a 200 caracteres para evitar error de base de datos
+            # Si tiene |CONCEPTOS:, preservar esa parte completa y truncar solo la parte descriptiva
             if len(concepto_detallado) > 200:
-                concepto_detallado = concepto_detallado[:197] + "..."
+                if "|CONCEPTOS:" in concepto_detallado:
+                    # Separar la parte descriptiva de la parte estructurada
+                    partes = concepto_detallado.split("|CONCEPTOS:", 1)
+                    parte_descriptiva = partes[0]
+                    parte_estructurada = "|CONCEPTOS:" + partes[1]
+                    
+                    # Calcular cuánto espacio queda para la parte descriptiva
+                    espacio_disponible = 200 - len(parte_estructurada)
+                    if espacio_disponible > 3:
+                        parte_descriptiva = parte_descriptiva[:espacio_disponible-3] + "..."
+                        concepto_detallado = parte_descriptiva + parte_estructurada
+                    else:
+                        # Si la parte estructurada es muy larga, truncarla también
+                        concepto_detallado = concepto_detallado[:197] + "..."
+                else:
+                    concepto_detallado = concepto_detallado[:197] + "..."
             
 # print(f"📝 CONCEPTO FINAL: {concepto_detallado}")
             
@@ -4110,15 +4132,22 @@ def ver_recibo_movimiento(request, movimiento_id):
                                     
                                     # Limpiar y convertir el importe
                                     try:
-                                        importe_num = float(concepto_importe.replace(',', ''))
-                                    except:
+                                        # Remover puntos y comas, luego convertir
+                                        importe_limpio = concepto_importe.replace('.', '').replace(',', '').strip()
+                                        if importe_limpio:
+                                            importe_num = float(importe_limpio)
+                                        else:
+                                            importe_num = 0
+                                    except (ValueError, AttributeError):
                                         importe_num = 0
                                     
+                                    # ✅ SIEMPRE agregar el concepto, incluso si el importe es 0
+                                    # Esto asegura que conceptos como depósito y gastos bancarios se muestren
                                     pagos.append({
                                         'fecha': fecha_mov,
                                         'codigo': concepto_id,
                                         'concepto': concepto_nombre,
-                                        'monto': f'${importe_num:,.0f}'
+                                        'monto': f'${importe_num:,.0f}' if importe_num > 0 else ''
                                     })
                                     total_pagado += importe_num
 # print(f"💰 CONCEPTO: ID={concepto_id}, {concepto_nombre} - ${importe_num:,.0f}")
