@@ -1098,7 +1098,13 @@
         <!-- Columna izquierda: Lista de propiedades -->
         <div class="col-md-8">
             {% if propiedades_disponibles %}
-            <h3 class="text-center mt-4">Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h3>
+            <h3 class="text-center mt-4">
+                Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}
+                <span class="badge bg-primary ms-2">{{ total_propiedades|default:0 }} propiedad{{ total_propiedades|pluralize:"es" }}</span>
+                {% if reservas_count > 0 %}
+                <span class="badge bg-warning ms-2">{{ reservas_count }} reserva{{ reservas_count|pluralize:"s" }}</span>
+                {% endif %}
+            </h3>
         
         {% if debugging_info %}
      
