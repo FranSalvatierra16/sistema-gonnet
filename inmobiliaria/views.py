@@ -1703,6 +1703,11 @@ def buscar_propiedades_reserva(request):
     propiedades_sin_precio = []
     vendedores = Vendedor.objects.filter(sucursal=sucursal_vendedor)
     total_dias_reserva = 0
+    
+    # Inicializar conteos
+    total_propiedades = 0
+    reservas_count = 0
+    disponibles_count = 0
 
     fecha_inicio = None
     fecha_fin = None
