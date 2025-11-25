@@ -2032,15 +2032,18 @@ def buscar_propiedades_reserva(request):
     reservas_count = 0
     disponibles_count = 0
     
+    # Debug: verificar qué propiedades tenemos
+    print(f"🔍 DEBUG CONTEOS: Total propiedades = {total_propiedades}")
+    
     for p in propiedades_disponibles:
-        if hasattr(p, 'estado_reserva'):
-            if p.estado_reserva == 'confirmada_no_pagada':
-                reservas_count += 1
-            else:
-                disponibles_count += 1
+        estado = getattr(p, 'estado_reserva', None)
+        print(f"   - Propiedad {p.id}: estado_reserva = {estado}")
+        if estado == 'confirmada_no_pagada':
+            reservas_count += 1
         else:
-            # Si no tiene estado_reserva, asumimos que está disponible
             disponibles_count += 1
+    
+    print(f"✅ RESULTADO: Disponibles = {disponibles_count}, Reservadas = {reservas_count}")
     
     # Asegurar que los conteos sumen el total
     if total_propiedades > 0 and (reservas_count + disponibles_count) != total_propiedades:
