@@ -1045,7 +1045,8 @@ def ver_disponibilidad(request, propiedad_id):
 @login_required                                                                 
 def reservas(request):
     # ✅ Ordenar por ID descendente como en operaciones
-    reservas = Reserva.objects.filter(sucursal=request.user.sucursal).order_by('-id')
+    # Excluir reservas eliminadas (soft delete)
+    reservas = Reserva.objects.filter(sucursal=request.user.sucursal, eliminada=False).order_by('-id')
     
     # ✅ Filtro de búsqueda por ID (opcional)
     search_id = request.GET.get('search_id', '').strip()
@@ -1076,11 +1077,57 @@ def reservas(request):
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta
     })
-def operaciones(request):
-    # Obtener solo reservas pagadas (completas o con saldo pendiente) ordenadas por fecha más reciente
+
+@login_required
+def reservas_eliminadas(request):
+    # Verificar que el usuario tenga nivel >= 2
+    if request.user.nivel < 2:
+        messages.error(request, 'No tienes permisos para acceder a esta sección.')
+        return redirect('inmobiliaria:dashboard')
+    
+    # Obtener solo reservas eliminadas (soft delete)
     reservas = Reserva.objects.filter(
         sucursal=request.user.sucursal,
-        estado__in=['pagada', 'confirmada_no_pagada']
+        eliminada=True
+    ).select_related('propiedad', 'cliente', 'vendedor', 'usuario_eliminacion').order_by('-fecha_eliminacion')
+    
+    # Filtro de búsqueda por ID (opcional)
+    search_id = request.GET.get('search_id', '').strip()
+    if search_id:
+        reservas = reservas.filter(id__icontains=search_id)
+    
+    # Filtro por fecha de eliminación
+    fecha_desde = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta = request.GET.get('fecha_hasta', '').strip()
+    
+    if fecha_desde:
+        try:
+            fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
+            reservas = reservas.filter(fecha_eliminacion__date__gte=fecha_desde_obj)
+        except ValueError:
+            pass
+    
+    if fecha_hasta:
+        try:
+            fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
+            reservas = reservas.filter(fecha_eliminacion__date__lte=fecha_hasta_obj)
+        except ValueError:
+            pass
+    
+    return render(request, 'inmobiliaria/reserva/lista_eliminadas.html', {
+        'reservas': reservas,
+        'search_id': search_id,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta
+    })
+
+def operaciones(request):
+    # Obtener solo reservas pagadas (completas o con saldo pendiente) ordenadas por fecha más reciente
+    # Excluir reservas eliminadas (soft delete)
+    reservas = Reserva.objects.filter(
+        sucursal=request.user.sucursal,
+        estado__in=['pagada', 'confirmada_no_pagada'],
+        eliminada=False
     ).prefetch_related('pagos').order_by('-id')
     
     # ✅ Filtro de búsqueda por ID
@@ -1278,8 +1325,12 @@ def reserva_eliminar(request, reserva_id):
             # 1️⃣ Cancelar la reserva (esto restaura las disponibilidades y reconstruye historial)
             reserva.cancelar_reserva()
             
-            # 2️⃣ Ahora sí eliminar físicamente la reserva
-            reserva.delete()
+            # 2️⃣ Soft delete: marcar como eliminada en lugar de eliminar físicamente
+            from django.utils import timezone
+            reserva.eliminada = True
+            reserva.fecha_eliminacion = timezone.now()
+            reserva.usuario_eliminacion = request.user
+            reserva.save()
             
 # print(f"✅ Reserva eliminada y disponibilidades restauradas: {fecha_inicio} al {fecha_fin}")
             messages.success(request, f'Reserva eliminada exitosamente. Las fechas del {fecha_inicio.strftime("%d/%m/%Y")} al {fecha_fin.strftime("%d/%m/%Y")} vuelven a estar disponibles.')

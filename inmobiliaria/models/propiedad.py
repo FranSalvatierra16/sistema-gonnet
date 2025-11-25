@@ -439,6 +439,9 @@ class Reserva(models.Model):
     )
 
     deposito_garantia = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    eliminada = models.BooleanField(default=False)
+    fecha_eliminacion = models.DateTimeField(null=True, blank=True)
+    usuario_eliminacion = models.ForeignKey('Vendedor', on_delete=models.SET_NULL, null=True, blank=True, related_name='reservas_eliminadas')
 
     def save(self, *args, **kwargs):
         # Asegúrate de que la sucursal esté establecida si no está definida

@@ -1,0 +1,313 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+{% load custom_filters %}
+
+{% block title %}Reservas Eliminadas{% endblock %}
+
+{% block extra_css %}
+<style>
+    .reservas-container {
+        background: linear-gradient(135deg, #a5d6a7 0%, #66bb6a 100%);
+        min-height: calc(100vh - 120px);
+        padding: 2rem 0;
+    }
+
+    .header-section {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+    }
+
+    .page-title {
+        background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+
+    .subtitle {
+        text-align: center;
+        color: #666;
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+    }
+
+    .reservas-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+        margin-top: 2rem;
+    }
+
+    .reserva-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 12px;
+        padding: 1rem 1.5rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        opacity: 0.85;
+    }
+
+    .reserva-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+    }
+
+    .reserva-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        opacity: 1;
+    }
+
+    .reserva-card-content {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .reserva-main-info {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .property-icon {
+        background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+        color: white;
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .reserva-info-text {
+        flex: 1;
+    }
+
+    .property-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+
+    .reserva-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        font-size: 0.85rem;
+        color: #666;
+    }
+
+    .reserva-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .reserva-meta-item i {
+        color: #d32f2f;
+    }
+
+    .eliminacion-info {
+        background: #ffebee;
+        border-left: 4px solid #d32f2f;
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-top: 0.5rem;
+    }
+
+    .eliminacion-info strong {
+        color: #d32f2f;
+    }
+
+    .reserva-price-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .price-badge {
+        background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+        color: white;
+        padding: 0.4rem 0.8rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .no-reservas {
+        text-align: center;
+        padding: 3rem;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .no-reservas i {
+        font-size: 4rem;
+        color: #ccc;
+        margin-bottom: 1rem;
+    }
+
+    .no-reservas h3 {
+        color: #666;
+        margin-bottom: 1rem;
+    }
+
+    .fade-in {
+        animation: fadeInUp 0.6s ease-out forwards;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="reservas-container">
+    <div class="container-fluid">
+        <!-- Header Section -->
+        <div class="header-section fade-in">
+            <h1 class="page-title">🗑️ Reservas Eliminadas</h1>
+            <p class="subtitle">Historial de todas las reservas que han sido eliminadas</p>
+            
+            <!-- ✅ Filtros de búsqueda -->
+            <form method="GET" style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: center;">
+                <input type="text" name="search_id" value="{{ search_id }}" 
+                       placeholder="Buscar por ID..." 
+                       style="padding: 0.5rem; border: 2px solid #ddd; border-radius: 8px; width: 150px;">
+                
+                <input type="date" name="fecha_desde" value="{{ fecha_desde }}" 
+                       placeholder="Desde" 
+                       style="padding: 0.5rem; border: 2px solid #ddd; border-radius: 8px; width: 150px;"
+                       title="Fecha de eliminación desde">
+                
+                <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" 
+                       placeholder="Hasta" 
+                       style="padding: 0.5rem; border: 2px solid #ddd; border-radius: 8px; width: 150px;"
+                       title="Fecha de eliminación hasta">
+                
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-search"></i> Filtrar
+                </button>
+                {% if search_id or fecha_desde or fecha_hasta %}
+                <a href="{% url 'inmobiliaria:reservas_eliminadas' %}" class="btn btn-secondary btn-sm" title="Limpiar filtros">
+                    <i class="fas fa-times"></i> Limpiar
+                </a>
+                {% endif %}
+            </form>
+        </div>
+
+        <!-- Reservas Grid -->
+        {% if reservas %}
+            <div class="reservas-grid">
+                {% for reserva in reservas %}
+                <div class="reserva-card fade-in" 
+                     style="animation-delay: {{ forloop.counter0|floatformat:1 }}s;">
+                    
+                    <div class="reserva-card-content">
+                        <!-- Información Principal -->
+                        <div class="reserva-main-info">
+                            <div class="property-icon">
+                                <i class="fas fa-trash-alt"></i>
+                            </div>
+                            <div class="reserva-info-text">
+                                <h5 class="property-title">
+                                    Reserva #{{ reserva.id }} - {{ reserva.propiedad.direccion|truncatechars:40 }}
+                                </h5>
+                                <div class="reserva-meta">
+                                    <span class="reserva-meta-item">
+                                        <i class="fas fa-calendar"></i>
+                                        Período: {{ reserva.fecha_inicio|date:"d/m/Y" }} → {{ reserva.fecha_fin|date:"d/m/Y" }}
+                                    </span>
+                                    {% if reserva.cliente %}
+                                    <span class="reserva-meta-item">
+                                        <i class="fas fa-user"></i>
+                                        Cliente: {{ reserva.cliente.nombre }} {{ reserva.cliente.apellido }}
+                                    </span>
+                                    {% endif %}
+                                    <span class="reserva-meta-item">
+                                        <i class="fas fa-user-tie"></i>
+                                        Propietario: {{ reserva.propiedad.propietario.nombre }} {{ reserva.propiedad.propietario.apellido }}
+                                    </span>
+                                    {% if reserva.propiedad.piso or reserva.propiedad.departamento %}
+                                    <span class="reserva-meta-item">
+                                        <i class="fas fa-building"></i>
+                                        Piso/Depto: {{ reserva.propiedad.piso|default:"-" }}{% if reserva.propiedad.departamento %}/{{ reserva.propiedad.departamento }}{% endif %}
+                                    </span>
+                                    {% endif %}
+                                    <span class="reserva-meta-item">
+                                        <i class="fas fa-calendar-plus"></i>
+                                        Creada: {{ reserva.fecha_creacion|date:"d/m/Y" }}
+                                    </span>
+                                </div>
+                                
+                                <!-- Información de eliminación -->
+                                <div class="eliminacion-info">
+                                    <strong><i class="fas fa-trash-alt"></i> Eliminada:</strong>
+                                    {{ reserva.fecha_eliminacion|date:"d/m/Y H:i" }}
+                                    {% if reserva.usuario_eliminacion %}
+                                        por {{ reserva.usuario_eliminacion.nombre }} {{ reserva.usuario_eliminacion.apellido }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Precio -->
+                        <div class="reserva-price-info">
+                            <div>
+                                <span class="price-label">Precio Total:</span>
+                            </div>
+                            <div class="price-badge">
+                                {{ reserva.precio_total|format_price }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="no-reservas fade-in">
+                <i class="fas fa-trash-alt"></i>
+                <h3>No hay reservas eliminadas</h3>
+                <p>No se encontraron reservas eliminadas con los filtros aplicados.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

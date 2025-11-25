@@ -82,6 +82,7 @@ urlpatterns = [
 
     # Reserva URLs
     path('reservas/', views.reservas, name='reservas'),
+    path('reservas/eliminadas/', views.reservas_eliminadas, name='reservas_eliminadas'),
     path('operaciones/', views.operaciones, name='operaciones'),
     path('reservas/nuevo/', views.buscar_propiedades, name='buscar_propiedades'),
     path('reservas/crear/', views.crear_reserva, name='crear_reserva'),

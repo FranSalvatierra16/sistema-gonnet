@@ -126,6 +126,7 @@
                             {% if user.nivel >= 2 %}
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{% url 'inmobiliaria:gestionar_conceptos' %}"><i class="fas fa-tags"></i> Gestión de Conceptos</a></li>
+                                <li><a class="dropdown-item" href="{% url 'inmobiliaria:reservas_eliminadas' %}"><i class="fas fa-trash-alt"></i> Reservas Eliminadas</a></li>
                             {% endif %}
                         </ul>
                     </div>
