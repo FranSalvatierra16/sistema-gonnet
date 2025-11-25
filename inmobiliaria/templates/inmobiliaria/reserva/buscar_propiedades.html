@@ -1184,17 +1184,31 @@
             <!-- Cajas de conteo Disponibles y Reservadas -->
             <div class="row mt-3 mb-3">
                 <div class="col-md-6 mb-3">
-                    <div class="text-center p-3 bg-success text-white rounded">
-                        <i class="fas fa-check-circle fa-2x mb-2"></i>
-                        <h4 class="mb-0">Disponibles</h4>
-                        <h2 class="mb-0 mt-2">{{ disponibles_count|default:0 }}</h2>
+                    <div class="d-flex align-items-center p-3 rounded" style="background-color: white; border: 2px solid #4caf50;">
+                        <div class="me-3">
+                            <i class="fas fa-check-circle fa-3x" style="color: #4caf50;"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h5 class="mb-1" style="color: #4caf50; font-weight: 600;">Disponibles</h5>
+                            <small class="text-muted">Listas para reservar</small>
+                        </div>
+                        <div>
+                            <h2 class="mb-0" style="color: #4caf50; font-weight: bold; font-size: 2.5rem;">{{ disponibles_count|default:0 }}</h2>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <div class="text-center p-3 bg-danger text-white rounded">
-                        <i class="fas fa-calendar-times fa-2x mb-2"></i>
-                        <h4 class="mb-0">Reservadas</h4>
-                        <h2 class="mb-0 mt-2">{{ reservas_count|default:0 }}</h2>
+                    <div class="d-flex align-items-center p-3 rounded" style="background-color: white; border: 2px solid #f44336;">
+                        <div class="me-3">
+                            <i class="fas fa-calendar-times fa-3x" style="color: #f44336;"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h5 class="mb-1" style="color: #f44336; font-weight: 600;">Reservadas</h5>
+                            <small class="text-muted">Confirmadas sin pagar</small>
+                        </div>
+                        <div>
+                            <h2 class="mb-0" style="color: #f44336; font-weight: bold; font-size: 2.5rem;">{{ reservas_count|default:0 }}</h2>
+                        </div>
                     </div>
                 </div>
             </div>

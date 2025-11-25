@@ -2029,7 +2029,7 @@ def buscar_propiedades_reserva(request):
 
     # Calcular conteos para el template
     total_propiedades = len(propiedades_disponibles)
-    reservas_count = sum(1 for p in propiedades_disponibles if p.estado_reserva == 'confirmada_no_pagada')
+    reservas_count = sum(1 for p in propiedades_disponibles if hasattr(p, 'estado_reserva') and p.estado_reserva == 'confirmada_no_pagada')
     disponibles_count = total_propiedades - reservas_count
 
     return render(request, 'inmobiliaria/reserva/buscar_propiedades.html', {
