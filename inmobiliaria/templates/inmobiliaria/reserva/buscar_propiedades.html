@@ -1100,10 +1100,6 @@
             {% if propiedades_disponibles %}
             <h3 class="text-center mt-4">
                 Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}
-                <span class="badge bg-primary ms-2">{{ total_propiedades|default:0 }} propiedad{{ total_propiedades|pluralize:"es" }}</span>
-                {% if reservas_count > 0 %}
-                <span class="badge bg-warning ms-2">{{ reservas_count }} reserva{{ reservas_count|pluralize:"s" }}</span>
-                {% endif %}
             </h3>
         
         {% if debugging_info %}
@@ -1183,6 +1179,28 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Cajas de conteo Disponibles y Reservadas -->
+            <div class="row mt-3 mb-3">
+                <div class="col-md-6">
+                    <div class="card text-center" style="background-color: #4caf50; color: white; border: none;">
+                        <div class="card-body">
+                            <i class="fas fa-check-circle fa-2x mb-2"></i>
+                            <h4 class="mb-0">Disponibles</h4>
+                            <h2 class="mb-0">{{ disponibles_count|default:0 }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card text-center" style="background-color: #f44336; color: white; border: none;">
+                        <div class="card-body">
+                            <i class="fas fa-calendar-times fa-2x mb-2"></i>
+                            <h4 class="mb-0">Reservadas</h4>
+                            <h2 class="mb-0">{{ reservas_count|default:0 }}</h2>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Ficha detallada mejorada -->

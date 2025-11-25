@@ -281,7 +281,9 @@
                                     <strong><i class="fas fa-trash-alt"></i> Eliminada:</strong>
                                     {{ reserva.fecha_eliminacion|date:"d/m/Y H:i" }}
                                     {% if reserva.usuario_eliminacion %}
-                                        por {{ reserva.usuario_eliminacion.nombre }} {{ reserva.usuario_eliminacion.apellido }}
+                                        por <strong>{{ reserva.usuario_eliminacion.nombre }} {{ reserva.usuario_eliminacion.apellido }}</strong>
+                                    {% else %}
+                                        <span class="text-muted">(Usuario no registrado)</span>
                                     {% endif %}
                                 </div>
                             </div>
@@ -310,4 +312,5 @@
     </div>
 </div>
 {% endblock %}
+
 
