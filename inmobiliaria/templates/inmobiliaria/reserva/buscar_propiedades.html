@@ -940,10 +940,17 @@
 {% endblock extra_css %}
 
 {% block content %}
-<div class="container-fluid">
-    <h1 class="text-center mb-4">Buscar Propiedades</h1>
+<div class="container-fluid fade-in-up">
+    <div class="row justify-content-center">
+        <div class="col-12 text-center mb-4">
+            <h1 class="text-gradient">📅 Alquiler por Día</h1>
+            <p class="lead text-muted">Gestión de alquileres temporarios y reservas diarias</p>
+        </div>
+    </div>
 
     <!-- Cuadro principal de búsqueda -->
+    <div class="card shadow-modern border-radius-modern mb-4">
+        <div class="card-body">
     <div class="main-search-box">
             <form method="post" id="buscar-propiedades-form-dia" class="m-0">
             {% csrf_token %}
@@ -1093,14 +1100,18 @@
             </div>
         </div>
     </div>
+        </div>
+    </div>
 
     <div class="row">
         <!-- Columna izquierda: Lista de propiedades -->
         <div class="col-md-8">
             {% if propiedades_disponibles %}
-            <h3 class="text-center mt-4">
-                Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}
-            </h3>
+            <div class="card shadow-modern border-radius-modern mb-4">
+                <div class="card-header text-center">
+                    <h4 class="mb-0">Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h4>
+                </div>
+                <div class="card-body">
         
         {% if debugging_info %}
      
@@ -1214,7 +1225,7 @@
             </div>
 
             <!-- Ficha detallada mejorada -->
-            <div class="card mt-4" id="propertyCard" style="font-family: 'Courier New', monospace;">
+            <div class="card shadow-modern border-radius-modern mt-4" id="propertyCard" style="font-family: 'Courier New', monospace;">
                 <div class="card-header">
                     <div class="d-flex justify-content-between">
                         <h5 class="mb-0">FICHA: <span id="cardPropiedad"></span></h5>
@@ -1292,10 +1303,15 @@
                         </div>
                     </div>
                 </div>
+                </div>
             </div>
             {% else %}
-                <div class="alert alert-warning text-center mt-4">
-                    No hay propiedades disponibles para las fechas seleccionadas.
+                <div class="card shadow-modern border-radius-modern">
+                    <div class="card-body">
+                        <div class="alert alert-warning text-center mb-0">
+                            No hay propiedades disponibles para las fechas seleccionadas.
+                        </div>
+                    </div>
                 </div>
                 {% if alerta_sin_precio %}
                 <script>
@@ -1317,7 +1333,7 @@
         
         <!-- Columna derecha: Tabla de precios -->
         <div class="col-md-4">
-            <div class="card">
+            <div class="card shadow-modern border-radius-modern">
                 <div class="card-header bg-primary text-white">
                     <h5 class="mb-0">PRECIOS</h5>
                 </div>
