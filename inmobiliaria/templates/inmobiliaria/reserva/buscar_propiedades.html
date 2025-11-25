@@ -100,12 +100,18 @@
     }
     
     .col-md-8 {
-        max-width: 100% !important;
+        max-width: 66.666667% !important;
         overflow-x: hidden !important;
     }
     
     .col-md-4 {
-        max-width: 100% !important;
+        max-width: 33.333333% !important;
+    }
+    
+    @media (max-width: 768px) {
+        .col-md-8, .col-md-4 {
+            max-width: 100% !important;
+        }
     }
     
     #propiedadesTable {
@@ -1324,7 +1330,6 @@
                 {% endif %}
             {% endif %}
         </div>
-        
         <!-- Columna derecha: Tabla de precios -->
         <div class="col-md-4">
             <div class="card shadow-modern border-radius-modern">
