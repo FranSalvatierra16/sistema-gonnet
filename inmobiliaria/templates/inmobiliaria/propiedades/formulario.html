@@ -1186,14 +1186,33 @@ $(document).ready(function() {
                 
             } else {
                 console.error('❌ Error:', data.error || data.errors);
-                const mensajeError = data.error || (data.errors ? JSON.stringify(data.errors) : 'Error desconocido');
-                alert('Error: ' + mensajeError);
+                let mensajeError = data.error || (data.errors ? JSON.stringify(data.errors) : 'Error desconocido');
+                
+                // Mejorar mensajes de error para que sean más claros
+                if (mensajeError.includes('DNI')) {
+                    // Mensajes específicos de DNI ya vienen claros del backend
+                    alert('⚠️ Error en el DNI\n\n' + mensajeError);
+                } else if (mensajeError.includes('Faltan campos')) {
+                    alert('⚠️ Campos incompletos\n\n' + mensajeError + '\n\nPor favor, complete todos los campos requeridos.');
+                } else if (mensajeError.includes('duplicado') || mensajeError.includes('Ya existe')) {
+                    alert('⚠️ DNI duplicado\n\n' + mensajeError + '\n\nPor favor, verifique que el DNI no esté registrado anteriormente.');
+                } else {
+                    alert('❌ Error\n\n' + mensajeError + '\n\nPor favor, verifique los datos e intente nuevamente.');
+                }
             }
         })
         .catch(error => {
             console.error('❌ Error de conexión:', error);
-            const mensajeError = error.message || 'Error de conexión. Intenta nuevamente.';
-            alert('Error: ' + mensajeError);
+            let mensajeError = error.message || 'Error de conexión. Intenta nuevamente.';
+            
+            // Mejorar mensajes de error de conexión
+            if (mensajeError.includes('value too long')) {
+                alert('⚠️ Error en el DNI\n\nEl DNI ingresado es demasiado largo. Debe tener exactamente 8 dígitos sin puntos ni guiones.\n\nEjemplo correcto: 43740932');
+            } else if (mensajeError.includes('DNI') || mensajeError.includes('dni')) {
+                alert('⚠️ Error en el DNI\n\n' + mensajeError + '\n\nPor favor, verifique que el DNI tenga 8 dígitos y no contenga puntos ni guiones.');
+            } else {
+                alert('❌ Error de conexión\n\n' + mensajeError + '\n\nPor favor, verifique su conexión a internet e intente nuevamente.');
+            }
         })
         .finally(() => {
             // Restaurar botón

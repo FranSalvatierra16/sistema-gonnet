@@ -4584,9 +4584,55 @@ def crear_propietario_ajax(request):
             campos_faltantes = [campo for campo in campos_requeridos if not request.POST.get(campo)]
             
             if campos_faltantes:
+                nombres_campos = {
+                    'nombre': 'Nombre',
+                    'apellido': 'Apellido',
+                    'email': 'Email',
+                    'celular': 'Celular',
+                    'tipo_doc': 'Tipo de Documento',
+                    'dni': 'DNI',
+                    'localidad': 'Localidad',
+                    'provincia': 'Provincia',
+                    'domicilio': 'Domicilio',
+                    'codigo_postal': 'Código Postal'
+                }
+                campos_faltantes_nombres = [nombres_campos.get(campo, campo) for campo in campos_faltantes]
                 return JsonResponse({
                     'success': False,
-                    'error': f'Faltan campos requeridos: {", ".join(campos_faltantes)}'
+                    'error': f'Faltan campos requeridos: {", ".join(campos_faltantes_nombres)}'
+                })
+            
+            # Validar y limpiar DNI
+            dni_raw = request.POST.get('dni', '').strip()
+            # Limpiar DNI: quitar puntos, espacios, guiones
+            dni_limpio = dni_raw.replace('.', '').replace(' ', '').replace('-', '').replace(',', '')
+            
+            # Validar que el DNI solo contenga números
+            if not dni_limpio.isdigit():
+                return JsonResponse({
+                    'success': False,
+                    'error': 'El DNI solo puede contener números. Por favor, ingrese solo los 8 dígitos del DNI sin puntos ni guiones.'
+                })
+            
+            # Validar longitud del DNI
+            if len(dni_limpio) < 8:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'El DNI debe tener 8 dígitos. Usted ingresó {len(dni_limpio)} dígito(s). Por favor, complete el DNI correctamente.'
+                })
+            
+            if len(dni_limpio) > 8:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'El DNI debe tener exactamente 8 dígitos. Usted ingresó {len(dni_limpio)} dígitos. Por favor, verifique el DNI.'
+                })
+            
+            # Verificar si el DNI ya existe
+            if Propietario.objects.filter(dni=dni_limpio).exists():
+                propietario_existente = Propietario.objects.get(dni=dni_limpio)
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Ya existe un propietario con el DNI {dni_limpio}. Propietario: {propietario_existente.nombre} {propietario_existente.apellido}'
                 })
                 
             propietario = Propietario.objects.create(
@@ -4596,7 +4642,7 @@ def crear_propietario_ajax(request):
                 email=request.POST['email'],
                 celular=request.POST['celular'],
                 tipo_doc=request.POST['tipo_doc'],
-                dni=request.POST['dni'],
+                dni=dni_limpio,
                 tipo_ins=request.POST.get('tipo_ins', 'otro'),  # Valor por defecto
                 cuit=request.POST.get('cuit', ''),
                 localidad=request.POST['localidad'],
@@ -4623,10 +4669,28 @@ def crear_propietario_ajax(request):
             })
         except Exception as e:
             import traceback
-            error_detail = traceback.format_exc()
+            error_str = str(e)
+            
+            # Detectar errores específicos de base de datos
+            if 'value too long' in error_str.lower() and 'dni' in error_str.lower():
+                return JsonResponse({
+                    'success': False,
+                    'error': 'El DNI ingresado es demasiado largo. El DNI debe tener exactamente 8 dígitos sin puntos ni guiones.'
+                })
+            elif 'unique constraint' in error_str.lower() or 'duplicate key' in error_str.lower():
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Ya existe un propietario con este DNI. Por favor, verifique que el DNI no esté duplicado.'
+                })
+            elif 'dni' in error_str.lower():
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Error con el DNI: {error_str}'
+                })
+            
             return JsonResponse({
                 'success': False,
-                'error': f'Error al crear propietario: {str(e)}'
+                'error': f'Error al crear propietario: {error_str}'
             })
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
