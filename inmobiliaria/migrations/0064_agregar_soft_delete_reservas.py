@@ -7,81 +7,154 @@ import django.db.models.deletion
 
 def verificar_y_agregar_titulo(apps, schema_editor):
     """Verifica si la columna titulo existe antes de agregarla"""
-    db_alias = schema_editor.connection.alias
+    vendor = schema_editor.connection.vendor
     with schema_editor.connection.cursor() as cursor:
-        # Verificar si la columna ya existe
-        cursor.execute("""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name='inmobiliaria_propiedad' 
-            AND column_name='titulo'
-        """)
-        existe = cursor.fetchone()
-        
-        if not existe:
-            # Agregar la columna solo si no existe
+        if vendor == 'postgresql':
+            # PostgreSQL: usar IF NOT EXISTS
             cursor.execute("""
                 ALTER TABLE inmobiliaria_propiedad 
-                ADD COLUMN titulo VARCHAR(255) NULL
+                ADD COLUMN IF NOT EXISTS titulo varchar(255) NULL
             """)
+        elif vendor == 'mysql':
+            # MySQL: verificar primero
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_schema = DATABASE()
+                AND table_name='inmobiliaria_propiedad' 
+                AND column_name='titulo'
+            """)
+            if not cursor.fetchone():
+                cursor.execute("""
+                    ALTER TABLE inmobiliaria_propiedad 
+                    ADD COLUMN titulo VARCHAR(255) NULL
+                """)
 
 
 def verificar_y_agregar_campos_soft_delete(apps, schema_editor):
     """Verifica si los campos de soft delete existen antes de agregarlos"""
-    db_alias = schema_editor.connection.alias
+    vendor = schema_editor.connection.vendor
     with schema_editor.connection.cursor() as cursor:
-        # Verificar campo eliminada
-        cursor.execute("""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name='inmobiliaria_reserva' 
-            AND column_name='eliminada'
-        """)
-        if not cursor.fetchone():
+        if vendor == 'postgresql':
+            # PostgreSQL: usar IF NOT EXISTS
             cursor.execute("""
                 ALTER TABLE inmobiliaria_reserva 
-                ADD COLUMN eliminada BOOLEAN NOT NULL DEFAULT FALSE
+                ADD COLUMN IF NOT EXISTS eliminada boolean NOT NULL DEFAULT FALSE
             """)
+            cursor.execute("""
+                ALTER TABLE inmobiliaria_reserva 
+                ADD COLUMN IF NOT EXISTS fecha_eliminacion timestamp NULL
+            """)
+            cursor.execute("""
+                ALTER TABLE inmobiliaria_reserva 
+                ADD COLUMN IF NOT EXISTS usuario_eliminacion_id integer NULL
+            """)
+            
+            # Verificar si la tabla auth_user existe antes de agregar foreign key constraint
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'auth_user'
+                )
+            """)
+            auth_user_exists = cursor.fetchone()[0]
+            
+            if auth_user_exists:
+                # Verificar si la constraint ya existe
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM pg_constraint 
+                        WHERE conname = 'inmobiliaria_reserva_usuario_eliminacion_id_fk'
+                    )
+                """)
+                constraint_exists = cursor.fetchone()[0]
+                
+                if not constraint_exists:
+                    # Agregar foreign key constraint solo si la tabla existe y la constraint no existe
+                    cursor.execute("""
+                        ALTER TABLE inmobiliaria_reserva 
+                        ADD CONSTRAINT inmobiliaria_reserva_usuario_eliminacion_id_fk 
+                        FOREIGN KEY (usuario_eliminacion_id) 
+                        REFERENCES auth_user(id) 
+                        ON DELETE SET NULL
+                    """)
         
-        # Verificar campo fecha_eliminacion
-        cursor.execute("""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name='inmobiliaria_reserva' 
-            AND column_name='fecha_eliminacion'
-        """)
-        if not cursor.fetchone():
+        elif vendor == 'mysql':
+            # MySQL: verificar primero
+            # Verificar campo eliminada
             cursor.execute("""
-                ALTER TABLE inmobiliaria_reserva 
-                ADD COLUMN fecha_eliminacion TIMESTAMP NULL
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_schema = DATABASE()
+                AND table_name='inmobiliaria_reserva' 
+                AND column_name='eliminada'
             """)
-        
-        # Verificar campo usuario_eliminacion_id
-        cursor.execute("""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name='inmobiliaria_reserva' 
-            AND column_name='usuario_eliminacion_id'
-        """)
-        if not cursor.fetchone():
+            if not cursor.fetchone():
+                cursor.execute("""
+                    ALTER TABLE inmobiliaria_reserva 
+                    ADD COLUMN eliminada BOOLEAN NOT NULL DEFAULT FALSE
+                """)
+            
+            # Verificar campo fecha_eliminacion
             cursor.execute("""
-                ALTER TABLE inmobiliaria_reserva 
-                ADD COLUMN usuario_eliminacion_id INTEGER NULL
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_schema = DATABASE()
+                AND table_name='inmobiliaria_reserva' 
+                AND column_name='fecha_eliminacion'
             """)
-            # Agregar foreign key constraint
+            if not cursor.fetchone():
+                cursor.execute("""
+                    ALTER TABLE inmobiliaria_reserva 
+                    ADD COLUMN fecha_eliminacion TIMESTAMP NULL
+                """)
+            
+            # Verificar campo usuario_eliminacion_id
             cursor.execute("""
-                ALTER TABLE inmobiliaria_reserva 
-                ADD CONSTRAINT inmobiliaria_reserva_usuario_eliminacion_id_fk 
-                FOREIGN KEY (usuario_eliminacion_id) 
-                REFERENCES auth_user(id) 
-                ON DELETE SET NULL
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_schema = DATABASE()
+                AND table_name='inmobiliaria_reserva' 
+                AND column_name='usuario_eliminacion_id'
             """)
+            if not cursor.fetchone():
+                cursor.execute("""
+                    ALTER TABLE inmobiliaria_reserva 
+                    ADD COLUMN usuario_eliminacion_id INTEGER NULL
+                """)
+                # Verificar si la tabla auth_user existe antes de agregar foreign key constraint
+                cursor.execute("""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = DATABASE()
+                    AND table_name='auth_user'
+                """)
+                if cursor.fetchone():
+                    # Verificar si la constraint ya existe
+                    cursor.execute("""
+                        SELECT constraint_name 
+                        FROM information_schema.table_constraints 
+                        WHERE table_schema = DATABASE()
+                        AND table_name='inmobiliaria_reserva' 
+                        AND constraint_name='inmobiliaria_reserva_usuario_eliminacion_id_fk'
+                    """)
+                    if not cursor.fetchone():
+                        # Agregar foreign key constraint solo si la tabla existe y la constraint no existe
+                        cursor.execute("""
+                            ALTER TABLE inmobiliaria_reserva 
+                            ADD CONSTRAINT inmobiliaria_reserva_usuario_eliminacion_id_fk 
+                            FOREIGN KEY (usuario_eliminacion_id) 
+                            REFERENCES auth_user(id) 
+                            ON DELETE SET NULL
+                        """)
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
         ('inmobiliaria', '0063_remove_caja_id_alter_caja_numero'),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
