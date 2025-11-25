@@ -5,6 +5,79 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
+def verificar_y_agregar_titulo(apps, schema_editor):
+    """Verifica si la columna titulo existe antes de agregarla"""
+    db_alias = schema_editor.connection.alias
+    with schema_editor.connection.cursor() as cursor:
+        # Verificar si la columna ya existe
+        cursor.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='inmobiliaria_propiedad' 
+            AND column_name='titulo'
+        """)
+        existe = cursor.fetchone()
+        
+        if not existe:
+            # Agregar la columna solo si no existe
+            cursor.execute("""
+                ALTER TABLE inmobiliaria_propiedad 
+                ADD COLUMN titulo VARCHAR(255) NULL
+            """)
+
+
+def verificar_y_agregar_campos_soft_delete(apps, schema_editor):
+    """Verifica si los campos de soft delete existen antes de agregarlos"""
+    db_alias = schema_editor.connection.alias
+    with schema_editor.connection.cursor() as cursor:
+        # Verificar campo eliminada
+        cursor.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='inmobiliaria_reserva' 
+            AND column_name='eliminada'
+        """)
+        if not cursor.fetchone():
+            cursor.execute("""
+                ALTER TABLE inmobiliaria_reserva 
+                ADD COLUMN eliminada BOOLEAN NOT NULL DEFAULT FALSE
+            """)
+        
+        # Verificar campo fecha_eliminacion
+        cursor.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='inmobiliaria_reserva' 
+            AND column_name='fecha_eliminacion'
+        """)
+        if not cursor.fetchone():
+            cursor.execute("""
+                ALTER TABLE inmobiliaria_reserva 
+                ADD COLUMN fecha_eliminacion TIMESTAMP NULL
+            """)
+        
+        # Verificar campo usuario_eliminacion_id
+        cursor.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='inmobiliaria_reserva' 
+            AND column_name='usuario_eliminacion_id'
+        """)
+        if not cursor.fetchone():
+            cursor.execute("""
+                ALTER TABLE inmobiliaria_reserva 
+                ADD COLUMN usuario_eliminacion_id INTEGER NULL
+            """)
+            # Agregar foreign key constraint
+            cursor.execute("""
+                ALTER TABLE inmobiliaria_reserva 
+                ADD CONSTRAINT inmobiliaria_reserva_usuario_eliminacion_id_fk 
+                FOREIGN KEY (usuario_eliminacion_id) 
+                REFERENCES auth_user(id) 
+                ON DELETE SET NULL
+            """)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -12,24 +85,38 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='propiedad',
-            name='titulo',
-            field=models.CharField(blank=True, help_text='Nombre o título para identificar fácilmente la propiedad', max_length=255, null=True, verbose_name='Título descriptivo'),
+        # Agregar campo titulo solo si no existe
+        migrations.RunPython(verificar_y_agregar_titulo, migrations.RunPython.noop),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[
+                migrations.AddField(
+                    model_name='propiedad',
+                    name='titulo',
+                    field=models.CharField(blank=True, help_text='Nombre o título para identificar fácilmente la propiedad', max_length=255, null=True, verbose_name='Título descriptivo'),
+                ),
+            ]
         ),
-        migrations.AddField(
-            model_name='reserva',
-            name='eliminada',
-            field=models.BooleanField(default=False),
-        ),
-        migrations.AddField(
-            model_name='reserva',
-            name='fecha_eliminacion',
-            field=models.DateTimeField(blank=True, null=True),
-        ),
-        migrations.AddField(
-            model_name='reserva',
-            name='usuario_eliminacion',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='reservas_eliminadas', to=settings.AUTH_USER_MODEL),
+        # Agregar campos de soft delete solo si no existen
+        migrations.RunPython(verificar_y_agregar_campos_soft_delete, migrations.RunPython.noop),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[
+                migrations.AddField(
+                    model_name='reserva',
+                    name='eliminada',
+                    field=models.BooleanField(default=False),
+                ),
+                migrations.AddField(
+                    model_name='reserva',
+                    name='fecha_eliminacion',
+                    field=models.DateTimeField(blank=True, null=True),
+                ),
+                migrations.AddField(
+                    model_name='reserva',
+                    name='usuario_eliminacion',
+                    field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='reservas_eliminadas', to=settings.AUTH_USER_MODEL),
+                ),
+            ]
         ),
     ]
