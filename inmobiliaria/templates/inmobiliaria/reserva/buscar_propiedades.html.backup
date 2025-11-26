@@ -1,0 +1,53 @@
+{% extends 'inmobiliaria/base.html' %}
+
+{% load bootstrap4 %}
+
+{% load custom_filters %}
+
+{% load static %}
+
+{% block extra_css %}
+
+    <style>
+
+    /* RESET COMPLETO Y DISEÑO MODERNO */
+
+    * {
+
+        box-sizing: border-box !important;
+
+    }
+
+    body {
+
+        background: linear-gradient(135deg, #a5d6a7 0%, #66bb6a 100%);
+
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+
+        min-height: 100vh !important;
+
+        margin: 0 !important;
+
+        padding: 20px !important;
+
+    }
+
+    
+
+    .container-fluid {
+
+        background: rgba(255, 255, 255, 0.95) !important;
+
+        border-radius: 15px !important;
+
+        margin: 20px !important;
+
+        max-width: 98% !important;
+
+        box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
+
+        backdrop-filter: blur(10px) !important;
+
+        padding: 30px !important;
+
+    }
