@@ -10,17 +10,22 @@
         box-sizing: border-box !important;
     }
 
-    /* No sobrescribir el body para mantener el navbar consistente */
-    .container-fluid {
+    body {
+        background: linear-gradient(135deg, #a5d6a7 0%, #66bb6a 100%);
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+        min-height: 100vh !important;
+        margin: 0 !important;
+        padding: 20px !important;
     }
     
-    /* Mantener el container-fluid sin estilos que interfieran con el navbar */
     .container-fluid {
-        margin: 0 !important;
-        max-width: 100% !important;
-        width: 100% !important;
-        padding: 20px !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        border-radius: 15px !important;
+        margin: 20px !important;
+        max-width: 98% !important;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
+        backdrop-filter: blur(10px) !important;
+        padding: 30px !important;
     }
 
     /* Estilos para el formulario de filtros */
@@ -100,18 +105,8 @@
     }
     
     .col-md-8 {
-        max-width: 66.666667% !important;
+        max-width: 100% !important;
         overflow-x: hidden !important;
-    }
-    
-    .col-md-4 {
-        max-width: 33.333333% !important;
-    }
-    
-    @media (max-width: 768px) {
-        .col-md-8, .col-md-4 {
-            max-width: 100% !important;
-        }
     }
     
     #propiedadesTable {
@@ -134,6 +129,13 @@
         text-overflow: clip !important;
         width: auto !important;
         min-width: 70px !important;
+        max-width: 10% !important;
+    }
+    
+    #propiedadesTable th:nth-child(9),
+    #propiedadesTable td:nth-child(9) {
+        width: auto !important;
+        min-width: 90px !important;
         max-width: 10% !important;
     }
 
@@ -940,17 +942,10 @@
 {% endblock extra_css %}
 
 {% block content %}
-<div class="container-fluid fade-in-up">
-    <div class="row justify-content-center">
-        <div class="col-12 text-center mb-4">
-            <h1 class="text-gradient">📅 Alquiler por Día</h1>
-            <p class="lead text-muted">Gestión de alquileres temporarios y reservas diarias</p>
-        </div>
-    </div>
+<div class="container-fluid">
+    <h1 class="text-center mb-4">Buscar Propiedades</h1>
 
     <!-- Cuadro principal de búsqueda -->
-    <div class="card shadow-modern border-radius-modern mb-4">
-        <div class="card-body">
     <div class="main-search-box">
             <form method="post" id="buscar-propiedades-form-dia" class="m-0">
             {% csrf_token %}
@@ -1100,18 +1095,12 @@
             </div>
         </div>
     </div>
-        </div>
-    </div>
 
     <div class="row">
         <!-- Columna izquierda: Lista de propiedades -->
         <div class="col-md-8">
             {% if propiedades_disponibles %}
-            <div class="card shadow-modern border-radius-modern mb-4">
-                <div class="card-header text-center">
-                    <h4 class="mb-0">Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h4>
-                </div>
-                <div class="card-body">
+            <h3 class="text-center mt-4">Propiedades Disponibles del {{ fecha_inicio }} al {{ fecha_fin }}</h3>
         
         {% if debugging_info %}
      
@@ -1128,6 +1117,7 @@
                             <th>Propietario</th>
                             <th>Precio</th>
                             <th>Sucursal</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1158,6 +1148,13 @@
                             <td style="color: red;">{{ propiedad.propietario.apellido }}</td>
                             <td style="color: red;">{{ propiedad.precio_total_reserva|format_price }}</td>
                             <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
+                            <td>
+                                {% if propiedad.reserva.id %}
+                                <button type="button" class="btn btn-sm btn-info" onclick="consultarReserva({{ propiedad.reserva.id }})" title="Consultar Reserva">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% else %}
                         <tr style="background-color: white;" 
@@ -1185,6 +1182,7 @@
                             <td>{{ propiedad.propietario.apellido }}</td>
                             <td>{{ propiedad.precio_total_reserva|format_price }}</td>
                             <td>{{ propiedad.sucursal.nombre }}</td>
+                            <td></td>
                         </tr>
                         {% endif %}
                         {% endfor %}
@@ -1192,40 +1190,42 @@
                 </table>
             </div>
 
-            <!-- Cajas de conteo Disponibles y Reservadas -->
+            <!-- ✅ Resumen de totales - Más compacto -->
             <div class="row mt-3 mb-3">
-                <div class="col-md-6 mb-3">
-                    <div class="d-flex align-items-center p-3 rounded" style="background-color: white; border: 2px solid #4caf50;">
-                        <div class="me-3">
-                            <i class="fas fa-check-circle fa-3x" style="color: #4caf50;"></i>
-                        </div>
-                        <div class="flex-grow-1">
-                            <h5 class="mb-1" style="color: #4caf50; font-weight: 600;">Disponibles</h5>
-                            <small class="text-muted">Listas para reservar</small>
-                        </div>
-                        <div>
-                            <h2 class="mb-0" style="color: #4caf50; font-weight: bold; font-size: 2.5rem;">{{ disponibles_count|default:0 }}</h2>
+                <div class="col-md-6 mb-2">
+                    <div class="card shadow-sm" style="border-left: 3px solid #28a745;">
+                        <div class="card-body py-2 px-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title text-success mb-0">
+                                        <i class="fas fa-check-circle me-1"></i>Disponibles
+                                    </h6>
+                                    <small class="text-muted">Listas para reservar</small>
+                                </div>
+                                <h4 class="fw-bold text-success mb-0">{{ total_propiedades_disponibles }}</h4>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6 mb-3">
-                    <div class="d-flex align-items-center p-3 rounded" style="background-color: white; border: 2px solid #f44336;">
-                        <div class="me-3">
-                            <i class="fas fa-calendar-times fa-3x" style="color: #f44336;"></i>
-                        </div>
-                        <div class="flex-grow-1">
-                            <h5 class="mb-1" style="color: #f44336; font-weight: 600;">Reservadas</h5>
-                            <small class="text-muted">Confirmadas sin pagar</small>
-                        </div>
-                        <div>
-                            <h2 class="mb-0" style="color: #f44336; font-weight: bold; font-size: 2.5rem;">{{ reservas_count|default:0 }}</h2>
+                <div class="col-md-6 mb-2">
+                    <div class="card shadow-sm" style="border-left: 3px solid #f44336;">
+                        <div class="card-body py-2 px-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title text-danger mb-0">
+                                        <i class="fas fa-calendar-times me-1"></i>Reservadas
+                                    </h6>
+                                    <small class="text-muted">Confirmadas sin pagar</small>
+                                </div>
+                                <h4 class="fw-bold text-danger mb-0">{{ total_propiedades_reservadas }}</h4>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Ficha detallada mejorada -->
-            <div class="card shadow-modern border-radius-modern mt-4" id="propertyCard" style="font-family: 'Courier New', monospace;">
+            <div class="card mt-4" id="propertyCard" style="font-family: 'Courier New', monospace;">
                 <div class="card-header">
                     <div class="d-flex justify-content-between">
                         <h5 class="mb-0">FICHA: <span id="cardPropiedad"></span></h5>
@@ -1303,15 +1303,10 @@
                         </div>
                     </div>
                 </div>
-                </div>
             </div>
             {% else %}
-                <div class="card shadow-modern border-radius-modern">
-                    <div class="card-body">
-                        <div class="alert alert-warning text-center mb-0">
-                            No hay propiedades disponibles para las fechas seleccionadas.
-                        </div>
-                    </div>
+                <div class="alert alert-warning text-center mt-4">
+                    No hay propiedades disponibles para las fechas seleccionadas.
                 </div>
                 {% if alerta_sin_precio %}
                 <script>
@@ -1330,30 +1325,6 @@
                 {% endif %}
             {% endif %}
         </div>
-        <!-- Columna derecha: Tabla de precios -->
-        <div class="col-md-4">
-            <div class="card shadow-modern border-radius-modern">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">PRECIOS</h5>
-                </div>
-                <div class="card-body">
-                    <table class="table table-bordered table-precios">
-                        <thead>
-                            <tr style="background-color: #007bff; color: white;">
-                                <th>PERÍODO</th>
-                                <th class="text-end">Precio por Quincena</th>
-                                <th class="text-end">Precio por Día</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Se llenará dinámicamente con JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 <!-- MODAL MODERNO MINIMALISTA -->
 <div id="modalConfirmarReserva" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.75); z-index: 9999; backdrop-filter: blur(8px);">
     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 16px; padding: 0; width: 95%; max-width: 580px; box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05); animation: modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);">
@@ -1517,6 +1488,29 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
 }
 </style>
+        
+        <!-- Columna derecha: Tabla de precios -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">PRECIOS</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered table-precios">
+                        <thead>
+                            <tr style="background-color: #007bff; color: white;">
+                                <th>PERÍODO</th>
+                                <th class="text-end">Precio por Quincena</th>
+                                <th class="text-end">Precio por Día</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Se llenará dinámicamente con JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 <div class="modal fade" id="modalAutenticacionVendedor" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
@@ -2317,14 +2311,6 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
     // Actualizar botones según el estado
     const cardButtons = document.getElementById("cardButtons");
     if (estadoReserva === 'confirmada_no_pagada') {
-        let botonVerReserva = '';
-        if (reserva_id) {
-            botonVerReserva = `
-                <button type="button" class="btn btn-info" onclick="consultarReserva(${reserva_id})" title="Consultar Reserva">
-                    <i class="fas fa-eye"></i> Ver Reserva
-                </button>
-            `;
-        }
         cardButtons.innerHTML = `
             <div class="d-flex gap-2">
                 <button type="button" class="btn btn-primary" disabled>
@@ -2333,7 +2319,6 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
                 <button type="button" class="btn btn-success btn-finalizar" data-url="{% url 'inmobiliaria:finalizar_reserva_nueva' 0 %}" data-reserva-id="${reserva_id}">
                     <i class="fas fa-check-circle"></i> Finalizar Operación
                 </button>
-                ${botonVerReserva}
                 <button type="button" class="btn btn-secondary" onclick="window.verHistorial()">
                     <i class="fas fa-history"></i> Ver Historial
                 </button>
