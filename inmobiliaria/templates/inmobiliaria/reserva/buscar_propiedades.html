@@ -25,7 +25,7 @@
         max-width: 100% !important;
         box-shadow: none !important;
         backdrop-filter: none !important;
-        padding: 20px !important;
+        padding: 0 !important;
         width: 100% !important;
     }
 
@@ -188,10 +188,13 @@
 
     .main-search-box {
         background: linear-gradient(135deg, #1a237e, #0d47a1) !important;
-        border-radius: 15px !important;
+        border-radius: 0 !important;
         padding: 25px !important;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.15) !important;
-        margin-bottom: 30px !important;
+        box-shadow: none !important;
+        margin-bottom: 0 !important;
+        width: 100% !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
     }
 
     .form-group {
@@ -526,7 +529,7 @@
         border-radius: 0 !important;
         box-shadow: none !important;
         margin: 0 !important;
-        padding: 20px !important;
+        padding: 0 !important;
         width: 100% !important;
         max-width: 100% !important;
     }
@@ -947,11 +950,11 @@
 {% endblock extra_css %}
 
 {% block content %}
-<div class="container-fluid">
-    <h1 class="text-center mb-4">Buscar Propiedades</h1>
+<div class="container-fluid" style="padding: 0 !important; margin: 0 !important;">
+    <h1 class="text-center mb-4" style="padding: 15px 20px 0 20px !important; margin: 0 !important;">Buscar Propiedades</h1>
 
     <!-- Cuadro principal de búsqueda -->
-    <div class="main-search-box">
+    <div class="main-search-box" style="width: 100% !important; margin: 0 !important;">
             <form method="post" id="buscar-propiedades-form-dia" class="m-0">
             {% csrf_token %}
             <div class="row">
