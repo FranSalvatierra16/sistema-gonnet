@@ -407,9 +407,9 @@
                                                                         <br>
                                                                         <small class="text-muted">
                                                                             {% if disponibilidad.moneda_asegurado == 'USD' %}
-                                                                                Usd{{ disponibilidad.monto_asegurado|floatformat:0 }}
+                                                                                Usd{{ disponibilidad.monto_asegurado|format_price|slice:"1:" }}
                                                                             {% else %}
-                                                                                ${{ disponibilidad.monto_asegurado|floatformat:0 }}
+                                                                                {{ disponibilidad.monto_asegurado|format_price }}
                                                                             {% endif %}
                                                                         </small>
                                                                     {% else %}
