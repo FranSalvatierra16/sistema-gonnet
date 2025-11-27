@@ -132,7 +132,9 @@ class Propiedad(models.Model):
     propietario = models.ForeignKey(Propietario, on_delete=models.CASCADE, related_name='propiedades')  
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='propiedades')# Cambiado a obligatorio
     llave = models.IntegerField(null=True, blank=True, verbose_name="Número de llave")
-    numero_por_propietario = models.PositiveIntegerField()
+    numero_por_propietario = models.PositiveIntegerField(null=True, blank=True, verbose_name="Número de propiedad")
+    cantidad_personas = models.PositiveIntegerField(null=True, blank=True, verbose_name="Cantidad de personas")
+    camas = models.CharField(max_length=255, null=True, blank=True, verbose_name="Camas", help_text="Descripción de las camas (ej: 1 cama matrimonial, 2 camas individuales, etc.)")
     
     # Resto del código permanece igual
     
@@ -221,7 +223,8 @@ class Propiedad(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["propietario", "numero_por_propietario"],
-                name="unique_num_x_prop"
+                name="unique_num_x_prop",
+                condition=models.Q(numero_por_propietario__isnull=False)  # Solo aplicar constraint si no es None
             )
         ]
 
@@ -340,12 +343,13 @@ class Propiedad(models.Model):
     #         raise ValidationError(_('Debe ingresar un precio de alquiler si está habilitado.'))
 
     def save(self, *args, **kwargs):
-        # SI el número no está asignado, calcúlalo (independiente del pk)
-        if self.numero_por_propietario in (None, 0):
+        # Si el número no está asignado (None), calcúlalo automáticamente desde el último número del propietario
+        if self.numero_por_propietario is None:
             with transaction.atomic():
                 ultimo = (
                     Propiedad.objects
                     .filter(propietario=self.propietario)
+                    .exclude(pk=self.pk)  # Excluir la propiedad actual si es una actualización
                     .select_for_update()
                     .aggregate(m=Max("numero_por_propietario"))
                 )["m"] or 0

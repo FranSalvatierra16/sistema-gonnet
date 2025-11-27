@@ -210,12 +210,30 @@ class PropiedadForm(forms.ModelForm):
         empty_label="Seleccionar vendedor..."
     )
 
+    numero_por_propietario = forms.IntegerField(
+        required=False,
+        label='Número de Propiedad',
+        help_text='Deje vacío para asignar automáticamente desde el último número del propietario',
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )
+    cantidad_personas = forms.IntegerField(
+        required=False,
+        label='Cantidad de Personas',
+        help_text='Cantidad máxima de personas que puede alojar la propiedad',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '1'})
+    )
+    camas = forms.CharField(
+        required=False,
+        label='Camas',
+        help_text='Descripción de las camas (ej: 1 cama matrimonial, 2 camas individuales, etc.)',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 1 cama matrimonial, 2 camas individuales'})
+    )
+
     class Meta:
         model = Propiedad
-        exclude = ("numero_por_propietario",)
         fields = [
-            'id', 'llave', 'direccion', 'titulo', 'ubicacion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
-
+            'id', 'llave', 'numero_por_propietario', 'direccion', 'titulo', 'ubicacion', 'tipo_inmueble', 'vista', 'piso', 'departamento', 'ambientes', 'valoracion', 'cuenta_bancaria',
+            'cantidad_personas', 'camas',
             # 'habilitar_precio_diario', 'precio_diario', 'habilitar_precio_venta', 'precio_venta',
             # 'habilitar_precio_alquiler', 'precio_alquiler',
             'amoblado', 'cochera', 'tv_smart', 'wifi', 
@@ -242,6 +260,10 @@ class PropiedadForm(forms.ModelForm):
         # Para propiedades existentes, mostrar el vendedor actual seleccionado
         if self.instance.pk and self.instance.fichado_por:
             self.fields['fichado_por'].initial = self.instance.fichado_por
+        
+        # Para propiedades existentes, mostrar el número de propiedad actual
+        if self.instance.pk and self.instance.numero_por_propietario:
+            self.fields['numero_por_propietario'].initial = self.instance.numero_por_propietario
         
         # Hacer que el campo sea siempre editable para que el usuario pueda elegir
 
