@@ -3654,30 +3654,40 @@ function cargarPreciosPropiedad(propiedadId) {
     console.log('💰 Cargando precios para propiedad:', propiedadId);
     
     // Llamar a la API de precios
-    fetch(`{% url 'inmobiliaria:obtener_precios_propiedad' 0 %}`.replace('0', propiedadId))
-        .then(response => response.json())
+    const url = `{% url 'inmobiliaria:obtener_precios_propiedad' 0 %}`.replace('0', propiedadId);
+    console.log('🔗 URL de la API:', url);
+    
+    fetch(url)
+        .then(response => {
+            console.log('📡 Respuesta HTTP recibida:', response.status, response.statusText);
+            return response.json();
+        })
         .then(data => {
-            console.log('📊 Precios recibidos:', data);
+            console.log('📊 Precios recibidos en cargarPreciosPropiedad:', data);
+            console.log('📊 data.success:', data.success);
+            console.log('📊 data.precios existe?:', !!data.precios);
+            console.log('📊 Cantidad de precios recibidos:', data.precios ? data.precios.length : 0);
             
             if (data.success && data.precios) {
                 // Actualizar tabla de precios con los datos recibidos
-                actualizarTablaPrecios(data.precios);
+                actualizarTablaPreciosDesdeArray(data.precios);
             } else {
                 console.error('❌ Error al obtener precios:', data.error);
                 // Mostrar tabla vacía en caso de error
-                actualizarTablaPrecios([]);
+                actualizarTablaPreciosDesdeArray([]);
             }
         })
         .catch(error => {
             console.error('💥 Error en cargarPreciosPropiedad:', error);
             // Mostrar tabla vacía en caso de error
-            actualizarTablaPrecios([]);
+            actualizarTablaPreciosDesdeArray([]);
         });
 }
 
-// Función para actualizar la tabla de precios
-function actualizarTablaPrecios(precios) {
-    console.log('🔧 actualizarTablaPrecios llamada con:', precios);
+// Función para actualizar la tabla de precios desde un array de precios
+function actualizarTablaPreciosDesdeArray(precios) {
+    console.log('🔧 actualizarTablaPreciosDesdeArray llamada con:', precios);
+    console.log('📊 Cantidad de precios recibidos:', precios ? precios.length : 0);
     
     const tbody = document.querySelector('.table-precios tbody');
     if (!tbody) {
@@ -3701,22 +3711,20 @@ function actualizarTablaPrecios(precios) {
         // Formatear precios como números
         const precioTotal = parseFloat(precio.precio_total) || 0;
         const precioPorDia = parseFloat(precio.precio_por_dia) || 0;
-        const precioToma = parseFloat(precio.precio_toma) || 0;
-        const precioDiaToma = parseFloat(precio.precio_dia_toma) || 0;
+        const tipoDisplay = precio.tipo_precio_display || precio.tipo_precio || 'Sin nombre';
         
         // ✅ Mostrar TODAS las filas, incluso con precio 0
-        const row = `
-            <tr>
-                <td>${precio.tipo_precio_display || precio.tipo_precio}</td>
-                <td class="text-end">$${window.formatearPrecio(precioTotal)}</td>
-                <td class="text-end">$${window.formatearPrecio(precioPorDia)}</td>
-            </tr>
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${tipoDisplay}</td>
+            <td class="text-end">$${window.formatearPrecio ? window.formatearPrecio(precioTotal) : precioTotal.toLocaleString('es-AR')}</td>
+            <td class="text-end">$${window.formatearPrecio ? window.formatearPrecio(precioPorDia) : precioPorDia.toLocaleString('es-AR')}</td>
         `;
-        tbody.innerHTML += row;
-        console.log(`✅ Agregada fila para ${precio.tipo_precio_display || precio.tipo_precio}`);
+        tbody.appendChild(row);
+        console.log(`✅ Agregada fila para ${tipoDisplay}`);
     });
     
-    console.log('✅ Tabla de precios actualizada');
+    console.log(`✅ Tabla de precios actualizada con ${precios.length} filas`);
 }
 </script>
 
