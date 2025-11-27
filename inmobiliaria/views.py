@@ -2681,21 +2681,8 @@ def ver_recibo(request, reserva_id):
         precio_total = float(reserva.precio_total or 0)
         saldo_restante = precio_total - senia_pagada
         
-        # Verificar si el depósito fue pagado revisando los conceptos (concepto 10)
-        deposito_estado = 'no_aplica'
-        if deposito_pagado > 0:
-            # Verificar si hay concepto 10 en los pagos
-            concepto_10_presente = False
-            if conceptos_operacion and conceptos_operacion.exists():
-                for registro in conceptos_operacion:
-                    if registro.concepto and registro.concepto.id == 10:
-                        concepto_10_presente = True
-                        break
-            
-            if concepto_10_presente:
-                deposito_estado = 'pagado'
-            else:
-                deposito_estado = 'pendiente'
+        # ✅ Verificar si el depósito fue pagado usando la función que busca en movimientos de caja
+        deposito_estado = determinar_estado_deposito_completo(reserva)
         
         # DEBUG: Confirmar template y datos
 # print("🧾 TEMPLATE USADO: inmobiliaria/reserva/recibo.html")
