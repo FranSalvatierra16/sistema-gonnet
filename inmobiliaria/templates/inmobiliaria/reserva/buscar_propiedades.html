@@ -1859,18 +1859,29 @@ function autenticarYReservar() {
                 
                 tbody.innerHTML = '';
                 
+                console.log('📊 Total de precios recibidos en actualizarTablaPrecios:', data.precios ? data.precios.length : 0);
+                console.log('📊 Precios recibidos:', data.precios);
+                
                 if (data.success && data.precios && data.precios.length > 0) {
                     // ✅ Mostrar TODAS las filas, incluso con precio 0
-                    data.precios.forEach(precio => {
+                    data.precios.forEach((precio, index) => {
+                        console.log(`💰 Procesando precio ${index}:`, precio);
                         const row = document.createElement('tr');
+                        const tipoDisplay = precio.tipo_precio_display || precio.tipo_precio || 'Sin nombre';
+                        const precioTotal = parseFloat(precio.precio_total) || 0;
+                        const precioPorDia = parseFloat(precio.precio_por_dia) || 0;
+                        
                         row.innerHTML = `
-                            <td>${precio.tipo_precio}</td>
-                            <td class="text-end">$${window.formatearPrecio(precio.precio_total || 0)}</td>
-                            <td class="text-end">$${window.formatearPrecio(precio.precio_por_dia || 0)}</td>
+                            <td>${tipoDisplay}</td>
+                            <td class="text-end">$${window.formatearPrecio ? window.formatearPrecio(precioTotal) : precioTotal.toLocaleString('es-AR')}</td>
+                            <td class="text-end">$${window.formatearPrecio ? window.formatearPrecio(precioPorDia) : precioPorDia.toLocaleString('es-AR')}</td>
                         `;
                         tbody.appendChild(row);
+                        console.log(`✅ Agregada fila para ${tipoDisplay}`);
                     });
+                    console.log(`✅ Total de filas agregadas: ${data.precios.length}`);
                 } else {
+                    console.warn('⚠️ No hay precios para mostrar o la respuesta no es exitosa');
                     tbody.innerHTML = `
                         <tr>
                             <td colspan="3" class="text-center text-muted">
