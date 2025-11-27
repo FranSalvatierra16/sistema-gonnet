@@ -3788,6 +3788,8 @@ function generarTablaGestionPrecios(precios, propiedadId) {
     // Variable global para permisos de admin
     const esAdmin = {{ user.nivel|default:0 }} >= 3;
     console.log('👤 Usuario es admin:', esAdmin);
+    console.log('📊 Total de precios recibidos:', precios.length);
+    console.log('📊 Precios:', precios);
     
     let tablaHTML = `
         <div class="table-responsive">
@@ -3810,6 +3812,7 @@ function generarTablaGestionPrecios(precios, propiedadId) {
         const precioPorDia = parseFloat(precio.precio_por_dia) || 0;
         const precioToma = parseFloat(precio.precio_toma) || 0;
         const precioDiaToma = parseFloat(precio.precio_dia_toma) || 0;
+        const ajustePorcentaje = parseFloat(precio.ajuste_porcentaje) || 0;
         
         tablaHTML += `
             <tr data-precio-id="${precio.tipo_precio}">
@@ -3840,8 +3843,8 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="text" class="form-control precio-input" data-field="ajuste_porcentaje" value="0.00">` :
-                        `<span class="precio-display">0.00%</span>`
+                        `<input type="text" class="form-control precio-input" data-field="ajuste_porcentaje" value="${ajustePorcentaje.toFixed(2)}">` :
+                        `<span class="precio-display">${ajustePorcentaje.toFixed(2)}%</span>`
                     }
                 </td>
             </tr>
@@ -4145,6 +4148,8 @@ function generarTablaGestionPrecios(precios, propiedadId) {
     // Variable global para permisos de admin
     const esAdmin = djConfig.esAdmin;
     console.log('👤 Usuario es admin:', esAdmin);
+    console.log('📊 Total de precios recibidos:', precios.length);
+    console.log('📊 Precios:', precios);
     
     let tablaHTML = `
         <div class="table-responsive">
@@ -4167,6 +4172,7 @@ function generarTablaGestionPrecios(precios, propiedadId) {
         const precioPorDia = parseFloat(precio.precio_por_dia) || 0;
         const precioToma = parseFloat(precio.precio_toma) || 0;
         const precioDiaToma = parseFloat(precio.precio_dia_toma) || 0;
+        const ajustePorcentaje = parseFloat(precio.ajuste_porcentaje) || 0;
         
         tablaHTML += `
             <tr data-precio-id="${precio.tipo_precio}">
@@ -4197,8 +4203,8 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                 </td>
                 <td>
                     ${esAdmin ? 
-                        `<input type="text" class="form-control precio-input" data-field="ajuste_porcentaje" value="0.00">` :
-                        `<span class="precio-display">0.00%</span>`
+                        `<input type="text" class="form-control precio-input" data-field="ajuste_porcentaje" value="${ajustePorcentaje.toFixed(2)}">` :
+                        `<span class="precio-display">${ajustePorcentaje.toFixed(2)}%</span>`
                     }
                 </td>
             </tr>
