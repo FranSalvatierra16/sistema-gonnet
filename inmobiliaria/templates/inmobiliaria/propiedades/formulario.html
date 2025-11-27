@@ -36,12 +36,22 @@
             </div>
             <div class="card-body">
                 <div class="row g-4">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="id_id" class="form-label">
                             <i class="fas fa-hashtag me-1"></i>Ficha
                         </label>
                         {{ form.id }}
                         {{ form.id.errors }}
+                    </div>
+                    <div class="col-md-2">
+                        <label for="id_numero_por_propietario" class="form-label">
+                            <i class="fas fa-sort-numeric-up me-1"></i>N° Propiedad
+                        </label>
+                        {{ form.numero_por_propietario }}
+                        {% if form.numero_por_propietario.help_text %}
+                            <small class="form-text text-muted">{{ form.numero_por_propietario.help_text }}</small>
+                        {% endif %}
+                        {{ form.numero_por_propietario.errors }}
                     </div>
                     <div class="col-md-2">
                         <label for="id_llave" class="form-label">
@@ -50,7 +60,7 @@
                         {{ form.llave }}
                         {{ form.llave.errors }}
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-5">
                         <label for="id_titulo" class="form-label">
                             <i class="fas fa-tag me-1"></i>Título Descriptivo
                         </label>
@@ -108,14 +118,34 @@
                 </div>
 
                 <div class="row g-4 mt-3">
-                    <div class="col-md-6">
+                    <div class="col-md-3">
                         <label for="id_ambientes" class="form-label">
                             <i class="fas fa-home me-1"></i>Ambientes
                         </label>
                         {{ form.ambientes }}
                         {{ form.ambientes.errors }}
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-3">
+                        <label for="id_cantidad_personas" class="form-label">
+                            <i class="fas fa-users me-1"></i>Cantidad de Personas
+                        </label>
+                        {{ form.cantidad_personas }}
+                        {% if form.cantidad_personas.help_text %}
+                            <small class="form-text text-muted">{{ form.cantidad_personas.help_text }}</small>
+                        {% endif %}
+                        {{ form.cantidad_personas.errors }}
+                    </div>
+                    <div class="col-md-3">
+                        <label for="id_camas" class="form-label">
+                            <i class="fas fa-bed me-1"></i>Camas
+                        </label>
+                        {{ form.camas }}
+                        {% if form.camas.help_text %}
+                            <small class="form-text text-muted">{{ form.camas.help_text }}</small>
+                        {% endif %}
+                        {{ form.camas.errors }}
+                    </div>
+                    <div class="col-md-3">
                         <label for="id_valoracion" class="form-label">
                             <i class="fas fa-star me-1"></i>Valoración
                         </label>
