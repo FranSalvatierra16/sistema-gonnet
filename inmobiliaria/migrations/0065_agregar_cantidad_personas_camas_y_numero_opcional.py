@@ -25,4 +25,18 @@ class Migration(migrations.Migration):
             name='numero_por_propietario',
             field=models.PositiveIntegerField(blank=True, null=True, verbose_name='Número de propiedad'),
         ),
+        # Eliminar el constraint único antiguo y crear uno nuevo con condición
+        migrations.RunSQL(
+            # Eliminar constraint antiguo si existe
+            sql="ALTER TABLE inmobiliaria_propiedad DROP INDEX IF EXISTS unique_num_x_prop;",
+            reverse_sql="ALTER TABLE inmobiliaria_propiedad ADD CONSTRAINT unique_num_x_prop UNIQUE (propietario_id, numero_por_propietario);"
+        ),
+        migrations.AddConstraint(
+            model_name='propiedad',
+            constraint=models.UniqueConstraint(
+                fields=['propietario', 'numero_por_propietario'],
+                name='unique_num_x_prop',
+                condition=models.Q(numero_por_propietario__isnull=False)
+            ),
+        ),
     ]
