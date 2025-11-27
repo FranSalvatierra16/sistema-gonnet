@@ -3766,20 +3766,31 @@ function cargarPreciosCompletos(propiedadId) {
     contenedor.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><br>Cargando precios...</div>';
     
     // Llamar a la API de precios
-    fetch(`{% url 'inmobiliaria:obtener_precios_propiedad' 0 %}`.replace('0', propiedadId))
-        .then(response => response.json())
+    const url = `{% url 'inmobiliaria:obtener_precios_propiedad' 0 %}`.replace('0', propiedadId);
+    console.log('🔗 URL de la API:', url);
+    
+    fetch(url)
+        .then(response => {
+            console.log('📡 Respuesta HTTP recibida:', response.status, response.statusText);
+            return response.json();
+        })
         .then(data => {
             console.log('📊 Precios completos recibidos:', data);
+            console.log('📊 data.success:', data.success);
+            console.log('📊 data.precios existe?:', !!data.precios);
+            console.log('📊 Cantidad de precios recibidos:', data.precios ? data.precios.length : 0);
             
             if (data.success && data.precios) {
+                console.log('✅ Llamando a generarTablaGestionPrecios con', data.precios.length, 'precios');
                 generarTablaGestionPrecios(data.precios, propiedadId);
             } else {
+                console.error('❌ Error: data.success =', data.success, ', data.precios =', data.precios);
                 contenedor.innerHTML = '<div class="alert alert-warning">Error al cargar los precios</div>';
             }
         })
         .catch(error => {
             console.error('💥 Error cargando precios completos:', error);
-            contenedor.innerHTML = '<div class="alert alert-danger">Error de conexión</div>';
+            contenedor.innerHTML = '<div class="alert alert-danger">Error de conexión: ' + error.message + '</div>';
         });
 }
 
