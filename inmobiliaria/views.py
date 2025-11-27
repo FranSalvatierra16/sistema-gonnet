@@ -2659,7 +2659,7 @@ def ver_recibo(request, reserva_id):
             'llave': propiedad_data.llave or 'N/A',
             'piso': propiedad_data.piso or '',
             'departamento': propiedad_data.departamento or '',
-            'ambientes': f"{propiedad_data.ambientes} personas" if propiedad_data.ambientes else 'N/A',
+            'cantidad_personas': propiedad_data.cantidad_personas or None,
             'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
             'cochera': 'SÍ' if propiedad_data.cochera else 'NO',
         }
@@ -2849,7 +2849,7 @@ def generar_recibo_pdf(reserva, pago_senia):
         'llave': propiedad_data.llave or 'N/A',
         'piso': propiedad_data.piso or '',
         'departamento': propiedad_data.departamento or '',
-        'ambientes': f"{propiedad_data.ambientes} personas" if propiedad_data.ambientes else 'N/A',
+        'cantidad_personas': propiedad_data.cantidad_personas or None,
         'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
         'cochera': 'SÍ' if propiedad_data.cochera else 'NO',
     }
@@ -4434,7 +4434,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'llave': propiedad_data.llave or 'N/A',
                 'piso': propiedad_data.piso or '',
                 'departamento': propiedad_data.departamento or '',
-                'ambientes': f"{propiedad_data.ambientes} personas" if propiedad_data.ambientes else 'N/A',
+                'cantidad_personas': propiedad_data.cantidad_personas or None,
                 'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
                 'cochera': 'SÍ' if propiedad_data.cochera else 'NO',
             }
