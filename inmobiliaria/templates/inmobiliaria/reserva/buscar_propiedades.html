@@ -4652,7 +4652,7 @@ function obtenerDatosPropiedad(propiedadId, estadoReserva) {
             }
             
             // Actualizar tabla de precios
-            actualizarTablaPrecios(data.precios || []);
+            actualizarTablaPreciosDesdeArray(data.precios || []);
         })
         .catch(error => {
             console.error('Error obteniendo datos de la propiedad:', error);
@@ -4670,7 +4670,13 @@ function obtenerDatosPropiedad(propiedadId, estadoReserva) {
 }
 
 // Función para actualizar la tabla de precios
+// Esta función está duplicada y será reemplazada por actualizarTablaPreciosDesdeArray
+// Mantenida por compatibilidad temporal
 function actualizarTablaPrecios(precios) {
+    console.log('⚠️ Usando función legacy actualizarTablaPrecios, redirigiendo a actualizarTablaPreciosDesdeArray');
+    actualizarTablaPreciosDesdeArray(precios);
+    return;
+    
     const tbody = document.querySelector('.table-precios tbody');
     if (!tbody) return;
     
