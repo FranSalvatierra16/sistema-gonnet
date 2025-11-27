@@ -27,16 +27,21 @@ class Migration(migrations.Migration):
         ),
         # Eliminar el constraint único antiguo y crear uno nuevo con condición
         migrations.RunSQL(
-            # Eliminar constraint antiguo si existe
-            sql="ALTER TABLE inmobiliaria_propiedad DROP INDEX IF EXISTS unique_num_x_prop;",
-            reverse_sql="ALTER TABLE inmobiliaria_propiedad ADD CONSTRAINT unique_num_x_prop UNIQUE (propietario_id, numero_por_propietario);"
-        ),
-        migrations.AddConstraint(
-            model_name='propiedad',
-            constraint=models.UniqueConstraint(
-                fields=['propietario', 'numero_por_propietario'],
-                name='unique_num_x_prop',
-                condition=models.Q(numero_por_propietario__isnull=False)
-            ),
+            # Para PostgreSQL: eliminar constraint y crear uno parcial
+            sql=[
+                "ALTER TABLE inmobiliaria_propiedad DROP CONSTRAINT IF EXISTS unique_num_x_prop;",
+                "CREATE UNIQUE INDEX unique_num_x_prop ON inmobiliaria_propiedad (propietario_id, numero_por_propietario) WHERE numero_por_propietario IS NOT NULL;"
+            ],
+            reverse_sql=[
+                "DROP INDEX IF EXISTS unique_num_x_prop;",
+                "ALTER TABLE inmobiliaria_propiedad ADD CONSTRAINT unique_num_x_prop UNIQUE (propietario_id, numero_por_propietario);"
+            ],
+            # Para MySQL: usar un enfoque diferente
+            state_operations=[
+                migrations.RemoveConstraint(
+                    model_name='propiedad',
+                    name='unique_num_x_prop',
+                ),
+            ]
         ),
     ]
