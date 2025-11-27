@@ -1559,13 +1559,24 @@ def obtener_info_reserva(request, reserva_id):
         elif hasattr(reserva, 'get_estado_display'):
             estado_display = reserva.get_estado_display()
         
+        # Información del vendedor
+        vendedor_data = {}
+        if reserva.vendedor:
+            vendedor_data = {
+                'id': reserva.vendedor.id,
+                'nombre': reserva.vendedor.nombre or '',
+                'apellido': reserva.vendedor.apellido or '',
+                'nombre_completo': f"{reserva.vendedor.nombre or ''} {reserva.vendedor.apellido or ''}".strip() or 'N/A'
+            }
+        
         reserva_data = {
             'id': reserva.id,
             'estado': estado_display,
             'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y') if reserva.fecha_inicio else '',
             'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y') if reserva.fecha_fin else '',
             'precio_total': f'${reserva.precio_total:,.0f}' if reserva.precio_total else 'N/A',
-            'cliente': cliente_data
+            'cliente': cliente_data,
+            'vendedor': vendedor_data
         }
         
         return JsonResponse({

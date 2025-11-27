@@ -5317,6 +5317,7 @@ function consultarReserva(reservaId) {
             if (data.success) {
                 const reserva = data.reserva;
                 const cliente = reserva.cliente || {};
+                const vendedor = reserva.vendedor || {};
                 
                 document.getElementById('modalInfoReservaBody').innerHTML = `
                     <div class="card">
@@ -5328,6 +5329,7 @@ function consultarReserva(reservaId) {
                             <p><strong>Fecha Inicio:</strong> ${reserva.fecha_inicio || 'N/A'}</p>
                             <p><strong>Fecha Fin:</strong> ${reserva.fecha_fin || 'N/A'}</p>
                             <p><strong>Precio Total:</strong> ${reserva.precio_total || 'N/A'}</p>
+                            ${vendedor.nombre_completo ? `<p><strong>Vendedor:</strong> <span class="badge bg-info">${vendedor.nombre_completo}</span></p>` : ''}
                             <hr>
                             <h6 class="card-title"><i class="fas fa-user"></i> Información de Contacto</h6>
                             <hr>
