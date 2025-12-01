@@ -343,12 +343,13 @@ class Propiedad(models.Model):
     #         raise ValidationError(_('Debe ingresar un precio de alquiler si está habilitado.'))
 
     def save(self, *args, **kwargs):
-        # Si el número no está asignado (None), calcúlalo automáticamente desde el último número del propietario
-        if self.numero_por_propietario is None:
+        # Si el número no está asignado (None) y hay un propietario, calcúlalo automáticamente
+        if self.numero_por_propietario is None and self.propietario:
             with transaction.atomic():
+                # Buscar el último número que no sea None para este propietario
                 ultimo = (
                     Propiedad.objects
-                    .filter(propietario=self.propietario)
+                    .filter(propietario=self.propietario, numero_por_propietario__isnull=False)
                     .exclude(pk=self.pk)  # Excluir la propiedad actual si es una actualización
                     .select_for_update()
                     .aggregate(m=Max("numero_por_propietario"))
