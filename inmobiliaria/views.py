@@ -814,7 +814,7 @@ def propiedad_detalle(request, propiedad_id):
     # Obtener el historial de disponibilidad
     historiales = HistorialDisponibilidad.objects.filter(
         propiedad=propiedad
-    ).order_by('-fecha_actualizacion')
+    ).order_by('fecha_actualizacion')
     
     # Obtener imágenes usando el related_name correcto
     imagenes = propiedad.imagenes.all()
@@ -5377,10 +5377,10 @@ def logout_view(request):
 def ver_historial_disponibilidad(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
     # ✅ MOSTRAR TODAS LAS DISPONIBILIDADES (como antes)
-    # ✅ ORDENAMIENTO CRONOLÓGICO ESTRICTO: primero por fecha_inicio, luego por fecha_fin, luego por ID
+    # ✅ ORDENAMIENTO CRONOLÓGICO INVERSO: primero por fecha_inicio descendente, luego por fecha_fin descendente, luego por ID descendente
     historial = HistorialDisponibilidad.objects.filter(
         propiedad=propiedad
-    ).order_by('fecha_inicio', 'fecha_fin', 'id')
+    ).order_by('-fecha_inicio', '-fecha_fin', '-id')
 
     return JsonResponse({
         'success': True,
