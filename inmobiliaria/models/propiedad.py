@@ -353,8 +353,22 @@ class Propiedad(models.Model):
                     .exclude(pk=self.pk)  # Excluir la propiedad actual si es una actualización
                     .select_for_update()
                     .aggregate(m=Max("numero_por_propietario"))
-                )["m"] or 0
-                self.numero_por_propietario = ultimo + 1
+                )["m"]
+                
+                if ultimo is None:
+                    # Si no hay números asignados, empezar desde 1
+                    siguiente_numero = 1
+                else:
+                    siguiente_numero = ultimo + 1
+                
+                # Verificar que el número calculado no exista ya (por si hay huecos)
+                while Propiedad.objects.filter(
+                    propietario=self.propietario,
+                    numero_por_propietario=siguiente_numero
+                ).exclude(pk=self.pk).exists():
+                    siguiente_numero += 1
+                
+                self.numero_por_propietario = siguiente_numero
 
         super().save(*args, **kwargs)
         if self._state.adding:
