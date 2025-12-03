@@ -272,10 +272,12 @@ class Propiedad(models.Model):
                 periodo_cubierto = True
 
         # 3️⃣ Verificar si hay reservas que se superpongan
+        # Excluir reservas eliminadas
         reservas_superpuestas = self.reservas.filter(
             fecha_inicio__lt=fecha_fin,
             fecha_fin__gt=fecha_inicio,
-            estado__in=['confirmada', 'confirmada_no_pagada']
+            estado__in=['confirmada', 'confirmada_no_pagada'],
+            eliminada=False
         ).exists()
 
         # La propiedad está disponible si:
@@ -295,8 +297,10 @@ class Propiedad(models.Model):
         """
         # Contar disponibilidades + reservas activas
         total_disponibilidades = self.disponibilidades.count()
+        # Excluir reservas eliminadas
         total_reservas = self.reservas.filter(
-            estado__in=['confirmada', 'confirmada_no_pagada', 'pagada']
+            estado__in=['confirmada', 'confirmada_no_pagada', 'pagada'],
+            eliminada=False
         ).count()
         total_esperado = total_disponibilidades + total_reservas
         
@@ -307,8 +311,10 @@ class Propiedad(models.Model):
         if total_historial != total_esperado:
             print(f"🔄 Reconstruyendo historial (actual: {total_historial}, esperado: {total_esperado})")
             # Crear una reserva dummy para usar el método de reconstrucción
-            if self.reservas.exists():
-                primera_reserva = self.reservas.first()
+            # Excluir reservas eliminadas
+            reservas_activas = self.reservas.filter(eliminada=False)
+            if reservas_activas.exists():
+                primera_reserva = reservas_activas.first()
                 primera_reserva.reconstruir_historial_cronologico()
             else:
                 # Si no hay reservas, crear historial básico con disponibilidades
@@ -525,8 +531,10 @@ class Reserva(models.Model):
         
         # 2️⃣ OBTENER disponibilidades manuales y reservas
         disponibilidades_manuales = self.propiedad.disponibilidades.filter(es_manual=True).order_by('fecha_inicio')
+        # Excluir reservas eliminadas
         reservas = self.propiedad.reservas.filter(
-            estado__in=['confirmada', 'confirmada_no_pagada', 'pagada']
+            estado__in=['confirmada', 'confirmada_no_pagada', 'pagada'],
+            eliminada=False
         ).order_by('fecha_inicio')
         
         print(f"📋 Disponibilidades manuales: {disponibilidades_manuales.count()}")

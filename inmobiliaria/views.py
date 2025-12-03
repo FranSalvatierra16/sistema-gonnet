@@ -1617,10 +1617,12 @@ def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_in
         return None
     
     # Obtener todas las reservas confirmadas o pagadas que se superponen
+    # Excluir reservas eliminadas
     reservas_confirmadas = reservas.filter(
         Q(estado='confirmada') | Q(estado='pagada') | Q(estado='confirmada_no_pagada'),
         fecha_inicio__lt=fecha_fin,
-        fecha_fin__gt=fecha_inicio
+        fecha_fin__gt=fecha_inicio,
+        eliminada=False
     )
     
     # Si no hay reservas, usar el rango completo de disponibilidad
@@ -1840,8 +1842,10 @@ def buscar_propiedades_reserva(request):
                 
                 # 4️⃣ AJUSTAR POR RESERVAS ANTERIORES Y POSTERIORES
                 # Fechas finales de reservas que terminan antes o en la fecha de inicio
+                # Excluir reservas eliminadas
                 reservas_anteriores = propiedad.reservas.filter(
-                    fecha_fin__lte=fecha_inicio
+                    fecha_fin__lte=fecha_inicio,
+                    eliminada=False
                 ).order_by('-fecha_fin').first()
                 
                 if reservas_anteriores:
@@ -1849,8 +1853,10 @@ def buscar_propiedades_reserva(request):
                     fecha_disponible_desde = max(fecha_disponible_desde, reservas_anteriores.fecha_fin)
                 
                 # Fechas iniciales de reservas que empiezan después o en la fecha de fin
+                # Excluir reservas eliminadas
                 reservas_posteriores = propiedad.reservas.filter(
-                    fecha_inicio__gte=fecha_fin
+                    fecha_inicio__gte=fecha_fin,
+                    eliminada=False
                 ).order_by('fecha_inicio').first()
                 
                 if reservas_posteriores:
@@ -1884,8 +1890,10 @@ def buscar_propiedades_reserva(request):
 # print(f"     - {disp.fecha_inicio} al {disp.fecha_fin}")
 
             # Obtener las reservas asociadas a la propiedad
+            # Excluir reservas eliminadas
             reservas = propiedad.reservas.filter(
-                Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
+                Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio),
+                eliminada=False
             )
             
             if reservas.filter(estado='pagada').exists():
@@ -5471,8 +5479,10 @@ def limpieza_brutal(request):
             
             for propiedad in propiedades_con_reservas:
                 # Obtener reservas de esta propiedad
+                # Excluir reservas eliminadas
                 reservas = propiedad.reservas.filter(
-                    estado__in=['confirmada', 'confirmada_no_pagada']
+                    estado__in=['confirmada', 'confirmada_no_pagada'],
+                    eliminada=False
                 ).order_by('fecha_inicio')
                 
                 if not reservas.exists():
@@ -5567,8 +5577,10 @@ def reconstruir_historial_propiedad(propiedad):
 # print(f"   📅 Agregado período LIBRE: {disp.fecha_inicio} al {disp.fecha_fin}")
     
     # Obtener todas las reservas (períodos reservados)
+    # Excluir reservas eliminadas
     reservas = propiedad.reservas.filter(
-        estado__in=['confirmada', 'confirmada_no_pagada']
+        estado__in=['confirmada', 'confirmada_no_pagada'],
+        eliminada=False
     ).order_by('fecha_inicio')
     
     for reserva in reservas:
@@ -7458,8 +7470,10 @@ def buscar_propiedades(request):
                 
                 # 4️⃣ AJUSTAR POR RESERVAS ANTERIORES Y POSTERIORES
                 # Fechas finales de reservas que terminan antes o en la fecha de inicio
+                # Excluir reservas eliminadas
                 reservas_anteriores = propiedad.reservas.filter(
-                    fecha_fin__lte=fecha_inicio
+                    fecha_fin__lte=fecha_inicio,
+                    eliminada=False
                 ).order_by('-fecha_fin').first()
                 
                 if reservas_anteriores:
@@ -7467,8 +7481,10 @@ def buscar_propiedades(request):
                     fecha_disponible_desde = max(fecha_disponible_desde, reservas_anteriores.fecha_fin)
                 
                 # Fechas iniciales de reservas que empiezan después o en la fecha de fin
+                # Excluir reservas eliminadas
                 reservas_posteriores = propiedad.reservas.filter(
-                    fecha_inicio__gte=fecha_fin
+                    fecha_inicio__gte=fecha_fin,
+                    eliminada=False
                 ).order_by('fecha_inicio').first()
                 
                 if reservas_posteriores:
@@ -7508,8 +7524,10 @@ def buscar_propiedades(request):
             # ✅ CALCULAR DISPONIBILIDADES FRAGMENTADAS POR RESERVAS
 
             # Obtener las reservas asociadas a la propiedad
+            # Excluir reservas eliminadas
             reservas = propiedad.reservas.filter(
-                Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
+                Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio),
+                eliminada=False
             )
             
             if reservas.filter(estado='pagada').exists():
@@ -7723,7 +7741,11 @@ def buscar_propiedades(request):
 # print(f"   - Días libres calculados: {propiedad.dias_libres_calculados}")
                 
                 # Revisar reservas y disponibilidades
-                reservas = propiedad.reservas.filter(fecha_fin__lt=fecha_inicio).order_by('-fecha_fin')
+                # Excluir reservas eliminadas
+                reservas = propiedad.reservas.filter(
+                    fecha_fin__lt=fecha_inicio,
+                    eliminada=False
+                ).order_by('-fecha_fin')
 # print(f"   - Reservas anteriores: {list(reservas.values('id', 'fecha_fin'))}")
                 
                 disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad, fecha_fin__lt=fecha_inicio).order_by('-fecha_fin')
