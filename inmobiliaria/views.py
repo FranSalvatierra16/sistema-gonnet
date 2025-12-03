@@ -3929,6 +3929,7 @@ def api_propiedad_detalle(request, propiedad_id):
             'direccion': propiedad.direccion,
             'sucursal': propiedad.sucursal.nombre,
             'ambientes': propiedad.ambientes,
+            'cantidad_personas': propiedad.cantidad_personas,
             'descripcion': propiedad.descripcion or '',
             'caracteristicas': propiedad.caracteristicas or '',
             'estado': propiedad.estado,

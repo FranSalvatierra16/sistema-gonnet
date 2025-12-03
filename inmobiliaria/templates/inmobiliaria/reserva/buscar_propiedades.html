@@ -1182,6 +1182,7 @@
                             data-precio-dia="{{ propiedad.precio_por_dia }}"
                             data-total-dias="{{ total_dias }}"
                             data-ambientes="{{ propiedad.ambientes|default:0 }}"
+                            data-cantidad-personas="{{ propiedad.cantidad_personas|default:'' }}"
                             data-estado="{{ propiedad.estado|default:'Disponible' }}"
                             data-llave="{{ propiedad.llave|default:'Sin asignar' }}"
                             data-descripcion="{{ propiedad.descripcion|default:'Sin descripción' }}"
@@ -1209,6 +1210,7 @@
                             data-precio-dia="{{ propiedad.precio_por_dia }}"
                             data-total-dias="{{ total_dias }}"
                             data-ambientes="{{ propiedad.ambientes|default:0 }}"
+                            data-cantidad-personas="{{ propiedad.cantidad_personas|default:'' }}"
                             data-estado="{{ propiedad.estado|default:'Disponible' }}"
                             data-llave="{{ propiedad.llave|default:'Sin asignar' }}"
                             data-descripcion="{{ propiedad.descripcion|default:'Sin descripción' }}"
@@ -1280,6 +1282,7 @@
                             </div>
                             <div class="col-md-6">
                                 <p><strong>AMBIENTES:</strong> <span id="cardAmbiente"></span> </p>
+                                <p><strong>CAPACIDAD:</strong> <span id="cardCantidadPersonas"></span> </p>
                                 <p><strong>ESTADO:</strong> <span id="cardEstado"></span></p>
                                 <p><strong>LLAVE:</strong> <span id="cardLlave"></span></p>
                             </div>
@@ -2310,6 +2313,18 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
     // Actualizar ambientes, llave, descripción y características directamente
     const cardAmbiente = document.getElementById("cardAmbiente");
     if (cardAmbiente) cardAmbiente.innerText = ambientes || 'No especificado';
+    
+    // Actualizar cantidad de personas desde data attribute o parámetro
+    const cantidadPersonas = filaClickeada ? filaClickeada.getAttribute('data-cantidad-personas') : null;
+    const cardCantidadPersonas = document.getElementById("cardCantidadPersonas");
+    if (cardCantidadPersonas) {
+        if (cantidadPersonas && cantidadPersonas !== '' && cantidadPersonas !== 'null') {
+            const numPersonas = parseInt(cantidadPersonas);
+            cardCantidadPersonas.innerText = `${numPersonas} persona${numPersonas > 1 ? 's' : ''}`;
+        } else {
+            cardCantidadPersonas.innerText = 'No especificado';
+        }
+    }
     
     const cardLlave = document.getElementById("cardLlave");
     if (cardLlave) cardLlave.innerText = llave || 'Sin asignar';
@@ -4629,6 +4644,17 @@ function obtenerDatosPropiedad(propiedadId, estadoReserva) {
         .then(data => {
             // Actualizar ambientes
             document.getElementById("cardAmbiente").innerText = data.ambientes || 'No especificado';
+            
+            // Actualizar cantidad de personas
+            const cantidadPersonas = data.cantidad_personas || null;
+            const cardCantidadPersonas = document.getElementById("cardCantidadPersonas");
+            if (cardCantidadPersonas) {
+                if (cantidadPersonas) {
+                    cardCantidadPersonas.innerText = `${cantidadPersonas} persona${cantidadPersonas > 1 ? 's' : ''}`;
+                } else {
+                    cardCantidadPersonas.innerText = 'No especificado';
+                }
+            }
             
             // Actualizar descripción
             const descripcionElement = document.getElementById("descripcionDetallada");
