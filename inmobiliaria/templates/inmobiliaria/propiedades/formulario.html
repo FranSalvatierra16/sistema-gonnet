@@ -1273,6 +1273,32 @@ $(document).ready(function() {
             }, 500);
         }
     });
+    
+    // Debug: Monitorear cambios en cantidad_personas
+    const cantidadPersonasInput = document.getElementById('id_cantidad_personas');
+    if (cantidadPersonasInput) {
+        // Monitorear cambios en el valor
+        cantidadPersonasInput.addEventListener('input', function(e) {
+            console.log('🔍 Input event - Valor:', e.target.value, 'Tipo:', typeof e.target.value);
+        });
+        
+        cantidadPersonasInput.addEventListener('change', function(e) {
+            console.log('🔍 Change event - Valor:', e.target.value, 'Tipo:', typeof e.target.value);
+        });
+        
+        cantidadPersonasInput.addEventListener('blur', function(e) {
+            console.log('🔍 Blur event - Valor:', e.target.value, 'Tipo:', typeof e.target.value);
+        });
+        
+        // Prevenir cualquier modificación no deseada
+        let lastValue = cantidadPersonasInput.value;
+        setInterval(function() {
+            if (cantidadPersonasInput.value !== lastValue && document.activeElement !== cantidadPersonasInput) {
+                console.warn('⚠️ Valor cambió sin interacción del usuario:', lastValue, '→', cantidadPersonasInput.value);
+                lastValue = cantidadPersonasInput.value;
+            }
+        }, 100);
+    }
 });
 </script>
 {% endblock %}

@@ -152,6 +152,15 @@ class MultipleFileField(forms.FileField):
         kwargs.setdefault("widget", MultipleFileInput())
         super().__init__(*args, **kwargs)
 
+    def clean_cantidad_personas(self):
+        cantidad_personas = self.cleaned_data.get('cantidad_personas')
+        if cantidad_personas is not None:
+            # Asegurarse de que sea un entero positivo
+            if cantidad_personas < 1:
+                raise forms.ValidationError("La cantidad de personas debe ser al menos 1.")
+            return int(cantidad_personas)
+        return cantidad_personas
+    
     def clean(self, data, initial=None):
         single_file_clean = super().clean
         if isinstance(data, (list, tuple)):
@@ -220,7 +229,12 @@ class PropiedadForm(forms.ModelForm):
         required=False,
         label='Cantidad de Personas',
         help_text='Cantidad máxima de personas que puede alojar la propiedad',
-        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '1'})
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control', 
+            'min': '1',
+            'step': '1',
+            'type': 'number'
+        })
     )
     camas = forms.CharField(
         required=False,
