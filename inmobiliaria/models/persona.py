@@ -124,7 +124,47 @@ class Vendedor(AbstractUser):
     def save(self, *args, **kwargs):
         if not self.pk:  # Si es una nueva instancia
             self.is_active = True  # Activar el usuario automáticamente
-        super().save(*args, **kwargs)
+        
+        # Intentar guardar, y si hay error de ID duplicado, arreglar la secuencia
+        try:
+            super().save(*args, **kwargs)
+        except Exception as e:
+            # Verificar si es un error de ID duplicado en PostgreSQL
+            error_str = str(e)
+            if 'duplicate key value violates unique constraint' in error_str and 'vendedor_pkey' in error_str:
+                from django.db import connection
+                from django.conf import settings
+                
+                # Solo intentar arreglar si estamos usando PostgreSQL
+                if 'postgresql' in settings.DATABASES['default']['ENGINE']:
+                    # Arreglar la secuencia automáticamente
+                    with connection.cursor() as cursor:
+                        # Obtener el máximo ID actual
+                        cursor.execute("SELECT MAX(id) FROM inmobiliaria_vendedor;")
+                        max_id = cursor.fetchone()[0] or 0
+                        
+                        # Obtener el nombre de la secuencia
+                        cursor.execute("""
+                            SELECT pg_get_serial_sequence('inmobiliaria_vendedor', 'id');
+                        """)
+                        sequence_result = cursor.fetchone()
+                        
+                        if sequence_result and sequence_result[0]:
+                            sequence_name = sequence_result[0]
+                            # Establecer la secuencia al máximo ID + 1
+                            cursor.execute(f"SELECT setval('{sequence_name}', {max_id}, true);")
+                            
+                            # Intentar guardar de nuevo
+                            super().save(*args, **kwargs)
+                        else:
+                            # Si no se puede obtener la secuencia, re-lanzar el error original
+                            raise
+                else:
+                    # Si no es PostgreSQL, re-lanzar el error original
+                    raise
+            else:
+                # Si no es un error de ID duplicado, re-lanzar el error original
+                raise
 
 class Inquilino(Persona):
     garantia = models.TextField(blank=True, help_text="Información sobre la garantía del inquilino")
