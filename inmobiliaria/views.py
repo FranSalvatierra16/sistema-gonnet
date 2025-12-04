@@ -8825,6 +8825,72 @@ def guardar_precios_propiedad(request):
             'error': str(e)
         })
 
+@login_required
+@require_POST
+def guardar_precio_individual(request):
+    """Guarda un precio individual automáticamente"""
+    try:
+        precio_id = request.POST.get('precio_id')
+        propiedad_id = request.POST.get('propiedad_id')
+        tipo_precio = request.POST.get('tipo_precio')
+        
+        if not precio_id or not propiedad_id or not tipo_precio:
+            return JsonResponse({
+                'success': False,
+                'error': 'Faltan datos requeridos'
+            })
+        
+        propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+        
+        # Solo usuarios nivel 3 o superior pueden modificar precios
+        if request.user.nivel < 3:
+            return JsonResponse({
+                'success': False,
+                'error': 'No tienes permisos para modificar precios'
+            })
+        
+        # Buscar el precio
+        precio = get_object_or_404(Precio, id=precio_id, propiedad=propiedad)
+        
+        # Actualizar valores
+        from decimal import Decimal
+        
+        precio_toma_nuevo = Decimal(str(request.POST.get('precio_toma', 0) or 0))
+        precio_dia_toma_nuevo = Decimal(str(request.POST.get('precio_dia_toma', 0) or 0))
+        precio_por_dia_nuevo = Decimal(str(request.POST.get('precio_por_dia', 0) or 0))
+        
+        # Tipos que NO deben tener precio_total
+        tipos_sin_quincena = ['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES']
+        if tipo_precio in tipos_sin_quincena:
+            precio_total_nuevo = None
+        else:
+            precio_total_nuevo = Decimal(str(request.POST.get('precio_total', 0) or 0))
+        
+        ajuste_porcentaje_nuevo = Decimal(str(request.POST.get('ajuste_porcentaje', 0) or 0))
+        
+        # Actualizar el precio
+        precio.precio_toma = precio_toma_nuevo
+        precio.precio_dia_toma = precio_dia_toma_nuevo
+        precio.precio_por_dia = precio_por_dia_nuevo
+        precio.precio_total = precio_total_nuevo
+        precio.ajuste_porcentaje = ajuste_porcentaje_nuevo
+        
+        # Guardar sin recalcular
+        precio.save(update_fields=['precio_toma', 'precio_dia_toma', 'precio_por_dia', 'precio_total', 'ajuste_porcentaje'])
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Precio guardado correctamente'
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
 def enviar_recuperacion(request):
     form = EmailForm()
     

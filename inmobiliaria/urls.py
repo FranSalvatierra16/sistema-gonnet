@@ -188,6 +188,7 @@ urlpatterns = [
     path('obtener-fotos-propiedad/<int:propiedad_id>/', views.obtener_fotos_propiedad, name='obtener_fotos_propiedad'),
     path('obtener-precios-propiedad/<int:propiedad_id>/', views.obtener_precios_propiedad, name='obtener_precios_propiedad'),
     path('guardar-precios-propiedad/', views.guardar_precios_propiedad, name='guardar_precios_propiedad'),
+    path('guardar-precio-individual/', views.guardar_precio_individual, name='guardar_precio_individual'),
     
     # Rutas de imágenes
     path('imagen/<int:imagen_id>/eliminar/', views.imagen_eliminar, name='imagen_eliminar'),

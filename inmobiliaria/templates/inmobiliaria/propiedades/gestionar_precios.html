@@ -121,7 +121,11 @@
         </div>
     {% endif %}
 
-    <button type="submit" class="btn btn-primary">Guardar Precios</button>
+    <button type="submit" class="btn btn-primary" style="display: none;">Guardar Precios</button>
+    <div class="alert alert-info mt-3">
+        <i class="fas fa-info-circle me-2"></i>
+        Los precios se guardan automáticamente cuando escribes. No es necesario hacer clic en "Guardar".
+    </div>
 </form>
 
 <script>
@@ -279,75 +283,86 @@ document.addEventListener('DOMContentLoaded', function() {
         // Cuando cambia el tipo_precio → actualizar el campo
         selectTipo.addEventListener('change', function() {
             actualizarCampoPrecioTotal();
-            recalcularSiNoManual();
+            // ✅ NO recalcular automáticamente - el usuario ingresa manualmente
         });
         
-        // Marcar si el usuario editó manualmente precio_total
-        inputTotal.addEventListener('input', function() {
-            this.dataset.manualEdit = 'true';
-            console.log(`✏️ Fila ${index}: Usuario editó precio_total manualmente`);
-        });
+        // ✅ DESACTIVADO: Ya no se calcula automáticamente la quincena
+        // El usuario debe ingresar manualmente el precio por quincena
         
-        // Cuando cambia precio_por_dia o ajuste, recalcular automáticamente
-        function recalcularSiNoManual() {
-            const tipoPrecio = selectTipo.value;
-            // ✅ NO recalcular si el tipo NO debe tener precio_total
-            if (tiposSinQuincena.includes(tipoPrecio)) {
-                return;
-            }
-            // Si el usuario NO editó manualmente precio_total, recalcular
-            if (!inputTotal.dataset.manualEdit) {
-                // ✅ DESFORMATEAR antes de parsear para evitar errores con puntos
-                const valorPorDiaFormateado = inputPorDia.value || '0';
-                const valorPorDiaSinFormato = desformatearNumero(valorPorDiaFormateado);
-                const precioPorDia = parseFloat(valorPorDiaSinFormato) || 0;
-                
-                const valorAjusteFormateado = inputAjuste?.value || '0';
-                const valorAjusteSinFormato = desformatearNumero(valorAjusteFormateado);
-                const ajuste = parseFloat(valorAjusteSinFormato) || 0;
-                
-                const tipoPrecio = selectTipo.value;
-                
-                console.log(`🔍 DEBUG Fila ${index}:`);
-                console.log(`   - valorPorDiaFormateado: "${valorPorDiaFormateado}"`);
-                console.log(`   - valorPorDiaSinFormato: "${valorPorDiaSinFormato}"`);
-                console.log(`   - precioPorDia (parseFloat): ${precioPorDia}`);
-                console.log(`   - tipoPrecio: ${tipoPrecio}`);
-                console.log(`   - dias: ${diasPorTipo[tipoPrecio] || 1}`);
-                
-                const precioTotal = calcularPrecioTotal(precioPorDia, tipoPrecio, ajuste);
-                
-                console.log(`   - precioTotal calculado: ${precioTotal}`);
-                console.log(`   - Math.round(precioTotal): ${Math.round(precioTotal)}`);
-                
-                // ✅ FORMATEAR el resultado antes de mostrarlo
-                const valorFinal = formatearNumero(Math.round(precioTotal).toString());
-                console.log(`   - valorFinal formateado: "${valorFinal}"`);
-                
-                inputTotal.value = valorFinal;
-                
-                console.log(`✅ Fila ${index}: Recalculado ${precioPorDia} × ${diasPorTipo[tipoPrecio] || 1} = ${precioTotal}`);
-            } else {
-                console.log(`⏭️ Fila ${index}: Saltando recalculo (editado manualmente)`);
-            }
-        }
-        
-        // Cuando cambia precio_por_dia → resetear flag manual y recalcular
-        inputPorDia.addEventListener('input', function() {
-            // ✅ RESETEAR el flag de edición manual cuando cambia precio_por_dia
-            inputTotal.dataset.manualEdit = '';
-            console.log(`🔄 Fila ${index}: precio_por_dia cambió → reseteando flag manual`);
+        // Función para guardar automáticamente un precio individual
+        let saveTimeout;
+        function guardarPrecioAutomatico() {
+            // Limpiar timeout anterior
+            clearTimeout(saveTimeout);
             
-            recalcularSiNoManual();
-        });
-        
-        // Cuando cambia ajuste_porcentaje → recalcular solo si no es manual
-        if (inputAjuste) {
-            inputAjuste.addEventListener('input', recalcularSiNoManual);
+            // Esperar 1 segundo después de que el usuario deje de escribir
+            saveTimeout = setTimeout(function() {
+                // Obtener el ID del precio (puede ser form-0-id, form-1-id, etc.)
+                const precioIdInput = fila.querySelector('input[type="hidden"][name*="-id"]');
+                const precioId = precioIdInput ? precioIdInput.value : null;
+                
+                if (!precioId) {
+                    console.log(`⚠️ Fila ${index}: No se encontró ID del precio, no se puede guardar automáticamente`);
+                    return;
+                }
+                
+                // Obtener todos los valores de la fila
+                const tipoPrecio = selectTipo.value;
+                const precioToma = inputToma ? desformatearNumero(inputToma.value || '0') : '0';
+                const precioDiaToma = inputDiaToma ? desformatearNumero(inputDiaToma.value || '0') : '0';
+                const precioPorDia = desformatearNumero(inputPorDia.value || '0');
+                const precioTotal = inputTotal ? desformatearNumero(inputTotal.value || '0') : '0';
+                const ajuste = inputAjuste ? desformatearNumero(inputAjuste.value || '0') : '0';
+                
+                // Preparar datos para enviar
+                const formData = new FormData();
+                formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+                formData.append('precio_id', precioId);
+                formData.append('tipo_precio', tipoPrecio);
+                formData.append('precio_toma', precioToma);
+                formData.append('precio_dia_toma', precioDiaToma);
+                formData.append('precio_por_dia', precioPorDia);
+                formData.append('precio_total', precioTotal);
+                formData.append('ajuste_porcentaje', ajuste);
+                formData.append('propiedad_id', '{{ propiedad.id }}');
+                
+                // Enviar al servidor
+                fetch('{% url "inmobiliaria:guardar_precio_individual" %}', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log(`✅ Precio guardado automáticamente: ${tipoPrecio}`);
+                    } else {
+                        console.error(`❌ Error al guardar precio: ${data.error || 'Error desconocido'}`);
+                    }
+                })
+                .catch(error => {
+                    console.error(`❌ Error de conexión al guardar precio: ${error.message}`);
+                });
+            }, 1000); // Esperar 1 segundo después de que el usuario deje de escribir
         }
+        
+        // Agregar event listeners para guardar automáticamente
+        inputPorDia.addEventListener('input', guardarPrecioAutomatico);
+        if (inputTotal) {
+            inputTotal.addEventListener('input', guardarPrecioAutomatico);
+        }
+        if (inputAjuste) {
+            inputAjuste.addEventListener('input', guardarPrecioAutomatico);
+        }
+        if (inputToma) {
+            inputToma.addEventListener('input', guardarPrecioAutomatico);
+        }
+        if (inputDiaToma) {
+            inputDiaToma.addEventListener('input', guardarPrecioAutomatico);
+        }
+        selectTipo.addEventListener('change', guardarPrecioAutomatico);
     });
     
-    console.log(`✅ Configurados ${filas.length} filas para recalculo automático`);
+    console.log(`✅ Configurados ${filas.length} filas para guardado automático`);
 });
 </script>
 {% endblock %}
