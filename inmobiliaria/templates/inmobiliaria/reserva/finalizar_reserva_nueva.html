@@ -870,6 +870,26 @@ document.addEventListener('DOMContentLoaded', function() {
         seniaInput.value = '0';
     }
     
+    // ✅ Event listener para los botones de seleccionar concepto (delegación de eventos)
+    document.addEventListener('click', function(e) {
+        const btnSeleccionar = e.target.closest('.btn-seleccionar-concepto');
+        if (btnSeleccionar) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const conceptoId = btnSeleccionar.getAttribute('data-concepto-id');
+            const conceptoNombre = btnSeleccionar.getAttribute('data-concepto-nombre');
+            
+            console.log('🔧 Botón seleccionar clickeado:', conceptoId, conceptoNombre);
+            
+            if (conceptoId && conceptoNombre) {
+                seleccionarConcepto(conceptoId, conceptoNombre);
+            } else {
+                console.error('❌ Error: No se encontraron datos del concepto en el botón');
+            }
+        }
+    });
+    
     const productorIdInput = document.getElementById('productor_id');
     
     if (productorIdInput) {
