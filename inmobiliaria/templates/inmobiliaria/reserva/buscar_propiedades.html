@@ -3752,7 +3752,7 @@ function actualizarTablaPreciosDesdeArray(precios) {
                     <i class="fas fa-dollar-sign me-2"></i>
                     Gestionar Precios para <span id="propiedadNombreModal">Propiedad</span>
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" id="cerrarModalPreciosX" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div id="tablaPreciosCompleta">
@@ -3760,7 +3760,7 @@ function actualizarTablaPreciosDesdeArray(precios) {
                 </div>
             </div>
             <div class="modal-footer" id="modalFooterPrecios">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                <button type="button" class="btn btn-secondary" id="cerrarModalPreciosBtn">
                     <i class="fas fa-times me-2"></i>Cerrar
                 </button>
                 <button type="button" class="btn btn-success" id="guardarPreciosBtn" style="display: none;">
@@ -4443,6 +4443,47 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('✅ Event listener para guardar precios agregado correctamente');
     } else {
         console.warn('⚠️ Botón guardarPreciosBtn no encontrado');
+    }
+    
+    // ✅ Guardar precios automáticamente al cerrar el modal (X o botón Cerrar)
+    const modalGestionPrecios = document.getElementById('modalGestionPrecios');
+    const cerrarModalPreciosX = document.getElementById('cerrarModalPreciosX');
+    const cerrarModalPreciosBtn = document.getElementById('cerrarModalPreciosBtn');
+    
+    // Función para guardar y cerrar
+    function guardarYCerrar() {
+        console.log('💾 Guardando precios antes de cerrar el modal...');
+        
+        // Verificar si hay precios para guardar
+        const filas = document.querySelectorAll('#tablaPreciosCompleta tr[data-precio-id]');
+        if (filas.length > 0) {
+            // Hay precios, guardar (la función guardarCambiosPrecios cerrará el modal automáticamente)
+            guardarCambiosPrecios();
+        } else {
+            // No hay precios, solo cerrar el modal
+            const modal = bootstrap.Modal.getInstance(modalGestionPrecios);
+            if (modal) {
+                modal.hide();
+            }
+        }
+    }
+    
+    // Event listener para el botón X
+    if (cerrarModalPreciosX) {
+        cerrarModalPreciosX.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            guardarYCerrar();
+        });
+    }
+    
+    // Event listener para el botón Cerrar
+    if (cerrarModalPreciosBtn) {
+        cerrarModalPreciosBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            guardarYCerrar();
+        });
     }
 });
 </script>
