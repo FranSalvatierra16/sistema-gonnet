@@ -816,6 +816,24 @@ def propiedad_detalle(request, propiedad_id):
         propiedad=propiedad
     ).order_by('fecha_actualizacion')
     
+    # Si el historial está vacío pero hay reservas, reconstruirlo automáticamente
+    if not historiales.exists():
+        # Verificar si hay reservas activas (no eliminadas)
+        reservas_activas = propiedad.reservas.filter(eliminada=False).exists()
+        # Verificar si hay disponibilidades manuales
+        disponibilidades_manuales = propiedad.disponibilidades.filter(es_manual=True).exists()
+        
+        if reservas_activas or disponibilidades_manuales:
+            # Reconstruir el historial automáticamente
+            from inmobiliaria.models.propiedad import Reserva
+            primera_reserva = propiedad.reservas.filter(eliminada=False).first()
+            if primera_reserva:
+                primera_reserva.reconstruir_historial_cronologico()
+                # Volver a obtener el historial después de reconstruirlo
+                historiales = HistorialDisponibilidad.objects.filter(
+                    propiedad=propiedad
+                ).order_by('fecha_actualizacion')
+    
     # Obtener imágenes usando el related_name correcto
     imagenes = propiedad.imagenes.all()
 # print("Propiedad ID:", propiedad_id)

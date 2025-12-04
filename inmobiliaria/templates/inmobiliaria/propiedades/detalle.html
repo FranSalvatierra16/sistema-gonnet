@@ -935,7 +935,12 @@
                 <h5 class="modal-title" id="modalHistorialLabel">
                     <i class="fas fa-history"></i> Historial de Disponibilidad - {{ propiedad.direccion }}
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div>
+                    <button type="button" class="btn btn-warning btn-sm me-2" onclick="reconstruirHistorial()" title="Reconstruir historial">
+                        <i class="fas fa-sync-alt"></i> Reconstruir
+                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
             </div>
             <div class="modal-body">
                 <div class="table-responsive">
@@ -1485,6 +1490,69 @@
 function verHistorial() {
     const modalHistorial = new bootstrap.Modal(document.getElementById('modalHistorial'));
     modalHistorial.show();
+}
+
+function reconstruirHistorial() {
+    Swal.fire({
+        title: '¿Reconstruir historial?',
+        text: 'Esto reconstruirá el historial de disponibilidad basado en las reservas y disponibilidades actuales.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, reconstruir',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Mostrar loading
+            Swal.fire({
+                title: 'Reconstruyendo...',
+                text: 'Por favor espera',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            formData.append('propiedad_id', '{{ propiedad.id }}');
+            
+            fetch('{% url "inmobiliaria:limpiar_historial_disponibilidad" %}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: '¡Éxito!',
+                        text: data.message,
+                        icon: 'success',
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        // Recargar la página para mostrar el historial actualizado
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: data.error || 'Error al reconstruir el historial',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Error al reconstruir el historial: ' + error.message,
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            });
+        }
+    });
 }
 
 function openGallery(imageIndex = 0) {
