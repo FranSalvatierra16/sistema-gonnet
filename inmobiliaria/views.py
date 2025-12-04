@@ -5578,39 +5578,29 @@ def reconstruir_historial_propiedad(propiedad):
     Función auxiliar para reconstruir el historial de una propiedad
     
     ✅ LÓGICA CORREGIDA: 
-    - Las disponibilidades YA están fragmentadas correctamente
-    - Solo necesitamos crear entradas del historial para disponibilidades + reservas
-    - SIN duplicar períodos
+    - Usa el método de reconstrucción cronológica que fragmenta correctamente
+    - Incluye reservas con estado 'pagada' y las marca como 'alquilado'
+    - Fragmenta las disponibilidades con las reservas
     """
 # print(f"🔄 Reconstruyendo historial para propiedad {propiedad.id}")
     
-    # Obtener todas las disponibilidades (períodos libres ya fragmentados)
-    disponibilidades = propiedad.disponibilidades.all().order_by('fecha_inicio')
-    for disp in disponibilidades:
-        HistorialDisponibilidad.objects.create(
-            propiedad=propiedad,
-            fecha_inicio=disp.fecha_inicio,
-            fecha_fin=disp.fecha_fin,
-            estado='libre'
-        )
+    # Usar el método de reconstrucción cronológica que fragmenta correctamente
+    reservas_activas = propiedad.reservas.filter(eliminada=False)
+    if reservas_activas.exists():
+        # Usar el método de reconstrucción que fragmenta correctamente
+        primera_reserva = reservas_activas.first()
+        primera_reserva.reconstruir_historial_cronologico()
+    else:
+        # Si no hay reservas, crear historial básico con disponibilidades
+        HistorialDisponibilidad.objects.filter(propiedad=propiedad).delete()
+        for disp in propiedad.disponibilidades.filter(es_manual=True).order_by('fecha_inicio'):
+            HistorialDisponibilidad.objects.create(
+                propiedad=propiedad,
+                fecha_inicio=disp.fecha_inicio,
+                fecha_fin=disp.fecha_fin,
+                estado='libre'
+            )
 # print(f"   📅 Agregado período LIBRE: {disp.fecha_inicio} al {disp.fecha_fin}")
-    
-    # Obtener todas las reservas (períodos reservados)
-    # Excluir reservas eliminadas
-    reservas = propiedad.reservas.filter(
-        estado__in=['confirmada', 'confirmada_no_pagada'],
-        eliminada=False
-    ).order_by('fecha_inicio')
-    
-    for reserva in reservas:
-        HistorialDisponibilidad.objects.create(
-            propiedad=propiedad,
-            fecha_inicio=reserva.fecha_inicio,
-            fecha_fin=reserva.fecha_fin,
-            estado='reservado',
-            reserva=reserva
-        )
-# print(f"   🎯 Agregado período RESERVADO: {reserva.fecha_inicio} al {reserva.fecha_fin} (Reserva #{reserva.id})")
 
 @login_required
 def editar_info_venta(request, propiedad_id):

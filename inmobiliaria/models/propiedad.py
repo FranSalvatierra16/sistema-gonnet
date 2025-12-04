@@ -588,9 +588,10 @@ class Reserva(models.Model):
             inicio_reserva = max(reserva.fecha_inicio, disponibilidad.fecha_inicio)
             fin_reserva = min(reserva.fecha_fin, disponibilidad.fecha_fin)
             
-            # Si la reserva tiene algún pago, es "operación", sino es "reservado"
-            # Verificar múltiples campos: senia, senia_pagada, pagos relacionados, recibos
+            # Si la reserva tiene algún pago o está marcada como 'pagada', es "operación", sino es "reservado"
+            # Verificar múltiples campos: estado 'pagada', senia, senia_pagada, pagos relacionados, recibos
             tiene_pagos = (
+                reserva.estado == 'pagada' or
                 (hasattr(reserva, 'senia') and reserva.senia and reserva.senia > 0) or
                 (hasattr(reserva, 'senia_pagada') and reserva.senia_pagada and reserva.senia_pagada > 0) or
                 reserva.recibos.exists() or
