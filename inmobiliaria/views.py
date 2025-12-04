@@ -6906,6 +6906,7 @@ def obtener_precios_propiedad(request, propiedad_id):
             
             # Agregar los datos del precio
             precios_data.append({
+                'id': precio.id if hasattr(precio, 'id') and precio.id else None,
                 'tipo_precio': tipo_key,
                 'tipo_precio_display': tipo_display,
                 'precio_total': str(precio.precio_total or 0),
