@@ -1207,7 +1207,20 @@ def operaciones(request):
                     concepto_parts = movimiento.concepto.split("|CONCEPTOS:", 1)
                     if len(concepto_parts) > 1:
                         conceptos_data = concepto_parts[1]
-                        if "|10:" in conceptos_data:  # Concepto 10 presente
+                        # ✅ MEJORADO: Buscar concepto 10 de forma más robusta
+                        concepto_10_encontrado = False
+                        if "|10:" in conceptos_data or ":10:" in conceptos_data:
+                            concepto_10_encontrado = True
+                        else:
+                            # Buscar en cada item individual
+                            conceptos_items = [item for item in conceptos_data.split("|") if item.strip()]
+                            for concepto_item in conceptos_items:
+                                parts = concepto_item.split(":", 1)
+                                if len(parts) > 0 and parts[0].strip() == "10":
+                                    concepto_10_encontrado = True
+                                    break
+                        
+                        if concepto_10_encontrado:  # Concepto 10 presente
                             deposito_pagado = True
                             break
             
@@ -4021,7 +4034,22 @@ def determinar_estado_deposito_completo(reserva):
                 conceptos_data = concepto_parts[1]
 # print(f"   📝 Conceptos data: {conceptos_data}")
                 
-                if "|10:" in conceptos_data:  # Concepto 10 presente
+                # ✅ MEJORADO: Buscar concepto 10 de forma más robusta
+                # Buscar tanto "|10:" como ":10:" o "10:" al inicio
+                concepto_10_encontrado = False
+                if "|10:" in conceptos_data or ":10:" in conceptos_data:
+                    concepto_10_encontrado = True
+                else:
+                    # Buscar en cada item individual
+                    conceptos_items = [item for item in conceptos_data.split("|") if item.strip()]
+                    for concepto_item in conceptos_items:
+                        # Formato esperado: "10:nombre:importe" o "id:nombre:importe"
+                        parts = concepto_item.split(":", 1)
+                        if len(parts) > 0 and parts[0].strip() == "10":
+                            concepto_10_encontrado = True
+                            break
+                
+                if concepto_10_encontrado:
 # print(f"💳 DEPÓSITO GLOBAL PAGADO: Encontrado concepto 10 en movimiento {movimiento.id}")
                     return 'pagado'
                 else:
@@ -9135,7 +9163,20 @@ def finalizar_reserva_nueva(request, reserva_id):
                     concepto_parts = movimiento.concepto.split("|CONCEPTOS:", 1)
                     if len(concepto_parts) > 1:
                         conceptos_data = concepto_parts[1]
-                        if "|10:" in conceptos_data:  # Concepto 10 presente
+                        # ✅ MEJORADO: Buscar concepto 10 de forma más robusta
+                        concepto_10_encontrado = False
+                        if "|10:" in conceptos_data or ":10:" in conceptos_data:
+                            concepto_10_encontrado = True
+                        else:
+                            # Buscar en cada item individual
+                            conceptos_items = [item for item in conceptos_data.split("|") if item.strip()]
+                            for concepto_item in conceptos_items:
+                                parts = concepto_item.split(":", 1)
+                                if len(parts) > 0 and parts[0].strip() == "10":
+                                    concepto_10_encontrado = True
+                                    break
+                        
+                        if concepto_10_encontrado:  # Concepto 10 presente
                             deposito_pagado = True
                             break
         
