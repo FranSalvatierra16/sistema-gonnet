@@ -4017,8 +4017,7 @@ function agregarEventosCalculoPrecios() {
     });
 }
 
-// Función para guardar un precio individual automáticamente
-let saveTimeoutPrecios;
+// Función para guardar un precio individual automáticamente (segunda ocurrencia - usar variable global ya declarada)
 function guardarPrecioIndividualAutomatico(fila) {
     // Limpiar timeout anterior
     clearTimeout(saveTimeoutPrecios);
@@ -4377,8 +4376,7 @@ function agregarEventosCalculoPrecios() {
     });
 }
 
-// Función para guardar un precio individual automáticamente
-let saveTimeoutPrecios;
+// Función para guardar un precio individual automáticamente (segunda ocurrencia - usar variable global ya declarada)
 function guardarPrecioIndividualAutomatico(fila) {
     // Limpiar timeout anterior
     clearTimeout(saveTimeoutPrecios);
@@ -4666,25 +4664,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const cerrarModalPreciosX = document.getElementById('cerrarModalPreciosX');
     const cerrarModalPreciosBtn = document.getElementById('cerrarModalPreciosBtn');
     
-    // Función para guardar y cerrar
-    function guardarYCerrar() {
-        console.log('💾 Guardando precios antes de cerrar el modal...');
-        
-        // Verificar si hay precios para guardar
-        const filas = document.querySelectorAll('#tablaPreciosCompleta tr[data-precio-id]');
-        if (filas.length > 0) {
-            // Hay precios, guardar (la función guardarCambiosPrecios cerrará el modal automáticamente)
-            guardarCambiosPrecios();
-        } else {
-            // No hay precios, solo cerrar el modal
-            const modal = bootstrap.Modal.getInstance(modalGestionPrecios);
-            if (modal) {
-                modal.hide();
-            }
-        }
-    }
-    
-    // Event listener para el botón X
+    // Event listeners para cerrar el modal
     if (cerrarModalPreciosX) {
         cerrarModalPreciosX.addEventListener('click', function(e) {
             e.preventDefault();
@@ -4693,7 +4673,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Event listener para el botón Cerrar
     if (cerrarModalPreciosBtn) {
         cerrarModalPreciosBtn.addEventListener('click', function(e) {
             e.preventDefault();
@@ -4702,6 +4681,99 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Función global para guardar y cerrar el modal
+function guardarYCerrar() {
+    console.log('💾 Guardando precios antes de cerrar el modal...');
+    
+    const modalGestionPrecios = document.getElementById('modalGestionPrecios');
+    
+    // Verificar si hay precios para guardar
+    const filas = document.querySelectorAll('#tablaPreciosCompleta tr[data-precio-id]');
+    if (filas.length > 0) {
+        // Hay precios, guardar todos y luego cerrar
+        guardarTodosLosPreciosYCerrar();
+    } else {
+        // No hay precios, solo cerrar el modal
+        const modal = bootstrap.Modal.getInstance(modalGestionPrecios);
+        if (modal) {
+            modal.hide();
+        }
+    }
+}
+
+// Función global para guardar todos los precios y cerrar el modal
+function guardarTodosLosPreciosYCerrar() {
+        if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
+            console.error('Error: No hay propiedad seleccionada');
+            return;
+        }
+        
+        console.log('💾 Guardando todos los precios antes de cerrar...');
+        
+        const filas = document.querySelectorAll('#tablaPreciosCompleta tr[data-precio-id]');
+        const precios = [];
+        
+        filas.forEach(fila => {
+            const tipoPrecio = fila.dataset.precioId;
+            const desformatear = (valor) => (valor || '').toString().replace(/\./g, '');
+            
+            const inputToma = fila.querySelector('[data-field="precio_toma"]');
+            const inputDiaToma = fila.querySelector('[data-field="precio_dia_toma"]');
+            const inputPorDia = fila.querySelector('[data-field="precio_por_dia"]');
+            const inputTotal = fila.querySelector('[data-field="precio_total"]');
+            const inputAjuste = fila.querySelector('[data-field="ajuste_porcentaje"]');
+            
+            const tiposSinQuincena = ['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'];
+            
+            const precioData = {
+                tipo_precio: tipoPrecio,
+                precio_toma: parseFloat(desformatear(inputToma ? inputToma.value : 0)) || 0,
+                precio_dia_toma: parseFloat(desformatear(inputDiaToma ? inputDiaToma.value : 0)) || 0,
+                precio_por_dia: parseFloat(desformatear(inputPorDia ? inputPorDia.value : 0)) || 0,
+                precio_total: tiposSinQuincena.includes(tipoPrecio) ? null : (parseFloat(desformatear(inputTotal ? inputTotal.value : 0)) || 0),
+                ajuste_porcentaje: parseFloat(desformatear(inputAjuste ? inputAjuste.value : 0)) || 0
+            };
+            
+            precios.push(precioData);
+        });
+        
+        // Enviar al servidor
+        const formData = new FormData();
+        formData.append('propiedad_id', propiedadSeleccionada.id);
+        formData.append('precios', JSON.stringify(precios));
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        fetch('{% url "inmobiliaria:guardar_precios_propiedad" %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('✅ Precios guardados correctamente');
+                
+                // Actualizar los precios en la tabla pequeña
+                if (typeof cargarPreciosPropiedad === 'function') {
+                    cargarPreciosPropiedad(propiedadSeleccionada.id);
+                }
+                
+                // Cerrar el modal
+                const modalGestionPrecios = document.getElementById('modalGestionPrecios');
+                const modal = bootstrap.Modal.getInstance(modalGestionPrecios);
+                if (modal) {
+                    modal.hide();
+                }
+            } else {
+                console.error('❌ Error al guardar precios:', data.error || 'Error desconocido');
+                alert('❌ Error al guardar precios: ' + (data.error || 'Error desconocido'));
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error de conexión al guardar precios:', error);
+            alert('❌ Error de conexión al guardar precios');
+        });
+}
 </script>
 
         </form>
