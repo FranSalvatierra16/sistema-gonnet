@@ -361,37 +361,6 @@
     <button onclick="descargarPDF();" class="btn btn-danger">
         <i class="fas fa-file-pdf me-2"></i>Descargar PDF
     </button>
-    
-    <!-- Dropdown de WhatsApp -->
-    <div class="btn-group" role="group">
-    <button onclick="enviarDirectoWhatsApp();" class="btn btn-success">
-        <i class="fab fa-whatsapp me-2"></i>Enviar por WhatsApp
-    </button>
-        <button type="button" class="btn btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
-            <span class="visually-hidden">Toggle Dropdown</span>
-        </button>
-        <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="#" onclick="compartirArchivoDirecto(); return false;">
-                <i class="fas fa-camera me-2"></i>Enviar como imagen
-            </a></li>
-            <li><a class="dropdown-item" href="#" onclick="compartirWhatsApp(); return false;">
-                <i class="fas fa-link me-2"></i>Compartir enlace PDF
-            </a></li>
-            <li><a class="dropdown-item" href="#" onclick="compartirWhatsAppNumero(); return false;">
-                <i class="fas fa-phone me-2"></i>Enviar a número específico
-            </a></li>
-            <li><a class="dropdown-item" href="#" onclick="compartirWhatsAppConDescarga(); return false;">
-                <i class="fas fa-download me-2"></i>Descargar PDF y abrir WhatsApp
-            </a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="#" onclick="copiarEnlace(); return false;">
-                <i class="fas fa-link me-2"></i>Copiar enlace del recibo
-            </a></li>
-            <li><a class="dropdown-item" href="#" onclick="descargarPDF(); return false;">
-                <i class="fas fa-file-pdf me-2"></i>Solo descargar PDF
-            </a></li>
-        </ul>
-    </div>
 </div>
 
 <script>
