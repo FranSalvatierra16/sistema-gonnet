@@ -14,29 +14,63 @@
     <style type="text/css" media="print">
         @page {
             size: legal;
-            margin: 0;
-        }
-        body {
-            margin: 1cm;
+            margin: 0.5cm;
         }
        
         @media print {
-            body * {
-                visibility: hidden;
+            /* Resetear márgenes y padding */
+            * {
+                box-sizing: border-box;
             }
-            .printable, .printable * {
-                visibility: visible;
+            
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+                width: 100% !important;
+                height: auto !important;
             }
+            
+            /* Ocultar elementos del layout base */
+            nav, header, footer, .navbar, .sidebar, .breadcrumb {
+                display: none !important;
+                visibility: hidden !important;
+            }
+            
+            /* Ocultar botones y elementos no imprimibles */
+            .no-print, button, .btn, .d-flex.gap-2, .btn-group, .dropdown-menu {
+                display: none !important;
+                visibility: hidden !important;
+            }
+            
+            /* Asegurar que el contenido del recibo sea visible */
             .printable {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
+                display: block !important;
+                visibility: visible !important;
+                position: static !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                page-break-inside: avoid;
             }
-            button {
-                display: none;
+            
+            .printable, .printable * {
+                visibility: visible !important;
+                display: block !important;
             }
-           
+            
+            .printable table, .printable tr, .printable td, .printable th {
+                display: table !important;
+                visibility: visible !important;
+            }
+            
+            /* Asegurar que el contenedor principal sea visible */
+            .container-fluid, .container {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
         }
     </style>
  
@@ -353,7 +387,7 @@
 </div>
 </div>
 <!-- Botones de acción -->
-<div class="d-flex gap-2 mt-3 flex-wrap">
+<div class="d-flex gap-2 mt-3 flex-wrap no-print">
     <button onclick="window.print();" class="btn btn-primary" style="background-color: #2d8524; border-color: #2d8524; color: white;">
         <i class="fas fa-print me-2"></i>Imprimir Recibo
     </button>
@@ -361,37 +395,6 @@
     <button onclick="descargarPDF();" class="btn btn-danger">
         <i class="fas fa-file-pdf me-2"></i>Descargar PDF
     </button>
-    
-    <!-- Dropdown de WhatsApp -->
-    <div class="btn-group" role="group">
-    <button onclick="enviarDirectoWhatsApp();" class="btn btn-success">
-        <i class="fab fa-whatsapp me-2"></i>Enviar por WhatsApp
-    </button>
-        <button type="button" class="btn btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
-            <span class="visually-hidden">Toggle Dropdown</span>
-        </button>
-        <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="#" onclick="compartirArchivoDirecto(); return false;">
-                <i class="fas fa-camera me-2"></i>Enviar como imagen
-            </a></li>
-            <li><a class="dropdown-item" href="#" onclick="compartirWhatsApp(); return false;">
-                <i class="fas fa-link me-2"></i>Compartir enlace PDF
-            </a></li>
-            <li><a class="dropdown-item" href="#" onclick="compartirWhatsAppNumero(); return false;">
-                <i class="fas fa-phone me-2"></i>Enviar a número específico
-            </a></li>
-            <li><a class="dropdown-item" href="#" onclick="compartirWhatsAppConDescarga(); return false;">
-                <i class="fas fa-download me-2"></i>Descargar PDF y abrir WhatsApp
-            </a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="#" onclick="copiarEnlace(); return false;">
-                <i class="fas fa-link me-2"></i>Copiar enlace del recibo
-            </a></li>
-            <li><a class="dropdown-item" href="#" onclick="descargarPDF(); return false;">
-                <i class="fas fa-file-pdf me-2"></i>Solo descargar PDF
-            </a></li>
-        </ul>
-    </div>
 </div>
 
 <script>
