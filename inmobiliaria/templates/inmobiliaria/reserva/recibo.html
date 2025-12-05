@@ -33,10 +33,46 @@
                 top: 0;
                 width: 100%;
             }
-            button {
-                display: none;
+            button, .no-print {
+                display: none !important;
             }
-           
+            
+            /* Evitar páginas en blanco adicionales */
+            .printable {
+                page-break-after: avoid !important;
+                page-break-inside: avoid !important;
+            }
+            
+            /* Ocultar cualquier contenido después de .printable */
+            .printable ~ * {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            /* Asegurar que no haya saltos de página innecesarios */
+            html, body {
+                height: auto !important;
+                overflow: visible !important;
+            }
+            
+            /* Ajustar alturas porcentuales para impresión */
+            .printable [style*="height: 49%"] {
+                height: auto !important;
+                min-height: auto !important;
+            }
+            
+            /* Evitar que el contenido se extienda más allá de una página */
+            .printable {
+                max-height: 100% !important;
+            }
+            
+            /* Asegurar que no haya espacio extra al final */
+            @page {
+                margin-bottom: 0;
+            }
         }
     </style>
  
