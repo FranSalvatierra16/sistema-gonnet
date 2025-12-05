@@ -21,72 +21,42 @@
         }
        
         @media print {
-            /* Resetear márgenes y padding */
-            * {
-                box-sizing: border-box;
-            }
-            
-            html, body {
-                margin: 0 !important;
-                padding: 0 !important;
-                height: auto !important;
-                overflow: visible !important;
-            }
-            
-            /* Ocultar elementos del layout base */
-            nav, header, footer, .navbar, .sidebar, .breadcrumb {
+            /* Ocultar scripts */
+            script {
                 display: none !important;
             }
             
-            /* Ocultar botones y elementos no imprimibles */
-            button, .no-print, .btn, .d-flex, .btn-group, script {
+            /* Ocultar botones */
+            button, .no-print {
                 display: none !important;
             }
             
             /* Ocultar todo excepto el contenido del recibo */
-            body > *:not(.printable) {
-                display: none !important;
+            body * {
+                visibility: hidden;
             }
-            
+            .printable, .printable * {
+                visibility: visible;
+            }
             .printable {
-                display: block !important;
-                visibility: visible !important;
-                position: relative !important;
-                width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                page-break-after: avoid !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
             }
             
-            .printable * {
-                visibility: visible !important;
-            }
-            
-            /* Convertir todas las alturas porcentuales a auto para impresión */
-            .printable [style*="height"] {
+            /* Convertir alturas porcentuales a auto para evitar páginas en blanco */
+            .printable [style*="height: 49%"] {
                 height: auto !important;
-                min-height: auto !important;
-                max-height: none !important;
             }
             
-            /* Específicamente para el contenedor principal con height: 49% */
-            .printable > div[style*="height: 49%"] {
-                height: auto !important;
-                min-height: auto !important;
-            }
-            
-            /* Ocultar cualquier contenido después de .printable */
+            /* Ocultar cualquier contenido después de .printable para evitar página en blanco */
             .printable ~ * {
                 display: none !important;
+                visibility: hidden !important;
                 height: 0 !important;
                 margin: 0 !important;
                 padding: 0 !important;
-            }
-            
-            /* Asegurar que no haya espacio extra al final */
-            @page {
-                margin: 0;
-                size: legal;
             }
         }
     </style>
