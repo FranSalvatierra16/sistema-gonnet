@@ -21,57 +21,72 @@
         }
        
         @media print {
-            body * {
-                visibility: hidden;
+            /* Resetear márgenes y padding */
+            * {
+                box-sizing: border-box;
             }
-            .printable, .printable * {
-                visibility: visible;
+            
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                height: auto !important;
+                overflow: visible !important;
             }
-            .printable {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-            }
-            button, .no-print {
+            
+            /* Ocultar elementos del layout base */
+            nav, header, footer, .navbar, .sidebar, .breadcrumb {
                 display: none !important;
             }
             
-            /* Evitar páginas en blanco adicionales */
+            /* Ocultar botones y elementos no imprimibles */
+            button, .no-print, .btn, .d-flex, .btn-group, script {
+                display: none !important;
+            }
+            
+            /* Ocultar todo excepto el contenido del recibo */
+            body > *:not(.printable) {
+                display: none !important;
+            }
+            
             .printable {
+                display: block !important;
+                visibility: visible !important;
+                position: relative !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
                 page-break-after: avoid !important;
-                page-break-inside: avoid !important;
+            }
+            
+            .printable * {
+                visibility: visible !important;
+            }
+            
+            /* Convertir todas las alturas porcentuales a auto para impresión */
+            .printable [style*="height"] {
+                height: auto !important;
+                min-height: auto !important;
+                max-height: none !important;
+            }
+            
+            /* Específicamente para el contenedor principal con height: 49% */
+            .printable > div[style*="height: 49%"] {
+                height: auto !important;
+                min-height: auto !important;
             }
             
             /* Ocultar cualquier contenido después de .printable */
             .printable ~ * {
                 display: none !important;
-                visibility: hidden !important;
                 height: 0 !important;
                 margin: 0 !important;
                 padding: 0 !important;
             }
             
-            /* Asegurar que no haya saltos de página innecesarios */
-            html, body {
-                height: auto !important;
-                overflow: visible !important;
-            }
-            
-            /* Ajustar alturas porcentuales para impresión */
-            .printable [style*="height: 49%"] {
-                height: auto !important;
-                min-height: auto !important;
-            }
-            
-            /* Evitar que el contenido se extienda más allá de una página */
-            .printable {
-                max-height: 100% !important;
-            }
-            
             /* Asegurar que no haya espacio extra al final */
             @page {
-                margin-bottom: 0;
+                margin: 0;
+                size: legal;
             }
         }
     </style>
