@@ -479,7 +479,7 @@
                             {% if reserva.cliente %}
                                 {{ reserva.cliente.nombre_completo_inquilino }}
                             {% elif reserva.inquilino %}
-                                {{ reserva.inquilino.nombre }} {{ reserva.inquilino.apellido }}
+                                {{ reserva.inquilino.apellido }}, {{ reserva.inquilino.nombre }}
                             {% endif %}
                         </span>
                     </div>

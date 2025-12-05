@@ -420,7 +420,7 @@
                             <label for="propietario_dni" class="form-label">
                                 <i class="fas fa-hashtag me-1"></i>Número de Documento *
                             </label>
-                            <input type="text" class="form-control" id="propietario_dni" name="dni" required>
+                            <input type="text" class="form-control" id="propietario_dni" name="dni">
                         </div>
                     </div>
 
@@ -1126,7 +1126,7 @@ $(document).ready(function() {
         const form = document.getElementById('formNuevoPropietario');
         
         // Validar campos requeridos
-        const camposRequeridos = ['nombre', 'apellido', 'email', 'celular', 'tipo_doc', 'dni', 'localidad', 'provincia', 'domicilio', 'codigo_postal'];
+        const camposRequeridos = ['nombre', 'apellido', 'email', 'celular', 'tipo_doc', 'localidad', 'provincia', 'domicilio', 'codigo_postal'];
         
         let camposVacios = [];
         camposRequeridos.forEach(campo => {
@@ -1191,7 +1191,7 @@ $(document).ready(function() {
                 const selectPropietario = document.getElementById('id_propietario');
                 if (selectPropietario) {
                     const nuevaOpcion = new Option(
-                        `${data.propietario.nombre} ${data.propietario.apellido} (${data.propietario.dni})`,
+                        `${data.propietario.apellido}, ${data.propietario.nombre} (${data.propietario.dni})`,
                         data.propietario.id,
                         true,
                         true

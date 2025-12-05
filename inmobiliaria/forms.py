@@ -112,7 +112,7 @@ class PropietarioForm(forms.ModelForm):
         # Marcar campos requeridos
         self.fields['nombre'].required = True
         self.fields['apellido'].required = True
-        self.fields['dni'].required = True
+        self.fields['dni'].required = False  # DNI ahora es opcional
         self.fields['cuit'].required = False
         self.fields['cuenta_bancaria'].required = False
         

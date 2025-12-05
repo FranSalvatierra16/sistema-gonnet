@@ -257,12 +257,12 @@
                                     {% if reserva.cliente %}
                                     <span class="reserva-meta-item">
                                         <i class="fas fa-user"></i>
-                                        Cliente: {{ reserva.cliente.nombre }} {{ reserva.cliente.apellido }}
+                                        Cliente: {{ reserva.cliente.apellido }}, {{ reserva.cliente.nombre }}
                                     </span>
                                     {% endif %}
                                     <span class="reserva-meta-item">
                                         <i class="fas fa-user-tie"></i>
-                                        Propietario: {{ reserva.propiedad.propietario.nombre }} {{ reserva.propiedad.propietario.apellido }}
+                                        Propietario: {{ reserva.propiedad.propietario.apellido }}, {{ reserva.propiedad.propietario.nombre }}
                                     </span>
                                     {% if reserva.propiedad.piso or reserva.propiedad.departamento %}
                                     <span class="reserva-meta-item">
@@ -281,7 +281,7 @@
                                     <strong><i class="fas fa-trash-alt"></i> Eliminada:</strong>
                                     {{ reserva.fecha_eliminacion|date:"d/m/Y H:i" }}
                                     {% if reserva.usuario_eliminacion %}
-                                        por <strong>{{ reserva.usuario_eliminacion.nombre }} {{ reserva.usuario_eliminacion.apellido }}</strong>
+                                        por <strong>{{ reserva.usuario_eliminacion.apellido }}, {{ reserva.usuario_eliminacion.nombre }}</strong>
                                     {% else %}
                                         <span class="text-muted">(Usuario no registrado)</span>
                                     {% endif %}

@@ -1597,7 +1597,7 @@ def obtener_info_reserva(request, reserva_id):
                 'id': reserva.vendedor.id,
                 'nombre': reserva.vendedor.nombre or '',
                 'apellido': reserva.vendedor.apellido or '',
-                'nombre_completo': f"{reserva.vendedor.nombre or ''} {reserva.vendedor.apellido or ''}".strip() or 'N/A'
+                'nombre_completo': f"{reserva.vendedor.apellido or ''}, {reserva.vendedor.nombre or ''}".strip(', ').strip() or 'N/A'
             }
         
         reserva_data = {
@@ -2306,7 +2306,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'conceptos_json': list(conceptos_caja.values('id', 'nombre')),  # Para JavaScript
             'cuentas_bancarias': cuentas_bancarias,  # ✅ Cuentas bancarias de la sucursal
             'cliente_id': reserva.cliente.id,
-            'cliente_nombre': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
+            'cliente_nombre': f"{reserva.cliente.apellido}, {reserva.cliente.nombre}",
             'interno_caja': caja_actual.numero,
             'propiedad_id': reserva.propiedad.id,
             'propiedad_direccion': reserva.propiedad.direccion,
@@ -2314,7 +2314,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'numero_movimiento': proximo_numero_movimiento,
             'numero_recibo': '0000-00000000',  # Para completar
             'productor_id': reserva.vendedor.id if reserva.vendedor else request.user.id,
-            'productor_nombre': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else f"{request.user.nombre} {request.user.apellido}",
+            'productor_nombre': f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}" if reserva.vendedor else f"{request.user.apellido}, {request.user.nombre}",
             'saldo_a_ocupar': saldo_a_ocupar,
             'senia_pendiente': senia_pendiente,  # ✅ NUEVO: Seña pendiente (0 si ya se pagó)
             'total_senia_pagada': total_senia_anteriores if es_completar_pago else 0,  # ✅ CORREGIDO: Solo seña de pagos anteriores
@@ -2681,7 +2681,7 @@ def ver_recibo(request, reserva_id):
         # Preparar datos del cliente con campos adicionales
         cliente_data = reserva.cliente
         cliente_completo = {
-            'nombre_completo': f"{cliente_data.nombre} {cliente_data.apellido}",
+            'nombre_completo': f"{cliente_data.apellido}, {cliente_data.nombre}",
             'domicilio': cliente_data.domicilio or '',
             'localidad': cliente_data.localidad or '',
             'provincia': cliente_data.provincia or '',
@@ -3127,7 +3127,7 @@ def buscar_inquilinos(request):
     for inquilino in inquilinos:
         results.append({
             'id': inquilino.id,
-            'text': f"{inquilino.nombre} {inquilino.apellido} (DNI: {inquilino.dni})"
+            'text': f"{inquilino.apellido}, {inquilino.nombre} (DNI: {inquilino.dni})"
         })
     
     return JsonResponse({
@@ -3251,7 +3251,7 @@ def buscar_clientes(request):
         Q(apellido__icontains=term) | 
         Q(dni__icontains=term)
     )[:10]
-    results = [{'id': c.id, 'text': f"{c.nombre} {c.apellido} (DNI: {c.dni})"} for c in clientes]
+    results = [{'id': c.id, 'text': f"{c.apellido}, {c.nombre} (DNI: {c.dni})"} for c in clientes]
     return JsonResponse({'results': results})
 
 @login_required
@@ -4472,7 +4472,7 @@ def ver_recibo_movimiento(request, movimiento_id):
             # Preparar datos del cliente con campos adicionales
             cliente_data = reserva.cliente
             cliente_completo = {
-                'nombre_completo': f"{cliente_data.nombre} {cliente_data.apellido}",
+                'nombre_completo': f"{cliente_data.apellido}, {cliente_data.nombre}",
                 'domicilio': cliente_data.domicilio or '',
                 'localidad': cliente_data.localidad or '',
                 'provincia': cliente_data.provincia or '',
@@ -4662,6 +4662,36 @@ def crear_inquilino_ajax(request):
             if fecha_nacimiento == '':
                 fecha_nacimiento = None
             
+            # Validar y limpiar DNI (ahora opcional)
+            dni_raw = request.POST.get('dni', '').strip()
+            dni_limpio = None
+            
+            if dni_raw:  # Solo validar si se proporciona DNI
+                # Limpiar DNI: quitar puntos, espacios, guiones
+                dni_limpio = dni_raw.replace('.', '').replace(' ', '').replace('-', '').replace(',', '')
+                
+                # Validar que el DNI solo contenga números
+                if not dni_limpio.isdigit():
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'El DNI solo puede contener números. Por favor, ingrese solo los 7 u 8 dígitos del DNI sin puntos ni guiones.'
+                    })
+                
+                # Validar longitud del DNI (7 u 8 dígitos)
+                if len(dni_limpio) != 7 and len(dni_limpio) != 8:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'El DNI debe tener 7 u 8 dígitos. Usted ingresó {len(dni_limpio)} dígito(s). Por favor, verifique el DNI.'
+                    })
+                
+                # Verificar si el DNI ya existe
+                if Inquilino.objects.filter(dni=dni_limpio).exists():
+                    inquilino_existente = Inquilino.objects.get(dni=dni_limpio)
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Ya existe un inquilino con el DNI {dni_limpio}. Inquilino: {inquilino_existente.apellido}, {inquilino_existente.nombre}'
+                    })
+            
             inquilino = Inquilino.objects.create(
                 nombre=request.POST['nombre'],
                 apellido=request.POST['apellido'],
@@ -4669,7 +4699,7 @@ def crear_inquilino_ajax(request):
                 email=request.POST['email'],
                 celular=request.POST['celular'],
                 tipo_doc=request.POST['tipo_doc'],
-                dni=request.POST['dni'],
+                dni=dni_limpio,  # Puede ser None si no se proporciona
                 tipo_ins=request.POST.get('tipo_ins', 'otro'),  # Valor por defecto
                 cuit=request.POST.get('cuit', ''),
                 localidad=request.POST['localidad'],
@@ -4731,38 +4761,35 @@ def crear_propietario_ajax(request):
                     'error': f'Faltan campos requeridos: {", ".join(campos_faltantes_nombres)}'
                 })
             
-            # Validar y limpiar DNI
+            # Validar y limpiar DNI (ahora opcional)
             dni_raw = request.POST.get('dni', '').strip()
-            # Limpiar DNI: quitar puntos, espacios, guiones
-            dni_limpio = dni_raw.replace('.', '').replace(' ', '').replace('-', '').replace(',', '')
+            dni_limpio = None
             
-            # Validar que el DNI solo contenga números
-            if not dni_limpio.isdigit():
-                return JsonResponse({
-                    'success': False,
-                    'error': 'El DNI solo puede contener números. Por favor, ingrese solo los 8 dígitos del DNI sin puntos ni guiones.'
-                })
-            
-            # Validar longitud del DNI
-            if len(dni_limpio) < 8:
-                return JsonResponse({
-                    'success': False,
-                    'error': f'El DNI debe tener 8 dígitos. Usted ingresó {len(dni_limpio)} dígito(s). Por favor, complete el DNI correctamente.'
-                })
-            
-            if len(dni_limpio) > 8:
-                return JsonResponse({
-                    'success': False,
-                    'error': f'El DNI debe tener exactamente 8 dígitos. Usted ingresó {len(dni_limpio)} dígitos. Por favor, verifique el DNI.'
-                })
-            
-            # Verificar si el DNI ya existe
-            if Propietario.objects.filter(dni=dni_limpio).exists():
-                propietario_existente = Propietario.objects.get(dni=dni_limpio)
-                return JsonResponse({
-                    'success': False,
-                    'error': f'Ya existe un propietario con el DNI {dni_limpio}. Propietario: {propietario_existente.nombre} {propietario_existente.apellido}'
-                })
+            if dni_raw:  # Solo validar si se proporciona DNI
+                # Limpiar DNI: quitar puntos, espacios, guiones
+                dni_limpio = dni_raw.replace('.', '').replace(' ', '').replace('-', '').replace(',', '')
+                
+                # Validar que el DNI solo contenga números
+                if not dni_limpio.isdigit():
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'El DNI solo puede contener números. Por favor, ingrese solo los 7 u 8 dígitos del DNI sin puntos ni guiones.'
+                    })
+                
+                # Validar longitud del DNI (7 u 8 dígitos)
+                if len(dni_limpio) != 7 and len(dni_limpio) != 8:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'El DNI debe tener 7 u 8 dígitos. Usted ingresó {len(dni_limpio)} dígito(s). Por favor, verifique el DNI.'
+                    })
+                
+                # Verificar si el DNI ya existe
+                if Propietario.objects.filter(dni=dni_limpio).exists():
+                    propietario_existente = Propietario.objects.get(dni=dni_limpio)
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Ya existe un propietario con el DNI {dni_limpio}. Propietario: {propietario_existente.apellido}, {propietario_existente.nombre}'
+                    })
                 
             propietario = Propietario.objects.create(
                 nombre=request.POST['nombre'],
@@ -4876,7 +4903,7 @@ def obtener_vendedor(request, vendedor_id):
             'success': True,
             'vendedor': {
                 'id': vendedor.id,
-                'nombre_completo': f"{vendedor.nombre} {vendedor.apellido}"
+                'nombre_completo': f"{vendedor.apellido}, {vendedor.nombre}"
             }
         })
     except Vendedor.DoesNotExist:
@@ -9202,7 +9229,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'conceptos_json': list(conceptos_caja.values('id', 'nombre')),  # Para JavaScript
             'cuentas_bancarias': cuentas_bancarias,  # ✅ Cuentas bancarias de la sucursal
             'cliente_id': reserva.cliente.id,
-            'cliente_nombre': f"{reserva.cliente.nombre} {reserva.cliente.apellido}",
+            'cliente_nombre': f"{reserva.cliente.apellido}, {reserva.cliente.nombre}",
             'interno_caja': caja_actual.numero,
             'propiedad_id': reserva.propiedad.id,
             'propiedad_direccion': reserva.propiedad.direccion,
@@ -9210,7 +9237,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'numero_movimiento': proximo_numero_movimiento,
             'numero_recibo': '0000-00000000',  # Para completar
             'productor_id': reserva.vendedor.id if reserva.vendedor else request.user.id,
-            'productor_nombre': f"{reserva.vendedor.nombre} {reserva.vendedor.apellido}" if reserva.vendedor else f"{request.user.nombre} {request.user.apellido}",
+            'productor_nombre': f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}" if reserva.vendedor else f"{request.user.apellido}, {request.user.nombre}",
             'saldo_a_ocupar': saldo_a_ocupar,  # Para mostrar en resumen
             'senia_pendiente': senia_pendiente,  # Para prellenar el campo seña
             'total_senia_pagada': total_senia_anteriores if es_completar_pago else 0,  # ✅ CORREGIDO: Solo seña de pagos anteriores
@@ -9282,7 +9309,7 @@ def eliminar_disponibilidad(request, disponibilidad_id):
                         'id': reserva.id,
                         'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
                         'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
-                        'cliente': f"{reserva.cliente.nombre} {reserva.cliente.apellido}" if reserva.cliente else 'Sin cliente',
+                        'cliente': f"{reserva.cliente.apellido}, {reserva.cliente.nombre}" if reserva.cliente else 'Sin cliente',
                         'estado': reserva.get_estado_display(),
                         'precio': str(reserva.precio_total)
                     })
@@ -9511,7 +9538,7 @@ def editar_disponibilidad(request, disponibilidad_id):
                         'id': reserva.id,
                         'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
                         'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
-                        'cliente': f"{reserva.cliente.nombre} {reserva.cliente.apellido}" if reserva.cliente else 'Sin cliente',
+                        'cliente': f"{reserva.cliente.apellido}, {reserva.cliente.nombre}" if reserva.cliente else 'Sin cliente',
                         'estado': reserva.get_estado_display()
                     })
             

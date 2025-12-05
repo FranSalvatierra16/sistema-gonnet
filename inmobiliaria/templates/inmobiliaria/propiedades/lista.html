@@ -87,10 +87,10 @@
                                 <span class="badge bg-secondary">Sin valoración</span>
                             {% endif %}
                         </td>
-                        <td>{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</td>
+                        <td>{{ propiedad.propietario.apellido }}, {{ propiedad.propietario.nombre }}</td>
                         <td>
                             {% if propiedad.fichado_por %}
-                                <span class="badge bg-info">{{ propiedad.fichado_por.nombre }} {{ propiedad.fichado_por.apellido }}</span>
+                                <span class="badge bg-info">{{ propiedad.fichado_por.apellido }}, {{ propiedad.fichado_por.nombre }}</span>
                             {% else %}
                                 <span class="text-muted">Sin asignar</span>
                             {% endif %}

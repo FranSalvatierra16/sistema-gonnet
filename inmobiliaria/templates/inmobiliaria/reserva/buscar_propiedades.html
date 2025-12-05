@@ -1445,7 +1445,7 @@
                         {% for inquilino in inquilinos %}
                         <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.nombre|lower }} {{ inquilino.apellido|lower }}" data-id="{{ inquilino.id }}" data-dni="{{ inquilino.dni }}"
                                 style="color: #1e293b !important; font-weight: 500 !important; background: #ffffff !important; padding: 8px !important; font-size: 14px !important; border-bottom: 1px solid #f1f5f9 !important;">
-                            ID: {{ inquilino.id }} - {{ inquilino.nombre }} {{ inquilino.apellido }} (DNI: {{ inquilino.dni }})
+                            ID: {{ inquilino.id }} - {{ inquilino.apellido }}, {{ inquilino.nombre }} (DNI: {{ inquilino.dni }})
                         </option>
                         {% endfor %}
                     </select>
@@ -3448,7 +3448,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div>
                             <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Número de Documento *</label>
-                            <input type="text" id="dni" name="dni" required
+                            <input type="text" id="dni" name="dni"
                                    style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
                                    onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
                                    onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
@@ -3536,7 +3536,7 @@ function guardarInquilino() {
     const form = document.getElementById('crearInquilinoForm');
     
     // Validar campos requeridos
-    const camposRequeridos = ['nombre', 'apellido', 'email', 'celular', 'tipo_doc', 'dni', 'localidad', 'provincia', 'domicilio', 'codigo_postal'];
+    const camposRequeridos = ['nombre', 'apellido', 'email', 'celular', 'tipo_doc', 'localidad', 'provincia', 'domicilio', 'codigo_postal'];
     
     let camposVacios = [];
     camposRequeridos.forEach(campo => {
@@ -3616,7 +3616,7 @@ function guardarInquilino() {
             
             // Solo agregar si no existe
             if (!inquilinoExiste) {
-                const nombreCompleto = `ID: ${data.inquilino.id} - ${data.inquilino.nombre} ${data.inquilino.apellido}`;
+                const nombreCompleto = `ID: ${data.inquilino.id} - ${data.inquilino.apellido}, ${data.inquilino.nombre}`;
                 const nuevaOpcion = new Option(nombreCompleto, data.inquilino.id);
                 
                 // Aplicar estilos consistentes y fuertes
@@ -3625,12 +3625,12 @@ function guardarInquilino() {
                 nuevaOpcion.setAttribute('data-id', data.inquilino.id);
                 
                 inquilinoSelect.add(nuevaOpcion);
-                console.log('✅ Nuevo inquilino agregado a la lista:', `${data.inquilino.nombre} ${data.inquilino.apellido}`);
+                console.log('✅ Nuevo inquilino agregado a la lista:', `${data.inquilino.apellido}, ${data.inquilino.nombre}`);
                 
                 // Actualizar también la lista original para búsquedas
                 inquilinosOriginales.push({
                     value: data.inquilino.id,
-                    text: `ID: ${data.inquilino.id} - ${data.inquilino.nombre} ${data.inquilino.apellido} (DNI: ${data.inquilino.dni})`,
+                    text: `ID: ${data.inquilino.id} - ${data.inquilino.apellido}, ${data.inquilino.nombre} (DNI: ${data.inquilino.dni})`,
                     id: data.inquilino.id,
                     nombre: `${data.inquilino.nombre.toLowerCase()} ${data.inquilino.apellido.toLowerCase()}`,
                     dni: data.inquilino.dni || ''
@@ -3645,7 +3645,7 @@ function guardarInquilino() {
             
             // 4. Mostrar mensaje de éxito (con delay para que se vea después del cierre)
             setTimeout(() => {
-                alert('✅ Inquilino creado correctamente: ' + data.inquilino.nombre + ' ' + data.inquilino.apellido);
+                alert('✅ Inquilino creado correctamente: ' + data.inquilino.apellido + ', ' + data.inquilino.nombre);
             }, 200);
             
             console.log('✅ Proceso completo: Modal cerrado, inquilino agregado y seleccionado');
@@ -5688,7 +5688,7 @@ function consultarReserva(reservaId) {
                             <hr>
                             <h6 class="card-title"><i class="fas fa-user"></i> Información de Contacto</h6>
                             <hr>
-                            <p><strong>Nombre:</strong> ${cliente.nombre || 'N/A'} ${cliente.apellido || ''}</p>
+                            <p><strong>Nombre:</strong> ${cliente.apellido || ''}, ${cliente.nombre || 'N/A'}</p>
                             <p><strong>DNI:</strong> ${cliente.dni || 'N/A'}</p>
                             <p><strong>Celular:</strong> 
                                 ${cliente.celular ? `<a href="tel:${cliente.celular}" class="text-primary"><i class="fas fa-phone"></i> ${cliente.celular}</a>` : 'N/A'}

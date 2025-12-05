@@ -133,7 +133,7 @@
                                                             data-nombre="{{ inquilino.nombre|lower }} {{ inquilino.apellido|lower }}" 
                                                             data-id="{{ inquilino.id }}"
                                                             data-dni="{{ inquilino.dni|default:'' }}">
-                                                        ID: {{ inquilino.id }} - {{ inquilino.nombre }} {{ inquilino.apellido }} (DNI: {{ inquilino.dni|default:'N/A' }})
+                                                        ID: {{ inquilino.id }} - {{ inquilino.apellido }}, {{ inquilino.nombre }} (DNI: {{ inquilino.dni|default:'N/A' }})
                                             </option>
                                             {% endfor %}
                                         </select>
@@ -321,7 +321,7 @@
                         </div>
                         <div>
                             <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Número de Documento *</label>
-                            <input type="text" id="inquilino_dni_nuevo" name="dni" required
+                            <input type="text" id="inquilino_dni_nuevo" name="dni"
                                    style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
                                    onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
                                    onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
@@ -547,7 +547,7 @@ function guardarNuevoInquilino() {
     const formData = new FormData(form);
     
     // Validar campos requeridos
-    const camposRequeridos = ['nombre', 'apellido', 'email', 'telefono', 'tipo_doc', 'dni', 'domicilio', 'localidad', 'provincia', 'codigo_postal'];
+    const camposRequeridos = ['nombre', 'apellido', 'email', 'telefono', 'tipo_doc', 'domicilio', 'localidad', 'provincia', 'codigo_postal'];
     let camposVacios = [];
     
     camposRequeridos.forEach(campo => {
@@ -595,14 +595,14 @@ function guardarNuevoInquilino() {
             option.dataset.nombre = `${data.inquilino.nombre.toLowerCase()} ${data.inquilino.apellido.toLowerCase()}`;
             option.dataset.id = data.inquilino.id;
             option.dataset.dni = data.inquilino.dni || '';
-            option.textContent = `ID: ${data.inquilino.id} - ${data.inquilino.nombre} ${data.inquilino.apellido} (DNI: ${data.inquilino.dni || 'N/A'})`;
+            option.textContent = `ID: ${data.inquilino.id} - ${data.inquilino.apellido}, ${data.inquilino.nombre} (DNI: ${data.inquilino.dni || 'N/A'})`;
             select.appendChild(option);
             
             // Seleccionar el nuevo inquilino
             select.value = data.inquilino.id;
             actualizarInquilinoId();
             
-            alert(`✅ Inquilino creado exitosamente: ${data.inquilino.nombre} ${data.inquilino.apellido}`);
+            alert(`✅ Inquilino creado exitosamente: ${data.inquilino.apellido}, ${data.inquilino.nombre}`);
         } else {
             alert(`❌ Error al crear inquilino: ${data.error}`);
         }

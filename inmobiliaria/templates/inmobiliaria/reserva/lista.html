@@ -386,17 +386,17 @@
                                         {% if reserva.cliente %}
                                         <span class="reserva-meta-item">
                                             <i class="fas fa-user"></i>
-                                            Cliente: {{ reserva.cliente.nombre }} {{ reserva.cliente.apellido }}
+                                            Cliente: {{ reserva.cliente.apellido }}, {{ reserva.cliente.nombre }}
                                         </span>
                                         {% endif %}
                                         <span class="reserva-meta-item">
                                             <i class="fas fa-user-tie"></i>
-                                            Propietario: {{ reserva.propiedad.propietario.nombre }} {{ reserva.propiedad.propietario.apellido }}
+                                            Propietario: {{ reserva.propiedad.propietario.apellido }}, {{ reserva.propiedad.propietario.nombre }}
                                         </span>
                                         {% if reserva.vendedor %}
                                         <span class="reserva-meta-item">
                                             <i class="fas fa-user-check"></i>
-                                            Vendedor: {{ reserva.vendedor.nombre }} {{ reserva.vendedor.apellido }}
+                                            Vendedor: {{ reserva.vendedor.apellido }}, {{ reserva.vendedor.nombre }}
                                         </span>
                                         {% endif %}
                                         {% if reserva.propiedad.piso or reserva.propiedad.departamento %}

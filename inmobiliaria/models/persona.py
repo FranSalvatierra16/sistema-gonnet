@@ -21,11 +21,12 @@ TIPOS_DOC = [
 ]
 
 def validate_dni(value):
-    if not value.isdigit() or len(value) != 8:
-        raise ValidationError(
-            _('%(value)s no es un DNI válido. Debe contener 8 dígitos.'),
-            params={'value': value},
-        )
+    if value:  # Solo validar si hay valor (ahora es opcional)
+        if not value.isdigit() or (len(value) != 7 and len(value) != 8):
+            raise ValidationError(
+                _('%(value)s no es un DNI válido. Debe contener 7 u 8 dígitos.'),
+                params={'value': value},
+            )
 
 class Persona(models.Model):
    
@@ -57,7 +58,7 @@ class Persona(models.Model):
         abstract = True
 
     def __str__(self):
-        return f"{self.nombre} {self.apellido}"
+        return f"{self.apellido}, {self.nombre}" if self.apellido and self.nombre else f"{self.nombre} {self.apellido}"
  
     def clean(self):
         super().clean()
@@ -74,7 +75,7 @@ NIVELES_VENDEDOR = [
 ]
 
 class Vendedor(AbstractUser):
-    dni = models.CharField(max_length=8)
+    dni = models.CharField(max_length=8, blank=True, null=True)
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
     fecha_nacimiento = models.DateField(null=True, blank=True)
@@ -109,14 +110,14 @@ class Vendedor(AbstractUser):
     )
 
     def __str__(self):
-        return f"#{self.id} - {self.nombre} {self.apellido}"
+        return f"#{self.id} - {self.apellido}, {self.nombre}" if self.apellido and self.nombre else f"#{self.id} - {self.nombre} {self.apellido}"
 
     def clean(self):
         super().clean()
         if self.celular:
             self.celular = ''.join(filter(str.isdigit, self.celular))
     def nombre_completo_vendedor(self):
-        return f"{self.nombre} {self.apellido}"
+        return f"{self.apellido}, {self.nombre}" if self.apellido and self.nombre else f"{self.nombre} {self.apellido}"
     class Meta:
         verbose_name = "Vendedor"
         verbose_name_plural = "Vendedores"
@@ -169,9 +170,9 @@ class Vendedor(AbstractUser):
 class Inquilino(Persona):
     garantia = models.TextField(blank=True, help_text="Información sobre la garantía del inquilino")
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='inquilinos')
-    dni = models.CharField(max_length=8, unique=True, validators=[validate_dni])
+    dni = models.CharField(max_length=8, unique=True, validators=[validate_dni], blank=True, null=True)
     def nombre_completo_inquilino(self):
-        return f"{self.nombre} {self.apellido}"
+        return f"{self.apellido}, {self.nombre}" if self.apellido and self.nombre else f"{self.nombre} {self.apellido}"
     class Meta:
         verbose_name = "Inquilino"
         verbose_name_plural = "Inquilinos"
@@ -179,9 +180,9 @@ class Inquilino(Persona):
 class Propietario(Persona):
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='propietarios')
-    dni = models.CharField(max_length=8, unique=True, validators=[validate_dni])
+    dni = models.CharField(max_length=8, unique=True, validators=[validate_dni], blank=True, null=True)
     def nombre_completo_propietario(self):
-        return f"{self.nombre} {self.apellido}"
+        return f"{self.apellido}, {self.nombre}" if self.apellido and self.nombre else f"{self.nombre} {self.apellido}"
     class Meta:
         verbose_name = "Propietario"
         verbose_name_plural = "Propietarios"
