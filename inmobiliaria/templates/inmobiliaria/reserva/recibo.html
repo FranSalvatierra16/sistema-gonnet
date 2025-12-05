@@ -4,72 +4,49 @@
 {% block title %}Recibo{% endblock %}
 
 {% block content %}
-<div class="printable">
-<script>
-    function abrirRecibo() {
-        window.open('recibo.html', '_blank'); // Abre en nueva ventana/pestaña
-    }
-    </script>
-    
-    <style type="text/css" media="print">
+<style type="text/css" media="print">
         @page {
             size: legal;
-            margin: 0.5cm;
+            margin: 0;
+        }
+        body {
+            margin: 1cm;
         }
        
         @media print {
-            /* Resetear márgenes y padding */
-            * {
-                box-sizing: border-box;
-            }
-            
-            html, body {
-                margin: 0 !important;
-                padding: 0 !important;
-                background: white !important;
-                width: 100% !important;
-                height: auto !important;
-            }
-            
-            /* Ocultar elementos del layout base */
-            nav, header, footer, .navbar, .sidebar, .breadcrumb {
+            /* Ocultar scripts */
+            script {
                 display: none !important;
-                visibility: hidden !important;
             }
             
             /* Ocultar botones y elementos no imprimibles */
-            .no-print, button, .btn, .d-flex.gap-2, .btn-group, .dropdown-menu {
+            button, .no-print {
+                display: none !important;
+            }
+            
+            /* Ocultar todo excepto el contenido del recibo */
+            body * {
+                visibility: hidden;
+            }
+            .printable, .printable * {
+                visibility: visible;
+            }
+            .printable {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            
+            /* Evitar páginas en blanco después del recibo */
+            .printable::after {
+                display: none !important;
+            }
+            
+            /* Ocultar cualquier contenido después de .printable */
+            .printable ~ * {
                 display: none !important;
                 visibility: hidden !important;
-            }
-            
-            /* Asegurar que el contenido del recibo sea visible */
-            .printable {
-                display: block !important;
-                visibility: visible !important;
-                position: static !important;
-                width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                page-break-inside: avoid;
-            }
-            
-            .printable, .printable * {
-                visibility: visible !important;
-                display: block !important;
-            }
-            
-            .printable table, .printable tr, .printable td, .printable th {
-                display: table !important;
-                visibility: visible !important;
-            }
-            
-            /* Asegurar que el contenedor principal sea visible */
-            .container-fluid, .container {
-                width: 100% !important;
-                max-width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
             }
         }
     </style>
