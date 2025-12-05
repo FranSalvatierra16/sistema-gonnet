@@ -4,7 +4,7 @@
 {% block title %}Recibo{% endblock %}
 
 {% block content %}
-<style type="text/css" media="print">
+    <style type="text/css" media="print">
         @page {
             size: legal;
             margin: 0;
@@ -20,39 +20,57 @@
             }
             
             /* Ocultar botones y elementos no imprimibles */
-            button, .no-print {
+            button, .no-print, .btn, .d-flex, .btn-group {
                 display: none !important;
             }
             
-            /* Ocultar todo excepto el contenido del recibo */
-            body * {
-                visibility: hidden;
+            /* Ocultar elementos del layout base */
+            nav, header, footer, .navbar, .sidebar, .breadcrumb {
+                display: none !important;
             }
-            .printable, .printable * {
-                visibility: visible;
+            
+            /* Asegurar que el body y html sean visibles */
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
             }
+            
+            /* Mostrar el contenido del recibo */
             .printable {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
+                display: block !important;
+                visibility: visible !important;
+                position: relative !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
             }
             
-            /* Evitar páginas en blanco después del recibo */
-            .printable::after {
-                display: none !important;
+            .printable * {
+                visibility: visible !important;
             }
             
-            /* Ocultar cualquier contenido después de .printable */
-            .printable ~ * {
+            /* Asegurar que las tablas se muestren correctamente */
+            .printable table {
+                display: table !important;
+            }
+            
+            .printable tr {
+                display: table-row !important;
+            }
+            
+            .printable td, .printable th {
+                display: table-cell !important;
+            }
+            
+            /* Ocultar contenedores del layout que no sean .printable */
+            body > *:not(.printable) {
                 display: none !important;
-                visibility: hidden !important;
             }
         }
     </style>
- 
 
-    
+<div class="printable">
     <!-- Aquí comienza la sección del recibo -->
     <div style="height: 49%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid;">
         <!-- Contenido del recibo -->
@@ -359,8 +377,9 @@
               <!-- Contenido del recibo -->
         <!-- ... todo el contenido del recibo ... -->
     </div>
-</div>
+    </div>
     <!-- Aquí termina la sección del recibo -->
+</div>
 </div>
 </div>
 <!-- Botones de acción -->
