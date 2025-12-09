@@ -160,7 +160,7 @@ class MultipleFileField(forms.FileField):
                 raise forms.ValidationError("La cantidad de personas debe ser al menos 1.")
             return int(cantidad_personas)
         return cantidad_personas
-    
+
     def clean(self, data, initial=None):
         single_file_clean = super().clean
         if isinstance(data, (list, tuple)):

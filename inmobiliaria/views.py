@@ -3033,11 +3033,17 @@ def gestionar_precios(request, propiedad_id):
     # Obtener la última disponibilidad agregada
     ultima_disponibilidad = propiedad.disponibilidades.order_by('-id').first()
     
+    # Obtener el historial de disponibilidad
+    historiales = HistorialDisponibilidad.objects.filter(
+        propiedad=propiedad
+    ).order_by('fecha_actualizacion')
+    
     return render(request, 'inmobiliaria/propiedades/gestionar_precios.html', {
         'propiedad': propiedad,
         'formset': formset,
         'nivel_vendedor': vendedor.nivel,
-        'ultima_disponibilidad': ultima_disponibilidad
+        'ultima_disponibilidad': ultima_disponibilidad,
+        'historiales': historiales
     })
 
 def historial_reservas_vendedor(request, vendedor_id):
@@ -4766,30 +4772,30 @@ def crear_propietario_ajax(request):
             dni_limpio = None
             
             if dni_raw:  # Solo validar si se proporciona DNI
-                # Limpiar DNI: quitar puntos, espacios, guiones
-                dni_limpio = dni_raw.replace('.', '').replace(' ', '').replace('-', '').replace(',', '')
-                
-                # Validar que el DNI solo contenga números
-                if not dni_limpio.isdigit():
-                    return JsonResponse({
-                        'success': False,
+            # Limpiar DNI: quitar puntos, espacios, guiones
+            dni_limpio = dni_raw.replace('.', '').replace(' ', '').replace('-', '').replace(',', '')
+            
+            # Validar que el DNI solo contenga números
+            if not dni_limpio.isdigit():
+                return JsonResponse({
+                    'success': False,
                         'error': 'El DNI solo puede contener números. Por favor, ingrese solo los 7 u 8 dígitos del DNI sin puntos ni guiones.'
-                    })
-                
+                })
+            
                 # Validar longitud del DNI (7 u 8 dígitos)
                 if len(dni_limpio) != 7 and len(dni_limpio) != 8:
-                    return JsonResponse({
-                        'success': False,
+                return JsonResponse({
+                    'success': False,
                         'error': f'El DNI debe tener 7 u 8 dígitos. Usted ingresó {len(dni_limpio)} dígito(s). Por favor, verifique el DNI.'
-                    })
-                
-                # Verificar si el DNI ya existe
-                if Propietario.objects.filter(dni=dni_limpio).exists():
-                    propietario_existente = Propietario.objects.get(dni=dni_limpio)
-                    return JsonResponse({
-                        'success': False,
+                })
+            
+            # Verificar si el DNI ya existe
+            if Propietario.objects.filter(dni=dni_limpio).exists():
+                propietario_existente = Propietario.objects.get(dni=dni_limpio)
+                return JsonResponse({
+                    'success': False,
                         'error': f'Ya existe un propietario con el DNI {dni_limpio}. Propietario: {propietario_existente.apellido}, {propietario_existente.nombre}'
-                    })
+                })
                 
             propietario = Propietario.objects.create(
                 nombre=request.POST['nombre'],
@@ -5649,12 +5655,12 @@ def reconstruir_historial_propiedad(propiedad):
         # Si no hay reservas, crear historial básico con disponibilidades
         HistorialDisponibilidad.objects.filter(propiedad=propiedad).delete()
         for disp in propiedad.disponibilidades.filter(es_manual=True).order_by('fecha_inicio'):
-            HistorialDisponibilidad.objects.create(
-                propiedad=propiedad,
-                fecha_inicio=disp.fecha_inicio,
-                fecha_fin=disp.fecha_fin,
-                estado='libre'
-            )
+        HistorialDisponibilidad.objects.create(
+            propiedad=propiedad,
+            fecha_inicio=disp.fecha_inicio,
+            fecha_fin=disp.fecha_fin,
+            estado='libre'
+        )
 # print(f"   📅 Agregado período LIBRE: {disp.fecha_inicio} al {disp.fecha_fin}")
 
 @login_required

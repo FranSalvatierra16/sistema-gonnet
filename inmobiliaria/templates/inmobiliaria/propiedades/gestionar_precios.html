@@ -47,9 +47,9 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0">Gestionar Precios para {{ propiedad.direccion }}</h2>
     <div class="d-flex gap-2">
-        <a href="{% url 'inmobiliaria:historial_disponibilidad' propiedad.id %}" class="btn btn-info" title="Ver historial de disponibilidad">
+        <button type="button" class="btn btn-info" onclick="verHistorial()">
             <i class="fas fa-history"></i> Ver Historial
-        </a>
+        </button>
         <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-outline-secondary" title="Volver al detalle de la propiedad">
             <i class="fas fa-times"></i> Cerrar
         </a>
@@ -345,7 +345,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     if (data.success) {
                         console.log(`✅ Precio guardado automáticamente: ${tipoPrecio}`);
-                    } else {
+            } else {
                         console.error(`❌ Error al guardar precio: ${data.error || 'Error desconocido'}`);
                     }
                 })
@@ -374,5 +374,176 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log(`✅ Configurados ${filas.length} filas para guardado automático`);
 });
+
+// Función para abrir el modal de historial
+function verHistorial() {
+    const modalHistorial = new bootstrap.Modal(document.getElementById('modalHistorial'));
+    modalHistorial.show();
+}
+
+// Función para reconstruir el historial
+function reconstruirHistorial() {
+    if (typeof Swal === 'undefined') {
+        if (confirm('¿Reconstruir historial? Esto reconstruirá el historial de disponibilidad basado en las reservas y disponibilidades actuales.')) {
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            formData.append('propiedad_id', '{{ propiedad.id }}');
+            
+            fetch('{% url "inmobiliaria:limpiar_historial_disponibilidad" %}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('¡Éxito! ' + data.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Error al reconstruir el historial'));
+                }
+            })
+            .catch(error => {
+                alert('Error al reconstruir el historial: ' + error.message);
+            });
+        }
+        return;
+    }
+    
+    Swal.fire({
+        title: '¿Reconstruir historial?',
+        text: 'Esto reconstruirá el historial de disponibilidad basado en las reservas y disponibilidades actuales.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, reconstruir',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({
+                title: 'Reconstruyendo...',
+                text: 'Por favor espera',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            formData.append('propiedad_id', '{{ propiedad.id }}');
+            
+            fetch('{% url "inmobiliaria:limpiar_historial_disponibilidad" %}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: '¡Éxito!',
+                        text: data.message,
+                        icon: 'success',
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: data.error || 'Error al reconstruir el historial',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Error al reconstruir el historial: ' + error.message,
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            });
+        }
+    });
+}
 </script>
+
+<!-- Modal para historial -->
+<div class="modal fade" id="modalHistorial" tabindex="-1" aria-labelledby="modalHistorialLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalHistorialLabel">
+                    <i class="fas fa-history"></i> Historial de Disponibilidad - {{ propiedad.direccion }}
+                </h5>
+                <div>
+                    <button type="button" class="btn btn-warning btn-sm me-2" onclick="reconstruirHistorial()" title="Reconstruir historial">
+                        <i class="fas fa-sync-alt"></i> Reconstruir
+                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>Fecha Inicio</th>
+                                <th>Fecha Fin</th>
+                                <th>Estado</th>
+                                <th>Reserva</th>
+                                <th>Última Actualización</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historialTableBody">
+                            {% for historial in historiales %}
+                            <tr class="{% if historial.estado == 'libre' %}table-success{% elif historial.estado == 'reservado' %}table-warning{% else %}table-danger{% endif %}">
+                                <td>{{ historial.fecha_inicio|date:"d/m/Y" }}</td>
+                                <td>{{ historial.fecha_fin|date:"d/m/Y" }}</td>
+                                <td>
+                                    <span class="badge {% if historial.estado == 'libre' %}bg-success{% elif historial.estado == 'reservado' %}bg-warning{% else %}bg-danger{% endif %}">
+                                        {{ historial.get_estado_display|default:historial.estado|title }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if historial.reserva %}
+                                        <small>
+                                            Reserva #{{ historial.reserva.id }} <br>
+                                            Cliente: {{ historial.reserva.cliente.apellido }}, {{ historial.reserva.cliente.nombre }}
+                                        </small>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ historial.fecha_actualizacion|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    {% if historial.reserva %}
+                                        <a href="{% url 'inmobiliaria:reserva_detalle' historial.reserva.id %}" class="btn btn-info btn-sm" title="Ver reserva">
+                                            <i class="fas fa-eye"></i> Ver Reserva
+                                        </a>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center">
+                                    No hay registros en el historial
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
