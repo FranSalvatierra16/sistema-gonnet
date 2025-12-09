@@ -10267,16 +10267,41 @@ def ver_recibo_pdf(request, reserva_id):
             formas_de_pago_mostrar = ['Efectivo']
             numero_recibo = f"{reserva.id:06d}"
         
+        # Preparar datos del cliente con formato correcto (igual que en ver_recibo)
+        cliente_data = reserva.cliente
+        cliente_completo = {
+            'nombre_completo': f"{cliente_data.apellido}, {cliente_data.nombre}",
+            'domicilio': cliente_data.domicilio or '',
+            'localidad': cliente_data.localidad or '',
+            'provincia': cliente_data.provincia or '',
+            'dni': cliente_data.dni or '',
+            'telefono': cliente_data.celular or '',
+            'cuit': getattr(cliente_data, 'cuit', '') or '',
+        }
+        
+        # Preparar datos de la propiedad con formato correcto
+        propiedad_data = reserva.propiedad
+        propiedad_completa = {
+            'direccion': propiedad_data.direccion or '',
+            'id': propiedad_data.id,
+            'llave': propiedad_data.llave or 'N/A',
+            'piso': propiedad_data.piso or '',
+            'departamento': propiedad_data.departamento or '',
+            'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
+            'ambientes': propiedad_data.ambientes or '',
+        }
+        
         # Preparar contexto para el template
         context = {
             'reserva': reserva,
-            'propiedad': propiedad,
-            'cliente': cliente,
+            'propiedad': propiedad_completa,
+            'cliente': cliente_completo,
             'total_pagado': f"${total_pagado:,.0f}",
             'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
             'numero_recibo': numero_recibo,
             'fecha': timezone.now().strftime('%d/%m/%Y'),
             'hora': timezone.now().strftime('%H:%M'),
+            'descripcion': 'Alquiler temporario por días',
         }
         
         # Cargar template específico para PDF (sin botones)
@@ -10408,16 +10433,41 @@ def ver_recibo_publico(request, reserva_id, token):
             formas_de_pago_mostrar = ['Efectivo']
             numero_recibo = f"{reserva.id:06d}"
         
+        # Preparar datos del cliente con formato correcto (igual que en ver_recibo)
+        cliente_data = reserva.cliente
+        cliente_completo = {
+            'nombre_completo': f"{cliente_data.apellido}, {cliente_data.nombre}",
+            'domicilio': cliente_data.domicilio or '',
+            'localidad': cliente_data.localidad or '',
+            'provincia': cliente_data.provincia or '',
+            'dni': cliente_data.dni or '',
+            'telefono': cliente_data.celular or '',
+            'cuit': getattr(cliente_data, 'cuit', '') or '',
+        }
+        
+        # Preparar datos de la propiedad con formato correcto
+        propiedad_data = reserva.propiedad
+        propiedad_completa = {
+            'direccion': propiedad_data.direccion or '',
+            'id': propiedad_data.id,
+            'llave': propiedad_data.llave or 'N/A',
+            'piso': propiedad_data.piso or '',
+            'departamento': propiedad_data.departamento or '',
+            'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
+            'ambientes': propiedad_data.ambientes or '',
+        }
+        
         # Preparar contexto para el template
         context = {
             'reserva': reserva,
-            'propiedad': propiedad,
-            'cliente': cliente,
+            'propiedad': propiedad_completa,
+            'cliente': cliente_completo,
             'total_pagado': f"${total_pagado:,.0f}",
             'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
             'numero_recibo': numero_recibo,
             'fecha': timezone.now().strftime('%d/%m/%Y'),
             'hora': timezone.now().strftime('%H:%M'),
+            'descripcion': 'Alquiler temporario por días',
         }
         
         # Cargar template específico para PDF (sin botones)
@@ -10766,16 +10816,41 @@ def ver_recibo_publico(request, reserva_id, token):
             formas_de_pago_mostrar = ['Efectivo']
             numero_recibo = f"{reserva.id:06d}"
         
+        # Preparar datos del cliente con formato correcto (igual que en ver_recibo)
+        cliente_data = reserva.cliente
+        cliente_completo = {
+            'nombre_completo': f"{cliente_data.apellido}, {cliente_data.nombre}",
+            'domicilio': cliente_data.domicilio or '',
+            'localidad': cliente_data.localidad or '',
+            'provincia': cliente_data.provincia or '',
+            'dni': cliente_data.dni or '',
+            'telefono': cliente_data.celular or '',
+            'cuit': getattr(cliente_data, 'cuit', '') or '',
+        }
+        
+        # Preparar datos de la propiedad con formato correcto
+        propiedad_data = reserva.propiedad
+        propiedad_completa = {
+            'direccion': propiedad_data.direccion or '',
+            'id': propiedad_data.id,
+            'llave': propiedad_data.llave or 'N/A',
+            'piso': propiedad_data.piso or '',
+            'departamento': propiedad_data.departamento or '',
+            'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
+            'ambientes': propiedad_data.ambientes or '',
+        }
+        
         # Preparar contexto para el template
         context = {
             'reserva': reserva,
-            'propiedad': propiedad,
-            'cliente': cliente,
+            'propiedad': propiedad_completa,
+            'cliente': cliente_completo,
             'total_pagado': f"${total_pagado:,.0f}",
             'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
             'numero_recibo': numero_recibo,
             'fecha': timezone.now().strftime('%d/%m/%Y'),
             'hora': timezone.now().strftime('%H:%M'),
+            'descripcion': 'Alquiler temporario por días',
         }
         
         # Cargar template específico para PDF (sin botones)
