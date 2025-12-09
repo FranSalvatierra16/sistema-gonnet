@@ -23,10 +23,10 @@ TIPOS_DOC = [
 def validate_dni(value):
     if value:  # Solo validar si hay valor (ahora es opcional)
         if not value.isdigit() or (len(value) != 7 and len(value) != 8):
-        raise ValidationError(
+            raise ValidationError(
                 _('%(value)s no es un DNI válido. Debe contener 7 u 8 dígitos.'),
-            params={'value': value},
-        )
+                params={'value': value},
+            )
 
 class Persona(models.Model):
    
@@ -128,7 +128,7 @@ class Vendedor(AbstractUser):
         
         # Intentar guardar, y si hay error de ID duplicado, arreglar la secuencia
         try:
-        super().save(*args, **kwargs)
+            super().save(*args, **kwargs)
         except Exception as e:
             # Verificar si es un error de ID duplicado en PostgreSQL
             error_str = str(e)
