@@ -46,9 +46,14 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0">Gestionar Precios para {{ propiedad.direccion }}</h2>
-    <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-outline-secondary" title="Volver al detalle de la propiedad">
-        <i class="fas fa-times"></i> Cerrar
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{% url 'inmobiliaria:historial_disponibilidad' propiedad.id %}" class="btn btn-info" title="Ver historial de disponibilidad">
+            <i class="fas fa-history"></i> Ver Historial
+        </a>
+        <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-outline-secondary" title="Volver al detalle de la propiedad">
+            <i class="fas fa-times"></i> Cerrar
+        </a>
+    </div>
 </div>
 
 {% if ultima_disponibilidad %}
