@@ -10308,19 +10308,18 @@ def ver_recibo_pdf(request, reserva_id):
         template = get_template('inmobiliaria/reserva/recibo_pdf.html')
         html = template.render(context)
         
-        # Crear el PDF
-        result = io.BytesIO()
-        pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
+        # Crear el PDF usando CreatePDF (método correcto)
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="recibo_{reserva.id}.pdf"'
         
-        if not pdf.err:
-            # Configurar la respuesta HTTP
-            response = HttpResponse(result.getvalue(), content_type='application/pdf')
-            response['Content-Disposition'] = f'inline; filename="recibo_{reserva.id}.pdf"'
-            return response
-        else:
+        pisa_status = pisa.CreatePDF(html, dest=response)
+        
+        if pisa_status.err:
             # Devolver error más detallado
-            error_msg = f'Error al generar PDF: {pdf.err}'
+            error_msg = f'Error al generar PDF: {pisa_status.err}'
             return HttpResponse(error_msg, status=500, content_type='text/plain')
+        
+        return response
             
     except Exception as e:
         import traceback
@@ -10478,19 +10477,18 @@ def ver_recibo_publico(request, reserva_id, token):
         template = get_template('inmobiliaria/reserva/recibo_pdf.html')
         html = template.render(context)
         
-        # Crear el PDF
-        result = io.BytesIO()
-        pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
+        # Crear el PDF usando CreatePDF (método correcto)
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="recibo_{reserva.id}.pdf"'
         
-        if not pdf.err:
-            # Configurar la respuesta HTTP
-            response = HttpResponse(result.getvalue(), content_type='application/pdf')
-            response['Content-Disposition'] = f'inline; filename="recibo_{reserva.id}.pdf"'
-            return response
-        else:
+        pisa_status = pisa.CreatePDF(html, dest=response)
+        
+        if pisa_status.err:
             # Devolver error más detallado
-            error_msg = f'Error al generar PDF: {pdf.err}'
+            error_msg = f'Error al generar PDF: {pisa_status.err}'
             return HttpResponse(error_msg, status=500, content_type='text/plain')
+        
+        return response
             
     except Exception as e:
         import traceback
