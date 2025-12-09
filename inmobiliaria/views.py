@@ -10315,13 +10315,17 @@ def ver_recibo_pdf(request, reserva_id):
         if not pdf.err:
             # Configurar la respuesta HTTP
             response = HttpResponse(result.getvalue(), content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
+            response['Content-Disposition'] = f'inline; filename="recibo_{reserva.id}.pdf"'
             return response
         else:
-            return HttpResponse('Error al generar PDF', status=500)
+            # Devolver error más detallado
+            error_msg = f'Error al generar PDF: {pdf.err}'
+            return HttpResponse(error_msg, status=500, content_type='text/plain')
             
     except Exception as e:
-        return HttpResponse(f'Error: {str(e)}', status=500)
+        import traceback
+        error_detail = f'Error: {str(e)}\n\n{traceback.format_exc()}'
+        return HttpResponse(error_detail, status=500, content_type='text/plain')
 
 
 # Vista AJAX para generar enlace público
@@ -10481,13 +10485,17 @@ def ver_recibo_publico(request, reserva_id, token):
         if not pdf.err:
             # Configurar la respuesta HTTP
             response = HttpResponse(result.getvalue(), content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
+            response['Content-Disposition'] = f'inline; filename="recibo_{reserva.id}.pdf"'
             return response
         else:
-            return HttpResponse('Error al generar PDF', status=500)
+            # Devolver error más detallado
+            error_msg = f'Error al generar PDF: {pdf.err}'
+            return HttpResponse(error_msg, status=500, content_type='text/plain')
             
     except Exception as e:
-        return HttpResponse(f'Error: {str(e)}', status=500)
+        import traceback
+        error_detail = f'Error: {str(e)}\n\n{traceback.format_exc()}'
+        return HttpResponse(error_detail, status=500, content_type='text/plain')
 
 
 # Vista AJAX para generar enlace público
@@ -10864,13 +10872,17 @@ def ver_recibo_publico(request, reserva_id, token):
         if not pdf.err:
             # Configurar la respuesta HTTP
             response = HttpResponse(result.getvalue(), content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
+            response['Content-Disposition'] = f'inline; filename="recibo_{reserva.id}.pdf"'
             return response
         else:
-            return HttpResponse('Error al generar PDF', status=500)
+            # Devolver error más detallado
+            error_msg = f'Error al generar PDF: {pdf.err}'
+            return HttpResponse(error_msg, status=500, content_type='text/plain')
             
     except Exception as e:
-        return HttpResponse(f'Error: {str(e)}', status=500)
+        import traceback
+        error_detail = f'Error: {str(e)}\n\n{traceback.format_exc()}'
+        return HttpResponse(error_detail, status=500, content_type='text/plain')
 
 
 # Vista AJAX para generar enlace público
