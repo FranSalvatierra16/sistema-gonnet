@@ -96,6 +96,8 @@ def get_caracteristicas(propiedad):
         caracteristicas.append('TV Smart')
     if propiedad.wifi:
         caracteristicas.append('WiFi')
+    if propiedad.directv_prepago:
+        caracteristicas.append('DirecTV prepago')
     if propiedad.dependencia:
         caracteristicas.append('Dependencia')
     if propiedad.patio:

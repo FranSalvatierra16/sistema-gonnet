@@ -150,6 +150,7 @@ class Propiedad(models.Model):
     cochera = models.BooleanField(default=False)
     tv_smart = models.BooleanField(default=False)
     wifi = models.BooleanField(default=False)
+    directv_prepago = models.BooleanField(default=False, verbose_name="DirecTV prepago")
     dependencia = models.BooleanField(default=False)
     patio = models.BooleanField(default=False)
     parrilla = models.BooleanField(default=False)

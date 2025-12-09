@@ -250,7 +250,7 @@ class PropiedadForm(forms.ModelForm):
             'cantidad_personas', 'camas',
             # 'habilitar_precio_diario', 'precio_diario', 'habilitar_precio_venta', 'precio_venta',
             # 'habilitar_precio_alquiler', 'precio_alquiler',
-            'amoblado', 'cochera', 'tv_smart', 'wifi', 
+            'amoblado', 'cochera', 'tv_smart', 'wifi', 'directv_prepago',
             'dependencia', 'patio', 'parrilla', 'piscina', 'reciclado', 'a_estrenar', 'terraza', 'balcon', 
             'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito', 'descripcion', 'anotaciones',
             'propietario', 'fichado_por'
