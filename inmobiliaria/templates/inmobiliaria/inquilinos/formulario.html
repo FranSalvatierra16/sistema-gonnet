@@ -56,21 +56,15 @@
                             </div>
                         </div>
                         <div class="row g-4 mt-3">
+                            {{ form.tipo_doc }}
                             <div class="col-md-6">
-                                <label for="id_tipo_doc" class="form-label">
-                                    <i class="fas fa-id-card me-1"></i>Tipo de Documento
-                                </label>
-                                {{ form.tipo_doc }}
-                                {{ form.tipo_doc.errors }}
-                            </div>
-                            <div class="col-md-6" id="dni-field-container">
                                 <label for="id_dni" class="form-label">
-                                    <i class="fas fa-id-badge me-1"></i>DNI
+                                    <i class="fas fa-id-badge me-1"></i>DNI *
                                 </label>
                                 {{ form.dni }}
                                 {{ form.dni.errors }}
                             </div>
-                            <div class="col-md-6" id="cuit-field-container" style="display: none;">
+                            <div class="col-md-6">
                                 <label for="id_cuit" class="form-label">
                                     <i class="fas fa-id-badge me-1"></i>CUIT
                                 </label>
@@ -275,46 +269,4 @@ textarea.form-control {
 }
 </style>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const tipoDocSelect = document.getElementById('id_tipo_doc');
-    const dniContainer = document.getElementById('dni-field-container');
-    const cuitContainer = document.getElementById('cuit-field-container');
-    const dniField = document.getElementById('id_dni');
-    const cuitField = document.getElementById('id_cuit');
-    
-    function toggleDocumentFields() {
-        const selectedValue = tipoDocSelect.value;
-        
-        if (selectedValue === 'cuit') {
-            // Mostrar CUIT, ocultar DNI
-            dniContainer.style.display = 'none';
-            cuitContainer.style.display = 'block';
-            if (dniField) {
-                dniField.removeAttribute('required');
-                dniField.value = '';
-            }
-            if (cuitField) {
-                cuitField.removeAttribute('required');
-            }
-        } else {
-            // Mostrar DNI, ocultar CUIT
-            dniContainer.style.display = 'block';
-            cuitContainer.style.display = 'none';
-            if (cuitField) {
-                cuitField.removeAttribute('required');
-                cuitField.value = '';
-            }
-        }
-    }
-    
-    // Ejecutar al cargar la página
-    toggleDocumentFields();
-    
-    // Ejecutar cuando cambie la selección
-    if (tipoDocSelect) {
-        tipoDocSelect.addEventListener('change', toggleDocumentFields);
-    }
-});
-</script>
 {% endblock %}

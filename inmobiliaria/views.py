@@ -4670,41 +4670,44 @@ def crear_inquilino_ajax(request):
             
             tipo_doc = request.POST.get('tipo_doc', 'dni')
             
-            # Validar y limpiar DNI (ahora opcional)
+            # Validar y limpiar DNI (obligatorio)
             dni_raw = request.POST.get('dni', '').strip()
-            dni_limpio = None
+            if not dni_raw:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'El DNI es obligatorio. Por favor, ingrese el DNI.'
+                })
             
-            if dni_raw and tipo_doc != 'cuit':  # Solo validar DNI si no es CUIT
-                # Limpiar DNI: quitar puntos, espacios, guiones
-                dni_limpio = dni_raw.replace('.', '').replace(' ', '').replace('-', '').replace(',', '')
-                
-                # Validar que el DNI solo contenga números
-                if not dni_limpio.isdigit():
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'El DNI solo puede contener números. Por favor, ingrese solo los 7 u 8 dígitos del DNI sin puntos ni guiones.'
-                    })
-                
-                # Validar longitud del DNI (7 u 8 dígitos)
-                if len(dni_limpio) != 7 and len(dni_limpio) != 8:
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'El DNI debe tener 7 u 8 dígitos. Usted ingresó {len(dni_limpio)} dígito(s). Por favor, verifique el DNI.'
-                    })
-                
-                # Verificar si el DNI ya existe
-                if Inquilino.objects.filter(dni=dni_limpio).exists():
-                    inquilino_existente = Inquilino.objects.get(dni=dni_limpio)
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Ya existe un inquilino con el DNI {dni_limpio}. Inquilino: {inquilino_existente.apellido}, {inquilino_existente.nombre}'
-                    })
+            # Limpiar DNI: quitar puntos, espacios, guiones
+            dni_limpio = dni_raw.replace('.', '').replace(' ', '').replace('-', '').replace(',', '')
             
-            # Validar y limpiar CUIT (si se seleccionó CUIT)
+            # Validar que el DNI solo contenga números
+            if not dni_limpio.isdigit():
+                return JsonResponse({
+                    'success': False,
+                    'error': 'El DNI solo puede contener números. Por favor, ingrese solo los 7 u 8 dígitos del DNI sin puntos ni guiones.'
+                })
+            
+            # Validar longitud del DNI (7 u 8 dígitos)
+            if len(dni_limpio) != 7 and len(dni_limpio) != 8:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'El DNI debe tener 7 u 8 dígitos. Usted ingresó {len(dni_limpio)} dígito(s). Por favor, verifique el DNI.'
+                })
+            
+            # Verificar si el DNI ya existe
+            if Inquilino.objects.filter(dni=dni_limpio).exists():
+                inquilino_existente = Inquilino.objects.get(dni=dni_limpio)
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Ya existe un inquilino con el DNI {dni_limpio}. Inquilino: {inquilino_existente.apellido}, {inquilino_existente.nombre}'
+                })
+            
+            # Validar y limpiar CUIT (opcional)
             cuit_raw = request.POST.get('cuit', '').strip()
             cuit_limpio = None
             
-            if tipo_doc == 'cuit' and cuit_raw:
+            if cuit_raw:  # Solo validar si se proporciona CUIT
                 # Limpiar CUIT: quitar puntos, espacios, guiones
                 cuit_limpio = cuit_raw.replace('.', '').replace(' ', '').replace('-', '').replace(',', '')
                 

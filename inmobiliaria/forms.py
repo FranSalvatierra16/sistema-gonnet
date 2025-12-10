@@ -88,6 +88,15 @@ class InquilinoForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super(InquilinoForm, self).__init__(*args, **kwargs)
+        # Ocultar tipo_doc del formulario
+        if 'tipo_doc' in self.fields:
+            self.fields['tipo_doc'].widget = forms.HiddenInput()
+            self.fields['tipo_doc'].initial = 'dni'  # Valor por defecto
+        
+        # Hacer DNI obligatorio
+        if 'dni' in self.fields:
+            self.fields['dni'].required = True
+        
         # Si hay una instancia, cargar el CUIT desde el modelo
         if self.instance and self.instance.pk:
             self.fields['cuit'].initial = self.instance.cuit
