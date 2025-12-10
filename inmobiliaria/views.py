@@ -10291,11 +10291,20 @@ def ver_recibo_pdf(request, reserva_id):
             'ambientes': propiedad_data.ambientes or '',
         }
         
+        # Preparar datos del vendedor/productor
+        vendedor_completo = {}
+        if reserva.vendedor:
+            vendedor_completo = {
+                'id': reserva.vendedor.id,
+                'nombre_completo': f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}",
+            }
+        
         # Preparar contexto para el template
         context = {
             'reserva': reserva,
             'propiedad': propiedad_completa,
             'cliente': cliente_completo,
+            'vendedor': vendedor_completo,
             'total_pagado': f"${total_pagado:,.0f}",
             'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
             'numero_recibo': numero_recibo,
@@ -10308,9 +10317,22 @@ def ver_recibo_pdf(request, reserva_id):
         template = get_template('inmobiliaria/reserva/recibo_pdf.html')
         html = template.render(context)
         
-        # Crear el PDF usando BytesIO (método que funciona)
+        # Crear el PDF usando BytesIO (método robusto)
         pdf_buffer = io.BytesIO()
-        pisa_status = pisa.CreatePDF(io.BytesIO(html.encode("UTF-8")), dest=pdf_buffer)
+        
+        # Asegurar que el HTML esté bien formateado
+        html_encoded = html.encode("UTF-8")
+        html_source = io.BytesIO(html_encoded)
+        
+        # Generar el PDF
+        pisa_status = pisa.CreatePDF(
+            html_source,
+            dest=pdf_buffer,
+            encoding='UTF-8'
+        )
+        
+        # Cerrar el buffer de entrada
+        html_source.close()
         
         if pisa_status.err:
             # Devolver error más detallado
@@ -10318,11 +10340,22 @@ def ver_recibo_pdf(request, reserva_id):
             logger = logging.getLogger(__name__)
             logger.error(f'Error al generar PDF: {pisa_status.err}')
             error_msg = f'Error al generar PDF. Por favor, contacte al administrador.'
+            pdf_buffer.close()
+            return HttpResponse(error_msg, status=500, content_type='text/plain')
+        
+        # Obtener el contenido del PDF
+        pdf_content = pdf_buffer.getvalue()
+        pdf_buffer.close()
+        
+        # Verificar que el PDF no esté vacío
+        if not pdf_content or len(pdf_content) < 100:
+            error_msg = 'Error: El PDF generado está vacío o corrupto.'
             return HttpResponse(error_msg, status=500, content_type='text/plain')
         
         # Configurar la respuesta HTTP
-        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response = HttpResponse(pdf_content, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
+        response['Content-Length'] = len(pdf_content)
         
         return response
             
@@ -10465,11 +10498,20 @@ def ver_recibo_publico(request, reserva_id, token):
             'ambientes': propiedad_data.ambientes or '',
         }
         
+        # Preparar datos del vendedor/productor
+        vendedor_completo = {}
+        if reserva.vendedor:
+            vendedor_completo = {
+                'id': reserva.vendedor.id,
+                'nombre_completo': f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}",
+            }
+        
         # Preparar contexto para el template
         context = {
             'reserva': reserva,
             'propiedad': propiedad_completa,
             'cliente': cliente_completo,
+            'vendedor': vendedor_completo,
             'total_pagado': f"${total_pagado:,.0f}",
             'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
             'numero_recibo': numero_recibo,
@@ -10482,9 +10524,22 @@ def ver_recibo_publico(request, reserva_id, token):
         template = get_template('inmobiliaria/reserva/recibo_pdf.html')
         html = template.render(context)
         
-        # Crear el PDF usando BytesIO (método que funciona)
+        # Crear el PDF usando BytesIO (método robusto)
         pdf_buffer = io.BytesIO()
-        pisa_status = pisa.CreatePDF(io.BytesIO(html.encode("UTF-8")), dest=pdf_buffer)
+        
+        # Asegurar que el HTML esté bien formateado
+        html_encoded = html.encode("UTF-8")
+        html_source = io.BytesIO(html_encoded)
+        
+        # Generar el PDF
+        pisa_status = pisa.CreatePDF(
+            html_source,
+            dest=pdf_buffer,
+            encoding='UTF-8'
+        )
+        
+        # Cerrar el buffer de entrada
+        html_source.close()
         
         if pisa_status.err:
             # Devolver error más detallado
@@ -10492,11 +10547,22 @@ def ver_recibo_publico(request, reserva_id, token):
             logger = logging.getLogger(__name__)
             logger.error(f'Error al generar PDF: {pisa_status.err}')
             error_msg = f'Error al generar PDF. Por favor, contacte al administrador.'
+            pdf_buffer.close()
+            return HttpResponse(error_msg, status=500, content_type='text/plain')
+        
+        # Obtener el contenido del PDF
+        pdf_content = pdf_buffer.getvalue()
+        pdf_buffer.close()
+        
+        # Verificar que el PDF no esté vacío
+        if not pdf_content or len(pdf_content) < 100:
+            error_msg = 'Error: El PDF generado está vacío o corrupto.'
             return HttpResponse(error_msg, status=500, content_type='text/plain')
         
         # Configurar la respuesta HTTP
-        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response = HttpResponse(pdf_content, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
+        response['Content-Length'] = len(pdf_content)
         
         return response
             

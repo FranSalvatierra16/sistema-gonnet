@@ -1,8 +1,9 @@
 {% load custom_filters %}
-<!DOCTYPE html>
-<html>
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>Recibo</title>
     <style type="text/css">
         @page {
@@ -77,7 +78,18 @@
         <!-- Operación -->
         <tr>
             <td colspan="3" class="border-green" style="height: 3%; padding-left: 10px;">
-                <h4 style="margin: 0; font-size: 10px;">OPERACION: <u>&nbsp;&nbsp;&nbsp;{{ reserva.id }}&nbsp;&nbsp;&nbsp;</u></h4>
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="width: 50%;">
+                            <h4 style="margin: 0; font-size: 10px;">OPERACION: <u>&nbsp;&nbsp;&nbsp;{{ reserva.id }}&nbsp;&nbsp;&nbsp;</u></h4>
+                        </td>
+                        {% if vendedor %}
+                        <td style="width: 50%;">
+                            <h4 style="margin: 0; font-size: 10px;">PRODUCTOR: <u>&nbsp;&nbsp;&nbsp;#{{ vendedor.id }} - {{ vendedor.nombre_completo }}&nbsp;&nbsp;&nbsp;</u></h4>
+                        </td>
+                        {% endif %}
+                    </tr>
+                </table>
             </td>
         </tr>
         <!-- Cliente -->
