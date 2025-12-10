@@ -4668,11 +4668,13 @@ def crear_inquilino_ajax(request):
             if fecha_nacimiento == '':
                 fecha_nacimiento = None
             
+            tipo_doc = request.POST.get('tipo_doc', 'dni')
+            
             # Validar y limpiar DNI (ahora opcional)
             dni_raw = request.POST.get('dni', '').strip()
             dni_limpio = None
             
-            if dni_raw:  # Solo validar si se proporciona DNI
+            if dni_raw and tipo_doc != 'cuit':  # Solo validar DNI si no es CUIT
                 # Limpiar DNI: quitar puntos, espacios, guiones
                 dni_limpio = dni_raw.replace('.', '').replace(' ', '').replace('-', '').replace(',', '')
                 
@@ -4698,16 +4700,38 @@ def crear_inquilino_ajax(request):
                         'error': f'Ya existe un inquilino con el DNI {dni_limpio}. Inquilino: {inquilino_existente.apellido}, {inquilino_existente.nombre}'
                     })
             
+            # Validar y limpiar CUIT (si se seleccionó CUIT)
+            cuit_raw = request.POST.get('cuit', '').strip()
+            cuit_limpio = None
+            
+            if tipo_doc == 'cuit' and cuit_raw:
+                # Limpiar CUIT: quitar puntos, espacios, guiones
+                cuit_limpio = cuit_raw.replace('.', '').replace(' ', '').replace('-', '').replace(',', '')
+                
+                # Validar que el CUIT solo contenga números
+                if not cuit_limpio.isdigit():
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'El CUIT solo puede contener números. Por favor, ingrese solo los 11 dígitos del CUIT sin puntos ni guiones.'
+                    })
+                
+                # Validar longitud del CUIT (11 dígitos)
+                if len(cuit_limpio) != 11:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'El CUIT debe tener 11 dígitos. Usted ingresó {len(cuit_limpio)} dígito(s). Por favor, verifique el CUIT.'
+                    })
+            
             inquilino = Inquilino.objects.create(
                 nombre=request.POST['nombre'],
                 apellido=request.POST['apellido'],
                 fecha_nacimiento=fecha_nacimiento,
                 email=request.POST['email'],
                 celular=request.POST['celular'],
-                tipo_doc=request.POST['tipo_doc'],
+                tipo_doc=tipo_doc,
                 dni=dni_limpio,  # Puede ser None si no se proporciona
                 tipo_ins=request.POST.get('tipo_ins', 'otro'),  # Valor por defecto
-                cuit=request.POST.get('cuit', ''),
+                cuit=cuit_limpio or request.POST.get('cuit', ''),  # Usar CUIT limpio o el valor original
                 localidad=request.POST['localidad'],
                 provincia=request.POST['provincia'],
                 domicilio=request.POST['domicilio'],

@@ -73,18 +73,34 @@ class VendedorChangeForm(UserChangeForm):
 
 # Formulario de Inquilino
 class InquilinoForm(forms.ModelForm):
+    cuit = forms.CharField(
+        max_length=11,
+        required=False,
+        label='CUIT',
+        help_text='CUIT (11 dígitos)',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 20123456789'})
+    )
+    
     class Meta:
         model = Inquilino
-        fields = ['nombre', 'apellido', 'email', 'celular', 'tipo_doc', 'dni', 'localidad', 'provincia', 'domicilio', 'codigo_postal', 'observaciones', 'garantia']
+        fields = ['nombre', 'apellido', 'email', 'celular', 'tipo_doc', 'dni', 'cuit', 'localidad', 'provincia', 'domicilio', 'codigo_postal', 'observaciones', 'garantia']
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super(InquilinoForm, self).__init__(*args, **kwargs)
+        # Si hay una instancia, cargar el CUIT desde el modelo
+        if self.instance and self.instance.pk:
+            self.fields['cuit'].initial = self.instance.cuit
 
     def save(self, commit=True):
         inquilino = super(InquilinoForm, self).save(commit=False)
         if self.user:
             inquilino.sucursal = self.user.sucursal  # Asigna la sucursal del vendedor
+        
+        # Guardar CUIT si se proporcionó
+        if 'cuit' in self.cleaned_data and self.cleaned_data['cuit']:
+            inquilino.cuit = self.cleaned_data['cuit']
+        
         if commit:
             inquilino.save()
         return inquilino

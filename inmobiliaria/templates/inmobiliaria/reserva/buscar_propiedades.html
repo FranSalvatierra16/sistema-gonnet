@@ -2930,6 +2930,60 @@ window.cerrarModal = function() {
 window.mostrarModalCrearInquilino = function() {
     console.log('🏠 Abriendo modal crear inquilino...');
     document.getElementById('crearInquilinoModal').style.display = 'block';
+    
+    // Configurar el listener para el cambio de tipo de documento
+    const tipoDocSelect = document.getElementById('tipo_doc');
+    if (tipoDocSelect) {
+        // Remover listeners anteriores si existen
+        const newTipoDocSelect = tipoDocSelect.cloneNode(true);
+        tipoDocSelect.parentNode.replaceChild(newTipoDocSelect, tipoDocSelect);
+        
+        newTipoDocSelect.addEventListener('change', function() {
+            const selectedValue = this.value;
+            const dniContainer = document.getElementById('dni-field-container-buscar');
+            const cuitContainer = document.getElementById('cuit-field-container-buscar');
+            const dniField = document.getElementById('dni');
+            const cuitField = document.getElementById('cuit');
+            
+            if (selectedValue === 'cuit') {
+                // Mostrar CUIT, ocultar DNI
+                if (dniContainer) dniContainer.style.display = 'none';
+                if (cuitContainer) cuitContainer.style.display = 'block';
+                if (dniField) {
+                    dniField.removeAttribute('required');
+                    dniField.value = '';
+                }
+                if (cuitField) {
+                    cuitField.removeAttribute('required');
+                }
+            } else {
+                // Mostrar DNI, ocultar CUIT
+                if (dniContainer) dniContainer.style.display = 'block';
+                if (cuitContainer) cuitContainer.style.display = 'none';
+                if (cuitField) {
+                    cuitField.removeAttribute('required');
+                    cuitField.value = '';
+                }
+            }
+        });
+        
+        // Ejecutar al abrir el modal para establecer el estado inicial
+        const selectedValue = newTipoDocSelect.value;
+        const dniContainer = document.getElementById('dni-field-container-buscar');
+        const cuitContainer = document.getElementById('cuit-field-container-buscar');
+        const dniField = document.getElementById('dni');
+        const cuitField = document.getElementById('cuit');
+        
+        if (selectedValue === 'cuit') {
+            if (dniContainer) dniContainer.style.display = 'none';
+            if (cuitContainer) cuitContainer.style.display = 'block';
+            if (dniField) dniField.removeAttribute('required');
+        } else {
+            if (dniContainer) dniContainer.style.display = 'block';
+            if (cuitContainer) cuitContainer.style.display = 'none';
+            if (cuitField) cuitField.removeAttribute('required');
+        }
+    }
 };
 
 window.cerrarModalInquilino = function() {
@@ -3440,15 +3494,24 @@ document.addEventListener('DOMContentLoaded', function() {
                                     onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
                                     onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                                 <option value="dni">DNI</option>
+                                <option value="cuit">CUIT</option>
                                 <option value="le">LE</option>
                                 <option value="ls">LS</option>
                                 <option value="cipf">CIPF</option>
                                 <option value="pas">Pasaporte</option>
                             </select>
                         </div>
-                        <div>
+                        <div id="dni-field-container-buscar">
                             <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Número de Documento *</label>
                             <input type="text" id="dni" name="dni"
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
+                        </div>
+                        <div id="cuit-field-container-buscar" style="display: none;">
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">CUIT</label>
+                            <input type="text" id="cuit" name="cuit" maxlength="11"
+                                   placeholder="Ej: 20123456789"
                                    style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
                                    onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
                                    onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">

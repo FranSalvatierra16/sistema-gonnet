@@ -313,15 +313,24 @@
                                     onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
                                     onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                                 <option value="dni">DNI</option>
+                                <option value="cuit">CUIT</option>
                                 <option value="le">LE</option>
                                 <option value="ls">LS</option>
                                 <option value="cipf">CIPF</option>
                                 <option value="pas">Pasaporte</option>
                             </select>
                         </div>
-                        <div>
+                        <div id="inquilino-dni-container">
                             <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Número de Documento *</label>
                             <input type="text" id="inquilino_dni_nuevo" name="dni"
+                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
+                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
+                        </div>
+                        <div id="inquilino-cuit-container" style="display: none;">
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">CUIT</label>
+                            <input type="text" id="inquilino_cuit_nuevo" name="cuit" maxlength="11"
+                                   placeholder="Ej: 20123456789"
                                    style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
                                    onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
                                    onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
@@ -557,6 +566,23 @@ function guardarNuevoInquilino() {
         }
     });
     
+    // Validar DNI o CUIT según el tipo de documento seleccionado
+    const tipoDoc = form.querySelector('[name="tipo_doc"]').value;
+    const dniField = document.getElementById('inquilino_dni_nuevo');
+    const cuitField = document.getElementById('inquilino_cuit_nuevo');
+    
+    if (tipoDoc === 'cuit') {
+        // Si es CUIT, no validar DNI
+        if (dniField) {
+            dniField.removeAttribute('required');
+        }
+    } else {
+        // Si no es CUIT, validar DNI (pero no es obligatorio según el usuario)
+        if (dniField) {
+            dniField.removeAttribute('required');
+        }
+    }
+    
     if (camposVacios.length > 0) {
         alert('❌ Por favor completa los siguientes campos requeridos:\n• ' + camposVacios.join('\n• '));
         return;
@@ -723,6 +749,48 @@ function actualizarResumenContrato() {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
+    // Manejar cambio de tipo de documento para mostrar/ocultar DNI/CUIT
+    const tipoDocSelect = document.getElementById('inquilino_tipo_doc_nuevo');
+    const dniContainer = document.getElementById('inquilino-dni-container');
+    const cuitContainer = document.getElementById('inquilino-cuit-container');
+    const dniField = document.getElementById('inquilino_dni_nuevo');
+    const cuitField = document.getElementById('inquilino_cuit_nuevo');
+    
+    function toggleDocumentFieldsInquilino() {
+        if (!tipoDocSelect) return;
+        
+        const selectedValue = tipoDocSelect.value;
+        
+        if (selectedValue === 'cuit') {
+            // Mostrar CUIT, ocultar DNI
+            if (dniContainer) dniContainer.style.display = 'none';
+            if (cuitContainer) cuitContainer.style.display = 'block';
+            if (dniField) {
+                dniField.removeAttribute('required');
+                dniField.value = '';
+            }
+            if (cuitField) {
+                cuitField.removeAttribute('required');
+            }
+        } else {
+            // Mostrar DNI, ocultar CUIT
+            if (dniContainer) dniContainer.style.display = 'block';
+            if (cuitContainer) cuitContainer.style.display = 'none';
+            if (cuitField) {
+                cuitField.removeAttribute('required');
+                cuitField.value = '';
+            }
+        }
+    }
+    
+    // Ejecutar al cargar la página
+    toggleDocumentFieldsInquilino();
+    
+    // Ejecutar cuando cambie la selección
+    if (tipoDocSelect) {
+        tipoDocSelect.addEventListener('change', toggleDocumentFieldsInquilino);
+    }
+    
     // Actualizar resumen cuando cambien los valores
     document.getElementById('duracion_meses').addEventListener('change', actualizarResumenContrato);
     document.getElementById('precio_mensual_input').addEventListener('input', actualizarResumenContrato);

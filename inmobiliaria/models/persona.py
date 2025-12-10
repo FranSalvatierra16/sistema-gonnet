@@ -14,6 +14,7 @@ TIPOS_INS = [
 
 TIPOS_DOC = [
     ('dni', 'DNI'),
+    ('cuit', 'CUIT'),
     ('le', 'LE'),
     ('ls', 'LS'),
     ('cipf', 'CIPF'),
