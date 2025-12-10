@@ -113,7 +113,7 @@
                 </div>
                 <div class="info-box-content">
                     <span class="info-box-text">Total Ingresos</span>
-                    <span class="info-box-number">${{ total_ingresos|format_price }}</span>
+                    <span class="info-box-number">{{ total_ingresos|format_price }}</span>
                 </div>
             </div>
         </div>
@@ -124,7 +124,7 @@
                 </div>
                 <div class="info-box-content">
                     <span class="info-box-text">Total Egresos</span>
-                    <span class="info-box-number">${{ total_egresos|format_price }}</span>
+                    <span class="info-box-number">{{ total_egresos|format_price }}</span>
                 </div>
             </div>
         </div>
@@ -135,7 +135,7 @@
                 </div>
                 <div class="info-box-content">
                     <span class="info-box-text">Balance</span>
-                    <span class="info-box-number">${{ total_ingresos|sub:total_egresos|format_price }}</span>
+                    <span class="info-box-number">{{ total_ingresos|sub:total_egresos|format_price }}</span>
                 </div>
             </div>
         </div>
@@ -224,14 +224,14 @@
                                         </td>
                                         <td class="text-end">
                                             {% if movimiento.monto_efectivo > 0 %}
-                                                <strong>${{ movimiento.monto_efectivo|format_price }}</strong>
+                                                <strong>{{ movimiento.monto_efectivo|format_price }}</strong>
                                             {% else %}
                                                 <span class="text-muted">-</span>
                                             {% endif %}
                                         </td>
                                         <td class="text-end">
                                             {% if movimiento.monto_deposito > 0 %}
-                                                <strong>${{ movimiento.monto_deposito|format_price }}</strong>
+                                                <strong>{{ movimiento.monto_deposito|format_price }}</strong>
                                                 {% if movimiento.destino_deposito %}
                                                     <br><small class="text-muted">{{ movimiento.destino_deposito }}</small>
                                                 {% endif %}
@@ -241,7 +241,7 @@
                                         </td>
                                         <td class="text-end">
                                             <strong class="{% if movimiento.tipo == 'IN' %}text-success{% else %}text-danger{% endif %}">
-                                                ${{ movimiento.monto_total|format_price }}
+                                                {{ movimiento.monto_total|format_price }}
                                             </strong>
                                         </td>
                                     </tr>

@@ -1607,7 +1607,7 @@
                         <p><strong>Ambientes:</strong> {{ propiedad.ambientes }}</p>
                         <p><strong>Valoración:</strong> {{ propiedad.valoracion }}</p>
                         <p><strong>Características:</strong> {{ propiedad.caracteristicas }}</p>
-                        <p><strong>Precio Final:</strong> ${{ propiedad.precio_total_reserva|format_price }}</p>
+                        <p><strong>Precio Final:</strong> {{ propiedad.precio_total_reserva|format_price }}</p>
                     </div>
                 </div>
             </div>
@@ -3438,8 +3438,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">DNI *</label>
                             <input type="text" id="dni" name="dni" required
                                    style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
-                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
-                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
+                                    onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                                    onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                         </div>
                         <div>
                             <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">CUIT</label>
