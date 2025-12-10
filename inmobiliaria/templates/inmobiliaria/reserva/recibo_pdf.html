@@ -14,211 +14,225 @@
             margin: 0;
             padding: 0;
         }
-        .printable {
+        table {
             width: 100%;
+            border-collapse: collapse;
+        }
+        td {
+            vertical-align: top;
+        }
+        .border-green {
+            border: 1px solid #2d8524;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-left {
+            text-align: left;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .border-bottom-dotted {
+            border-bottom: 1px dotted black;
+        }
+        .border-top-solid {
+            border-top: 1px solid #2d8524;
+        }
+        .border-top-2 {
+            border-top: 2px solid #2d8524;
         }
     </style>
 </head>
 <body>
-    <div class="printable">
-        <!-- Aquí comienza la sección del recibo -->
-        <div style="height: 49%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid;">
-            <!-- Contenido del recibo -->
-            <div style="height: 15%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
-                <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-                    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" alt="logo" style="height: 30%; width: 60%; margin-top: 0%;">
-                    <p style="margin: 0; font-size: 7px;"> de Nestor Oscar Gonnet</p>
-                    <p style="margin: 0; font-size: 7px;">Corrientes 1987</p>
-                    <p style="margin: 0; font-size: 7px;">(B7600EBO) Mar del Plata - Prov. de Bs. As.</p>
-                    <p style="margin: 0; font-size: 7px;">http://www.gonnet.com.ar</p>
-                    <p style="margin: 0; font-size: 7px;">email: info@gonnet.com.ar</p>
-                </div>
-                <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
-                    <h4 style="margin-top: 15px;">RECIBO</h4>
-                    <p style="margin: 0; font-size: 7px;">DOCUMENTO NO VALIDO COMO FACTURA</p>
-                </div>
-                <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; margin-top: 5px;">
-                    <div style="width: 80%; text-align: left;">
-                        <h1 style="margin: 0; font-size: 10px;">Nº: {{ numero_recibo }}</h1>    
-                        <h2 style="margin: 0; font-size: 10px;">Fecha: <u>&nbsp;&nbsp;&nbsp;{{ fecha }}&nbsp;&nbsp;&nbsp;</u></h2>
-                        <h2 style="margin: 0; font-size: 7px;">Hora: &nbsp;&nbsp;<u>&nbsp;&nbsp;&nbsp;&nbsp;{{ hora }}&nbsp;&nbsp;&nbsp;&nbsp;</u></h2>
-                        <p style="margin: 0; font-size: 7px;">ING. BRUTOS: 20-10757572-4</p>
-                        <p style="margin: 0; font-size: 7px;">INSC: 120609/8 REG. 1572</p>
-                        <p style="margin: 0; font-size: 7px;">INICIO ACTIVIDAD: 01/01/1977</p>
-                    </div>
-                </div>
-            </div>
-            <div style="height: 3%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; align-items: center;">
-                <div style="width: 63%; padding-left: 10px;">
-                    <h4 style="margin: 0; font-size: 10px;">OPERACION: <u>&nbsp;&nbsp;&nbsp;{{ reserva.id }}&nbsp;&nbsp;&nbsp;</u></h4>
-                </div>
-            </div>
-            <div style="height: 16%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
-                <div style="height: 100%; width: 63%; display: flex; flex-direction: column; text-align: center;margin-top: 5px;">
-                    <div style="width: 80%; text-align: left; margin-left: 10px;">
-                        <h4 style="margin: 0; font-size: 10px;">CLIENTE: </h4>    
-                        <div style="display: flex; align-items: center; margin: 5px 0;">
-                            <span style="min-width: 120px; font-size: 8px;">NOMBRE:</span>
-                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.nombre_completo }}</div>
-                        </div>
-                        <div style="display: flex; align-items: center; margin: 5px 0;">
-                            <span style="min-width: 120px; font-size: 8px;">DOMICILIO:</span>
-                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.domicilio }}</div>
-                        </div>
-                        <div style="display: flex; align-items: center; margin: 5px 0;">
-                            <span style="min-width: 120px; font-size: 8px;">LOCALIDAD:</span>
-                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.localidad }}</div>
-                        </div>
-                    </div>
-                </div>
-                <div style="height: 100%; width: 36%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
-                    <div style="width: 80%; text-align: left; ">
-                        <h4 style="margin: 0; color: transparent; font-size: 10px;">CLIENTE: </h4>    
-                        <div style="display: flex; align-items: center; margin: 5px 0;">
-                            <span style="min-width: 120px; font-size: 8px;">DNI/CUIT:</span>
-                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">
-                                {% if cliente.cuit %}{{ cliente.cuit }}{% else %}{{ cliente.dni }}{% endif %}
-                            </div>
-                        </div>
-                        <div style="display: flex; align-items: center; margin: 5px 0;">
-                            <span style="min-width: 120px; font-size: 8px;">TEL:</span>
-                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.telefono }}</div>
-                        </div>
-                        <div style="display: flex; align-items: center; margin: 5px 0;">
-                            <span style="min-width: 120px; font-size: 8px;">PROVINCIA:</span>
-                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px; min-height: 12px; padding: 2px 0;">{{ cliente.provincia }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div style="height: 16%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
-                <div style="height: 100%; width: 63%; display: flex; flex-direction: column; text-align: center;margin-top: 5px;padding-left: 10px;">
-                    <div style="width: 80%; text-align: left;">
-                        <h4 style="margin: 0; font-size: 10px;">PROPIEDAD: </h4>    
-                        <div style="display: flex; align-items: center;">
-                            <span style="min-width: 120px; font-size: 8px;">DIRECCION:</span>
-                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ propiedad.direccion }}</div>
-                        </div>
-                        <div style="display: flex; align-items: center;">
-                            <span style="min-width: 120px; font-size: 8px;">COMODIDADES:</span>
-                            <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ descripcion }}</div>
-                        </div>
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <div style="display: flex; align-items: center; width: 30%;">
-                                <span style="min-width: 40px; font-size: 8px;">WIFI:</span>
-                                <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">{{propiedad.wifi}}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div style="height: 100%; width: 36%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
-                    <div style="width: 80%; text-align: left;">
-                        <h2 style="margin: 0; color: transparent; font-size: 8px;">CLIENTE: </h2>    
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin: 5px 0;">
-                            <div style="display: flex; align-items: center; width: 45%;">
-                                <span style="min-width: 50px; font-size: 8px;">AMOBLADO PARA:</span>
-                                <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">{{propiedad.ambientes}}</div>
-                            </div>
-                        </div>
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin: 5px 0;">
-                            <div style="display: flex; align-items: center; width: 45%;">
-                                <span style="min-width: 40px; font-size: 8px;">FICHA:</span>
-                                <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">&nbsp; {{propiedad.id}}</div>
-                            </div>
-                            <div style="display: flex; align-items: center; width: 45%;">
-                                <span style="min-width: 40px; font-size: 8px;">LLAVE:</span>
-                                <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">{{propiedad.llave}}</div>
-                            </div>
-                        </div>
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <div style="display: flex; align-items: center; width: 45%;">
-                                <span style="min-width: 40px; font-size: 8px;">PISO:</span>
-                                <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">{{propiedad.piso}}</div>
-                            </div>
-                            <div style="display: flex; align-items: center; width: 45%;">
-                                <span style="min-width: 40px; font-size: 8px;">DPTO:</span>
-                                <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">{{propiedad.departamento}}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <table class="border-green" style="height: 49%;">
+        <!-- Header -->
+        <tr>
+            <td colspan="3" class="border-green" style="height: 15%;">
+                <table style="width: 100%; height: 100%;">
+                    <tr>
+                        <td style="width: 33%;" class="text-center">
+                            <p style="margin: 0; font-size: 7px;"> de Nestor Oscar Gonnet</p>
+                            <p style="margin: 0; font-size: 7px;">Corrientes 1987</p>
+                            <p style="margin: 0; font-size: 7px;">(B7600EBO) Mar del Plata - Prov. de Bs. As.</p>
+                            <p style="margin: 0; font-size: 7px;">http://www.gonnet.com.ar</p>
+                            <p style="margin: 0; font-size: 7px;">email: info@gonnet.com.ar</p>
+                        </td>
+                        <td style="width: 33%;" class="text-center">
+                            <h4 style="margin-top: 15px; margin-bottom: 5px;">RECIBO</h4>
+                            <p style="margin: 0; font-size: 7px;">DOCUMENTO NO VALIDO COMO FACTURA</p>
+                        </td>
+                        <td style="width: 33%;" class="text-left" style="padding-left: 10px;">
+                            <h1 style="margin: 0; font-size: 10px;">Nº: {{ numero_recibo }}</h1>    
+                            <h2 style="margin: 0; font-size: 10px;">Fecha: <u>&nbsp;&nbsp;&nbsp;{{ fecha }}&nbsp;&nbsp;&nbsp;</u></h2>
+                            <h2 style="margin: 0; font-size: 7px;">Hora: &nbsp;&nbsp;<u>&nbsp;&nbsp;&nbsp;&nbsp;{{ hora }}&nbsp;&nbsp;&nbsp;&nbsp;</u></h2>
+                            <p style="margin: 0; font-size: 7px;">ING. BRUTOS: 20-10757572-4</p>
+                            <p style="margin: 0; font-size: 7px;">INSC: 120609/8 REG. 1572</p>
+                            <p style="margin: 0; font-size: 7px;">INICIO ACTIVIDAD: 01/01/1977</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <!-- Operación -->
+        <tr>
+            <td colspan="3" class="border-green" style="height: 3%; padding-left: 10px;">
+                <h4 style="margin: 0; font-size: 10px;">OPERACION: <u>&nbsp;&nbsp;&nbsp;{{ reserva.id }}&nbsp;&nbsp;&nbsp;</u></h4>
+            </td>
+        </tr>
+        <!-- Cliente -->
+        <tr>
+            <td class="border-green" style="width: 63%; height: 16%; padding: 5px 10px;">
+                <h4 style="margin: 0; font-size: 10px;">CLIENTE: </h4>
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="width: 120px; font-size: 8px;">NOMBRE:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px; min-height: 12px;">{{ cliente.nombre_completo }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size: 8px;">DOMICILIO:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ cliente.domicilio }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size: 8px;">LOCALIDAD:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ cliente.localidad }}</td>
+                    </tr>
+                </table>
+            </td>
+            <td class="border-green" style="width: 36%; padding: 5px 10px;">
+                <h4 style="margin: 0; font-size: 10px; color: transparent;">CLIENTE: </h4>
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="font-size: 8px;">DNI/CUIT:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">
+                            {% if cliente.cuit %}{{ cliente.cuit }}{% else %}{{ cliente.dni }}{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-size: 8px;">TEL:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ cliente.telefono }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size: 8px;">PROVINCIA:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ cliente.provincia }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <!-- Propiedad -->
+        <tr>
+            <td class="border-green" style="width: 63%; height: 16%; padding: 5px 10px;">
+                <h4 style="margin: 0; font-size: 10px;">PROPIEDAD: </h4>
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="width: 120px; font-size: 8px;">DIRECCION:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ propiedad.direccion }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size: 8px;">COMODIDADES:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ descripcion }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size: 8px;">WIFI:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px; width: 100px;">{{ propiedad.wifi }}</td>
+                    </tr>
+                </table>
+            </td>
+            <td class="border-green" style="width: 36%; padding: 5px 10px;">
+                <h4 style="margin: 0; font-size: 10px; color: transparent;">PROPIEDAD: </h4>
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="font-size: 8px;">AMOBLADO PARA:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ propiedad.ambientes }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size: 8px;">FICHA:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">&nbsp; {{ propiedad.id }}</td>
+                        <td style="font-size: 8px;">LLAVE:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ propiedad.llave }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size: 8px;">PISO:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ propiedad.piso }}</td>
+                        <td style="font-size: 8px;">DPTO:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ propiedad.departamento }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 
-        <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; height: 50%;">
-            <!-- Tabla de conceptos -->
-            <div style="width: 100%; display: flex; flex-direction: column; height: 12%;">
-                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d8524; height: 100%;">
-                    <div style="display: flex; flex-wrap: wrap; width: 72%;">
-                        <div style="width: 18%; text-align: center;">
+    <!-- Tabla de conceptos -->
+    <table class="border-green" style="height: 50%;">
+        <!-- Header tabla -->
+        <tr>
+            <td colspan="3" class="border-green border-top-solid" style="height: 12%;">
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="width: 18%;" class="text-center">
                             <p style="margin: 0; font-size: 8px; font-weight: bold;">CANTIDAD</p>
-                        </div>
-                        <div style="width: 82%; text-align: center;">
+                        </td>
+                        <td style="width: 54%;" class="text-center">
                             <p style="margin: 0; font-size: 8px; font-weight: bold;">DETALLE</p>
-                        </div>
-                    </div>
-                    <div style="width: 28%; text-align: center;">
-                        <p style="margin: 0; font-size: 8px; font-weight: bold;">IMPORTE</p>
-                    </div>
-                </div>
-            </div>
-            <!-- Filas de conceptos -->
-            <div style="width: 100%; display: flex; flex-direction: column; height: 60%;">
-                <div style="display: flex; justify-content: space-between; height: 20%;">
-                    <div style="display: flex; flex-wrap: wrap; width: 72%;">
-                        <div style="width: 18%; text-align: center; border-bottom: 1px dotted black;">
-                            <p style="margin: 0; font-size: 8px;">1</p>
-                        </div>
-                        <div style="width: 82%; text-align: left; border-bottom: 1px dotted black; padding-left: 10px;">
-                            <p style="margin: 0; font-size: 8px;">SEÑA - RESERVA DE PROPIEDAD</p>
-                        </div>
-                    </div>
-                    <div style="width: 28%; text-align: center; border-bottom: 1px dotted black;">
-                        <p style="margin: 0; font-size: 8px;">{{ total_pagado }}</p>
-                    </div>
-                </div>
-                <!-- Filas vacías -->
-                {% for i in "12345" %}
-                <div style="display: flex; justify-content: space-between; height: 16%;">
-                    <div style="display: flex; flex-wrap: wrap; width: 72%;">
-                        <div style="width: 18%; text-align: center; border-bottom: 1px dotted black;">
-                            <p style="margin: 0; font-size: 8px;">&nbsp;</p>
-                        </div>
-                        <div style="width: 82%; text-align: left; border-bottom: 1px dotted black;">
-                            <p style="margin: 0; font-size: 8px;">&nbsp;</p>
-                        </div>
-                    </div>
-                    <div style="width: 28%; text-align: center; border-bottom: 1px dotted black;">
-                        <p style="margin: 0; font-size: 8px;">&nbsp;</p>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            <!-- Total -->
-            <div style="width: 100%; display: flex; flex-direction: column; height: 10%;">
-                <div style="display: flex; justify-content: space-between; height: 100%;">
-                    <div style="width: 72%; text-align: right; padding-right: 10px;">
-                        <p style="margin: 0; font-size: 10px; font-weight: bold;">TOTAL $</p>
-                    </div>
-                    <div style="width: 28%; text-align: center; border-top: 2px solid #2d8524;">
-                        <p style="margin: 0; font-size: 10px; font-weight: bold;">{{ total_pagado }}</p>
-                    </div>
-                </div>
-            </div>
-            <!-- Forma de pago -->
-            <div style="padding: 2; padding-left: 10px; border-top: 1px solid #2d8524; height: 6%;">
+                        </td>
+                        <td style="width: 28%;" class="text-center">
+                            <p style="margin: 0; font-size: 8px; font-weight: bold;">IMPORTE</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <!-- Fila de concepto -->
+        <tr>
+            <td style="width: 18%; height: 20%;" class="text-center border-bottom-dotted">
+                <p style="margin: 0; font-size: 8px;">1</p>
+            </td>
+            <td style="width: 54%;" class="text-left border-bottom-dotted" style="padding-left: 10px;">
+                <p style="margin: 0; font-size: 8px;">SEÑA - RESERVA DE PROPIEDAD</p>
+            </td>
+            <td style="width: 28%;" class="text-center border-bottom-dotted">
+                <p style="margin: 0; font-size: 8px;">{{ total_pagado }}</p>
+            </td>
+        </tr>
+        <!-- Filas vacías -->
+        {% for i in "12345" %}
+        <tr>
+            <td class="text-center border-bottom-dotted" style="height: 16%;">
+                <p style="margin: 0; font-size: 8px;">&nbsp;</p>
+            </td>
+            <td class="text-left border-bottom-dotted">
+                <p style="margin: 0; font-size: 8px;">&nbsp;</p>
+            </td>
+            <td class="text-center border-bottom-dotted">
+                <p style="margin: 0; font-size: 8px;">&nbsp;</p>
+            </td>
+        </tr>
+        {% endfor %}
+        <!-- Total -->
+        <tr>
+            <td colspan="2" class="text-right" style="height: 10%; padding-right: 10px;">
+                <p style="margin: 0; font-size: 10px; font-weight: bold;">TOTAL $</p>
+            </td>
+            <td class="text-center border-top-2">
+                <p style="margin: 0; font-size: 10px; font-weight: bold;">{{ total_pagado }}</p>
+            </td>
+        </tr>
+        <!-- Forma de pago -->
+        <tr>
+            <td colspan="3" class="border-top-solid" style="height: 6%; padding: 2px 10px;">
                 <p style="margin: 0; font-size: 9px;">FORMA DE PAGO:<u>&nbsp;&nbsp;&nbsp;{{ formas_de_pago }}&nbsp;&nbsp;&nbsp;</u></p>
                 <div style="border-bottom: 1px dotted black; height: 5px;"></div>
-            </div>
-            <!-- Observaciones -->
-            <div style="padding: 2; padding-left: 10px; border-top: 1px solid #2d8524; height: 12%;">
+            </td>
+        </tr>
+        <!-- Observaciones -->
+        <tr>
+            <td colspan="3" class="border-top-solid" style="height: 12%; padding: 2px 10px;">
                 <p style="margin: 0; font-size: 9px;">OBSERVACIONES:</p>
                 <div style="border-bottom: 1px dotted black; height: 15px;"></div>
                 <div style="border-bottom: 1px dotted black; height: 15px;"></div>
                 <div style="border-bottom: 1px dotted black; height: 15px;"></div>
-            </div>
-        </div>
-        <!-- Aquí termina la sección del recibo -->
-    </div>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>

@@ -10310,13 +10310,16 @@ def ver_recibo_pdf(request, reserva_id):
         
         # Crear el PDF usando CreatePDF (método correcto)
         response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = f'inline; filename="recibo_{reserva.id}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
         
-        pisa_status = pisa.CreatePDF(html, dest=response)
+        pisa_status = pisa.CreatePDF(html, dest=response, encoding='UTF-8')
         
         if pisa_status.err:
             # Devolver error más detallado
-            error_msg = f'Error al generar PDF: {pisa_status.err}'
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Error al generar PDF: {pisa_status.err}')
+            error_msg = f'Error al generar PDF. Por favor, contacte al administrador.'
             return HttpResponse(error_msg, status=500, content_type='text/plain')
         
         return response
@@ -10479,13 +10482,16 @@ def ver_recibo_publico(request, reserva_id, token):
         
         # Crear el PDF usando CreatePDF (método correcto)
         response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = f'inline; filename="recibo_{reserva.id}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
         
-        pisa_status = pisa.CreatePDF(html, dest=response)
+        pisa_status = pisa.CreatePDF(html, dest=response, encoding='UTF-8')
         
         if pisa_status.err:
             # Devolver error más detallado
-            error_msg = f'Error al generar PDF: {pisa_status.err}'
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Error al generar PDF: {pisa_status.err}')
+            error_msg = f'Error al generar PDF. Por favor, contacte al administrador.'
             return HttpResponse(error_msg, status=500, content_type='text/plain')
         
         return response
