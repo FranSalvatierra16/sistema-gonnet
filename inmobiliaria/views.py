@@ -10308,11 +10308,9 @@ def ver_recibo_pdf(request, reserva_id):
         template = get_template('inmobiliaria/reserva/recibo_pdf.html')
         html = template.render(context)
         
-        # Crear el PDF usando CreatePDF (método correcto)
-        response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
-        
-        pisa_status = pisa.CreatePDF(html, dest=response, encoding='UTF-8')
+        # Crear el PDF usando BytesIO (método que funciona)
+        pdf_buffer = io.BytesIO()
+        pisa_status = pisa.CreatePDF(io.BytesIO(html.encode("UTF-8")), dest=pdf_buffer)
         
         if pisa_status.err:
             # Devolver error más detallado
@@ -10321,6 +10319,10 @@ def ver_recibo_pdf(request, reserva_id):
             logger.error(f'Error al generar PDF: {pisa_status.err}')
             error_msg = f'Error al generar PDF. Por favor, contacte al administrador.'
             return HttpResponse(error_msg, status=500, content_type='text/plain')
+        
+        # Configurar la respuesta HTTP
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
         
         return response
             
@@ -10480,11 +10482,9 @@ def ver_recibo_publico(request, reserva_id, token):
         template = get_template('inmobiliaria/reserva/recibo_pdf.html')
         html = template.render(context)
         
-        # Crear el PDF usando CreatePDF (método correcto)
-        response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
-        
-        pisa_status = pisa.CreatePDF(html, dest=response, encoding='UTF-8')
+        # Crear el PDF usando BytesIO (método que funciona)
+        pdf_buffer = io.BytesIO()
+        pisa_status = pisa.CreatePDF(io.BytesIO(html.encode("UTF-8")), dest=pdf_buffer)
         
         if pisa_status.err:
             # Devolver error más detallado
@@ -10493,6 +10493,10 @@ def ver_recibo_publico(request, reserva_id, token):
             logger.error(f'Error al generar PDF: {pisa_status.err}')
             error_msg = f'Error al generar PDF. Por favor, contacte al administrador.'
             return HttpResponse(error_msg, status=500, content_type='text/plain')
+        
+        # Configurar la respuesta HTTP
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
         
         return response
             
