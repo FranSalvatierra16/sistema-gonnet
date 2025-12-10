@@ -10330,6 +10330,8 @@ def ver_recibo_pdf(request, reserva_id):
             'piso': propiedad_data.piso or '',
             'departamento': propiedad_data.departamento or '',
             'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
+            'cochera': 'SÍ' if propiedad_data.cochera else 'NO',
+            'cantidad_personas': propiedad_data.cantidad_personas or None,
             'ambientes': propiedad_data.ambientes or '',
         }
         
@@ -10340,6 +10342,91 @@ def ver_recibo_pdf(request, reserva_id):
                 'id': reserva.vendedor.id,
                 'nombre_completo': f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}",
             }
+        
+        # Obtener pagos de la reserva
+        pagos = []
+        from .models import Registro
+        conceptos_operacion = None
+        try:
+            if ultimo_movimiento:
+                conceptos_operacion = Registro.objects.filter(
+                    interno_caja=ultimo_movimiento.numero_liquidacion
+                ).order_by('fecha')
+        except:
+            pass
+        
+        if conceptos_operacion and conceptos_operacion.exists():
+            for registro in conceptos_operacion:
+                concepto_desc = ''
+                if registro.concepto:
+                    concepto_desc = f'{registro.concepto.id} - {registro.concepto.nombre}'
+                else:
+                    concepto_desc = 'Concepto no especificado'
+                
+                pagos.append({
+                    'fecha': registro.fecha_comprobante.strftime('%d/%m/%Y'),
+                    'codigo': registro.interno_caja or f'R{registro.id:04d}',
+                    'concepto': concepto_desc,
+                    'monto': f'${registro.liquidacion:,.0f}'
+                })
+        else:
+            for pago in reserva.pagos.all():
+                concepto_desc = ''
+                if hasattr(pago, 'concepto') and pago.concepto:
+                    concepto_desc = f'{pago.concepto.codigo} - {pago.concepto.nombre}'
+                else:
+                    concepto_desc = f'Pago reserva {reserva.id}'
+                
+                pagos.append({
+                    'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
+                    'codigo': pago.codigo if hasattr(pago, 'codigo') and pago.codigo else f'P{pago.id:04d}',
+                    'concepto': concepto_desc,
+                    'monto': f'${pago.monto:,.0f}'
+                })
+        
+        # Calcular valores para el recibo
+        senia_pagada = float(reserva.senia or 0)
+        deposito_pagado = float(reserva.deposito_garantia or 0)
+        precio_total = float(reserva.precio_total or 0)
+        saldo_restante = precio_total - senia_pagada
+        
+        # Verificar estado del depósito
+        deposito_estado = determinar_estado_deposito_completo(reserva)
+        
+        # Obtener honorarios y sellados
+        honorarios_monto = 0
+        sellados_monto = 0
+        if ultimo_movimiento:
+            honorarios_monto = float(ultimo_movimiento.honorarios or 0)
+            sellados_monto = float(ultimo_movimiento.sellados or 0)
+        
+        # Función para convertir número a palabras
+        def numero_a_palabras(numero):
+            try:
+                numero = int(numero)
+                if numero == 0:
+                    return "PESOS CERO CON 00/100"
+                elif numero < 1000:
+                    return f"PESOS {numero} CON 00/100"
+                elif numero < 1000000:
+                    return f"PESOS {numero//1000} MIL {numero%1000} CON 00/100"
+                else:
+                    return f"PESOS {numero//1000000} MILLONES CON 00/100"
+            except:
+                return "PESOS CERO CON 00/100"
+        
+        # Generar logo en base64
+        import base64
+        import os
+        from django.conf import settings
+        logo_base64 = None
+        try:
+            logo_path = os.path.join(settings.BASE_DIR, 'inmobiliaria', 'static', 'images', 'logo.png')
+            with open(logo_path, 'rb') as logo_file:
+                logo_data = base64.b64encode(logo_file.read()).decode()
+                logo_base64 = f'data:image/png;base64,{logo_data}'
+        except Exception as e:
+            logo_base64 = None
         
         # Preparar contexto para el template
         context = {
@@ -10352,7 +10439,19 @@ def ver_recibo_pdf(request, reserva_id):
             'numero_recibo': numero_recibo,
             'fecha': timezone.now().strftime('%d/%m/%Y'),
             'hora': timezone.now().strftime('%H:%M'),
+            'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
+            'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
             'descripcion': 'Alquiler temporario por días',
+            'pagos': pagos,
+            'precio_total_operacion': f'${precio_total:,.0f}',
+            'monto_este_pago': f'${senia_pagada:,.0f}',
+            'saldo_pendiente': f'${saldo_restante:,.0f}',
+            'deposito_garantia': f'${deposito_pagado:,.0f}',
+            'deposito_estado': deposito_estado,
+            'honorarios': f'${honorarios_monto:,.0f}',
+            'sellados': f'${sellados_monto:,.0f}',
+            'monto_en_palabras': numero_a_palabras(total_pagado),
+            'logo_base64': logo_base64,
         }
         
         # Cargar template específico para PDF (sin botones)
@@ -10939,6 +11038,8 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
             'piso': propiedad.piso or '',
             'departamento': propiedad.departamento or '',
             'wifi': 'SÍ' if propiedad.wifi else 'NO',
+            'cochera': 'SÍ' if propiedad.cochera else 'NO',
+            'cantidad_personas': propiedad.cantidad_personas or None,
             'ambientes': propiedad.ambientes or '',
         }
         
@@ -10949,6 +11050,81 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
                 'id': reserva.vendedor.id,
                 'nombre_completo': f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}",
             }
+        
+        # Obtener pagos del movimiento
+        pagos = []
+        from .models import Registro
+        try:
+            if movimiento.numero_liquidacion:
+                conceptos_operacion = Registro.objects.filter(
+                    interno_caja=movimiento.numero_liquidacion
+                ).order_by('fecha')
+                if conceptos_operacion.exists():
+                    for registro in conceptos_operacion:
+                        concepto_desc = ''
+                        if registro.concepto:
+                            concepto_desc = f'{registro.concepto.id} - {registro.concepto.nombre}'
+                        else:
+                            concepto_desc = 'Concepto no especificado'
+                        
+                        pagos.append({
+                            'fecha': registro.fecha_comprobante.strftime('%d/%m/%Y'),
+                            'codigo': registro.interno_caja or f'R{registro.id:04d}',
+                            'concepto': concepto_desc,
+                            'monto': f'${registro.liquidacion:,.0f}'
+                        })
+        except:
+            pass
+        
+        # Si no hay pagos desde registros, crear uno desde el movimiento
+        if not pagos:
+            pagos.append({
+                'fecha': movimiento.fecha.strftime('%d/%m/%Y'),
+                'codigo': f'M{movimiento.id:04d}',
+                'concepto': movimiento.concepto or 'Pago de reserva',
+                'monto': f'${movimiento.monto_total:,.0f}'
+            })
+        
+        # Calcular valores para el recibo
+        senia_pagada = float(reserva.senia or 0)
+        deposito_pagado = float(reserva.deposito_garantia or 0)
+        precio_total = float(reserva.precio_total or 0)
+        saldo_restante = precio_total - senia_pagada
+        
+        # Verificar estado del depósito
+        deposito_estado = determinar_estado_deposito_completo(reserva)
+        
+        # Obtener honorarios y sellados
+        honorarios_monto = float(movimiento.honorarios or 0)
+        sellados_monto = float(movimiento.sellados or 0)
+        
+        # Función para convertir número a palabras
+        def numero_a_palabras(numero):
+            try:
+                numero = int(numero)
+                if numero == 0:
+                    return "PESOS CERO CON 00/100"
+                elif numero < 1000:
+                    return f"PESOS {numero} CON 00/100"
+                elif numero < 1000000:
+                    return f"PESOS {numero//1000} MIL {numero%1000} CON 00/100"
+                else:
+                    return f"PESOS {numero//1000000} MILLONES CON 00/100"
+            except:
+                return "PESOS CERO CON 00/100"
+        
+        # Generar logo en base64
+        import base64
+        import os
+        from django.conf import settings
+        logo_base64 = None
+        try:
+            logo_path = os.path.join(settings.BASE_DIR, 'inmobiliaria', 'static', 'images', 'logo.png')
+            with open(logo_path, 'rb') as logo_file:
+                logo_data = base64.b64encode(logo_file.read()).decode()
+                logo_base64 = f'data:image/png;base64,{logo_data}'
+        except Exception as e:
+            logo_base64 = None
         
         context = {
             'reserva': reserva,
@@ -10961,7 +11137,19 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
             'numero_recibo': f"{movimiento.id:06d}",
             'fecha': movimiento.fecha.strftime('%d/%m/%Y'),
             'hora': movimiento.fecha.strftime('%H:%M'),
+            'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y') if reserva.fecha_inicio else '',
+            'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y') if reserva.fecha_fin else '',
             'descripcion': 'Alquiler temporario por días',
+            'pagos': pagos,
+            'precio_total_operacion': f'${precio_total:,.0f}',
+            'monto_este_pago': f'${senia_pagada:,.0f}',
+            'saldo_pendiente': f'${saldo_restante:,.0f}',
+            'deposito_garantia': f'${deposito_pagado:,.0f}',
+            'deposito_estado': deposito_estado,
+            'honorarios': f'${honorarios_monto:,.0f}',
+            'sellados': f'${sellados_monto:,.0f}',
+            'monto_en_palabras': numero_a_palabras(movimiento.monto_total),
+            'logo_base64': logo_base64,
         }
         
         # Cargar template específico para PDF

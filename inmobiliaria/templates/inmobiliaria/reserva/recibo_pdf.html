@@ -53,23 +53,26 @@
                 <table style="width: 100%;">
                     <tr>
                         <td style="width: 33%;" class="text-center">
-                            <p style="margin: 0; font-size: 7px;"> de Nestor Oscar Gonnet</p>
-                            <p style="margin: 0; font-size: 7px;">Corrientes 1987</p>
-                            <p style="margin: 0; font-size: 7px;">(B7600EBO) Mar del Plata - Prov. de Bs. As.</p>
-                            <p style="margin: 0; font-size: 7px;">http://www.gonnet.com.ar</p>
-                            <p style="margin: 0; font-size: 7px;">email: info@gonnet.com.ar</p>
+                            {% if logo_base64 %}
+                                <img src="{{ logo_base64 }}" alt="logo" style="max-width: 60%; max-height: 30px;" />
+                            {% endif %}
+                    <p style="margin: 0; font-size: 7px;"> de Nestor Oscar Gonnet</p>
+                    <p style="margin: 0; font-size: 7px;">Corrientes 1987</p>
+                    <p style="margin: 0; font-size: 7px;">(B7600EBO) Mar del Plata - Prov. de Bs. As.</p>
+                    <p style="margin: 0; font-size: 7px;">http://www.gonnet.com.ar</p>
+                    <p style="margin: 0; font-size: 7px;">email: info@gonnet.com.ar</p>
                         </td>
                         <td style="width: 33%;" class="text-center">
                             <h4 style="margin-top: 15px; margin-bottom: 5px;">RECIBO</h4>
-                            <p style="margin: 0; font-size: 7px;">DOCUMENTO NO VALIDO COMO FACTURA</p>
+                    <p style="margin: 0; font-size: 7px;">DOCUMENTO NO VALIDO COMO FACTURA</p>
                         </td>
                         <td style="width: 33%; padding-left: 10px;" class="text-left">
-                            <h1 style="margin: 0; font-size: 10px;">Nº: {{ numero_recibo }}</h1>    
-                            <h2 style="margin: 0; font-size: 10px;">Fecha: <u>&nbsp;&nbsp;&nbsp;{{ fecha }}&nbsp;&nbsp;&nbsp;</u></h2>
-                            <h2 style="margin: 0; font-size: 7px;">Hora: &nbsp;&nbsp;<u>&nbsp;&nbsp;&nbsp;&nbsp;{{ hora }}&nbsp;&nbsp;&nbsp;&nbsp;</u></h2>
-                            <p style="margin: 0; font-size: 7px;">ING. BRUTOS: 20-10757572-4</p>
-                            <p style="margin: 0; font-size: 7px;">INSC: 120609/8 REG. 1572</p>
-                            <p style="margin: 0; font-size: 7px;">INICIO ACTIVIDAD: 01/01/1977</p>
+                        <h1 style="margin: 0; font-size: 10px;">Nº: {{ numero_recibo }}</h1>    
+                        <h2 style="margin: 0; font-size: 10px;">Fecha: <u>&nbsp;&nbsp;&nbsp;{{ fecha }}&nbsp;&nbsp;&nbsp;</u></h2>
+                        <h2 style="margin: 0; font-size: 7px;">Hora: &nbsp;&nbsp;<u>&nbsp;&nbsp;&nbsp;&nbsp;{{ hora }}&nbsp;&nbsp;&nbsp;&nbsp;</u></h2>
+                        <p style="margin: 0; font-size: 7px;">ING. BRUTOS: 20-10757572-4</p>
+                        <p style="margin: 0; font-size: 7px;">INSC: 120609/8 REG. 1572</p>
+                        <p style="margin: 0; font-size: 7px;">INICIO ACTIVIDAD: 01/01/1977</p>
                         </td>
                     </tr>
                 </table>
@@ -81,7 +84,7 @@
                 <table style="width: 100%;">
                     <tr>
                         <td style="width: 50%;">
-                            <h4 style="margin: 0; font-size: 10px;">OPERACION: <u>&nbsp;&nbsp;&nbsp;{{ reserva.id }}&nbsp;&nbsp;&nbsp;</u></h4>
+                    <h4 style="margin: 0; font-size: 10px;">OPERACION: <u>&nbsp;&nbsp;&nbsp;{{ reserva.id }}&nbsp;&nbsp;&nbsp;</u></h4>
                         </td>
                         {% if vendedor %}
                         <td style="width: 50%;">
@@ -95,7 +98,7 @@
         <!-- Cliente -->
         <tr>
             <td class="border-green" style="width: 63%; padding: 5px 10px;">
-                <h4 style="margin: 0; font-size: 10px;">CLIENTE: </h4>
+                        <h4 style="margin: 0; font-size: 10px;">CLIENTE: </h4>    
                 <table style="width: 100%;">
                     <tr>
                         <td style="width: 120px; font-size: 8px;">NOMBRE:</td>
@@ -117,7 +120,7 @@
                     <tr>
                         <td style="font-size: 8px;">DNI/CUIT:</td>
                         <td class="border-bottom-dotted" style="font-size: 8px;">
-                            {% if cliente.cuit %}{{ cliente.cuit }}{% else %}{{ cliente.dni }}{% endif %}
+                                {% if cliente.cuit %}{{ cliente.cuit }}{% else %}{{ cliente.dni }}{% endif %}
                         </td>
                     </tr>
                     <tr>
@@ -134,7 +137,7 @@
         <!-- Propiedad -->
         <tr>
             <td class="border-green" style="width: 63%; padding: 5px 10px;">
-                <h4 style="margin: 0; font-size: 10px;">PROPIEDAD: </h4>
+                        <h4 style="margin: 0; font-size: 10px;">PROPIEDAD: </h4>    
                 <table style="width: 100%;">
                     <tr>
                         <td style="width: 120px; font-size: 8px;">DIRECCION:</td>
@@ -142,11 +145,15 @@
                     </tr>
                     <tr>
                         <td style="font-size: 8px;">COMODIDADES:</td>
-                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ descripcion }}</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ descripcion|default:"Alquiler temporario por días" }}</td>
                     </tr>
                     <tr>
                         <td style="font-size: 8px;">WIFI:</td>
-                        <td class="border-bottom-dotted" style="font-size: 8px; width: 100px;">{{ propiedad.wifi }}</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px; width: 100px;">{{ propiedad.wifi|default:"NO" }}</td>
+                        <td style="font-size: 8px; padding-left: 10px;">COCHERA:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px; width: 100px;">{{ propiedad.cochera|default:"NO" }}</td>
+                        <td style="font-size: 8px; padding-left: 10px;">AMOBLADO PARA:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px; width: 100px;">{{ propiedad.cantidad_personas|default:"N/A" }}</td>
                     </tr>
                 </table>
             </td>
@@ -154,95 +161,164 @@
                 <h4 style="margin: 0; font-size: 10px; color: transparent;">PROPIEDAD: </h4>
                 <table style="width: 100%;">
                     <tr>
-                        <td style="font-size: 8px;">AMOBLADO PARA:</td>
-                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ propiedad.ambientes }}</td>
-                    </tr>
-                    <tr>
                         <td style="font-size: 8px;">FICHA:</td>
                         <td class="border-bottom-dotted" style="font-size: 8px;">&nbsp; {{ propiedad.id }}</td>
-                        <td style="font-size: 8px;">LLAVE:</td>
-                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ propiedad.llave }}</td>
+                        <td style="font-size: 8px; padding-left: 10px;">LLAVE:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ propiedad.llave|default:"N/A" }}</td>
                     </tr>
                     <tr>
                         <td style="font-size: 8px;">PISO:</td>
-                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ propiedad.piso }}</td>
-                        <td style="font-size: 8px;">DPTO:</td>
-                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ propiedad.departamento }}</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ propiedad.piso|default:"" }}</td>
+                        <td style="font-size: 8px; padding-left: 10px;">DPTO:</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ propiedad.departamento|default:"" }}</td>
                     </tr>
                 </table>
             </td>
         </tr>
     </table>
 
-    <!-- Tabla de conceptos -->
+            <!-- Tabla de conceptos -->
     <table class="border-green">
-        <!-- Header tabla -->
+        <!-- Resumen de montos y fechas -->
         <tr>
             <td colspan="3" class="border-green border-top-solid">
                 <table style="width: 100%;">
                     <tr>
                         <td style="width: 18%;" class="text-center">
-                            <p style="margin: 0; font-size: 8px; font-weight: bold;">CANTIDAD</p>
+                            <p style="margin: 0; font-size: 8px;">Importe Locación</p>
+                            <div style="border-bottom: 1px solid #2d8524; margin: 2px 0;"></div>
+                            <p style="margin: 0; font-size: 9px;">{{ precio_total_operacion|default:"$0" }}</p>
                         </td>
-                        <td style="width: 54%;" class="text-center">
-                            <p style="margin: 0; font-size: 8px; font-weight: bold;">DETALLE</p>
+                        <td style="width: 18%;" class="text-center">
+                            <p style="margin: 0; font-size: 9px;">SEÑA</p>
+                            <div style="border-bottom: 1px solid #2d8524; margin: 2px 0;"></div>
+                            <p style="margin: 0; font-size: 9px;">{{ monto_este_pago|default:"$0" }}</p>
+                        </td>
+                        <td style="width: 18%;" class="text-center">
+                            <p style="margin: 0; font-size: 8px;">SALDO RESTANTE</p>
+                            <div style="border-bottom: 1px solid #2d8524; margin: 2px 0;"></div>
+                            <p style="margin: 0; font-size: 9px;">{{ saldo_pendiente|default:"$0" }}</p>
+                        </td>
+                        <td style="width: 18%;" class="text-center">
+                            <p style="margin: 0; font-size: 8px;">DEPOSITO GARANTIA</p>
+                            <div style="border-bottom: 1px solid #2d8524; margin: 2px 0;"></div>
+                            {% if deposito_estado == 'pendiente' %}
+                            <p style="margin: 0; font-size: 9px; color: #ff6b6b;">{{ deposito_garantia|default:"$0" }}</p>
+                            {% elif deposito_estado == 'pagado' %}
+                            <p style="margin: 0; font-size: 9px; color: #2d8524;">{{ deposito_garantia|default:"$0" }}</p>
+                            {% else %}
+                            <p style="margin: 0; font-size: 9px;">{{ deposito_garantia|default:"$0" }}</p>
+                            {% endif %}
                         </td>
                         <td style="width: 28%;" class="text-center">
-                            <p style="margin: 0; font-size: 8px; font-weight: bold;">IMPORTE</p>
+                            <p style="margin: 0; font-size: 10px;">DESDE: {{ fecha_inicio|default:"" }} HORA: 14:00 HS.</p>
+                            <p style="margin: 0; font-size: 10px;">HASTA: {{ fecha_fin|default:"" }} HORA: 09:00 HS.</p>
                         </td>
                     </tr>
                 </table>
             </td>
         </tr>
-        <!-- Fila de concepto -->
+        <!-- Encabezados de tabla de pagos -->
         <tr>
-            <td style="width: 18%;" class="text-center border-bottom-dotted">
-                <p style="margin: 0; font-size: 8px;">1</p>
-            </td>
-            <td style="width: 54%; padding-left: 10px;" class="text-left border-bottom-dotted">
-                <p style="margin: 0; font-size: 8px;">SEÑA - RESERVA DE PROPIEDAD</p>
-            </td>
-            <td style="width: 28%;" class="text-center border-bottom-dotted">
-                <p style="margin: 0; font-size: 8px;">{{ total_pagado }}</p>
+            <td colspan="3" class="border-green">
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">FECHA</td>
+                        <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">CÓDIGO</td>
+                        <td style="width: 50%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">CONCEPTO</td>
+                        <td style="width: 20%; padding: 3px; font-size: 9px;" class="text-center">IMPORTE</td>
+                    </tr>
+                </table>
             </td>
         </tr>
-        <!-- Filas vacías -->
-        {% for i in "12345" %}
+        <!-- Filas de pagos -->
+        {% if pagos %}
+            {% for pago in pagos %}
+            <tr>
+                <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">{{ pago.fecha }}</td>
+                <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">{{ pago.codigo }}</td>
+                <td style="width: 50%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-left">{{ pago.concepto }}</td>
+                <td style="width: 20%; padding: 3px; font-size: 9px;" class="text-center">{{ pago.monto }}</td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <!-- Fila vacía si no hay pagos -->
+            <tr>
+                <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">&nbsp;</td>
+                <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">&nbsp;</td>
+                <td style="width: 50%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-left">&nbsp;</td>
+                <td style="width: 20%; padding: 3px; font-size: 9px;" class="text-center">&nbsp;</td>
+            </tr>
+        {% endif %}
+        <!-- Filas vacías adicionales -->
+        {% for i in "123" %}
         <tr>
-            <td class="text-center border-bottom-dotted">
-                <p style="margin: 0; font-size: 8px;">&nbsp;</p>
+            <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">&nbsp;</td>
+            <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">&nbsp;</td>
+            <td style="width: 50%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-left">&nbsp;</td>
+            <td style="width: 20%; padding: 3px; font-size: 9px;" class="text-center">&nbsp;</td>
+        </tr>
+                {% endfor %}
+        <!-- Texto legal y totales -->
+        <tr>
+            <td colspan="2" style="padding: 5px 10px; font-size: 6px; width: 70%;">
+                <p style="margin: 0; padding: 0;">SR.TURISTA: Si no se presentara a abonar el saldo de locación en la fecha estipulada perdera en favor del propietario los importes entregados en este acto.<br/>Abonara en efectivo cualquier faltante de inventario, roturas, limpieza, etc. al desocupar la propiedad. La presente seña se recibe ad referendum del propietario.</p>
+                <p style="margin: 5px 0 0 0; padding: 0;">El presente recibo carece de valor cancelatorio hasta tanto se acredite la totalidad de los valores entregados en este acto.</p>
             </td>
-            <td class="text-left border-bottom-dotted">
-                <p style="margin: 0; font-size: 8px;">&nbsp;</p>
-            </td>
-            <td class="text-center border-bottom-dotted">
-                <p style="margin: 0; font-size: 8px;">&nbsp;</p>
+            <td style="width: 30%;">
+                <table style="width: 100%;">
+                    {% if honorarios and honorarios != '$0' %}
+                    <tr>
+                        <td style="padding: 2px; border: 1px solid #2d8524; font-size: 8px;" class="text-center">HONORARIOS</td>
+                        <td style="padding: 2px; border: 1px solid #2d8524; font-size: 8px;" class="text-center">{{ honorarios }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if sellados and sellados != '$0' %}
+                    <tr>
+                        <td style="padding: 2px; border: 1px solid #2d8524; font-size: 8px;" class="text-center">SELLADOS</td>
+                        <td style="padding: 2px; border: 1px solid #2d8524; font-size: 8px;" class="text-center">{{ sellados }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td style="padding: 2px; border: 1px solid #2d8524; font-size: 9px;" class="text-center">TOTAL</td>
+                        <td style="padding: 2px; border: 1px solid #2d8524; font-size: 9px;" class="text-center">{{ total_pagado }}</td>
+                    </tr>
+                </table>
             </td>
         </tr>
-        {% endfor %}
-        <!-- Total -->
-        <tr>
-            <td colspan="2" class="text-right" style="padding-right: 10px;">
-                <p style="margin: 0; font-size: 10px; font-weight: bold;">TOTAL $</p>
-            </td>
-            <td class="text-center border-top-2">
-                <p style="margin: 0; font-size: 10px; font-weight: bold;">{{ total_pagado }}</p>
-            </td>
-        </tr>
-        <!-- Forma de pago -->
+        <!-- La suma de -->
         <tr>
             <td colspan="3" class="border-top-solid" style="padding: 2px 10px;">
-                <p style="margin: 0; font-size: 9px;">FORMA DE PAGO:<u>&nbsp;&nbsp;&nbsp;{{ formas_de_pago }}&nbsp;&nbsp;&nbsp;</u></p>
-                <div style="border-bottom: 1px dotted black; height: 5px;"></div>
+                <p style="margin: 0; font-size: 9px;">LA SUMA DE: <u>&nbsp;&nbsp;&nbsp;{{ monto_en_palabras|default:"PESOS CERO CON 00/100" }}&nbsp;&nbsp;&nbsp;</u></p>
+                <div style="border-bottom: 1px dotted black; margin-top: 2px;"></div>
             </td>
         </tr>
-        <!-- Observaciones -->
+            <!-- Forma de pago -->
         <tr>
             <td colspan="3" class="border-top-solid" style="padding: 2px 10px;">
-                <p style="margin: 0; font-size: 9px;">OBSERVACIONES:</p>
-                <div style="border-bottom: 1px dotted black; height: 15px;"></div>
-                <div style="border-bottom: 1px dotted black; height: 15px;"></div>
-                <div style="border-bottom: 1px dotted black; height: 15px;"></div>
+                <p style="margin: 0; font-size: 9px;">FORMA DE PAGO:<u>&nbsp;&nbsp;&nbsp;{{ formas_de_pago|default:"EFECTIVO" }}&nbsp;&nbsp;&nbsp;</u></p>
+                <div style="border-bottom: 1px dotted black; margin-top: 2px;"></div>
+            </td>
+        </tr>
+        <!-- Firmas -->
+        <tr>
+            <td colspan="3" class="border-top-solid" style="padding: 5px; padding-top: 35px;">
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="width: 33%; text-align: center;">
+                            <div style="border-top: 1px solid #2d8524; margin-bottom: 5px;"></div>
+                            <p style="margin: 0; font-size: 12px;">FIRMA</p>
+                        </td>
+                        <td style="width: 33%; text-align: center;">
+                            <div style="border-top: 1px solid #2d8524; margin-bottom: 5px;"></div>
+                            <p style="margin: 0; font-size: 12px;">ACLARACION</p>
+                        </td>
+                        <td style="width: 33%; text-align: center;">
+                            <div style="border-top: 1px solid #2d8524; margin-bottom: 5px;"></div>
+                            <p style="margin: 0; font-size: 12px;">P/GONNET PROPIEDADES</p>
+                        </td>
+                    </tr>
+                </table>
             </td>
         </tr>
     </table>
