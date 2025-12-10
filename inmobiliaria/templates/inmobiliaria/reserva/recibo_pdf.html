@@ -46,11 +46,11 @@
     </style>
 </head>
 <body>
-    <table class="border-green" style="height: 49%;">
+    <table class="border-green">
         <!-- Header -->
         <tr>
-            <td colspan="3" class="border-green" style="height: 15%;">
-                <table style="width: 100%; height: 100%;">
+            <td colspan="3" class="border-green">
+                <table style="width: 100%;">
                     <tr>
                         <td style="width: 33%;" class="text-center">
                             <p style="margin: 0; font-size: 7px;"> de Nestor Oscar Gonnet</p>
@@ -77,7 +77,7 @@
         </tr>
         <!-- Operación -->
         <tr>
-            <td colspan="3" class="border-green" style="height: 3%; padding-left: 10px;">
+            <td colspan="3" class="border-green" style="padding-left: 10px;">
                 <table style="width: 100%;">
                     <tr>
                         <td style="width: 50%;">
@@ -94,12 +94,12 @@
         </tr>
         <!-- Cliente -->
         <tr>
-            <td class="border-green" style="width: 63%; height: 16%; padding: 5px 10px;">
+            <td class="border-green" style="width: 63%; padding: 5px 10px;">
                 <h4 style="margin: 0; font-size: 10px;">CLIENTE: </h4>
                 <table style="width: 100%;">
                     <tr>
                         <td style="width: 120px; font-size: 8px;">NOMBRE:</td>
-                        <td class="border-bottom-dotted" style="font-size: 8px; min-height: 12px;">{{ cliente.nombre_completo }}</td>
+                        <td class="border-bottom-dotted" style="font-size: 8px;">{{ cliente.nombre_completo }}</td>
                     </tr>
                     <tr>
                         <td style="font-size: 8px;">DOMICILIO:</td>
@@ -133,7 +133,7 @@
         </tr>
         <!-- Propiedad -->
         <tr>
-            <td class="border-green" style="width: 63%; height: 16%; padding: 5px 10px;">
+            <td class="border-green" style="width: 63%; padding: 5px 10px;">
                 <h4 style="margin: 0; font-size: 10px;">PROPIEDAD: </h4>
                 <table style="width: 100%;">
                     <tr>
@@ -175,10 +175,10 @@
     </table>
 
     <!-- Tabla de conceptos -->
-    <table class="border-green" style="height: 50%;">
+    <table class="border-green">
         <!-- Header tabla -->
         <tr>
-            <td colspan="3" class="border-green border-top-solid" style="height: 12%;">
+            <td colspan="3" class="border-green border-top-solid">
                 <table style="width: 100%;">
                     <tr>
                         <td style="width: 18%;" class="text-center">
@@ -196,7 +196,7 @@
         </tr>
         <!-- Fila de concepto -->
         <tr>
-            <td style="width: 18%; height: 20%;" class="text-center border-bottom-dotted">
+            <td style="width: 18%;" class="text-center border-bottom-dotted">
                 <p style="margin: 0; font-size: 8px;">1</p>
             </td>
             <td style="width: 54%; padding-left: 10px;" class="text-left border-bottom-dotted">
@@ -209,7 +209,7 @@
         <!-- Filas vacías -->
         {% for i in "12345" %}
         <tr>
-            <td class="text-center border-bottom-dotted" style="height: 16%;">
+            <td class="text-center border-bottom-dotted">
                 <p style="margin: 0; font-size: 8px;">&nbsp;</p>
             </td>
             <td class="text-left border-bottom-dotted">
@@ -222,7 +222,7 @@
         {% endfor %}
         <!-- Total -->
         <tr>
-            <td colspan="2" class="text-right" style="height: 10%; padding-right: 10px;">
+            <td colspan="2" class="text-right" style="padding-right: 10px;">
                 <p style="margin: 0; font-size: 10px; font-weight: bold;">TOTAL $</p>
             </td>
             <td class="text-center border-top-2">
@@ -231,14 +231,14 @@
         </tr>
         <!-- Forma de pago -->
         <tr>
-            <td colspan="3" class="border-top-solid" style="height: 6%; padding: 2px 10px;">
+            <td colspan="3" class="border-top-solid" style="padding: 2px 10px;">
                 <p style="margin: 0; font-size: 9px;">FORMA DE PAGO:<u>&nbsp;&nbsp;&nbsp;{{ formas_de_pago }}&nbsp;&nbsp;&nbsp;</u></p>
                 <div style="border-bottom: 1px dotted black; height: 5px;"></div>
             </td>
         </tr>
         <!-- Observaciones -->
         <tr>
-            <td colspan="3" class="border-top-solid" style="height: 12%; padding: 2px 10px;">
+            <td colspan="3" class="border-top-solid" style="padding: 2px 10px;">
                 <p style="margin: 0; font-size: 9px;">OBSERVACIONES:</p>
                 <div style="border-bottom: 1px dotted black; height: 15px;"></div>
                 <div style="border-bottom: 1px dotted black; height: 15px;"></div>
