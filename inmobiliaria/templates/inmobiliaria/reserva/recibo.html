@@ -539,12 +539,25 @@ async function enviarDirectoWhatsApp() {
             await cargarHtml2Canvas();
         }
         
+        // Esperar a que todas las imágenes se carguen antes de capturar
+        const images = reciboElement.querySelectorAll('img');
+        await Promise.all(Array.from(images).map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = resolve; // Continuar aunque falle una imagen
+                setTimeout(resolve, 2000); // Timeout de 2 segundos
+            });
+        }));
+        
         // Capturar el recibo como imagen
         const canvasRecibo = await html2canvas(reciboElement, {
             scale: 2,
             useCORS: true,
-            allowTaint: true,
-            backgroundColor: '#ffffff'
+            allowTaint: false, // Cambiar a false para mejor compatibilidad
+            backgroundColor: '#ffffff',
+            logging: false,
+            imageTimeout: 15000, // Timeout de 15 segundos para imágenes
         });
         
         // Convertir a blob
@@ -608,15 +621,28 @@ async function compartirArchivoDirecto() {
             await cargarHtml2Canvas();
         }
         
+        // Esperar a que todas las imágenes se carguen antes de capturar
+        const images = reciboElement.querySelectorAll('img');
+        await Promise.all(Array.from(images).map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = resolve; // Continuar aunque falle una imagen
+                setTimeout(resolve, 2000); // Timeout de 2 segundos
+            });
+        }));
+        
         // Configurar opciones para mejor calidad
         const options = {
             scale: 2, // Mayor resolución
             useCORS: true,
-            allowTaint: true,
+            allowTaint: false, // Cambiar a false para mejor compatibilidad
             backgroundColor: '#ffffff',
             width: reciboElement.scrollWidth,
             height: reciboElement.scrollHeight,
             scrollX: 0,
+            logging: false,
+            imageTimeout: 15000, // Timeout de 15 segundos para imágenes
             scrollY: 0
         };
         

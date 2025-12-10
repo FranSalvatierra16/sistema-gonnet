@@ -2740,6 +2740,20 @@ def ver_recibo(request, reserva_id):
             honorarios_monto = float(movimiento.honorarios or 0)
             sellados_monto = float(movimiento.sellados or 0)
         
+        # Generar logo en base64 para evitar problemas de carga con html2canvas
+        import base64
+        import os
+        from django.conf import settings
+        
+        logo_base64 = None
+        try:
+            logo_path = os.path.join(settings.BASE_DIR, 'inmobiliaria', 'static', 'images', 'logo.png')
+            with open(logo_path, 'rb') as logo_file:
+                logo_data = base64.b64encode(logo_file.read()).decode()
+                logo_base64 = f'data:image/png;base64,{logo_data}'
+        except Exception as e:
+            logo_base64 = None
+        
         # Continuar con la generación del recibo usando el template correcto
         return render(request, 'inmobiliaria/reserva/recibo.html', {
             'reserva': reserva_formateada,
@@ -2764,6 +2778,7 @@ def ver_recibo(request, reserva_id):
             # ✅ AGREGAR HONORARIOS Y SELLADOS
             'honorarios': f'${honorarios_monto:,.0f}',
             'sellados': f'${sellados_monto:,.0f}',
+            'logo_base64': logo_base64,
         })
         
     except Exception as e:
