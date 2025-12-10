@@ -40,12 +40,10 @@
         .border-top-solid {
             border-top: 1px solid #2d8524;
         }
-        .border-top-2 {
-            border-top: 2px solid #2d8524;
-        }
     </style>
 </head>
 <body>
+    <!-- Primera tabla: Header, Operación, Cliente, Propiedad -->
     <table class="border-green">
         <!-- Header -->
         <tr>
@@ -177,11 +175,11 @@
         </tr>
     </table>
 
-            <!-- Tabla de conceptos -->
+    <!-- Segunda tabla: Conceptos, Pagos, Totales -->
     <table class="border-green">
         <!-- Resumen de montos y fechas -->
         <tr>
-            <td colspan="3" class="border-green border-top-solid">
+            <td colspan="5" class="border-green border-top-solid">
                 <table style="width: 100%;">
                     <tr>
                         <td style="width: 18%;" class="text-center">
@@ -220,13 +218,19 @@
         </tr>
         <!-- Encabezados de tabla de pagos -->
         <tr>
-            <td colspan="3" class="border-green">
+            <td colspan="4" class="border-green" style="border-right: 1px solid #2d8524;">
                 <table style="width: 100%;">
                     <tr>
-                        <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">FECHA</td>
-                        <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">CÓDIGO</td>
-                        <td style="width: 50%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">CONCEPTO</td>
-                        <td style="width: 20%; padding: 3px; font-size: 9px;" class="text-center">IMPORTE</td>
+                        <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px; padding-left: 5%;" class="text-center">FECHA</td>
+                        <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px; padding-left: 10px;" class="text-center">CÓDIGO</td>
+                        <td style="width: 55%; padding: 3px; font-size: 9px; padding-left: 10px;" class="text-center">CONCEPTO</td>
+                    </tr>
+                </table>
+            </td>
+            <td class="border-green" style="width: 20%;">
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="padding: 3px; font-size: 9px;" class="text-center">IMPORTE</td>
                     </tr>
                 </table>
             </td>
@@ -235,52 +239,82 @@
         {% if pagos %}
             {% for pago in pagos %}
             <tr>
-                <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">{{ pago.fecha }}</td>
-                <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">{{ pago.codigo }}</td>
-                <td style="width: 50%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-left">{{ pago.concepto }}</td>
-                <td style="width: 20%; padding: 3px; font-size: 9px;" class="text-center">{{ pago.monto }}</td>
+                <td colspan="4" style="border-right: 1px solid #2d8524; border-bottom: 1px solid #030402;">
+                    <table style="width: 100%;">
+                        <tr>
+                            <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px; padding-left: 5%;" class="text-center">{{ pago.fecha }}</td>
+                            <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px; padding-left: 10px;" class="text-center">{{ pago.codigo }}</td>
+                            <td style="width: 55%; padding: 3px; font-size: 9px; padding-left: 10px;" class="text-left">{{ pago.concepto }}</td>
+                        </tr>
+                    </table>
+                </td>
+                <td style="border-bottom: 1px solid #030402; border-left: 1px solid #2d8524;">
+                    <table style="width: 100%;">
+                        <tr>
+                            <td style="padding: 3px; font-size: 9px;" class="text-center">{{ pago.monto }}</td>
+                        </tr>
+                    </table>
+                </td>
             </tr>
             {% endfor %}
-        {% else %}
-            <!-- Fila vacía si no hay pagos -->
-            <tr>
-                <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">&nbsp;</td>
-                <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">&nbsp;</td>
-                <td style="width: 50%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-left">&nbsp;</td>
-                <td style="width: 20%; padding: 3px; font-size: 9px;" class="text-center">&nbsp;</td>
-            </tr>
         {% endif %}
         <!-- Filas vacías adicionales -->
         {% for i in "123" %}
         <tr>
-            <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">&nbsp;</td>
-            <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-center">&nbsp;</td>
-            <td style="width: 50%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px;" class="text-left">&nbsp;</td>
-            <td style="width: 20%; padding: 3px; font-size: 9px;" class="text-center">&nbsp;</td>
+            <td colspan="4" style="border-right: 1px solid #2d8524; border-bottom: 1px solid #030402;">
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px; padding-left: 5%;" class="text-center">&nbsp;</td>
+                        <td style="width: 15%; padding: 3px; border-right: 1px solid #2d8524; font-size: 9px; padding-left: 10px;" class="text-center">&nbsp;</td>
+                        <td style="width: 55%; padding: 3px; font-size: 9px; padding-left: 10px;" class="text-left">&nbsp;</td>
+                    </tr>
+                </table>
+            </td>
+            <td style="border-bottom: 1px solid #030402; border-left: 1px solid #2d8524;">
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="padding: 3px; font-size: 9px;" class="text-center">&nbsp;</td>
+                    </tr>
+                </table>
+            </td>
         </tr>
                 {% endfor %}
         <!-- Texto legal y totales -->
         <tr>
-            <td colspan="2" style="padding: 5px 10px; font-size: 6px; width: 70%;">
+            <td colspan="3" style="padding: 5px 10px; font-size: 6px; width: 70%;">
                 <p style="margin: 0; padding: 0;">SR.TURISTA: Si no se presentara a abonar el saldo de locación en la fecha estipulada perdera en favor del propietario los importes entregados en este acto.<br/>Abonara en efectivo cualquier faltante de inventario, roturas, limpieza, etc. al desocupar la propiedad. La presente seña se recibe ad referendum del propietario.</p>
                 <p style="margin: 5px 0 0 0; padding: 0;">El presente recibo carece de valor cancelatorio hasta tanto se acredite la totalidad de los valores entregados en este acto.</p>
             </td>
-            <td style="width: 30%;">
+            <td style="width: 10%;">
                 <table style="width: 100%;">
                     {% if honorarios and honorarios != '$0' %}
                     <tr>
                         <td style="padding: 2px; border: 1px solid #2d8524; font-size: 8px;" class="text-center">HONORARIOS</td>
-                        <td style="padding: 2px; border: 1px solid #2d8524; font-size: 8px;" class="text-center">{{ honorarios }}</td>
                     </tr>
                     {% endif %}
                     {% if sellados and sellados != '$0' %}
                     <tr>
                         <td style="padding: 2px; border: 1px solid #2d8524; font-size: 8px;" class="text-center">SELLADOS</td>
-                        <td style="padding: 2px; border: 1px solid #2d8524; font-size: 8px;" class="text-center">{{ sellados }}</td>
                     </tr>
                     {% endif %}
                     <tr>
                         <td style="padding: 2px; border: 1px solid #2d8524; font-size: 9px;" class="text-center">TOTAL</td>
+                    </tr>
+                </table>
+            </td>
+            <td style="width: 20%;">
+                <table style="width: 100%;">
+                    {% if honorarios and honorarios != '$0' %}
+                    <tr>
+                        <td style="padding: 2px; border: 1px solid #2d8524; font-size: 8px;" class="text-center">{{ honorarios }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if sellados and sellados != '$0' %}
+                    <tr>
+                        <td style="padding: 2px; border: 1px solid #2d8524; font-size: 8px;" class="text-center">{{ sellados }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
                         <td style="padding: 2px; border: 1px solid #2d8524; font-size: 9px;" class="text-center">{{ total_pagado }}</td>
                     </tr>
                 </table>
@@ -288,21 +322,21 @@
         </tr>
         <!-- La suma de -->
         <tr>
-            <td colspan="3" class="border-top-solid" style="padding: 2px 10px;">
+            <td colspan="5" class="border-top-solid" style="padding: 2px 10px;">
                 <p style="margin: 0; font-size: 9px;">LA SUMA DE: <u>&nbsp;&nbsp;&nbsp;{{ monto_en_palabras|default:"PESOS CERO CON 00/100" }}&nbsp;&nbsp;&nbsp;</u></p>
                 <div style="border-bottom: 1px dotted black; margin-top: 2px;"></div>
             </td>
         </tr>
             <!-- Forma de pago -->
         <tr>
-            <td colspan="3" class="border-top-solid" style="padding: 2px 10px;">
+            <td colspan="5" class="border-top-solid" style="padding: 2px 10px;">
                 <p style="margin: 0; font-size: 9px;">FORMA DE PAGO:<u>&nbsp;&nbsp;&nbsp;{{ formas_de_pago|default:"EFECTIVO" }}&nbsp;&nbsp;&nbsp;</u></p>
                 <div style="border-bottom: 1px dotted black; margin-top: 2px;"></div>
             </td>
         </tr>
         <!-- Firmas -->
         <tr>
-            <td colspan="3" class="border-top-solid" style="padding: 5px; padding-top: 35px;">
+            <td colspan="5" class="border-top-solid" style="padding: 5px; padding-top: 35px;">
                 <table style="width: 100%;">
                     <tr>
                         <td style="width: 33%; text-align: center;">
