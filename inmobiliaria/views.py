@@ -10367,14 +10367,22 @@ def ver_recibo_pdf(request, reserva_id):
         html_source = io.BytesIO(html_encoded)
         
         # Generar el PDF
-        pisa_status = pisa.CreatePDF(
-            html_source,
-            dest=pdf_buffer,
-            encoding='UTF-8'
-        )
-        
-        # Cerrar el buffer de entrada
-        html_source.close()
+        try:
+            pisa_status = pisa.CreatePDF(
+                html_source,
+                dest=pdf_buffer,
+                encoding='UTF-8'
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Excepción al generar PDF: {str(e)}')
+            html_source.close()
+            pdf_buffer.close()
+            return HttpResponse(f'Error al generar PDF: {str(e)}', status=500, content_type='text/plain')
+        finally:
+            # Cerrar el buffer de entrada
+            html_source.close()
         
         if pisa_status.err:
             # Devolver error más detallado
@@ -10386,12 +10394,18 @@ def ver_recibo_pdf(request, reserva_id):
             return HttpResponse(error_msg, status=500, content_type='text/plain')
         
         # Obtener el contenido del PDF
-        pdf_content = pdf_buffer.getvalue()
+        pdf_buffer.seek(0)  # Asegurar que estamos al inicio del buffer
+        pdf_content = pdf_buffer.read()
         pdf_buffer.close()
         
-        # Verificar que el PDF no esté vacío
+        # Verificar que el PDF no esté vacío y que tenga el header correcto
         if not pdf_content or len(pdf_content) < 100:
             error_msg = 'Error: El PDF generado está vacío o corrupto.'
+            return HttpResponse(error_msg, status=500, content_type='text/plain')
+        
+        # Verificar que el PDF tenga el header correcto (%PDF)
+        if not pdf_content.startswith(b'%PDF'):
+            error_msg = 'Error: El PDF generado no tiene un formato válido.'
             return HttpResponse(error_msg, status=500, content_type='text/plain')
         
         # Configurar la respuesta HTTP
@@ -10574,14 +10588,22 @@ def ver_recibo_publico(request, reserva_id, token):
         html_source = io.BytesIO(html_encoded)
         
         # Generar el PDF
-        pisa_status = pisa.CreatePDF(
-            html_source,
-            dest=pdf_buffer,
-            encoding='UTF-8'
-        )
-        
-        # Cerrar el buffer de entrada
-        html_source.close()
+        try:
+            pisa_status = pisa.CreatePDF(
+                html_source,
+                dest=pdf_buffer,
+                encoding='UTF-8'
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Excepción al generar PDF: {str(e)}')
+            html_source.close()
+            pdf_buffer.close()
+            return HttpResponse(f'Error al generar PDF: {str(e)}', status=500, content_type='text/plain')
+        finally:
+            # Cerrar el buffer de entrada
+            html_source.close()
         
         if pisa_status.err:
             # Devolver error más detallado
@@ -10593,12 +10615,18 @@ def ver_recibo_publico(request, reserva_id, token):
             return HttpResponse(error_msg, status=500, content_type='text/plain')
         
         # Obtener el contenido del PDF
-        pdf_content = pdf_buffer.getvalue()
+        pdf_buffer.seek(0)  # Asegurar que estamos al inicio del buffer
+        pdf_content = pdf_buffer.read()
         pdf_buffer.close()
         
-        # Verificar que el PDF no esté vacío
+        # Verificar que el PDF no esté vacío y que tenga el header correcto
         if not pdf_content or len(pdf_content) < 100:
             error_msg = 'Error: El PDF generado está vacío o corrupto.'
+            return HttpResponse(error_msg, status=500, content_type='text/plain')
+        
+        # Verificar que el PDF tenga el header correcto (%PDF)
+        if not pdf_content.startswith(b'%PDF'):
+            error_msg = 'Error: El PDF generado no tiene un formato válido.'
             return HttpResponse(error_msg, status=500, content_type='text/plain')
         
         # Configurar la respuesta HTTP
