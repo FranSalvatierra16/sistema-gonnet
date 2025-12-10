@@ -10908,10 +10908,10 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
             formas_de_pago.append('Cheque')
         
         if movimiento.monto_deposito > 0:
-            if movimiento.banco and 'Mercado Pago' in movimiento.banco:
+            if movimiento.destino_deposito and movimiento.destino_deposito == 'mp':
                 formas_con_montos.append(f'Transferencia Mercado Pago ${movimiento.monto_deposito:,.0f}')
                 formas_de_pago.append('Mercado Pago')
-            elif movimiento.banco and 'Galicia' in movimiento.banco:
+            elif movimiento.destino_deposito and movimiento.destino_deposito == 'galicia':
                 formas_con_montos.append(f'Transferencia Galicia ${movimiento.monto_deposito:,.0f}')
                 formas_de_pago.append('Galicia')
             else:
@@ -10920,35 +10920,167 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
         
         formas_de_pago_mostrar = formas_con_montos if formas_con_montos else formas_de_pago
         
+        # Preparar datos del cliente con formato correcto
+        cliente_completo = {
+            'nombre_completo': f"{cliente.apellido}, {cliente.nombre}",
+            'domicilio': cliente.domicilio or '',
+            'localidad': cliente.localidad or '',
+            'provincia': cliente.provincia or '',
+            'dni': cliente.dni or '',
+            'telefono': cliente.celular or '',
+            'cuit': getattr(cliente, 'cuit', '') or '',
+        }
+        
+        # Preparar datos de la propiedad con formato correcto
+        propiedad_completa = {
+            'direccion': propiedad.direccion or '',
+            'id': propiedad.id,
+            'llave': propiedad.llave or 'N/A',
+            'piso': propiedad.piso or '',
+            'departamento': propiedad.departamento or '',
+            'wifi': 'SÍ' if propiedad.wifi else 'NO',
+            'ambientes': propiedad.ambientes or '',
+        }
+        
+        # Preparar datos del vendedor/productor
+        vendedor_completo = {}
+        if reserva.vendedor:
+            vendedor_completo = {
+                'id': reserva.vendedor.id,
+                'nombre_completo': f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}",
+            }
+        
         context = {
             'reserva': reserva,
-            'propiedad': propiedad,
-            'cliente': cliente,
+            'propiedad': propiedad_completa,
+            'cliente': cliente_completo,
+            'vendedor': vendedor_completo,
             'movimiento': movimiento,
             'total_pagado': f"${movimiento.monto_total:,.0f}",
             'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
             'numero_recibo': f"{movimiento.id:06d}",
             'fecha': movimiento.fecha.strftime('%d/%m/%Y'),
             'hora': movimiento.fecha.strftime('%H:%M'),
+            'descripcion': 'Alquiler temporario por días',
         }
         
         # Cargar template específico para PDF
         template = get_template('inmobiliaria/reserva/recibo_pdf.html')
         html = template.render(context)
         
-        # Crear el PDF
-        result = io.BytesIO()
-        pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
+        # Limpiar el HTML de posibles caracteres problemáticos
+        html = html.replace('\x00', '')  # Eliminar caracteres nulos
         
-        if not pdf.err:
-            response = HttpResponse(result.getvalue(), content_type='application/pdf')
+        # Crear el PDF usando BytesIO
+        pdf_buffer = io.BytesIO()
+        
+        # Generar el PDF usando pisaDocument (método más compatible)
+        try:
+            result = io.BytesIO()
+            pdf = pisa.pisaDocument(
+                io.BytesIO(html.encode('UTF-8')),
+                result,
+                encoding='UTF-8'
+            )
+            
+            if pdf.err:
+                import logging
+                logger = logging.getLogger(__name__)
+                error_details = f'Error al generar PDF: {pdf.err}'
+                logger.error(error_details)
+                print(f'❌ ERROR PDF: {error_details}')  # También imprimir en consola
+                result.close()
+                pdf_buffer.close()
+                # Devolver error detallado para debugging
+                return HttpResponse(
+                    f'Error al generar PDF:<br><br>Detalles: {error_details}<br><br>'
+                    f'Por favor, contacte al administrador o revise los logs del servidor.',
+                    status=500,
+                    content_type='text/html'
+                )
+            
+            # Obtener el contenido del PDF
+            pdf_content = result.getvalue()
+            result.close()
+            pdf_buffer.close()
+            
+            # Debug: Imprimir información del PDF generado
+            print(f'📄 PDF generado - Tamaño: {len(pdf_content) if pdf_content else 0} bytes')
+            if pdf_content:
+                print(f'📄 Primeros 20 bytes: {pdf_content[:20]}')
+            
+            # Verificar que el PDF no esté vacío
+            if not pdf_content or len(pdf_content) < 100:
+                import logging
+                logger = logging.getLogger(__name__)
+                error_msg = f'Error: El PDF generado está vacío o corrupto. Tamaño: {len(pdf_content) if pdf_content else 0} bytes'
+                logger.error(error_msg)
+                print(f'❌ PDF VACÍO: {error_msg}')
+                return HttpResponse(
+                    f'<h2>Error al generar PDF</h2>'
+                    f'<p>El PDF generado está vacío o corrupto.</p>'
+                    f'<p><strong>Tamaño del archivo:</strong> {len(pdf_content) if pdf_content else 0} bytes</p>'
+                    f'<p>Revisa los logs del servidor para más detalles.</p>',
+                    status=500,
+                    content_type='text/html'
+                )
+            
+            # Verificar que el PDF tenga el header correcto (%PDF)
+            if not pdf_content.startswith(b'%PDF'):
+                import logging
+                logger = logging.getLogger(__name__)
+                first_bytes = pdf_content[:50] if len(pdf_content) >= 50 else pdf_content
+                error_msg = f'Error: El PDF generado no tiene un formato válido. Primeros bytes: {first_bytes}'
+                logger.error(error_msg)
+                print(f'❌ PDF INVÁLIDO: {error_msg}')
+                return HttpResponse(
+                    f'<h2>Error al generar PDF</h2>'
+                    f'<p>El PDF generado no tiene un formato válido.</p>'
+                    f'<p>El archivo no comienza con %PDF.</p>'
+                    f'<p><strong>Primeros bytes:</strong> {first_bytes}</p>'
+                    f'<p>Revisa los logs del servidor para más detalles.</p>',
+                    status=500,
+                    content_type='text/html'
+                )
+            
+            print(f'✅ PDF generado correctamente - Tamaño: {len(pdf_content)} bytes')
+            
+            # Configurar la respuesta HTTP
+            response = HttpResponse(pdf_content, content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="recibo_movimiento_{movimiento.id}.pdf"'
+            response['Content-Length'] = len(pdf_content)
+            
             return response
-        else:
-            return HttpResponse('Error al generar PDF', status=500)
+            
+        except Exception as e:
+            import logging
+            import traceback
+            logger = logging.getLogger(__name__)
+            error_trace = traceback.format_exc()
+            error_msg = f'Excepción al generar PDF: {str(e)}\n{error_trace}'
+            logger.error(error_msg)
+            print(f'❌ EXCEPCIÓN PDF: {error_msg}')  # También imprimir en consola
+            pdf_buffer.close()
+            # Devolver error detallado para debugging
+            return HttpResponse(
+                f'Error al generar PDF:<br><br>Excepción: {str(e)}<br><br>'
+                f'Traceback completo en logs del servidor.<br><br>'
+                f'Por favor, contacte al administrador.',
+                status=500,
+                content_type='text/html'
+            )
             
     except Exception as e:
-        return HttpResponse(f'Error: {str(e)}', status=500)
+        import traceback
+        error_detail = f'Error: {str(e)}\n\n{traceback.format_exc()}'
+        print(f'❌ ERROR GENERAL: {error_detail}')  # También imprimir en consola
+        return HttpResponse(
+            f'<h2>Error al generar PDF</h2>'
+            f'<p><strong>Error:</strong> {str(e)}</p>'
+            f'<p>Revisa los logs del servidor para más detalles.</p>',
+            status=500,
+            content_type='text/html'
+        )
 
 
 # Vista AJAX para generar enlace público
