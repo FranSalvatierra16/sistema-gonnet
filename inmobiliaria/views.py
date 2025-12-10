@@ -10359,61 +10359,58 @@ def ver_recibo_pdf(request, reserva_id):
         template = get_template('inmobiliaria/reserva/recibo_pdf.html')
         html = template.render(context)
         
-        # Crear el PDF usando BytesIO (método robusto)
+        # Limpiar el HTML de posibles caracteres problemáticos
+        html = html.replace('\x00', '')  # Eliminar caracteres nulos
+        
+        # Crear el PDF usando BytesIO
         pdf_buffer = io.BytesIO()
         
-        # Asegurar que el HTML esté bien formateado
-        html_encoded = html.encode("UTF-8")
-        html_source = io.BytesIO(html_encoded)
-        
-        # Generar el PDF
+        # Generar el PDF usando pisaDocument (método más compatible)
         try:
-            pisa_status = pisa.CreatePDF(
-                html_source,
-                dest=pdf_buffer,
+            result = io.BytesIO()
+            pdf = pisa.pisaDocument(
+                io.BytesIO(html.encode('UTF-8')),
+                result,
                 encoding='UTF-8'
             )
+            
+            if pdf.err:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f'Error al generar PDF: {pdf.err}')
+                result.close()
+                pdf_buffer.close()
+                return HttpResponse(f'Error al generar PDF: {pdf.err}', status=500, content_type='text/plain')
+            
+            # Obtener el contenido del PDF
+            pdf_content = result.getvalue()
+            result.close()
+            pdf_buffer.close()
+            
+            # Verificar que el PDF no esté vacío
+            if not pdf_content or len(pdf_content) < 100:
+                error_msg = 'Error: El PDF generado está vacío o corrupto.'
+                return HttpResponse(error_msg, status=500, content_type='text/plain')
+            
+            # Verificar que el PDF tenga el header correcto (%PDF)
+            if not pdf_content.startswith(b'%PDF'):
+                error_msg = 'Error: El PDF generado no tiene un formato válido.'
+                return HttpResponse(error_msg, status=500, content_type='text/plain')
+            
+            # Configurar la respuesta HTTP
+            response = HttpResponse(pdf_content, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
+            response['Content-Length'] = len(pdf_content)
+            
+            return response
+            
         except Exception as e:
             import logging
+            import traceback
             logger = logging.getLogger(__name__)
-            logger.error(f'Excepción al generar PDF: {str(e)}')
-            html_source.close()
+            logger.error(f'Excepción al generar PDF: {str(e)}\n{traceback.format_exc()}')
             pdf_buffer.close()
             return HttpResponse(f'Error al generar PDF: {str(e)}', status=500, content_type='text/plain')
-        finally:
-            # Cerrar el buffer de entrada
-            html_source.close()
-        
-        if pisa_status.err:
-            # Devolver error más detallado
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f'Error al generar PDF: {pisa_status.err}')
-            error_msg = f'Error al generar PDF. Por favor, contacte al administrador.'
-            pdf_buffer.close()
-            return HttpResponse(error_msg, status=500, content_type='text/plain')
-        
-        # Obtener el contenido del PDF
-        pdf_buffer.seek(0)  # Asegurar que estamos al inicio del buffer
-        pdf_content = pdf_buffer.read()
-        pdf_buffer.close()
-        
-        # Verificar que el PDF no esté vacío y que tenga el header correcto
-        if not pdf_content or len(pdf_content) < 100:
-            error_msg = 'Error: El PDF generado está vacío o corrupto.'
-            return HttpResponse(error_msg, status=500, content_type='text/plain')
-        
-        # Verificar que el PDF tenga el header correcto (%PDF)
-        if not pdf_content.startswith(b'%PDF'):
-            error_msg = 'Error: El PDF generado no tiene un formato válido.'
-            return HttpResponse(error_msg, status=500, content_type='text/plain')
-        
-        # Configurar la respuesta HTTP
-        response = HttpResponse(pdf_content, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
-        response['Content-Length'] = len(pdf_content)
-        
-        return response
             
     except Exception as e:
         import traceback
@@ -10580,61 +10577,58 @@ def ver_recibo_publico(request, reserva_id, token):
         template = get_template('inmobiliaria/reserva/recibo_pdf.html')
         html = template.render(context)
         
-        # Crear el PDF usando BytesIO (método robusto)
+        # Limpiar el HTML de posibles caracteres problemáticos
+        html = html.replace('\x00', '')  # Eliminar caracteres nulos
+        
+        # Crear el PDF usando BytesIO
         pdf_buffer = io.BytesIO()
         
-        # Asegurar que el HTML esté bien formateado
-        html_encoded = html.encode("UTF-8")
-        html_source = io.BytesIO(html_encoded)
-        
-        # Generar el PDF
+        # Generar el PDF usando pisaDocument (método más compatible)
         try:
-            pisa_status = pisa.CreatePDF(
-                html_source,
-                dest=pdf_buffer,
+            result = io.BytesIO()
+            pdf = pisa.pisaDocument(
+                io.BytesIO(html.encode('UTF-8')),
+                result,
                 encoding='UTF-8'
             )
+            
+            if pdf.err:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f'Error al generar PDF: {pdf.err}')
+                result.close()
+                pdf_buffer.close()
+                return HttpResponse(f'Error al generar PDF: {pdf.err}', status=500, content_type='text/plain')
+            
+            # Obtener el contenido del PDF
+            pdf_content = result.getvalue()
+            result.close()
+            pdf_buffer.close()
+            
+            # Verificar que el PDF no esté vacío
+            if not pdf_content or len(pdf_content) < 100:
+                error_msg = 'Error: El PDF generado está vacío o corrupto.'
+                return HttpResponse(error_msg, status=500, content_type='text/plain')
+            
+            # Verificar que el PDF tenga el header correcto (%PDF)
+            if not pdf_content.startswith(b'%PDF'):
+                error_msg = 'Error: El PDF generado no tiene un formato válido.'
+                return HttpResponse(error_msg, status=500, content_type='text/plain')
+            
+            # Configurar la respuesta HTTP
+            response = HttpResponse(pdf_content, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
+            response['Content-Length'] = len(pdf_content)
+            
+            return response
+            
         except Exception as e:
             import logging
+            import traceback
             logger = logging.getLogger(__name__)
-            logger.error(f'Excepción al generar PDF: {str(e)}')
-            html_source.close()
+            logger.error(f'Excepción al generar PDF: {str(e)}\n{traceback.format_exc()}')
             pdf_buffer.close()
             return HttpResponse(f'Error al generar PDF: {str(e)}', status=500, content_type='text/plain')
-        finally:
-            # Cerrar el buffer de entrada
-            html_source.close()
-        
-        if pisa_status.err:
-            # Devolver error más detallado
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f'Error al generar PDF: {pisa_status.err}')
-            error_msg = f'Error al generar PDF. Por favor, contacte al administrador.'
-            pdf_buffer.close()
-            return HttpResponse(error_msg, status=500, content_type='text/plain')
-        
-        # Obtener el contenido del PDF
-        pdf_buffer.seek(0)  # Asegurar que estamos al inicio del buffer
-        pdf_content = pdf_buffer.read()
-        pdf_buffer.close()
-        
-        # Verificar que el PDF no esté vacío y que tenga el header correcto
-        if not pdf_content or len(pdf_content) < 100:
-            error_msg = 'Error: El PDF generado está vacío o corrupto.'
-            return HttpResponse(error_msg, status=500, content_type='text/plain')
-        
-        # Verificar que el PDF tenga el header correcto (%PDF)
-        if not pdf_content.startswith(b'%PDF'):
-            error_msg = 'Error: El PDF generado no tiene un formato válido.'
-            return HttpResponse(error_msg, status=500, content_type='text/plain')
-        
-        # Configurar la respuesta HTTP
-        response = HttpResponse(pdf_content, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="recibo_{reserva.id}.pdf"'
-        response['Content-Length'] = len(pdf_content)
-        
-        return response
             
     except Exception as e:
         import traceback
