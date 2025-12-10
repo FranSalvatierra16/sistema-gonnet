@@ -10377,25 +10377,64 @@ def ver_recibo_pdf(request, reserva_id):
             if pdf.err:
                 import logging
                 logger = logging.getLogger(__name__)
-                logger.error(f'Error al generar PDF: {pdf.err}')
+                error_details = f'Error al generar PDF: {pdf.err}'
+                logger.error(error_details)
+                print(f'❌ ERROR PDF: {error_details}')  # También imprimir en consola
                 result.close()
                 pdf_buffer.close()
-                return HttpResponse(f'Error al generar PDF: {pdf.err}', status=500, content_type='text/plain')
+                # Devolver error detallado para debugging
+                return HttpResponse(
+                    f'Error al generar PDF:<br><br>Detalles: {error_details}<br><br>'
+                    f'Por favor, contacte al administrador o revise los logs del servidor.',
+                    status=500,
+                    content_type='text/html'
+                )
             
             # Obtener el contenido del PDF
             pdf_content = result.getvalue()
             result.close()
             pdf_buffer.close()
             
+            # Debug: Imprimir información del PDF generado
+            print(f'📄 PDF generado - Tamaño: {len(pdf_content) if pdf_content else 0} bytes')
+            if pdf_content:
+                print(f'📄 Primeros 20 bytes: {pdf_content[:20]}')
+            
             # Verificar que el PDF no esté vacío
             if not pdf_content or len(pdf_content) < 100:
-                error_msg = 'Error: El PDF generado está vacío o corrupto.'
-                return HttpResponse(error_msg, status=500, content_type='text/plain')
+                import logging
+                logger = logging.getLogger(__name__)
+                error_msg = f'Error: El PDF generado está vacío o corrupto. Tamaño: {len(pdf_content) if pdf_content else 0} bytes'
+                logger.error(error_msg)
+                print(f'❌ PDF VACÍO: {error_msg}')
+                return HttpResponse(
+                    f'<h2>Error al generar PDF</h2>'
+                    f'<p>El PDF generado está vacío o corrupto.</p>'
+                    f'<p><strong>Tamaño del archivo:</strong> {len(pdf_content) if pdf_content else 0} bytes</p>'
+                    f'<p>Revisa los logs del servidor para más detalles.</p>',
+                    status=500,
+                    content_type='text/html'
+                )
             
             # Verificar que el PDF tenga el header correcto (%PDF)
             if not pdf_content.startswith(b'%PDF'):
-                error_msg = 'Error: El PDF generado no tiene un formato válido.'
-                return HttpResponse(error_msg, status=500, content_type='text/plain')
+                import logging
+                logger = logging.getLogger(__name__)
+                first_bytes = pdf_content[:50] if len(pdf_content) >= 50 else pdf_content
+                error_msg = f'Error: El PDF generado no tiene un formato válido. Primeros bytes: {first_bytes}'
+                logger.error(error_msg)
+                print(f'❌ PDF INVÁLIDO: {error_msg}')
+                return HttpResponse(
+                    f'<h2>Error al generar PDF</h2>'
+                    f'<p>El PDF generado no tiene un formato válido.</p>'
+                    f'<p>El archivo no comienza con %PDF.</p>'
+                    f'<p><strong>Primeros bytes:</strong> {first_bytes}</p>'
+                    f'<p>Revisa los logs del servidor para más detalles.</p>',
+                    status=500,
+                    content_type='text/html'
+                )
+            
+            print(f'✅ PDF generado correctamente - Tamaño: {len(pdf_content)} bytes')
             
             # Configurar la respuesta HTTP
             response = HttpResponse(pdf_content, content_type='application/pdf')
@@ -10408,9 +10447,19 @@ def ver_recibo_pdf(request, reserva_id):
             import logging
             import traceback
             logger = logging.getLogger(__name__)
-            logger.error(f'Excepción al generar PDF: {str(e)}\n{traceback.format_exc()}')
+            error_trace = traceback.format_exc()
+            error_msg = f'Excepción al generar PDF: {str(e)}\n{error_trace}'
+            logger.error(error_msg)
+            print(f'❌ EXCEPCIÓN PDF: {error_msg}')  # También imprimir en consola
             pdf_buffer.close()
-            return HttpResponse(f'Error al generar PDF: {str(e)}', status=500, content_type='text/plain')
+            # Devolver error detallado para debugging
+            return HttpResponse(
+                f'Error al generar PDF:<br><br>Excepción: {str(e)}<br><br>'
+                f'Traceback completo en logs del servidor.<br><br>'
+                f'Por favor, contacte al administrador.',
+                status=500,
+                content_type='text/html'
+            )
             
     except Exception as e:
         import traceback
@@ -10595,25 +10644,64 @@ def ver_recibo_publico(request, reserva_id, token):
             if pdf.err:
                 import logging
                 logger = logging.getLogger(__name__)
-                logger.error(f'Error al generar PDF: {pdf.err}')
+                error_details = f'Error al generar PDF: {pdf.err}'
+                logger.error(error_details)
+                print(f'❌ ERROR PDF: {error_details}')  # También imprimir en consola
                 result.close()
                 pdf_buffer.close()
-                return HttpResponse(f'Error al generar PDF: {pdf.err}', status=500, content_type='text/plain')
+                # Devolver error detallado para debugging
+                return HttpResponse(
+                    f'Error al generar PDF:<br><br>Detalles: {error_details}<br><br>'
+                    f'Por favor, contacte al administrador o revise los logs del servidor.',
+                    status=500,
+                    content_type='text/html'
+                )
             
             # Obtener el contenido del PDF
             pdf_content = result.getvalue()
             result.close()
             pdf_buffer.close()
             
+            # Debug: Imprimir información del PDF generado
+            print(f'📄 PDF generado - Tamaño: {len(pdf_content) if pdf_content else 0} bytes')
+            if pdf_content:
+                print(f'📄 Primeros 20 bytes: {pdf_content[:20]}')
+            
             # Verificar que el PDF no esté vacío
             if not pdf_content or len(pdf_content) < 100:
-                error_msg = 'Error: El PDF generado está vacío o corrupto.'
-                return HttpResponse(error_msg, status=500, content_type='text/plain')
+                import logging
+                logger = logging.getLogger(__name__)
+                error_msg = f'Error: El PDF generado está vacío o corrupto. Tamaño: {len(pdf_content) if pdf_content else 0} bytes'
+                logger.error(error_msg)
+                print(f'❌ PDF VACÍO: {error_msg}')
+                return HttpResponse(
+                    f'<h2>Error al generar PDF</h2>'
+                    f'<p>El PDF generado está vacío o corrupto.</p>'
+                    f'<p><strong>Tamaño del archivo:</strong> {len(pdf_content) if pdf_content else 0} bytes</p>'
+                    f'<p>Revisa los logs del servidor para más detalles.</p>',
+                    status=500,
+                    content_type='text/html'
+                )
             
             # Verificar que el PDF tenga el header correcto (%PDF)
             if not pdf_content.startswith(b'%PDF'):
-                error_msg = 'Error: El PDF generado no tiene un formato válido.'
-                return HttpResponse(error_msg, status=500, content_type='text/plain')
+                import logging
+                logger = logging.getLogger(__name__)
+                first_bytes = pdf_content[:50] if len(pdf_content) >= 50 else pdf_content
+                error_msg = f'Error: El PDF generado no tiene un formato válido. Primeros bytes: {first_bytes}'
+                logger.error(error_msg)
+                print(f'❌ PDF INVÁLIDO: {error_msg}')
+                return HttpResponse(
+                    f'<h2>Error al generar PDF</h2>'
+                    f'<p>El PDF generado no tiene un formato válido.</p>'
+                    f'<p>El archivo no comienza con %PDF.</p>'
+                    f'<p><strong>Primeros bytes:</strong> {first_bytes}</p>'
+                    f'<p>Revisa los logs del servidor para más detalles.</p>',
+                    status=500,
+                    content_type='text/html'
+                )
+            
+            print(f'✅ PDF generado correctamente - Tamaño: {len(pdf_content)} bytes')
             
             # Configurar la respuesta HTTP
             response = HttpResponse(pdf_content, content_type='application/pdf')
@@ -10626,9 +10714,19 @@ def ver_recibo_publico(request, reserva_id, token):
             import logging
             import traceback
             logger = logging.getLogger(__name__)
-            logger.error(f'Excepción al generar PDF: {str(e)}\n{traceback.format_exc()}')
+            error_trace = traceback.format_exc()
+            error_msg = f'Excepción al generar PDF: {str(e)}\n{error_trace}'
+            logger.error(error_msg)
+            print(f'❌ EXCEPCIÓN PDF: {error_msg}')  # También imprimir en consola
             pdf_buffer.close()
-            return HttpResponse(f'Error al generar PDF: {str(e)}', status=500, content_type='text/plain')
+            # Devolver error detallado para debugging
+            return HttpResponse(
+                f'Error al generar PDF:<br><br>Excepción: {str(e)}<br><br>'
+                f'Traceback completo en logs del servidor.<br><br>'
+                f'Por favor, contacte al administrador.',
+                status=500,
+                content_type='text/html'
+            )
             
     except Exception as e:
         import traceback
