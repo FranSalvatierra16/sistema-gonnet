@@ -379,8 +379,8 @@
         <i class="fas fa-print me-2"></i>Imprimir Recibo
     </button>
     
-    <button onclick="descargarImagen();" class="btn btn-danger">
-        <i class="fas fa-image me-2"></i>Descargar Imagen
+    <button onclick="descargarPDF();" class="btn btn-danger">
+        <i class="fas fa-file-pdf me-2"></i>Descargar PDF
     </button>
 </div>
 
@@ -771,14 +771,14 @@ async function compartirWhatsAppNumero() {
     }
 }
 
-// Función para descargar imagen y abrir WhatsApp con instrucciones
+// Función para descargar PDF y abrir WhatsApp con instrucciones
 async function compartirWhatsAppConDescarga() {
     try {
         // Mostrar loading
-        mostrarNotificacion('📸 Descargando imagen...', 'info');
+        mostrarNotificacion('📄 Descargando PDF...', 'info');
         
-        // Primero descargar la imagen
-        await descargarImagen();
+        // Primero descargar el PDF
+        await descargarPDF();
         
         // Esperar un momento para que se complete la descarga
         setTimeout(() => {
@@ -790,8 +790,8 @@ async function compartirWhatsAppConDescarga() {
                            `📅 Fecha: {{ fecha }}\n` +
                            `💰 Total: {{ total_pagado }}\n` +
                            `💳 Forma de pago: {{ formas_de_pago }}\n\n` +
-                           `📎 *La imagen del recibo se ha descargado en tu dispositivo*\n` +
-                           `Para enviarlo: toca el 📎 (clip) en WhatsApp y selecciona "Imagen" o "Galería"\n\n` +
+                           `📎 *El PDF del recibo se ha descargado en tu dispositivo*\n` +
+                           `Para enviarlo: toca el 📎 (clip) en WhatsApp y selecciona "Documento"\n\n` +
                            `_Gonnet Propiedades - Mar del Plata_`;
             
             // Detectar si es móvil o desktop
@@ -809,19 +809,36 @@ async function compartirWhatsAppConDescarga() {
             window.open(whatsappUrl, '_blank');
             
             // Mostrar instrucciones
-            mostrarNotificacion('✅ Imagen descargada. WhatsApp abierto con instrucciones para adjuntar el archivo.', 'success');
+            mostrarNotificacion('✅ PDF descargado. WhatsApp abierto con instrucciones para adjuntar el archivo.', 'success');
         }, 1500);
         
     } catch (error) {
-        mostrarNotificacion('❌ Error al descargar imagen', 'error');
+        mostrarNotificacion('❌ Error al descargar PDF', 'error');
         console.error('Error:', error);
     }
 }
 
-// Función para descargar imagen del recibo
-async function descargarImagen() {
+// Función para cargar jsPDF dinámicamente
+async function cargarJsPDF() {
+    return new Promise((resolve, reject) => {
+        if (typeof window.jspdf !== 'undefined') {
+            resolve();
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script.onload = () => {
+            resolve();
+        };
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
+// Función para descargar PDF del recibo (generado desde imagen)
+async function descargarPDF() {
     try {
-        mostrarNotificacion('📸 Generando imagen del recibo...', 'info');
+        mostrarNotificacion('📄 Generando PDF del recibo...', 'info');
         
         // Obtener el elemento del recibo
         const reciboElement = document.querySelector('.printable');
@@ -834,6 +851,9 @@ async function descargarImagen() {
         if (typeof html2canvas === 'undefined') {
             await cargarHtml2Canvas();
         }
+        
+        // Cargar jsPDF si no está disponible
+        await cargarJsPDF();
         
         // Esperar a que todas las imágenes se carguen antes de capturar
         const images = reciboElement.querySelectorAll('img');
@@ -856,39 +876,40 @@ async function descargarImagen() {
             imageTimeout: 15000, // Timeout de 15 segundos para imágenes
         });
         
-        // Convertir a blob
-        const imageBlob = await new Promise(resolve => {
-            canvasRecibo.toBlob(resolve, 'image/png', 1.0);
+        // Convertir canvas a imagen
+        const imgData = canvasRecibo.toDataURL('image/png');
+        
+        // Obtener dimensiones del canvas
+        const imgWidth = canvasRecibo.width;
+        const imgHeight = canvasRecibo.height;
+        
+        // Calcular dimensiones para PDF (tamaño legal en mm)
+        const pdfWidth = 216; // Ancho de papel legal en mm
+        const pdfHeight = (imgHeight * pdfWidth) / imgWidth; // Mantener proporción
+        
+        // Crear PDF usando jsPDF
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: pdfHeight > pdfWidth ? 'portrait' : 'landscape',
+            unit: 'mm',
+            format: [pdfWidth, pdfHeight]
         });
+        
+        // Agregar imagen al PDF
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
         
         // Crear nombre de archivo
         const numeroOperacion = '{{ reserva.id|default:"N/A" }}';
-        const fileName = `recibo_${numeroOperacion}.png`;
+        const fileName = `recibo_${numeroOperacion}.pdf`;
         
-        // Crear URL temporal del blob
-        const url = window.URL.createObjectURL(imageBlob);
+        // Descargar PDF
+        pdf.save(fileName);
         
-        // Crear enlace de descarga
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = fileName;
-        
-        // Agregar al DOM, hacer clic y remover
-        document.body.appendChild(a);
-        a.click();
-        
-        // Limpiar
-        setTimeout(() => {
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        }, 100);
-        
-        mostrarNotificacion('✅ Imagen descargada correctamente', 'success');
+        mostrarNotificacion('✅ PDF descargado correctamente', 'success');
         return true;
     } catch (error) {
-        console.error('Error descargando imagen:', error);
-        mostrarNotificacion('❌ Error al generar la imagen', 'error');
+        console.error('Error descargando PDF:', error);
+        mostrarNotificacion('❌ Error al generar el PDF', 'error');
         return false;
     }
 }
