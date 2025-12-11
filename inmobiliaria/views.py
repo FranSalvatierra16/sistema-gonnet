@@ -5716,12 +5716,12 @@ def reconstruir_historial_propiedad(propiedad):
         # Si no hay reservas, crear historial básico con disponibilidades
         HistorialDisponibilidad.objects.filter(propiedad=propiedad).delete()
         for disp in propiedad.disponibilidades.filter(es_manual=True).order_by('fecha_inicio'):
-        HistorialDisponibilidad.objects.create(
-            propiedad=propiedad,
-            fecha_inicio=disp.fecha_inicio,
-            fecha_fin=disp.fecha_fin,
-            estado='libre'
-        )
+            HistorialDisponibilidad.objects.create(
+                propiedad=propiedad,
+                fecha_inicio=disp.fecha_inicio,
+                fecha_fin=disp.fecha_fin,
+                estado='libre'
+            )
 # print(f"   📅 Agregado período LIBRE: {disp.fecha_inicio} al {disp.fecha_fin}")
 
 @login_required
