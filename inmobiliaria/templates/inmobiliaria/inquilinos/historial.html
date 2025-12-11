@@ -4,22 +4,30 @@
 <div class="container my-5">
   <h2 class="mb-4">Historial de Reservas del Inquilino</h2>
 
-  {% if reservas %}
+  {% if reservas_con_monto %}
     <div class="table-responsive">
       <table class="table table-bordered table-hover">
         <thead class="thead-light">
           <tr>
             <th>Propiedad</th>
+            <th>Ficha</th>
+            <th>Piso</th>
+            <th>Dpto</th>
             <th>Fecha de Inicio</th>
             <th>Fecha de Fin</th>
+            <th>Monto Pagado</th>
           </tr>
         </thead>
         <tbody>
-          {% for reserva in reservas %}
+          {% for item in reservas_con_monto %}
             <tr>
-              <td>{{ reserva.propiedad }}</td>
-              <td>{{ reserva.fecha_inicio }}</td>
-              <td>{{ reserva.fecha_fin }}</td>
+              <td>{{ item.reserva.propiedad.direccion }}</td>
+              <td>{{ item.reserva.propiedad.id }}</td>
+              <td>{{ item.reserva.propiedad.piso|default:"-" }}</td>
+              <td>{{ item.reserva.propiedad.departamento|default:"-" }}</td>
+              <td>{{ item.reserva.fecha_inicio|date:"d/m/Y" }}</td>
+              <td>{{ item.reserva.fecha_fin|date:"d/m/Y" }}</td>
+              <td>${{ item.total_pagado|floatformat:0|default:"0" }}</td>
             </tr>
           {% endfor %}
         </tbody>
