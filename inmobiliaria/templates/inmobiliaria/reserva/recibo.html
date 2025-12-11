@@ -76,7 +76,7 @@
                  <!-- DEBUG: Indicador de template actualizado -->
                  <div style="background: red; color: white; padding: 2px; font-size: 8px; position: absolute; top: 0; right: 0;">TEMPLATE ACTUALIZADO v2.0</div>
                 <p style="margin: 0; font-size: 7px;"> de Nestor Oscar Gonnet</p>
-                <p style="margin: 0; font-size: 7px;">Corrientes 1987</p>
+                <p style="margin: 0; font-size: 7px;">{% if sucursal %}{{ sucursal.direccion }}{% else %}Corrientes 1987{% endif %}</p>
                 <p style="margin: 0; font-size: 7px;">(B7600EBO) Mar del Plata - Prov. de Bs. As.</p>
                 <p style="margin: 0; font-size: 7px;">http://www.gonnet.com.ar</p>
                 <p style="margin: 0; font-size: 7px;">email: info@gonnet.com.ar</p>
@@ -839,7 +839,7 @@ async function cargarJsPDF() {
 async function descargarPDF() {
     try {
         mostrarNotificacion('📄 Generando PDF del recibo...', 'info');
-        
+    
         // Obtener el elemento del recibo
         const reciboElement = document.querySelector('.printable');
         if (!reciboElement) {

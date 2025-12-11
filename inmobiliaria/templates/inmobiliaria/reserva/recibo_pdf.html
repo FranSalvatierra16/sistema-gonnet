@@ -55,7 +55,7 @@
                                 <img src="{{ logo_base64 }}" alt="logo" style="max-width: 60%; max-height: 30px;" />
                             {% endif %}
                     <p style="margin: 0; font-size: 7px;"> de Nestor Oscar Gonnet</p>
-                    <p style="margin: 0; font-size: 7px;">Corrientes 1987</p>
+                            <p style="margin: 0; font-size: 7px;">{% if sucursal %}{{ sucursal.direccion }}{% else %}Corrientes 1987{% endif %}</p>
                     <p style="margin: 0; font-size: 7px;">(B7600EBO) Mar del Plata - Prov. de Bs. As.</p>
                     <p style="margin: 0; font-size: 7px;">http://www.gonnet.com.ar</p>
                     <p style="margin: 0; font-size: 7px;">email: info@gonnet.com.ar</p>
