@@ -2128,7 +2128,10 @@ def crear_disponibilidad(request, propiedad_id):
                     propiedad=propiedad,
                     fecha_inicio=form.cleaned_data['fecha_inicio'],
                     fecha_fin=form.cleaned_data['fecha_fin'],
-                    es_manual=True  # Marcada explícitamente como manual
+                    es_manual=True,  # Marcada explícitamente como manual
+                    asegurado=form.cleaned_data.get('asegurado', False),
+                    monto_asegurado=form.cleaned_data.get('monto_asegurado'),
+                    moneda_asegurado=form.cleaned_data.get('moneda_asegurado')
                 )
                 
                 # ✅ MEJORADO: Verificar superposición REAL (permitir fechas contiguas)
@@ -2754,6 +2757,9 @@ def ver_recibo(request, reserva_id):
         except Exception as e:
             logo_base64 = None
         
+        # Obtener información de la sucursal
+        sucursal = request.user.sucursal if hasattr(request.user, 'sucursal') and request.user.sucursal else None
+        
         # Continuar con la generación del recibo usando el template correcto
         return render(request, 'inmobiliaria/reserva/recibo.html', {
             'reserva': reserva_formateada,
@@ -2779,6 +2785,7 @@ def ver_recibo(request, reserva_id):
             'honorarios': f'${honorarios_monto:,.0f}',
             'sellados': f'${sellados_monto:,.0f}',
             'logo_base64': logo_base64,
+            'sucursal': sucursal,  # Agregar sucursal al contexto
         })
         
     except Exception as e:
@@ -4576,6 +4583,9 @@ def ver_recibo_movimiento(request, movimiento_id):
             honorarios_monto = float(movimiento.honorarios or 0)
             sellados_monto = float(movimiento.sellados or 0)
             
+            # Obtener información de la sucursal
+            sucursal = request.user.sucursal if hasattr(request.user, 'sucursal') and request.user.sucursal else None
+            
             # Usar el nuevo template de recibo
             return render(request, 'inmobiliaria/reserva/recibo.html', {
                 'reserva': reserva_formateada,
@@ -4602,6 +4612,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                 # ✅ AGREGAR HONORARIOS Y SELLADOS
                 'honorarios': f'${honorarios_monto:,.0f}',
                 'sellados': f'${sellados_monto:,.0f}',
+                'sucursal': sucursal,  # Agregar sucursal al contexto
             })
         
         # Si no hay reserva, usar el template original
@@ -10428,6 +10439,9 @@ def ver_recibo_pdf(request, reserva_id):
         except Exception as e:
             logo_base64 = None
         
+        # Obtener información de la sucursal
+        sucursal = request.user.sucursal if hasattr(request.user, 'sucursal') and request.user.sucursal else None
+        
         # Preparar contexto para el template
         context = {
             'reserva': reserva,
@@ -10452,6 +10466,7 @@ def ver_recibo_pdf(request, reserva_id):
             'sellados': f'${sellados_monto:,.0f}',
             'monto_en_palabras': numero_a_palabras(total_pagado),
             'logo_base64': logo_base64,
+            'sucursal': sucursal,  # Agregar sucursal al contexto
         }
         
         # Cargar template específico para PDF (sin botones)
@@ -11126,6 +11141,9 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
         except Exception as e:
             logo_base64 = None
         
+        # Obtener información de la sucursal
+        sucursal = request.user.sucursal if hasattr(request.user, 'sucursal') and request.user.sucursal else None
+        
         context = {
             'reserva': reserva,
             'propiedad': propiedad_completa,
@@ -11150,6 +11168,7 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
             'sellados': f'${sellados_monto:,.0f}',
             'monto_en_palabras': numero_a_palabras(movimiento.monto_total),
             'logo_base64': logo_base64,
+            'sucursal': sucursal,  # Agregar sucursal al contexto
         }
         
         # Cargar template específico para PDF
