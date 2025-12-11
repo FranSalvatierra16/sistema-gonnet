@@ -379,8 +379,8 @@
         <i class="fas fa-print me-2"></i>Imprimir Recibo
     </button>
     
-    <button onclick="descargarPDF();" class="btn btn-danger">
-        <i class="fas fa-file-pdf me-2"></i>Descargar PDF
+    <button onclick="descargarImagen();" class="btn btn-danger">
+        <i class="fas fa-image me-2"></i>Descargar Imagen
     </button>
 </div>
 
@@ -771,17 +771,14 @@ async function compartirWhatsAppNumero() {
     }
 }
 
-// Función para descargar PDF y abrir WhatsApp con instrucciones
+// Función para descargar imagen y abrir WhatsApp con instrucciones
 async function compartirWhatsAppConDescarga() {
     try {
         // Mostrar loading
-        mostrarNotificacion('📄 Descargando PDF...', 'info');
+        mostrarNotificacion('📸 Descargando imagen...', 'info');
         
-        // Primero descargar el PDF
-        await descargarPDF();
-        
-        // Obtener también el enlace público como respaldo
-        const pdfUrl = await obtenerEnlacePublico();
+        // Primero descargar la imagen
+        await descargarImagen();
         
         // Esperar un momento para que se complete la descarga
         setTimeout(() => {
@@ -793,9 +790,8 @@ async function compartirWhatsAppConDescarga() {
                            `📅 Fecha: {{ fecha }}\n` +
                            `💰 Total: {{ total_pagado }}\n` +
                            `💳 Forma de pago: {{ formas_de_pago }}\n\n` +
-                           `📎 *El PDF del recibo se ha descargado en tu dispositivo*\n` +
-                           `Para enviarlo: toca el 📎 (clip) en WhatsApp y selecciona "Documento"\n\n` +
-                           (pdfUrl ? `📄 O descarga desde: ${pdfUrl}\n\n` : '') +
+                           `📎 *La imagen del recibo se ha descargado en tu dispositivo*\n` +
+                           `Para enviarlo: toca el 📎 (clip) en WhatsApp y selecciona "Imagen" o "Galería"\n\n` +
                            `_Gonnet Propiedades - Mar del Plata_`;
             
             // Detectar si es móvil o desktop
@@ -813,44 +809,70 @@ async function compartirWhatsAppConDescarga() {
             window.open(whatsappUrl, '_blank');
             
             // Mostrar instrucciones
-            mostrarNotificacion('✅ PDF descargado. WhatsApp abierto con instrucciones para adjuntar el archivo.', 'success');
+            mostrarNotificacion('✅ Imagen descargada. WhatsApp abierto con instrucciones para adjuntar el archivo.', 'success');
         }, 1500);
         
     } catch (error) {
-        mostrarNotificacion('❌ Error al descargar PDF', 'error');
+        mostrarNotificacion('❌ Error al descargar imagen', 'error');
         console.error('Error:', error);
     }
 }
 
-// Función para descargar PDF directamente
-async function descargarPDF() {
-    const currentUrl = window.location.href;
-    let pdfUrl;
-    
-    // Determinar si es un recibo de reserva o de movimiento
-    if (currentUrl.includes('recibo-movimiento/')) {
-        // Es un recibo de movimiento
-        const movimientoId = currentUrl.match(/recibo-movimiento\/(\d+)\//)[1];
-        pdfUrl = `${window.location.origin}{% url 'inmobiliaria:ver_recibo_movimiento_pdf' 0 %}`.replace('0', movimientoId);
-    } else {
-        // Es un recibo de reserva
-        const reservaId = '{{ reserva.id }}';
-        pdfUrl = `${window.location.origin}{% url 'inmobiliaria:ver_recibo_pdf' reserva.id %}`;
-    }
-    
+// Función para descargar imagen del recibo
+async function descargarImagen() {
     try {
-        // Crear un enlace temporal para forzar la descarga
-        const response = await fetch(pdfUrl);
-        const blob = await response.blob();
+        mostrarNotificacion('📸 Generando imagen del recibo...', 'info');
+        
+        // Obtener el elemento del recibo
+        const reciboElement = document.querySelector('.printable');
+        if (!reciboElement) {
+            mostrarNotificacion('❌ No se encontró el recibo', 'error');
+            return;
+        }
+        
+        // Cargar html2canvas si no está disponible
+        if (typeof html2canvas === 'undefined') {
+            await cargarHtml2Canvas();
+        }
+        
+        // Esperar a que todas las imágenes se carguen antes de capturar
+        const images = reciboElement.querySelectorAll('img');
+        await Promise.all(Array.from(images).map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = resolve; // Continuar aunque falle una imagen
+                setTimeout(resolve, 2000); // Timeout de 2 segundos
+            });
+        }));
+        
+        // Capturar el recibo como imagen
+        const canvasRecibo = await html2canvas(reciboElement, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: false,
+            backgroundColor: '#ffffff',
+            logging: false,
+            imageTimeout: 15000, // Timeout de 15 segundos para imágenes
+        });
+        
+        // Convertir a blob
+        const imageBlob = await new Promise(resolve => {
+            canvasRecibo.toBlob(resolve, 'image/png', 1.0);
+        });
+        
+        // Crear nombre de archivo
+        const numeroOperacion = '{{ reserva.id|default:"N/A" }}';
+        const fileName = `recibo_${numeroOperacion}.png`;
         
         // Crear URL temporal del blob
-        const url = window.URL.createObjectURL(blob);
+        const url = window.URL.createObjectURL(imageBlob);
         
         // Crear enlace de descarga
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        a.download = `recibo_{{ reserva.id|default:"N/A" }}.pdf`;
+        a.download = fileName;
         
         // Agregar al DOM, hacer clic y remover
         document.body.appendChild(a);
@@ -862,11 +884,11 @@ async function descargarPDF() {
             window.URL.revokeObjectURL(url);
         }, 100);
         
+        mostrarNotificacion('✅ Imagen descargada correctamente', 'success');
         return true;
     } catch (error) {
-        console.error('Error descargando PDF:', error);
-        // Fallback: abrir en nueva ventana
-        window.open(pdfUrl, '_blank');
+        console.error('Error descargando imagen:', error);
+        mostrarNotificacion('❌ Error al generar la imagen', 'error');
         return false;
     }
 }
