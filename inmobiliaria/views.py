@@ -4833,30 +4833,30 @@ def crear_propietario_ajax(request):
             dni_limpio = None
             
             if dni_raw:  # Solo validar si se proporciona DNI
-            # Limpiar DNI: quitar puntos, espacios, guiones
-            dni_limpio = dni_raw.replace('.', '').replace(' ', '').replace('-', '').replace(',', '')
-            
-            # Validar que el DNI solo contenga números
-            if not dni_limpio.isdigit():
-                return JsonResponse({
-                    'success': False,
+                # Limpiar DNI: quitar puntos, espacios, guiones
+                dni_limpio = dni_raw.replace('.', '').replace(' ', '').replace('-', '').replace(',', '')
+                
+                # Validar que el DNI solo contenga números
+                if not dni_limpio.isdigit():
+                    return JsonResponse({
+                        'success': False,
                         'error': 'El DNI solo puede contener números. Por favor, ingrese solo los 7 u 8 dígitos del DNI sin puntos ni guiones.'
-                })
-            
+                    })
+                
                 # Validar longitud del DNI (7 u 8 dígitos)
                 if len(dni_limpio) != 7 and len(dni_limpio) != 8:
-                return JsonResponse({
-                    'success': False,
+                    return JsonResponse({
+                        'success': False,
                         'error': f'El DNI debe tener 7 u 8 dígitos. Usted ingresó {len(dni_limpio)} dígito(s). Por favor, verifique el DNI.'
-                })
-            
-            # Verificar si el DNI ya existe
-            if Propietario.objects.filter(dni=dni_limpio).exists():
-                propietario_existente = Propietario.objects.get(dni=dni_limpio)
-                return JsonResponse({
-                    'success': False,
+                    })
+                
+                # Verificar si el DNI ya existe
+                if Propietario.objects.filter(dni=dni_limpio).exists():
+                    propietario_existente = Propietario.objects.get(dni=dni_limpio)
+                    return JsonResponse({
+                        'success': False,
                         'error': f'Ya existe un propietario con el DNI {dni_limpio}. Propietario: {propietario_existente.apellido}, {propietario_existente.nombre}'
-                })
+                    })
                 
             propietario = Propietario.objects.create(
                 nombre=request.POST['nombre'],
