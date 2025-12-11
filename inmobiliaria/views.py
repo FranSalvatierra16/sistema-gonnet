@@ -3077,14 +3077,12 @@ def historial_reservas_vendedor(request, vendedor_id):
 def historial_reservas_inquilino(request, inquilino_id):
     reservas = Reserva.objects.filter(cliente_id=inquilino_id).select_related('propiedad').order_by('-fecha_inicio')
 
-    # Calcular el monto pagado para cada reserva
+    # Usar el precio_total de la reserva
     reservas_con_monto = []
     for reserva in reservas:
-        # Calcular total pagado desde los pagos de la reserva
-        total_pagado = sum(pago.monto for pago in reserva.pagos.all()) if reserva.pagos.exists() else 0
         reservas_con_monto.append({
             'reserva': reserva,
-            'total_pagado': total_pagado
+            'total_pagado': reserva.precio_total or 0
         })
 
     return render(request, 'inmobiliaria/inquilinos/historial.html', {
