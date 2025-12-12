@@ -116,11 +116,34 @@
             margin: 1cm;
         }
         
+        /* Ocultar todo primero */
+        body * {
+            visibility: hidden;
+        }
+        
         /* Resetear body para impresión */
         body {
-            margin: 0;
-            padding: 0;
-            background: white;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            display: block !important;
+            height: auto !important;
+        }
+        
+        /* Mostrar solo el contenido del recibo */
+        .printable,
+        .printable * {
+            visibility: visible !important;
+        }
+        
+        .printable {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            page-break-inside: avoid;
         }
         
         /* Ocultar elementos no imprimibles */
@@ -131,21 +154,10 @@
         header,
         footer,
         .navbar,
-        .sidebar {
+        .sidebar,
+        script {
             display: none !important;
-        }
-        
-        /* Asegurar que el contenedor se muestre */
-        .container-fluid.printable {
-            margin: 0 !important;
-            padding: 0 !important;
-            visibility: visible !important;
-            display: block !important;
-        }
-        
-        /* Ocultar todo excepto el contenido imprimible */
-        body > *:not(.printable) {
-            display: none !important;
+            visibility: hidden !important;
         }
         
         .recibo-container {
@@ -154,33 +166,16 @@
             margin: 0 !important;
             max-width: 100% !important;
             page-break-inside: avoid;
-            visibility: visible !important;
-            display: block !important;
-        }
-        
-        /* Asegurar que todo el contenido sea visible */
-        .recibo-header,
-        .recibo-info,
-        .pagos-section,
-        .total-general {
-            page-break-inside: avoid;
-            visibility: visible !important;
-            display: block !important;
+            background: white !important;
         }
         
         /* Asegurar que los elementos flex se muestren */
         .info-row,
         .pago-item {
             display: flex !important;
-            visibility: visible !important;
         }
         
-        /* Asegurar que el texto sea visible */
-        * {
-            color: black !important;
-            background: white !important;
-        }
-        
+        /* Mantener colores específicos */
         .recibo-title {
             color: #28a745 !important;
         }
