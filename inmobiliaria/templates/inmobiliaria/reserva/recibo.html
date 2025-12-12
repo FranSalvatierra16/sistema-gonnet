@@ -14,10 +14,7 @@
     <style type="text/css" media="print">
         @page {
             size: legal;
-            margin: 0;
-        }
-        body {
-            margin: 1cm;
+            margin: 0.5cm;
         }
        
         @media print {
@@ -26,37 +23,53 @@
                 display: none !important;
             }
             
-            /* Ocultar botones */
-            button, .no-print {
+            /* Ocultar botones y elementos no imprimibles */
+            button, .no-print, .d-flex.gap-2 {
                 display: none !important;
+            }
+            
+            /* Resetear body para impresión */
+            body {
+                margin: 0;
+                padding: 0;
+                background: white;
             }
             
             /* Ocultar todo excepto el contenido del recibo */
-            body * {
-                visibility: hidden;
+            body > *:not(.printable) {
+                display: none !important;
             }
-            .printable, .printable * {
-                visibility: visible;
-            }
+            
             .printable {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
+                position: relative !important;
+                left: auto !important;
+                top: auto !important;
+                width: 100% !important;
+                page-break-after: avoid;
+                page-break-inside: avoid;
             }
             
-            /* Convertir alturas porcentuales a auto para evitar páginas en blanco */
-            .printable [style*="height: 49%"] {
+            /* Convertir todas las alturas porcentuales a auto para evitar páginas en blanco */
+            .printable [style*="height"] {
                 height: auto !important;
+                min-height: auto !important;
+                max-height: none !important;
             }
             
-            /* Ocultar cualquier contenido después de .printable para evitar página en blanco */
+            /* Asegurar que no haya saltos de página innecesarios */
+            .printable > div {
+                page-break-inside: avoid;
+                page-break-after: avoid;
+            }
+            
+            /* Ocultar cualquier contenido después de .printable */
             .printable ~ * {
                 display: none !important;
-                visibility: hidden !important;
-                height: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
+            }
+            
+            /* Evitar que elementos flex causen problemas */
+            .printable [style*="display: flex"] {
+                display: flex !important;
             }
         }
     </style>
@@ -362,17 +375,9 @@
             </div>
     
                 <!-- Pie de página -->
-          
             </div>
         </div>
-    
-              <!-- Contenido del recibo -->
-        <!-- ... todo el contenido del recibo ... -->
     </div>
-</div>
-    <!-- Aquí termina la sección del recibo -->
-</div>
-</div>
 <!-- Botones de acción -->
 <div class="d-flex gap-2 mt-3 flex-wrap">
     <button onclick="window.print();" class="btn btn-primary" style="background-color: #2d8524; border-color: #2d8524; color: white;">
