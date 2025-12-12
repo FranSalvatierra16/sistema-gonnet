@@ -116,11 +116,25 @@
             margin: 1cm;
         }
         
-        /* Resetear body para impresión */
-        body {
+        /* Resetear html y body completamente */
+        html, body {
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
+            display: block !important;
+            flex-direction: unset !important;
+        }
+        
+        /* Ocultar pseudo-elementos que pueden causar espacio extra */
+        body::before,
+        body::after,
+        html::before,
+        html::after {
+            display: none !important;
+            content: none !important;
         }
         
         /* Ocultar elementos no imprimibles */
@@ -132,23 +146,36 @@
         footer,
         .navbar,
         .sidebar,
-        script {
+        script,
+        .content-wrapper {
             display: none !important;
-        }
-        
-        /* Ocultar contenedores externos */
-        .container-fluid {
+            visibility: hidden !important;
+            height: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
         }
         
+        /* Ocultar contenedores externos y resetear sus alturas */
+        .container-fluid {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+        }
+        
+        /* Asegurar que el recibo no cause segunda página */
         .recibo-container {
             box-shadow: none !important;
             padding: 20px !important;
             margin: 0 !important;
             max-width: 100% !important;
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
             page-break-after: avoid !important;
             page-break-inside: avoid !important;
+            overflow: visible !important;
         }
         
         /* Evitar saltos de página innecesarios */
@@ -161,19 +188,29 @@
         }
         
         /* Ocultar cualquier contenido después del recibo */
-        .recibo-container ~ * {
+        .recibo-container ~ *,
+        .container-fluid ~ * {
             display: none !important;
-        }
-        
-        /* Asegurar que no haya espacio extra al final */
-        body::after {
-            display: none !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
         
         /* Evitar que elementos flex causen problemas */
         .info-row,
         .pago-item {
             page-break-inside: avoid !important;
+        }
+        
+        /* Asegurar que no haya márgenes o padding que causen espacio extra */
+        * {
+            max-height: none !important;
+        }
+        
+        /* Forzar que el último elemento no cause salto de página */
+        .total-general {
+            page-break-after: auto !important;
+            margin-bottom: 0 !important;
         }
     }
 </style>
