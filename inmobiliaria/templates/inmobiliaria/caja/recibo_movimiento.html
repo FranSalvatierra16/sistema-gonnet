@@ -111,19 +111,98 @@
     }
     
     @media print {
-        .no-print {
+        @page {
+            size: A4;
+            margin: 1cm;
+        }
+        
+        /* Resetear body para impresión */
+        body {
+            margin: 0;
+            padding: 0;
+            background: white;
+        }
+        
+        /* Ocultar elementos no imprimibles */
+        .no-print,
+        button,
+        .btn,
+        nav,
+        header,
+        footer,
+        .navbar,
+        .sidebar {
             display: none !important;
         }
+        
+        /* Asegurar que el contenedor se muestre */
+        .container-fluid.printable {
+            margin: 0 !important;
+            padding: 0 !important;
+            visibility: visible !important;
+            display: block !important;
+        }
+        
+        /* Ocultar todo excepto el contenido imprimible */
+        body > *:not(.printable) {
+            display: none !important;
+        }
+        
         .recibo-container {
-            box-shadow: none;
-            padding: 0;
+            box-shadow: none !important;
+            padding: 20px !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+            page-break-inside: avoid;
+            visibility: visible !important;
+            display: block !important;
+        }
+        
+        /* Asegurar que todo el contenido sea visible */
+        .recibo-header,
+        .recibo-info,
+        .pagos-section,
+        .total-general {
+            page-break-inside: avoid;
+            visibility: visible !important;
+            display: block !important;
+        }
+        
+        /* Asegurar que los elementos flex se muestren */
+        .info-row,
+        .pago-item {
+            display: flex !important;
+            visibility: visible !important;
+        }
+        
+        /* Asegurar que el texto sea visible */
+        * {
+            color: black !important;
+            background: white !important;
+        }
+        
+        .recibo-title {
+            color: #28a745 !important;
+        }
+        
+        .total-general {
+            background: #28a745 !important;
+            color: white !important;
+        }
+        
+        .pagos-section {
+            background: #e8f5e8 !important;
+        }
+        
+        .recibo-info {
+            background: #f8f9fa !important;
         }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
+<div class="container-fluid mt-4 printable">
     <div class="recibo-container">
         <!-- Header del Recibo -->
         <div class="recibo-header">
