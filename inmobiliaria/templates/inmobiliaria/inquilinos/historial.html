@@ -10,9 +10,10 @@
         <thead class="thead-light">
           <tr>
             <th>Propiedad</th>
-            <th>Ficha</th>
             <th>Piso</th>
             <th>Dpto</th>
+            <th>Ficha</th>
+            <th>Apellido Propietario</th>
             <th>Fecha de Inicio</th>
             <th>Fecha de Fin</th>
             <th>Monto Pagado</th>
@@ -22,9 +23,10 @@
           {% for item in reservas_con_monto %}
             <tr>
               <td>{{ item.reserva.propiedad.direccion }}</td>
-              <td>{{ item.reserva.propiedad.id }}</td>
               <td>{{ item.reserva.propiedad.piso|default:"-" }}</td>
               <td>{{ item.reserva.propiedad.departamento|default:"-" }}</td>
+              <td>{{ item.reserva.propiedad.id }}</td>
+              <td>{{ item.reserva.propiedad.propietario.apellido|default:"-" }}</td>
               <td>{{ item.reserva.fecha_inicio|date:"d/m/Y" }}</td>
               <td>{{ item.reserva.fecha_fin|date:"d/m/Y" }}</td>
               <td>${{ item.total_pagado|floatformat:0|default:"0" }}</td>

@@ -3075,7 +3075,7 @@ def historial_reservas_vendedor(request, vendedor_id):
         'reservas': reservas,
     })
 def historial_reservas_inquilino(request, inquilino_id):
-    reservas = Reserva.objects.filter(cliente_id=inquilino_id).select_related('propiedad').order_by('-fecha_inicio')
+    reservas = Reserva.objects.filter(cliente_id=inquilino_id).select_related('propiedad', 'propiedad__propietario').order_by('-fecha_inicio')
 
     # Usar el precio_total de la reserva
     reservas_con_monto = []
