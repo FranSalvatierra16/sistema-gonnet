@@ -111,12 +111,69 @@
     }
     
     @media print {
-        .no-print {
+        @page {
+            size: A4;
+            margin: 1cm;
+        }
+        
+        /* Resetear body para impresión */
+        body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+        }
+        
+        /* Ocultar elementos no imprimibles */
+        .no-print,
+        button,
+        .btn,
+        nav,
+        header,
+        footer,
+        .navbar,
+        .sidebar,
+        script {
             display: none !important;
         }
+        
+        /* Ocultar contenedores externos */
+        .container-fluid {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        
         .recibo-container {
-            box-shadow: none;
-            padding: 0;
+            box-shadow: none !important;
+            padding: 20px !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+            page-break-after: avoid !important;
+            page-break-inside: avoid !important;
+        }
+        
+        /* Evitar saltos de página innecesarios */
+        .recibo-header,
+        .recibo-info,
+        .pagos-section,
+        .total-general {
+            page-break-inside: avoid !important;
+            page-break-after: avoid !important;
+        }
+        
+        /* Ocultar cualquier contenido después del recibo */
+        .recibo-container ~ * {
+            display: none !important;
+        }
+        
+        /* Asegurar que no haya espacio extra al final */
+        body::after {
+            display: none !important;
+        }
+        
+        /* Evitar que elementos flex causen problemas */
+        .info-row,
+        .pago-item {
+            page-break-inside: avoid !important;
         }
     }
 </style>
