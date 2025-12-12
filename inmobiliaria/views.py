@@ -645,10 +645,10 @@ def inquilinos(request):
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         inquilinos_data = [{
             'id': i.id,
-            'dni': i.dni,
+            'dni': i.dni or '',
             'nombre': i.nombre,
             'apellido': i.apellido,
-            'email': i.email
+            'email': i.email or ''
         } for i in inquilinos]
         return JsonResponse({'inquilinos': inquilinos_data})
 
@@ -4805,8 +4805,8 @@ def crear_propietario_ajax(request):
             if fecha_nacimiento == '':
                 fecha_nacimiento = None
                 
-            # Validar campos requeridos
-            campos_requeridos = ['nombre', 'apellido', 'email', 'celular', 'tipo_doc', 'dni', 'localidad', 'provincia', 'domicilio', 'codigo_postal']
+            # Validar campos requeridos (tipo_doc ya no es requerido)
+            campos_requeridos = ['nombre', 'apellido', 'email', 'celular', 'dni', 'localidad', 'provincia', 'domicilio', 'codigo_postal']
             campos_faltantes = [campo for campo in campos_requeridos if not request.POST.get(campo)]
             
             if campos_faltantes:
@@ -4864,7 +4864,7 @@ def crear_propietario_ajax(request):
                 fecha_nacimiento=fecha_nacimiento,
                 email=request.POST['email'],
                 celular=request.POST['celular'],
-                tipo_doc=request.POST['tipo_doc'],
+                tipo_doc=request.POST.get('tipo_doc', 'dni'),  # Valor por defecto si no se envía
                 dni=dni_limpio,
                 tipo_ins=request.POST.get('tipo_ins', 'otro'),  # Valor por defecto
                 cuit=request.POST.get('cuit', ''),
@@ -4916,6 +4916,65 @@ def crear_propietario_ajax(request):
                 'error': f'Error al crear propietario: {error_str}'
             })
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+
+@login_required
+def buscar_propiedades_por_fechas(request):
+    """
+    Vista para buscar propiedades que tienen disponibilidad en un rango de fechas,
+    sin importar si están reservadas o no.
+    """
+    propiedades_encontradas = []
+    fecha_desde = None
+    fecha_hasta = None
+    
+    if request.method == 'POST':
+        fecha_desde_str = request.POST.get('fecha_desde', '')
+        fecha_hasta_str = request.POST.get('fecha_hasta', '')
+        
+        if fecha_desde_str and fecha_hasta_str:
+            try:
+                fecha_desde = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+                fecha_hasta = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+                
+                # Buscar todas las disponibilidades que se superponen con el rango
+                disponibilidades = Disponibilidad.objects.filter(
+                    fecha_inicio__lt=fecha_hasta,
+                    fecha_fin__gt=fecha_desde,
+                ).select_related('propiedad', 'propiedad__propietario', 'propiedad__sucursal').distinct()
+                
+                # Obtener propiedades únicas
+                propiedades_ids = disponibilidades.values_list('propiedad_id', flat=True).distinct()
+                propiedades = Propiedad.objects.filter(id__in=propiedades_ids).select_related('propietario', 'sucursal')
+                
+                # Para cada propiedad, obtener información relevante
+                for propiedad in propiedades:
+                    # Obtener disponibilidades de esta propiedad en el rango
+                    disponibilidades_propiedad = disponibilidades.filter(propiedad=propiedad)
+                    
+                    # Verificar si tiene reservas en el rango
+                    reservas_en_rango = propiedad.reservas.filter(
+                        eliminada=False,
+                        fecha_inicio__lt=fecha_hasta,
+                        fecha_fin__gt=fecha_desde
+                    )
+                    
+                    propiedades_encontradas.append({
+                        'propiedad': propiedad,
+                        'disponibilidades': disponibilidades_propiedad,
+                        'tiene_reservas': reservas_en_rango.exists(),
+                        'reservas': reservas_en_rango
+                    })
+                
+            except ValueError:
+                messages.error(request, 'Formato de fecha inválido')
+    
+    return render(request, 'inmobiliaria/propiedades/buscar_por_fechas.html', {
+        'propiedades_encontradas': propiedades_encontradas,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta
+    })
+
 
 def obtener_precios_propiedad(request):
     propiedad_id = request.GET.get('propiedad_id')

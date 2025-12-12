@@ -78,13 +78,13 @@
                             <thead class="table-header">
                                 <tr>
                                     <th scope="col">
+                                        <i class="fas fa-hashtag me-2"></i>ID
+                                    </th>
+                                    <th scope="col">
                                         <i class="fas fa-id-badge me-2"></i>DNI
                                     </th>
                                     <th scope="col">
                                         <i class="fas fa-user me-2"></i>Nombre
-                                    </th>
-                                    <th scope="col">
-                                        <i class="fas fa-user-tag me-2"></i>Apellido
                                     </th>
                                     <th scope="col">
                                         <i class="fas fa-envelope me-2"></i>Email
@@ -97,6 +97,7 @@
                             <tbody id="inquilinos-body">
                                 {% for inquilino in inquilinos %}
                                 <tr class="table-row-hover">
+                                    <td class="fw-bold text-secondary">{{ inquilino.id }}</td>
                                     <td class="fw-bold text-primary">{{ inquilino.dni }}</td>
                                     <td>
                                         <div class="d-flex align-items-center">
@@ -137,7 +138,7 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="5" class="text-center py-5">
+                                    <td colspan="6" class="text-center py-5">
                                         <div class="empty-state">
                                             <i class="fas fa-users text-muted mb-3" style="font-size: 3rem;"></i>
                                             <h5 class="text-muted">No se encontraron inquilinos</h5>
@@ -201,7 +202,7 @@ $(document).ready(function() {
         if (inquilinos.length === 0) {
             tbody.append(`
                 <tr>
-                    <td colspan="5" class="text-center py-5">
+                    <td colspan="6" class="text-center py-5">
                         <div class="empty-state">
                             <i class="fas fa-search text-muted mb-3" style="font-size: 3rem;"></i>
                             <h5 class="text-muted">No se encontraron resultados</h5>
@@ -216,16 +217,16 @@ $(document).ready(function() {
         $.each(inquilinos, function(i, inquilino) {
             tbody.append(`
                 <tr class="table-row-hover">
+                    <td class="fw-bold text-secondary">${inquilino.id}</td>
                     <td class="fw-bold text-primary">${inquilino.dni}</td>
                     <td>
                         <div class="d-flex align-items-center">
                             <div class="avatar-circle me-2">
                                 ${inquilino.nombre.charAt(0).toUpperCase()}
                             </div>
-                            <span>${inquilino.nombre}</span>
+                            <span>${inquilino.apellido}, ${inquilino.nombre}</span>
                         </div>
                     </td>
-                    <td>${inquilino.apellido}</td>
                     <td>
                         <i class="fas fa-envelope text-muted me-1"></i>
                         <small>${inquilino.email}</small>

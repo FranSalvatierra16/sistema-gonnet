@@ -1,0 +1,143 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+{% load custom_filters %}
+
+{% block title %}Buscar Propiedades por Fechas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-4">🔍 Buscar Propiedades por Rango de Fechas</h2>
+            
+            <div class="card shadow">
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label for="fecha_desde" class="form-label">Fecha Desde:</label>
+                                <input type="date" class="form-control" id="fecha_desde" name="fecha_desde" 
+                                       value="{% if fecha_desde %}{{ fecha_desde|date:'Y-m-d' }}{% endif %}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="fecha_hasta" class="form-label">Fecha Hasta:</label>
+                                <input type="date" class="form-control" id="fecha_hasta" name="fecha_hasta" 
+                                       value="{% if fecha_hasta %}{{ fecha_hasta|date:'Y-m-d' }}{% endif %}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">&nbsp;</label>
+                                <div>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-search me-2"></i>Buscar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if propiedades_encontradas %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        Resultados ({{ propiedades_encontradas|length }} propiedades encontradas)
+                        {% if fecha_desde and fecha_hasta %}
+                        <small class="text-muted">del {{ fecha_desde|date:'d/m/Y' }} al {{ fecha_hasta|date:'d/m/Y' }}</small>
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Dirección</th>
+                                    <th>Propietario</th>
+                                    <th>Disponibilidades</th>
+                                    <th>Estado</th>
+                                    <th>Reservas</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in propiedades_encontradas %}
+                                <tr>
+                                    <td>{{ item.propiedad.id }}</td>
+                                    <td>
+                                        <strong>{{ item.propiedad.direccion }}</strong>
+                                        {% if item.propiedad.piso or item.propiedad.departamento %}
+                                        <br><small class="text-muted">
+                                            {% if item.propiedad.piso %}Piso: {{ item.propiedad.piso }}{% endif %}
+                                            {% if item.propiedad.departamento %} - Dpto: {{ item.propiedad.departamento }}{% endif %}
+                                        </small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ item.propiedad.propietario.apellido }}, {{ item.propiedad.propietario.nombre }}</td>
+                                    <td>
+                                        {% for disp in item.disponibilidades %}
+                                        <div class="mb-1">
+                                            <span class="badge bg-info">
+                                                {{ disp.fecha_inicio|date:'d/m/Y' }} - {{ disp.fecha_fin|date:'d/m/Y' }}
+                                            </span>
+                                        </div>
+                                        {% endfor %}
+                                    </td>
+                                    <td>
+                                        {% if item.tiene_reservas %}
+                                        <span class="badge bg-danger">Reservada</span>
+                                        {% else %}
+                                        <span class="badge bg-success">Disponible</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.reservas %}
+                                        <ul class="list-unstyled mb-0">
+                                            {% for reserva in item.reservas %}
+                                            <li>
+                                                <small>
+                                                    <strong>Reserva #{{ reserva.id }}</strong><br>
+                                                    {{ reserva.fecha_inicio|date:'d/m/Y' }} - {{ reserva.fecha_fin|date:'d/m/Y' }}<br>
+                                                    Cliente: {{ reserva.cliente.apellido }}, {{ reserva.cliente.nombre }}
+                                                </small>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                        {% else %}
+                                        <span class="text-muted">Sin reservas</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'inmobiliaria:propiedad_detalle' item.propiedad.id %}" 
+                                           class="btn btn-sm btn-info" title="Ver detalles">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% elif fecha_desde and fecha_hasta %}
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                No se encontraron propiedades con disponibilidad en el rango de fechas especificado.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
