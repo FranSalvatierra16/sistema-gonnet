@@ -66,9 +66,15 @@ function calcularSaldoOcupar() {
         }
         
         // Actualizar resumen si existe
-        const resumenPendiente = document.querySelector('#resumen-pendiente, .pendiente-amount');
+        const resumenPendiente = document.getElementById('resumen-pendiente');
         if (resumenPendiente) {
-            resumenPendiente.textContent = `${quedaPorPagar.toLocaleString('es-ES')}`;
+            resumenPendiente.textContent = '$' + quedaPorPagar.toLocaleString('es-ES');
+        }
+        
+        // Actualizar el precio total en el resumen
+        const resumenPrecioTotal = document.getElementById('resumen-precio-total');
+        if (resumenPrecioTotal) {
+            resumenPrecioTotal.textContent = '$' + importeLocacion.toLocaleString('es-ES');
         }
         
     } catch (error) {
@@ -957,6 +963,73 @@ window.calcularSaldoOcupar = calcularSaldoOcupar;
 window.calcularTotales = calcularTotales;
 window.calcularTotalPagos = calcularTotalPagos;
 window.habilitarBotonProcesar = habilitarBotonProcesar;
+
+// ✅ Función para actualizar el precio de la reserva cuando cambia el importe locación
+let timeoutActualizarPrecio = null;
+const importeLocacionInput = document.getElementById('importe_locacion');
+if (importeLocacionInput) {
+    importeLocacionInput.addEventListener('input', function() {
+        // Limpiar timeout anterior
+        if (timeoutActualizarPrecio) {
+            clearTimeout(timeoutActualizarPrecio);
+        }
+        
+        // Esperar 1 segundo después de que el usuario deje de escribir
+        timeoutActualizarPrecio = setTimeout(function() {
+            const nuevoPrecio = importeLocacionInput.value.replace(/\./g, '').replace(/,/g, '').replace(/\$/g, '').trim();
+            
+            if (!nuevoPrecio || isNaN(nuevoPrecio)) {
+                return;
+            }
+            
+            // Obtener el ID de la reserva desde la URL
+            const urlParts = window.location.pathname.split('/');
+            const reservaId = urlParts[urlParts.indexOf('reservas') + 1];
+            
+            // Enviar actualización al servidor
+            fetch(`{% url 'inmobiliaria:actualizar_precio_reserva' reserva.id %}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: `precio_total=${encodeURIComponent(nuevoPrecio)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Actualizar el resumen con el nuevo precio
+                    const precioFormateado = parseFloat(nuevoPrecio).toLocaleString('es-ES');
+                    const resumenPrecioTotal = document.getElementById('resumen-precio-total');
+                    if (resumenPrecioTotal) {
+                        resumenPrecioTotal.textContent = '$' + precioFormateado;
+                    }
+                    
+                    // Recalcular el saldo a ocupar
+                    if (typeof calcularSaldoOcupar === 'function') {
+                        calcularSaldoOcupar();
+                    }
+                    
+                    console.log('✅ Precio de reserva actualizado:', data.precio_total);
+                } else {
+                    console.error('❌ Error al actualizar precio:', data.error);
+                    alert('Error al actualizar el precio: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error en la petición:', error);
+                alert('Error al actualizar el precio. Por favor, intente nuevamente.');
+            });
+        }, 1000);
+    });
+    
+    // También recalcular cuando cambia el importe locación
+    importeLocacionInput.addEventListener('blur', function() {
+        if (typeof calcularSaldoOcupar === 'function') {
+            calcularSaldoOcupar();
+        }
+    });
+}
 </script>
 {% endblock %}
 
@@ -1092,9 +1165,9 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                             
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Importe Locación:</strong></label>
-                                <input type="text" class="form-control form-control-sm" name="importe_locacion" 
-                                       value="{{ reserva.precio_total|format_price }}" readonly style="background-color: #f8f9fa;">
-                                <small class="text-muted">💡 Precio total de la operación (fijo)</small>
+                                <input type="text" class="form-control form-control-sm" name="importe_locacion" id="importe_locacion"
+                                       value="{{ reserva.precio_total|floatformat:0 }}" style="border: 2px solid #9c27b0;">
+                                <small class="text-muted">💡 Precio total de la operación (editable)</small>
                             </div>
                             
                             <div class="col-md-2">
@@ -1106,15 +1179,15 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                             </div>
                             
                             <div class="col-md-2">
-                                <div class="mt-2 p-2" style="background-color: #e7f3ff; border-radius: 5px; border-left: 4px solid #007bff;">
+                                <div class="mt-2 p-2" style="background-color: #e7f3ff; border-radius: 5px; border-left: 4px solid #007bff;" id="resumen-precios">
                                     <small class="text-primary">
                                         <strong>📊 RESUMEN:</strong><br>
-                                        💰 Precio Total: {{ reserva.precio_total|format_price }}<br>
-                                        ✅ Seña Pagada: {{ total_senia_pagada|format_price }}<br>
+                                        💰 Precio Total: <span id="resumen-precio-total">{{ reserva.precio_total|format_price }}</span><br>
+                                        ✅ Seña Pagada: <span id="resumen-senia-pagada">{{ total_senia_pagada|format_price }}</span><br>
                                         {% if total_deposito_pagado > 0 %}
-                                        🛡️ Depósito Pagado: {{ total_deposito_pagado|format_price }}<br>
+                                        🛡️ Depósito Pagado: <span id="resumen-deposito">{{ total_deposito_pagado|format_price }}</span><br>
                                         {% endif %}
-                                        ⏳ Pendiente: {{ saldo_a_ocupar|format_price }}
+                                        ⏳ Pendiente: <span id="resumen-pendiente">{{ saldo_a_ocupar|format_price }}</span>
                                     </small>
                                 </div>
                             </div>

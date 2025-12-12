@@ -9322,6 +9322,59 @@ def finalizar_reserva_nueva(request, reserva_id):
         return redirect('inmobiliaria:reservas')
 
 
+@login_required
+@require_POST
+def actualizar_precio_reserva(request, reserva_id):
+    """Vista AJAX para actualizar el precio total de una reserva"""
+    try:
+        from decimal import Decimal
+        
+        reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
+        
+        # Obtener el nuevo precio del request
+        nuevo_precio_str = request.POST.get('precio_total', '').strip()
+        
+        if not nuevo_precio_str:
+            return JsonResponse({
+                'success': False,
+                'error': 'El precio no puede estar vacío'
+            })
+        
+        # Limpiar y convertir el precio (quitar puntos, comas, etc.)
+        nuevo_precio_str = nuevo_precio_str.replace('.', '').replace(',', '').replace('$', '').strip()
+        
+        try:
+            nuevo_precio = Decimal(nuevo_precio_str)
+        except (ValueError, InvalidOperation):
+            return JsonResponse({
+                'success': False,
+                'error': 'El precio debe ser un número válido'
+            })
+        
+        if nuevo_precio < 0:
+            return JsonResponse({
+                'success': False,
+                'error': 'El precio no puede ser negativo'
+            })
+        
+        # Actualizar el precio de la reserva
+        reserva.precio_total = nuevo_precio
+        reserva.save(update_fields=['precio_total'])
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Precio actualizado correctamente',
+            'precio_total': float(reserva.precio_total)
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'error': f'Error al actualizar el precio: {str(e)}'
+        })
+
 
 @login_required
 def eliminar_disponibilidad(request, disponibilidad_id):
