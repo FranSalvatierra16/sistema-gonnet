@@ -388,6 +388,12 @@
                                             <i class="fas fa-user"></i>
                                             Cliente: {{ reserva.cliente.apellido }}, {{ reserva.cliente.nombre }}
                                         </span>
+                                        {% if reserva.cliente.celular %}
+                                        <span class="reserva-meta-item">
+                                            <i class="fas fa-phone"></i>
+                                            Tel: {{ reserva.cliente.celular }}
+                                        </span>
+                                        {% endif %}
                                         {% endif %}
                                         <span class="reserva-meta-item">
                                             <i class="fas fa-user-tie"></i>

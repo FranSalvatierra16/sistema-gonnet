@@ -1064,7 +1064,7 @@ def ver_disponibilidad(request, propiedad_id):
 def reservas(request):
     # ✅ Ordenar por ID descendente como en operaciones
     # Excluir reservas eliminadas (soft delete)
-    reservas = Reserva.objects.filter(sucursal=request.user.sucursal, eliminada=False).order_by('-id')
+    reservas = Reserva.objects.filter(sucursal=request.user.sucursal, eliminada=False).select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor').order_by('-id')
     
     # ✅ Filtro de búsqueda por ID (opcional)
     search_id = request.GET.get('search_id', '').strip()
