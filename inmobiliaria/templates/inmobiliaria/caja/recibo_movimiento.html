@@ -113,7 +113,12 @@
     @media print {
         @page {
             size: A4;
-            margin: 1cm;
+            margin: 0.5cm;
+        }
+        
+        /* Ocultar TODO primero */
+        body * {
+            visibility: hidden;
         }
         
         /* Resetear html y body completamente */
@@ -126,6 +131,7 @@
             background: white !important;
             display: block !important;
             flex-direction: unset !important;
+            overflow: visible !important;
         }
         
         /* Ocultar pseudo-elementos que pueden causar espacio extra */
@@ -135,6 +141,7 @@
         html::after {
             display: none !important;
             content: none !important;
+            visibility: hidden !important;
         }
         
         /* Ocultar elementos no imprimibles */
@@ -155,21 +162,30 @@
             padding: 0 !important;
         }
         
-        /* Ocultar contenedores externos y resetear sus alturas */
+        /* Mostrar SOLO el recibo */
+        .recibo-container,
+        .recibo-container * {
+            visibility: visible !important;
+        }
+        
+        /* Posicionar el recibo de forma absoluta para evitar espacio extra */
         .container-fluid {
+            position: relative !important;
             margin: 0 !important;
             padding: 0 !important;
             height: auto !important;
             min-height: auto !important;
             max-height: none !important;
+            overflow: visible !important;
         }
         
-        /* Asegurar que el recibo no cause segunda página */
         .recibo-container {
+            position: relative !important;
             box-shadow: none !important;
             padding: 20px !important;
             margin: 0 !important;
             max-width: 100% !important;
+            width: 100% !important;
             height: auto !important;
             min-height: auto !important;
             max-height: none !important;
@@ -189,8 +205,10 @@
         
         /* Ocultar cualquier contenido después del recibo */
         .recibo-container ~ *,
-        .container-fluid ~ * {
+        .container-fluid ~ *,
+        .recibo-container + * {
             display: none !important;
+            visibility: hidden !important;
             height: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
@@ -202,15 +220,17 @@
             page-break-inside: avoid !important;
         }
         
-        /* Asegurar que no haya márgenes o padding que causen espacio extra */
-        * {
-            max-height: none !important;
-        }
-        
         /* Forzar que el último elemento no cause salto de página */
         .total-general {
             page-break-after: auto !important;
             margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        /* Asegurar que no haya espacio después del último elemento */
+        .recibo-container::after {
+            display: none !important;
+            content: none !important;
         }
     }
 </style>
@@ -409,7 +429,7 @@
 
         <!-- Botones de Acción -->
         <div class="text-center mt-4 no-print">
-            <button onclick="window.print()" class="btn btn-print">
+            <button onclick="imprimirRecibo()" class="btn btn-print">
                 🖨️ Imprimir Recibo
             </button>
             <a href="{% url 'inmobiliaria:lista_cajas' %}" class="btn btn-secondary">
@@ -421,4 +441,32 @@
         </div>
     </div>
 </div>
+
+<script>
+function imprimirRecibo() {
+    // Ocultar todos los elementos no necesarios antes de imprimir
+    const elementosAOcultar = document.querySelectorAll('nav, .navbar, .sidebar, .no-print, button, .btn, script, .content-wrapper');
+    elementosAOcultar.forEach(el => {
+        if (el) el.style.display = 'none';
+    });
+    
+    // Asegurar que el body no tenga altura mínima
+    document.body.style.minHeight = 'auto';
+    document.body.style.height = 'auto';
+    document.documentElement.style.minHeight = 'auto';
+    document.documentElement.style.height = 'auto';
+    
+    // Esperar un momento y luego imprimir
+    setTimeout(() => {
+        window.print();
+        
+        // Restaurar después de imprimir
+        setTimeout(() => {
+            elementosAOcultar.forEach(el => {
+                if (el) el.style.display = '';
+            });
+        }, 100);
+    }, 100);
+}
+</script>
 {% endblock %} 
