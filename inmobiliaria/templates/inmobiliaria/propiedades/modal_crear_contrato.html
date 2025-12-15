@@ -584,19 +584,26 @@ function guardarNuevoInquilino() {
             // Cerrar modal
             cerrarModalNuevoInquilino();
             
-            // Agregar el nuevo inquilino a la lista
+            // Agregar el nuevo inquilino a la lista (para modal de 24 meses)
             const select = document.getElementById('inquilino_select');
-            const option = document.createElement('option');
-            option.value = data.inquilino.id;
-            option.dataset.nombre = `${data.inquilino.nombre.toLowerCase()} ${data.inquilino.apellido.toLowerCase()}`;
-            option.dataset.id = data.inquilino.id;
-            option.dataset.dni = data.inquilino.dni || '';
-            option.textContent = `ID: ${data.inquilino.id} - ${data.inquilino.apellido}, ${data.inquilino.nombre} (DNI: ${data.inquilino.dni || 'N/A'})`;
-            select.appendChild(option);
+            if (select) {
+                const option = document.createElement('option');
+                option.value = data.inquilino.id;
+                option.dataset.nombre = `${data.inquilino.nombre.toLowerCase()} ${data.inquilino.apellido.toLowerCase()}`;
+                option.dataset.id = data.inquilino.id;
+                option.dataset.dni = data.inquilino.dni || '';
+                option.textContent = `ID: ${data.inquilino.id} - ${data.inquilino.apellido}, ${data.inquilino.nombre} (DNI: ${data.inquilino.dni || 'N/A'})`;
+                select.appendChild(option);
+                
+                // Seleccionar el nuevo inquilino
+                select.value = data.inquilino.id;
+                actualizarInquilinoId();
+            }
             
-            // Seleccionar el nuevo inquilino
-            select.value = data.inquilino.id;
-            actualizarInquilinoId();
+            // Si hay una función para actualizar el select de invierno, llamarla
+            if (window.actualizarSelectInquilino) {
+                window.actualizarSelectInquilino(data.inquilino);
+            }
             
             alert(`✅ Inquilino creado exitosamente: ${data.inquilino.apellido}, ${data.inquilino.nombre}`);
         } else {

@@ -96,44 +96,74 @@
                     </div>
 
                     <div class="row mt-3">
-                        <!-- Selección de Inquilino -->
+                        <!-- Inquilino -->
                         <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header bg-primary text-white">
-                                    <h5 class="mb-0">👤 Seleccionar Inquilino</h5>
+                            <div class="card">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0">👤 Inquilino</h5>
                                 </div>
                                 <div class="card-body">
+                                    <!-- Buscador de Inquilinos -->
                                     <div class="mb-3">
-                                        <label class="form-label"><strong>Inquilino:</strong></label>
-                                        <select class="form-control" id="inquilino_id_invierno" name="inquilino_id" required>
-                                            <option value="">Seleccione un inquilino</option>
+                                        <div class="row mb-2">
+                                            <div class="col-8">
+                                                <input type="text" id="buscar_inquilino_invierno" placeholder="Buscar por nombre, ID o documento..." 
+                                                   class="form-control" oninput="buscarInquilinosEnTiempoRealInvierno()">
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="d-flex gap-2">
+                                                    <button type="button" onclick="mostrarModalCrearInquilinoInvierno()" class="btn btn-success">
+                                                        ➕ Crear
+                                                    </button>
+                                                    <button type="button" onclick="buscarTodosLosInquilinosInvierno()" class="btn btn-primary">
+                                                        🔍 Todos
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-12">
+                                        <select id="inquilino_select_invierno" onchange="actualizarInquilinoIdInvierno()" size="5" name="inquilino_id" required
+                                                        class="form-control" style="width: 100%; max-height: 150px; overflow-y: auto;">
+                                            <option value="">-- Selecciona un inquilino --</option>
                                             {% for inquilino in inquilinos %}
-                                            <option value="{{ inquilino.id }}">{{ inquilino.apellido }}, {{ inquilino.nombre }} - DNI: {{ inquilino.dni }}</option>
+                                                    <option value="{{ inquilino.id }}" 
+                                                            data-nombre="{{ inquilino.nombre|lower }} {{ inquilino.apellido|lower }}" 
+                                                            data-id="{{ inquilino.id }}"
+                                                            data-dni="{{ inquilino.dni|default:'' }}">
+                                                        ID: {{ inquilino.id }} - {{ inquilino.apellido }}, {{ inquilino.nombre }} (DNI: {{ inquilino.dni|default:'N/A' }})
+                                            </option>
                                             {% endfor %}
                                         </select>
+                                            </div>
+                                        </div>
+                                        <div id="estado_busqueda_invierno" style="font-size: 14px; color: #666; font-style: italic; min-height: 20px; margin-top: 8px;"></div>
                                     </div>
-                                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoInquilinoInvierno">
-                                        <i class="fas fa-plus"></i> Nuevo Inquilino
-                                    </button>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Selección de Vendedor -->
+                        <!-- Vendedor -->
                         <div class="col-md-6">
-                            <div class="card h-100">
+                            <div class="card">
                                 <div class="card-header bg-secondary text-white">
-                                    <h5 class="mb-0">👨‍💼 Seleccionar Vendedor</h5>
+                                    <h5 class="mb-0">🏢 Vendedor</h5>
                                 </div>
                                 <div class="card-body">
-                                    <div class="mb-3">
-                                        <label class="form-label"><strong>Vendedor:</strong></label>
-                                        <select class="form-control" id="vendedor_id_invierno" name="vendedor_id" required>
-                                            <option value="">Seleccione un vendedor</option>
-                                            {% for vendedor in vendedores %}
-                                            <option value="{{ vendedor.id }}">{{ vendedor.apellido }}, {{ vendedor.nombre }}</option>
-                                            {% endfor %}
-                                        </select>
+                                    <div class="d-flex gap-2 mb-3">
+                                        <input type="number" id="vendedor_id_invierno" placeholder="Ingresa ID del vendedor" min="1"
+                                               class="form-control" oninput="buscarVendedorAutomaticoInvierno()">
+                                        <button type="button" onclick="buscarVendedorInvierno(event)" class="btn btn-primary">🔍 Buscar</button>
+                                    </div>
+                                    <input type="hidden" id="modalVendedorIdInvierno" name="vendedor_id">
+                                    <div id="vendedor_info_invierno" style="display: none;" class="alert alert-success">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span style="font-size: 24px;">✅</span>
+                                            <div>
+                                                <strong>Vendedor encontrado:</strong>
+                                                <div id="vendedor_nombre_invierno" class="fw-bold" style="color: #000; font-size: 18px;"></div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -152,6 +182,9 @@
 </div>
 
 <script>
+// Variable global para el timeout de búsqueda
+let busquedaVendedorTimeoutInvierno;
+
 // Función para mostrar el modal de contrato de invierno
 function mostrarModalContratoInvierno(propiedadId, direccion, sucursal, precioMensual, precioExpensas) {
     // Llenar los campos del modal
@@ -176,6 +209,167 @@ function mostrarModalContratoInvierno(propiedadId, direccion, sucursal, precioMe
     // Mostrar el modal
     const modal = new bootstrap.Modal(document.getElementById('modalContratoInvierno'));
     modal.show();
+}
+
+// Función para buscar inquilinos en tiempo real
+function buscarInquilinosEnTiempoRealInvierno() {
+    const busqueda = document.getElementById('buscar_inquilino_invierno').value.toLowerCase();
+    const select = document.getElementById('inquilino_select_invierno');
+    const estadoBusqueda = document.getElementById('estado_busqueda_invierno');
+    
+    let encontrados = 0;
+    Array.from(select.options).forEach(option => {
+        if (option.value === '') return; // Skip the default option
+        
+        const nombre = option.dataset.nombre || '';
+        const id = option.dataset.id || '';
+        const dni = option.dataset.dni || '';
+        
+        // Buscar por nombre, ID o DNI
+        if (nombre.includes(busqueda) || id.includes(busqueda) || dni.includes(busqueda)) {
+            option.style.display = '';
+            encontrados++;
+        } else {
+            option.style.display = 'none';
+        }
+    });
+    
+    estadoBusqueda.textContent = `${encontrados} inquilinos encontrados`;
+}
+
+function buscarTodosLosInquilinosInvierno() {
+    const select = document.getElementById('inquilino_select_invierno');
+    Array.from(select.options).forEach(option => {
+        option.style.display = '';
+    });
+    document.getElementById('estado_busqueda_invierno').textContent = 'Mostrando todos los inquilinos';
+    document.getElementById('buscar_inquilino_invierno').value = '';
+}
+
+function actualizarInquilinoIdInvierno() {
+    const select = document.getElementById('inquilino_select_invierno');
+    const inquilinoId = select.value;
+    
+    if (inquilinoId) {
+        const selectedOption = select.options[select.selectedIndex];
+        const nombre = selectedOption.textContent;
+        console.log(`👤 Inquilino seleccionado: ID ${inquilinoId} - ${nombre}`);
+        document.getElementById('estado_busqueda_invierno').textContent = `Seleccionado: ${nombre}`;
+    }
+}
+
+function mostrarModalCrearInquilinoInvierno() {
+    console.log('🏠 Abriendo modal crear inquilino desde invierno...');
+    // Reutilizar el mismo modal de crear inquilino que ya existe
+    mostrarModalCrearInquilino();
+    
+    // Guardar referencia para actualizar el select correcto después de crear
+    window.actualizarSelectInquilino = function(inquilino) {
+        const select = document.getElementById('inquilino_select_invierno');
+        if (select) {
+            const option = document.createElement('option');
+            option.value = inquilino.id;
+            option.dataset.nombre = `${inquilino.nombre.toLowerCase()} ${inquilino.apellido.toLowerCase()}`;
+            option.dataset.id = inquilino.id;
+            option.dataset.dni = inquilino.dni || '';
+            option.textContent = `ID: ${inquilino.id} - ${inquilino.apellido}, ${inquilino.nombre} (DNI: ${inquilino.dni || 'N/A'})`;
+            select.appendChild(option);
+            
+            // Seleccionar el nuevo inquilino
+            select.value = inquilino.id;
+            actualizarInquilinoIdInvierno();
+        }
+    };
+}
+
+// Función para buscar vendedor automáticamente
+function buscarVendedorAutomaticoInvierno() {
+    const vendedorId = document.getElementById('vendedor_id_invierno').value.trim();
+    const vendedorInfo = document.getElementById('vendedor_info_invierno');
+    
+    // Limpiar el timeout anterior
+    if (busquedaVendedorTimeoutInvierno) clearTimeout(busquedaVendedorTimeoutInvierno);
+    
+    // Si no hay ID, ocultar info
+    if (!vendedorId) {
+        vendedorInfo.style.display = 'none';
+        document.getElementById('modalVendedorIdInvierno').value = '';
+        return;
+    }
+    
+    // Buscar después de 500ms de no escribir
+    busquedaVendedorTimeoutInvierno = setTimeout(() => {
+        buscarVendedorInvierno();
+    }, 500);
+}
+
+// Función para buscar vendedor
+function buscarVendedorInvierno(event) {
+    const vendedorId = document.getElementById('vendedor_id_invierno').value.trim();
+    const vendedorInfo = document.getElementById('vendedor_info_invierno');
+    
+    if (!vendedorId) {
+        alert('❌ Por favor ingresa un ID de vendedor');
+        return;
+    }
+    
+    console.log('🔍 Buscando vendedor con ID:', vendedorId);
+    
+    // Usar la URL correcta de Django
+    fetch(`{% url 'inmobiliaria:obtener_vendedor' '0' %}`.replace('0', vendedorId))
+        .then(response => response.json())
+        .then(data => {
+            console.log('📝 Respuesta del servidor:', data);
+            
+            if (data.success) {
+                // Vendedor encontrado - mostrar información
+                let nombreVendedor = 'Nombre no disponible';
+                
+                // Probar diferentes formatos de respuesta
+                if (data.nombre) {
+                    nombreVendedor = data.nombre;
+                } else if (data.vendedor && data.vendedor.nombre_completo) {
+                    nombreVendedor = data.vendedor.nombre_completo;
+                } else if (data.vendedor && data.vendedor.nombre) {
+                    nombreVendedor = data.vendedor.nombre;
+                } else if (data.vendedor && data.vendedor.first_name) {
+                    nombreVendedor = data.vendedor.first_name + ' ' + (data.vendedor.last_name || '');
+                }
+                
+                console.log('🎯 Nombre extraído:', nombreVendedor);
+                
+                // Mostrar información del vendedor
+                document.getElementById('vendedor_nombre_invierno').textContent = nombreVendedor;
+                vendedorInfo.style.display = 'block';
+                
+                // Guardar el ID del vendedor en el campo oculto
+                document.getElementById('modalVendedorIdInvierno').value = vendedorId;
+                
+                console.log('✅ Vendedor mostrado correctamente');
+            } else {
+                // Vendedor no encontrado
+                document.getElementById('vendedor_nombre_invierno').textContent = '';
+                document.getElementById('modalVendedorIdInvierno').value = '';
+                vendedorInfo.style.display = 'none';
+                
+                console.log('❌ Vendedor no encontrado');
+                // Solo mostrar alerta si se presionó el botón buscar manualmente
+                if (event && event.type === 'click') {
+                    alert('❌ Vendedor no encontrado con ID: ' + vendedorId);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('💥 Error al buscar vendedor:', error);
+            document.getElementById('vendedor_nombre_invierno').textContent = '';
+            document.getElementById('modalVendedorIdInvierno').value = '';
+            vendedorInfo.style.display = 'none';
+            
+            // Solo mostrar alerta si se presionó el botón buscar manualmente
+            if (event && event.type === 'click') {
+                alert('💥 Error al buscar vendedor. Intenta de nuevo.');
+            }
+        });
 }
 
 // Manejar el envío del formulario
