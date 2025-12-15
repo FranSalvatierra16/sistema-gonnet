@@ -61,7 +61,6 @@
                                     <th>Dirección</th>
                                     <th>Propietario</th>
                                     <th>Disponibilidades</th>
-                                    <th>Estado</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -87,17 +86,6 @@
                                             </span>
                                         </div>
                                         {% endfor %}
-                                    </td>
-                                    <td>
-                                        {% if item.estado == 'pagada' %}
-                                        <span class="badge bg-danger">Pagada</span>
-                                        {% elif item.estado == 'reservada' %}
-                                        <span class="badge bg-warning text-dark">Reservada</span>
-                                        {% elif item.estado == 'temporal' %}
-                                        <span class="badge bg-info">Temporal</span>
-                                        {% else %}
-                                        <span class="badge bg-success">Disponible</span>
-                                        {% endif %}
                                     </td>
                                     <td>
                                         <a href="{% url 'inmobiliaria:propiedad_detalle' item.propiedad.id %}" 
