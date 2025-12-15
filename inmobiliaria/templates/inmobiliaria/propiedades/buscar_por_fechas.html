@@ -89,8 +89,12 @@
                                         {% endfor %}
                                     </td>
                                     <td>
-                                        {% if item.tiene_reservas %}
-                                        <span class="badge bg-danger">Reservada</span>
+                                        {% if item.estado == 'pagada' %}
+                                        <span class="badge bg-danger">Pagada</span>
+                                        {% elif item.estado == 'reservada' %}
+                                        <span class="badge bg-warning text-dark">Reservada</span>
+                                        {% elif item.estado == 'temporal' %}
+                                        <span class="badge bg-info">Temporal</span>
                                         {% else %}
                                         <span class="badge bg-success">Disponible</span>
                                         {% endif %}

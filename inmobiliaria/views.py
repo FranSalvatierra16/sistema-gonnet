@@ -4968,11 +4968,21 @@ def buscar_propiedades_por_fechas(request):
                         fecha_fin__gt=fecha_desde
                     )
                     
+                    # Determinar el estado de la propiedad
+                    estado_propiedad = 'disponible'
+                    if reservas_en_rango.filter(estado='pagada').exists():
+                        estado_propiedad = 'pagada'
+                    elif reservas_en_rango.filter(estado__in=['confirmada', 'confirmada_no_pagada']).exists():
+                        estado_propiedad = 'reservada'
+                    elif reservas_en_rango.filter(estado='en_espera').exists():
+                        estado_propiedad = 'temporal'
+                    
                     propiedades_encontradas.append({
                         'propiedad': propiedad,
                         'disponibilidades': disponibilidades_propiedad,
                         'tiene_reservas': reservas_en_rango.exists(),
-                        'reservas': reservas_en_rango
+                        'reservas': reservas_en_rango,
+                        'estado': estado_propiedad
                     })
                 
             except ValueError:
