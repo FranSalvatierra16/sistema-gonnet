@@ -8,6 +8,7 @@ from .caja import MovimientoCaja
 class TipoOperacion(models.TextChoices):
     RESERVA_TEMPORAL = 'temporal', 'Reserva Temporal (días)'
     ALQUILER_MENSUAL = 'mensual', 'Alquiler Mensual'
+    ALQUILER_INVIERNO = 'invierno', 'Alquiler Invierno (9 meses)'
 
 # Contrato de alquiler (operación principal)
 class ContratoAlquiler(models.Model):

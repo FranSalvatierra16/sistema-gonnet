@@ -508,7 +508,7 @@ from .models import (
     Vendedor, Inquilino, Propietario, Propiedad, Reserva, 
     Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, 
     Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, 
-    AlquilerMeses, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal,
+    AlquilerMeses, AlquilerInvierno, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal,
     TipoMovimientoCajaEnum, ContratoAlquiler, CuotaMensual, ComisionVendedor, ValeVendedor
 )
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
@@ -887,6 +887,12 @@ def propiedad_detalle(request, propiedad_id):
     except:
         info_meses = None
 
+    # ✅ Obtener información de invierno si existe
+    try:
+        info_invierno = propiedad.info_invierno
+    except:
+        info_invierno = None
+
     context = {
         'propiedad': propiedad,
         'disponibilidades': disponibilidades,
@@ -896,6 +902,9 @@ def propiedad_detalle(request, propiedad_id):
         'active_tab': request.GET.get('tab', 'alquiler'),  # default a 'alquiler'
         'info_venta': info_venta,  # ✅ Agregamos info_venta al contexto
         'info_meses': info_meses,  # ✅ Agregamos info_meses al contexto
+        'info_invierno': info_invierno,  # ✅ Agregamos info_invierno al contexto
+        'inquilinos': Inquilino.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
+        'vendedores': Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
     }
     
     return render(request, 'inmobiliaria/propiedades/detalle.html', context)
@@ -5861,6 +5870,76 @@ def editar_info_meses(request, propiedad_id):
     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
 
 @login_required
+def editar_info_invierno(request, propiedad_id):
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    
+    if request.method == 'POST':
+        try:
+            info_invierno, created = AlquilerInvierno.objects.get_or_create(propiedad=propiedad)
+            
+            info_invierno.disponible = 'disponible' in request.POST
+            if info_invierno.disponible:
+                info_invierno.precio_mensual = request.POST.get('precio_mensual')
+                info_invierno.estado = request.POST.get('estado')
+                info_invierno.fecha_inicio = request.POST.get('fecha_inicio') or None
+                info_invierno.fecha_fin = request.POST.get('fecha_fin') or None
+                info_invierno.precio_expensas = request.POST.get('precio_expensas') or None
+                info_invierno.observaciones = request.POST.get('observaciones', '')
+                
+                # Si el estado es 'disponible', limpiamos las fechas
+                if info_invierno.estado == 'disponible':
+                    info_invierno.fecha_inicio = None
+                    info_invierno.fecha_fin = None
+                # Solo establecemos fechas si el estado no es 'disponible'
+                elif info_invierno.estado in ['reservado', 'ocupado']:
+                    info_invierno.fecha_inicio = request.POST.get('fecha_inicio') or None
+                    info_invierno.fecha_fin = request.POST.get('fecha_fin') or None
+            
+            info_invierno.save()
+            messages.success(request, 'Información de alquiler invierno actualizada correctamente.')
+        except Exception as e:
+            messages.error(request, f'Error al actualizar la información: {str(e)}')
+        
+        return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+    
+    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+@login_required
+def reactivar_propiedad_invierno(request, propiedad_id):
+    """Reactivar una propiedad para alquileres de invierno"""
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    
+    try:
+        info_invierno, created = AlquilerInvierno.objects.get_or_create(propiedad=propiedad)
+        info_invierno.disponible = True
+        info_invierno.estado = 'disponible'
+        info_invierno.save()
+        messages.success(request, 'Propiedad reactivada para alquileres de invierno.')
+    except Exception as e:
+        messages.error(request, f'Error al reactivar la propiedad: {str(e)}')
+    
+    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+@login_required
+def desactivar_propiedad_invierno(request, propiedad_id):
+    """Desactivar una propiedad para alquileres de invierno"""
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    
+    try:
+        if hasattr(propiedad, 'info_invierno'):
+            info_invierno = propiedad.info_invierno
+            # Desactivar la propiedad para invierno (disponible = False)
+            info_invierno.disponible = False
+            info_invierno.save()
+            messages.success(request, 'Propiedad desactivada para alquileres de invierno.')
+        else:
+            messages.warning(request, 'Esta propiedad no tiene información de invierno.')
+    except Exception as e:
+        messages.error(request, f'Error al desactivar la propiedad: {str(e)}')
+    
+    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+@login_required
 def ventas(request):
     # Filtrar propiedades que tienen info de venta y están disponibles o reservadas
     propiedades_venta = Propiedad.objects.filter(
@@ -6015,6 +6094,46 @@ def alquileres_24_meses(request):
     }
     
     return render(request, 'inmobiliaria/propiedades/alquileres_24_meses.html', context)
+
+@login_required
+def alquileres_invierno(request):
+    # Filtrar propiedades que tienen alquiler de invierno activado
+    propiedades_invierno = Propiedad.objects.filter(
+        info_invierno__disponible=True,  # Solo propiedades con alquiler invierno activado
+        info_invierno__estado='disponible'  # Por defecto mostrar solo las disponibles
+    ).select_related(
+        'info_invierno', 
+        'sucursal'
+    ).prefetch_related('imagenes')
+
+    # Aplicar filtros de búsqueda si existen
+    busqueda = request.GET.get('busqueda', '')
+    if busqueda:
+        propiedades_invierno = propiedades_invierno.filter(
+            Q(direccion__icontains=busqueda) |
+            Q(id__icontains=busqueda)
+        )
+
+    # Si se selecciona un estado específico, sobreescribir el filtro por defecto
+    estado = request.GET.get('estado', '')
+    if estado:
+        propiedades_invierno = Propiedad.objects.filter(
+            info_invierno__disponible=True,
+            info_invierno__estado=estado
+        ).select_related(
+            'info_invierno', 
+            'sucursal'
+        ).prefetch_related('imagenes')
+
+    context = {
+        'propiedades': propiedades_invierno,
+        'busqueda': busqueda,
+        'estado_filtro': estado or 'disponible',  # Si no hay estado seleccionado, marcar 'disponible'
+        'estados': AlquilerInvierno.ESTADO_CHOICES,
+        'inquilinos': Inquilino.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
+    }
+    
+    return render(request, 'inmobiliaria/propiedades/alquileres_invierno.html', context)
 
 def generar_mensaje_whatsapp(propiedad):
     # Formatear el mensaje
@@ -8607,49 +8726,89 @@ def procesar_operacion_contrato(request, contrato_id):
             
             # Usar el día de vencimiento seleccionado para crear las fechas
             fecha_actual = timezone.now().date()
-            # Calcular la primera fecha de vencimiento usando el día seleccionado
-            try:
-                fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, contrato.dia_vencimiento)
-                # Si ya pasó el día este mes, programar para el próximo mes
-                if fecha_actual.day >= contrato.dia_vencimiento:
-                    fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
-            except ValueError:
-                # Si el día no existe en el mes actual (ej: 31 en febrero), usar el último día del mes
-                fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, 28)
-                if fecha_actual.day >= 28:
-                    fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
-            for i in range(contrato.duracion_meses):
-                CuotaMensual.objects.create(
-                    contrato=contrato, 
-                    numero_cuota=i + 1, 
-                    fecha_vencimiento=fecha_vencimiento,
-                    monto_base=contrato.precio_mensual, 
-                    monto_total=contrato.precio_mensual,
-                    estado='pendiente', 
-                    movimiento=None, 
-                    fecha_pago=None
-                )
-                # Avanzar al siguiente mes manteniendo el día de vencimiento
+            # Si es contrato de invierno (9 meses), generar cuotas de marzo a diciembre
+            if contrato.duracion_meses == 9:
+                # Para invierno: marzo (3) a diciembre (12) - 9 cuotas
+                meses_invierno = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+                # Determinar el año base (si estamos antes de marzo, usar año anterior)
+                año_base = fecha_actual.year
+                if fecha_actual.month < 3:
+                    año_base = fecha_actual.year - 1
+                
+                # Generar cuotas de marzo a diciembre (9 cuotas)
+                for i, mes in enumerate(meses_invierno[:9], start=1):
+                    try:
+                        fecha_vencimiento = date(año_base, mes, contrato.dia_vencimiento)
+                    except ValueError:
+                        # Si el día no existe en el mes, usar el último día del mes
+                        from calendar import monthrange
+                        ultimo_dia = monthrange(año_base, mes)[1]
+                        fecha_vencimiento = date(año_base, mes, min(contrato.dia_vencimiento, ultimo_dia))
+                    
+                    CuotaMensual.objects.create(
+                        contrato=contrato, 
+                        numero_cuota=i, 
+                        fecha_vencimiento=fecha_vencimiento,
+                        monto_base=contrato.precio_mensual, 
+                        monto_total=contrato.precio_mensual,
+                        estado='pendiente', 
+                        movimiento=None, 
+                        fecha_pago=None
+                    )
+            else:
+                # Para contratos normales (24 meses u otros), usar lógica original
                 try:
-                    fecha_vencimiento = fecha_vencimiento.replace(month=fecha_vencimiento.month + 1)
+                    fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, contrato.dia_vencimiento)
+                    # Si ya pasó el día este mes, programar para el próximo mes
+                    if fecha_actual.day >= contrato.dia_vencimiento:
+                        fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
                 except ValueError:
-                    # Si el día no existe en el próximo mes, ajustar el año
-                    if fecha_vencimiento.month == 12:
-                        fecha_vencimiento = fecha_vencimiento.replace(year=fecha_vencimiento.year + 1, month=1)
-                    else:
+                    # Si el día no existe en el mes actual (ej: 31 en febrero), usar el último día del mes
+                    fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, 28)
+                    if fecha_actual.day >= 28:
+                        fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
+                
+                for i in range(contrato.duracion_meses):
+                    CuotaMensual.objects.create(
+                        contrato=contrato, 
+                        numero_cuota=i + 1, 
+                        fecha_vencimiento=fecha_vencimiento,
+                        monto_base=contrato.precio_mensual, 
+                        monto_total=contrato.precio_mensual,
+                        estado='pendiente', 
+                        movimiento=None, 
+                        fecha_pago=None
+                    )
+                    # Avanzar al siguiente mes manteniendo el día de vencimiento
+                    try:
                         fecha_vencimiento = fecha_vencimiento.replace(month=fecha_vencimiento.month + 1)
-                except:
-                    # Usar relativedelta como fallback
-                    fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
+                    except ValueError:
+                        # Si el día no existe en el próximo mes, ajustar el año
+                        if fecha_vencimiento.month == 12:
+                            fecha_vencimiento = fecha_vencimiento.replace(year=fecha_vencimiento.year + 1, month=1)
+                        else:
+                            fecha_vencimiento = fecha_vencimiento.replace(month=fecha_vencimiento.month + 1)
+                    except:
+                        # Usar relativedelta como fallback
+                        fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
             contrato.operacion_principal = True
             contrato.estado = 'activo'  # Cambiar estado a activo después de la operación principal
             contrato.save()
             
             # Actualizar estado de la propiedad
-            contrato.propiedad.info_meses.estado = 'alquilada'
-            contrato.propiedad.info_meses.save()
+            # Actualizar estado de la propiedad según el tipo de contrato
+            if contrato.duracion_meses == 9:
+                # Contrato de invierno
+                if hasattr(contrato.propiedad, 'info_invierno'):
+                    contrato.propiedad.info_invierno.estado = 'ocupado'
+                    contrato.propiedad.info_invierno.save()
+            else:
+                # Contrato de 24 meses
+                if hasattr(contrato.propiedad, 'info_meses'):
+                    contrato.propiedad.info_meses.estado = 'ocupado'
+                    contrato.propiedad.info_meses.save()
         else:
             cuota = contrato.cuotas.filter(estado='pendiente').order_by('fecha_vencimiento').first()
             if not cuota:

@@ -719,9 +719,176 @@
                         </div>
                     </div>
 
+                    <!-- Modal para Invierno -->
+                    <div class="modal fade" id="modalInvierno" tabindex="-1" aria-labelledby="modalInviernoLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <form method="post" action="{% url 'inmobiliaria:editar_info_invierno' propiedad_id=propiedad.id %}">
+                                    {% csrf_token %}
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="modalInviernoLabel">
+                                            {% if propiedad.info_invierno and propiedad.info_invierno.disponible %}
+                                                Editar información de alquiler invierno
+                                            {% else %}
+                                                Activar alquiler de invierno
+                                            {% endif %}
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input" type="checkbox" name="disponible" id="disponible_invierno" 
+                                                   {% if propiedad.info_invierno and propiedad.info_invierno.disponible %}checked{% endif %}>
+                                            <label class="form-check-label" for="disponible_invierno">
+                                                Habilitar alquiler de invierno (9 meses: marzo a diciembre)
+                                            </label>
+                                        </div>
+                                        
+                                        <div id="info-invierno-fields">
+                                            <div class="row">
+                                                <div class="col-md-6 mb-3">
+                                                    <label for="precio_mensual_invierno" class="form-label">Precio mensual *</label>
+                                                    <input type="number" class="form-control" id="precio_mensual_invierno" name="precio_mensual" 
+                                                           value="{% if propiedad.info_invierno %}{{ propiedad.info_invierno.precio_mensual|default:'' }}{% endif %}" step="0.01">
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <label for="precio_expensas_invierno" class="form-label">Precio de expensas</label>
+                                                    <input type="number" class="form-control" id="precio_expensas_invierno" name="precio_expensas"
+                                                           value="{% if propiedad.info_invierno %}{{ propiedad.info_invierno.precio_expensas|default:'' }}{% endif %}" step="0.01">
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="row">
+                                                <div class="col-md-6 mb-3">
+                                                    <label for="fecha_inicio_invierno" class="form-label">Fecha inicio</label>
+                                                    <input type="date" class="form-control" id="fecha_inicio_invierno" name="fecha_inicio"
+                                                           value="{% if propiedad.info_invierno and propiedad.info_invierno.fecha_inicio %}{{ propiedad.info_invierno.fecha_inicio|date:'Y-m-d' }}{% endif %}">
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <label for="fecha_fin_invierno" class="form-label">Fecha fin</label>
+                                                    <input type="date" class="form-control" id="fecha_fin_invierno" name="fecha_fin"
+                                                           value="{% if propiedad.info_invierno and propiedad.info_invierno.fecha_fin %}{{ propiedad.info_invierno.fecha_fin|date:'Y-m-d' }}{% endif %}">
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="estado_invierno" class="form-label">Estado *</label>
+                                                <select class="form-select" id="estado_invierno" name="estado">
+                                                    <option value="disponible" {% if propiedad.info_invierno and propiedad.info_invierno.estado == 'disponible' %}selected{% endif %}>Disponible</option>
+                                                    <option value="reservado" {% if propiedad.info_invierno and propiedad.info_invierno.estado == 'reservado' %}selected{% endif %}>Reservado</option>
+                                                    <option value="ocupado" {% if propiedad.info_invierno and propiedad.info_invierno.estado == 'ocupado' %}selected{% endif %}>Ocupado</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="observaciones_invierno" class="form-label">Observaciones</label>
+                                                <textarea class="form-control" id="observaciones_invierno" name="observaciones" rows="3">{% if propiedad.info_invierno %}{{ propiedad.info_invierno.observaciones|default:'' }}{% endif %}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Pestaña de Invierno -->
                     <div class="tab-pane fade" id="invierno" role="tabpanel">
-                        <!-- Contenido de invierno -->
+                        <div class="container mt-4">
+                            {% if propiedad.info_invierno and propiedad.info_invierno.disponible %}
+                                <div class="card">
+                                    <div class="card-header bg-info text-white">
+                                        <h4 class="mb-0">Información de Alquiler Invierno (9 meses)</h4>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="info-item mb-3">
+                                                    <i class="fas fa-dollar-sign"></i>
+                                                    <strong>Precio mensual:</strong>
+                                                    <span class="h5">{{ propiedad.info_invierno.precio_mensual|format_price }}</span>
+                                                </div>
+                                                <div class="info-item mb-3">
+                                                    <i class="fas fa-check-circle"></i>
+                                                    <strong>Estado:</strong>
+                                                    <span class="badge {% if propiedad.info_invierno.estado == 'disponible' %}bg-success{% elif propiedad.info_invierno.estado == 'reservado' %}bg-warning{% else %}bg-danger{% endif %}">
+                                                        {{ propiedad.info_invierno.get_estado_display }}
+                                                    </span>
+                                                </div>
+                                                {% if propiedad.info_invierno.precio_expensas %}
+                                                <div class="info-item mb-3">
+                                                    <i class="fas fa-building"></i>
+                                                    <strong>Expensas:</strong>
+                                                    <span class="h5">{{ propiedad.info_invierno.precio_expensas|format_price }}</span>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="col-md-6">
+                                                {% if propiedad.info_invierno.fecha_inicio %}
+                                                <div class="info-item mb-3">
+                                                    <i class="fas fa-calendar-alt"></i>
+                                                    <strong>Fecha inicio:</strong>
+                                                    <span>{{ propiedad.info_invierno.fecha_inicio|date:"d/m/Y" }}</span>
+                                                </div>
+                                                {% endif %}
+                                                {% if propiedad.info_invierno.fecha_fin %}
+                                                <div class="info-item mb-3">
+                                                    <i class="fas fa-calendar-check"></i>
+                                                    <strong>Fecha fin:</strong>
+                                                    <span>{{ propiedad.info_invierno.fecha_fin|date:"d/m/Y" }}</span>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% if propiedad.info_invierno.observaciones %}
+                                            <div class="info-item mt-3">
+                                                <i class="fas fa-comment"></i>
+                                                <strong>Observaciones:</strong>
+                                                <p class="mb-0">{{ propiedad.info_invierno.observaciones }}</p>
+                                            </div>
+                                        {% endif %}
+                                        <div class="text-center mt-4">
+                                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalInvierno">
+                                                <i class="fas fa-edit"></i> Editar información
+                                            </button>
+                                            {% if propiedad.info_invierno.estado == 'disponible' %}
+                                                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalReservaInvierno">
+                                                    <i class="fas fa-calendar-plus"></i> Hacer reserva
+                                                </button>
+                                            {% endif %}
+                                            <button type="button" class="btn btn-warning" onclick="desactivarPropiedadInvierno({{ propiedad.id }})">
+                                                <i class="fas fa-power-off"></i> Desactivar Invierno
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="text-center">
+                                    {% if propiedad.info_invierno and not propiedad.info_invierno.disponible %}
+                                        <div class="alert alert-warning p-4">
+                                            <i class="fas fa-exclamation-triangle fa-3x mb-3 d-block"></i>
+                                            <h4>Propiedad desactivada para alquileres de invierno</h4>
+                                            <p>Esta propiedad fue desactivada (posiblemente por cancelación de contrato).</p>
+                                            <button type="button" class="btn btn-success btn-lg mt-3" onclick="reactivarPropiedadInvierno({{ propiedad.id }})">
+                                                <i class="fas fa-power-off"></i> Reactivar para Invierno
+                                            </button>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-info p-4">
+                                            <i class="fas fa-snowflake fa-3x mb-3 d-block"></i>
+                                            <h4>¿Quieres activar el alquiler de invierno de esta propiedad?</h4>
+                                            <p>Al activar esta opción, podrás establecer el precio mensual para alquileres de 9 meses (marzo a diciembre).</p>
+                                            <button type="button" class="btn btn-primary btn-lg mt-3" data-bs-toggle="modal" data-bs-target="#modalInvierno">
+                                                <i class="fas fa-check-circle"></i> Sí, activar alquiler de invierno
+                                            </button>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
 
@@ -1605,6 +1772,54 @@ function reactivarPropiedad24Meses(propiedadId) {
     }
 }
 
+function reactivarPropiedadInvierno(propiedadId) {
+    if (confirm('¿Estás seguro que deseas reactivar esta propiedad para alquileres de invierno?')) {
+        fetch(`/propiedades/${propiedadId}/reactivar-invierno/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error al reactivar la propiedad');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al reactivar la propiedad');
+        });
+    }
+}
+
+function desactivarPropiedadInvierno(propiedadId) {
+    if (confirm('¿Estás seguro que deseas desactivar esta propiedad para alquileres de invierno?')) {
+        fetch(`/propiedades/${propiedadId}/desactivar-invierno/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error al desactivar la propiedad');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al desactivar la propiedad');
+        });
+    }
+}
+
 function desactivarPropiedad24Meses(propiedadId) {
     if (confirm('¿Estás seguro que deseas desactivar esta propiedad para alquileres de 24 meses?')) {
         const formData = new FormData();
@@ -2455,4 +2670,5 @@ function mostrarDetallesOperacion(operacion, reserva) {
     });
 }
 </script>
+{% include 'inmobiliaria/propiedades/modal_crear_contrato_invierno.html' %}
 {% endblock %}

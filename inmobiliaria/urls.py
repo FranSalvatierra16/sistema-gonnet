@@ -144,6 +144,7 @@ urlpatterns = [
     path('propiedades/<int:propiedad_id>/editar-meses/', views.editar_info_meses, name='editar_info_meses'),
     path('ventas/', views.ventas, name='ventas'),
     path('alquileres-24-meses/', views.alquileres_24_meses, name='alquileres_24_meses'),
+    path('alquileres-invierno/', views.alquileres_invierno, name='alquileres_invierno'),
     path('dashboard/ventas/', views.ventas, name='dashboard_ventas'),
     path('propiedad/<int:propiedad_id>/iniciar-compra/', views.iniciar_compra, name='iniciar_compra'),
     path('caja/', views.gestionar_caja, name='gestionar_caja'),
@@ -235,6 +236,9 @@ urlpatterns = [
     path('contratos/<int:contrato_id>/recibo/', views.recibo_contrato_24, name='recibo_contrato_24'),
     path('propiedades/<int:propiedad_id>/reactivar-24-meses/', views.reactivar_propiedad_24_meses, name='reactivar_propiedad_24_meses'),
     path('propiedades/<int:propiedad_id>/desactivar-24-meses/', views.desactivar_propiedad_24_meses, name='desactivar_propiedad_24_meses'),
+    path('propiedades/<int:propiedad_id>/editar-invierno/', views.editar_info_invierno, name='editar_info_invierno'),
+    path('propiedades/<int:propiedad_id>/reactivar-invierno/', views.reactivar_propiedad_invierno, name='reactivar_propiedad_invierno'),
+    path('propiedades/<int:propiedad_id>/desactivar-invierno/', views.desactivar_propiedad_invierno, name='desactivar_propiedad_invierno'),
     
     # Gestión de Conceptos
     path('conceptos/', views.gestionar_conceptos, name='gestionar_conceptos'),

@@ -1204,6 +1204,66 @@ class AlquilerMeses(models.Model):
         verbose_name = "Alquiler 24 meses"
         verbose_name_plural = "Alquileres 24 meses"
 
+
+class AlquilerInvierno(models.Model):
+    ESTADO_CHOICES = [
+        ('disponible', 'Disponible'),
+        ('reservado', 'Reservado'),
+        ('ocupado', 'Ocupado'),
+    ]
+
+    propiedad = models.OneToOneField(
+        Propiedad,
+        on_delete=models.CASCADE,
+        related_name='info_invierno'
+    )
+    disponible = models.BooleanField(
+        default=False,
+        verbose_name="Disponible para alquiler invierno"
+    )
+    precio_mensual = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Precio mensual"
+    )
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='disponible',
+        verbose_name="Estado del alquiler"
+    )
+    fecha_inicio = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de inicio"
+    )
+    fecha_fin = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de fin"
+    )
+    precio_expensas = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Precio de expensas"
+    )
+    observaciones = models.TextField(
+        blank=True,
+        verbose_name="Observaciones"
+    )
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Alquiler Invierno - {self.propiedad}"
+
+    class Meta:
+        verbose_name = "Alquiler Invierno"
+        verbose_name_plural = "Alquileres Invierno"
+
 @receiver(post_delete, sender=Propiedad)
 def reordenar_numeros_por_propietario(sender, instance, **kwargs):
     propiedades = Propiedad.objects.filter(propietario=instance.propietario).order_by('numero_por_propietario')

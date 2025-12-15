@@ -1,0 +1,210 @@
+<!-- Modal de Contrato Invierno -->
+<div class="modal fade" id="modalContratoInvierno" tabindex="-1" aria-labelledby="modalContratoInviernoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h4 class="modal-title" id="modalContratoInviernoLabel">
+                    ❄️ <strong>Crear Contrato de Alquiler - Invierno (9 meses)</strong>
+                </h4>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formContratoInvierno" method="post">
+                {% csrf_token %}
+                <input type="hidden" id="propiedad_id_invierno" name="propiedad_id">
+                
+                <div class="modal-body">
+                    <div class="row">
+                        <!-- Información de la Propiedad -->
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0">🏠 Información de la Propiedad</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <p><strong>Ficha:</strong> <span id="modal_ficha_invierno">-</span></p>
+                                            <p><strong>Dirección:</strong> <span id="modal_direccion_invierno">-</span></p>
+                                            <p><strong>Sucursal:</strong> <span id="modal_sucursal_invierno">-</span></p>
+                                        </div>
+                                        <div class="col-6">
+                                            <p><strong>Precio Mensual:</strong> <span id="modal_precio_mensual_invierno">-</span></p>
+                                            <p><strong>Expensas:</strong> <span id="modal_expensas_invierno">-</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Datos del Contrato -->
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-warning text-dark">
+                                    <h5 class="mb-0">📅 Datos del Contrato</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-4">
+                                            <div class="mb-3">
+                                                <label class="form-label"><strong>📅 Fecha Operación:</strong></label>
+                                                <input type="date" class="form-control" id="fecha_operacion_invierno" name="fecha_operacion" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="mb-3">
+                                                <label class="form-label"><strong>🗓️ Fecha Inicio:</strong></label>
+                                                <input type="date" class="form-control" id="fecha_inicio_invierno" name="fecha_inicio" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="mb-3">
+                                                <label class="form-label"><strong>🏁 Fecha Fin:</strong></label>
+                                                <input type="date" class="form-control" id="fecha_fin_invierno" name="fecha_fin" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="mb-3">
+                                                <label class="form-label"><strong>Duración:</strong></label>
+                                                <select class="form-control" id="duracion_meses_invierno" name="duracion_meses">
+                                                    <option value="9" selected>9 Meses (Marzo - Diciembre)</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <!-- Espacio para otros campos si es necesario -->
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="mb-3">
+                                                <label class="form-label"><strong>Precio Mensual:</strong></label>
+                                                <input type="text" class="form-control" id="precio_mensual_input_invierno" name="precio_mensual" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="mb-3">
+                                                <label class="form-label"><strong>Depósito de Garantía:</strong></label>
+                                                <input type="text" class="form-control" id="deposito_garantia_invierno" name="deposito_garantia" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <!-- Selección de Inquilino -->
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0">👤 Seleccionar Inquilino</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label"><strong>Inquilino:</strong></label>
+                                        <select class="form-control" id="inquilino_id_invierno" name="inquilino_id" required>
+                                            <option value="">Seleccione un inquilino</option>
+                                            {% for inquilino in inquilinos %}
+                                            <option value="{{ inquilino.id }}">{{ inquilino.apellido }}, {{ inquilino.nombre }} - DNI: {{ inquilino.dni }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoInquilinoInvierno">
+                                        <i class="fas fa-plus"></i> Nuevo Inquilino
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Selección de Vendedor -->
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-secondary text-white">
+                                    <h5 class="mb-0">👨‍💼 Seleccionar Vendedor</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label"><strong>Vendedor:</strong></label>
+                                        <select class="form-control" id="vendedor_id_invierno" name="vendedor_id" required>
+                                            <option value="">Seleccione un vendedor</option>
+                                            {% for vendedor in vendedores %}
+                                            <option value="{{ vendedor.id }}">{{ vendedor.apellido }}, {{ vendedor.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        ✅ Crear Contrato de Invierno
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Función para mostrar el modal de contrato de invierno
+function mostrarModalContratoInvierno(propiedadId, direccion, sucursal, precioMensual, precioExpensas) {
+    // Llenar los campos del modal
+    document.getElementById('propiedad_id_invierno').value = propiedadId;
+    document.getElementById('modal_ficha_invierno').textContent = propiedadId;
+    document.getElementById('modal_direccion_invierno').textContent = direccion;
+    document.getElementById('modal_sucursal_invierno').textContent = sucursal;
+    document.getElementById('modal_precio_mensual_invierno').textContent = '$' + precioMensual.toLocaleString('es-AR');
+    document.getElementById('modal_expensas_invierno').textContent = precioExpensas ? '$' + precioExpensas.toLocaleString('es-AR') : '-';
+    document.getElementById('precio_mensual_input_invierno').value = precioMensual;
+    
+    // Establecer fecha de operación como hoy
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha_operacion_invierno').value = hoy;
+    
+    // Establecer fechas de inicio y fin para invierno (marzo a diciembre)
+    const añoActual = new Date().getFullYear();
+    const añoBase = new Date().getMonth() < 2 ? añoActual - 1 : añoActual; // Si estamos antes de marzo, usar año anterior
+    document.getElementById('fecha_inicio_invierno').value = `${añoBase}-03-01`;
+    document.getElementById('fecha_fin_invierno').value = `${añoBase}-12-31`;
+    
+    // Mostrar el modal
+    const modal = new bootstrap.Modal(document.getElementById('modalContratoInvierno'));
+    modal.show();
+}
+
+// Manejar el envío del formulario
+document.getElementById('formContratoInvierno')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    formData.append('duracion_meses', '9'); // Siempre 9 meses para invierno
+    
+    fetch('{% url "inmobiliaria:crear_contrato_alquiler" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Contrato creado exitosamente');
+            window.location.href = data.redirect_url;
+        } else {
+            alert('❌ Error: ' + (data.error || 'Error al crear el contrato'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error al crear el contrato');
+    });
+});
+</script>
+
