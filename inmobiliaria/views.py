@@ -11860,6 +11860,26 @@ def crear_liquidacion(request, reserva_id=None):
                 usuario_creacion=request.user
             )
 
+            # Asociar gastos pendientes seleccionados a la liquidación
+            gastos_seleccionados = request.POST.getlist('gastos_seleccionados[]')
+            if gastos_seleccionados:
+                for gasto_id in gastos_seleccionados:
+                    try:
+                        gasto = GastoPropietario.objects.get(
+                            id=gasto_id,
+                            propietario=propiedad.propietario,
+                            liquidacion__isnull=True,
+                            sucursal=request.user.sucursal
+                        )
+                        gasto.liquidacion = liquidacion
+                        gasto.aceptado = True  # Automáticamente aceptado al asociarlo
+                        gasto.save()
+                    except GastoPropietario.DoesNotExist:
+                        pass  # Ignorar si el gasto no existe o ya está asociado
+
+            # Recalcular monto a pagar con los gastos
+            liquidacion.calcular_monto_a_pagar()
+
             messages.success(request, 'Liquidación creada correctamente.')
             return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
@@ -12066,9 +12086,35 @@ def obtener_operaciones_pendientes(request, propiedad_id):
                 'dias': cuotas_pagadas.count() * 30,  # Aproximación: cada cuota = 30 días
             })
     
+    # Obtener gastos pendientes del propietario (sin liquidación asociada)
+    gastos_pendientes = GastoPropietario.objects.filter(
+        propietario=propiedad.propietario,
+        liquidacion__isnull=True,
+        sucursal=request.user.sucursal
+    ).order_by('-fecha_creacion')
+    
+    # Si no hay gastos con propietario, buscar por propiedad
+    if not gastos_pendientes.exists():
+        gastos_pendientes = GastoPropietario.objects.filter(
+            propiedad=propiedad,
+            liquidacion__isnull=True,
+            sucursal=request.user.sucursal
+        ).order_by('-fecha_creacion')
+    
+    gastos_pendientes_list = []
+    for gasto in gastos_pendientes:
+        gastos_pendientes_list.append({
+            'id': gasto.id,
+            'descripcion': gasto.descripcion,
+            'monto': str(gasto.monto),
+            'fecha_gasto': gasto.fecha_gasto.strftime('%Y-%m-%d') if gasto.fecha_gasto else '',
+            'observaciones': gasto.observaciones,
+        })
+    
     return JsonResponse({
         'success': True,
-        'operaciones': operaciones
+        'operaciones': operaciones,
+        'gastos_pendientes': gastos_pendientes_list
     })
 
 
@@ -12140,6 +12186,70 @@ def agregar_gasto(request, liquidacion_id):
         return JsonResponse({'success': False, 'error': f'Error en el formato de datos: {str(e)}'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Error al agregar el gasto: {str(e)}'})
+
+
+@login_required
+def crear_gasto_pendiente(request):
+    """
+    Vista AJAX para crear un gasto pendiente del propietario (sin liquidación)
+    """
+    if request.method == 'POST':
+        try:
+            propietario_id = request.POST.get('propietario_id')
+            propiedad_id = request.POST.get('propiedad_id')
+            descripcion = request.POST.get('descripcion', '').strip()
+            monto_str = request.POST.get('monto', '0').replace('.', '').replace(',', '.')
+            fecha_gasto = request.POST.get('fecha_gasto', '')
+            observaciones = request.POST.get('observaciones', '').strip()
+
+            if not descripcion:
+                return JsonResponse({'success': False, 'error': 'La descripción es obligatoria.'})
+
+            if not propietario_id and not propiedad_id:
+                return JsonResponse({'success': False, 'error': 'Debe seleccionar un propietario o una propiedad.'})
+
+            monto = Decimal(monto_str)
+            if monto <= 0:
+                return JsonResponse({'success': False, 'error': 'El monto debe ser mayor a cero.'})
+
+            propietario = None
+            propiedad = None
+            
+            if propietario_id:
+                propietario = get_object_or_404(Propietario, id=propietario_id, sucursal=request.user.sucursal)
+            if propiedad_id:
+                propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
+                if not propietario:
+                    propietario = propiedad.propietario
+
+            gasto = GastoPropietario.objects.create(
+                propietario=propietario,
+                propiedad=propiedad,
+                descripcion=descripcion,
+                monto=monto,
+                fecha_gasto=datetime.strptime(fecha_gasto, '%Y-%m-%d').date() if fecha_gasto else None,
+                observaciones=observaciones,
+                sucursal=request.user.sucursal
+            )
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Gasto pendiente creado correctamente.',
+                'gasto': {
+                    'id': gasto.id,
+                    'descripcion': gasto.descripcion,
+                    'monto': str(gasto.monto),
+                    'fecha_gasto': gasto.fecha_gasto.strftime('%Y-%m-%d') if gasto.fecha_gasto else '',
+                    'observaciones': gasto.observaciones,
+                }
+            })
+
+        except ValueError as e:
+            return JsonResponse({'success': False, 'error': f'Error en el formato de datos: {str(e)}'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Error al crear el gasto: {str(e)}'})
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido.'})
 
 
 @login_required

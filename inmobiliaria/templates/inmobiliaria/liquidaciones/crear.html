@@ -13,7 +13,7 @@
                     <h5 class="mb-0">Datos de la Liquidación</h5>
                 </div>
                 <div class="card-body">
-                    <form method="POST">
+                    <form method="POST" id="formCrearLiquidacion">
                         {% csrf_token %}
                         
                         <div class="row mb-3">
@@ -58,6 +58,28 @@
                             </div>
                         </div>
 
+                        <!-- Gastos Pendientes del Propietario -->
+                        <div class="row mb-3" id="gastos-pendientes-container" style="display: none;">
+                            <div class="col-12">
+                                <div class="card border-warning">
+                                    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0"><i class="fas fa-receipt me-2"></i>Gastos Pendientes del Propietario</h6>
+                                        <button type="button" class="btn btn-sm btn-light" onclick="mostrarModalAgregarGasto()">
+                                            <i class="fas fa-plus me-1"></i>Agregar Gasto
+                                        </button>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="gastos-pendientes-lista" class="table-responsive">
+                                            <!-- Se llenará dinámicamente -->
+                                        </div>
+                                        <div id="sin-gastos" class="alert alert-info mb-0" style="display: none;">
+                                            <i class="fas fa-info-circle me-2"></i>No hay gastos pendientes para este propietario.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label class="form-label">Monto Total de la Operación <span class="text-danger">*</span></label>
@@ -76,6 +98,16 @@
                                 <label class="form-label">Monto para la Inmobiliaria</label>
                                 <input type="text" id="monto_inmobiliaria" class="form-control" readonly>
                                 <small class="form-text text-muted">Ganancia total (diferencia entre precio publicado y precio por toma)</small>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <div class="alert alert-success">
+                                    <strong>Monto Final a Pagar al Propietario:</strong> 
+                                    $<span id="monto-final-pagar">0.00</span>
+                                    <small class="text-muted ms-2">(Monto Propietario - Gastos Seleccionados)</small>
+                                </div>
                             </div>
                         </div>
 
@@ -102,7 +134,7 @@
                             <a href="{% url 'inmobiliaria:lista_liquidaciones' %}" class="btn btn-secondary">
                                 <i class="fas fa-arrow-left me-2"></i>Cancelar
                             </a>
-                            <button type="submit" class="btn btn-primary">
+                            <button type="submit" class="btn btn-primary" onclick="prepararFormulario()">
                                 <i class="fas fa-save me-2"></i>Crear Liquidación
                             </button>
                         </div>
@@ -216,6 +248,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     lista.innerHTML = html;
                     
+                    // Cargar gastos pendientes
+                    if (data.gastos_pendientes && data.gastos_pendientes.length > 0) {
+                        mostrarGastosPendientes(data.gastos_pendientes);
+                    } else {
+                        document.getElementById('gastos-pendientes-container').style.display = 'none';
+                    }
+                    
                     // Event listener para seleccionar todos
                     document.getElementById('seleccionar-todos').addEventListener('change', function() {
                         const checkboxes = document.querySelectorAll('.operacion-checkbox');
@@ -233,6 +272,71 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
+    // Función para mostrar gastos pendientes
+    function mostrarGastosPendientes(gastos) {
+        const container = document.getElementById('gastos-pendientes-container');
+        const lista = document.getElementById('gastos-pendientes-lista');
+        const sinGastos = document.getElementById('sin-gastos');
+        
+        if (gastos && gastos.length > 0) {
+            container.style.display = 'block';
+            sinGastos.style.display = 'none';
+            
+            let html = `
+                <table class="table table-hover table-sm">
+                    <thead>
+                        <tr>
+                            <th width="50">
+                                <input type="checkbox" id="seleccionar-todos-gastos" class="form-check-input">
+                            </th>
+                            <th>Descripción</th>
+                            <th>Fecha Gasto</th>
+                            <th class="text-end">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            gastos.forEach((gasto, index) => {
+                html += `
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="form-check-input gasto-checkbox" 
+                                   data-gasto-id="${gasto.id}"
+                                   data-monto="${gasto.monto}"
+                                   onchange="calcularMontosSeleccionados()">
+                        </td>
+                        <td>${gasto.descripcion}</td>
+                        <td>${gasto.fecha_gasto ? new Date(gasto.fecha_gasto).toLocaleDateString('es-AR') : '-'}</td>
+                        <td class="text-end">$${parseFloat(gasto.monto).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+                <div class="mt-2">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Selecciona los gastos que deseas descontar de la liquidación. Se descontarán del monto a pagar al propietario.
+                    </small>
+                </div>
+            `;
+            
+            lista.innerHTML = html;
+            
+            // Event listener para seleccionar todos los gastos
+            document.getElementById('seleccionar-todos-gastos').addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('.gasto-checkbox');
+                checkboxes.forEach(cb => cb.checked = this.checked);
+                calcularMontosSeleccionados();
+            });
+        } else {
+            container.style.display = 'none';
+        }
+    }
+
     // Función para formatear número con puntos
     function formatearNumero(numero) {
         return numero.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -241,12 +345,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Función para calcular montos de las operaciones seleccionadas (global)
     window.calcularMontosSeleccionados = function() {
         const checkboxes = document.querySelectorAll('.operacion-checkbox:checked');
+        const gastosCheckboxes = document.querySelectorAll('.gasto-checkbox:checked');
+        
         let totalMonto = 0;
         let totalMontoPropietario = 0;
         let totalMontoInmobiliaria = 0;
+        let totalGastos = 0;
         let fechaDesdeMin = null;
         let fechaHastaMax = null;
         
+        // Calcular montos de operaciones
         checkboxes.forEach(cb => {
             const montoTotalOp = parseFloat(cb.getAttribute('data-monto-total')) || 0;
             const montoPropietarioOp = parseFloat(cb.getAttribute('data-monto-propietario')) || 0;
@@ -272,11 +380,27 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
+        // Calcular total de gastos seleccionados
+        gastosCheckboxes.forEach(cb => {
+            const montoGasto = parseFloat(cb.getAttribute('data-monto')) || 0;
+            totalGastos += montoGasto;
+        });
+        
         // Actualizar montos automáticamente
         if (totalMonto > 0) {
             montoTotal.value = formatearNumero(totalMonto.toFixed(2));
-            montoPropietario.value = formatearNumero(totalMontoPropietario.toFixed(2));
+            
+            // Monto propietario menos gastos
+            const montoPropietarioFinal = totalMontoPropietario - totalGastos;
+            montoPropietario.value = formatearNumero(Math.max(0, montoPropietarioFinal).toFixed(2));
+            
             montoInmobiliaria.value = formatearNumero(totalMontoInmobiliaria.toFixed(2));
+            
+            // Actualizar monto final a pagar
+            const montoFinalPagar = document.getElementById('monto-final-pagar');
+            if (montoFinalPagar) {
+                montoFinalPagar.textContent = formatearNumero(Math.max(0, montoPropietarioFinal).toFixed(2));
+            }
             
             // Actualizar fechas si están disponibles
             if (fechaDesdeMin) {
@@ -309,7 +433,117 @@ document.addEventListener('DOMContentLoaded', function() {
         propietarioDisplay.value = selectedOption.getAttribute('data-propietario');
         cargarOperacionesPendientes(propiedadSelect.value);
     }
+
+    // Función para preparar el formulario antes de enviarlo
+    window.prepararFormulario = function() {
+        const form = document.getElementById('formCrearLiquidacion');
+        
+        // Agregar gastos seleccionados como campos ocultos
+        const gastosSeleccionados = document.querySelectorAll('.gasto-checkbox:checked');
+        gastosSeleccionados.forEach(cb => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'gastos_seleccionados[]';
+            input.value = cb.getAttribute('data-gasto-id');
+            form.appendChild(input);
+        });
+        
+        return true;
+    };
 });
+</script>
+
+<!-- Modal para Agregar Gasto Pendiente -->
+<div class="modal fade" id="modalAgregarGasto" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Agregar Gasto Pendiente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formAgregarGasto">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Descripción <span class="text-danger">*</span></label>
+                        <input type="text" name="descripcion" class="form-control" required 
+                               placeholder="Ej: Luz, Gas, Mantenimiento">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Monto <span class="text-danger">*</span></label>
+                        <input type="text" name="monto" class="form-control" required 
+                               placeholder="0.00" oninput="formatearNumeroInput(this)">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Fecha del Gasto</label>
+                        <input type="date" name="fecha_gasto" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Observaciones</label>
+                        <textarea name="observaciones" class="form-control" rows="3" 
+                                  placeholder="Observaciones adicionales..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Gasto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Función para mostrar el modal de agregar gasto
+    window.mostrarModalAgregarGasto = function() {
+        const propiedadId = document.getElementById('propiedad_id').value;
+        if (!propiedadId) {
+            alert('Debe seleccionar una propiedad primero.');
+            return;
+        }
+        
+        const modal = new bootstrap.Modal(document.getElementById('modalAgregarGasto'));
+        modal.show();
+    };
+
+    // Manejar el envío del formulario de gasto
+    document.getElementById('formAgregarGasto').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const propiedadId = document.getElementById('propiedad_id').value;
+        const formData = new FormData(this);
+        formData.append('propiedad_id', propiedadId);
+        
+        fetch('{% url "inmobiliaria:crear_gasto_pendiente" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Cerrar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalAgregarGasto'));
+                modal.hide();
+                
+                // Limpiar formulario
+                this.reset();
+                
+                // Recargar operaciones pendientes para mostrar el nuevo gasto
+                cargarOperacionesPendientes(propiedadId);
+                
+                // Mostrar mensaje de éxito
+                alert('Gasto pendiente creado correctamente.');
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al crear el gasto pendiente.');
+        });
+    });
 </script>
 {% endblock %}
 

@@ -268,5 +268,6 @@ urlpatterns = [
     path('liquidaciones/gasto/<int:gasto_id>/aceptar-rechazar/', views.aceptar_rechazar_gasto, name='aceptar_rechazar_gasto'),
     path('liquidaciones/<int:liquidacion_id>/procesar/', views.procesar_liquidacion, name='procesar_liquidacion'),
     path('liquidaciones/propiedad/<int:propiedad_id>/operaciones-pendientes/', views.obtener_operaciones_pendientes, name='obtener_operaciones_pendientes'),
+    path('liquidaciones/gasto-pendiente/crear/', views.crear_gasto_pendiente, name='crear_gasto_pendiente'),
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

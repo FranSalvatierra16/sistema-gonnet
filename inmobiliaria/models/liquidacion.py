@@ -186,7 +186,28 @@ class GastoPropietario(models.Model):
         LiquidacionPropietario,
         on_delete=models.CASCADE,
         related_name='gastos',
-        verbose_name="Liquidación"
+        verbose_name="Liquidación",
+        null=True,
+        blank=True,
+        help_text="Si está vacío, es un gasto pendiente del propietario"
+    )
+    propietario = models.ForeignKey(
+        Propietario,
+        on_delete=models.CASCADE,
+        related_name='gastos_pendientes',
+        verbose_name="Propietario",
+        null=True,
+        blank=True,
+        help_text="Propietario al que pertenece el gasto (si no hay liquidación)"
+    )
+    propiedad = models.ForeignKey(
+        Propiedad,
+        on_delete=models.CASCADE,
+        related_name='gastos_pendientes',
+        verbose_name="Propiedad",
+        null=True,
+        blank=True,
+        help_text="Propiedad relacionada con el gasto"
     )
     descripcion = models.CharField(
         max_length=200,
@@ -216,10 +237,23 @@ class GastoPropietario(models.Model):
         blank=True,
         verbose_name="Observaciones"
     )
+    sucursal = models.ForeignKey(
+        'Sucursal',
+        on_delete=models.CASCADE,
+        related_name='gastos_propietario',
+        verbose_name="Sucursal",
+        null=True,
+        blank=True
+    )
 
     def save(self, *args, **kwargs):
+        # Si no hay liquidación pero hay propietario, obtener la sucursal del propietario
+        if not self.sucursal and self.propietario:
+            self.sucursal = self.propietario.sucursal
+        elif not self.sucursal and self.liquidacion:
+            self.sucursal = self.liquidacion.sucursal
         super().save(*args, **kwargs)
-        # Recalcular monto a pagar de la liquidación
+        # Recalcular monto a pagar de la liquidación si está asociado
         if self.liquidacion:
             self.liquidacion.calcular_monto_a_pagar()
 
