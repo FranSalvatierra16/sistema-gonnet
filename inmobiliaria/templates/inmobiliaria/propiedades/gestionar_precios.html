@@ -293,11 +293,53 @@ document.addEventListener('DOMContentLoaded', function() {
         // Cuando cambia el tipo_precio → actualizar el campo
         selectTipo.addEventListener('change', function() {
             actualizarCampoPrecioTotal();
-            // ✅ NO recalcular automáticamente - el usuario ingresa manualmente
+            // Recalcular precio total si hay precio por día
+            if (inputPorDia.value) {
+                const tipoPrecio = selectTipo.value;
+                if (!tiposSinQuincena.includes(tipoPrecio)) {
+                    const precioPorDia = parseFloat(desformatearNumero(inputPorDia.value)) || 0;
+                    const ajuste = inputAjuste ? (parseFloat(desformatearNumero(inputAjuste.value)) || 0) : 0;
+                    const precioTotalCalculado = calcularPrecioTotal(precioPorDia, tipoPrecio, ajuste);
+                    inputTotal.value = formatearNumero(precioTotalCalculado.toString());
+                }
+            }
         });
         
-        // ✅ DESACTIVADO: Ya no se calcula automáticamente la quincena
-        // El usuario debe ingresar manualmente el precio por quincena
+        // ✅ CALCULAR AUTOMÁTICAMENTE la quincena cuando se ingresa el precio por día
+        inputPorDia.addEventListener('input', function() {
+            const tipoPrecio = selectTipo.value;
+            
+            // Solo calcular si no es un tipo sin quincena
+            if (!tiposSinQuincena.includes(tipoPrecio)) {
+                const precioPorDia = parseFloat(desformatearNumero(this.value)) || 0;
+                const ajuste = inputAjuste ? (parseFloat(desformatearNumero(inputAjuste.value)) || 0) : 0;
+                
+                if (precioPorDia > 0) {
+                    const precioTotalCalculado = calcularPrecioTotal(precioPorDia, tipoPrecio, ajuste);
+                    inputTotal.value = formatearNumero(precioTotalCalculado.toString());
+                    console.log(`💰 Calculado automáticamente: ${precioPorDia} × ${diasPorTipo[tipoPrecio] || 1} = ${precioTotalCalculado}`);
+                } else {
+                    // Si el precio por día es 0 o vacío, limpiar el precio total
+                    inputTotal.value = '';
+                }
+            }
+        });
+        
+        // También recalcular cuando cambia el ajuste porcentual
+        if (inputAjuste) {
+            inputAjuste.addEventListener('input', function() {
+                const tipoPrecio = selectTipo.value;
+                if (!tiposSinQuincena.includes(tipoPrecio) && inputPorDia.value) {
+                    const precioPorDia = parseFloat(desformatearNumero(inputPorDia.value)) || 0;
+                    const ajuste = parseFloat(desformatearNumero(this.value)) || 0;
+                    
+                    if (precioPorDia > 0) {
+                        const precioTotalCalculado = calcularPrecioTotal(precioPorDia, tipoPrecio, ajuste);
+                        inputTotal.value = formatearNumero(precioTotalCalculado.toString());
+                    }
+                }
+            });
+        }
         
         // Función para guardar automáticamente un precio individual
         let saveTimeout;
