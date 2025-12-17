@@ -11893,23 +11893,36 @@ def obtener_operaciones_pendientes(request, propiedad_id):
     """
     propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
     
-    # Obtener reservas pagadas sin liquidación
+    # Obtener reservas pagadas sin liquidación procesada
+    # Excluir solo las que tienen liquidaciones procesadas (no las pendientes, para poder crear nuevas)
+    reservas_con_liquidacion_procesada = LiquidacionPropietario.objects.filter(
+        propiedad=propiedad,
+        estado='procesada',
+        reserva__isnull=False
+    ).values_list('reserva_id', flat=True)
+    
     reservas_pendientes = Reserva.objects.filter(
         propiedad=propiedad,
         estado__in=['pagada', 'confirmada_no_pagada'],
         eliminada=False,
         sucursal=request.user.sucursal
     ).exclude(
-        liquidaciones__estado='pendiente'
+        id__in=reservas_con_liquidacion_procesada
     ).select_related('cliente').order_by('-fecha_inicio')
     
-    # Obtener contratos con cuotas pagadas sin liquidación
+    # Obtener contratos con cuotas pagadas sin liquidación procesada
+    contratos_con_liquidacion_procesada = LiquidacionPropietario.objects.filter(
+        propiedad=propiedad,
+        estado='procesada',
+        contrato__isnull=False
+    ).values_list('contrato_id', flat=True)
+    
     contratos_pendientes = ContratoAlquiler.objects.filter(
         propiedad=propiedad,
         estado='activo',
         sucursal=request.user.sucursal
     ).exclude(
-        liquidaciones__estado='pendiente'
+        id__in=contratos_con_liquidacion_procesada
     ).prefetch_related('cuotas').select_related('inquilino')
     
     operaciones = []
@@ -11917,10 +11930,14 @@ def obtener_operaciones_pendientes(request, propiedad_id):
     # Procesar reservas
     for reserva in reservas_pendientes:
         # Verificar si tiene movimientos de caja (pagos)
+        # Buscar por concepto que contenga el ID de la reserva o por propiedad y fechas
         movimientos = MovimientoCaja.objects.filter(
             propiedad=propiedad,
-            tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains=f"Operación {reserva.id}"
+            tipo=TipoMovimientoCajaEnum.INGRESO
+        ).filter(
+            Q(concepto__icontains=f"Operación {reserva.id}") |
+            Q(concepto__icontains=f"Reserva {reserva.id}") |
+            (Q(fecha_desde=reserva.fecha_inicio) & Q(fecha_hasta=reserva.fecha_fin))
         )
         
         total_pagado = sum(
@@ -11929,7 +11946,12 @@ def obtener_operaciones_pendientes(request, propiedad_id):
             for mov in movimientos
         )
         
-        if total_pagado > 0:
+        # Si no hay movimientos pero la reserva está pagada, usar el precio_total como monto
+        if total_pagado == 0 and reserva.estado == 'pagada':
+            total_pagado = float(reserva.precio_total)
+        
+        # Incluir la reserva si tiene pagos o está marcada como pagada
+        if total_pagado > 0 or reserva.estado == 'pagada':
             operaciones.append({
                 'tipo': 'reserva',
                 'id': reserva.id,
@@ -11937,7 +11959,7 @@ def obtener_operaciones_pendientes(request, propiedad_id):
                 'fecha_inicio': reserva.fecha_inicio.strftime('%Y-%m-%d'),
                 'fecha_fin': reserva.fecha_fin.strftime('%Y-%m-%d'),
                 'monto_total': str(reserva.precio_total),
-                'monto_pagado': str(total_pagado),
+                'monto_pagado': str(total_pagado if total_pagado > 0 else reserva.precio_total),
             })
     
     # Procesar contratos (cuotas pagadas)

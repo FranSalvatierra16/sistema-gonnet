@@ -137,6 +137,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Función para cargar operaciones pendientes
     function cargarOperacionesPendientes(propiedadId) {
+        if (!propiedadId) {
+            document.getElementById('operaciones-pendientes-container').style.display = 'none';
+            return;
+        }
+        
+        // Mostrar indicador de carga
+        const container = document.getElementById('operaciones-pendientes-container');
+        const lista = document.getElementById('operaciones-pendientes-lista');
+        container.style.display = 'block';
+        lista.innerHTML = '<div class="text-center p-3"><i class="fas fa-spinner fa-spin me-2"></i>Cargando operaciones pendientes...</div>';
+        
         fetch(`{% url 'inmobiliaria:obtener_operaciones_pendientes' 0 %}`.replace('0', propiedadId))
             .then(response => response.json())
             .then(data => {
@@ -282,9 +293,11 @@ document.addEventListener('DOMContentLoaded', function() {
     montoTotal.addEventListener('input', calcularMontoInmobiliaria);
     montoPropietario.addEventListener('input', calcularMontoInmobiliaria);
 
-    // Inicializar propietario si hay una reserva
+    // Inicializar propietario y cargar operaciones si hay una propiedad seleccionada
     if (propiedadSelect.value) {
-        propiedadSelect.dispatchEvent(new Event('change'));
+        const selectedOption = propiedadSelect.options[propiedadSelect.selectedIndex];
+        propietarioDisplay.value = selectedOption.getAttribute('data-propietario');
+        cargarOperacionesPendientes(propiedadSelect.value);
     }
 });
 </script>
