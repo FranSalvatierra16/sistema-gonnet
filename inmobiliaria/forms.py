@@ -278,7 +278,7 @@ class PropiedadForm(forms.ModelForm):
             'amoblado', 'cochera', 'tv_smart', 'wifi', 'directv_prepago',
             'dependencia', 'patio', 'parrilla', 'piscina', 'reciclado', 'a_estrenar', 'terraza', 'balcon', 
             'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito', 'descripcion', 'anotaciones',
-            'propietario', 'fichado_por'
+            'propietario', 'fichado_por', 'porcentaje_propietario'
         ]
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 5, 'class': 'form-control', 'style': 'width: 100%;'}),
@@ -287,6 +287,13 @@ class PropiedadForm(forms.ModelForm):
             'direccion': forms.TextInput(attrs={'placeholder': 'Ingrese la dirección'}),
             'titulo': forms.TextInput(attrs={'placeholder': 'Título descriptivo (opcional)'}),
             'ubicacion': forms.TextInput(attrs={'placeholder': 'Ingrese la ubicación'}),
+            'porcentaje_propietario': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': '0',
+                'max': '100',
+                'placeholder': '85.00'
+            }),
             # 'precio_venta': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de venta'}),
             # 'precio_alquiler': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de alquiler'}),
             # 'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio diario'}),

@@ -11977,9 +11977,13 @@ def obtener_operaciones_pendientes(request, propiedad_id):
                 'monto_pagado': str(total_cuotas),
             })
     
+    # Obtener el porcentaje del propietario de la propiedad (default 85%)
+    porcentaje_propietario = float(propiedad.porcentaje_propietario) if propiedad.porcentaje_propietario else 85.0
+    
     return JsonResponse({
         'success': True,
-        'operaciones': operaciones
+        'operaciones': operaciones,
+        'porcentaje_propietario': porcentaje_propietario
     })
 
 

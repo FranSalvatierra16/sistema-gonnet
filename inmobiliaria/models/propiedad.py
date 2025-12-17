@@ -131,6 +131,15 @@ class Propiedad(models.Model):
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
     propietario = models.ForeignKey(Propietario, on_delete=models.CASCADE, related_name='propiedades')  
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='propiedades')# Cambiado a obligatorio
+    porcentaje_propietario = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=85.00,
+        null=True,
+        blank=True,
+        verbose_name="Porcentaje para Propietario (%)",
+        help_text="Porcentaje del monto total que corresponde al propietario (ej: 85% = 85.00). El resto es para la inmobiliaria."
+    )
     llave = models.IntegerField(null=True, blank=True, verbose_name="Número de llave")
     numero_por_propietario = models.PositiveIntegerField(null=True, blank=True, verbose_name="Número de propiedad")
     cantidad_personas = models.PositiveIntegerField(null=True, blank=True, verbose_name="Cantidad de personas")

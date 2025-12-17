@@ -69,8 +69,8 @@
                             <div class="col-md-4">
                                 <label class="form-label">Monto para el Propietario <span class="text-danger">*</span></label>
                                 <input type="text" name="monto_propietario" id="monto_propietario" class="form-control" 
-                                       required placeholder="0.00">
-                                <small class="form-text text-muted">Monto que corresponde pagar al propietario</small>
+                                       required placeholder="0.00" readonly>
+                                <small class="form-text text-muted">Se calcula automáticamente según el porcentaje de la propiedad</small>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Monto para la Inmobiliaria</label>
@@ -135,6 +135,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Variable global para almacenar el porcentaje del propietario
+    let porcentajePropietario = 85.0;
+    
     // Función para cargar operaciones pendientes
     function cargarOperacionesPendientes(propiedadId) {
         if (!propiedadId) {
@@ -151,6 +154,10 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`{% url 'inmobiliaria:obtener_operaciones_pendientes' 0 %}`.replace('0', propiedadId))
             .then(response => response.json())
             .then(data => {
+                // Guardar el porcentaje del propietario
+                if (data.porcentaje_propietario) {
+                    porcentajePropietario = parseFloat(data.porcentaje_propietario);
+                }
                 const container = document.getElementById('operaciones-pendientes-container');
                 const lista = document.getElementById('operaciones-pendientes-lista');
                 const sinOperaciones = document.getElementById('sin-operaciones');
@@ -263,9 +270,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Actualizar montos (el usuario debe ingresar el monto del propietario manualmente)
+        // Calcular montos automáticamente
         if (totalMonto > 0) {
             montoTotal.value = formatearNumero(totalMonto.toFixed(2));
+            
+            // Calcular monto del propietario automáticamente según el porcentaje
+            const montoPropietarioCalculado = (totalMonto * porcentajePropietario) / 100;
+            montoPropietario.value = formatearNumero(montoPropietarioCalculado.toFixed(2));
+            
+            // Calcular monto de inmobiliaria
             calcularMontoInmobiliaria();
             
             // Actualizar fechas si están disponibles
@@ -290,8 +303,16 @@ document.addEventListener('DOMContentLoaded', function() {
         montoInmobiliaria.value = inmobiliaria.toFixed(2).replace('.', ',');
     }
 
-    montoTotal.addEventListener('input', calcularMontoInmobiliaria);
-    montoPropietario.addEventListener('input', calcularMontoInmobiliaria);
+    // El monto del propietario se calcula automáticamente, no necesita event listener
+    montoTotal.addEventListener('input', function() {
+        // Si el usuario modifica manualmente el monto total, recalcular el del propietario
+        const total = parseFloat(this.value.replace(/\./g, '').replace(',', '.')) || 0;
+        if (total > 0) {
+            const montoPropietarioCalculado = (total * porcentajePropietario) / 100;
+            montoPropietario.value = formatearNumero(montoPropietarioCalculado.toFixed(2));
+            calcularMontoInmobiliaria();
+        }
+    });
 
     // Inicializar propietario y cargar operaciones si hay una propiedad seleccionada
     if (propiedadSelect.value) {
