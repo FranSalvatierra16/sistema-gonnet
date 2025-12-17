@@ -11927,10 +11927,24 @@ def obtener_operaciones_pendientes(request, propiedad_id):
     
     operaciones = []
     
+    # Función auxiliar para determinar tipo de precio según fecha
+    def obtener_tipo_precio(fecha):
+        if fecha.month == 1:  # Enero
+            return 'QUINCENA_1_ENERO' if fecha.day <= 15 else 'QUINCENA_2_ENERO'
+        elif fecha.month == 2:  # Febrero
+            return 'QUINCENA_1_FEBRERO' if fecha.day <= 15 else 'QUINCENA_2_FEBRERO'
+        elif fecha.month == 3:  # Marzo
+            return 'QUINCENA_1_MARZO' if fecha.day <= 15 else 'QUINCENA_2_MARZO'
+        elif fecha.month == 7:  # Julio (Vacaciones de Invierno)
+            return 'VACACIONES_INVIERNO'
+        elif fecha.month == 12:  # Diciembre
+            return 'QUINCENA_1_DICIEMBRE' if fecha.day <= 15 else 'QUINCENA_2_DICIEMBRE'
+        else:
+            return 'TEMPORADA_BAJA'
+    
     # Procesar reservas
     for reserva in reservas_pendientes:
         # Verificar si tiene movimientos de caja (pagos)
-        # Buscar por concepto que contenga el ID de la reserva o por propiedad y fechas
         movimientos = MovimientoCaja.objects.filter(
             propiedad=propiedad,
             tipo=TipoMovimientoCajaEnum.INGRESO
@@ -11952,6 +11966,39 @@ def obtener_operaciones_pendientes(request, propiedad_id):
         
         # Incluir la reserva si tiene pagos o está marcada como pagada
         if total_pagado > 0 or reserva.estado == 'pagada':
+            # Calcular días de la reserva
+            dias_reserva = (reserva.fecha_fin - reserva.fecha_inicio).days
+            
+            # Calcular montos según precio_toma y precio_por_dia
+            monto_propietario_total = Decimal('0')
+            monto_inmobiliaria_total = Decimal('0')
+            
+            # Calcular día por día
+            for i in range(dias_reserva):
+                fecha_actual = reserva.fecha_inicio + timedelta(days=i)
+                tipo_precio = obtener_tipo_precio(fecha_actual)
+                
+                try:
+                    precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
+                    precio_toma = Decimal(str(precio.precio_toma or 0))
+                    precio_por_dia = Decimal(str(precio.precio_por_dia or 0))
+                    
+                    # Si no hay precio_toma, usar precio_dia_toma como fallback
+                    if precio_toma == 0 and precio.precio_dia_toma:
+                        precio_toma = Decimal(str(precio.precio_dia_toma))
+                    
+                    # Calcular ganancia por día
+                    ganancia_dia = precio_por_dia - precio_toma
+                    
+                    monto_propietario_total += precio_toma
+                    monto_inmobiliaria_total += ganancia_dia
+                except Precio.DoesNotExist:
+                    # Si no existe precio, usar el precio_total de la reserva dividido por días
+                    precio_promedio = Decimal(str(reserva.precio_total)) / Decimal(str(dias_reserva))
+                    # Asumir 85% para propietario si no hay precios configurados
+                    monto_propietario_total += precio_promedio * Decimal('0.85')
+                    monto_inmobiliaria_total += precio_promedio * Decimal('0.15')
+            
             operaciones.append({
                 'tipo': 'reserva',
                 'id': reserva.id,
@@ -11960,6 +12007,9 @@ def obtener_operaciones_pendientes(request, propiedad_id):
                 'fecha_fin': reserva.fecha_fin.strftime('%Y-%m-%d'),
                 'monto_total': str(reserva.precio_total),
                 'monto_pagado': str(total_pagado if total_pagado > 0 else reserva.precio_total),
+                'monto_propietario': str(monto_propietario_total),
+                'monto_inmobiliaria': str(monto_inmobiliaria_total),
+                'dias': dias_reserva,
             })
     
     # Procesar contratos (cuotas pagadas)
@@ -11967,6 +12017,42 @@ def obtener_operaciones_pendientes(request, propiedad_id):
         cuotas_pagadas = contrato.cuotas.filter(estado='pagada')
         if cuotas_pagadas.exists():
             total_cuotas = sum(float(cuota.monto_total) for cuota in cuotas_pagadas)
+            
+            # Para contratos, usar el precio_23_meses o precio_invierno de la propiedad
+            # y calcular según el tipo de operación
+            monto_propietario_contrato = Decimal('0')
+            monto_inmobiliaria_contrato = Decimal('0')
+            
+            # Obtener precio mensual del contrato
+            precio_mensual = Decimal(str(total_cuotas)) / Decimal(str(cuotas_pagadas.count()))
+            
+            # Buscar precio de toma en precios de la propiedad (usar TEMPORADA_BAJA como referencia)
+            try:
+                precio_ref = Precio.objects.filter(propiedad=propiedad).first()
+                if precio_ref and precio_ref.precio_toma:
+                    # Calcular proporción: si precio_toma es 70 y precio_por_dia es 100
+                    # En un mes, el propietario recibe: precio_toma × 30 días
+                    precio_toma = Decimal(str(precio_ref.precio_toma))
+                    precio_por_dia = Decimal(str(precio_ref.precio_por_dia or 100))
+                    
+                    if precio_por_dia > 0:
+                        # Calcular precio mensual de toma
+                        precio_mensual_toma = (precio_toma / precio_por_dia) * precio_mensual
+                        monto_propietario_contrato = precio_mensual_toma * Decimal(str(cuotas_pagadas.count()))
+                        monto_inmobiliaria_contrato = Decimal(str(total_cuotas)) - monto_propietario_contrato
+                    else:
+                        # Fallback: 85% para propietario
+                        monto_propietario_contrato = Decimal(str(total_cuotas)) * Decimal('0.85')
+                        monto_inmobiliaria_contrato = Decimal(str(total_cuotas)) * Decimal('0.15')
+                else:
+                    # Fallback: 85% para propietario
+                    monto_propietario_contrato = Decimal(str(total_cuotas)) * Decimal('0.85')
+                    monto_inmobiliaria_contrato = Decimal(str(total_cuotas)) * Decimal('0.15')
+            except:
+                # Fallback: 85% para propietario
+                monto_propietario_contrato = Decimal(str(total_cuotas)) * Decimal('0.85')
+                monto_inmobiliaria_contrato = Decimal(str(total_cuotas)) * Decimal('0.15')
+            
             operaciones.append({
                 'tipo': 'contrato',
                 'id': contrato.id,
@@ -11975,15 +12061,14 @@ def obtener_operaciones_pendientes(request, propiedad_id):
                 'fecha_fin': contrato.fecha_fin.strftime('%Y-%m-%d') if contrato.fecha_fin else '',
                 'monto_total': str(total_cuotas),
                 'monto_pagado': str(total_cuotas),
+                'monto_propietario': str(monto_propietario_contrato),
+                'monto_inmobiliaria': str(monto_inmobiliaria_contrato),
+                'dias': cuotas_pagadas.count() * 30,  # Aproximación: cada cuota = 30 días
             })
-    
-    # Obtener el porcentaje del propietario de la propiedad (default 85%)
-    porcentaje_propietario = float(propiedad.porcentaje_propietario) if propiedad.porcentaje_propietario else 85.0
     
     return JsonResponse({
         'success': True,
-        'operaciones': operaciones,
-        'porcentaje_propietario': porcentaje_propietario
+        'operaciones': operaciones
     })
 
 

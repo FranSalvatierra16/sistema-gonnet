@@ -63,19 +63,19 @@
                                 <label class="form-label">Monto Total de la Operación <span class="text-danger">*</span></label>
                                 <input type="text" name="monto_total" id="monto_total" class="form-control" 
                                        value="{% if monto_total %}{{ monto_total }}{% endif %}" required
-                                       placeholder="0.00">
-                                <small class="form-text text-muted">Monto total recibido del inquilino</small>
+                                       placeholder="0.00" readonly>
+                                <small class="form-text text-muted">Se calcula automáticamente sumando las operaciones seleccionadas</small>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Monto para el Propietario <span class="text-danger">*</span></label>
                                 <input type="text" name="monto_propietario" id="monto_propietario" class="form-control" 
                                        required placeholder="0.00" readonly>
-                                <small class="form-text text-muted">Se calcula automáticamente según el porcentaje de la propiedad</small>
+                                <small class="form-text text-muted">Se calcula automáticamente según precio por toma de cada operación</small>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Monto para la Inmobiliaria</label>
                                 <input type="text" id="monto_inmobiliaria" class="form-control" readonly>
-                                <small class="form-text text-muted">Se calcula automáticamente</small>
+                                <small class="form-text text-muted">Ganancia total (diferencia entre precio publicado y precio por toma)</small>
                             </div>
                         </div>
 
@@ -135,9 +135,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Variable global para almacenar el porcentaje del propietario
-    let porcentajePropietario = 85.0;
-    
     // Función para cargar operaciones pendientes
     function cargarOperacionesPendientes(propiedadId) {
         if (!propiedadId) {
@@ -154,10 +151,6 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`{% url 'inmobiliaria:obtener_operaciones_pendientes' 0 %}`.replace('0', propiedadId))
             .then(response => response.json())
             .then(data => {
-                // Guardar el porcentaje del propietario
-                if (data.porcentaje_propietario) {
-                    porcentajePropietario = parseFloat(data.porcentaje_propietario);
-                }
                 const container = document.getElementById('operaciones-pendientes-container');
                 const lista = document.getElementById('operaciones-pendientes-lista');
                 const sinOperaciones = document.getElementById('sin-operaciones');
@@ -190,7 +183,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <input type="checkbox" class="form-check-input operacion-checkbox" 
                                            data-tipo="${op.tipo}"
                                            data-id="${op.id}"
-                                           data-monto="${op.monto_total}"
+                                           data-monto-total="${op.monto_total}"
+                                           data-monto-propietario="${op.monto_propietario || '0'}"
+                                           data-monto-inmobiliaria="${op.monto_inmobiliaria || '0'}"
                                            data-fecha-desde="${op.fecha_inicio}"
                                            data-fecha-hasta="${op.fecha_fin}"
                                            onchange="calcularMontosSeleccionados()">
@@ -247,12 +242,19 @@ document.addEventListener('DOMContentLoaded', function() {
     window.calcularMontosSeleccionados = function() {
         const checkboxes = document.querySelectorAll('.operacion-checkbox:checked');
         let totalMonto = 0;
+        let totalMontoPropietario = 0;
+        let totalMontoInmobiliaria = 0;
         let fechaDesdeMin = null;
         let fechaHastaMax = null;
         
         checkboxes.forEach(cb => {
-            const monto = parseFloat(cb.getAttribute('data-monto')) || 0;
-            totalMonto += monto;
+            const montoTotalOp = parseFloat(cb.getAttribute('data-monto-total')) || 0;
+            const montoPropietarioOp = parseFloat(cb.getAttribute('data-monto-propietario')) || 0;
+            const montoInmobiliariaOp = parseFloat(cb.getAttribute('data-monto-inmobiliaria')) || 0;
+            
+            totalMonto += montoTotalOp;
+            totalMontoPropietario += montoPropietarioOp;
+            totalMontoInmobiliaria += montoInmobiliariaOp;
             
             const fechaDesde = cb.getAttribute('data-fecha-desde');
             const fechaHasta = cb.getAttribute('data-fecha-hasta');
@@ -270,16 +272,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Calcular montos automáticamente
+        // Actualizar montos automáticamente
         if (totalMonto > 0) {
             montoTotal.value = formatearNumero(totalMonto.toFixed(2));
-            
-            // Calcular monto del propietario automáticamente según el porcentaje
-            const montoPropietarioCalculado = (totalMonto * porcentajePropietario) / 100;
-            montoPropietario.value = formatearNumero(montoPropietarioCalculado.toFixed(2));
-            
-            // Calcular monto de inmobiliaria
-            calcularMontoInmobiliaria();
+            montoPropietario.value = formatearNumero(totalMontoPropietario.toFixed(2));
+            montoInmobiliaria.value = formatearNumero(totalMontoInmobiliaria.toFixed(2));
             
             // Actualizar fechas si están disponibles
             if (fechaDesdeMin) {
@@ -303,16 +300,8 @@ document.addEventListener('DOMContentLoaded', function() {
         montoInmobiliaria.value = inmobiliaria.toFixed(2).replace('.', ',');
     }
 
-    // El monto del propietario se calcula automáticamente, no necesita event listener
-    montoTotal.addEventListener('input', function() {
-        // Si el usuario modifica manualmente el monto total, recalcular el del propietario
-        const total = parseFloat(this.value.replace(/\./g, '').replace(',', '.')) || 0;
-        if (total > 0) {
-            const montoPropietarioCalculado = (total * porcentajePropietario) / 100;
-            montoPropietario.value = formatearNumero(montoPropietarioCalculado.toFixed(2));
-            calcularMontoInmobiliaria();
-        }
-    });
+    // Los montos se calculan automáticamente desde las operaciones seleccionadas
+    // No se permite modificar manualmente el monto total ni el del propietario
 
     // Inicializar propietario y cargar operaciones si hay una propiedad seleccionada
     if (propiedadSelect.value) {
