@@ -978,9 +978,11 @@ class Precio(models.Model):
             else:
                 # Es igual o muy cercano al automático, está bien como está
                 # print(f"⚖️  Precio igual al automático: {precio_total_actual}")
+                pass
         elif not is_updating:
             # Es una creación nueva sin precio_por_dia, dejar en 0
             # print(f"⚠️  Creación nueva sin precio_por_dia")
+            pass
 
         # Remover el parámetro personalizado antes de llamar al save padre
         kwargs.pop('skip_price_calculation', None)
