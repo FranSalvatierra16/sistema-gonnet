@@ -1,0 +1,340 @@
+{% extends 'inmobiliaria/base.html' %}
+
+{% block title %}Detalle de Liquidación{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>💰 Detalle de Liquidación #{{ liquidacion.id }}</h1>
+                <a href="{% url 'inmobiliaria:lista_liquidaciones' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Volver a Lista
+                </a>
+            </div>
+
+            <!-- Información Principal -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card shadow">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Información General</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <th width="40%">Propietario:</th>
+                                    <td>{{ liquidacion.propietario.apellido }}, {{ liquidacion.propietario.nombre }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Propiedad:</th>
+                                    <td>
+                                        <strong>{{ liquidacion.propiedad.direccion }}</strong>
+                                        {% if liquidacion.propiedad.piso or liquidacion.propiedad.departamento %}
+                                        <br><small class="text-muted">
+                                            {% if liquidacion.propiedad.piso %}Piso: {{ liquidacion.propiedad.piso }}{% endif %}
+                                            {% if liquidacion.propiedad.departamento %} - Dpto: {{ liquidacion.propiedad.departamento }}{% endif %}
+                                        </small>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% if liquidacion.reserva %}
+                                <tr>
+                                    <th>Reserva:</th>
+                                    <td>#{{ liquidacion.reserva.id }}</td>
+                                </tr>
+                                {% endif %}
+                                <tr>
+                                    <th>Estado:</th>
+                                    <td>
+                                        {% if liquidacion.estado == 'pendiente' %}
+                                        <span class="badge bg-warning text-dark">Pendiente</span>
+                                        {% elif liquidacion.estado == 'procesada' %}
+                                        <span class="badge bg-success">Procesada</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">Cancelada</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Fecha de Creación:</th>
+                                    <td>{{ liquidacion.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                                </tr>
+                                {% if liquidacion.fecha_procesamiento %}
+                                <tr>
+                                    <th>Fecha de Procesamiento:</th>
+                                    <td>{{ liquidacion.fecha_procesamiento|date:"d/m/Y H:i" }}</td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card shadow">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">Montos</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <th width="50%">Monto Total Operación:</th>
+                                    <td class="text-end"><strong>${{ liquidacion.monto_total_operacion|floatformat:2 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <th>Monto Propietario:</th>
+                                    <td class="text-end">${{ liquidacion.monto_propietario|floatformat:2 }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Monto Inmobiliaria:</th>
+                                    <td class="text-end">${{ liquidacion.monto_inmobiliaria|floatformat:2 }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Total Gastos:</th>
+                                    <td class="text-end text-danger">-${{ liquidacion.monto_gastos|floatformat:2 }}</td>
+                                </tr>
+                                <tr class="table-success">
+                                    <th><strong>Monto a Pagar:</strong></th>
+                                    <td class="text-end"><strong>${{ liquidacion.monto_a_pagar|floatformat:2 }}</strong></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gastos -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow">
+                        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Gastos del Propietario</h5>
+                            {% if liquidacion.estado == 'pendiente' %}
+                            <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#modalAgregarGasto">
+                                <i class="fas fa-plus me-2"></i>Agregar Gasto
+                            </button>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            {% if gastos %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Descripción</th>
+                                            <th>Monto</th>
+                                            <th>Fecha Gasto</th>
+                                            <th>Estado</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for gasto in gastos %}
+                                        <tr>
+                                            <td>{{ gasto.descripcion }}</td>
+                                            <td>${{ gasto.monto|floatformat:2 }}</td>
+                                            <td>{% if gasto.fecha_gasto %}{{ gasto.fecha_gasto|date:"d/m/Y" }}{% else %}-{% endif %}</td>
+                                            <td>
+                                                {% if gasto.aceptado %}
+                                                <span class="badge bg-success">Aceptado</span>
+                                                {% else %}
+                                                <span class="badge bg-warning text-dark">Pendiente</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if liquidacion.estado == 'pendiente' and not gasto.aceptado %}
+                                                <button class="btn btn-sm btn-success aceptar-gasto" data-gasto-id="{{ gasto.id }}">
+                                                    <i class="fas fa-check"></i> Aceptar
+                                                </button>
+                                                <button class="btn btn-sm btn-danger rechazar-gasto" data-gasto-id="{{ gasto.id }}">
+                                                    <i class="fas fa-times"></i> Rechazar
+                                                </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                No hay gastos registrados para esta liquidación.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Procesar Liquidación -->
+            {% if liquidacion.estado == 'pendiente' %}
+            <div class="row">
+                <div class="col-12">
+                    <div class="card shadow">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">Procesar Liquidación</h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="POST" action="{% url 'inmobiliaria:procesar_liquidacion' liquidacion.id %}">
+                                {% csrf_token %}
+                                <div class="alert alert-warning">
+                                    <strong>Monto a Pagar:</strong> $<span id="monto-a-pagar">{{ liquidacion.monto_a_pagar|floatformat:2 }}</span>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-3">
+                                        <label class="form-label">Efectivo</label>
+                                        <input type="text" name="monto_efectivo" id="monto_efectivo" class="form-control" 
+                                               value="0" placeholder="0.00">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Cheque</label>
+                                        <input type="text" name="monto_cheque" id="monto_cheque" class="form-control" 
+                                               value="0" placeholder="0.00">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Tarjeta</label>
+                                        <input type="text" name="monto_tarjeta" id="monto_tarjeta" class="form-control" 
+                                               value="0" placeholder="0.00">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Depósito</label>
+                                        <input type="text" name="monto_deposito" id="monto_deposito" class="form-control" 
+                                               value="0" placeholder="0.00">
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-12">
+                                        <div class="alert alert-info">
+                                            <strong>Total Ingresado:</strong> $<span id="total-ingresado">0.00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    <i class="fas fa-check-circle me-2"></i>Procesar Liquidación y Descontar de Caja
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Agregar Gasto -->
+<div class="modal fade" id="modalAgregarGasto" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Agregar Gasto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formAgregarGasto">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Descripción <span class="text-danger">*</span></label>
+                        <input type="text" name="descripcion" class="form-control" required 
+                               placeholder="Ej: Luz, Gas, Mantenimiento...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Monto <span class="text-danger">*</span></label>
+                        <input type="text" name="monto" class="form-control" required placeholder="0.00">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Fecha del Gasto</label>
+                        <input type="date" name="fecha_gasto" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Observaciones</label>
+                        <textarea name="observaciones" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Agregar Gasto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Calcular total ingresado
+    const montos = ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito'];
+    const totalIngresado = document.getElementById('total-ingresado');
+    
+    function calcularTotal() {
+        let total = 0;
+        montos.forEach(id => {
+            const valor = parseFloat(document.getElementById(id).value.replace(/\./g, '').replace(',', '.')) || 0;
+            total += valor;
+        });
+        totalIngresado.textContent = total.toFixed(2);
+    }
+    
+    montos.forEach(id => {
+        document.getElementById(id).addEventListener('input', calcularTotal);
+    });
+    calcularTotal();
+
+    // Agregar gasto
+    document.getElementById('formAgregarGasto').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        
+        fetch('{% url "inmobiliaria:agregar_gasto" liquidacion.id %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error al agregar el gasto');
+        });
+    });
+
+    // Aceptar/Rechazar gasto
+    document.querySelectorAll('.aceptar-gasto, .rechazar-gasto').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const gastoId = this.getAttribute('data-gasto-id');
+            const accion = this.classList.contains('aceptar-gasto') ? 'aceptar' : 'rechazar';
+            
+            const formData = new FormData();
+            formData.append('accion', accion);
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            
+            fetch(`{% url 'inmobiliaria:aceptar_rechazar_gasto' 0 %}`.replace('0', gastoId), {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error al procesar el gasto');
+            });
+        });
+    });
+});
+</script>
+{% endblock %}
+

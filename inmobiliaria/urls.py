@@ -260,8 +260,12 @@ urlpatterns = [
     path('vendedores/<int:vendedor_id>/vales/', views.lista_vales_vendedor, name='lista_vales_vendedor'),
     
     # ✅ URLs para Liquidaciones de Propietarios
-    path('liquidaciones/', views.liquidaciones_propietarios, name='liquidaciones_propietarios'),
-    path('liquidaciones/propietario/<int:propietario_id>/', views.liquidacion_propietario, name='liquidacion_propietario'),
-    path('liquidaciones/propiedad/<int:propiedad_id>/', views.liquidacion_propiedad, name='liquidacion_propiedad'),
+    path('liquidaciones/', views.lista_liquidaciones, name='lista_liquidaciones'),
+    path('liquidaciones/crear/', views.crear_liquidacion, name='crear_liquidacion'),
+    path('liquidaciones/crear/<int:reserva_id>/', views.crear_liquidacion, name='crear_liquidacion_reserva'),
+    path('liquidaciones/<int:liquidacion_id>/', views.detalle_liquidacion, name='detalle_liquidacion'),
+    path('liquidaciones/<int:liquidacion_id>/agregar-gasto/', views.agregar_gasto, name='agregar_gasto'),
+    path('liquidaciones/gasto/<int:gasto_id>/aceptar-rechazar/', views.aceptar_rechazar_gasto, name='aceptar_rechazar_gasto'),
+    path('liquidaciones/<int:liquidacion_id>/procesar/', views.procesar_liquidacion, name='procesar_liquidacion'),
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

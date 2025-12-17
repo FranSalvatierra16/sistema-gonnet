@@ -6,6 +6,7 @@ from .contrato import TipoOperacion, ContratoAlquiler, CuotaMensual
 from .recibo import Recibo
 from .comision import ComisionVendedor
 from .vale import ValeVendedor
+from .liquidacion import LiquidacionPropietario, GastoPropietario
 
 __all__ = [
     'Sucursal',
@@ -19,4 +20,6 @@ __all__ = [
     'Recibo',
     'ComisionVendedor',
     'ValeVendedor',
+    'LiquidacionPropietario',
+    'GastoPropietario',
 ]

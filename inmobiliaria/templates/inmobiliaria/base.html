@@ -118,6 +118,9 @@
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:buscar_propiedades_por_fechas' %}">Buscar Propiedades por Fechas</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:reservas' %}">Lista Reservas</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:operaciones' %}">Operaciones</a></li>
+                            {% if user.nivel >= 2 %}
+                                <li><a class="dropdown-item" href="{% url 'inmobiliaria:lista_liquidaciones' %}"><i class="fas fa-money-bill-wave"></i> Liquidaciones Propietarios</a></li>
+                            {% endif %}
                             {% if user.nivel == 4 %}
                                 <li><a class="dropdown-item" href="{% url 'inmobiliaria:register' %}">Registrar Usuario</a></li>
                             {% endif %}

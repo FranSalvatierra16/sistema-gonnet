@@ -509,7 +509,8 @@ from .models import (
     Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, 
     Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, 
     AlquilerMeses, AlquilerInvierno, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal,
-    TipoMovimientoCajaEnum, ContratoAlquiler, CuotaMensual, ComisionVendedor, ValeVendedor
+    TipoMovimientoCajaEnum, ContratoAlquiler, CuotaMensual, ComisionVendedor, ValeVendedor,
+    LiquidacionPropietario, GastoPropietario
 )
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
@@ -11748,3 +11749,311 @@ def generar_enlace_publico(request):
             return JsonResponse({'error': str(e)}, status=500)
     
     return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+
+# ==================== VISTAS PARA LIQUIDACIONES DE PROPIETARIOS ====================
+
+@login_required
+def lista_liquidaciones(request):
+    """
+    Vista para listar todas las liquidaciones de propietarios
+    """
+    liquidaciones = LiquidacionPropietario.objects.filter(
+        sucursal=request.user.sucursal
+    ).select_related(
+        'propietario', 'propiedad', 'reserva', 'contrato', 'movimiento_caja'
+    ).prefetch_related('gastos').order_by('-fecha_creacion')
+
+    # Filtros
+    estado_filtro = request.GET.get('estado', '')
+    propietario_id = request.GET.get('propietario', '')
+    busqueda = request.GET.get('busqueda', '')
+
+    if estado_filtro:
+        liquidaciones = liquidaciones.filter(estado=estado_filtro)
+
+    if propietario_id:
+        liquidaciones = liquidaciones.filter(propietario_id=propietario_id)
+
+    if busqueda:
+        liquidaciones = liquidaciones.filter(
+            Q(propiedad__direccion__icontains=busqueda) |
+            Q(propietario__nombre__icontains=busqueda) |
+            Q(propietario__apellido__icontains=busqueda) |
+            Q(id__icontains=busqueda)
+        )
+
+    # Calcular totales
+    total_pendiente = liquidaciones.filter(estado='pendiente').aggregate(
+        total=Sum('monto_a_pagar')
+    )['total'] or Decimal('0')
+
+    total_procesado = liquidaciones.filter(estado='procesada').aggregate(
+        total=Sum('monto_a_pagar')
+    )['total'] or Decimal('0')
+
+    propietarios = Propietario.objects.filter(
+        sucursal=request.user.sucursal
+    ).order_by('apellido', 'nombre')
+
+    context = {
+        'liquidaciones': liquidaciones,
+        'estado_filtro': estado_filtro,
+        'propietario_id': propietario_id,
+        'busqueda': busqueda,
+        'propietarios': propietarios,
+        'total_pendiente': total_pendiente,
+        'total_procesado': total_procesado,
+    }
+
+    return render(request, 'inmobiliaria/liquidaciones/lista.html', context)
+
+
+@login_required
+def crear_liquidacion(request, reserva_id=None):
+    """
+    Vista para crear una nueva liquidación desde una reserva
+    """
+    reserva = None
+    if reserva_id:
+        reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
+
+        # Verificar si ya existe una liquidación para esta reserva
+        liquidacion_existente = LiquidacionPropietario.objects.filter(
+            reserva=reserva,
+            estado='pendiente'
+        ).first()
+
+        if liquidacion_existente:
+            messages.warning(request, 'Ya existe una liquidación pendiente para esta reserva.')
+            return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_existente.id)
+
+    if request.method == 'POST':
+        try:
+            propiedad_id = request.POST.get('propiedad_id')
+            monto_total = Decimal(request.POST.get('monto_total', '0').replace('.', '').replace(',', '.'))
+            monto_propietario = Decimal(request.POST.get('monto_propietario', '0').replace('.', '').replace(',', '.'))
+            fecha_desde = request.POST.get('fecha_desde')
+            fecha_hasta = request.POST.get('fecha_hasta')
+            observaciones = request.POST.get('observaciones', '')
+
+            if not propiedad_id:
+                messages.error(request, 'Debe seleccionar una propiedad.')
+                return redirect('inmobiliaria:lista_liquidaciones')
+
+            propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
+
+            # Calcular monto de inmobiliaria
+            monto_inmobiliaria = monto_total - monto_propietario
+
+            liquidacion = LiquidacionPropietario.objects.create(
+                propietario=propiedad.propietario,
+                propiedad=propiedad,
+                reserva=reserva,
+                monto_total_operacion=monto_total,
+                monto_propietario=monto_propietario,
+                monto_inmobiliaria=monto_inmobiliaria,
+                fecha_desde=datetime.strptime(fecha_desde, '%Y-%m-%d').date() if fecha_desde else None,
+                fecha_hasta=datetime.strptime(fecha_hasta, '%Y-%m-%d').date() if fecha_hasta else None,
+                observaciones=observaciones,
+                sucursal=request.user.sucursal,
+                usuario_creacion=request.user
+            )
+
+            messages.success(request, 'Liquidación creada correctamente.')
+            return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
+
+        except Exception as e:
+            messages.error(request, f'Error al crear la liquidación: {str(e)}')
+            return redirect('inmobiliaria:lista_liquidaciones')
+
+    # Si hay reserva, pre-llenar datos
+    propiedades = Propiedad.objects.filter(
+        sucursal=request.user.sucursal
+    ).select_related('propietario').order_by('direccion')
+
+    context = {
+        'reserva': reserva,
+        'propiedades': propiedades,
+    }
+
+    if reserva:
+        context['propiedad'] = reserva.propiedad
+        context['monto_total'] = reserva.precio_total
+        context['fecha_desde'] = reserva.fecha_inicio
+        context['fecha_hasta'] = reserva.fecha_fin
+
+    return render(request, 'inmobiliaria/liquidaciones/crear.html', context)
+
+
+@login_required
+def detalle_liquidacion(request, liquidacion_id):
+    """
+    Vista para ver el detalle de una liquidación y gestionar gastos
+    """
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario.objects.select_related(
+            'propietario', 'propiedad', 'reserva', 'contrato', 'movimiento_caja'
+        ).prefetch_related('gastos'),
+        id=liquidacion_id,
+        sucursal=request.user.sucursal
+    )
+
+    context = {
+        'liquidacion': liquidacion,
+        'gastos': liquidacion.gastos.all().order_by('-fecha_creacion'),
+    }
+
+    return render(request, 'inmobiliaria/liquidaciones/detalle.html', context)
+
+
+@login_required
+@require_POST
+def agregar_gasto(request, liquidacion_id):
+    """
+    Vista AJAX para agregar un gasto a una liquidación
+    """
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario,
+        id=liquidacion_id,
+        sucursal=request.user.sucursal
+    )
+
+    try:
+        descripcion = request.POST.get('descripcion', '').strip()
+        monto_str = request.POST.get('monto', '0').replace('.', '').replace(',', '.')
+        fecha_gasto = request.POST.get('fecha_gasto', '')
+        observaciones = request.POST.get('observaciones', '').strip()
+
+        if not descripcion:
+            return JsonResponse({'success': False, 'error': 'La descripción es obligatoria.'})
+
+        monto = Decimal(monto_str)
+        if monto <= 0:
+            return JsonResponse({'success': False, 'error': 'El monto debe ser mayor a cero.'})
+
+        gasto = GastoPropietario.objects.create(
+            liquidacion=liquidacion,
+            descripcion=descripcion,
+            monto=monto,
+            fecha_gasto=datetime.strptime(fecha_gasto, '%Y-%m-%d').date() if fecha_gasto else None,
+            observaciones=observaciones
+        )
+
+        # Recalcular monto a pagar
+        liquidacion.calcular_monto_a_pagar()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Gasto agregado correctamente.',
+            'gasto_id': gasto.id,
+            'monto_a_pagar': str(liquidacion.monto_a_pagar)
+        })
+
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': f'Error en el formato de datos: {str(e)}'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Error al agregar el gasto: {str(e)}'})
+
+
+@login_required
+@require_POST
+def aceptar_rechazar_gasto(request, gasto_id):
+    """
+    Vista AJAX para aceptar o rechazar un gasto
+    """
+    gasto = get_object_or_404(
+        GastoPropietario,
+        id=gasto_id,
+        liquidacion__sucursal=request.user.sucursal
+    )
+
+    try:
+        accion = request.POST.get('accion', '').strip()
+        if accion not in ['aceptar', 'rechazar']:
+            return JsonResponse({'success': False, 'error': 'Acción inválida.'})
+
+        gasto.aceptado = (accion == 'aceptar')
+        gasto.save()
+
+        # Recalcular monto a pagar
+        gasto.liquidacion.calcular_monto_a_pagar()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Gasto {"aceptado" if gasto.aceptado else "rechazado"} correctamente.',
+            'monto_a_pagar': str(gasto.liquidacion.monto_a_pagar)
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Error al procesar el gasto: {str(e)}'})
+
+
+@login_required
+@transaction.atomic
+@require_POST
+def procesar_liquidacion(request, liquidacion_id):
+    """
+    Vista para procesar una liquidación (descontar de caja)
+    """
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario,
+        id=liquidacion_id,
+        sucursal=request.user.sucursal,
+        estado='pendiente'
+    )
+
+    try:
+        # Obtener caja abierta
+        caja = Caja.objects.filter(
+            sucursal=request.user.sucursal,
+            estado='abierta'
+        ).first()
+
+        if not caja:
+            messages.error(request, 'No hay una caja abierta. Debe abrir una caja primero.')
+            return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_id)
+
+        # Obtener método de pago
+        monto_efectivo = Decimal(request.POST.get('monto_efectivo', '0').replace('.', '').replace(',', '.'))
+        monto_cheque = Decimal(request.POST.get('monto_cheque', '0').replace('.', '').replace(',', '.'))
+        monto_tarjeta = Decimal(request.POST.get('monto_tarjeta', '0').replace('.', '').replace(',', '.'))
+        monto_deposito = Decimal(request.POST.get('monto_deposito', '0').replace('.', '').replace(',', '.'))
+
+        total_pago = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
+
+        if total_pago != liquidacion.monto_a_pagar:
+            messages.error(request, f'El total del pago (${total_pago}) no coincide con el monto a pagar (${liquidacion.monto_a_pagar}).')
+            return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_id)
+
+        # Crear movimiento de caja (egreso)
+        movimiento = MovimientoCaja.objects.create(
+            fecha=timezone.now(),
+            tipo=TipoMovimientoCajaEnum.EGRESO,
+            tipo_comprobante='RC',  # Recibo
+            concepto=f'Liquidación Propietario - {liquidacion.propietario} - {liquidacion.propiedad.direccion}',
+            propiedad=liquidacion.propiedad,
+            fecha_desde=liquidacion.fecha_desde,
+            fecha_hasta=liquidacion.fecha_hasta,
+            monto_efectivo=monto_efectivo,
+            monto_cheque=monto_cheque,
+            monto_tarjeta=monto_tarjeta,
+            monto_deposito=monto_deposito,
+            a_descontar='propietario',
+            sucursal=request.user.sucursal,
+            empleado=request.user,
+            caja=caja
+        )
+
+        # Actualizar liquidación
+        liquidacion.movimiento_caja = movimiento
+        liquidacion.estado = 'procesada'
+        liquidacion.fecha_procesamiento = timezone.now()
+        liquidacion.save()
+
+        messages.success(request, f'Liquidación procesada correctamente. Se descontó ${liquidacion.monto_a_pagar} de la caja.')
+        return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
+
+    except Exception as e:
+        messages.error(request, f'Error al procesar la liquidación: {str(e)}')
+        return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_id)
