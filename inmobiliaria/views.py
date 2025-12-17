@@ -11887,6 +11887,81 @@ def crear_liquidacion(request, reserva_id=None):
 
 
 @login_required
+def obtener_operaciones_pendientes(request, propiedad_id):
+    """
+    Vista AJAX para obtener las operaciones pendientes de liquidación de una propiedad
+    """
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
+    
+    # Obtener reservas pagadas sin liquidación
+    reservas_pendientes = Reserva.objects.filter(
+        propiedad=propiedad,
+        estado__in=['pagada', 'confirmada_no_pagada'],
+        eliminada=False,
+        sucursal=request.user.sucursal
+    ).exclude(
+        liquidaciones__estado='pendiente'
+    ).select_related('cliente').order_by('-fecha_inicio')
+    
+    # Obtener contratos con cuotas pagadas sin liquidación
+    contratos_pendientes = ContratoAlquiler.objects.filter(
+        propiedad=propiedad,
+        estado='activo',
+        sucursal=request.user.sucursal
+    ).exclude(
+        liquidaciones__estado='pendiente'
+    ).prefetch_related('cuotas').select_related('inquilino')
+    
+    operaciones = []
+    
+    # Procesar reservas
+    for reserva in reservas_pendientes:
+        # Verificar si tiene movimientos de caja (pagos)
+        movimientos = MovimientoCaja.objects.filter(
+            propiedad=propiedad,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+            concepto__icontains=f"Operación {reserva.id}"
+        )
+        
+        total_pagado = sum(
+            float(mov.monto_efectivo or 0) + float(mov.monto_cheque or 0) + 
+            float(mov.monto_tarjeta or 0) + float(mov.monto_deposito or 0)
+            for mov in movimientos
+        )
+        
+        if total_pagado > 0:
+            operaciones.append({
+                'tipo': 'reserva',
+                'id': reserva.id,
+                'descripcion': f'Reserva #{reserva.id} - {reserva.cliente.apellido}, {reserva.cliente.nombre}',
+                'fecha_inicio': reserva.fecha_inicio.strftime('%Y-%m-%d'),
+                'fecha_fin': reserva.fecha_fin.strftime('%Y-%m-%d'),
+                'monto_total': str(reserva.precio_total),
+                'monto_pagado': str(total_pagado),
+            })
+    
+    # Procesar contratos (cuotas pagadas)
+    for contrato in contratos_pendientes:
+        cuotas_pagadas = contrato.cuotas.filter(estado='pagada')
+        if cuotas_pagadas.exists():
+            total_cuotas = sum(float(cuota.monto_total) for cuota in cuotas_pagadas)
+            operaciones.append({
+                'tipo': 'contrato',
+                'id': contrato.id,
+                'descripcion': f'Contrato #{contrato.id} - {contrato.inquilino.apellido}, {contrato.inquilino.nombre}',
+                'fecha_inicio': contrato.fecha_inicio.strftime('%Y-%m-%d') if contrato.fecha_inicio else '',
+                'fecha_fin': contrato.fecha_fin.strftime('%Y-%m-%d') if contrato.fecha_fin else '',
+                'monto_total': str(total_cuotas),
+                'monto_pagado': str(total_cuotas),
+            })
+    
+    return JsonResponse({
+        'success': True,
+        'operaciones': operaciones
+    })
+
+
+@login_required
 def detalle_liquidacion(request, liquidacion_id):
     """
     Vista para ver el detalle de una liquidación y gestionar gastos

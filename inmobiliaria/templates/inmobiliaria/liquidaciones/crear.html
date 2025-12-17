@@ -39,6 +39,25 @@
                             </div>
                         </div>
 
+                        <!-- Operaciones Pendientes -->
+                        <div class="row mb-3" id="operaciones-pendientes-container" style="display: none;">
+                            <div class="col-12">
+                                <div class="card border-info">
+                                    <div class="card-header bg-info text-white">
+                                        <h6 class="mb-0"><i class="fas fa-list me-2"></i>Pagos Pendientes al Propietario</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="operaciones-pendientes-lista" class="table-responsive">
+                                            <!-- Se llenará dinámicamente -->
+                                        </div>
+                                        <div id="sin-operaciones" class="alert alert-info mb-0" style="display: none;">
+                                            <i class="fas fa-info-circle me-2"></i>No hay pagos pendientes para esta propiedad.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label class="form-label">Monto Total de la Operación <span class="text-danger">*</span></label>
@@ -102,15 +121,155 @@ document.addEventListener('DOMContentLoaded', function() {
     const montoPropietario = document.getElementById('monto_propietario');
     const montoInmobiliaria = document.getElementById('monto_inmobiliaria');
 
-    // Actualizar propietario cuando se selecciona una propiedad
+    // Actualizar propietario y cargar operaciones pendientes cuando se selecciona una propiedad
     propiedadSelect.addEventListener('change', function() {
         const selectedOption = this.options[this.selectedIndex];
-        if (selectedOption.value) {
+        const propiedadId = selectedOption.value;
+        
+        if (propiedadId) {
             propietarioDisplay.value = selectedOption.getAttribute('data-propietario');
+            cargarOperacionesPendientes(propiedadId);
         } else {
             propietarioDisplay.value = '';
+            document.getElementById('operaciones-pendientes-container').style.display = 'none';
         }
     });
+
+    // Función para cargar operaciones pendientes
+    function cargarOperacionesPendientes(propiedadId) {
+        fetch(`{% url 'inmobiliaria:obtener_operaciones_pendientes' 0 %}`.replace('0', propiedadId))
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('operaciones-pendientes-container');
+                const lista = document.getElementById('operaciones-pendientes-lista');
+                const sinOperaciones = document.getElementById('sin-operaciones');
+                
+                if (data.success && data.operaciones.length > 0) {
+                    container.style.display = 'block';
+                    sinOperaciones.style.display = 'none';
+                    
+                    let html = `
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th width="50">
+                                        <input type="checkbox" id="seleccionar-todos" class="form-check-input">
+                                    </th>
+                                    <th>Tipo</th>
+                                    <th>Descripción</th>
+                                    <th>Fecha Desde</th>
+                                    <th>Fecha Hasta</th>
+                                    <th class="text-end">Monto Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    data.operaciones.forEach((op, index) => {
+                        html += `
+                            <tr>
+                                <td>
+                                    <input type="checkbox" class="form-check-input operacion-checkbox" 
+                                           data-tipo="${op.tipo}"
+                                           data-id="${op.id}"
+                                           data-monto="${op.monto_total}"
+                                           data-fecha-desde="${op.fecha_inicio}"
+                                           data-fecha-hasta="${op.fecha_fin}"
+                                           onchange="calcularMontosSeleccionados()">
+                                </td>
+                                <td>
+                                    <span class="badge ${op.tipo === 'reserva' ? 'bg-primary' : 'bg-success'}">
+                                        ${op.tipo === 'reserva' ? 'Reserva' : 'Contrato'}
+                                    </span>
+                                </td>
+                                <td>${op.descripcion}</td>
+                                <td>${op.fecha_inicio ? new Date(op.fecha_inicio).toLocaleDateString('es-AR') : '-'}</td>
+                                <td>${op.fecha_fin ? new Date(op.fecha_fin).toLocaleDateString('es-AR') : '-'}</td>
+                                <td class="text-end">$${parseFloat(op.monto_total).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += `
+                            </tbody>
+                        </table>
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Selecciona las operaciones que deseas incluir en la liquidación. Los montos se calcularán automáticamente.
+                            </small>
+                        </div>
+                    `;
+                    
+                    lista.innerHTML = html;
+                    
+                    // Event listener para seleccionar todos
+                    document.getElementById('seleccionar-todos').addEventListener('change', function() {
+                        const checkboxes = document.querySelectorAll('.operacion-checkbox');
+                        checkboxes.forEach(cb => cb.checked = this.checked);
+                        calcularMontosSeleccionados();
+                    });
+                } else {
+                    container.style.display = 'block';
+                    lista.innerHTML = '';
+                    sinOperaciones.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error al cargar operaciones pendientes:', error);
+            });
+    }
+
+    // Función para formatear número con puntos
+    function formatearNumero(numero) {
+        return numero.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+    
+    // Función para calcular montos de las operaciones seleccionadas (global)
+    window.calcularMontosSeleccionados = function() {
+        const checkboxes = document.querySelectorAll('.operacion-checkbox:checked');
+        let totalMonto = 0;
+        let fechaDesdeMin = null;
+        let fechaHastaMax = null;
+        
+        checkboxes.forEach(cb => {
+            const monto = parseFloat(cb.getAttribute('data-monto')) || 0;
+            totalMonto += monto;
+            
+            const fechaDesde = cb.getAttribute('data-fecha-desde');
+            const fechaHasta = cb.getAttribute('data-fecha-hasta');
+            
+            if (fechaDesde) {
+                if (!fechaDesdeMin || fechaDesde < fechaDesdeMin) {
+                    fechaDesdeMin = fechaDesde;
+                }
+            }
+            
+            if (fechaHasta) {
+                if (!fechaHastaMax || fechaHasta > fechaHastaMax) {
+                    fechaHastaMax = fechaHasta;
+                }
+            }
+        });
+        
+        // Actualizar montos (el usuario debe ingresar el monto del propietario manualmente)
+        if (totalMonto > 0) {
+            montoTotal.value = formatearNumero(totalMonto.toFixed(2));
+            calcularMontoInmobiliaria();
+            
+            // Actualizar fechas si están disponibles
+            if (fechaDesdeMin) {
+                document.querySelector('input[name="fecha_desde"]').value = fechaDesdeMin;
+            }
+            if (fechaHastaMax) {
+                document.querySelector('input[name="fecha_hasta"]').value = fechaHastaMax;
+            }
+        } else {
+            montoTotal.value = '';
+            montoPropietario.value = '';
+            montoInmobiliaria.value = '';
+        }
+    };
 
     // Calcular monto de inmobiliaria
     function calcularMontoInmobiliaria() {
