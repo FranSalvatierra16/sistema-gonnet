@@ -7195,7 +7195,7 @@ def obtener_precios_propiedad(request, propiedad_id):
         
         # Crear un diccionario con todos los tipos de precio posibles
         precios_data = []
-        print(f"📊 Total de tipos de precio disponibles: {len(TipoPrecio.choices)}")
+        # print(f"📊 Total de tipos de precio disponibles: {len(TipoPrecio.choices)}")
         for tipo_choice in TipoPrecio.choices:
             tipo_key = tipo_choice[0]
             tipo_display = tipo_choice[1]
@@ -7227,7 +7227,7 @@ def obtener_precios_propiedad(request, propiedad_id):
                 'ajuste_porcentaje': str(precio.ajuste_porcentaje or 0)
             })
         
-        print(f"📊 Total de precios devueltos: {len(precios_data)}")
+        # print(f"📊 Total de precios devueltos: {len(precios_data)}")
         response_data = {
             'success': True,
             'precios': precios_data

@@ -319,7 +319,7 @@ class Propiedad(models.Model):
         
         # Si no coinciden, reconstruir
         if total_historial != total_esperado:
-            print(f"🔄 Reconstruyendo historial (actual: {total_historial}, esperado: {total_esperado})")
+            # print(f"🔄 Reconstruyendo historial (actual: {total_historial}, esperado: {total_esperado})")
             # Crear una reserva dummy para usar el método de reconstrucción
             # Excluir reservas eliminadas
             reservas_activas = self.reservas.filter(eliminada=False)
@@ -517,13 +517,13 @@ class Reserva(models.Model):
         CREA: Historial cronológico fragmentado (libre/reservado/operación)
         """
         with transaction.atomic():
-            print(f"📋 ACTUALIZANDO HISTORIAL para reserva {self.fecha_inicio} al {self.fecha_fin}")
+            # print(f"📋 ACTUALIZANDO HISTORIAL para reserva {self.fecha_inicio} al {self.fecha_fin}")
             
             # ❌ NO FRAGMENTAR DISPONIBILIDADES - mantienen como están
             # ✅ RECONSTRUIR historial completo cronológicamente con fragmentación visual
             self.reconstruir_historial_cronologico()
             
-            print(f"✅ HISTORIAL FRAGMENTADO ACTUALIZADO (disponibilidades intactas) para reserva {self.id}")
+            # print(f"✅ HISTORIAL FRAGMENTADO ACTUALIZADO (disponibilidades intactas) para reserva {self.id}")
     
     def reconstruir_historial_cronologico(self):
         """
@@ -533,11 +533,11 @@ class Reserva(models.Model):
         2. Para cada disponibilidad, calcula qué partes están libres y cuáles ocupadas por reservas
         3. Crea un historial fragmentado que muestra: Libre → Reservado → Libre → Reservado...
         """
-        print(f"🔄 RECONSTRUYENDO historial fragmentado para propiedad {self.propiedad.id}")
+        # print(f"🔄 RECONSTRUYENDO historial fragmentado para propiedad {self.propiedad.id}")
         
         # 1️⃣ LIMPIAR historial existente
         HistorialDisponibilidad.objects.filter(propiedad=self.propiedad).delete()
-        print(f"🧹 Historial anterior eliminado")
+        # print(f"🧹 Historial anterior eliminado")
         
         # 2️⃣ OBTENER disponibilidades manuales y reservas
         disponibilidades_manuales = self.propiedad.disponibilidades.filter(es_manual=True).order_by('fecha_inicio')
@@ -547,12 +547,12 @@ class Reserva(models.Model):
             eliminada=False
         ).order_by('fecha_inicio')
         
-        print(f"📋 Disponibilidades manuales: {disponibilidades_manuales.count()}")
-        print(f"📋 Reservas activas: {reservas.count()}")
+        # print(f"📋 Disponibilidades manuales: {disponibilidades_manuales.count()}")
+        # print(f"📋 Reservas activas: {reservas.count()}")
         
         # 3️⃣ FRAGMENTAR cada disponibilidad manual con las reservas que la intersectan
         for disponibilidad in disponibilidades_manuales:
-            print(f"🔧 Fragmentando disponibilidad: {disponibilidad.fecha_inicio} al {disponibilidad.fecha_fin}")
+            # print(f"🔧 Fragmentando disponibilidad: {disponibilidad.fecha_inicio} al {disponibilidad.fecha_fin}")
             
             # Encontrar reservas que se superponen con esta disponibilidad
             reservas_en_disponibilidad = reservas.filter(
@@ -569,12 +569,12 @@ class Reserva(models.Model):
                     estado='libre',
                     reserva=None
                 )
-                print(f"   ✅ Período libre completo: {disponibilidad.fecha_inicio} al {disponibilidad.fecha_fin}")
+                # print(f"   ✅ Período libre completo: {disponibilidad.fecha_inicio} al {disponibilidad.fecha_fin}")
             else:
                 # Con reservas: fragmentar la disponibilidad
                 self._fragmentar_disponibilidad_con_reservas(disponibilidad, reservas_en_disponibilidad)
         
-        print(f"✅ HISTORIAL FRAGMENTADO COMPLETADO para propiedad {self.propiedad.id}")
+        # print(f"✅ HISTORIAL FRAGMENTADO COMPLETADO para propiedad {self.propiedad.id}")
     
     def _fragmentar_disponibilidad_con_reservas(self, disponibilidad, reservas_en_disponibilidad):
         """
@@ -592,7 +592,7 @@ class Reserva(models.Model):
                     estado='libre',
                     reserva=None
                 )
-                print(f"   ✅ Período libre: {fecha_actual} al {reserva.fecha_inicio}")
+                # print(f"   ✅ Período libre: {fecha_actual} al {reserva.fecha_inicio}")
             
             # Período de la RESERVA
             inicio_reserva = max(reserva.fecha_inicio, disponibilidad.fecha_inicio)
@@ -616,7 +616,7 @@ class Reserva(models.Model):
                 reserva=reserva
             )
             estado_display = 'operación' if estado == 'alquilado' else estado
-            print(f"   🏠 Período {estado_display}: {inicio_reserva} al {fin_reserva} (Reserva #{reserva.id})")
+            # print(f"   🏠 Período {estado_display}: {inicio_reserva} al {fin_reserva} (Reserva #{reserva.id})")
             
             # Mover fecha actual al final de la reserva
             fecha_actual = max(fecha_actual, reserva.fecha_fin)
@@ -630,7 +630,7 @@ class Reserva(models.Model):
                 estado='libre',
                 reserva=None
             )
-            print(f"   ✅ Período libre final: {fecha_actual} al {disponibilidad.fecha_fin}")
+            # print(f"   ✅ Período libre final: {fecha_actual} al {disponibilidad.fecha_fin}")
 
     def actualizar_saldos(self):
         """Actualiza los saldos basados en los pagos realizados"""
@@ -661,7 +661,7 @@ class Reserva(models.Model):
         from django.db.models import Q
         
         with transaction.atomic():
-            print(f"❌ CANCELANDO reserva {self.id}: {self.fecha_inicio} al {self.fecha_fin}")
+            # print(f"❌ CANCELANDO reserva {self.id}: {self.fecha_inicio} al {self.fecha_fin}")
             
             # 1️⃣ Marcar reserva como cancelada
             self.estado = 'cancelada'
@@ -691,7 +691,7 @@ class Reserva(models.Model):
             # 5️⃣ Reconstruir historial cronológico
             self.reconstruir_historial_cronologico()
             
-            print(f"✅ Reserva {self.id} cancelada y disponibilidades restauradas")
+            # print(f"✅ Reserva {self.id} cancelada y disponibilidades restauradas")
 
     def __str__(self):
         return f"Reserva {self.id} - {self.propiedad}"
@@ -952,12 +952,12 @@ class Precio(models.Model):
         precio_total_actual = Decimal(str(self.precio_total)) if self.precio_total else Decimal('0')
         precio_auto_decimal = Decimal(str(precio_automatico)) if precio_automatico is not None else None
         
-        print(f"🔍 DECISIÓN en save() - tipo_precio: {self.tipo_precio}")
-        print(f"   - is_updating: {is_updating}")
-        print(f"   - precio_total recibido: {precio_total_actual}")
-        print(f"   - precio_automatico calculado: {precio_auto_decimal}")
-        print(f"   - precio_por_dia: {self.precio_por_dia}")
-        print(f"   - update_fields: {update_fields}")
+        # print(f"🔍 DECISIÓN en save() - tipo_precio: {self.tipo_precio}")
+        # print(f"   - is_updating: {is_updating}")
+        # print(f"   - precio_total recibido: {precio_total_actual}")
+        # print(f"   - precio_automatico calculado: {precio_auto_decimal}")
+        # print(f"   - precio_por_dia: {self.precio_por_dia}")
+        # print(f"   - update_fields: {update_fields}")
         
         # ✅ DECISIÓN: ¿Usar precio automático o manual?
         # Si precio_total es diferente del automático → ES MANUAL → RESPETAR
@@ -967,8 +967,8 @@ class Precio(models.Model):
             
             if diferencia > Decimal('0.01'):
                 # Es un valor MANUAL, respetar el del usuario
-                print(f"🖊️  ✅ PRECIO MANUAL detectado: {precio_total_actual} (auto sería {precio_auto_decimal})")
-                print(f"   → Respetando valor manual del usuario")
+                #                 # print(f"🖊️  ✅ PRECIO MANUAL detectado: {precio_total_actual} (auto sería {precio_auto_decimal})")
+                # print(f"   → Respetando valor manual del usuario")
                 # NO modificar precio_total, ya tiene el valor correcto
             elif precio_total_actual == Decimal('0') and not is_updating:
                 # Es una creación nueva y está vacío, usar el automático
