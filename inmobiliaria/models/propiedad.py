@@ -970,16 +970,17 @@ class Precio(models.Model):
                 #                 # print(f"🖊️  ✅ PRECIO MANUAL detectado: {precio_total_actual} (auto sería {precio_auto_decimal})")
                 # print(f"   → Respetando valor manual del usuario")
                 # NO modificar precio_total, ya tiene el valor correcto
+                pass
             elif precio_total_actual == Decimal('0') and not is_updating:
                 # Es una creación nueva y está vacío, usar el automático
                 self.precio_total = precio_automatico
-                print(f"🔢 PRECIO AUTOMÁTICO aplicado: {precio_automatico} (creación nueva)")
+                # print(f"🔢 PRECIO AUTOMÁTICO aplicado: {precio_automatico} (creación nueva)")
             else:
                 # Es igual o muy cercano al automático, está bien como está
-                print(f"⚖️  Precio igual al automático: {precio_total_actual}")
+                # print(f"⚖️  Precio igual al automático: {precio_total_actual}")
         elif not is_updating:
             # Es una creación nueva sin precio_por_dia, dejar en 0
-            print(f"⚠️  Creación nueva sin precio_por_dia")
+            # print(f"⚠️  Creación nueva sin precio_por_dia")
 
         # Remover el parámetro personalizado antes de llamar al save padre
         kwargs.pop('skip_price_calculation', None)
