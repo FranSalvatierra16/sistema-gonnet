@@ -249,6 +249,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     lista.innerHTML = html;
                     
                     // Cargar gastos pendientes
+                    console.log('Gastos pendientes recibidos:', data.gastos_pendientes);
                     if (data.gastos_pendientes && data.gastos_pendientes.length > 0) {
                         mostrarGastosPendientes(data.gastos_pendientes);
                     } else {

@@ -12224,11 +12224,11 @@ def obtener_operaciones_pendientes(request, propiedad_id):
         propiedad=propiedad
     ).values_list('observaciones', flat=True)
     
-    # Buscar movimientos de caja (egresos) con a_descontar='oficina' relacionados con la propiedad
-    egresos_oficina = MovimientoCaja.objects.filter(
+    # Buscar movimientos de caja (egresos) relacionados con la propiedad
+    # Incluir todos los egresos, no solo los de oficina, para que aparezcan como gastos
+    egresos_propiedad = MovimientoCaja.objects.filter(
         propiedad=propiedad,
         tipo=TipoMovimientoCajaEnum.EGRESO,
-        a_descontar='oficina',
         sucursal=request.user.sucursal
     ).order_by('-fecha')
     
@@ -12246,19 +12246,26 @@ def obtener_operaciones_pendientes(request, propiedad_id):
         })
     
     # Agregar egresos de caja como gastos pendientes
-    for egreso in egresos_oficina:
+    # Incluir todos los egresos relacionados con la propiedad
+    for egreso in egresos_propiedad:
         # Verificar si ya existe un GastoPropietario para este movimiento
         # Buscamos por observaciones que contengan el ID del movimiento
         existe_gasto = GastoPropietario.objects.filter(
-            propiedad=propiedad,
+            Q(propiedad=propiedad) | Q(propietario=propiedad.propietario),
             observaciones__icontains=f'Movimiento de caja #{egreso.id}'
         ).exists()
         
         # Solo agregar si no existe un gasto para este movimiento
+        # Incluir todos los egresos, independientemente del valor de a_descontar
         if not existe_gasto:
+            # Determinar la descripción según el concepto o el tipo de comprobante
+            descripcion = egreso.concepto or f'Egreso #{egreso.id}'
+            if egreso.tipo_comprobante == 'GS':  # Gasto
+                descripcion = egreso.concepto or 'Gasto'
+            
             gastos_pendientes_list.append({
                 'id': f'movimiento_{egreso.id}',  # Prefijo para identificar que es un movimiento
-                'descripcion': egreso.concepto or f'Egreso #{egreso.id}',
+                'descripcion': descripcion,
                 'monto': str(egreso.monto_total),
                 'fecha_gasto': egreso.fecha.strftime('%Y-%m-%d') if egreso.fecha else '',
                 'observaciones': f'Movimiento de caja #{egreso.id}',
@@ -12266,10 +12273,17 @@ def obtener_operaciones_pendientes(request, propiedad_id):
                 'movimiento_id': egreso.id
             })
     
+    # Debug: contar egresos encontrados
+    total_egresos = egresos_propiedad.count()
+    
     return JsonResponse({
         'success': True,
         'operaciones': operaciones,
-        'gastos_pendientes': gastos_pendientes_list
+        'gastos_pendientes': gastos_pendientes_list,
+        'debug': {
+            'total_egresos_encontrados': total_egresos,
+            'total_gastos_agregados': len(gastos_pendientes_list)
+        }
     })
 
 
