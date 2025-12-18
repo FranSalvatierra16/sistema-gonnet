@@ -11947,19 +11947,44 @@ def crear_liquidacion(request, reserva_id=None):
             # Asociar gastos pendientes seleccionados a la liquidación
             gastos_seleccionados = request.POST.getlist('gastos_seleccionados[]')
             if gastos_seleccionados:
-                for gasto_id in gastos_seleccionados:
+                for gasto_id_str in gastos_seleccionados:
                     try:
-                        gasto = GastoPropietario.objects.get(
-                            id=gasto_id,
-                            propietario=propiedad.propietario,
-                            liquidacion__isnull=True,
-                            sucursal=request.user.sucursal
-                        )
-                        gasto.liquidacion = liquidacion
-                        gasto.aceptado = True  # Automáticamente aceptado al asociarlo
-                        gasto.save()
-                    except GastoPropietario.DoesNotExist:
-                        pass  # Ignorar si el gasto no existe o ya está asociado
+                        # Verificar si es un movimiento de caja (prefijo 'movimiento_')
+                        if gasto_id_str.startswith('movimiento_'):
+                            movimiento_id = int(gasto_id_str.replace('movimiento_', ''))
+                            movimiento = MovimientoCaja.objects.get(
+                                id=movimiento_id,
+                                propiedad=propiedad,
+                                tipo=TipoMovimientoCajaEnum.EGRESO,
+                                a_descontar='oficina',
+                                sucursal=request.user.sucursal
+                            )
+                            # Crear un GastoPropietario desde el movimiento de caja
+                            gasto = GastoPropietario.objects.create(
+                                liquidacion=liquidacion,
+                                propietario=propiedad.propietario,
+                                propiedad=propiedad,
+                                descripcion=movimiento.concepto or f'Egreso #{movimiento.id}',
+                                monto=movimiento.monto_total,
+                                fecha_gasto=movimiento.fecha.date() if movimiento.fecha else None,
+                                observaciones=f'Movimiento de caja #{movimiento.id}',
+                                aceptado=True,
+                                sucursal=request.user.sucursal
+                            )
+                        else:
+                            # Es un gasto manual existente
+                            gasto_id = int(gasto_id_str)
+                            gasto = GastoPropietario.objects.get(
+                                id=gasto_id,
+                                propietario=propiedad.propietario,
+                                liquidacion__isnull=True,
+                                sucursal=request.user.sucursal
+                            )
+                            gasto.liquidacion = liquidacion
+                            gasto.aceptado = True  # Automáticamente aceptado al asociarlo
+                            gasto.save()
+                    except (GastoPropietario.DoesNotExist, MovimientoCaja.DoesNotExist, ValueError):
+                        pass  # Ignorar si el gasto/movimiento no existe o ya está asociado
 
             # Recalcular monto a pagar con los gastos
             liquidacion.calcular_monto_a_pagar()
@@ -12185,7 +12210,31 @@ def obtener_operaciones_pendientes(request, propiedad_id):
             sucursal=request.user.sucursal
         ).order_by('-fecha_creacion')
     
+    # Obtener egresos de caja con a_descontar='oficina' relacionados con esta propiedad
+    # que no estén asociados a ninguna liquidación procesada
+    liquidaciones_procesadas = LiquidacionPropietario.objects.filter(
+        propiedad=propiedad,
+        estado='procesada'
+    ).values_list('id', flat=True)
+    
+    # Obtener descripciones de gastos que ya están en liquidaciones procesadas
+    # para evitar duplicar egresos que ya fueron convertidos en gastos
+    gastos_procesados = GastoPropietario.objects.filter(
+        liquidacion_id__in=liquidaciones_procesadas,
+        propiedad=propiedad
+    ).values_list('observaciones', flat=True)
+    
+    # Buscar movimientos de caja (egresos) con a_descontar='oficina' relacionados con la propiedad
+    egresos_oficina = MovimientoCaja.objects.filter(
+        propiedad=propiedad,
+        tipo=TipoMovimientoCajaEnum.EGRESO,
+        a_descontar='oficina',
+        sucursal=request.user.sucursal
+    ).order_by('-fecha')
+    
     gastos_pendientes_list = []
+    
+    # Agregar gastos de GastoPropietario
     for gasto in gastos_pendientes:
         gastos_pendientes_list.append({
             'id': gasto.id,
@@ -12193,7 +12242,29 @@ def obtener_operaciones_pendientes(request, propiedad_id):
             'monto': str(gasto.monto),
             'fecha_gasto': gasto.fecha_gasto.strftime('%Y-%m-%d') if gasto.fecha_gasto else '',
             'observaciones': gasto.observaciones,
+            'tipo': 'gasto_manual'
         })
+    
+    # Agregar egresos de caja como gastos pendientes
+    for egreso in egresos_oficina:
+        # Verificar si ya existe un GastoPropietario para este movimiento
+        # Buscamos por observaciones que contengan el ID del movimiento
+        existe_gasto = GastoPropietario.objects.filter(
+            propiedad=propiedad,
+            observaciones__icontains=f'Movimiento de caja #{egreso.id}'
+        ).exists()
+        
+        # Solo agregar si no existe un gasto para este movimiento
+        if not existe_gasto:
+            gastos_pendientes_list.append({
+                'id': f'movimiento_{egreso.id}',  # Prefijo para identificar que es un movimiento
+                'descripcion': egreso.concepto or f'Egreso #{egreso.id}',
+                'monto': str(egreso.monto_total),
+                'fecha_gasto': egreso.fecha.strftime('%Y-%m-%d') if egreso.fecha else '',
+                'observaciones': f'Movimiento de caja #{egreso.id}',
+                'tipo': 'egreso_caja',
+                'movimiento_id': egreso.id
+            })
     
     return JsonResponse({
         'success': True,
