@@ -7570,6 +7570,12 @@ def buscar_vendedores(request):
 def obtener_caja_actual(request):
     """Devuelve el número de la caja actual abierta para la sucursal del usuario"""
     try:
+        if not hasattr(request.user, 'sucursal') or not request.user.sucursal:
+            return JsonResponse({
+                'success': False,
+                'error': 'Usuario sin sucursal asignada'
+            })
+        
         caja_actual = Caja.objects.filter(
             sucursal=request.user.sucursal,
             estado='abierta'
