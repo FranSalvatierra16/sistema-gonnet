@@ -1079,7 +1079,12 @@ def reservas(request):
     # ✅ Filtro de búsqueda por ID (opcional)
     search_id = request.GET.get('search_id', '').strip()
     if search_id:
-        reservas = reservas.filter(id__icontains=search_id)
+        try:
+            # Intentar buscar por ID exacto primero
+            reservas = reservas.filter(id=int(search_id))
+        except ValueError:
+            # Si no es un número, buscar como string
+            reservas = reservas.filter(id__icontains=search_id)
     
     # ✅ Filtro por fecha (fecha de inicio de la reserva)
     fecha_desde = request.GET.get('fecha_desde', '').strip()
@@ -1099,11 +1104,31 @@ def reservas(request):
         except ValueError:
             pass
     
+    # ✅ Filtro por vendedor (nombre o apellido)
+    search_vendedor = request.GET.get('search_vendedor', '').strip()
+    if search_vendedor:
+        reservas = reservas.filter(
+            Q(vendedor__nombre__icontains=search_vendedor) |
+            Q(vendedor__apellido__icontains=search_vendedor)
+        )
+    
+    # ✅ Filtro por número de ficha (numero_por_propietario)
+    search_ficha = request.GET.get('search_ficha', '').strip()
+    if search_ficha:
+        try:
+            # Intentar buscar por número exacto
+            reservas = reservas.filter(propiedad__numero_por_propietario=int(search_ficha))
+        except ValueError:
+            # Si no es un número, buscar como string
+            reservas = reservas.filter(propiedad__numero_por_propietario__icontains=search_ficha)
+    
     return render(request, 'inmobiliaria/reserva/lista.html', {
         'reservas': reservas,
         'search_id': search_id,
         'fecha_desde': fecha_desde,
-        'fecha_hasta': fecha_hasta
+        'fecha_hasta': fecha_hasta,
+        'search_vendedor': search_vendedor,
+        'search_ficha': search_ficha
     })
 
 @login_required

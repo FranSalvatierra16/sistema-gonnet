@@ -324,36 +324,57 @@
             <h1 class="page-title">📋 Reservas Pendientes</h1>
             <p class="subtitle">Gestiona todas las reservas que están esperando confirmación o pago</p>
             
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                <a href="{% url 'inmobiliaria:crear_reserva' %}" class="btn-nueva-reserva">
-                    <i class="fas fa-plus me-2"></i>Nueva Reserva
-                </a>
-                
-                <!-- ✅ Filtros de búsqueda -->
-                <form method="GET" style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                    <input type="text" name="search_id" value="{{ search_id }}" 
-                           placeholder="Buscar por ID..." 
-                           style="padding: 0.5rem; border: 2px solid #ddd; border-radius: 8px; width: 150px;">
-                    
-                    <input type="date" name="fecha_desde" value="{{ fecha_desde }}" 
-                           placeholder="Desde" 
-                           style="padding: 0.5rem; border: 2px solid #ddd; border-radius: 8px; width: 150px;"
-                           title="Fecha desde">
-                    
-                    <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" 
-                           placeholder="Hasta" 
-                           style="padding: 0.5rem; border: 2px solid #ddd; border-radius: 8px; width: 150px;"
-                           title="Fecha hasta">
-                    
-                    <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="fas fa-search"></i> Filtrar
-                    </button>
-                    {% if search_id or fecha_desde or fecha_hasta %}
-                    <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-secondary btn-sm" title="Limpiar filtros">
-                        <i class="fas fa-times"></i> Limpiar
-                    </a>
-                    {% endif %}
-                </form>
+            <!-- ✅ Filtros de búsqueda -->
+            <div class="row mb-3">
+                <div class="col-12">
+                    <form method="GET" class="card p-3" style="background: rgba(255, 255, 255, 0.9);">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label"><i class="fas fa-hashtag me-1"></i>Buscar por ID</label>
+                                <input type="text" name="search_id" value="{{ search_id }}" 
+                                       class="form-control" placeholder="ID de reserva...">
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label class="form-label"><i class="fas fa-calendar me-1"></i>Fecha Desde</label>
+                                <input type="date" name="fecha_desde" value="{{ fecha_desde }}" 
+                                       class="form-control">
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label class="form-label"><i class="fas fa-calendar me-1"></i>Fecha Hasta</label>
+                                <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" 
+                                       class="form-control">
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label class="form-label"><i class="fas fa-user-tie me-1"></i>Vendedor</label>
+                                <input type="text" name="search_vendedor" value="{{ search_vendedor }}" 
+                                       class="form-control" placeholder="Nombre o apellido...">
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label class="form-label"><i class="fas fa-hashtag me-1"></i>Número de Ficha</label>
+                                <input type="text" name="search_ficha" value="{{ search_ficha }}" 
+                                       class="form-control" placeholder="Número de ficha...">
+                            </div>
+                            
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search me-2"></i>Buscar
+                                </button>
+                            </div>
+                            
+                            {% if search_id or fecha_desde or fecha_hasta or search_vendedor or search_ficha %}
+                            <div class="col-md-3 d-flex align-items-end">
+                                <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-secondary w-100" title="Limpiar filtros">
+                                    <i class="fas fa-times me-2"></i>Limpiar
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -453,9 +474,6 @@
                 <i class="fas fa-calendar-times"></i>
                 <h3>No hay reservas pendientes</h3>
                 <p>Cuando tengas reservas esperando confirmación o pago, aparecerán aquí.</p>
-                <a href="{% url 'inmobiliaria:crear_reserva' %}" class="btn-nueva-reserva mt-3">
-                    <i class="fas fa-plus me-2"></i>Crear Primera Reserva
-                </a>
             </div>
         {% endif %}
     </div>
