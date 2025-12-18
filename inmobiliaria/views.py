@@ -6552,11 +6552,33 @@ def nuevo_movimiento(request, numero_caja=None):
             if len(concepto_valor) > 200:
                 concepto_valor = concepto_valor[:197] + "..."
             
+            # Obtener y validar tipo (debe ser 'IN' o 'EG')
+            tipo_raw = request.POST.get('tipo', 'IN')
+            if tipo_raw in ['IN', 'EG']:
+                tipo = tipo_raw
+            elif 'Ingreso' in tipo_raw or tipo_raw.startswith('I'):
+                tipo = 'IN'
+            elif 'Egreso' in tipo_raw or tipo_raw.startswith('E'):
+                tipo = 'EG'
+            else:
+                tipo = 'IN'  # Default
+            
+            # Obtener y validar tipo_comprobante (debe ser código de 2 caracteres)
+            tipo_comprobante_raw = request.POST.get('tipo_comprobante', 'RC')
+            # Mapear valores comunes a códigos de 2 caracteres
+            tipo_comprobante_map = {
+                'RC': 'RC', 'Recibo': 'RC',
+                'LQ': 'LQ', 'Liquidación': 'LQ',
+                'GS': 'GS', 'Gasto': 'GS',
+                'OT': 'OT', 'Otro': 'OT'
+            }
+            tipo_comprobante = tipo_comprobante_map.get(tipo_comprobante_raw, tipo_comprobante_raw[:2] if len(tipo_comprobante_raw) > 2 else tipo_comprobante_raw)
+            
             # Crear el movimiento con valores iniciales
             movimiento = MovimientoCaja(
                 caja=caja,
-                tipo=request.POST.get('tipo'),
-                tipo_comprobante=request.POST.get('tipo_comprobante'),
+                tipo=tipo,
+                tipo_comprobante=tipo_comprobante,
                 numero_liquidacion=request.POST.get('numero_liquidacion', ''),
                 concepto=concepto_valor,  # ✅ Truncado si es necesario
                 propiedad_id=request.POST.get('propiedad_id') if request.POST.get('propiedad_id') else None,
@@ -7364,28 +7386,56 @@ def crear_concepto(request):
         return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required
+@login_required
 def buscar_propiedad(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'})
     
-    id = request.POST.get('id')
+    termino = request.POST.get('id', '').strip()
     sucursal = request.user.sucursal
     
-    try:
-        propiedad = Propiedad.objects.get(id=id, sucursal=sucursal)
-        return JsonResponse({
-            'success': True,
-            'propiedad': {
-                'id': propiedad.id,
-                'direccion': propiedad.direccion,
-                'ubicacion': propiedad.ubicacion
-            }
-        })
-    except Propiedad.DoesNotExist:
+    if not termino:
         return JsonResponse({
             'success': False,
-            'error': 'No se encontró la propiedad'
+            'error': 'Ingrese un término de búsqueda'
         })
+    
+    try:
+        # Buscar por ID exacto primero
+        try:
+            propiedad = Propiedad.objects.get(id=int(termino), sucursal=sucursal)
+            return JsonResponse({
+                'success': True,
+                'propiedad': {
+                    'id': propiedad.id,
+                    'direccion': propiedad.direccion,
+                    'ubicacion': propiedad.ubicacion
+                }
+            })
+        except (ValueError, Propiedad.DoesNotExist):
+            # Si no es un número o no se encuentra por ID, buscar por dirección
+            propiedades = Propiedad.objects.filter(
+                sucursal=sucursal
+            ).filter(
+                Q(direccion__icontains=termino) |
+                Q(ubicacion__icontains=termino)
+            ).order_by('direccion')[:1]
+            
+            if propiedades.exists():
+                propiedad = propiedades.first()
+                return JsonResponse({
+                    'success': True,
+                    'propiedad': {
+                        'id': propiedad.id,
+                        'direccion': propiedad.direccion,
+                        'ubicacion': propiedad.ubicacion
+                    }
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No se encontró la propiedad'
+                })
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -7507,24 +7557,52 @@ def buscar_vendedor(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'})
     
-    id = request.POST.get('id')
+    termino = request.POST.get('id', '').strip()
     sucursal = request.user.sucursal
     
-    try:
-        vendedor = Vendedor.objects.get(id=id, sucursal=sucursal)
-        return JsonResponse({
-            'success': True,
-            'vendedor': {
-                'id': vendedor.id,
-                'nombre': vendedor.nombre,
-                'apellido': vendedor.apellido
-            }
-        })
-    except Vendedor.DoesNotExist:
+    if not termino:
         return JsonResponse({
             'success': False,
-            'error': 'No se encontró el vendedor'
+            'error': 'Ingrese un término de búsqueda'
         })
+    
+    try:
+        # Buscar por ID exacto primero
+        try:
+            vendedor = Vendedor.objects.get(id=int(termino), sucursal=sucursal)
+            return JsonResponse({
+                'success': True,
+                'vendedor': {
+                    'id': vendedor.id,
+                    'nombre': vendedor.nombre,
+                    'apellido': vendedor.apellido
+                }
+            })
+        except (ValueError, Vendedor.DoesNotExist):
+            # Si no es un número o no se encuentra por ID, buscar por nombre/apellido
+            vendedores = Vendedor.objects.filter(
+                sucursal=sucursal
+            ).filter(
+                Q(nombre__icontains=termino) |
+                Q(apellido__icontains=termino) |
+                Q(nombre__icontains=termino.split()[0]) if termino.split() else Q()
+            ).order_by('apellido', 'nombre')[:1]
+            
+            if vendedores.exists():
+                vendedor = vendedores.first()
+                return JsonResponse({
+                    'success': True,
+                    'vendedor': {
+                        'id': vendedor.id,
+                        'nombre': vendedor.nombre,
+                        'apellido': vendedor.apellido
+                    }
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No se encontró el vendedor'
+                })
     except Exception as e:
         return JsonResponse({
             'success': False,

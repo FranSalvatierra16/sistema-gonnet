@@ -123,7 +123,7 @@
                     <div class="col-md-2">
                         <label class="form-label">Productor</label>
                                         <div class="input-group">
-                            <input type="text" id="buscar_productor_id" class="form-control" placeholder="0">
+                            <input type="text" id="buscar_productor_id" class="form-control" placeholder="ID, nombre o apellido">
                             <button type="button" class="btn btn-primary" id="btn_buscar_productor">
                                 <i class="fas fa-search"></i>
                             </button>
@@ -209,7 +209,7 @@
                                     <div class="col-md-3">
                                         <label class="form-label">ID Propiedad</label>
                                                             <div class="input-group">
-                                            <input type="text" id="propiedad_id" name="propiedad_id" class="form-control" placeholder="ID">
+                                            <input type="text" id="propiedad_id" name="propiedad_id" class="form-control" placeholder="ID o dirección">
                                             <div class="input-group-append">
                                                 <button type="button" class="btn btn-primary" id="buscar_propiedad_id">
                                                     <i class="fas fa-search"></i>
@@ -643,18 +643,18 @@ $(document).ready(function() {
         }
     }
 
-    // Buscar propiedad por ID
+    // Buscar propiedad por ID o dirección
     $('#buscar_propiedad_id').click(function() {
-        var id = $('#propiedad_id').val();
-        if (!id) {
-            alert('Ingrese un ID de propiedad');
+        var termino = $('#propiedad_id').val();
+        if (!termino) {
+            alert('Ingrese un ID o dirección de propiedad');
             return;
         }
 
         $.ajax({
             url: '{% url "inmobiliaria:buscar_propiedad" %}',
             data: {
-                id: id,
+                id: termino,
                 csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
             },
             method: 'POST',
