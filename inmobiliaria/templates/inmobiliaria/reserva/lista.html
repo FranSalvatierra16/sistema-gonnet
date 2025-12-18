@@ -313,6 +313,26 @@
             text-align: center;
         }
     }
+    
+    /* Estilos para la lista desplegable de vendedores */
+    #lista_vendedores {
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    #lista_vendedores .list-group-item {
+        cursor: pointer;
+        border: none;
+        border-bottom: 1px solid #eee;
+        padding: 0.75rem 1rem;
+    }
+    
+    #lista_vendedores .list-group-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    #lista_vendedores .list-group-item:last-child {
+        border-bottom: none;
+    }
 </style>
 {% endblock %}
 
@@ -323,34 +343,56 @@
         <div class="header-section fade-in">
             <h1 class="page-title">📋 Reservas Pendientes</h1>
             <p class="subtitle">Gestiona todas las reservas que están esperando confirmación o pago</p>
-            
-            <!-- ✅ Filtros de búsqueda -->
+                
+                <!-- ✅ Filtros de búsqueda -->
             <div class="row mb-3">
                 <div class="col-12">
                     <form method="GET" class="card p-3" style="background: rgba(255, 255, 255, 0.9);">
                         <div class="row g-3">
                             <div class="col-md-3">
                                 <label class="form-label"><i class="fas fa-hashtag me-1"></i>Buscar por ID</label>
-                                <input type="text" name="search_id" value="{{ search_id }}" 
+                    <input type="text" name="search_id" value="{{ search_id }}" 
                                        class="form-control" placeholder="ID de reserva...">
                             </div>
-                            
+                    
                             <div class="col-md-3">
                                 <label class="form-label"><i class="fas fa-calendar me-1"></i>Fecha Desde</label>
-                                <input type="date" name="fecha_desde" value="{{ fecha_desde }}" 
+                    <input type="date" name="fecha_desde" value="{{ fecha_desde }}" 
                                        class="form-control">
                             </div>
-                            
+                    
                             <div class="col-md-3">
                                 <label class="form-label"><i class="fas fa-calendar me-1"></i>Fecha Hasta</label>
-                                <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" 
+                    <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" 
                                        class="form-control">
                             </div>
                             
                             <div class="col-md-3">
                                 <label class="form-label"><i class="fas fa-user-tie me-1"></i>Vendedor</label>
-                                <input type="text" name="search_vendedor" value="{{ search_vendedor }}" 
-                                       class="form-control" placeholder="Nombre o apellido...">
+                                <div class="position-relative">
+                                    <input type="text" 
+                                           id="vendedor_buscar" 
+                                           class="form-control" 
+                                           placeholder="Buscar por nombre, apellido o ID..."
+                                           autocomplete="off"
+                                           onkeyup="filtrarVendedores()"
+                                           onclick="mostrarListaVendedores()">
+                                    <select name="search_vendedor" id="select_vendedor" class="form-control d-none">
+                                        <option value="">Todos los vendedores</option>
+                                        {% for vendedor in vendedores %}
+                                        <option value="{{ vendedor.id }}" 
+                                                data-nombre="{{ vendedor.nombre }}" 
+                                                data-apellido="{{ vendedor.apellido }}"
+                                                data-id="{{ vendedor.id }}"
+                                                {% if search_vendedor == vendedor.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ vendedor.apellido }}, {{ vendedor.nombre }} (ID: {{ vendedor.id }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div id="lista_vendedores" class="list-group position-absolute w-100" style="z-index: 1000; max-height: 200px; overflow-y: auto; display: none; background: white; border: 1px solid #ddd; border-radius: 4px; margin-top: 2px;">
+                                        <!-- Se llenará dinámicamente -->
+                                    </div>
+                                </div>
                             </div>
                             
                             <div class="col-md-3">
@@ -362,7 +404,7 @@
                             <div class="col-md-3 d-flex align-items-end">
                                 <button type="submit" class="btn btn-primary w-100">
                                     <i class="fas fa-search me-2"></i>Buscar
-                                </button>
+                    </button>
                             </div>
                             
                             {% if search_id or fecha_desde or fecha_hasta or search_vendedor or search_ficha %}
@@ -371,9 +413,9 @@
                                     <i class="fas fa-times me-2"></i>Limpiar
                                 </a>
                             </div>
-                            {% endif %}
+                    {% endif %}
                         </div>
-                    </form>
+                </form>
                 </div>
             </div>
         </div>
@@ -510,7 +552,104 @@ document.addEventListener('DOMContentLoaded', function() {
             mostrarAutenticacionSeguridad(url, texto);
         }
     });
+    
+    // Inicializar vendedor seleccionado si hay uno
+    const selectVendedor = document.getElementById('select_vendedor');
+    const inputBuscar = document.getElementById('vendedor_buscar');
+    if (selectVendedor && inputBuscar) {
+        const selectedOption = selectVendedor.options[selectVendedor.selectedIndex];
+        if (selectedOption && selectedOption.value) {
+            inputBuscar.value = selectedOption.text;
+        }
+        
+        // Ocultar lista al hacer click fuera
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#vendedor_buscar') && !e.target.closest('#lista_vendedores')) {
+                const lista = document.getElementById('lista_vendedores');
+                if (lista) {
+                    lista.style.display = 'none';
+                }
+            }
+        });
+    }
 });
+
+// Función para filtrar vendedores mientras se escribe
+function filtrarVendedores() {
+    const termino = document.getElementById('vendedor_buscar').value.toLowerCase();
+    const select = document.getElementById('select_vendedor');
+    const lista = document.getElementById('lista_vendedores');
+    
+    if (!select || !lista) return;
+    
+    lista.innerHTML = '';
+    lista.style.display = 'block';
+    
+    // Agregar opción "Todos los vendedores"
+    if (!termino) {
+        const opcionTodos = document.createElement('a');
+        opcionTodos.href = '#';
+        opcionTodos.className = 'list-group-item list-group-item-action';
+        opcionTodos.textContent = 'Todos los vendedores';
+        opcionTodos.onclick = function(e) {
+            e.preventDefault();
+            document.getElementById('select_vendedor').value = '';
+            document.getElementById('vendedor_buscar').value = '';
+            lista.style.display = 'none';
+        };
+        lista.appendChild(opcionTodos);
+    }
+    
+    // Filtrar opciones
+    Array.from(select.options).forEach(option => {
+        if (option.value === '') return; // Saltar opción vacía
+        
+        const nombre = (option.dataset.nombre || '').toLowerCase();
+        const apellido = (option.dataset.apellido || '').toLowerCase();
+        const id = (option.dataset.id || '').toString();
+        const textoCompleto = option.text.toLowerCase();
+        
+        if (!termino || 
+            nombre.includes(termino) || 
+            apellido.includes(termino) || 
+            id.includes(termino) ||
+            textoCompleto.includes(termino)) {
+            
+            const item = document.createElement('a');
+            item.href = '#';
+            item.className = 'list-group-item list-group-item-action';
+            item.textContent = option.text;
+            item.onclick = function(e) {
+                e.preventDefault();
+                select.value = option.value;
+                document.getElementById('vendedor_buscar').value = option.text;
+                lista.style.display = 'none';
+            };
+            lista.appendChild(item);
+        }
+    });
+    
+    if (lista.children.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.className = 'list-group-item';
+        noResults.textContent = 'No se encontraron vendedores';
+        lista.appendChild(noResults);
+    }
+}
+
+// Función para mostrar lista de vendedores
+function mostrarListaVendedores() {
+    const lista = document.getElementById('lista_vendedores');
+    const input = document.getElementById('vendedor_buscar');
+    
+    if (lista && input) {
+        if (input.value === '') {
+            filtrarVendedores();
+        } else {
+            lista.style.display = 'block';
+        }
+    }
+}
 </script>
 
 <!-- Modal de Autenticación de Seguridad -->

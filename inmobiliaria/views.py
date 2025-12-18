@@ -1104,13 +1104,13 @@ def reservas(request):
         except ValueError:
             pass
     
-    # ✅ Filtro por vendedor (nombre o apellido)
-    search_vendedor = request.GET.get('search_vendedor', '').strip()
-    if search_vendedor:
-        reservas = reservas.filter(
-            Q(vendedor__nombre__icontains=search_vendedor) |
-            Q(vendedor__apellido__icontains=search_vendedor)
-        )
+    # ✅ Filtro por vendedor (ID del vendedor seleccionado)
+    search_vendedor_id = request.GET.get('search_vendedor', '').strip()
+    if search_vendedor_id:
+        try:
+            reservas = reservas.filter(vendedor_id=int(search_vendedor_id))
+        except ValueError:
+            pass
     
     # ✅ Filtro por número de ficha (numero_por_propietario)
     search_ficha = request.GET.get('search_ficha', '').strip()
@@ -1122,13 +1122,17 @@ def reservas(request):
             # Si no es un número, buscar como string
             reservas = reservas.filter(propiedad__numero_por_propietario__icontains=search_ficha)
     
+    # Obtener lista de vendedores para el select
+    vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre')
+    
     return render(request, 'inmobiliaria/reserva/lista.html', {
         'reservas': reservas,
         'search_id': search_id,
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
-        'search_vendedor': search_vendedor,
-        'search_ficha': search_ficha
+        'search_vendedor': search_vendedor_id,
+        'search_ficha': search_ficha,
+        'vendedores': vendedores
     })
 
 @login_required
