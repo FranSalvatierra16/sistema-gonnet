@@ -98,6 +98,12 @@ def get_caracteristicas(propiedad):
         caracteristicas.append('WiFi')
     if propiedad.directv_prepago:
         caracteristicas.append('DirecTV prepago')
+    if propiedad.ventilador:
+        caracteristicas.append('Ventilador')
+    if propiedad.aire:
+        caracteristicas.append('Aire acondicionado')
+    if propiedad.cable:
+        caracteristicas.append('Cable')
     if propiedad.dependencia:
         caracteristicas.append('Dependencia')
     if propiedad.patio:
