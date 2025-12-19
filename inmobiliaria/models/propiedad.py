@@ -359,32 +359,58 @@ class Propiedad(models.Model):
     #         raise ValidationError(_('Debe ingresar un precio de alquiler si está habilitado.'))
 
     def save(self, *args, **kwargs):
+        # Detectar si se cambió el propietario
+        propietario_cambio = False
+        if self.pk and self.propietario:
+            try:
+                # Obtener la instancia actual de la base de datos
+                instancia_anterior = Propiedad.objects.get(pk=self.pk)
+                if instancia_anterior.propietario_id != self.propietario_id:
+                    propietario_cambio = True
+            except Propiedad.DoesNotExist:
+                pass  # Es una nueva propiedad
+        
         # Si el número no está asignado (None) y hay un propietario, calcúlalo automáticamente
-        if self.numero_por_propietario is None and self.propietario:
-            with transaction.atomic():
-                # Buscar el último número que no sea None para este propietario
-                ultimo = (
-                    Propiedad.objects
-                    .filter(propietario=self.propietario, numero_por_propietario__isnull=False)
-                    .exclude(pk=self.pk)  # Excluir la propiedad actual si es una actualización
-                    .select_for_update()
-                    .aggregate(m=Max("numero_por_propietario"))
-                )["m"]
-                
-                if ultimo is None:
-                    # Si no hay números asignados, empezar desde 1
-                    siguiente_numero = 1
-                else:
-                    siguiente_numero = ultimo + 1
-                
-                # Verificar que el número calculado no exista ya (por si hay huecos)
-                while Propiedad.objects.filter(
+        # O si cambió el propietario y el número actual ya existe para el nuevo propietario
+        if self.propietario:
+            if self.numero_por_propietario is None:
+                # Asignar automáticamente el siguiente número
+                recalcular_numero = True
+            elif propietario_cambio:
+                # Verificar si el número actual ya existe para el nuevo propietario
+                existe_numero = Propiedad.objects.filter(
                     propietario=self.propietario,
-                    numero_por_propietario=siguiente_numero
-                ).exclude(pk=self.pk).exists():
-                    siguiente_numero += 1
-                
-                self.numero_por_propietario = siguiente_numero
+                    numero_por_propietario=self.numero_por_propietario
+                ).exclude(pk=self.pk).exists()
+                recalcular_numero = existe_numero
+            else:
+                recalcular_numero = False
+            
+            if recalcular_numero:
+                with transaction.atomic():
+                    # Buscar el último número que no sea None para este propietario
+                    ultimo = (
+                        Propiedad.objects
+                        .filter(propietario=self.propietario, numero_por_propietario__isnull=False)
+                        .exclude(pk=self.pk)  # Excluir la propiedad actual si es una actualización
+                        .select_for_update()
+                        .aggregate(m=Max("numero_por_propietario"))
+                    )["m"]
+                    
+                    if ultimo is None:
+                        # Si no hay números asignados, empezar desde 1
+                        siguiente_numero = 1
+                    else:
+                        siguiente_numero = ultimo + 1
+                    
+                    # Verificar que el número calculado no exista ya (por si hay huecos)
+                    while Propiedad.objects.filter(
+                        propietario=self.propietario,
+                        numero_por_propietario=siguiente_numero
+                    ).exclude(pk=self.pk).exists():
+                        siguiente_numero += 1
+                    
+                    self.numero_por_propietario = siguiente_numero
 
         super().save(*args, **kwargs)
         if self._state.adding:
