@@ -913,14 +913,42 @@ def propiedad_detalle(request, propiedad_id):
 @login_required
 def propiedad_nuevo(request):
     if request.method == 'POST':
-        form = PropiedadForm(request.POST, request.FILES, user=request.user)
-        propietario_form = PropietarioForm(user=request.user)
-        if form.is_valid():
-            propiedad = form.save()
-            # Las imágenes ya se procesan en el método save() del formulario
-            # No las proceses aquí para evitar duplicación
-            messages.success(request, 'Propiedad creada exitosamente.')
-            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+        try:
+            form = PropiedadForm(request.POST, request.FILES, user=request.user)
+            propietario_form = PropietarioForm(user=request.user)
+            if form.is_valid():
+                try:
+                    propiedad = form.save()
+                    # Las imágenes ya se procesan en el método save() del formulario
+                    # No las proceses aquí para evitar duplicación
+                    messages.success(request, 'Propiedad creada exitosamente.')
+                    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+                except ValidationError as e:
+                    # Si hay errores de validación, agregarlos al formulario
+                    if hasattr(e, 'error_dict'):
+                        for field, errors in e.error_dict.items():
+                            for error in errors:
+                                form.add_error(field, error)
+                    else:
+                        messages.error(request, str(e))
+            else:
+                # Mostrar mensajes de error específicos para campos faltantes
+                campos_faltantes = []
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        if 'requerido' in str(error).lower() or 'required' in str(error).lower():
+                            campos_faltantes.append(form.fields[field].label if field in form.fields else field)
+                        messages.error(request, f'{form.fields[field].label if field in form.fields else field}: {error}')
+                
+                if campos_faltantes:
+                    messages.warning(request, f'Por favor, complete los siguientes campos requeridos: {", ".join(campos_faltantes)}')
+        except Exception as e:
+            # Capturar cualquier otro error inesperado
+            import traceback
+            error_msg = f'Error inesperado al crear la propiedad: {str(e)}'
+            messages.error(request, error_msg)
+            # Log del error completo para debugging
+            print(f"Error al crear propiedad: {traceback.format_exc()}")
     else:
         form = PropiedadForm(user=request.user)
         propietario_form = PropietarioForm(user=request.user)
@@ -938,12 +966,40 @@ def propiedad_editar(request, propiedad_id):
     imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad).order_by('orden')
     
     if request.method == 'POST':
-        form = PropiedadForm(request.POST, request.FILES, instance=propiedad, user=request.user)
-        propietario_form = PropietarioForm(user=request.user)
-        if form.is_valid():
-            propiedad = form.save()  # El formulario se encarga de procesar las imágenes
-            messages.success(request, 'Propiedad actualizada exitosamente.')
-            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+        try:
+            form = PropiedadForm(request.POST, request.FILES, instance=propiedad, user=request.user)
+            propietario_form = PropietarioForm(user=request.user)
+            if form.is_valid():
+                try:
+                    propiedad = form.save()  # El formulario se encarga de procesar las imágenes
+                    messages.success(request, 'Propiedad actualizada exitosamente.')
+                    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+                except ValidationError as e:
+                    # Si hay errores de validación, agregarlos al formulario
+                    if hasattr(e, 'error_dict'):
+                        for field, errors in e.error_dict.items():
+                            for error in errors:
+                                form.add_error(field, error)
+                    else:
+                        messages.error(request, str(e))
+            else:
+                # Mostrar mensajes de error específicos para campos faltantes
+                campos_faltantes = []
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        if 'requerido' in str(error).lower() or 'required' in str(error).lower():
+                            campos_faltantes.append(form.fields[field].label if field in form.fields else field)
+                        messages.error(request, f'{form.fields[field].label if field in form.fields else field}: {error}')
+                
+                if campos_faltantes:
+                    messages.warning(request, f'Por favor, complete los siguientes campos requeridos: {", ".join(campos_faltantes)}')
+        except Exception as e:
+            # Capturar cualquier otro error inesperado
+            import traceback
+            error_msg = f'Error inesperado al actualizar la propiedad: {str(e)}'
+            messages.error(request, error_msg)
+            # Log del error completo para debugging
+            print(f"Error al actualizar propiedad: {traceback.format_exc()}")
     else:
         form = PropiedadForm(instance=propiedad, user=request.user)
         propietario_form = PropietarioForm(user=request.user)

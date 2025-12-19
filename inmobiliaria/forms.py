@@ -313,6 +313,34 @@ class PropiedadForm(forms.ModelForm):
         
         # Hacer que el campo sea siempre editable para que el usuario pueda elegir
 
+    def clean(self):
+        cleaned_data = super().clean()
+        
+        # Validar campos requeridos
+        campos_requeridos = {
+            'id': 'ID de la propiedad',
+            'direccion': 'Dirección',
+            'ubicacion': 'Ubicación',
+            'piso': 'Piso',
+            'departamento': 'Departamento',
+            'ambientes': 'Ambientes',
+            'valoracion': 'Valoración',
+            'propietario': 'Propietario'
+        }
+        
+        campos_faltantes = []
+        for campo, nombre in campos_requeridos.items():
+            valor = cleaned_data.get(campo)
+            if not valor:
+                campos_faltantes.append(nombre)
+                self.add_error(campo, f'{nombre} es requerido')
+        
+        # Validar que el usuario tenga sucursal asignada
+        if self.user and not hasattr(self.user, 'sucursal') or (hasattr(self.user, 'sucursal') and not self.user.sucursal):
+            raise ValidationError('El usuario debe tener una sucursal asignada para crear propiedades.')
+        
+        return cleaned_data
+    
     def save(self, commit=True):
         propiedad = super(PropiedadForm, self).save(commit=False)
         if self.user and hasattr(self.user, 'sucursal'):
@@ -333,7 +361,24 @@ class PropiedadForm(forms.ModelForm):
             propiedad.fecha_fichado = None
             
         if commit:
-            propiedad.save()
+            try:
+                propiedad.save()
+            except Exception as e:
+                # Capturar errores específicos y convertirlos en ValidationError
+                error_msg = str(e)
+                if 'unique constraint' in error_msg.lower() or 'duplicate key' in error_msg.lower():
+                    if 'id' in error_msg.lower():
+                        raise ValidationError({'id': 'Ya existe una propiedad con este ID. Por favor, elija otro ID.'})
+                    elif 'numero_por_propietario' in error_msg.lower():
+                        raise ValidationError('El número de propiedad ya existe para este propietario. Se asignará automáticamente un nuevo número.')
+                elif 'not null constraint' in error_msg.lower() or 'null value' in error_msg.lower():
+                    # Identificar qué campo falta
+                    for campo in ['sucursal', 'propietario', 'direccion', 'ubicacion', 'piso', 'departamento']:
+                        if campo in error_msg.lower():
+                            raise ValidationError({campo: f'El campo {campo} es requerido y no puede estar vacío.'})
+                    raise ValidationError('Faltan campos requeridos. Por favor, complete todos los campos obligatorios.')
+                else:
+                    raise ValidationError(f'Error al guardar la propiedad: {error_msg}')
             # Guardar imágenes solo si existen
             imagenes = self.cleaned_data.get('imagenes')
             if imagenes:
