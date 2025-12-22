@@ -84,6 +84,7 @@ class SessionTimeoutMiddleware:
             '/api/resetear-password-temp/',  # ✅ Temporal: endpoints migración
             '/api/debug-usuarios/',
             '/api/ejecutar-migracion/',
+            '/utilidades/diagrama-db/',  # Diagrama de base de datos (acceso público)
         ]
         
         # Si la URL actual está en la lista de URLs públicas, permitir el acceso

@@ -3242,9 +3242,8 @@ def buscar_propietarios(request):
         {"results": results, "pagination": {"more": total > offset + page_size}}
     )
 
-@login_required
 def ver_diagrama_db(request):
-    """Vista para mostrar el diagrama de la base de datos"""
+    """Vista para mostrar el diagrama de la base de datos (acceso público)"""
     from django.http import HttpResponse
     import os
     from django.conf import settings
