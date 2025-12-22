@@ -1,0 +1,959 @@
+
+====================================================================================================
+ESTRUCTURA DE MODELOS DE DJANGO
+====================================================================================================
+
+📦 APP: Gestión Inmobiliaria (inmobiliaria)
+====================================================================================================
+
+📋 MODELO: AlquilerInvierno
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_alquilerinvierno
+🔹 App: inmobiliaria
+🔹 Verbose Name: Alquiler Invierno
+🔹 Verbose Name Plural: Alquileres Invierno
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+propiedad                      ForeignKey(Propiedad)     No       -               unique              
+disponible                     BooleanField              No       False           -                   
+precio_mensual                 DecimalField(12,2)        Sí       -               blank               
+estado                         CharField(20)             No       disponible      max=20              
+fecha_inicio                   DateField                 Sí       -               blank               
+fecha_fin                      DateField                 Sí       -               blank               
+precio_expensas                DecimalField(10,2)        Sí       -               blank               
+observaciones                  TextField                 No       -               blank               
+fecha_actualizacion            DateField                 No       -               blank               
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • propiedad → Propiedad (on_delete=CASCADE)
+
+🔗 ONE TO ONE:
+----------------------------------------------------------------------------------------------------
+  • propiedad ⇄ Propiedad
+
+
+📋 MODELO: AlquilerMeses
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_alquilermeses
+🔹 App: inmobiliaria
+🔹 Verbose Name: Alquiler 24 meses
+🔹 Verbose Name Plural: Alquileres 24 meses
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+propiedad                      ForeignKey(Propiedad)     No       -               unique              
+disponible                     BooleanField              No       False           -                   
+precio_mensual                 DecimalField(12,2)        Sí       -               blank               
+estado                         CharField(20)             No       disponible      max=20              
+precio_expensas                DecimalField(10,2)        Sí       -               blank               
+observaciones                  TextField                 No       -               blank               
+fecha_inicio                   DateField                 Sí       -               blank               
+fecha_fin                      DateField                 Sí       -               blank               
+fecha_actualizacion            DateField                 No       -               blank               
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • propiedad → Propiedad (on_delete=CASCADE)
+
+🔗 ONE TO ONE:
+----------------------------------------------------------------------------------------------------
+  • propiedad ⇄ Propiedad
+
+
+📋 MODELO: Banco
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_banco
+🔹 App: inmobiliaria
+🔹 Verbose Name: banco
+🔹 Verbose Name Plural: bancos
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+nombre                         CharField(100)            No       -               max=100             
+
+
+📋 MODELO: BancoTarjeta
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_bancotarjeta
+🔹 App: inmobiliaria
+🔹 Verbose Name: banco tarjeta
+🔹 Verbose Name Plural: banco tarjetas
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+nombre                         CharField(100)            No       -               max=100             
+
+
+📋 MODELO: Caja
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_caja
+🔹 App: inmobiliaria
+🔹 Verbose Name: Caja
+🔹 Verbose Name Plural: Cajas
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+numero                         IntegerField              No       -               blank, unique, PK   
+sucursal                       ForeignKey(Sucursal)      No       -               -                   
+fecha_apertura                 DateField                 No       -               blank               
+fecha_cierre                   DateField                 Sí       -               blank               
+saldo_inicial                  DecimalField(10,2)        No       -               -                   
+saldo_final                    DecimalField(10,2)        Sí       -               blank               
+estado                         CharField(10)             No       abierta         max=10              
+usuario_apertura               ForeignKey(Vendedor)      No       -               -                   
+usuario_cierre                 ForeignKey(Vendedor)      Sí       -               blank               
+observaciones_apertura         TextField                 No       -               blank               
+observaciones_cierre           TextField                 No       -               blank               
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • sucursal → Sucursal (on_delete=PROTECT)
+  • usuario_apertura → Vendedor (on_delete=PROTECT)
+  • usuario_cierre → Vendedor (on_delete=PROTECT)
+
+
+📋 MODELO: ComisionVendedor
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_comisionvendedor
+🔹 App: inmobiliaria
+🔹 Verbose Name: Comisión de Vendedor
+🔹 Verbose Name Plural: Comisiones de Vendedores
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+vendedor                       ForeignKey(Vendedor)      No       -               -                   
+reserva                        ForeignKey(Reserva)       No       -               -                   
+movimiento_caja                ForeignKey(MovimientoCaja) Sí       -               blank               
+monto_total_operacion          DecimalField(12,2)        No       -               -                   
+porcentaje_comision            DecimalField(5,2)         No       -               -                   
+monto_comision                 DecimalField(12,2)        No       -               -                   
+concepto_operacion             CharField(200)            No       -               max=200             
+fecha_operacion                DateField                 No       now()           -                   
+fecha_calculo                  DateField                 No       -               blank               
+estado                         CharField(20)             No       confirmada      max=20              
+observaciones                  TextField                 No       -               blank               
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • vendedor → Vendedor (on_delete=CASCADE)
+  • reserva → Reserva (on_delete=CASCADE)
+  • movimiento_caja → MovimientoCaja (on_delete=CASCADE)
+
+
+📋 MODELO: Concepto
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_concepto
+🔹 App: inmobiliaria
+🔹 Verbose Name: Concepto
+🔹 Verbose Name Plural: Conceptos
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             CharField(20)             No       -               unique, PK, max=20  
+nombre                         CharField(100)            No       -               max=100             
+fecha_creacion                 DateField                 No       now()           -                   
+sucursal                       ForeignKey(Sucursal)      Sí       -               -                   
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • sucursal → Sucursal (on_delete=CASCADE)
+
+
+📋 MODELO: ConceptoPago
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_conceptopago
+🔹 App: inmobiliaria
+🔹 Verbose Name: Concepto de Pago
+🔹 Verbose Name Plural: Conceptos de Pago
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+codigo                         CharField(10)             No       -               unique, max=10      
+nombre                         CharField(255)            No       -               max=255             
+descripcion                    TextField                 No       -               blank               
+
+
+📋 MODELO: ContratoAlquiler
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_contratoalquiler
+🔹 App: inmobiliaria
+🔹 Verbose Name: Contrato de Alquiler
+🔹 Verbose Name Plural: Contratos de Alquiler
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+propiedad                      ForeignKey(Propiedad)     No       -               -                   
+inquilino                      ForeignKey(Inquilino)     No       -               -                   
+vendedor                       ForeignKey(Vendedor)      No       -               -                   
+fecha_operacion                DateField                 No       now()           -                   
+fecha_inicio                   DateField                 No       -               -                   
+fecha_fin                      DateField                 No       -               -                   
+duracion_meses                 IntegerField              No       -               -                   
+dia_vencimiento                IntegerField              No       1               -                   
+precio_mensual                 DecimalField(10,2)        No       -               -                   
+deposito_garantia              DecimalField(10,2)        No       0               -                   
+gastos_adicionales             DecimalField(10,2)        No       0               -                   
+estado                         CharField(20)             No       reservado       max=20              
+fecha_cancelacion              DateField                 Sí       -               blank               
+motivo_cancelacion             TextField                 No       -               blank               
+fecha_creacion                 DateField                 No       -               blank               
+sucursal                       ForeignKey(Sucursal)      No       -               -                   
+operacion_principal            BooleanField              No       False           -                   
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • propiedad → Propiedad (on_delete=CASCADE)
+  • inquilino → Inquilino (on_delete=CASCADE)
+  • vendedor → Vendedor (on_delete=CASCADE)
+  • sucursal → Sucursal (on_delete=CASCADE)
+
+
+📋 MODELO: Cuenta
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_cuenta
+🔹 App: inmobiliaria
+🔹 Verbose Name: cuenta
+🔹 Verbose Name Plural: cuentas
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+numero                         CharField(50)             No       -               max=50              
+nombre                         CharField(200)            No       -               max=200             
+
+
+📋 MODELO: CuentaBancaria
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_cuentabancaria
+🔹 App: inmobiliaria
+🔹 Verbose Name: Cuenta Bancaria
+🔹 Verbose Name Plural: Cuentas Bancarias
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+sucursal                       ForeignKey(Sucursal)      No       -               -                   
+nombre_banco                   CharField(100)            No       -               max=100             
+alias                          CharField(100)            No       -               blank, max=100      
+numero_cuenta                  CharField(50)             No       -               max=50              
+tipo_cuenta                    CharField(20)             No       banco           max=20              
+activa                         BooleanField              No       True            -                   
+fecha_creacion                 DateField                 No       -               blank               
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • sucursal → Sucursal (on_delete=CASCADE)
+
+
+📋 MODELO: CuotaMensual
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_cuotamensual
+🔹 App: inmobiliaria
+🔹 Verbose Name: Cuota Mensual
+🔹 Verbose Name Plural: Cuotas Mensuales
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+contrato                       ForeignKey(ContratoAlquiler) No       -               -                   
+numero_cuota                   IntegerField              No       -               -                   
+fecha_vencimiento              DateField                 No       -               -                   
+fecha_pago                     DateField                 Sí       -               blank               
+monto_base                     DecimalField(10,2)        No       -               -                   
+recargo_mora                   DecimalField(10,2)        No       0               -                   
+descuento                      DecimalField(10,2)        No       0               -                   
+monto_total                    DecimalField(10,2)        No       -               -                   
+estado                         CharField(20)             No       pendiente       max=20              
+movimiento                     ForeignKey(MovimientoCaja) Sí       -               blank               
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • contrato → ContratoAlquiler (on_delete=CASCADE)
+  • movimiento → MovimientoCaja (on_delete=SET_NULL)
+
+
+📋 MODELO: Disponibilidad
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_disponibilidad
+🔹 App: inmobiliaria
+🔹 Verbose Name: Disponibilidad
+🔹 Verbose Name Plural: Disponibilidades
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+propiedad                      ForeignKey(Propiedad)     No       -               -                   
+fecha_inicio                   DateField                 No       -               -                   
+fecha_fin                      DateField                 No       -               -                   
+es_manual                      BooleanField              No       True            -                   
+asegurado                      BooleanField              No       False           -                   
+monto_asegurado                DecimalField(12,2)        Sí       -               blank               
+moneda_asegurado               CharField(10)             Sí       ARS             blank, max=10       
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • propiedad → Propiedad (on_delete=CASCADE)
+
+
+📋 MODELO: GastoPropietario
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_gastopropietario
+🔹 App: inmobiliaria
+🔹 Verbose Name: Gasto Propietario
+🔹 Verbose Name Plural: Gastos Propietarios
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+liquidacion                    ForeignKey(LiquidacionPropietario) Sí       -               blank               
+propietario                    ForeignKey(Propietario)   Sí       -               blank               
+propiedad                      ForeignKey(Propiedad)     Sí       -               blank               
+descripcion                    CharField(200)            No       -               max=200             
+monto                          DecimalField(12,2)        No       -               -                   
+fecha_gasto                    DateField                 Sí       -               blank               
+aceptado                       BooleanField              No       False           -                   
+fecha_creacion                 DateField                 No       -               blank               
+observaciones                  TextField                 No       -               blank               
+sucursal                       ForeignKey(Sucursal)      Sí       -               blank               
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • liquidacion → LiquidacionPropietario (on_delete=CASCADE)
+  • propietario → Propietario (on_delete=CASCADE)
+  • propiedad → Propiedad (on_delete=CASCADE)
+  • sucursal → Sucursal (on_delete=CASCADE)
+
+
+📋 MODELO: HistorialDisponibilidad
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_historialdisponibilidad
+🔹 App: inmobiliaria
+🔹 Verbose Name: Historial de Disponibilidad
+🔹 Verbose Name Plural: Historial de Disponibilidades
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+propiedad                      ForeignKey(Propiedad)     No       -               -                   
+fecha_inicio                   DateField                 No       -               -                   
+fecha_fin                      DateField                 No       -               -                   
+estado                         CharField(20)             No       libre           max=20              
+fecha_actualizacion            DateField                 No       -               blank               
+reserva                        ForeignKey(Reserva)       Sí       -               blank               
+es_principal                   BooleanField              No       False           -                   
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • propiedad → Propiedad (on_delete=CASCADE)
+  • reserva → Reserva (on_delete=SET_NULL)
+
+
+📋 MODELO: ImagenPropiedad
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_imagenpropiedad
+🔹 App: inmobiliaria
+🔹 Verbose Name: Imagen de propiedad
+🔹 Verbose Name Plural: Imágenes de propiedades
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+propiedad                      ForeignKey(Propiedad)     No       -               -                   
+imagen                         FileField                 No       -               max=100             
+orden                          IntegerField              No       1               -                   
+fecha_creacion                 DateField                 No       -               blank               
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • propiedad → Propiedad (on_delete=CASCADE)
+
+
+📋 MODELO: Inquilino
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_inquilino
+🔹 App: inmobiliaria
+🔹 Verbose Name: Inquilino
+🔹 Verbose Name Plural: Inquilinos
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+nombre                         CharField(100)            No       -               max=100             
+apellido                       CharField(100)            No       -               max=100             
+fecha_nacimiento               DateField                 Sí       -               blank               
+email                          CharField(254)            No       -               max=254             
+celular                        CharField(20)             No       -               max=20              
+observaciones                  TextField                 No       -               blank               
+localidad                      CharField(100)            No       -               max=100             
+provincia                      CharField(100)            No       -               max=100             
+domicilio                      CharField(100)            No       -               max=100             
+codigo_postal                  CharField(10)             No       -               max=10              
+cuit                           CharField(11)             Sí       -               blank, max=11       
+tipo_ins                       CharField(4)              Sí       otro            blank, max=4        
+tipo_doc                       CharField(4)              No       otro            max=4               
+garantia                       TextField                 No       -               blank               
+sucursal                       ForeignKey(Sucursal)      No       -               -                   
+dni                            CharField(8)              Sí       -               blank, unique, max=8
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • sucursal → Sucursal (on_delete=CASCADE)
+
+
+📋 MODELO: LiquidacionPropietario
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_liquidacionpropietario
+🔹 App: inmobiliaria
+🔹 Verbose Name: Liquidación Propietario
+🔹 Verbose Name Plural: Liquidaciones Propietarios
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+propietario                    ForeignKey(Propietario)   No       -               -                   
+propiedad                      ForeignKey(Propiedad)     No       -               -                   
+reserva                        ForeignKey(Reserva)       Sí       -               blank               
+contrato                       ForeignKey(ContratoAlquiler) Sí       -               blank               
+movimiento_caja                ForeignKey(MovimientoCaja) Sí       -               blank               
+monto_total_operacion          DecimalField(12,2)        No       -               -                   
+monto_propietario              DecimalField(12,2)        No       -               -                   
+monto_inmobiliaria             DecimalField(12,2)        No       -               -                   
+monto_gastos                   DecimalField(12,2)        No       0               -                   
+monto_a_pagar                  DecimalField(12,2)        No       -               -                   
+estado                         CharField(20)             No       pendiente       max=20              
+fecha_creacion                 DateField                 No       -               blank               
+fecha_procesamiento            DateField                 Sí       -               blank               
+fecha_desde                    DateField                 Sí       -               blank               
+fecha_hasta                    DateField                 Sí       -               blank               
+observaciones                  TextField                 No       -               blank               
+sucursal                       ForeignKey(Sucursal)      No       -               -                   
+usuario_creacion               ForeignKey(Vendedor)      Sí       -               -                   
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • propietario → Propietario (on_delete=CASCADE)
+  • propiedad → Propiedad (on_delete=CASCADE)
+  • reserva → Reserva (on_delete=SET_NULL)
+  • contrato → ContratoAlquiler (on_delete=SET_NULL)
+  • movimiento_caja → MovimientoCaja (on_delete=SET_NULL)
+  • sucursal → Sucursal (on_delete=CASCADE)
+  • usuario_creacion → Vendedor (on_delete=SET_NULL)
+
+
+📋 MODELO: MovimientoCaja
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_movimientocaja
+🔹 App: inmobiliaria
+🔹 Verbose Name: movimiento caja
+🔹 Verbose Name Plural: movimiento cajas
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+fecha                          DateField                 No       -               blank               
+tipo                           CharField(2)              No       IN              max=2               
+tipo_comprobante               CharField(2)              No       RC              max=2               
+numero_liquidacion             CharField(50)             No       -               blank, max=50       
+concepto                       CharField(200)            No       -               blank, max=200      
+cuenta                         ForeignKey(Cuenta)        Sí       -               blank               
+propiedad                      ForeignKey(Propiedad)     Sí       -               blank               
+fecha_desde                    DateField                 Sí       -               blank               
+fecha_hasta                    DateField                 Sí       -               blank               
+monto_efectivo                 DecimalField(10,2)        No       0               -                   
+monto_cheque                   DecimalField(10,2)        No       0               -                   
+monto_tarjeta                  DecimalField(10,2)        No       0               -                   
+monto_deposito                 DecimalField(10,2)        No       0               -                   
+destino_deposito               CharField(50)             Sí       -               blank, max=50       
+a_descontar                    CharField(20)             Sí       -               blank, max=20       
+sucursal                       ForeignKey(Sucursal)      No       -               -                   
+empleado                       ForeignKey(Vendedor)      Sí       -               -                   
+caja                           ForeignKey(Caja)          Sí       -               blank               
+honorarios                     DecimalField(10,2)        No       0               blank               
+sellados                       DecimalField(10,2)        No       0               blank               
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • cuenta → Cuenta (on_delete=SET_NULL)
+  • propiedad → Propiedad (on_delete=SET_NULL)
+  • sucursal → Sucursal (on_delete=CASCADE)
+  • empleado → Vendedor (on_delete=SET_NULL)
+  • caja → Caja (on_delete=CASCADE)
+
+
+📋 MODELO: Pago
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_pago
+🔹 App: inmobiliaria
+🔹 Verbose Name: pago
+🔹 Verbose Name Plural: pagos
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+reserva                        ForeignKey(Reserva)       No       -               -                   
+codigo                         CharField(10)             No       -               unique, max=10      
+fecha                          DateField                 No       -               blank               
+forma_pago                     CharField(20)             No       -               max=20              
+concepto                       ForeignKey(ConceptoPago)  No       -               -                   
+monto                          DecimalField(10,2)        No       -               -                   
+tipo_tarjeta                   CharField(20)             Sí       -               blank, max=20       
+destino_deposito               CharField(10)             Sí       -               blank, max=10       
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • reserva → Reserva (on_delete=CASCADE)
+  • concepto → ConceptoPago (on_delete=PROTECT)
+
+
+📋 MODELO: Precio
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_precio
+🔹 App: inmobiliaria
+🔹 Verbose Name: precio
+🔹 Verbose Name Plural: precios
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+propiedad                      ForeignKey(Propiedad)     No       -               -                   
+tipo_precio                    CharField(20)             No       -               max=20              
+precio_toma                    DecimalField(15,2)        Sí       -               blank               
+precio_dia_toma                DecimalField(15,2)        Sí       -               blank               
+precio_por_dia                 DecimalField(15,2)        Sí       -               blank               
+precio_total                   DecimalField(15,2)        Sí       -               blank               
+ajuste_porcentaje              DecimalField(5,2)         No       0               -                   
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • propiedad → Propiedad (on_delete=CASCADE)
+
+
+📋 MODELO: Propiedad
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_propiedad
+🔹 App: inmobiliaria
+🔹 Verbose Name: Propiedad
+🔹 Verbose Name Plural: Propiedades
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             CharField(255)            No       -               unique, PK, max=255 
+direccion                      CharField(255)            No       -               max=255             
+titulo                         CharField(255)            Sí       -               blank, max=255      
+ubicacion                      CharField(255)            No       -               max=255             
+descripcion                    TextField                 No       -               blank               
+anotaciones                    TextField                 Sí       -               blank               
+tipo_inmueble                  CharField(20)             No       departamento    max=20              
+vista                          CharField(20)             No       a_la_calle      max=20              
+piso                           CharField(10)             No       -               max=10              
+departamento                   CharField(10)             No       -               max=10              
+ambientes                      IntegerField              No       -               -                   
+valoracion                     CharField(20)             No       bueno           max=20              
+cuenta_bancaria                CharField(100)            No       -               blank, max=100      
+propietario                    ForeignKey(Propietario)   No       -               -                   
+sucursal                       ForeignKey(Sucursal)      No       -               -                   
+porcentaje_propietario         DecimalField(5,2)         Sí       85.0            blank               
+llave                          IntegerField              Sí       -               blank               
+numero_por_propietario         IntegerField              Sí       -               blank               
+cantidad_personas              IntegerField              Sí       -               blank               
+camas                          CharField(255)            Sí       -               blank, max=255      
+amoblado                       BooleanField              No       False           -                   
+cochera                        BooleanField              No       False           -                   
+tv_smart                       BooleanField              No       False           -                   
+wifi                           BooleanField              No       False           -                   
+directv_prepago                BooleanField              No       False           -                   
+ventilador                     BooleanField              No       False           -                   
+aire                           BooleanField              No       False           -                   
+cable                          BooleanField              No       False           -                   
+dependencia                    BooleanField              No       False           -                   
+patio                          BooleanField              No       False           -                   
+parrilla                       BooleanField              No       False           -                   
+piscina                        BooleanField              No       False           -                   
+reciclado                      BooleanField              No       False           -                   
+a_estrenar                     BooleanField              No       False           -                   
+terraza                        BooleanField              No       False           -                   
+balcon                         BooleanField              No       False           -                   
+baulera                        BooleanField              No       False           -                   
+lavadero                       BooleanField              No       False           -                   
+seguridad                      BooleanField              No       False           -                   
+vista_al_Mar                   BooleanField              No       False           -                   
+vista_panoramica               BooleanField              No       False           -                   
+apto_credito                   BooleanField              No       False           -                   
+habilitar_venta                BooleanField              No       False           -                   
+habilitar_23_meses             BooleanField              No       False           -                   
+habilitar_invierno             BooleanField              No       False           -                   
+precio_venta                   DecimalField(12,2)        Sí       -               blank               
+precio_23_meses                DecimalField(12,2)        Sí       -               blank               
+precio_invierno                DecimalField(12,2)        Sí       -               blank               
+fichado_por                    ForeignKey(Vendedor)      Sí       -               -                   
+fecha_fichado                  DateField                 Sí       -               blank               
+tipo_cliente                   CharField(20)             No       PARTICULAR      max=20              
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • propietario → Propietario (on_delete=CASCADE)
+  • sucursal → Sucursal (on_delete=CASCADE)
+  • fichado_por → Vendedor (on_delete=SET_NULL)
+
+
+📋 MODELO: Propietario
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_propietario
+🔹 App: inmobiliaria
+🔹 Verbose Name: Propietario
+🔹 Verbose Name Plural: Propietarios
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+nombre                         CharField(100)            No       -               max=100             
+apellido                       CharField(100)            No       -               max=100             
+fecha_nacimiento               DateField                 Sí       -               blank               
+email                          CharField(254)            No       -               max=254             
+celular                        CharField(20)             No       -               max=20              
+observaciones                  TextField                 No       -               blank               
+localidad                      CharField(100)            No       -               max=100             
+provincia                      CharField(100)            No       -               max=100             
+domicilio                      CharField(100)            No       -               max=100             
+codigo_postal                  CharField(10)             No       -               max=10              
+cuit                           CharField(11)             Sí       -               blank, max=11       
+tipo_ins                       CharField(4)              Sí       otro            blank, max=4        
+tipo_doc                       CharField(4)              No       otro            max=4               
+cuenta_bancaria                CharField(100)            No       -               blank, max=100      
+sucursal                       ForeignKey(Sucursal)      No       -               -                   
+dni                            CharField(8)              Sí       -               blank, unique, max=8
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • sucursal → Sucursal (on_delete=CASCADE)
+
+
+📋 MODELO: Recibo
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_recibo
+🔹 App: inmobiliaria
+🔹 Verbose Name: Recibo
+🔹 Verbose Name Plural: Recibos
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+numero_recibo                  CharField(20)             No       -               unique, max=20      
+fecha_emision                  DateField                 No       -               blank               
+movimiento_caja                ForeignKey(MovimientoCaja) No       -               unique              
+reserva                        ForeignKey(Reserva)       No       -               -                   
+propiedad                      ForeignKey(Propiedad)     No       -               -                   
+empleado                       ForeignKey(Vendedor)      Sí       -               -                   
+precio_total_operacion         DecimalField(10,2)        No       -               -                   
+monto_este_pago                DecimalField(10,2)        No       -               -                   
+total_pagado_antes             DecimalField(10,2)        No       0               -                   
+saldo_pendiente                DecimalField(10,2)        No       -               -                   
+conceptos_detalle              JSONField                 No       dict()          -                   
+observaciones                  TextField                 No       -               blank               
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • movimiento_caja → MovimientoCaja (on_delete=CASCADE)
+  • reserva → Reserva (on_delete=CASCADE)
+  • propiedad → Propiedad (on_delete=CASCADE)
+  • empleado → Vendedor (on_delete=SET_NULL)
+
+🔗 ONE TO ONE:
+----------------------------------------------------------------------------------------------------
+  • movimiento_caja ⇄ MovimientoCaja
+
+
+📋 MODELO: Registro
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_registro
+🔹 App: inmobiliaria
+🔹 Verbose Name: registro
+🔹 Verbose Name Plural: registros
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+interno_caja                   CharField(50)             No       -               unique, max=50      
+fecha                          DateField                 No       -               blank               
+tipo                           CharField(2)              No       IN              max=2               
+tipo_comprobante               CharField(2)              No       -               max=2               
+fecha_comprobante              DateField                 No       -               -                   
+liquidacion                    DecimalField(10,2)        No       -               -                   
+efectivo                       DecimalField(10,2)        No       0               -                   
+cheques                        DecimalField(10,2)        No       0               -                   
+tarjeta                        DecimalField(10,2)        No       0               -                   
+deposito                       DecimalField(10,2)        No       0               -                   
+qr                             DecimalField(10,2)        No       0               -                   
+cuenta                         ForeignKey(Cuenta)        Sí       -               -                   
+propiedad                      ForeignKey(Propiedad)     Sí       -               -                   
+concepto                       ForeignKey(Concepto)      Sí       -               -                   
+fecha_desde                    DateField                 Sí       -               blank               
+fecha_hasta                    DateField                 Sí       -               blank               
+tipo_descuento                 CharField(2)              Sí       -               blank, max=2        
+con_iva                        BooleanField              No       False           -                   
+pasa_liquidaciones             BooleanField              No       False           -                   
+sucursal                       ForeignKey(Sucursal)      No       -               -                   
+empleado                       ForeignKey(Vendedor)      Sí       -               -                   
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • cuenta → Cuenta (on_delete=SET_NULL)
+  • propiedad → Propiedad (on_delete=SET_NULL)
+  • concepto → Concepto (on_delete=SET_NULL)
+  • sucursal → Sucursal (on_delete=CASCADE)
+  • empleado → Vendedor (on_delete=SET_NULL)
+
+
+📋 MODELO: Reserva
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_reserva
+🔹 App: inmobiliaria
+🔹 Verbose Name: reserva
+🔹 Verbose Name Plural: reservas
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+propiedad                      ForeignKey(Propiedad)     No       -               -                   
+fecha_inicio                   DateField                 No       -               -                   
+fecha_fin                      DateField                 No       -               -                   
+hora_ingreso                   TimeField                 No       15:00:00        -                   
+hora_egreso                    TimeField                 No       10:00:00        -                   
+fecha_creacion                 DateField                 No       now()           -                   
+vendedor                       ForeignKey(Vendedor)      Sí       -               -                   
+cliente                        ForeignKey(Inquilino)     Sí       -               -                   
+precio_total                   DecimalField(10,2)        No       0               -                   
+senia                          DecimalField(10,2)        No       0               -                   
+cuota_pendiente                DecimalField(10,2)        No       0               -                   
+estado                         CharField(20)             No       en_espera       max=20              
+sucursal                       ForeignKey(Sucursal)      Sí       -               -                   
+deposito_garantia              DecimalField(10,2)        No       0               -                   
+eliminada                      BooleanField              No       False           -                   
+fecha_eliminacion              DateField                 Sí       -               blank               
+usuario_eliminacion            ForeignKey(Vendedor)      Sí       -               blank               
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • propiedad → Propiedad (on_delete=CASCADE)
+  • vendedor → Vendedor (on_delete=SET_NULL)
+  • cliente → Inquilino (on_delete=SET_NULL)
+  • sucursal → Sucursal (on_delete=CASCADE)
+  • usuario_eliminacion → Vendedor (on_delete=SET_NULL)
+
+
+📋 MODELO: Sucursal
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_sucursal
+🔹 App: inmobiliaria
+🔹 Verbose Name: sucursal
+🔹 Verbose Name Plural: sucursals
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+nombre                         CharField(50)             No       -               unique, max=50      
+direccion                      CharField(255)            No       -               max=255             
+telefono                       CharField(20)             No       -               max=20              
+email                          CharField(254)            No       -               max=254             
+prefijo_recibo                 IntegerField              Sí       -               blank               
+ultimo_numero_recibo           IntegerField              No       1               -                   
+usar_numeracion_automatica     BooleanField              No       False           -                   
+
+
+📋 MODELO: User
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_user
+🔹 App: inmobiliaria
+🔹 Verbose Name: usuario
+🔹 Verbose Name Plural: usuarios
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+password                       CharField(128)            No       -               max=128             
+last_login                     DateField                 Sí       -               blank               
+is_superuser                   BooleanField              No       False           -                   
+username                       CharField(150)            No       -               unique, max=150     
+first_name                     CharField(150)            No       -               blank, max=150      
+last_name                      CharField(150)            No       -               blank, max=150      
+email                          CharField(254)            No       -               blank, max=254      
+is_staff                       BooleanField              No       False           -                   
+is_active                      BooleanField              No       True            -                   
+date_joined                    DateField                 No       now()           -                   
+password_temporal              BooleanField              No       False           -                   
+
+🔗 MANY TO MANY:
+----------------------------------------------------------------------------------------------------
+  • groups ↔ Group
+  • user_permissions ↔ Permission
+
+
+📋 MODELO: ValeVendedor
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_valevendedor
+🔹 App: inmobiliaria
+🔹 Verbose Name: Vale de Vendedor
+🔹 Verbose Name Plural: Vales de Vendedores
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+vendedor                       ForeignKey(Vendedor)      No       -               -                   
+movimiento_caja                ForeignKey(MovimientoCaja) Sí       -               blank               
+monto                          DecimalField(12,2)        No       -               -                   
+concepto                       CharField(200)            No       Vale            max=200             
+observaciones                  TextField                 No       -               blank               
+fecha                          DateField                 No       -               -                   
+fecha_creacion                 DateField                 No       -               blank               
+usuario_creador                ForeignKey(Vendedor)      Sí       -               -                   
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • vendedor → Vendedor (on_delete=CASCADE)
+  • movimiento_caja → MovimientoCaja (on_delete=CASCADE)
+  • usuario_creador → Vendedor (on_delete=SET_NULL)
+
+
+📋 MODELO: Vendedor
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_vendedor
+🔹 App: inmobiliaria
+🔹 Verbose Name: Vendedor
+🔹 Verbose Name Plural: Vendedores
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+password                       CharField(128)            No       -               max=128             
+last_login                     DateField                 Sí       -               blank               
+is_superuser                   BooleanField              No       False           -                   
+username                       CharField(150)            No       -               unique, max=150     
+first_name                     CharField(150)            No       -               blank, max=150      
+last_name                      CharField(150)            No       -               blank, max=150      
+is_staff                       BooleanField              No       False           -                   
+is_active                      BooleanField              No       True            -                   
+date_joined                    DateField                 No       now()           -                   
+dni                            CharField(8)              Sí       -               blank, max=8        
+nombre                         CharField(100)            No       -               max=100             
+apellido                       CharField(100)            No       -               max=100             
+fecha_nacimiento               DateField                 Sí       -               blank               
+email                          CharField(254)            No       -               max=254             
+comision                       DecimalField(5,2)         Sí       -               blank               
+celular                        CharField(20)             No       -               blank, max=20       
+nivel                          IntegerField              No       1               -                   
+sucursal                       ForeignKey(Sucursal)      No       -               -                   
+password_temporal              BooleanField              No       False           -                   
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • sucursal → Sucursal (on_delete=CASCADE)
+
+🔗 MANY TO MANY:
+----------------------------------------------------------------------------------------------------
+  • groups ↔ Group
+  • user_permissions ↔ Permission
+
+
+📋 MODELO: VentaPropiedad
+----------------------------------------------------------------------------------------------------
+🔹 Tabla en BD: inmobiliaria_ventapropiedad
+🔹 App: inmobiliaria
+🔹 Verbose Name: venta propiedad
+🔹 Verbose Name Plural: venta propiedads
+
+📊 CAMPOS:
+----------------------------------------------------------------------------------------------------
+Nombre                         Tipo                      NULL     Default         Opciones            
+----------------------------------------------------------------------------------------------------
+id                             IntegerField              No       -               blank, unique, PK   
+propiedad                      ForeignKey(Propiedad)     No       -               unique              
+en_venta                       BooleanField              No       False           -                   
+metros_cuadrados               DecimalField(8,2)         Sí       -               blank               
+precio_venta                   DecimalField(12,2)        Sí       -               blank               
+precio_autorizacion            DecimalField(12,2)        Sí       -               blank               
+estado                         CharField(20)             No       disponible      max=20              
+precio_expensas                DecimalField(10,2)        Sí       -               blank               
+escribania                     TextField                 No       -               blank               
+observaciones                  TextField                 No       -               blank               
+fecha_actualizacion            DateField                 No       -               blank               
+
+🔗 FOREIGN KEYS:
+----------------------------------------------------------------------------------------------------
+  • propiedad → Propiedad (on_delete=CASCADE)
+
+🔗 ONE TO ONE:
+----------------------------------------------------------------------------------------------------
+  • propiedad ⇄ Propiedad
+
+====================================================================================================
+Total de modelos mostrados: 31
+====================================================================================================
