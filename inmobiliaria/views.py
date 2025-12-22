@@ -3243,6 +3243,28 @@ def buscar_propietarios(request):
     )
 
 @login_required
+def ver_diagrama_db(request):
+    """Vista para mostrar el diagrama de la base de datos"""
+    from django.http import HttpResponse
+    import os
+    from django.conf import settings
+    
+    # Ruta del archivo HTML
+    diagrama_path = os.path.join(settings.BASE_DIR, 'diagrama_db.html')
+    
+    try:
+        with open(diagrama_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return HttpResponse(html_content, content_type='text/html; charset=utf-8')
+    except FileNotFoundError:
+        return HttpResponse(
+            '<h1>Diagrama no encontrado</h1><p>Por favor, ejecuta primero: <code>python3 manage.py generar_diagrama_db</code></p>',
+            status=404
+        )
+    except Exception as e:
+        return HttpResponse(f'<h1>Error</h1><p>{str(e)}</p>', status=500)
+
+@login_required
 def buscar_operacion(request):
     """Vista para buscar operación por número y autocompletar campos"""
     operacion = request.GET.get('operacion', '')

@@ -73,6 +73,7 @@ urlpatterns = [
     path('limpiar-historial-disponibilidad/', views.limpiar_historial_disponibilidad, name='limpiar_historial_disponibilidad'),
     path('limpieza-brutal/', views.limpieza_brutal, name='limpieza_brutal'),
     path('propiedades/buscar-por-fechas/', views.buscar_propiedades_por_fechas, name='buscar_propiedades_por_fechas'),
+    path('utilidades/diagrama-db/', views.ver_diagrama_db, name='ver_diagrama_db'),
 
     # Búsqueda URLs
     path('buscar-propiedad/', views.buscar_propiedad, name='buscar_propiedad'),
