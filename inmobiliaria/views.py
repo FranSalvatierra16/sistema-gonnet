@@ -245,12 +245,28 @@ def liquidaciones_propietarios(request):
     # Aplicar búsqueda si existe
     busqueda = request.GET.get('busqueda', '').strip()
     if busqueda:
-        propietarios = propietarios.filter(
-            Q(id__icontains=busqueda) |
-            Q(nombre__icontains=busqueda) |
-            Q(apellido__icontains=busqueda) |
-            Q(dni__icontains=busqueda)
-        )
+        # Intentar búsqueda exacta por ID primero
+        try:
+            # Si la búsqueda parece ser un ID exacto, intentar búsqueda exacta
+            propietario_exacto = propietarios.filter(id=busqueda).first()
+            if propietario_exacto:
+                propietarios = propietarios.filter(id=busqueda)
+            else:
+                # Si no es exacto, buscar en todos los campos
+                propietarios = propietarios.filter(
+                    Q(id__icontains=busqueda) |
+                    Q(nombre__icontains=busqueda) |
+                    Q(apellido__icontains=busqueda) |
+                    Q(dni__icontains=busqueda)
+                )
+        except (ValueError, TypeError):
+            # Si hay error al convertir a ID, buscar en todos los campos
+            propietarios = propietarios.filter(
+                Q(id__icontains=busqueda) |
+                Q(nombre__icontains=busqueda) |
+                Q(apellido__icontains=busqueda) |
+                Q(dni__icontains=busqueda)
+            )
     
     context = {
         'propietarios': propietarios,
@@ -718,7 +734,8 @@ def propietarios(request):
             query = Q()
             for palabra in palabras:
                 query |= Q(nombre__icontains=palabra) | Q(apellido__icontains=palabra)
-            query |= Q(dni__icontains=termino)
+            # Buscar por ID (exacto o parcial), DNI, nombre o apellido
+            query |= Q(dni__icontains=termino) | Q(id__icontains=termino)
             propietarios = propietarios.filter(query)
 
     # Detectar si la solicitud es AJAX
@@ -3197,12 +3214,17 @@ def buscar_propietarios(request):
     offset = (page - 1) * page_size
 
     qs = Propietario.objects.all()
+    
+    # Filtrar por sucursal del usuario si está disponible
+    if hasattr(request, 'user') and hasattr(request.user, 'sucursal') and request.user.sucursal:
+        qs = qs.filter(sucursal=request.user.sucursal)
 
     if term:
         qs = qs.filter(
             Q(nombre__icontains=term) |
             Q(apellido__icontains=term) |
-            Q(dni__icontains=term)
+            Q(dni__icontains=term) |
+            Q(id__icontains=term)  # Buscar por ID también
         )
 
     total = qs.count()
