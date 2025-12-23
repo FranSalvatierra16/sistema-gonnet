@@ -10668,10 +10668,15 @@ def detalles_operacion_reserva(request, reserva_id):
         cliente_nombre = 'No especificado'
         cliente_celular = ''
         if reserva.cliente:
-            # Obtener apellido y nombre, manejando valores None o vacíos
-            apellido = (getattr(reserva.cliente, 'apellido', None) or '').strip()
-            nombre = (getattr(reserva.cliente, 'nombre', None) or '').strip()
+            # Obtener apellido y nombre directamente de los campos
+            apellido_val = reserva.cliente.apellido
+            nombre_val = reserva.cliente.nombre
             
+            # Limpiar valores (quitar espacios, manejar None)
+            apellido = str(apellido_val).strip() if apellido_val else ''
+            nombre = str(nombre_val).strip() if nombre_val else ''
+            
+            # Formatear: apellido, nombre
             if apellido and nombre:
                 cliente_nombre = f"{apellido}, {nombre}"
             elif nombre:
@@ -10681,12 +10686,16 @@ def detalles_operacion_reserva(request, reserva_id):
             else:
                 cliente_nombre = 'No especificado'
             
-            # Obtener celular
-            celular_raw = getattr(reserva.cliente, 'celular', None)
-            if celular_raw:
-                cliente_celular = str(celular_raw).strip()
-                if not cliente_celular:
-                    cliente_celular = ''
+            # Obtener celular - verificar si existe y no está vacío
+            try:
+                celular_val = reserva.cliente.celular
+                if celular_val:
+                    cliente_celular = str(celular_val).strip()
+                    # Si después de strip está vacío, usar cadena vacía
+                    if not cliente_celular:
+                        cliente_celular = ''
+            except (AttributeError, ValueError):
+                cliente_celular = ''
         
         # Formatear nombre del vendedor: apellido, nombre
         productor_nombre = 'No especificado'
