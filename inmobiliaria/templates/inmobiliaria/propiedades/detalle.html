@@ -2593,6 +2593,7 @@ document.addEventListener('click', function(e) {
             })
             .then(data => {
                 console.log('✅ Respuesta recibida:', data);
+                console.log('📱 Cliente celular recibido:', data.reserva?.cliente_celular);
                 if (data.success) {
                     mostrarDetallesOperacion(data.operacion, data.reserva);
                 } else {
@@ -2613,6 +2614,9 @@ document.addEventListener('click', function(e) {
 });
 
 function mostrarDetallesOperacion(operacion, reserva) {
+    console.log('🔍 Datos de reserva recibidos:', reserva);
+    console.log('📱 Cliente celular en función:', reserva.cliente_celular);
+    
     const formatearPrecio = (precio) => {
         return new Intl.NumberFormat('es-AR', {
             style: 'currency',
@@ -2627,8 +2631,8 @@ function mostrarDetallesOperacion(operacion, reserva) {
             <h5><i class="fas fa-calendar-check"></i> Reserva #${reserva.id}</h5>
             <div class="row">
                 <div class="col-md-6">
-                    <p><strong>Cliente:</strong> ${reserva.cliente}</p>
-                    ${reserva.cliente_celular && reserva.cliente_celular !== '-' ? `<p><strong>Celular:</strong> ${reserva.cliente_celular}</p>` : ''}
+                    <p><strong>Cliente:</strong> ${reserva.cliente || 'No especificado'}</p>
+                    ${reserva.cliente_celular && reserva.cliente_celular !== 'null' && reserva.cliente_celular !== 'undefined' ? `<p><strong>Celular:</strong> ${reserva.cliente_celular}</p>` : ''}
                     <p><strong>Productor:</strong> ${reserva.productor_id ? `#${reserva.productor_id} - ${reserva.productor_nombre}` : 'No especificado'}</p>
                     <p><strong>Período:</strong> ${reserva.fecha_inicio} al ${reserva.fecha_fin}</p>
                     <p><strong>Total días:</strong> ${reserva.total_dias}</p>

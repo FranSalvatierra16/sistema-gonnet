@@ -10607,7 +10607,7 @@ def detalles_operacion_reserva(request, reserva_id):
     API endpoint para obtener detalles de la operación de una reserva
     """
     try:
-        reserva = get_object_or_404(Reserva, id=reserva_id)
+        reserva = get_object_or_404(Reserva.objects.select_related('cliente', 'vendedor'), id=reserva_id)
         
         # Obtener movimientos de caja asociados a esta reserva
         # Buscar a través de los recibos que están relacionados con la reserva
@@ -10666,13 +10666,27 @@ def detalles_operacion_reserva(request, reserva_id):
         
         # Formatear nombre del cliente: apellido, nombre
         cliente_nombre = 'No especificado'
-        cliente_celular = '-'
+        cliente_celular = ''
         if reserva.cliente:
-            if reserva.cliente.apellido and reserva.cliente.nombre:
-                cliente_nombre = f"{reserva.cliente.apellido}, {reserva.cliente.nombre}"
-            elif reserva.cliente.nombre:
-                cliente_nombre = reserva.cliente.nombre
-            cliente_celular = reserva.cliente.celular if reserva.cliente.celular else '-'
+            # Obtener apellido y nombre, manejando valores None o vacíos
+            apellido = (getattr(reserva.cliente, 'apellido', None) or '').strip()
+            nombre = (getattr(reserva.cliente, 'nombre', None) or '').strip()
+            
+            if apellido and nombre:
+                cliente_nombre = f"{apellido}, {nombre}"
+            elif nombre:
+                cliente_nombre = nombre
+            elif apellido:
+                cliente_nombre = apellido
+            else:
+                cliente_nombre = 'No especificado'
+            
+            # Obtener celular
+            celular_raw = getattr(reserva.cliente, 'celular', None)
+            if celular_raw:
+                cliente_celular = str(celular_raw).strip()
+                if not cliente_celular:
+                    cliente_celular = ''
         
         # Formatear nombre del vendedor: apellido, nombre
         productor_nombre = 'No especificado'
