@@ -10664,11 +10664,30 @@ def detalles_operacion_reserva(request, reserva_id):
             'recibos': recibos
         }
         
+        # Formatear nombre del cliente: apellido, nombre
+        cliente_nombre = 'No especificado'
+        cliente_celular = '-'
+        if reserva.cliente:
+            if reserva.cliente.apellido and reserva.cliente.nombre:
+                cliente_nombre = f"{reserva.cliente.apellido}, {reserva.cliente.nombre}"
+            elif reserva.cliente.nombre:
+                cliente_nombre = reserva.cliente.nombre
+            cliente_celular = reserva.cliente.celular if reserva.cliente.celular else '-'
+        
+        # Formatear nombre del vendedor: apellido, nombre
+        productor_nombre = 'No especificado'
+        if reserva.vendedor:
+            if reserva.vendedor.apellido and reserva.vendedor.nombre:
+                productor_nombre = f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}"
+            elif reserva.vendedor.nombre:
+                productor_nombre = reserva.vendedor.nombre
+        
         reserva_data = {
             'id': reserva.id,
-            'cliente': reserva.cliente.nombre if reserva.cliente else 'No especificado',
+            'cliente': cliente_nombre,
+            'cliente_celular': cliente_celular,
             'productor_id': reserva.vendedor.id if reserva.vendedor else None,
-            'productor_nombre': reserva.vendedor.nombre if reserva.vendedor else 'No especificado',
+            'productor_nombre': productor_nombre,
             'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
             'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
             'total_dias': (reserva.fecha_fin - reserva.fecha_inicio).days,

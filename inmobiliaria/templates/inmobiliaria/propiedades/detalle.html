@@ -1151,7 +1151,10 @@
                                     {% if historial.reserva %}
                                         <small>
                                             Reserva #{{ historial.reserva.id }} <br>
-                                            Cliente: {{ historial.reserva.cliente.nombre }}
+                                            Cliente: {{ historial.reserva.cliente.apellido }}, {{ historial.reserva.cliente.nombre }}
+                                            {% if historial.reserva.cliente.celular %}
+                                            <br>Tel: {{ historial.reserva.cliente.celular }}
+                                            {% endif %}
                                         </small>
                                     {% else %}
                                         -
@@ -2625,6 +2628,7 @@ function mostrarDetallesOperacion(operacion, reserva) {
             <div class="row">
                 <div class="col-md-6">
                     <p><strong>Cliente:</strong> ${reserva.cliente}</p>
+                    ${reserva.cliente_celular && reserva.cliente_celular !== '-' ? `<p><strong>Celular:</strong> ${reserva.cliente_celular}</p>` : ''}
                     <p><strong>Productor:</strong> ${reserva.productor_id ? `#${reserva.productor_id} - ${reserva.productor_nombre}` : 'No especificado'}</p>
                     <p><strong>Período:</strong> ${reserva.fecha_inicio} al ${reserva.fecha_fin}</p>
                     <p><strong>Total días:</strong> ${reserva.total_dias}</p>
