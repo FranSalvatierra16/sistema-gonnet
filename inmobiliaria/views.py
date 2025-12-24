@@ -10668,30 +10668,31 @@ def detalles_operacion_reserva(request, reserva_id):
         cliente_nombre = 'No especificado'
         cliente_celular = None
         if reserva.cliente:
-            # Debug: verificar que el cliente se haya cargado correctamente
-            apellido_raw = reserva.cliente.apellido
-            nombre_raw = reserva.cliente.nombre
-            celular_raw = reserva.cliente.celular
-            
-            apellido = (apellido_raw or '').strip() if apellido_raw else ''
-            nombre = (nombre_raw or '').strip() if nombre_raw else ''
-            
-            # Formatear: apellido, nombre (siempre en este orden)
-            if apellido and nombre:
-                cliente_nombre = f"{apellido}, {nombre}"
-            elif nombre:
-                cliente_nombre = nombre
-            elif apellido:
-                cliente_nombre = apellido
-            else:
-                cliente_nombre = 'No especificado'
-            
-            # Obtener celular
-            if celular_raw:
-                cliente_celular = str(celular_raw).strip()
-                if not cliente_celular:
-                    cliente_celular = None
-            else:
+            try:
+                # Acceder directamente a los campos
+                apellido = reserva.cliente.apellido or ''
+                nombre = reserva.cliente.nombre or ''
+                celular = reserva.cliente.celular or ''
+                
+                # Limpiar espacios
+                apellido = str(apellido).strip()
+                nombre = str(nombre).strip()
+                celular = str(celular).strip()
+                
+                # Formatear: apellido, nombre (siempre en este orden)
+                if apellido and nombre:
+                    cliente_nombre = f"{apellido}, {nombre}"
+                elif nombre:
+                    cliente_nombre = nombre
+                elif apellido:
+                    cliente_nombre = apellido
+                
+                # Obtener celular
+                if celular:
+                    cliente_celular = celular
+            except Exception as e:
+                # Si hay error, usar valores por defecto
+                cliente_nombre = reserva.cliente.nombre or 'No especificado'
                 cliente_celular = None
         
         # Formatear nombre del vendedor: apellido, nombre

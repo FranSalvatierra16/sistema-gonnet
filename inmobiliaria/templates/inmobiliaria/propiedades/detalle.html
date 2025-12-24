@@ -2624,8 +2624,13 @@ function mostrarDetallesOperacion(operacion, reserva) {
     
     // Mostrar celular solo si existe y no está vacío
     let celularHtml = '';
-    if (reserva.cliente_celular && reserva.cliente_celular !== null && reserva.cliente_celular !== undefined && reserva.cliente_celular !== '' && reserva.cliente_celular !== 'null' && reserva.cliente_celular !== 'undefined') {
-        celularHtml = `<p><strong>Celular:</strong> ${reserva.cliente_celular}</p>`;
+    console.log('🔍 Verificando celular:', reserva.cliente_celular, typeof reserva.cliente_celular);
+    if (reserva.cliente_celular) {
+        const celularStr = String(reserva.cliente_celular).trim();
+        if (celularStr && celularStr !== 'null' && celularStr !== 'undefined' && celularStr !== '') {
+            celularHtml = `<p><strong>Celular:</strong> ${celularStr}</p>`;
+            console.log('✅ Celular encontrado:', celularStr);
+        }
     }
     
     let html = `
