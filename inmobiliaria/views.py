@@ -10665,26 +10665,19 @@ def detalles_operacion_reserva(request, reserva_id):
         }
         
         # Formatear nombre del cliente: apellido, nombre
-        # Usar el mismo patrón que funciona en otras vistas (ver_recibo, obtener_info_reserva)
+        # Usar EXACTAMENTE el mismo patrón que funciona en ver_recibo (línea 2799)
         cliente_nombre = 'No especificado'
         cliente_celular = None
         if reserva.cliente:
-            # Acceder directamente como en otras partes del código
-            apellido = reserva.cliente.apellido or ''
-            nombre = reserva.cliente.nombre or ''
-            celular = reserva.cliente.celular or ''
+            # Acceder directamente como en ver_recibo - funciona ahí, debe funcionar aquí
+            cliente_data = reserva.cliente
+            # Formatear: apellido, nombre (EXACTAMENTE como en ver_recibo línea 2799)
+            cliente_nombre = f"{cliente_data.apellido}, {cliente_data.nombre}" if cliente_data.apellido and cliente_data.nombre else (cliente_data.nombre or cliente_data.apellido or 'No especificado')
             
-            # Formatear: apellido, nombre (siempre en este orden)
-            if apellido and nombre:
-                cliente_nombre = f"{apellido}, {nombre}"
-            elif nombre:
-                cliente_nombre = nombre
-            elif apellido:
-                cliente_nombre = apellido
-            
-            # Obtener celular - convertir a string como en obtener_info_reserva
-            if celular:
-                cliente_celular = str(celular)
+            # Obtener celular - EXACTAMENTE como en ver_recibo línea 2804
+            cliente_celular = cliente_data.celular or None
+            if cliente_celular:
+                cliente_celular = str(cliente_celular)
         
         # Formatear nombre del vendedor: apellido, nombre
         productor_nombre = 'No especificado'
