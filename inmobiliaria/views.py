@@ -10607,7 +10607,7 @@ def detalles_operacion_reserva(request, reserva_id):
     API endpoint para obtener detalles de la operación de una reserva
     """
     try:
-        reserva = get_object_or_404(Reserva, id=reserva_id)
+        reserva = get_object_or_404(Reserva.objects.select_related('cliente', 'vendedor'), id=reserva_id)
         
         # Obtener movimientos de caja asociados a esta reserva
         # Buscar a través de los recibos que están relacionados con la reserva
@@ -10664,11 +10664,50 @@ def detalles_operacion_reserva(request, reserva_id):
             'recibos': recibos
         }
         
+        # Formatear nombre del cliente: apellido, nombre
+        cliente_nombre = 'No especificado'
+        cliente_celular = None
+        if reserva.cliente:
+            apellido = (reserva.cliente.apellido or '').strip()
+            nombre = (reserva.cliente.nombre or '').strip()
+            
+            # Formatear: apellido, nombre (siempre en este orden)
+            if apellido and nombre:
+                cliente_nombre = f"{apellido}, {nombre}"
+            elif nombre:
+                cliente_nombre = nombre
+            elif apellido:
+                cliente_nombre = apellido
+            else:
+                cliente_nombre = 'No especificado'
+            
+            # Obtener celular
+            celular_val = reserva.cliente.celular
+            if celular_val:
+                cliente_celular = str(celular_val).strip()
+                if not cliente_celular:
+                    cliente_celular = None
+            else:
+                cliente_celular = None
+        
+        # Formatear nombre del vendedor: apellido, nombre
+        productor_nombre = 'No especificado'
+        if reserva.vendedor:
+            apellido_vendedor = (reserva.vendedor.apellido or '').strip()
+            nombre_vendedor = (reserva.vendedor.nombre or '').strip()
+            if apellido_vendedor and nombre_vendedor:
+                productor_nombre = f"{apellido_vendedor}, {nombre_vendedor}"
+            elif nombre_vendedor:
+                productor_nombre = nombre_vendedor
+            elif apellido_vendedor:
+                productor_nombre = apellido_vendedor
+        
         reserva_data = {
             'id': reserva.id,
-            'cliente': reserva.cliente.nombre if reserva.cliente else 'No especificado',
+            'cliente': cliente_nombre,
+            'cliente_celular': cliente_celular,
             'productor_id': reserva.vendedor.id if reserva.vendedor else None,
-            'productor_nombre': reserva.vendedor.nombre if reserva.vendedor else 'No especificado',
+            'productor_nombre': productor_nombre,
             'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
             'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
             'total_dias': (reserva.fecha_fin - reserva.fecha_inicio).days,
