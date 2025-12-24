@@ -931,15 +931,15 @@ def propiedad_detalle(request, propiedad_id):
 def propiedad_nuevo(request):
     if request.method == 'POST':
         try:
-        form = PropiedadForm(request.POST, request.FILES, user=request.user)
-        propietario_form = PropietarioForm(user=request.user)
-        if form.is_valid():
+            form = PropiedadForm(request.POST, request.FILES, user=request.user)
+            propietario_form = PropietarioForm(user=request.user)
+            if form.is_valid():
                 try:
-            propiedad = form.save()
-            # Las imágenes ya se procesan en el método save() del formulario
-            # No las proceses aquí para evitar duplicación
-            messages.success(request, 'Propiedad creada exitosamente.')
-            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+                    propiedad = form.save()
+                    # Las imágenes ya se procesan en el método save() del formulario
+                    # No las proceses aquí para evitar duplicación
+                    messages.success(request, 'Propiedad creada exitosamente.')
+                    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
                 except ValidationError as e:
                     # Si hay errores de validación, agregarlos al formulario
                     if hasattr(e, 'error_dict'):
