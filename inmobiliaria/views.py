@@ -261,12 +261,12 @@ def liquidaciones_propietarios(request):
                 )
         except (ValueError, TypeError):
             # Si hay error al convertir a ID, buscar en todos los campos
-        propietarios = propietarios.filter(
-            Q(id__icontains=busqueda) |
-            Q(nombre__icontains=busqueda) |
-            Q(apellido__icontains=busqueda) |
-            Q(dni__icontains=busqueda)
-        )
+            propietarios = propietarios.filter(
+                Q(id__icontains=busqueda) |
+                Q(nombre__icontains=busqueda) |
+                Q(apellido__icontains=busqueda) |
+                Q(dni__icontains=busqueda)
+            )
     
     context = {
         'propietarios': propietarios,
