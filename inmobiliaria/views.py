@@ -10665,45 +10665,26 @@ def detalles_operacion_reserva(request, reserva_id):
         }
         
         # Formatear nombre del cliente: apellido, nombre
+        # Usar el mismo patrón que funciona en otras vistas (ver_recibo, obtener_info_reserva)
         cliente_nombre = 'No especificado'
         cliente_celular = None
         if reserva.cliente:
-            try:
-                # Acceder directamente a los campos - FORZAR recarga desde DB
-                reserva.cliente.refresh_from_db()
-                
-                apellido = getattr(reserva.cliente, 'apellido', None) or ''
-                nombre = getattr(reserva.cliente, 'nombre', None) or ''
-                celular = getattr(reserva.cliente, 'celular', None) or ''
-                
-                # Limpiar espacios
-                apellido = str(apellido).strip() if apellido else ''
-                nombre = str(nombre).strip() if nombre else ''
-                celular = str(celular).strip() if celular else ''
-                
-                # Debug logging
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.info(f"DEBUG reserva {reserva_id} - Cliente ID: {reserva.cliente.id}, apellido: '{apellido}', nombre: '{nombre}', celular: '{celular}'")
-                
-                # Formatear: apellido, nombre (siempre en este orden)
-                if apellido and nombre:
-                    cliente_nombre = f"{apellido}, {nombre}"
-                elif nombre:
-                    cliente_nombre = nombre
-                elif apellido:
-                    cliente_nombre = apellido
-                
-                # Obtener celular
-                if celular:
-                    cliente_celular = celular
-            except Exception as e:
-                # Si hay error, usar valores por defecto
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.error(f"ERROR obteniendo datos del cliente para reserva {reserva_id}: {str(e)}")
-                cliente_nombre = getattr(reserva.cliente, 'nombre', 'No especificado') or 'No especificado'
-                cliente_celular = None
+            # Acceder directamente como en otras partes del código
+            apellido = reserva.cliente.apellido or ''
+            nombre = reserva.cliente.nombre or ''
+            celular = reserva.cliente.celular or ''
+            
+            # Formatear: apellido, nombre (siempre en este orden)
+            if apellido and nombre:
+                cliente_nombre = f"{apellido}, {nombre}"
+            elif nombre:
+                cliente_nombre = nombre
+            elif apellido:
+                cliente_nombre = apellido
+            
+            # Obtener celular - convertir a string como en obtener_info_reserva
+            if celular:
+                cliente_celular = str(celular)
         
         # Formatear nombre del vendedor: apellido, nombre
         productor_nombre = 'No especificado'
