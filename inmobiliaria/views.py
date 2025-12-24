@@ -10669,15 +10669,22 @@ def detalles_operacion_reserva(request, reserva_id):
         cliente_celular = None
         if reserva.cliente:
             try:
-                # Acceder directamente a los campos
-                apellido = reserva.cliente.apellido or ''
-                nombre = reserva.cliente.nombre or ''
-                celular = reserva.cliente.celular or ''
+                # Acceder directamente a los campos - FORZAR recarga desde DB
+                reserva.cliente.refresh_from_db()
+                
+                apellido = getattr(reserva.cliente, 'apellido', None) or ''
+                nombre = getattr(reserva.cliente, 'nombre', None) or ''
+                celular = getattr(reserva.cliente, 'celular', None) or ''
                 
                 # Limpiar espacios
-                apellido = str(apellido).strip()
-                nombre = str(nombre).strip()
-                celular = str(celular).strip()
+                apellido = str(apellido).strip() if apellido else ''
+                nombre = str(nombre).strip() if nombre else ''
+                celular = str(celular).strip() if celular else ''
+                
+                # Debug logging
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"DEBUG reserva {reserva_id} - Cliente ID: {reserva.cliente.id}, apellido: '{apellido}', nombre: '{nombre}', celular: '{celular}'")
                 
                 # Formatear: apellido, nombre (siempre en este orden)
                 if apellido and nombre:
@@ -10692,7 +10699,10 @@ def detalles_operacion_reserva(request, reserva_id):
                     cliente_celular = celular
             except Exception as e:
                 # Si hay error, usar valores por defecto
-                cliente_nombre = reserva.cliente.nombre or 'No especificado'
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"ERROR obteniendo datos del cliente para reserva {reserva_id}: {str(e)}")
+                cliente_nombre = getattr(reserva.cliente, 'nombre', 'No especificado') or 'No especificado'
                 cliente_celular = None
         
         # Formatear nombre del vendedor: apellido, nombre
@@ -10710,7 +10720,7 @@ def detalles_operacion_reserva(request, reserva_id):
         reserva_data = {
             'id': reserva.id,
             'cliente': cliente_nombre,
-            'cliente_celular': cliente_celular,
+            'cliente_celular': cliente_celular if cliente_celular else None,
             'productor_id': reserva.vendedor.id if reserva.vendedor else None,
             'productor_nombre': productor_nombre,
             'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
@@ -10718,6 +10728,11 @@ def detalles_operacion_reserva(request, reserva_id):
             'total_dias': (reserva.fecha_fin - reserva.fecha_inicio).days,
             'estado': reserva.estado
         }
+        
+        # Debug: Log para verificar qué se está enviando
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"DEBUG detalles_operacion_reserva {reserva_id}: cliente_nombre={cliente_nombre}, cliente_celular={cliente_celular}")
         
         return JsonResponse({
             'success': True,

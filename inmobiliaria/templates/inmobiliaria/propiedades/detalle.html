@@ -2613,6 +2613,11 @@ document.addEventListener('click', function(e) {
 });
 
 function mostrarDetallesOperacion(operacion, reserva) {
+    console.log('🔍 FUNCIÓN mostrarDetallesOperacion - Datos recibidos:');
+    console.log('  - reserva.cliente:', reserva.cliente);
+    console.log('  - reserva.cliente_celular:', reserva.cliente_celular);
+    console.log('  - reserva completa:', reserva);
+    
     const formatearPrecio = (precio) => {
         return new Intl.NumberFormat('es-AR', {
             style: 'currency',
@@ -2624,13 +2629,19 @@ function mostrarDetallesOperacion(operacion, reserva) {
     
     // Mostrar celular solo si existe y no está vacío
     let celularHtml = '';
-    console.log('🔍 Verificando celular:', reserva.cliente_celular, typeof reserva.cliente_celular);
-    if (reserva.cliente_celular) {
-        const celularStr = String(reserva.cliente_celular).trim();
-        if (celularStr && celularStr !== 'null' && celularStr !== 'undefined' && celularStr !== '') {
+    const celular = reserva.cliente_celular;
+    console.log('🔍 Verificando celular:', celular, 'tipo:', typeof celular);
+    
+    if (celular !== null && celular !== undefined && celular !== '') {
+        const celularStr = String(celular).trim();
+        if (celularStr && celularStr !== 'null' && celularStr !== 'undefined') {
             celularHtml = `<p><strong>Celular:</strong> ${celularStr}</p>`;
-            console.log('✅ Celular encontrado:', celularStr);
+            console.log('✅ Celular encontrado y agregado:', celularStr);
+        } else {
+            console.log('❌ Celular está vacío después de trim');
         }
+    } else {
+        console.log('❌ Celular es null, undefined o vacío');
     }
     
     let html = `
