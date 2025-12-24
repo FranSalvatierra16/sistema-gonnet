@@ -2590,6 +2590,9 @@ document.addEventListener('click', function(e) {
             })
             .then(data => {
                 console.log('✅ Respuesta recibida:', data);
+                console.log('📱 Cliente celular recibido:', data.reserva?.cliente_celular);
+                console.log('👤 Cliente nombre recibido:', data.reserva?.cliente);
+                console.log('🔍 Datos completos de reserva:', JSON.stringify(data.reserva, null, 2));
                 if (data.success) {
                     mostrarDetallesOperacion(data.operacion, data.reserva);
                 } else {
@@ -2619,12 +2622,19 @@ function mostrarDetallesOperacion(operacion, reserva) {
         }).format(precio);
     };
     
+    // Mostrar celular solo si existe y no está vacío
+    let celularHtml = '';
+    if (reserva.cliente_celular && reserva.cliente_celular !== null && reserva.cliente_celular !== undefined && reserva.cliente_celular !== '' && reserva.cliente_celular !== 'null' && reserva.cliente_celular !== 'undefined') {
+        celularHtml = `<p><strong>Celular:</strong> ${reserva.cliente_celular}</p>`;
+    }
+    
     let html = `
         <div class="operacion-detalles">
             <h5><i class="fas fa-calendar-check"></i> Reserva #${reserva.id}</h5>
             <div class="row">
                 <div class="col-md-6">
-                    <p><strong>Cliente:</strong> ${reserva.cliente}</p>
+                    <p><strong>Cliente:</strong> ${reserva.cliente || 'No especificado'}</p>
+                    ${celularHtml}
                     <p><strong>Productor:</strong> ${reserva.productor_id ? `#${reserva.productor_id} - ${reserva.productor_nombre}` : 'No especificado'}</p>
                     <p><strong>Período:</strong> ${reserva.fecha_inicio} al ${reserva.fecha_fin}</p>
                     <p><strong>Total días:</strong> ${reserva.total_dias}</p>

@@ -10668,8 +10668,13 @@ def detalles_operacion_reserva(request, reserva_id):
         cliente_nombre = 'No especificado'
         cliente_celular = None
         if reserva.cliente:
-            apellido = (reserva.cliente.apellido or '').strip()
-            nombre = (reserva.cliente.nombre or '').strip()
+            # Debug: verificar que el cliente se haya cargado correctamente
+            apellido_raw = reserva.cliente.apellido
+            nombre_raw = reserva.cliente.nombre
+            celular_raw = reserva.cliente.celular
+            
+            apellido = (apellido_raw or '').strip() if apellido_raw else ''
+            nombre = (nombre_raw or '').strip() if nombre_raw else ''
             
             # Formatear: apellido, nombre (siempre en este orden)
             if apellido and nombre:
@@ -10682,9 +10687,8 @@ def detalles_operacion_reserva(request, reserva_id):
                 cliente_nombre = 'No especificado'
             
             # Obtener celular
-            celular_val = reserva.cliente.celular
-            if celular_val:
-                cliente_celular = str(celular_val).strip()
+            if celular_raw:
+                cliente_celular = str(celular_raw).strip()
                 if not cliente_celular:
                     cliente_celular = None
             else:
