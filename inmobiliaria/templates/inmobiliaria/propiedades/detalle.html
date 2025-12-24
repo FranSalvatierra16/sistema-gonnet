@@ -2629,8 +2629,23 @@ function mostrarDetallesOperacion(operacion, reserva) {
     
     // Mostrar celular solo si existe y no está vacío
     let celularHtml = '';
-    if (reserva.cliente_celular && reserva.cliente_celular !== '' && reserva.cliente_celular !== null && reserva.cliente_celular !== 'null' && reserva.cliente_celular !== 'undefined') {
+    console.log('🔍 Verificando celular:', {
+        cliente_celular: reserva.cliente_celular,
+        tipo: typeof reserva.cliente_celular,
+        length: reserva.cliente_celular ? reserva.cliente_celular.length : 'N/A'
+    });
+    
+    if (reserva.cliente_celular && 
+        reserva.cliente_celular !== '' && 
+        reserva.cliente_celular !== null && 
+        reserva.cliente_celular !== undefined &&
+        reserva.cliente_celular !== 'null' && 
+        reserva.cliente_celular !== 'undefined' &&
+        String(reserva.cliente_celular).trim() !== '') {
         celularHtml = `<p><strong>Celular:</strong> ${reserva.cliente_celular}</p>`;
+        console.log('✅ Celular HTML generado:', celularHtml);
+    } else {
+        console.log('❌ Celular no se mostrará porque está vacío o es null/undefined');
     }
     
     let html = `

@@ -261,12 +261,12 @@ def liquidaciones_propietarios(request):
                 )
         except (ValueError, TypeError):
             # Si hay error al convertir a ID, buscar en todos los campos
-            propietarios = propietarios.filter(
-                Q(id__icontains=busqueda) |
-                Q(nombre__icontains=busqueda) |
-                Q(apellido__icontains=busqueda) |
-                Q(dni__icontains=busqueda)
-            )
+        propietarios = propietarios.filter(
+            Q(id__icontains=busqueda) |
+            Q(nombre__icontains=busqueda) |
+            Q(apellido__icontains=busqueda) |
+            Q(dni__icontains=busqueda)
+        )
     
     context = {
         'propietarios': propietarios,
@@ -848,9 +848,9 @@ def propiedad_detalle(request, propiedad_id):
             if primera_reserva:
                 primera_reserva.reconstruir_historial_cronologico()
                 # Volver a obtener el historial después de reconstruirlo
-                historiales = HistorialDisponibilidad.objects.filter(
-                    propiedad=propiedad
-                ).order_by('fecha_actualizacion')
+    historiales = HistorialDisponibilidad.objects.filter(
+        propiedad=propiedad
+    ).order_by('fecha_actualizacion')
     
     # Obtener imágenes usando el related_name correcto
     imagenes = propiedad.imagenes.all()
@@ -931,15 +931,15 @@ def propiedad_detalle(request, propiedad_id):
 def propiedad_nuevo(request):
     if request.method == 'POST':
         try:
-            form = PropiedadForm(request.POST, request.FILES, user=request.user)
-            propietario_form = PropietarioForm(user=request.user)
-            if form.is_valid():
+        form = PropiedadForm(request.POST, request.FILES, user=request.user)
+        propietario_form = PropietarioForm(user=request.user)
+        if form.is_valid():
                 try:
-                    propiedad = form.save()
-                    # Las imágenes ya se procesan en el método save() del formulario
-                    # No las proceses aquí para evitar duplicación
-                    messages.success(request, 'Propiedad creada exitosamente.')
-                    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+            propiedad = form.save()
+            # Las imágenes ya se procesan en el método save() del formulario
+            # No las proceses aquí para evitar duplicación
+            messages.success(request, 'Propiedad creada exitosamente.')
+            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
                 except ValidationError as e:
                     # Si hay errores de validación, agregarlos al formulario
                     if hasattr(e, 'error_dict'):
@@ -984,13 +984,13 @@ def propiedad_editar(request, propiedad_id):
     
     if request.method == 'POST':
         try:
-            form = PropiedadForm(request.POST, request.FILES, instance=propiedad, user=request.user)
-            propietario_form = PropietarioForm(user=request.user)
-            if form.is_valid():
+        form = PropiedadForm(request.POST, request.FILES, instance=propiedad, user=request.user)
+        propietario_form = PropietarioForm(user=request.user)
+        if form.is_valid():
                 try:
-                    propiedad = form.save()  # El formulario se encarga de procesar las imágenes
-                    messages.success(request, 'Propiedad actualizada exitosamente.')
-                    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+            propiedad = form.save()  # El formulario se encarga de procesar las imágenes
+            messages.success(request, 'Propiedad actualizada exitosamente.')
+            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
                 except ValidationError as e:
                     # Si hay errores de validación, agregarlos al formulario
                     if hasattr(e, 'error_dict'):
@@ -1157,7 +1157,7 @@ def reservas(request):
             reservas = reservas.filter(id=int(search_id))
         except ValueError:
             # Si no es un número, buscar como string
-            reservas = reservas.filter(id__icontains=search_id)
+        reservas = reservas.filter(id__icontains=search_id)
     
     # ✅ Filtro por fecha (fecha de inicio de la reserva)
     fecha_desde = request.GET.get('fecha_desde', '').strip()
@@ -4971,31 +4971,31 @@ def crear_propietario_ajax(request):
             dni_limpio = None
             
             if dni_raw:  # Solo validar si se proporciona DNI
-                # Limpiar DNI: quitar puntos, espacios, guiones
-                dni_limpio = dni_raw.replace('.', '').replace(' ', '').replace('-', '').replace(',', '')
-                
-                # Validar que el DNI solo contenga números
-                if not dni_limpio.isdigit():
-                    return JsonResponse({
-                        'success': False,
+            # Limpiar DNI: quitar puntos, espacios, guiones
+            dni_limpio = dni_raw.replace('.', '').replace(' ', '').replace('-', '').replace(',', '')
+            
+            # Validar que el DNI solo contenga números
+            if not dni_limpio.isdigit():
+                return JsonResponse({
+                    'success': False,
                         'error': 'El DNI solo puede contener números. Por favor, ingrese solo los 7 u 8 dígitos del DNI sin puntos ni guiones.'
-                    })
-                
+                })
+            
                 # Validar longitud del DNI (7 u 8 dígitos)
                 if len(dni_limpio) != 7 and len(dni_limpio) != 8:
-                    return JsonResponse({
-                        'success': False,
+                return JsonResponse({
+                    'success': False,
                         'error': f'El DNI debe tener 7 u 8 dígitos. Usted ingresó {len(dni_limpio)} dígito(s). Por favor, verifique el DNI.'
-                    })
-                
-                # Verificar si el DNI ya existe
-                if Propietario.objects.filter(dni=dni_limpio).exists():
-                    propietario_existente = Propietario.objects.get(dni=dni_limpio)
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Ya existe un propietario con el DNI {dni_limpio}. Propietario: {propietario_existente.apellido}, {propietario_existente.nombre}'
-                    })
+                })
             
+            # Verificar si el DNI ya existe
+            if Propietario.objects.filter(dni=dni_limpio).exists():
+                propietario_existente = Propietario.objects.get(dni=dni_limpio)
+                return JsonResponse({
+                    'success': False,
+                        'error': f'Ya existe un propietario con el DNI {dni_limpio}. Propietario: {propietario_existente.apellido}, {propietario_existente.nombre}'
+                })
+                
             propietario = Propietario.objects.create(
                 nombre=request.POST['nombre'],
                 apellido=request.POST['apellido'],
@@ -5923,12 +5923,12 @@ def reconstruir_historial_propiedad(propiedad):
         # Si no hay reservas, crear historial básico con disponibilidades
         HistorialDisponibilidad.objects.filter(propiedad=propiedad).delete()
         for disp in propiedad.disponibilidades.filter(es_manual=True).order_by('fecha_inicio'):
-            HistorialDisponibilidad.objects.create(
-                propiedad=propiedad,
-                fecha_inicio=disp.fecha_inicio,
-                fecha_fin=disp.fecha_fin,
-                estado='libre'
-            )
+        HistorialDisponibilidad.objects.create(
+            propiedad=propiedad,
+            fecha_inicio=disp.fecha_inicio,
+            fecha_fin=disp.fecha_fin,
+            estado='libre'
+        )
 # print(f"   📅 Agregado período LIBRE: {disp.fecha_inicio} al {disp.fecha_fin}")
 
 @login_required
@@ -7532,14 +7532,14 @@ def buscar_propiedad(request):
         # Buscar por ID exacto primero
         try:
             propiedad = Propiedad.objects.get(id=int(termino), sucursal=sucursal)
-            return JsonResponse({
-                'success': True,
-                'propiedad': {
-                    'id': propiedad.id,
-                    'direccion': propiedad.direccion,
-                    'ubicacion': propiedad.ubicacion
-                }
-            })
+        return JsonResponse({
+            'success': True,
+            'propiedad': {
+                'id': propiedad.id,
+                'direccion': propiedad.direccion,
+                'ubicacion': propiedad.ubicacion
+            }
+        })
         except (ValueError, Propiedad.DoesNotExist):
             # Si no es un número o no se encuentra por ID, buscar por dirección
             propiedades = Propiedad.objects.filter(
@@ -7560,10 +7560,10 @@ def buscar_propiedad(request):
                     }
                 })
             else:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'No se encontró la propiedad'
-                })
+        return JsonResponse({
+            'success': False,
+            'error': 'No se encontró la propiedad'
+        })
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -7698,14 +7698,14 @@ def buscar_vendedor(request):
         # Buscar por ID exacto primero
         try:
             vendedor = Vendedor.objects.get(id=int(termino), sucursal=sucursal)
-            return JsonResponse({
-                'success': True,
-                'vendedor': {
-                    'id': vendedor.id,
-                    'nombre': vendedor.nombre,
-                    'apellido': vendedor.apellido
-                }
-            })
+        return JsonResponse({
+            'success': True,
+            'vendedor': {
+                'id': vendedor.id,
+                'nombre': vendedor.nombre,
+                'apellido': vendedor.apellido
+            }
+        })
         except (ValueError, Vendedor.DoesNotExist):
             # Si no es un número o no se encuentra por ID, buscar por nombre/apellido
             vendedores = Vendedor.objects.filter(
@@ -7727,10 +7727,10 @@ def buscar_vendedor(request):
                     }
                 })
             else:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'No se encontró el vendedor'
-                })
+        return JsonResponse({
+            'success': False,
+            'error': 'No se encontró el vendedor'
+        })
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -8981,40 +8981,40 @@ def procesar_operacion_contrato(request, contrato_id):
                     )
             else:
                 # Para contratos normales (24 meses u otros), usar lógica original
+            try:
+                fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, contrato.dia_vencimiento)
+                # Si ya pasó el día este mes, programar para el próximo mes
+                if fecha_actual.day >= contrato.dia_vencimiento:
+                    fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
+            except ValueError:
+                # Si el día no existe en el mes actual (ej: 31 en febrero), usar el último día del mes
+                fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, 28)
+                if fecha_actual.day >= 28:
+                    fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
+            
+            for i in range(contrato.duracion_meses):
+                CuotaMensual.objects.create(
+                    contrato=contrato, 
+                    numero_cuota=i + 1, 
+                    fecha_vencimiento=fecha_vencimiento,
+                    monto_base=contrato.precio_mensual, 
+                    monto_total=contrato.precio_mensual,
+                    estado='pendiente', 
+                    movimiento=None, 
+                    fecha_pago=None
+                )
+                # Avanzar al siguiente mes manteniendo el día de vencimiento
                 try:
-                    fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, contrato.dia_vencimiento)
-                    # Si ya pasó el día este mes, programar para el próximo mes
-                    if fecha_actual.day >= contrato.dia_vencimiento:
-                        fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
+                    fecha_vencimiento = fecha_vencimiento.replace(month=fecha_vencimiento.month + 1)
                 except ValueError:
-                    # Si el día no existe en el mes actual (ej: 31 en febrero), usar el último día del mes
-                    fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, 28)
-                    if fecha_actual.day >= 28:
-                        fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
-                
-                for i in range(contrato.duracion_meses):
-                    CuotaMensual.objects.create(
-                        contrato=contrato, 
-                        numero_cuota=i + 1, 
-                        fecha_vencimiento=fecha_vencimiento,
-                        monto_base=contrato.precio_mensual, 
-                        monto_total=contrato.precio_mensual,
-                        estado='pendiente', 
-                        movimiento=None, 
-                        fecha_pago=None
-                    )
-                    # Avanzar al siguiente mes manteniendo el día de vencimiento
-                    try:
+                    # Si el día no existe en el próximo mes, ajustar el año
+                    if fecha_vencimiento.month == 12:
+                        fecha_vencimiento = fecha_vencimiento.replace(year=fecha_vencimiento.year + 1, month=1)
+                    else:
                         fecha_vencimiento = fecha_vencimiento.replace(month=fecha_vencimiento.month + 1)
-                    except ValueError:
-                        # Si el día no existe en el próximo mes, ajustar el año
-                        if fecha_vencimiento.month == 12:
-                            fecha_vencimiento = fecha_vencimiento.replace(year=fecha_vencimiento.year + 1, month=1)
-                        else:
-                            fecha_vencimiento = fecha_vencimiento.replace(month=fecha_vencimiento.month + 1)
-                    except:
-                        # Usar relativedelta como fallback
-                        fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
+                except:
+                    # Usar relativedelta como fallback
+                    fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
             
             contrato.operacion_principal = True
             contrato.estado = 'activo'  # Cambiar estado a activo después de la operación principal
@@ -9031,7 +9031,7 @@ def procesar_operacion_contrato(request, contrato_id):
                 # Contrato de 24 meses
                 if hasattr(contrato.propiedad, 'info_meses'):
                     contrato.propiedad.info_meses.estado = 'ocupado'
-                    contrato.propiedad.info_meses.save()
+            contrato.propiedad.info_meses.save()
         else:
             cuota = contrato.cuotas.filter(estado='pendiente').order_by('fecha_vencimiento').first()
             if not cuota:
@@ -10666,17 +10666,17 @@ def detalles_operacion_reserva(request, reserva_id):
         
         # Formatear nombre del cliente: apellido, nombre
         cliente_nombre = 'No especificado'
-        cliente_celular = ''
+        cliente_celular = None
         if reserva.cliente:
-            # Obtener apellido y nombre directamente de los campos
-            apellido_val = reserva.cliente.apellido
-            nombre_val = reserva.cliente.nombre
+            # Acceder directamente a los campos - usar getattr para seguridad
+            apellido = getattr(reserva.cliente, 'apellido', None) or ''
+            nombre = getattr(reserva.cliente, 'nombre', None) or ''
             
-            # Limpiar valores (quitar espacios, manejar None)
-            apellido = str(apellido_val).strip() if apellido_val else ''
-            nombre = str(nombre_val).strip() if nombre_val else ''
+            # Limpiar espacios
+            apellido = apellido.strip() if apellido else ''
+            nombre = nombre.strip() if nombre else ''
             
-            # Formatear: apellido, nombre
+            # Formatear: apellido, nombre (siempre en este orden)
             if apellido and nombre:
                 cliente_nombre = f"{apellido}, {nombre}"
             elif nombre:
@@ -10686,16 +10686,14 @@ def detalles_operacion_reserva(request, reserva_id):
             else:
                 cliente_nombre = 'No especificado'
             
-            # Obtener celular - verificar si existe y no está vacío
-            try:
-                celular_val = reserva.cliente.celular
-                if celular_val:
-                    cliente_celular = str(celular_val).strip()
-                    # Si después de strip está vacío, usar cadena vacía
-                    if not cliente_celular:
-                        cliente_celular = ''
-            except (AttributeError, ValueError):
-                cliente_celular = ''
+            # Obtener celular - usar getattr para seguridad
+            celular_val = getattr(reserva.cliente, 'celular', None)
+            if celular_val:
+                cliente_celular = str(celular_val).strip()
+                if not cliente_celular:
+                    cliente_celular = None
+            else:
+                cliente_celular = None
         
         # Formatear nombre del vendedor: apellido, nombre
         productor_nombre = 'No especificado'
@@ -10716,6 +10714,11 @@ def detalles_operacion_reserva(request, reserva_id):
             'total_dias': (reserva.fecha_fin - reserva.fecha_inicio).days,
             'estado': reserva.estado
         }
+        
+        # Debug: Log para verificar qué se está enviando
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"Detalles operación reserva {reserva_id}: cliente_nombre={cliente_nombre}, cliente_celular={cliente_celular}")
         
         return JsonResponse({
             'success': True,
@@ -11025,7 +11028,7 @@ def ver_recibo_pdf(request, reserva_id):
         
         # Generar el PDF usando pisaDocument (método más compatible)
         try:
-            result = io.BytesIO()
+        result = io.BytesIO()
             pdf = pisa.pisaDocument(
                 io.BytesIO(html.encode('UTF-8')),
                 result,
@@ -11101,7 +11104,7 @@ def ver_recibo_pdf(request, reserva_id):
             
             return response
             
-        except Exception as e:
+    except Exception as e:
             import logging
             import traceback
             logger = logging.getLogger(__name__)
@@ -11292,7 +11295,7 @@ def ver_recibo_publico(request, reserva_id, token):
         
         # Generar el PDF usando pisaDocument (método más compatible)
         try:
-            result = io.BytesIO()
+        result = io.BytesIO()
             pdf = pisa.pisaDocument(
                 io.BytesIO(html.encode('UTF-8')),
                 result,
@@ -11368,7 +11371,7 @@ def ver_recibo_publico(request, reserva_id, token):
             
             return response
             
-        except Exception as e:
+    except Exception as e:
             import logging
             import traceback
             logger = logging.getLogger(__name__)
@@ -11727,7 +11730,7 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
         
         # Generar el PDF usando pisaDocument (método más compatible)
         try:
-            result = io.BytesIO()
+        result = io.BytesIO()
             pdf = pisa.pisaDocument(
                 io.BytesIO(html.encode('UTF-8')),
                 result,
@@ -11803,7 +11806,7 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
             
             return response
             
-        except Exception as e:
+    except Exception as e:
             import logging
             import traceback
             logger = logging.getLogger(__name__)
