@@ -41,6 +41,18 @@
     </div>
 
     {% if propiedades_encontradas %}
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Leyenda:</strong>
+                <span class="badge bg-warning text-dark ms-2">
+                    <i class="fas fa-exclamation-triangle"></i> Amarillo
+                </span>
+                = Tiene una reserva que termina el día de inicio de búsqueda (se puede reservar)
+            </div>
+        </div>
+    </div>
     <div class="row">
         <div class="col-12">
             <div class="card shadow">
@@ -66,7 +78,7 @@
                             </thead>
                             <tbody>
                                 {% for item in propiedades_encontradas %}
-                                <tr>
+                                <tr {% if item.reserva_termina_en_inicio %}class="table-warning" style="background-color: #fff3cd !important;"{% endif %}>
                                     <td>{{ item.propiedad.id }}</td>
                                     <td>
                                         <strong>{{ item.propiedad.direccion }}</strong>
@@ -74,6 +86,12 @@
                                         <br><small class="text-muted">
                                             {% if item.propiedad.piso %}Piso: {{ item.propiedad.piso }}{% endif %}
                                             {% if item.propiedad.departamento %} - Dpto: {{ item.propiedad.departamento }}{% endif %}
+                                        </small>
+                                        {% endif %}
+                                        {% if item.reserva_termina_en_inicio %}
+                                        <br><small class="badge bg-warning text-dark">
+                                            <i class="fas fa-exclamation-triangle"></i> 
+                                            Reserva hasta el {{ item.reserva_termina_en_inicio.fecha_fin|date:'d/m/Y' }}
                                         </small>
                                         {% endif %}
                                     </td>

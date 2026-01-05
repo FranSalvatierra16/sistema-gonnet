@@ -5098,6 +5098,12 @@ def buscar_propiedades_por_fechas(request):
                         fecha_fin__gt=fecha_desde
                     )
                     
+                    # Verificar si hay una reserva que termina exactamente en la fecha de inicio
+                    reserva_termina_en_inicio = propiedad.reservas.filter(
+                        eliminada=False,
+                        fecha_fin=fecha_desde
+                    ).first()
+                    
                     # Determinar el estado de la propiedad
                     estado_propiedad = 'disponible'
                     if reservas_en_rango.filter(estado='pagada').exists():
@@ -5112,7 +5118,8 @@ def buscar_propiedades_por_fechas(request):
                         'disponibilidades': disponibilidades_propiedad,
                         'tiene_reservas': reservas_en_rango.exists(),
                         'reservas': reservas_en_rango,
-                        'estado': estado_propiedad
+                        'estado': estado_propiedad,
+                        'reserva_termina_en_inicio': reserva_termina_en_inicio  # Reserva que termina el día de inicio
                     })
                 
             except ValueError:
