@@ -5114,9 +5114,11 @@ def buscar_propiedades_por_fechas(request):
                     # Verificar si hay una reserva que termina exactamente en la fecha de inicio
                     # IMPORTANTE: Buscar reservas que terminan el día ANTES del inicio de búsqueda
                     # Si busco del 15 al 16, una reserva del 14 al 15 termina el 15, que es el día de inicio
+                    # SOLO si está en estado confirmada o confirmada_no_pagada (no pagadas)
                     reserva_termina_en_inicio = propiedad.reservas.filter(
                         eliminada=False,
-                        fecha_fin=fecha_desde
+                        fecha_fin=fecha_desde,
+                        estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera']
                     ).exclude(
                         # Excluir reservas que también empiezan en fecha_desde (esas están en el rango)
                         fecha_inicio=fecha_desde
@@ -8158,10 +8160,11 @@ def buscar_propiedades(request):
                 propiedad.estado_reserva = 'disponible'
                 
                 # Verificar si hay una reserva que termina exactamente en la fecha de inicio
-                # (para mostrar en amarillo)
+                # (para mostrar en amarillo) - SOLO si está en estado confirmada o confirmada_no_pagada
                 reserva_termina_en_inicio = propiedad.reservas.filter(
                     eliminada=False,
-                    fecha_fin=fecha_inicio
+                    fecha_fin=fecha_inicio,
+                    estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera']
                 ).exclude(
                     # Excluir reservas que también empiezan en fecha_inicio (esas están en el rango)
                     fecha_inicio=fecha_inicio
@@ -8242,11 +8245,12 @@ def buscar_propiedades(request):
                 # No sobrescribir con las fechas de búsqueda
                 
                 # Verificar si hay una reserva que termina exactamente en la fecha de inicio
-                # (para mostrar en amarillo) - solo si no se detectó antes
+                # (para mostrar en amarillo) - SOLO si está en estado confirmada o confirmada_no_pagada
                 if not hasattr(propiedad, 'reserva_termina_en_inicio'):
                     reserva_termina_en_inicio = propiedad.reservas.filter(
                         eliminada=False,
-                        fecha_fin=fecha_inicio
+                        fecha_fin=fecha_inicio,
+                        estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera']
                     ).exclude(
                         # Excluir reservas que también empiezan en fecha_inicio (esas están en el rango)
                         fecha_inicio=fecha_inicio
