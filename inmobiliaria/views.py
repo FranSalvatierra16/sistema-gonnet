@@ -8156,6 +8156,19 @@ def buscar_propiedades(request):
             else:
                 # ✅ PROPIEDADES SIN RESERVAS - Calcular precios y agregar a lista
                 propiedad.estado_reserva = 'disponible'
+                
+                # Verificar si hay una reserva que termina exactamente en la fecha de inicio
+                # (para mostrar en amarillo)
+                reserva_termina_en_inicio = propiedad.reservas.filter(
+                    eliminada=False,
+                    fecha_fin=fecha_inicio
+                ).exclude(
+                    # Excluir reservas que también empiezan en fecha_inicio (esas están en el rango)
+                    fecha_inicio=fecha_inicio
+                ).first()
+                
+                if reserva_termina_en_inicio:
+                    propiedad.reserva_termina_en_inicio = reserva_termina_en_inicio
 # print(f"   ✅ DISPONIBLE: Sin reservas para mostrar en rojo")
 
             # ✅ CÁLCULO POR NOCHES: Usar precio del día de SALIDA, EXCEPTO Año Nuevo
@@ -8227,6 +8240,20 @@ def buscar_propiedades(request):
                 
                 # ✅ Las fechas de disponibilidad ya fueron calculadas dinámicamente en el primer bucle
                 # No sobrescribir con las fechas de búsqueda
+                
+                # Verificar si hay una reserva que termina exactamente en la fecha de inicio
+                # (para mostrar en amarillo) - solo si no se detectó antes
+                if not hasattr(propiedad, 'reserva_termina_en_inicio'):
+                    reserva_termina_en_inicio = propiedad.reservas.filter(
+                        eliminada=False,
+                        fecha_fin=fecha_inicio
+                    ).exclude(
+                        # Excluir reservas que también empiezan en fecha_inicio (esas están en el rango)
+                        fecha_inicio=fecha_inicio
+                    ).first()
+                    
+                    if reserva_termina_en_inicio:
+                        propiedad.reserva_termina_en_inicio = reserva_termina_en_inicio
                 
                 # Agregar la propiedad disponible a la lista
                 propiedades_disponibles.append(propiedad)

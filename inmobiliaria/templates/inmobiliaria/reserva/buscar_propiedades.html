@@ -1196,6 +1196,42 @@
                             <td style="color: red;">{{ propiedad.precio_total_reserva|format_price }}</td>
                             <td style="color: red;">{{ propiedad.sucursal.nombre }}</td>
                         </tr>
+                        {% elif propiedad.reserva_termina_en_inicio %}
+                        <tr style="background-color: #fff3cd !important;" 
+                            class="propiedad-row table-warning"
+                            data-index="{{ forloop.counter0 }}"
+                            data-propiedad-id="{{ propiedad.id }}"
+                            data-direccion="{{ propiedad.direccion|escapejs }}"
+                            data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
+                            data-disponibilidad="{{ propiedad.disponibilidad }}"
+                            data-precio-total="{{ propiedad.precio_total_reserva|floatformat:0 }}"
+                            data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
+                            data-estado-reserva="{{ propiedad.estado_reserva }}"
+                            data-precio-dia="{{ propiedad.precio_por_dia }}"
+                            data-total-dias="{{ total_dias }}"
+                            data-ambientes="{{ propiedad.ambientes|default:0 }}"
+                            data-cantidad-personas="{{ propiedad.cantidad_personas|default:'' }}"
+                            data-estado="{{ propiedad.estado|default:'Disponible' }}"
+                            data-llave="{{ propiedad.llave|default:'Sin asignar' }}"
+                            data-descripcion="{{ propiedad.descripcion|default:'Sin descripción' }}"
+                            data-caracteristicas="{{ propiedad|get_caracteristicas }}">
+                            <td>{{ propiedad.id }}</td>
+                            <td>
+                                {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
+                                {% if propiedad.reserva_termina_en_inicio %}
+                                <br><small class="badge bg-warning text-dark">
+                                    <i class="fas fa-exclamation-triangle"></i> 
+                                    Reserva hasta el {{ propiedad.reserva_termina_en_inicio.fecha_fin|date:'d/m/Y' }}
+                                </small>
+                                {% endif %}
+                            </td>
+                            <td>{{ propiedad.ubicacion }}</td>
+                            <td>{{ propiedad.piso }}</td>
+                            <td>{{ propiedad.departamento }}</td>
+                            <td>{{ propiedad.propietario.apellido }}</td>
+                            <td>{{ propiedad.precio_total_reserva|format_price }}</td>
+                            <td>{{ propiedad.sucursal.nombre }}</td>
+                        </tr>
                         {% else %}
                         <tr style="background-color: white;" 
                             class="propiedad-row"
