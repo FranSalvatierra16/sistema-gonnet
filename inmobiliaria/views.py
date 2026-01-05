@@ -1260,15 +1260,55 @@ def operaciones(request):
         sucursal=request.user.sucursal,
         estado__in=['pagada', 'confirmada_no_pagada'],
         eliminada=False
-    ).prefetch_related('pagos').order_by('-id')
+    ).select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor').prefetch_related('pagos').order_by('-id')
     
     # ✅ Filtro de búsqueda por ID
     search_id = request.GET.get('search_id', '').strip()
     if search_id:
-        reservas = reservas.filter(id__icontains=search_id)
+        try:
+            reservas = reservas.filter(id=int(search_id))
+        except ValueError:
+            reservas = reservas.filter(id__icontains=search_id)
+    
+    # ✅ Filtro por fecha (fecha de inicio de la reserva)
+    fecha_desde = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta = request.GET.get('fecha_hasta', '').strip()
+    
+    if fecha_desde:
+        try:
+            fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
+            reservas = reservas.filter(fecha_inicio__gte=fecha_desde_obj)
+        except ValueError:
+            pass
+    
+    if fecha_hasta:
+        try:
+            fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
+            reservas = reservas.filter(fecha_inicio__lte=fecha_hasta_obj)
+        except ValueError:
+            pass
+    
+    # ✅ Filtro por vendedor (ID del vendedor seleccionado)
+    search_vendedor_id = request.GET.get('search_vendedor', '').strip()
+    if search_vendedor_id:
+        try:
+            reservas = reservas.filter(vendedor_id=int(search_vendedor_id))
+        except ValueError:
+            pass
+    
+    # ✅ Filtro por número de ficha (numero_por_propietario)
+    search_ficha = request.GET.get('search_ficha', '').strip()
+    if search_ficha:
+        try:
+            reservas = reservas.filter(propiedad__numero_por_propietario=int(search_ficha))
+        except ValueError:
+            reservas = reservas.filter(propiedad__numero_por_propietario__icontains=search_ficha)
     
     # ✅ Filtro de pendientes de pago
     solo_pendientes = request.GET.get('solo_pendientes', '') == 'true'
+    
+    # Obtener lista de vendedores para el select
+    vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre')
     
     # Lista para almacenar solo las reservas con pagos
     reservas_con_pagos = []
@@ -1388,10 +1428,15 @@ def operaciones(request):
     return render(request, 'inmobiliaria/reserva/operaciones.html', {
         'reservas': reservas_con_pagos,
         'search_id': search_id,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+        'search_vendedor': search_vendedor_id,
+        'search_ficha': search_ficha,
         'solo_pendientes': solo_pendientes,
         'total_operaciones': total_operaciones,
         'operaciones_pendientes': operaciones_pendientes,
         'operaciones_mostradas': len(reservas_con_pagos),
+        'vendedores': vendedores,
     })
 def crear_reserva(request):
 

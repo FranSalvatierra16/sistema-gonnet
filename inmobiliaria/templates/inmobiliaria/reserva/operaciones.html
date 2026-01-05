@@ -476,24 +476,82 @@
                 </div>
             </div>
             
-            <!-- ✅ Filtro de búsqueda por ID -->
-            <div style="margin-top: 1rem; display: flex; justify-content: center;">
-                <form method="GET" style="display: flex; align-items: center; gap: 0.5rem;">
-                    {% if solo_pendientes %}
-                        <input type="hidden" name="solo_pendientes" value="true">
-                    {% endif %}
-                    <input type="text" name="search_id" value="{{ search_id }}" 
-                           placeholder="Buscar operación por ID..." 
-                           style="padding: 0.5rem; border: 2px solid #ddd; border-radius: 8px; width: 200px;">
-                    <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="fas fa-search"></i> Buscar
-                    </button>
-                    {% if search_id %}
-                    <a href="{% url 'inmobiliaria:operaciones' %}{% if solo_pendientes %}?solo_pendientes=true{% endif %}" class="btn btn-secondary btn-sm" title="Limpiar filtro">
-                        <i class="fas fa-times"></i> Limpiar
-                    </a>
-                    {% endif %}
-                </form>
+            <!-- ✅ Filtros de búsqueda -->
+            <div class="row mb-3" style="margin-top: 1rem;">
+                <div class="col-12">
+                    <form method="GET" class="card p-3" style="background: rgba(255, 255, 255, 0.9);">
+                        {% if solo_pendientes %}
+                            <input type="hidden" name="solo_pendientes" value="true">
+                        {% endif %}
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label"><i class="fas fa-hashtag me-1"></i>Buscar por ID</label>
+                                <input type="text" name="search_id" value="{{ search_id }}" 
+                                       class="form-control" placeholder="ID de operación...">
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label class="form-label"><i class="fas fa-calendar me-1"></i>Fecha Desde</label>
+                                <input type="date" name="fecha_desde" value="{{ fecha_desde }}" 
+                                       class="form-control">
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label class="form-label"><i class="fas fa-calendar me-1"></i>Fecha Hasta</label>
+                                <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" 
+                                       class="form-control">
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label class="form-label"><i class="fas fa-user-tie me-1"></i>Vendedor</label>
+                                <div class="position-relative">
+                                    <input type="text" 
+                                           id="vendedor_buscar_operaciones" 
+                                           class="form-control" 
+                                           placeholder="Buscar por nombre, apellido o ID..."
+                                           autocomplete="off"
+                                           onkeyup="filtrarVendedoresOperaciones()"
+                                           onclick="mostrarListaVendedoresOperaciones()">
+                                    <select name="search_vendedor" id="select_vendedor_operaciones" class="form-control d-none">
+                                        <option value="">Todos los vendedores</option>
+                                        {% for vendedor in vendedores %}
+                                        <option value="{{ vendedor.id }}" 
+                                                data-nombre="{{ vendedor.nombre }}" 
+                                                data-apellido="{{ vendedor.apellido }}"
+                                                data-id="{{ vendedor.id }}"
+                                                {% if search_vendedor == vendedor.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ vendedor.apellido }}, {{ vendedor.nombre }} (ID: {{ vendedor.id }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div id="lista_vendedores_operaciones" class="list-group position-absolute w-100" style="z-index: 1000; max-height: 200px; overflow-y: auto; display: none; background: white; border: 1px solid #ddd; border-radius: 4px; margin-top: 2px;">
+                                        <!-- Se llenará dinámicamente -->
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label class="form-label"><i class="fas fa-hashtag me-1"></i>Número de Ficha</label>
+                                <input type="text" name="search_ficha" value="{{ search_ficha }}" 
+                                       class="form-control" placeholder="Número de ficha...">
+                            </div>
+                            
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search me-2"></i>Buscar
+                                </button>
+                            </div>
+                            
+                            {% if search_id or fecha_desde or fecha_hasta or search_vendedor or search_ficha %}
+                            <div class="col-md-3 d-flex align-items-end">
+                                <a href="{% url 'inmobiliaria:operaciones' %}{% if solo_pendientes %}?solo_pendientes=true{% endif %}" class="btn btn-secondary w-100" title="Limpiar filtros">
+                                    <i class="fas fa-times me-2"></i>Limpiar
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -883,6 +941,103 @@ document.addEventListener('DOMContentLoaded', function() {
             mostrarAutenticacionSeguridad(url, texto);
         }
     });
+    
+    // Inicializar vendedor seleccionado si hay uno
+    const selectVendedor = document.getElementById('select_vendedor_operaciones');
+    const inputBuscar = document.getElementById('vendedor_buscar_operaciones');
+    if (selectVendedor && inputBuscar) {
+        const selectedOption = selectVendedor.options[selectVendedor.selectedIndex];
+        if (selectedOption && selectedOption.value) {
+            inputBuscar.value = selectedOption.text;
+        }
+        
+        // Ocultar lista al hacer click fuera
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#vendedor_buscar_operaciones') && !e.target.closest('#lista_vendedores_operaciones')) {
+                const lista = document.getElementById('lista_vendedores_operaciones');
+                if (lista) {
+                    lista.style.display = 'none';
+                }
+            }
+        });
+    }
 });
+
+// Función para filtrar vendedores mientras se escribe (operaciones)
+function filtrarVendedoresOperaciones() {
+    const termino = document.getElementById('vendedor_buscar_operaciones').value.toLowerCase();
+    const select = document.getElementById('select_vendedor_operaciones');
+    const lista = document.getElementById('lista_vendedores_operaciones');
+    
+    if (!select || !lista) return;
+    
+    lista.innerHTML = '';
+    lista.style.display = 'block';
+    
+    // Agregar opción "Todos los vendedores"
+    if (!termino) {
+        const opcionTodos = document.createElement('a');
+        opcionTodos.href = '#';
+        opcionTodos.className = 'list-group-item list-group-item-action';
+        opcionTodos.textContent = 'Todos los vendedores';
+        opcionTodos.onclick = function(e) {
+            e.preventDefault();
+            document.getElementById('select_vendedor_operaciones').value = '';
+            document.getElementById('vendedor_buscar_operaciones').value = '';
+            lista.style.display = 'none';
+        };
+        lista.appendChild(opcionTodos);
+    }
+    
+    // Filtrar opciones
+    Array.from(select.options).forEach(option => {
+        if (option.value === '') return; // Saltar opción vacía
+        
+        const nombre = (option.dataset.nombre || '').toLowerCase();
+        const apellido = (option.dataset.apellido || '').toLowerCase();
+        const id = (option.dataset.id || '').toString();
+        const textoCompleto = option.text.toLowerCase();
+        
+        if (!termino || 
+            nombre.includes(termino) || 
+            apellido.includes(termino) || 
+            id.includes(termino) ||
+            textoCompleto.includes(termino)) {
+            
+            const item = document.createElement('a');
+            item.href = '#';
+            item.className = 'list-group-item list-group-item-action';
+            item.textContent = option.text;
+            item.onclick = function(e) {
+                e.preventDefault();
+                select.value = option.value;
+                document.getElementById('vendedor_buscar_operaciones').value = option.text;
+                lista.style.display = 'none';
+            };
+            lista.appendChild(item);
+        }
+    });
+    
+    if (lista.children.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.className = 'list-group-item';
+        noResults.textContent = 'No se encontraron vendedores';
+        lista.appendChild(noResults);
+    }
+}
+
+// Función para mostrar lista de vendedores (operaciones)
+function mostrarListaVendedoresOperaciones() {
+    const lista = document.getElementById('lista_vendedores_operaciones');
+    const input = document.getElementById('vendedor_buscar_operaciones');
+    
+    if (lista && input) {
+        if (input.value === '') {
+            filtrarVendedoresOperaciones();
+        } else {
+            lista.style.display = 'block';
+        }
+    }
+}
 </script>
 {% endblock %}
