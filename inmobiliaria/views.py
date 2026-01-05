@@ -5082,8 +5082,21 @@ def buscar_propiedades_por_fechas(request):
                     fecha_fin__gt=fecha_desde,
                 ).select_related('propiedad', 'propiedad__propietario', 'propiedad__sucursal').distinct()
                 
-                # Obtener propiedades únicas
-                propiedades_ids = disponibilidades.values_list('propiedad_id', flat=True).distinct()
+                # Obtener propiedades únicas de disponibilidades
+                propiedades_ids_disponibilidades = disponibilidades.values_list('propiedad_id', flat=True).distinct()
+                
+                # También buscar propiedades que tienen reservas que terminan en fecha_desde
+                # (para mostrar en amarillo aunque no tengan disponibilidad que se superponga)
+                reservas_terminan_inicio = Reserva.objects.filter(
+                    eliminada=False,
+                    fecha_fin=fecha_desde
+                ).select_related('propiedad', 'propiedad__propietario', 'propiedad__sucursal')
+                
+                propiedades_ids_reservas = reservas_terminan_inicio.values_list('propiedad_id', flat=True).distinct()
+                
+                # Combinar ambas listas de IDs
+                propiedades_ids = list(set(list(propiedades_ids_disponibilidades) + list(propiedades_ids_reservas)))
+                
                 propiedades = Propiedad.objects.filter(id__in=propiedades_ids).select_related('propietario', 'sucursal')
                 
                 # Para cada propiedad, obtener información relevante
