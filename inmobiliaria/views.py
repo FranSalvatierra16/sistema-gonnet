@@ -875,6 +875,8 @@ def propiedad_detalle(request, propiedad_id):
         When(tipo_precio=TipoPrecio.SEMANA_SANTA, then=10),
         When(tipo_precio=TipoPrecio.CARNAVALES, then=11),
         When(tipo_precio=TipoPrecio.VACACIONES_INVIERNO, then=12),
+        When(tipo_precio=TipoPrecio.ESTUDIANTE, then=13),
+        default=999,
         output_field=IntegerField(),
     )
 
@@ -3150,8 +3152,30 @@ def gestionar_precios(request, propiedad_id):
             }
         )
     
-    # Obtener TODOS los precios ordenados
-    precios = Precio.objects.filter(propiedad=propiedad).order_by('tipo_precio')
+    # Definir el orden personalizado para los tipos de precio (igual que en propiedad_detalle)
+    orden_tipo_precio = Case(
+        When(tipo_precio=TipoPrecio.QUINCENA_1_DICIEMBRE, then=0),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_DICIEMBRE, then=1),
+        When(tipo_precio=TipoPrecio.QUINCENA_1_ENERO, then=2),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_ENERO, then=3),
+        When(tipo_precio=TipoPrecio.QUINCENA_1_FEBRERO, then=4),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_FEBRERO, then=5),
+        When(tipo_precio=TipoPrecio.QUINCENA_1_MARZO, then=6),
+        When(tipo_precio=TipoPrecio.QUINCENA_2_MARZO, then=7),
+        When(tipo_precio=TipoPrecio.TEMPORADA_BAJA, then=8),
+        When(tipo_precio=TipoPrecio.FINDE_LARGO, then=9),
+        When(tipo_precio=TipoPrecio.SEMANA_SANTA, then=10),
+        When(tipo_precio=TipoPrecio.CARNAVALES, then=11),
+        When(tipo_precio=TipoPrecio.VACACIONES_INVIERNO, then=12),
+        When(tipo_precio=TipoPrecio.ESTUDIANTE, then=13),
+        default=999,
+        output_field=IntegerField(),
+    )
+    
+    # Obtener TODOS los precios ordenados con el orden personalizado
+    precios = Precio.objects.filter(propiedad=propiedad).annotate(
+        orden_tipo_precio=orden_tipo_precio
+    ).order_by('orden_tipo_precio')
 
     if request.method == 'POST':
         formset = PrecioFormSet(request.POST, queryset=precios)
