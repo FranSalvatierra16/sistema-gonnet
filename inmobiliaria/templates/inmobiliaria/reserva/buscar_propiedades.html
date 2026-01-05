@@ -1216,15 +1216,7 @@
                             data-descripcion="{{ propiedad.descripcion|default:'Sin descripción' }}"
                             data-caracteristicas="{{ propiedad|get_caracteristicas }}">
                             <td>{{ propiedad.id }}</td>
-                            <td>
-                                {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}
-                                {% if propiedad.reserva_termina_en_inicio %}
-                                <br><small class="badge bg-warning text-dark">
-                                    <i class="fas fa-exclamation-triangle"></i> 
-                                    Reserva hasta el {{ propiedad.reserva_termina_en_inicio.fecha_fin|date:'d/m/Y' }}
-                                </small>
-                                {% endif %}
-                            </td>
+                            <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td>{{ propiedad.ubicacion }}</td>
                             <td>{{ propiedad.piso }}</td>
                             <td>{{ propiedad.departamento }}</td>
