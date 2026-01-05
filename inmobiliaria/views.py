@@ -3134,23 +3134,24 @@ def gestionar_precios(request, propiedad_id):
         extra=0
     )
     
-    # Si la propiedad no tiene precios, crearlos TODOS
-    if not precios.exists():
-        pass  # ✅ Bloque vacío
-# print("Creando precios iniciales para la propiedad")
-        for tipo_choice in TipoPrecio.choices:
-            tipo_key = tipo_choice[0]
-            Precio.objects.create(
-                propiedad=propiedad,
-                tipo_precio=tipo_key,
-                precio_por_dia=0,
-                precio_total=0,
-                precio_toma=0 if vendedor.nivel > 2 else None,
-                precio_dia_toma=0 if vendedor.nivel > 2 else None,
-                ajuste_porcentaje=0
-            )
-        precios = Precio.objects.filter(propiedad=propiedad)
-# print(f"Precios creados: {precios.count()}")
+    # Asegurar que existan TODOS los tipos de precio
+    # Crear los que faltan usando get_or_create para evitar duplicados
+    for tipo_choice in TipoPrecio.choices:
+        tipo_key = tipo_choice[0]
+        Precio.objects.get_or_create(
+            propiedad=propiedad,
+            tipo_precio=tipo_key,
+            defaults={
+                'precio_por_dia': 0,
+                'precio_total': 0,
+                'precio_toma': 0 if vendedor.nivel > 2 else None,
+                'precio_dia_toma': 0 if vendedor.nivel > 2 else None,
+                'ajuste_porcentaje': 0
+            }
+        )
+    
+    # Obtener TODOS los precios ordenados
+    precios = Precio.objects.filter(propiedad=propiedad).order_by('tipo_precio')
 
     if request.method == 'POST':
         formset = PrecioFormSet(request.POST, queryset=precios)
