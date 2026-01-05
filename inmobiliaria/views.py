@@ -5112,9 +5112,14 @@ def buscar_propiedades_por_fechas(request):
                     )
                     
                     # Verificar si hay una reserva que termina exactamente en la fecha de inicio
+                    # IMPORTANTE: Buscar reservas que terminan el día ANTES del inicio de búsqueda
+                    # Si busco del 15 al 16, una reserva del 14 al 15 termina el 15, que es el día de inicio
                     reserva_termina_en_inicio = propiedad.reservas.filter(
                         eliminada=False,
                         fecha_fin=fecha_desde
+                    ).exclude(
+                        # Excluir reservas que también empiezan en fecha_desde (esas están en el rango)
+                        fecha_inicio=fecha_desde
                     ).first()
                     
                     # Determinar el estado de la propiedad
@@ -5126,13 +5131,17 @@ def buscar_propiedades_por_fechas(request):
                     elif reservas_en_rango.filter(estado='en_espera').exists():
                         estado_propiedad = 'temporal'
                     
+                    # Debug: Verificar si encontramos la reserva
+                    # if reserva_termina_en_inicio:
+                    #     print(f"DEBUG: Propiedad {propiedad.id} tiene reserva que termina en {fecha_desde}: {reserva_termina_en_inicio.id}")
+                    
                     propiedades_encontradas.append({
                         'propiedad': propiedad,
                         'disponibilidades': disponibilidades_propiedad,
                         'tiene_reservas': reservas_en_rango.exists(),
                         'reservas': reservas_en_rango,
                         'estado': estado_propiedad,
-                        'reserva_termina_en_inicio': reserva_termina_en_inicio  # Reserva que termina el día de inicio
+                        'reserva_termina_en_inicio': reserva_termina_en_inicio  # Reserva que termina el día de inicio (None si no hay)
                     })
                 
             except ValueError:

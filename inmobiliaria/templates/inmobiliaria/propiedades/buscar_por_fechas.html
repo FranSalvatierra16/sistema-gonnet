@@ -78,7 +78,7 @@
                             </thead>
                             <tbody>
                                 {% for item in propiedades_encontradas %}
-                                <tr {% if item.reserva_termina_en_inicio %}class="table-warning" style="background-color: #fff3cd !important;"{% endif %}>
+                                <tr {% if item.reserva_termina_en_inicio is not None %}class="table-warning" style="background-color: #fff3cd !important;"{% endif %}>
                                     <td>{{ item.propiedad.id }}</td>
                                     <td>
                                         <strong>{{ item.propiedad.direccion }}</strong>
@@ -88,7 +88,7 @@
                                             {% if item.propiedad.departamento %} - Dpto: {{ item.propiedad.departamento }}{% endif %}
                                         </small>
                                         {% endif %}
-                                        {% if item.reserva_termina_en_inicio %}
+                                        {% if item.reserva_termina_en_inicio is not None %}
                                         <br><small class="badge bg-warning text-dark">
                                             <i class="fas fa-exclamation-triangle"></i> 
                                             Reserva hasta el {{ item.reserva_termina_en_inicio.fecha_fin|date:'d/m/Y' }}
