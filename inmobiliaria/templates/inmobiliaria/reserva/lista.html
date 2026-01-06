@@ -437,6 +437,11 @@
                                 <div class="reserva-info-text">
                                     <h5 class="property-title">
                                         Reserva #{{ reserva.id }} - {{ reserva.propiedad.direccion|truncatechars:40 }}
+                                        {% if reserva.propiedad.piso or reserva.propiedad.departamento %}
+                                        <span style="font-weight: normal; color: #666; margin-left: 0.5rem;">
+                                            (Piso: {{ reserva.propiedad.piso|default:"-" }} | Depto: {{ reserva.propiedad.departamento|default:"-" }})
+                                        </span>
+                                        {% endif %}
                                     </h5>
                                     <div class="reserva-meta">
                                         <span class="status-badge {% if reserva.estado == 'en_espera' %}status-en-espera{% else %}status-confirmada{% endif %}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">
@@ -468,10 +473,6 @@
                                             Vendedor: {{ reserva.vendedor.apellido }}, {{ reserva.vendedor.nombre }}
                                         </span>
                                         {% endif %}
-                                        <span class="reserva-meta-item">
-                                            <i class="fas fa-building"></i>
-                                            Piso: {{ reserva.propiedad.piso|default:"-" }} | Depto: {{ reserva.propiedad.departamento|default:"-" }}
-                                        </span>
                                         <span class="reserva-meta-item">
                                             <i class="fas fa-calendar-plus"></i>
                                             Reserva: {{ reserva.fecha_creacion|date:"d/m/Y" }}
