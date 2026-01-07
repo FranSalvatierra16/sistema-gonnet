@@ -9026,6 +9026,9 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         import traceback
         error_msg = f"Error al procesar conceptos: {str(e)}\n{traceback.format_exc()}"
         print(error_msg)  # Log para debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(error_msg)
         return None, 0
 
 @login_required
@@ -9056,7 +9059,10 @@ def procesar_operacion_contrato(request, contrato_id):
         
         movimiento, total_movimiento = procesar_conceptos_y_crear_movimiento(request, caja, contrato)
         if not movimiento:
-            return JsonResponse({'error': 'Error al procesar el movimiento'}, status=400)
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error al procesar movimiento para contrato {contrato_id}")
+            return JsonResponse({'error': 'Error al procesar el movimiento. Verifica los logs del servidor para más detalles.'}, status=400)
         
         if tipo_operacion == 'principal':
             # Capturar el día de vencimiento seleccionado
@@ -9073,14 +9079,28 @@ def procesar_operacion_contrato(request, contrato_id):
             
             # Lógica inteligente: solo incluir depósito si hay concepto 10 (igual que alquiler por día)
             conceptos_texto = movimiento.concepto
-            concepto_10_presente = ' | ID:10 |' in conceptos_texto
+            concepto_10_presente = ' | ID:10 |' in conceptos_texto or '"id":"10"' in conceptos_texto or '"id":10' in conceptos_texto
+            
+            # Calcular total de conceptos desde el JSON
+            import json
+            try:
+                if conceptos_texto.startswith('[') or conceptos_texto.startswith('{'):
+                    conceptos_parseados = json.loads(conceptos_texto)
+                    if isinstance(conceptos_parseados, list):
+                        total_conceptos_calculado = sum(float(c.get('importe', 0)) for c in conceptos_parseados)
+                    else:
+                        total_conceptos_calculado = float(conceptos_parseados.get('importe', 0))
+                else:
+                    total_conceptos_calculado = total_movimiento
+            except:
+                total_conceptos_calculado = total_movimiento
             
             if concepto_10_presente:
                 total_esperado = float(contrato.deposito_garantia or 0) + float(contrato.precio_mensual or 0)
                 mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
             else:
                 # Si no hay concepto 10, el total esperado es lo que esté en los conceptos
-                total_esperado = total_movimiento  # Aceptar cualquier total (conceptos + honorarios + sellados sin depósito)
+                total_esperado = total_conceptos_calculado  # Aceptar el total de conceptos (sin depósito)
                 mensaje_error = f'Total validado: ${total_movimiento} (sin depósito, concepto 10 no presente)'
             
             # Usar el día de vencimiento seleccionado para crear las fechas
@@ -9186,14 +9206,23 @@ def procesar_operacion_contrato(request, contrato_id):
             cuota.movimiento = movimiento
             cuota.save()
         
-        if total_movimiento != total_esperado:
-            return JsonResponse({'error': mensaje_error}, status=400)
+        # Validación más flexible: permitir pequeñas diferencias por redondeo
+        diferencia = abs(float(total_movimiento) - float(total_esperado))
+        if diferencia > 0.01:  # Permitir diferencias menores a 1 centavo
+            return JsonResponse({
+                'error': mensaje_error + f' (Diferencia: ${diferencia:.2f})'
+            }, status=400)
         
         return JsonResponse({
             'success': True,
             'redirect_url': reverse('inmobiliaria:recibo_contrato_24', args=[contrato.id])
         })
     except Exception as e:
+        import traceback
+        import logging
+        logger = logging.getLogger(__name__)
+        error_msg = f"Error al procesar operación contrato {contrato_id}: {str(e)}\n{traceback.format_exc()}"
+        logger.error(error_msg)
         return JsonResponse({'error': f'Error al procesar la operación: {str(e)}'}, status=400)
 
 @login_required

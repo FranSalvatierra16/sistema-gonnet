@@ -873,18 +873,32 @@ function procesarOperacion() {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        // Verificar si la respuesta es JSON
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            return response.json();
+        } else {
+            // Si no es JSON, leer como texto
+            return response.text().then(text => {
+                throw new Error(`Error del servidor (${response.status}): ${text}`);
+            });
+        }
+    })
     .then(data => {
         if (data.success) {
             alert('✅ Operación procesada exitosamente');
             window.location.href = data.redirect_url;
         } else {
-            alert('❌ Error: ' + data.error);
+            const errorMsg = data.error || 'Error desconocido al procesar la operación';
+            console.error('Error del servidor:', errorMsg);
+            alert('❌ Error: ' + errorMsg);
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        alert('❌ Error al procesar la operación');
+        console.error('Error completo:', error);
+        const errorMsg = error.message || 'Error al procesar la operación. Verifica la consola para más detalles.';
+        alert('❌ ' + errorMsg);
     });
 }
 
