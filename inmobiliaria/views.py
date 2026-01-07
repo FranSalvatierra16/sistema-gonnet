@@ -8915,6 +8915,11 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         honorarios = limpiar_valor_monetario(request.POST.get('honorarios_top', '0'))
         sellados = limpiar_valor_monetario(request.POST.get('sellados_top', '0'))
         
+        # Obtener montos de métodos de pago
+        monto_efectivo = limpiar_valor_monetario(request.POST.get('monto_efectivo', '0'))
+        monto_cheque = limpiar_valor_monetario(request.POST.get('monto_cheque', '0'))
+        monto_tarjeta = limpiar_valor_monetario(request.POST.get('monto_tarjeta', '0'))
+        
         total_movimiento = ((monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + 
                           (monto_deposito_final or 0))
         
@@ -9018,8 +9023,9 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         return movimiento, total_movimiento
         
     except Exception as e:
-        pass  # ✅ Bloque vacío
-# print("Error al procesar conceptos:", str(e))
+        import traceback
+        error_msg = f"Error al procesar conceptos: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)  # Log para debugging
         return None, 0
 
 @login_required
