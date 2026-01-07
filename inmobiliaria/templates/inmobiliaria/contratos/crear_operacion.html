@@ -676,7 +676,7 @@ function calcularTotales() {
     const totalRecibo = totalConceptos;
     
     document.getElementById('totalConceptos').textContent = totalConceptos.toLocaleString('es-AR');
-    document.getElementById('totalRecibo').value = totalRecibo;
+    document.getElementById('totalRecibo').value = totalRecibo.toLocaleString('es-AR');
     document.getElementById('totalOperacion').textContent = totalRecibo.toLocaleString('es-AR');
     
     console.log('🔍 DEBUG CÁLCULO:');
@@ -779,7 +779,7 @@ function calcularTotalPagos() {
 // Función para habilitar/deshabilitar el botón de procesar
 function habilitarBotonProcesar(habilitar) {
     const boton = document.getElementById('btnProcesarOperacion');
-    const totalRecibo = parseFloat(document.getElementById('totalRecibo').value || 0);
+    const totalRecibo = parsearValorFormateado(document.getElementById('totalRecibo').value || 0);
     
     if (habilitar && totalRecibo > 0) {
         boton.disabled = false;
@@ -809,11 +809,11 @@ function procesarOperacion() {
         }
     }
     
-    const totalRecibo = parseFloat(document.getElementById('totalRecibo').value || 0);
+    const totalRecibo = parsearValorFormateado(document.getElementById('totalRecibo').value || 0);
     const totalPagos = calcularTotalPagos();
     
     if (Math.abs(totalRecibo - totalPagos) > 0.01) {
-        alert('⚠️ Los pagos deben coincidir exactamente con el total del recibo');
+        alert(`⚠️ Los pagos deben coincidir exactamente con el total del recibo.\nTotal Recibo: $${totalRecibo.toLocaleString('es-AR')}\nTotal Pagos: $${totalPagos.toLocaleString('es-AR')}\nDiferencia: $${Math.abs(totalRecibo - totalPagos).toLocaleString('es-AR')}`);
         return;
     }
     
