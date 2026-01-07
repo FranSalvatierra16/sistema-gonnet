@@ -1926,7 +1926,10 @@ def buscar_propiedades_reserva(request):
 
         # Filtrar propiedades según la opción seleccionada
         if ver_todas:
-            propiedades = Propiedad.objects.all()
+            # Solo mostrar propiedades de las sucursales Colón y Corrientes
+            propiedades = Propiedad.objects.filter(
+                Q(sucursal__nombre__icontains='Colón') | Q(sucursal__nombre__icontains='Corrientes')
+            )
         else:
             propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor)
 
@@ -7978,7 +7981,10 @@ def buscar_propiedades(request):
 
         # Filtrar propiedades según la opción seleccionada
         if ver_todas:
-            propiedades = Propiedad.objects.all()
+            # Solo mostrar propiedades de las sucursales Colón y Corrientes
+            propiedades = Propiedad.objects.filter(
+                Q(sucursal__nombre__icontains='Colón') | Q(sucursal__nombre__icontains='Corrientes')
+            )
         else:
             propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor)
         
