@@ -83,7 +83,7 @@ class InquilinoForm(forms.ModelForm):
     
     class Meta:
         model = Inquilino
-        fields = ['nombre', 'apellido', 'email', 'celular', 'tipo_doc', 'dni', 'cuit', 'localidad', 'provincia', 'domicilio', 'codigo_postal', 'observaciones', 'garantia']
+        fields = ['nombre', 'apellido', 'email', 'celular', 'tipo_doc', 'dni', 'cuit', 'localidad', 'provincia', 'domicilio', 'observaciones', 'garantia']
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
@@ -120,7 +120,7 @@ class PropietarioForm(forms.ModelForm):
         model = Propietario
         fields = ['nombre', 'apellido', 'fecha_nacimiento', 'email', 'celular', 
                  'tipo_doc', 'dni', 'tipo_ins', 'cuit', 'localidad', 'provincia', 
-                 'domicilio', 'codigo_postal', 'observaciones', 'cuenta_bancaria']
+                 'domicilio', 'observaciones', 'cuenta_bancaria']
         widgets = {
             'fecha_nacimiento': forms.DateInput(attrs={'type': 'date'}),
             'observaciones': forms.Textarea(attrs={'rows': 3}),

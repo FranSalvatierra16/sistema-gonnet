@@ -350,13 +350,6 @@
                                    onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
                                    onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
                         </div>
-                        <div>
-                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Código Postal *</label>
-                            <input type="text" id="inquilino_codigo_postal_nuevo" name="codigo_postal" required
-                                   style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
-                                   onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
-                                   onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
-                        </div>
                     </div>
                 </div>
 
@@ -543,7 +536,7 @@ function guardarNuevoInquilino() {
     const formData = new FormData(form);
     
     // Validar campos requeridos
-    const camposRequeridos = ['nombre', 'apellido', 'email', 'telefono', 'dni', 'domicilio', 'localidad', 'provincia', 'codigo_postal'];
+    const camposRequeridos = ['nombre', 'apellido', 'email', 'telefono', 'dni', 'domicilio', 'localidad', 'provincia'];
     let camposVacios = [];
     
     camposRequeridos.forEach(campo => {

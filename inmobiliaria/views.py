@@ -4986,7 +4986,7 @@ def crear_inquilino_ajax(request):
                 localidad=request.POST['localidad'],
                 provincia=request.POST['provincia'],
                 domicilio=request.POST['domicilio'],
-                codigo_postal=request.POST['codigo_postal'],
+                codigo_postal=request.POST.get('codigo_postal', ''),
                 observaciones=request.POST.get('observaciones', ''),
                 garantia=request.POST.get('garantia', ''),
                 sucursal=sucursal  # Agregar la sucursal
@@ -5019,8 +5019,8 @@ def crear_propietario_ajax(request):
             if fecha_nacimiento == '':
                 fecha_nacimiento = None
                 
-            # Validar campos requeridos (tipo_doc ya no es requerido)
-            campos_requeridos = ['nombre', 'apellido', 'email', 'celular', 'dni', 'localidad', 'provincia', 'domicilio', 'codigo_postal']
+            # Validar campos requeridos (tipo_doc y codigo_postal ya no son requeridos)
+            campos_requeridos = ['nombre', 'apellido', 'email', 'celular', 'dni', 'localidad', 'provincia', 'domicilio']
             campos_faltantes = [campo for campo in campos_requeridos if not request.POST.get(campo)]
             
             if campos_faltantes:
@@ -5034,7 +5034,6 @@ def crear_propietario_ajax(request):
                     'localidad': 'Localidad',
                     'provincia': 'Provincia',
                     'domicilio': 'Domicilio',
-                    'codigo_postal': 'Código Postal'
                 }
                 campos_faltantes_nombres = [nombres_campos.get(campo, campo) for campo in campos_faltantes]
                 return JsonResponse({
@@ -5085,7 +5084,7 @@ def crear_propietario_ajax(request):
                 localidad=request.POST['localidad'],
                 provincia=request.POST['provincia'],
                 domicilio=request.POST['domicilio'],
-                codigo_postal=request.POST['codigo_postal'],
+                codigo_postal=request.POST.get('codigo_postal', ''),
                 observaciones=request.POST.get('observaciones', ''),
                 cuenta_bancaria=request.POST.get('cuenta_bancaria', ''),
                 sucursal=sucursal  # Agregar la sucursal

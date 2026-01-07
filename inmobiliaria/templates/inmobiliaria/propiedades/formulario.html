@@ -448,12 +448,6 @@
                             </label>
                             <input type="text" class="form-control" id="propietario_domicilio" name="domicilio" required>
                         </div>
-                        <div class="col-md-4">
-                            <label for="propietario_codigo_postal" class="form-label">
-                                <i class="fas fa-mail-bulk me-1"></i>Código Postal *
-                            </label>
-                            <input type="text" class="form-control" id="propietario_codigo_postal" name="codigo_postal" required>
-                        </div>
                     </div>
 
                     <!-- Información Bancaria -->
@@ -1127,7 +1121,7 @@ $(document).ready(function() {
         const form = document.getElementById('formNuevoPropietario');
         
         // Validar campos requeridos
-        const camposRequeridos = ['nombre', 'apellido', 'email', 'celular', 'tipo_doc', 'localidad', 'provincia', 'domicilio', 'codigo_postal'];
+        const camposRequeridos = ['nombre', 'apellido', 'email', 'celular', 'tipo_doc', 'localidad', 'provincia', 'domicilio'];
         
         let camposVacios = [];
         camposRequeridos.forEach(campo => {

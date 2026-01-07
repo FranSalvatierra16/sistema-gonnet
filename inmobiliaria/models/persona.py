@@ -40,7 +40,7 @@ class Persona(models.Model):
     localidad = models.CharField(max_length=100)  # Campo para localidad
     provincia = models.CharField(max_length=100)
     domicilio = models.CharField(max_length=100)
-    codigo_postal = models.CharField(max_length=10)  # Campo para código postal
+    codigo_postal = models.CharField(max_length=10, blank=True, null=True)  # Campo para código postal (opcional)
     cuit = models.CharField(
         max_length=11, 
         validators=[RegexValidator(regex=r'^\d{11}$', message='CUIT debe tener 11 dígitos')],
