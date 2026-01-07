@@ -773,7 +773,26 @@ function calcularTotalPagos() {
     const depositoGalicia = parsearValorFormateado(document.getElementById('monto_deposito_galicia').value);
     const depositoMp = parsearValorFormateado(document.getElementById('monto_deposito_mp').value);
     
-    return efectivo + cheque + tarjeta + depositoGalicia + depositoMp;
+    // Obtener montos de cuentas bancarias dinámicas si existen
+    let depositosDinamicos = 0;
+    const inputsDepositos = document.querySelectorAll('input[id^="monto_deposito_"]');
+    inputsDepositos.forEach(input => {
+        if (input.id !== 'monto_deposito_galicia' && input.id !== 'monto_deposito_mp') {
+            depositosDinamicos += parsearValorFormateado(input.value);
+        }
+    });
+    
+    return efectivo + cheque + tarjeta + depositoGalicia + depositoMp + depositosDinamicos;
+}
+
+// Función para actualizar totales cuando cambian los métodos de pago
+function actualizarTotales() {
+    const totalRecibo = parsearValorFormateado(document.getElementById('totalRecibo').value || 0);
+    const totalPagos = calcularTotalPagos();
+    const diferencia = totalPagos - totalRecibo;
+    
+    // Habilitar/deshabilitar botón según la diferencia
+    habilitarBotonProcesar(diferencia === 0 && totalRecibo > 0);
 }
 
 // Función para habilitar/deshabilitar el botón de procesar
