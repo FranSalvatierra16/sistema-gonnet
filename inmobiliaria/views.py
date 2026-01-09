@@ -5964,25 +5964,39 @@ def editar_historial_disponibilidad(request):
         # para que la propiedad realmente esté disponible en esas fechas
         propiedad = historial.propiedad
         
-        # Buscar si existe una Disponibilidad que se superponga con el rango editado
-        disponibilidad_existente = Disponibilidad.objects.filter(
+        # Buscar todas las disponibilidades manuales que se superponen o están cerca del rango editado
+        # Incluir un margen de 1 día para encontrar disponibilidades contiguas
+        from datetime import timedelta
+        todas_disponibilidades = Disponibilidad.objects.filter(
             propiedad=propiedad,
-            fecha_inicio__lte=fecha_fin,
-            fecha_fin__gte=fecha_inicio,
             es_manual=True
-        ).first()
+        )
         
-        if disponibilidad_existente:
-            # Actualizar la disponibilidad existente para que cubra el nuevo rango
-            # Extender o ajustar según sea necesario
-            nueva_fecha_inicio = min(disponibilidad_existente.fecha_inicio, fecha_inicio)
-            nueva_fecha_fin = max(disponibilidad_existente.fecha_fin, fecha_fin)
+        # Buscar disponibilidades que se superponen o están contiguas (dentro de 1 día)
+        disponibilidades_cercanas = todas_disponibilidades.filter(
+            fecha_inicio__lte=fecha_fin + timedelta(days=1),
+            fecha_fin__gte=fecha_inicio - timedelta(days=1)
+        ).order_by('fecha_inicio')
+        
+        if disponibilidades_cercanas.exists():
+            # Calcular el rango mínimo y máximo que cubre todas las disponibilidades cercanas + el nuevo rango
+            fechas_inicio = [disp.fecha_inicio for disp in disponibilidades_cercanas] + [fecha_inicio]
+            fechas_fin = [disp.fecha_fin for disp in disponibilidades_cercanas] + [fecha_fin]
             
-            disponibilidad_existente.fecha_inicio = nueva_fecha_inicio
-            disponibilidad_existente.fecha_fin = nueva_fecha_fin
-            disponibilidad_existente.save()
+            nueva_fecha_inicio = min(fechas_inicio)
+            nueva_fecha_fin = max(fechas_fin)
+            
+            # Actualizar la primera disponibilidad para que cubra todo el rango extendido
+            disponibilidad_principal = disponibilidades_cercanas.first()
+            disponibilidad_principal.fecha_inicio = nueva_fecha_inicio
+            disponibilidad_principal.fecha_fin = nueva_fecha_fin
+            disponibilidad_principal.save()
+            
+            # Eliminar las otras disponibilidades cercanas que ahora están cubiertas por la principal
+            if disponibilidades_cercanas.count() > 1:
+                disponibilidades_cercanas.exclude(id=disponibilidad_principal.id).delete()
         else:
-            # Crear una nueva Disponibilidad para este rango
+            # No hay disponibilidades cercanas, crear una nueva para este rango exacto
             Disponibilidad.objects.create(
                 propiedad=propiedad,
                 fecha_inicio=fecha_inicio,
