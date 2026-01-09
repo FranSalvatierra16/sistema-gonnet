@@ -5955,14 +5955,44 @@ def editar_historial_disponibilidad(request):
                 'error': 'La fecha de inicio debe ser anterior a la fecha de fin'
             })
         
-        # Actualizar las fechas (sin validar reservas, como lo requiere el usuario)
+        # Actualizar las fechas del historial (sin validar reservas, como lo requiere el usuario)
         historial.fecha_inicio = fecha_inicio
         historial.fecha_fin = fecha_fin
         historial.save()
         
+        # ✅ IMPORTANTE: También actualizar o crear la Disponibilidad correspondiente
+        # para que la propiedad realmente esté disponible en esas fechas
+        propiedad = historial.propiedad
+        
+        # Buscar si existe una Disponibilidad que se superponga con el rango editado
+        disponibilidad_existente = Disponibilidad.objects.filter(
+            propiedad=propiedad,
+            fecha_inicio__lte=fecha_fin,
+            fecha_fin__gte=fecha_inicio,
+            es_manual=True
+        ).first()
+        
+        if disponibilidad_existente:
+            # Actualizar la disponibilidad existente para que cubra el nuevo rango
+            # Extender o ajustar según sea necesario
+            nueva_fecha_inicio = min(disponibilidad_existente.fecha_inicio, fecha_inicio)
+            nueva_fecha_fin = max(disponibilidad_existente.fecha_fin, fecha_fin)
+            
+            disponibilidad_existente.fecha_inicio = nueva_fecha_inicio
+            disponibilidad_existente.fecha_fin = nueva_fecha_fin
+            disponibilidad_existente.save()
+        else:
+            # Crear una nueva Disponibilidad para este rango
+            Disponibilidad.objects.create(
+                propiedad=propiedad,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=fecha_fin,
+                es_manual=True
+            )
+        
         return JsonResponse({
             'success': True,
-            'message': f'Fechas actualizadas correctamente: {fecha_inicio.strftime("%d/%m/%Y")} al {fecha_fin.strftime("%d/%m/%Y")}'
+            'message': f'Fechas actualizadas correctamente: {fecha_inicio.strftime("%d/%m/%Y")} al {fecha_fin.strftime("%d/%m/%Y")}. La propiedad ahora está disponible en este rango.'
         })
         
     except ValueError as e:
