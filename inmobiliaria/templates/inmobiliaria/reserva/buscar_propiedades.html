@@ -1185,7 +1185,8 @@
                             data-estado="{{ propiedad.estado|default:'Disponible' }}"
                             data-llave="{{ propiedad.llave|default:'Sin asignar' }}"
                             data-descripcion="{{ propiedad.descripcion|default:'Sin descripción' }}"
-                            data-caracteristicas="{{ propiedad|get_caracteristicas }}">
+                            data-caracteristicas="{{ propiedad|get_caracteristicas }}"
+                            data-sucursal-id="{{ propiedad.sucursal.id }}">
                             <td style="color: red;">{{ propiedad.id }}</td>
                             <td style="color: red;">Reservado del {{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td style="color: red;">{{ propiedad.ubicacion }}</td>
@@ -1213,7 +1214,8 @@
                             data-estado="{{ propiedad.estado|default:'Disponible' }}"
                             data-llave="{{ propiedad.llave|default:'Sin asignar' }}"
                             data-descripcion="{{ propiedad.descripcion|default:'Sin descripción' }}"
-                            data-caracteristicas="{{ propiedad|get_caracteristicas }}">
+                            data-caracteristicas="{{ propiedad|get_caracteristicas }}"
+                            data-sucursal-id="{{ propiedad.sucursal.id }}">
                             <td>{{ propiedad.id }}</td>
                             <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td>{{ propiedad.ubicacion }}</td>
@@ -1241,7 +1243,8 @@
                             data-estado="{{ propiedad.estado|default:'Disponible' }}"
                             data-llave="{{ propiedad.llave|default:'Sin asignar' }}"
                             data-descripcion="{{ propiedad.descripcion|default:'Sin descripción' }}"
-                            data-caracteristicas="{{ propiedad|get_caracteristicas }}">
+                            data-caracteristicas="{{ propiedad|get_caracteristicas }}"
+                            data-sucursal-id="{{ propiedad.sucursal.id }}">
                             <td>{{ propiedad.id }}</td>
                             <td>{{propiedad.disponibilidad_inicio | date:"d/m/Y"}} al {{propiedad.disponibilidad_fin | date:"d/m/Y"}}</td>
                             <td>{{ propiedad.ubicacion }}</td>
@@ -2202,6 +2205,9 @@ function autenticarYReservar() {
 // Variables globales
 let selectedRowIndex = -1;
 let propiedadSeleccionada = null;
+// ID de sucursal del usuario actual (se establece desde el template)
+let sucursalUsuarioId = {% if user.sucursal %}{{ user.sucursal.id }}{% else %}null{% endif %};
+
 function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias, ambientes, estado, llave, descripcion, caracteristicas) {
     console.log('🔄 =================== SELECCIONAR PROPIEDAD ===================');
     console.log('📋 Todos los parámetros recibidos:');
@@ -2223,7 +2229,12 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
     // Buscar la fila clickeada para obtener los datos adicionales
     const filaClickeada = event.target.closest('tr');
     
+    // Obtener el ID de sucursal de la propiedad desde el data attribute
+    const sucursalPropiedadId = filaClickeada ? filaClickeada.getAttribute('data-sucursal-id') : null;
+    const esOtraSucursal = sucursalUsuarioId && sucursalPropiedadId && parseInt(sucursalPropiedadId) !== parseInt(sucursalUsuarioId);
+    
     console.log('=== SELECCIONANDO PROPIEDAD ===');
+    console.log('Sucursal usuario:', sucursalUsuarioId, 'Sucursal propiedad:', sucursalPropiedadId, 'Es otra sucursal:', esOtraSucursal);
     console.log('Parámetros recibidos:', {
         id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias, ambientes, estado, descripcion, caracteristicas
     });
@@ -2404,12 +2415,17 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
             </div>
         `;
     } else {
-        cardButtons.innerHTML = `
+        // Verificar si la propiedad es de otra sucursal
+        const botonReservarDisabled = esOtraSucursal ? 'disabled' : '';
+        const botonOperacionDisabled = esOtraSucursal ? 'disabled' : '';
+        const tooltipOtraSucursal = esOtraSucursal ? 'title="Esta propiedad pertenece a otra sucursal. No puedes reservarla."' : '';
+        
+        let botonesHTML = `
             <div class="d-flex gap-2">
-                <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()">
+                <button type="button" class="btn btn-primary" onclick="window.confirmarReserva()" ${botonReservarDisabled} ${tooltipOtraSucursal}>
                     <i class="fas fa-calendar-plus"></i> Reservar
                 </button>
-                <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()">
+                <button type="button" class="btn btn-success" onclick="window.mostrarModalOperacion()" ${botonOperacionDisabled} ${tooltipOtraSucursal}>
                     <i class="fas fa-check-circle"></i> Operación Directa
                 </button>
                 <button type="button" class="btn btn-secondary" onclick="window.verHistorial()">
@@ -2417,6 +2433,17 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
                 </button>
             </div>
         `;
+        
+        // Agregar mensaje de advertencia si es de otra sucursal
+        if (esOtraSucursal) {
+            botonesHTML += `
+                <div class="alert alert-warning mt-2 mb-0">
+                    <i class="fas fa-exclamation-triangle"></i> Esta propiedad pertenece a otra sucursal. No puedes realizar reservas.
+                </div>
+            `;
+        }
+        
+        cardButtons.innerHTML = botonesHTML;
     }
 
 }
