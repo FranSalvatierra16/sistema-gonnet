@@ -832,7 +832,7 @@ def propiedad_detalle(request, propiedad_id):
     # Obtener el historial de disponibilidad
     historiales = HistorialDisponibilidad.objects.filter(
         propiedad=propiedad
-    ).order_by('fecha_actualizacion')
+    ).order_by('fecha_inicio', 'fecha_fin')
     
     # Si el historial está vacío pero hay reservas, reconstruirlo automáticamente
     if not historiales.exists():
@@ -847,10 +847,10 @@ def propiedad_detalle(request, propiedad_id):
             primera_reserva = propiedad.reservas.filter(eliminada=False).first()
             if primera_reserva:
                 primera_reserva.reconstruir_historial_cronologico()
-                # Volver a obtener el historial después de reconstruirlo
+                # Volver a obtener el historial después de reconstruirlo, ordenado cronológicamente
                 historiales = HistorialDisponibilidad.objects.filter(
                     propiedad=propiedad
-                ).order_by('fecha_actualizacion')
+                ).order_by('fecha_inicio', 'fecha_fin')
     
     # Obtener imágenes usando el related_name correcto
     imagenes = propiedad.imagenes.all()
@@ -3246,7 +3246,7 @@ def gestionar_precios(request, propiedad_id):
     # Obtener el historial de disponibilidad
     historiales = HistorialDisponibilidad.objects.filter(
         propiedad=propiedad
-    ).order_by('fecha_actualizacion')
+    ).order_by('fecha_inicio', 'fecha_fin')
     
     return render(request, 'inmobiliaria/propiedades/gestionar_precios.html', {
         'propiedad': propiedad,
