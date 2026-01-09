@@ -5910,6 +5910,75 @@ def limpiar_historial_disponibilidad(request):
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 @login_required
+@require_POST
+def editar_historial_disponibilidad(request):
+    """
+    Vista para editar las fechas de un HistorialDisponibilidad con estado 'libre'
+    Permite extender o modificar las fechas incluso si hay reservas en esos días
+    """
+    try:
+        historial_id = request.POST.get('historial_id')
+        fecha_inicio_str = request.POST.get('fecha_inicio')
+        fecha_fin_str = request.POST.get('fecha_fin')
+        
+        if not historial_id or not fecha_inicio_str or not fecha_fin_str:
+            return JsonResponse({
+                'success': False,
+                'error': 'Faltan datos requeridos'
+            })
+        
+        # Obtener el historial
+        historial = get_object_or_404(HistorialDisponibilidad, id=historial_id)
+        
+        # Verificar permisos
+        if historial.propiedad.sucursal != request.user.sucursal:
+            return JsonResponse({
+                'success': False,
+                'error': 'No tienes permisos para editar este historial'
+            })
+        
+        # Verificar que el estado sea 'libre'
+        if historial.estado != 'libre':
+            return JsonResponse({
+                'success': False,
+                'error': 'Solo se pueden editar historiales con estado "Libre"'
+            })
+        
+        # Parsear fechas
+        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        
+        # Validaciones básicas
+        if fecha_inicio >= fecha_fin:
+            return JsonResponse({
+                'success': False,
+                'error': 'La fecha de inicio debe ser anterior a la fecha de fin'
+            })
+        
+        # Actualizar las fechas (sin validar reservas, como lo requiere el usuario)
+        historial.fecha_inicio = fecha_inicio
+        historial.fecha_fin = fecha_fin
+        historial.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Fechas actualizadas correctamente: {fecha_inicio.strftime("%d/%m/%Y")} al {fecha_fin.strftime("%d/%m/%Y")}'
+        })
+        
+    except ValueError as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Formato de fecha inválido: {str(e)}'
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'error': f'Error al actualizar historial: {str(e)}'
+        })
+
+@login_required
 def limpieza_brutal(request):
     """
     🔥 LIMPIEZA BRUTAL: Elimina TODO y reconstruye desde cero
