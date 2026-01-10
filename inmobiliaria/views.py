@@ -1988,49 +1988,80 @@ def buscar_propiedades_reserva(request):
 # print(f"🔍 PROCESANDO PROPIEDAD {propiedad.id}: {propiedad}")
 # print(f"   🔎 Buscando disponibilidades para {fecha_inicio} al {fecha_fin}")
             
-            # 1️⃣ BUSCAR TODAS LAS DISPONIBILIDADES QUE SE SUPERPONEN CON EL PERÍODO
+            # 1️⃣ BUSCAR PRIMERO DISPONIBILIDADES MANUALES QUE SE SUPERPONEN
+            # Las disponibilidades manuales tienen prioridad y deben respetarse completamente
+            disponibilidades_manuales_superpuestas = Disponibilidad.objects.filter(
+                propiedad=propiedad,
+                es_manual=True,
+                fecha_inicio__lt=fecha_fin,   # Empieza antes del fin de búsqueda
+                fecha_fin__gt=fecha_inicio    # Termina después del inicio de búsqueda
+            ).order_by('fecha_inicio')
+            
+            # 2️⃣ BUSCAR TODAS LAS DISPONIBILIDADES QUE SE SUPERPONEN CON EL PERÍODO
             disponibilidades_superpuestas = Disponibilidad.objects.filter(
                 propiedad=propiedad,
                 fecha_inicio__lt=fecha_fin,   # Empieza antes de que termine la búsqueda
                 fecha_fin__gt=fecha_inicio,   # Termina después de que empiece la búsqueda
             ).order_by('fecha_inicio')
             
-            # 2️⃣ VERIFICAR SI LAS DISPONIBILIDADES CUBREN TODO EL RANGO (permitiendo contiguas)
+            # 3️⃣ VERIFICAR SI LAS DISPONIBILIDADES CUBREN TODO EL RANGO (permitiendo contiguas)
             periodo_cubierto = False
-            if disponibilidades_superpuestas.exists():
-                # Verificar si las disponibilidades contiguas cubren todo el rango
-                disponibilidades_list = list(disponibilidades_superpuestas)
-                
-                # Ordenar por fecha de inicio
+            cobertura_inicio = None
+            cobertura_fin = None
+            
+            # Si hay disponibilidades manuales, verificar si cubren el rango
+            if disponibilidades_manuales_superpuestas.exists():
+                disponibilidades_list = list(disponibilidades_manuales_superpuestas)
                 disponibilidades_list.sort(key=lambda d: d.fecha_inicio)
                 
-                # Verificar cobertura continua
+                cobertura_inicio = disponibilidades_list[0].fecha_inicio
+                cobertura_fin = disponibilidades_list[0].fecha_fin
+                
+                # Fusionar disponibilidades manuales contiguas
+                for i in range(1, len(disponibilidades_list)):
+                    disp_actual = disponibilidades_list[i]
+                    if disp_actual.fecha_inicio <= cobertura_fin + timedelta(days=1):  # Permitir contiguas
+                        cobertura_fin = max(cobertura_fin, disp_actual.fecha_fin)
+                    else:
+                        break
+                
+                # Verificar si cubren completamente el rango buscado
+                if cobertura_inicio <= fecha_inicio and cobertura_fin >= fecha_fin:
+                    periodo_cubierto = True
+                    # Usar solo las disponibilidades manuales
+                    disponibilidades_superpuestas = disponibilidades_manuales_superpuestas
+                else:
+                    # Si hay disponibilidades manuales que se superponen pero no cubren completamente,
+                    # aún las consideramos válidas si cubren al menos desde el inicio del rango buscado
+                    # Esto permite que propiedades editadas aparezcan aunque no cubran todo el rango
+                    # IMPORTANTE: Solo mostramos la propiedad si cubre desde el inicio, pero respetamos el rango real
+                    if cobertura_inicio <= fecha_inicio and cobertura_fin >= fecha_inicio:
+                        periodo_cubierto = True
+                        disponibilidades_superpuestas = disponibilidades_manuales_superpuestas
+                        # No ajustamos cobertura_fin porque debe reflejar el rango real de disponibilidad
+            
+            # Si no hay disponibilidades manuales o no cubren completamente, verificar todas las disponibilidades
+            if not periodo_cubierto and disponibilidades_superpuestas.exists():
+                disponibilidades_list = list(disponibilidades_superpuestas)
+                disponibilidades_list.sort(key=lambda d: d.fecha_inicio)
+                
                 cobertura_inicio = disponibilidades_list[0].fecha_inicio
                 cobertura_fin = disponibilidades_list[0].fecha_fin
                 
                 for i in range(1, len(disponibilidades_list)):
                     disp_actual = disponibilidades_list[i]
-                    # Si la disponibilidad actual empieza el mismo día o antes que termine la anterior
-                    # (permitiendo fechas contiguas como 07-11 y 11-15)
                     if disp_actual.fecha_inicio <= cobertura_fin:
-                        # Extender la cobertura
                         cobertura_fin = max(cobertura_fin, disp_actual.fecha_fin)
                     else:
-                        # Hay un hueco
                         break
                 
-                # Verificar si la cobertura completa incluye el período buscado
                 if cobertura_inicio <= fecha_inicio and cobertura_fin >= fecha_fin:
                     periodo_cubierto = True
-# print(f"   ✅ Período CUBIERTO por disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
-                else:
-                    pass  # ✅ Bloque vacío
-# print(f"   ❌ Período NO cubierto. Cobertura: {cobertura_inicio} al {cobertura_fin}, necesario: {fecha_inicio} al {fecha_fin}")
             
             # Usar la variable disponibilidades para mantener compatibilidad con el resto del código
             disponibilidades = disponibilidades_superpuestas if periodo_cubierto else Disponibilidad.objects.none()
             
-            if periodo_cubierto:
+            if periodo_cubierto and cobertura_inicio and cobertura_fin:
                 # 3️⃣ CALCULAR PERÍODO LIBRE usando la cobertura de disponibilidades contiguas
                 # Usar la cobertura calculada anteriormente (cobertura_inicio y cobertura_fin)
                 fecha_disponible_desde = cobertura_inicio
@@ -5991,39 +6022,51 @@ def editar_historial_disponibilidad(request):
         # para que la propiedad realmente esté disponible en esas fechas
         propiedad = historial.propiedad
         
-        # Buscar todas las disponibilidades manuales que se superponen o están cerca del rango editado
-        # Incluir un margen de 1 día para encontrar disponibilidades contiguas
+        # ✅ IMPORTANTE: Crear o actualizar la Disponibilidad correspondiente
+        # Buscar disponibilidades que se superponen o están contiguas con el rango editado
         from datetime import timedelta
         todas_disponibilidades = Disponibilidad.objects.filter(
             propiedad=propiedad,
             es_manual=True
         )
         
-        # Buscar disponibilidades que se superponen o están contiguas (dentro de 1 día)
+        # Buscar disponibilidades que se superponen o están contiguas con el nuevo rango
+        # Usar un margen más amplio para encontrar todas las disponibilidades que deben fusionarse
         disponibilidades_cercanas = todas_disponibilidades.filter(
-            fecha_inicio__lte=fecha_fin + timedelta(days=1),
-            fecha_fin__gte=fecha_inicio - timedelta(days=1)
+            fecha_inicio__lte=fecha_fin + timedelta(days=1),  # Empieza antes o en el día siguiente al fin
+            fecha_fin__gte=fecha_inicio - timedelta(days=1)   # Termina después o en el día anterior al inicio
         ).order_by('fecha_inicio')
         
-        if disponibilidades_cercanas.exists():
-            # Calcular el rango mínimo y máximo que cubre todas las disponibilidades cercanas + el nuevo rango
-            fechas_inicio = [disp.fecha_inicio for disp in disponibilidades_cercanas] + [fecha_inicio]
-            fechas_fin = [disp.fecha_fin for disp in disponibilidades_cercanas] + [fecha_fin]
+        # También buscar disponibilidades que se superponen directamente (no solo contiguas)
+        disponibilidades_superpuestas = todas_disponibilidades.filter(
+            fecha_inicio__lt=fecha_fin,   # Empieza antes del fin
+            fecha_fin__gt=fecha_inicio    # Termina después del inicio
+        )
+        
+        # Combinar ambas listas (cercanas y superpuestas) sin duplicados
+        todas_para_fusionar = list(set(list(disponibilidades_cercanas) + list(disponibilidades_superpuestas)))
+        
+        if todas_para_fusionar:
+            # Calcular el rango mínimo y máximo que cubre todas las disponibilidades + el nuevo rango
+            fechas_inicio = [disp.fecha_inicio for disp in todas_para_fusionar] + [fecha_inicio]
+            fechas_fin = [disp.fecha_fin for disp in todas_para_fusionar] + [fecha_fin]
             
             nueva_fecha_inicio = min(fechas_inicio)
             nueva_fecha_fin = max(fechas_fin)
             
             # Actualizar la primera disponibilidad para que cubra todo el rango extendido
-            disponibilidad_principal = disponibilidades_cercanas.first()
+            disponibilidad_principal = todas_para_fusionar[0]
             disponibilidad_principal.fecha_inicio = nueva_fecha_inicio
             disponibilidad_principal.fecha_fin = nueva_fecha_fin
+            disponibilidad_principal.es_manual = True
             disponibilidad_principal.save()
             
-            # Eliminar las otras disponibilidades cercanas que ahora están cubiertas por la principal
-            if disponibilidades_cercanas.count() > 1:
-                disponibilidades_cercanas.exclude(id=disponibilidad_principal.id).delete()
+            # Eliminar las otras disponibilidades que ahora están cubiertas por la principal
+            if len(todas_para_fusionar) > 1:
+                ids_a_eliminar = [disp.id for disp in todas_para_fusionar[1:]]
+                Disponibilidad.objects.filter(id__in=ids_a_eliminar).delete()
         else:
-            # No hay disponibilidades cercanas, crear una nueva para este rango exacto
+            # No hay disponibilidades cercanas ni superpuestas, crear una nueva para este rango exacto
             Disponibilidad.objects.create(
                 propiedad=propiedad,
                 fecha_inicio=fecha_inicio,
