@@ -2025,20 +2025,12 @@ def buscar_propiedades_reserva(request):
                     else:
                         break
                 
-                # Verificar si cubren completamente el rango buscado
-                if cobertura_inicio <= fecha_inicio and cobertura_fin >= fecha_fin:
-                    periodo_cubierto = True
-                    # Usar solo las disponibilidades manuales
-                    disponibilidades_superpuestas = disponibilidades_manuales_superpuestas
-                else:
-                    # Si hay disponibilidades manuales que se superponen pero no cubren completamente,
-                    # aún las consideramos válidas si cubren al menos desde el inicio del rango buscado
-                    # Esto permite que propiedades editadas aparezcan aunque no cubran todo el rango
-                    # IMPORTANTE: Solo mostramos la propiedad si cubre desde el inicio, pero respetamos el rango real
-                    if cobertura_inicio <= fecha_inicio and cobertura_fin >= fecha_inicio:
-                        periodo_cubierto = True
-                        disponibilidades_superpuestas = disponibilidades_manuales_superpuestas
-                        # No ajustamos cobertura_fin porque debe reflejar el rango real de disponibilidad
+                # IMPORTANTE: Si hay disponibilidades manuales que se superponen con el rango buscado,
+                # SIEMPRE las consideramos válidas, incluso si no cubren completamente el rango
+                # Esto es porque las disponibilidades manuales tienen prioridad absoluta
+                # y el usuario las editó intencionalmente para extender la disponibilidad
+                periodo_cubierto = True
+                disponibilidades_superpuestas = disponibilidades_manuales_superpuestas
             
             # Si no hay disponibilidades manuales o no cubren completamente, verificar todas las disponibilidades
             if not periodo_cubierto and disponibilidades_superpuestas.exists():
@@ -6017,6 +6009,11 @@ def editar_historial_disponibilidad(request):
         historial.fecha_inicio = fecha_inicio
         historial.fecha_fin = fecha_fin
         historial.save()
+        
+        # Log para debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"📝 Editando historial libre {historial_id}: {fecha_inicio} al {fecha_fin}")
         
         # ✅ IMPORTANTE: También actualizar o crear la Disponibilidad correspondiente
         # para que la propiedad realmente esté disponible en esas fechas
