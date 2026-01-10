@@ -2036,28 +2036,51 @@ def buscar_propiedades_reserva(request):
                 fecha_disponible_desde = cobertura_inicio
                 fecha_disponible_hasta = cobertura_fin
                 
-                # 4️⃣ AJUSTAR POR RESERVAS ANTERIORES Y POSTERIORES
-                # Fechas finales de reservas que terminan antes o en la fecha de inicio
-                # Excluir reservas eliminadas
-                reservas_anteriores = propiedad.reservas.filter(
-                    fecha_fin__lte=fecha_inicio,
-                    eliminada=False
-                ).order_by('-fecha_fin').first()
+                # 4️⃣ AJUSTAR POR RESERVAS, PERO RESPETAR DISPONIBILIDADES MANUALES
+                # Si hay disponibilidades manuales que cubren el rango de búsqueda,
+                # las disponibilidades manuales tienen prioridad sobre las reservas
                 
-                if reservas_anteriores:
-                    # 🏨 LÓGICA HOTEL: Si reserva termina el 17, el 17 ya está disponible
-                    fecha_disponible_desde = max(fecha_disponible_desde, reservas_anteriores.fecha_fin)
+                # Verificar si hay disponibilidades manuales que se superponen con el rango de búsqueda
+                # (que empiecen antes del fin y terminen después del inicio - superposición real)
+                disponibilidades_manuales_en_rango = Disponibilidad.objects.filter(
+                    propiedad=propiedad,
+                    es_manual=True,
+                    fecha_inicio__lt=fecha_fin,   # Empieza antes del fin de búsqueda (superposición real)
+                    fecha_fin__gt=fecha_inicio    # Termina después del inicio de búsqueda (superposición real)
+                )
                 
-                # Fechas iniciales de reservas que empiezan después o en la fecha de fin
-                # Excluir reservas eliminadas
-                reservas_posteriores = propiedad.reservas.filter(
-                    fecha_inicio__gte=fecha_fin,
-                    eliminada=False
-                ).order_by('fecha_inicio').first()
-                
-                if reservas_posteriores:
-                    # 🏨 LÓGICA HOTEL: Si próxima reserva empieza el 25, hasta el 25 está disponible
-                    fecha_disponible_hasta = min(fecha_disponible_hasta, reservas_posteriores.fecha_inicio)
+                if disponibilidades_manuales_en_rango.exists():
+                    # Hay disponibilidades manuales que cubren el rango: respetarlas completamente
+                    # Las disponibilidades manuales tienen prioridad sobre las reservas
+                    primera_disp_manual = disponibilidades_manuales_en_rango.order_by('fecha_inicio').first()
+                    ultima_disp_manual = disponibilidades_manuales_en_rango.order_by('-fecha_fin').first()
+                    
+                    # Usar el rango de las disponibilidades manuales, pero ajustado al rango de búsqueda
+                    fecha_disponible_desde = max(fecha_inicio, primera_disp_manual.fecha_inicio) if primera_disp_manual else fecha_inicio
+                    fecha_disponible_hasta = min(fecha_fin, ultima_disp_manual.fecha_fin) if ultima_disp_manual else fecha_fin
+                else:
+                    # No hay disponibilidades manuales: ajustar por reservas
+                    # Fechas finales de reservas que terminan antes o en la fecha de inicio
+                    # Excluir reservas eliminadas
+                    reservas_anteriores = propiedad.reservas.filter(
+                        fecha_fin__lte=fecha_inicio,
+                        eliminada=False
+                    ).order_by('-fecha_fin').first()
+                    
+                    if reservas_anteriores:
+                        # 🏨 LÓGICA HOTEL: Si reserva termina el 17, el 17 ya está disponible
+                        fecha_disponible_desde = max(fecha_disponible_desde, reservas_anteriores.fecha_fin)
+                    
+                    # Fechas iniciales de reservas que empiezan después o en la fecha de fin
+                    # Excluir reservas eliminadas
+                    reservas_posteriores = propiedad.reservas.filter(
+                        fecha_inicio__gte=fecha_fin,
+                        eliminada=False
+                    ).order_by('fecha_inicio').first()
+                    
+                    if reservas_posteriores:
+                        # 🏨 LÓGICA HOTEL: Si próxima reserva empieza el 25, hasta el 25 está disponible
+                        fecha_disponible_hasta = min(fecha_disponible_hasta, reservas_posteriores.fecha_inicio)
                 
                 # 5️⃣ ASIGNAR FECHAS CALCULADAS
                 propiedad.disponibilidad_inicio = fecha_disponible_desde
@@ -8226,28 +8249,51 @@ def buscar_propiedades(request):
                 fecha_disponible_desde = cobertura_inicio
                 fecha_disponible_hasta = cobertura_fin
                 
-                # 4️⃣ AJUSTAR POR RESERVAS ANTERIORES Y POSTERIORES
-                # Fechas finales de reservas que terminan antes o en la fecha de inicio
-                # Excluir reservas eliminadas
-                reservas_anteriores = propiedad.reservas.filter(
-                    fecha_fin__lte=fecha_inicio,
-                    eliminada=False
-                ).order_by('-fecha_fin').first()
+                # 4️⃣ AJUSTAR POR RESERVAS, PERO RESPETAR DISPONIBILIDADES MANUALES
+                # Si hay disponibilidades manuales que cubren el rango de búsqueda,
+                # las disponibilidades manuales tienen prioridad sobre las reservas
                 
-                if reservas_anteriores:
-                    # 🏨 LÓGICA HOTEL: Si reserva termina el 17, el 17 ya está disponible
-                    fecha_disponible_desde = max(fecha_disponible_desde, reservas_anteriores.fecha_fin)
+                # Verificar si hay disponibilidades manuales que se superponen con el rango de búsqueda
+                # (que empiecen antes del fin y terminen después del inicio - superposición real)
+                disponibilidades_manuales_en_rango = Disponibilidad.objects.filter(
+                    propiedad=propiedad,
+                    es_manual=True,
+                    fecha_inicio__lt=fecha_fin,   # Empieza antes del fin de búsqueda (superposición real)
+                    fecha_fin__gt=fecha_inicio    # Termina después del inicio de búsqueda (superposición real)
+                )
                 
-                # Fechas iniciales de reservas que empiezan después o en la fecha de fin
-                # Excluir reservas eliminadas
-                reservas_posteriores = propiedad.reservas.filter(
-                    fecha_inicio__gte=fecha_fin,
-                    eliminada=False
-                ).order_by('fecha_inicio').first()
-                
-                if reservas_posteriores:
-                    # 🏨 LÓGICA HOTEL: Si próxima reserva empieza el 25, hasta el 25 está disponible
-                    fecha_disponible_hasta = min(fecha_disponible_hasta, reservas_posteriores.fecha_inicio)
+                if disponibilidades_manuales_en_rango.exists():
+                    # Hay disponibilidades manuales que cubren el rango: respetarlas completamente
+                    # Las disponibilidades manuales tienen prioridad sobre las reservas
+                    primera_disp_manual = disponibilidades_manuales_en_rango.order_by('fecha_inicio').first()
+                    ultima_disp_manual = disponibilidades_manuales_en_rango.order_by('-fecha_fin').first()
+                    
+                    # Usar el rango de las disponibilidades manuales, pero ajustado al rango de búsqueda
+                    fecha_disponible_desde = max(fecha_inicio, primera_disp_manual.fecha_inicio) if primera_disp_manual else fecha_inicio
+                    fecha_disponible_hasta = min(fecha_fin, ultima_disp_manual.fecha_fin) if ultima_disp_manual else fecha_fin
+                else:
+                    # No hay disponibilidades manuales: ajustar por reservas
+                    # Fechas finales de reservas que terminan antes o en la fecha de inicio
+                    # Excluir reservas eliminadas
+                    reservas_anteriores = propiedad.reservas.filter(
+                        fecha_fin__lte=fecha_inicio,
+                        eliminada=False
+                    ).order_by('-fecha_fin').first()
+                    
+                    if reservas_anteriores:
+                        # 🏨 LÓGICA HOTEL: Si reserva termina el 17, el 17 ya está disponible
+                        fecha_disponible_desde = max(fecha_disponible_desde, reservas_anteriores.fecha_fin)
+                    
+                    # Fechas iniciales de reservas que empiezan después o en la fecha de fin
+                    # Excluir reservas eliminadas
+                    reservas_posteriores = propiedad.reservas.filter(
+                        fecha_inicio__gte=fecha_fin,
+                        eliminada=False
+                    ).order_by('fecha_inicio').first()
+                    
+                    if reservas_posteriores:
+                        # 🏨 LÓGICA HOTEL: Si próxima reserva empieza el 25, hasta el 25 está disponible
+                        fecha_disponible_hasta = min(fecha_disponible_hasta, reservas_posteriores.fecha_inicio)
                 
                 # 5️⃣ ASIGNAR FECHAS CALCULADAS
                 propiedad.disponibilidad_inicio = fecha_disponible_desde
