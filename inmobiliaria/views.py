@@ -2036,6 +2036,10 @@ def buscar_propiedades_reserva(request):
                 fecha_disponible_desde = cobertura_inicio
                 fecha_disponible_hasta = cobertura_fin
                 
+                # Inicializar variables para reservas (necesarias para logging después)
+                reservas_anteriores = None
+                reservas_posteriores = None
+                
                 # 4️⃣ AJUSTAR POR RESERVAS, PERO RESPETAR DISPONIBILIDADES MANUALES
                 # Si hay disponibilidades manuales que cubren el rango de búsqueda,
                 # las disponibilidades manuales tienen prioridad sobre las reservas
@@ -8248,6 +8252,10 @@ def buscar_propiedades(request):
                 # Usar la cobertura calculada anteriormente (cobertura_inicio y cobertura_fin)
                 fecha_disponible_desde = cobertura_inicio
                 fecha_disponible_hasta = cobertura_fin
+                
+                # Inicializar variables para reservas (necesarias para logging después)
+                reservas_anteriores = None
+                reservas_posteriores = None
                 
                 # 4️⃣ AJUSTAR POR RESERVAS, PERO RESPETAR DISPONIBILIDADES MANUALES
                 # Si hay disponibilidades manuales que cubren el rango de búsqueda,
