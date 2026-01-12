@@ -644,8 +644,23 @@ def vendedor_eliminar(request, vendedor_id):
 @login_required
 def inquilinos(request):
     form = InquilinoBuscarForm(request.GET or None)
-    inquilinos = Inquilino.objects.filter(sucursal=request.user.sucursal)
     
+    # Obtener el valor de ver_todas del formulario o del request
+    ver_todas = False
+    if form.is_valid():
+        ver_todas = form.cleaned_data.get('ver_todas', False)
+    else:
+        ver_todas = request.GET.get('ver_todas', '') == 'on' or request.GET.get('ver_todas', '') == 'true'
+    
+    # Filtrar inquilinos según la opción seleccionada
+    if ver_todas:
+        # Solo mostrar inquilinos de las sucursales Colón y Corrientes
+        inquilinos = Inquilino.objects.filter(
+            Q(sucursal__nombre__icontains='colon') | 
+            Q(sucursal__nombre__icontains='corrientes')
+        )
+    else:
+        inquilinos = Inquilino.objects.filter(sucursal=request.user.sucursal)
 
     if form.is_valid():
         termino = form.cleaned_data.get('termino')

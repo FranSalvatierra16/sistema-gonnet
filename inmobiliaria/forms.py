@@ -639,6 +639,14 @@ class PropietarioBuscarForm(forms.Form):
 
 class InquilinoBuscarForm(forms.Form):
     termino = forms.CharField(required=False, label='Buscar nombre completo o DNI')
+    ver_todas = forms.BooleanField(
+        required=False, 
+        label="Ver todas las sucursales", 
+        initial=False,
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input'
+        })
+    )
 
 class SucursalForm(forms.ModelForm):
     class Meta:

@@ -26,9 +26,9 @@
             <div class="card shadow-modern border-radius-modern">
                 <div class="card-body py-4">
                     <div class="row align-items-center">
-                        <div class="col-md-8">
+                        <div class="col-md-7">
                             <!-- Formulario de búsqueda mejorado -->
-                            <form id="search-form" class="d-flex align-items-center">
+                            <form id="search-form" method="GET" class="d-flex align-items-center">
                                 <div class="input-group search-input-group">
                                     <span class="input-group-text bg-primary text-white border-0">
                                         <i class="fas fa-search"></i>
@@ -38,9 +38,16 @@
                                         <i class="fas fa-times"></i>
                                     </button>
                                 </div>
+                                <div class="form-check ms-3">
+                                    {{ form.ver_todas }}
+                                    <label class="form-check-label" for="id_ver_todas" style="cursor: pointer;">
+                                        <i class="fas fa-globe me-1"></i>
+                                        Ver Todas
+                                    </label>
+                                </div>
                             </form>
                         </div>
-                        <div class="col-md-4 text-end">
+                        <div class="col-md-5 text-end">
                             <a href="{% url 'inmobiliaria:inquilino_nuevo' %}" class="btn btn-success shadow-modern px-4 py-2">
                                 <i class="fas fa-user-plus me-2"></i>👤 Nuevo Inquilino
                             </a>
@@ -179,10 +186,12 @@ $(document).ready(function() {
 
     function doneTyping() {
         var searchTerm = $('#id_termino').val();
+        var verTodas = $('#id_ver_todas').is(':checked');
         $.ajax({
             url: '{% url "inmobiliaria:inquilinos" %}',
             data: {
-                'termino': searchTerm
+                'termino': searchTerm,
+                'ver_todas': verTodas ? 'on' : ''
             },
             dataType: 'json',
             success: function(data) {
@@ -194,6 +203,11 @@ $(document).ready(function() {
             }
         });
     }
+    
+    // Manejar cambio en el checkbox "Ver Todas"
+    $('#id_ver_todas').on('change', function() {
+        doneTyping();
+    });
 
     function updateTable(inquilinos) {
         var tbody = $('#inquilinos-body');
