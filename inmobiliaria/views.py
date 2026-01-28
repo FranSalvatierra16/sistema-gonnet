@@ -6455,6 +6455,95 @@ def editar_info_invierno(request, propiedad_id):
     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
 
 @login_required
+def obtener_invierno_info_ajax(request, propiedad_id):
+    """Devuelve la info de alquiler invierno de una propiedad para editar desde la lista. Solo nivel >= 3 o admin."""
+    nivel = getattr(request.user, 'nivel', 0)
+    if not (request.user.is_superuser or nivel >= 3):
+        return JsonResponse({'error': 'Sin permisos.'}, status=403)
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    if propiedad.sucursal != request.user.sucursal and not request.user.is_superuser:
+        return JsonResponse({'error': 'No puede editar propiedades de otra sucursal.'}, status=403)
+    try:
+        info = propiedad.info_invierno
+    except AlquilerInvierno.DoesNotExist:
+        info = None
+    if not info:
+        return JsonResponse({
+            'precio_mensual': '',
+            'precio_expensas': '',
+            'estado': 'disponible',
+            'fecha_inicio': '',
+            'fecha_fin': '',
+            'observaciones': '',
+        })
+    return JsonResponse({
+        'precio_mensual': str(info.precio_mensual) if info.precio_mensual is not None else '',
+        'precio_expensas': str(info.precio_expensas) if info.precio_expensas is not None else '',
+        'estado': info.estado or 'disponible',
+        'fecha_inicio': info.fecha_inicio.strftime('%Y-%m-%d') if info.fecha_inicio else '',
+        'fecha_fin': info.fecha_fin.strftime('%Y-%m-%d') if info.fecha_fin else '',
+        'observaciones': info.observaciones or '',
+    })
+
+
+@login_required
+def actualizar_invierno_ajax(request):
+    """
+    Actualizar precio e info de alquiler invierno desde la lista de Alquileres Invierno.
+    Solo admin (nivel 4) o nivel >= 3.
+    """
+    nivel = getattr(request.user, 'nivel', 0)
+    if not (request.user.is_superuser or nivel >= 3):
+        return JsonResponse({'success': False, 'error': 'Sin permisos para editar.'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'}, status=405)
+    propiedad_id = request.POST.get('propiedad_id')
+    if not propiedad_id:
+        return JsonResponse({'success': False, 'error': 'Falta propiedad_id.'}, status=400)
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    if propiedad.sucursal != request.user.sucursal and not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'No puede editar propiedades de otra sucursal.'}, status=403)
+    try:
+        info_invierno, created = AlquilerInvierno.objects.get_or_create(propiedad=propiedad)
+        info_invierno.disponible = True
+        precio_mensual = request.POST.get('precio_mensual', '').strip()
+        precio_expensas = request.POST.get('precio_expensas', '').strip()
+        if precio_mensual:
+            try:
+                info_invierno.precio_mensual = Decimal(precio_mensual.replace(',', '.'))
+            except (ValueError, InvalidOperation):
+                pass
+        else:
+            info_invierno.precio_mensual = None
+        if precio_expensas:
+            try:
+                info_invierno.precio_expensas = Decimal(precio_expensas.replace(',', '.'))
+            except (ValueError, InvalidOperation):
+                pass
+        else:
+            info_invierno.precio_expensas = None
+        info_invierno.estado = request.POST.get('estado', 'disponible') or 'disponible'
+        fi = request.POST.get('fecha_inicio', '').strip()
+        ff = request.POST.get('fecha_fin', '').strip()
+        if info_invierno.estado == 'disponible':
+            info_invierno.fecha_inicio = None
+            info_invierno.fecha_fin = None
+        else:
+            info_invierno.fecha_inicio = datetime.strptime(fi, '%Y-%m-%d').date() if fi else None
+            info_invierno.fecha_fin = datetime.strptime(ff, '%Y-%m-%d').date() if ff else None
+        info_invierno.observaciones = request.POST.get('observaciones', '') or ''
+        info_invierno.save()
+        return JsonResponse({
+            'success': True,
+            'precio_mensual': str(info_invierno.precio_mensual) if info_invierno.precio_mensual is not None else '0',
+            'precio_expensas': str(info_invierno.precio_expensas) if info_invierno.precio_expensas is not None else '',
+            'estado': info_invierno.estado,
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
 def reactivar_propiedad_invierno(request, propiedad_id):
     """Reactivar una propiedad para alquileres de invierno"""
     propiedad = get_object_or_404(Propiedad, id=propiedad_id)
@@ -6691,6 +6780,8 @@ def alquileres_invierno(request):
     )
     ambientes_choices = [a for a in ambientes_choices if a is not None]
 
+    nivel = getattr(request.user, 'nivel', 0)
+    puede_editar_invierno = request.user.is_superuser or nivel >= 3
     context = {
         'propiedades': propiedades_invierno,
         'busqueda': busqueda,
@@ -6700,6 +6791,7 @@ def alquileres_invierno(request):
         'filtro_precio_max': filtro_precio_max,
         'ambientes_choices': ambientes_choices,
         'inquilinos': Inquilino.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
+        'puede_editar_invierno': puede_editar_invierno,
     }
     return render(request, 'inmobiliaria/propiedades/alquileres_invierno.html', context)
 

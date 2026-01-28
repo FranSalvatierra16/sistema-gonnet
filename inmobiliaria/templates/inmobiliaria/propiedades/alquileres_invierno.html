@@ -67,7 +67,7 @@
     <!-- Grid de Propiedades -->
     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
         {% for propiedad in propiedades %}
-        <div class="col">
+        <div class="col" id="card-invierno-{{ propiedad.id }}" data-propiedad-id="{{ propiedad.id }}">
             <div class="card h-100 shadow-modern border-radius-modern property-card">
                 <!-- Carrusel de Imágenes -->
                 <div id="carousel{{ propiedad.id }}" class="carousel slide" data-bs-ride="carousel">
@@ -123,12 +123,17 @@
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted">Precio Mensual</span>
-                            <span class="h5 mb-0 text-success">${{ propiedad.info_invierno.precio_mensual|format_price }}</span>
+                            <span class="h5 mb-0 text-success precio-mensual-display">${{ propiedad.info_invierno.precio_mensual|format_price }}</span>
                         </div>
                         {% if propiedad.info_invierno.precio_expensas %}
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center expensas-row">
                             <span class="text-muted">Expensas</span>
-                            <span class="text-primary">${{ propiedad.info_invierno.precio_expensas|format_price }}</span>
+                            <span class="text-primary precio-expensas-display">${{ propiedad.info_invierno.precio_expensas|format_price }}</span>
+                        </div>
+                        {% else %}
+                        <div class="d-flex justify-content-between align-items-center expensas-row" style="display:none;">
+                            <span class="text-muted">Expensas</span>
+                            <span class="text-primary precio-expensas-display"></span>
                         </div>
                         {% endif %}
                     </div>
@@ -153,6 +158,14 @@
                                 onclick="mostrarModalContratoInvierno({{ propiedad.id }}, '{{ propiedad.direccion|escapejs }}', '{{ propiedad.sucursal.nombre|escapejs }}', {{ propiedad.info_invierno.precio_mensual|default:0 }}, {{ propiedad.info_invierno.precio_expensas|default:0 }})">
                             <i class="fas fa-file-contract"></i> Crear Contrato
                         </button>
+                        {% if puede_editar_invierno %}
+                        <button type="button" class="btn btn-warning btn-editar-invierno" 
+                                data-propiedad-id="{{ propiedad.id }}" 
+                                data-direccion="{{ propiedad.direccion|escapejs }}"
+                                title="Editar precio e info de alquiler invierno">
+                            <i class="fas fa-edit"></i> Editar precio / info
+                        </button>
+                        {% endif %}
                         <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-outline-secondary">
                             <i class="fas fa-info-circle"></i> Ver Detalles
                         </a>
@@ -204,6 +217,65 @@
 </style>
 
 {% include 'inmobiliaria/propiedades/modal_crear_contrato_invierno.html' %}
+
+{% if puede_editar_invierno %}
+<!-- Modal Editar precio / info invierno -->
+<div class="modal fade" id="modalEditarInvierno" tabindex="-1" aria-labelledby="modalEditarInviernoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEditarInviernoLabel">Editar alquiler invierno — <span id="editar-invierno-direccion"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formEditarInvierno">
+                {% csrf_token %}
+                <input type="hidden" name="propiedad_id" id="editar-invierno-propiedad-id">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editar-invierno-precio-mensual" class="form-label">Precio mensual</label>
+                            <input type="number" class="form-control" id="editar-invierno-precio-mensual" name="precio_mensual" step="0.01" placeholder="0">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editar-invierno-precio-expensas" class="form-label">Precio expensas</label>
+                            <input type="number" class="form-control" id="editar-invierno-precio-expensas" name="precio_expensas" step="0.01" placeholder="0">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editar-invierno-estado" class="form-label">Estado</label>
+                            <select class="form-select" id="editar-invierno-estado" name="estado">
+                                <option value="disponible">Disponible</option>
+                                <option value="reservado">Reservado</option>
+                                <option value="ocupado">Ocupado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editar-invierno-fecha-inicio" class="form-label">Fecha inicio</label>
+                            <input type="date" class="form-control" id="editar-invierno-fecha-inicio" name="fecha_inicio">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editar-invierno-fecha-fin" class="form-label">Fecha fin</label>
+                            <input type="date" class="form-control" id="editar-invierno-fecha-fin" name="fecha_fin">
+                        </div>
+                        <div class="col-md-6 mb-3"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editar-invierno-observaciones" class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="editar-invierno-observaciones" name="observaciones" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Modal de Galería de Imágenes -->
 <div class="modal fade" id="modalGaleriaImagenes" tabindex="-1" aria-labelledby="modalGaleriaImagenesLabel" aria-hidden="true">
@@ -277,6 +349,73 @@ function abrirGaleriaImagenes(propiedadId, imagenIndex) {
 }
 
 // La función mostrarModalContratoInvierno está definida en modal_crear_contrato_invierno.html
+
+{% if puede_editar_invierno %}
+(function() {
+    const modalEl = document.getElementById('modalEditarInvierno');
+    if (!modalEl) return;
+    const urlInviernoInfoBase = "{% url 'inmobiliaria:obtener_invierno_info_ajax' 0 %}";
+    const urlActualizar = "{% url 'inmobiliaria:actualizar_invierno_ajax' %}";
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    document.querySelectorAll('.btn-editar-invierno').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const propId = this.getAttribute('data-propiedad-id');
+            const direccion = this.getAttribute('data-direccion') || '';
+            document.getElementById('editar-invierno-propiedad-id').value = propId;
+            document.getElementById('editar-invierno-direccion').textContent = direccion;
+            fetch(urlInviernoInfoBase.replace('0', propId))
+                .then(r => r.json())
+                .then(function(data) {
+                    document.getElementById('editar-invierno-precio-mensual').value = data.precio_mensual || '';
+                    document.getElementById('editar-invierno-precio-expensas').value = data.precio_expensas || '';
+                    document.getElementById('editar-invierno-estado').value = data.estado || 'disponible';
+                    document.getElementById('editar-invierno-fecha-inicio').value = data.fecha_inicio || '';
+                    document.getElementById('editar-invierno-fecha-fin').value = data.fecha_fin || '';
+                    document.getElementById('editar-invierno-observaciones').value = data.observaciones || '';
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                })
+                .catch(function() { alert('Error al cargar los datos.'); });
+        });
+    });
+
+    document.getElementById('formEditarInvierno').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        formData.set('csrfmiddlewaretoken', csrfToken);
+        const propId = formData.get('propiedad_id');
+        fetch(urlActualizar, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(function(data) {
+            if (data.success) {
+                const card = document.getElementById('card-invierno-' + propId);
+                if (card) {
+                    const precioDisplay = card.querySelector('.precio-mensual-display');
+                    const expensasDisplay = card.querySelector('.precio-expensas-display');
+                    const expensasRow = card.querySelector('.expensas-row');
+                    if (precioDisplay) {
+                        const val = data.precio_mensual ? Number(data.precio_mensual).toLocaleString('es-AR') : '0';
+                        precioDisplay.textContent = '$' + val;
+                    }
+                    if (expensasDisplay && data.precio_expensas) {
+                        expensasDisplay.textContent = '$' + Number(data.precio_expensas).toLocaleString('es-AR');
+                        if (expensasRow) expensasRow.style.display = '';
+                    }
+                }
+                bootstrap.Modal.getInstance(modalEl).hide();
+            } else {
+                alert(data.error || 'Error al guardar.');
+            }
+        })
+        .catch(function() { alert('Error al guardar.'); });
+    });
+})();
+{% endif %}
 </script>
 
 {% endblock %}

@@ -244,6 +244,8 @@ urlpatterns = [
     path('propiedades/<int:propiedad_id>/reactivar-24-meses/', views.reactivar_propiedad_24_meses, name='reactivar_propiedad_24_meses'),
     path('propiedades/<int:propiedad_id>/desactivar-24-meses/', views.desactivar_propiedad_24_meses, name='desactivar_propiedad_24_meses'),
     path('propiedades/<int:propiedad_id>/editar-invierno/', views.editar_info_invierno, name='editar_info_invierno'),
+    path('propiedades/<int:propiedad_id>/invierno-info/', views.obtener_invierno_info_ajax, name='obtener_invierno_info_ajax'),
+    path('actualizar-invierno-ajax/', views.actualizar_invierno_ajax, name='actualizar_invierno_ajax'),
     path('propiedades/<int:propiedad_id>/reactivar-invierno/', views.reactivar_propiedad_invierno, name='reactivar_propiedad_invierno'),
     path('propiedades/<int:propiedad_id>/desactivar-invierno/', views.desactivar_propiedad_invierno, name='desactivar_propiedad_invierno'),
     
