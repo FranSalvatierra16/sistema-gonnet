@@ -1,0 +1,34 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+
+{% block title %}Estudiantes{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4"><i class="fas fa-graduation-cap me-2"></i>Estudiantes</h2>
+    <p class="text-muted mb-4">Alquileres estudiantiles — disponibilidad masiva y búsqueda por fechas, ambientes y precio.</p>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm border-0" style="cursor: pointer;" onclick="window.location.href='{% url 'inmobiliaria:estudiantes_disponibilidad_masiva' %}'">
+                <div class="card-body text-center d-flex flex-column justify-content-center">
+                    <i class="fas fa-calendar-plus fa-3x text-primary mb-3"></i>
+                    <h5 class="card-title">Disponibilidad masiva</h5>
+                    <p class="card-text text-muted">Seleccioná propiedades de estudiantes y activálas por el rango de fechas que quieras.</p>
+                    <span class="btn btn-outline-primary mt-auto">Ir a disponibilidad masiva</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm border-0" style="cursor: pointer;" onclick="window.location.href='{% url 'inmobiliaria:buscar_propiedades_estudiantes' %}'">
+                <div class="card-body text-center d-flex flex-column justify-content-center">
+                    <i class="fas fa-search fa-3x text-success mb-3"></i>
+                    <h5 class="card-title">Buscar propiedades</h5>
+                    <p class="card-text text-muted">Buscá propiedades de estudiantes por fechas, cantidad de ambientes y precio máximo.</p>
+                    <span class="btn btn-outline-success mt-auto">Buscar propiedades</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

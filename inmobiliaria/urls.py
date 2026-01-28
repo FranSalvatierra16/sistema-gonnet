@@ -74,6 +74,10 @@ urlpatterns = [
     path('editar-historial-disponibilidad/', views.editar_historial_disponibilidad, name='editar_historial_disponibilidad'),
     path('limpieza-brutal/', views.limpieza_brutal, name='limpieza_brutal'),
     path('propiedades/buscar-por-fechas/', views.buscar_propiedades_por_fechas, name='buscar_propiedades_por_fechas'),
+    # Estudiantes
+    path('estudiantes/', views.estudiantes, name='estudiantes'),
+    path('estudiantes/disponibilidad-masiva/', views.estudiantes_disponibilidad_masiva, name='estudiantes_disponibilidad_masiva'),
+    path('estudiantes/buscar/', views.buscar_propiedades_estudiantes, name='buscar_propiedades_estudiantes'),
     path('utilidades/diagrama-db/', views.ver_diagrama_db, name='ver_diagrama_db'),
 
     # Búsqueda URLs
