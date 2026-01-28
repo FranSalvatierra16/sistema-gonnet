@@ -5303,10 +5303,202 @@ def obtener_vendedor(request, vendedor_id):
 
 
 
+@login_required
+def estudiantes(request):
+    """Página principal de Estudiantes: enlaces a disponibilidad masiva y buscar propiedades."""
+    return render(request, 'inmobiliaria/estudiantes/index.html')
+
+
+@login_required
+def estudiantes_disponibilidad_masiva(request):
+    """
+    Disponibilidad masiva solo para propiedades de tipo Estudiante (sucursales Colón y Corrientes).
+    """
+    q_sucursales = Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
+
+    if request.method == 'POST':
+        propiedad_ids = request.POST.getlist('propiedades[]')
+        fecha_inicio_str = request.POST.get('fecha_inicio')
+        fecha_fin_str = request.POST.get('fecha_fin')
+        try:
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date() if fecha_inicio_str else None
+            fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date() if fecha_fin_str else None
+        except (ValueError, TypeError):
+            fecha_inicio = fecha_fin = None
+        if not fecha_inicio or not fecha_fin:
+            return JsonResponse({'success': False, 'message': 'Fechas de inicio y fin son obligatorias y deben ser válidas.'})
+        if fecha_inicio > fecha_fin:
+            return JsonResponse({'success': False, 'message': 'La fecha de inicio no puede ser posterior a la fecha de fin.'})
+
+        propiedades_actualizadas = 0
+        propiedades_exitosas = []
+        errores_detallados = []
+
+        try:
+            for propiedad_id in propiedad_ids:
+                try:
+                    propiedad = Propiedad.objects.filter(q_sucursales, tipo_cliente='ESTUDIANTE').get(id=propiedad_id)
+                except Propiedad.DoesNotExist:
+                    errores_detallados.append({
+                        'propiedad_id': propiedad_id,
+                        'direccion': 'Desconocida',
+                        'error': 'No es una propiedad de estudiante de Colón/Corrientes o no existe',
+                        'tipo': 'no_existe'
+                    })
+                    continue
+
+                try:
+                    todas_disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad)
+                    solapamientos_reales = [
+                        d for d in todas_disponibilidades
+                        if d.fecha_fin > fecha_inicio and d.fecha_inicio < fecha_fin
+                    ]
+                    if solapamientos_reales:
+                        fechas_conflicto = [f"{d.fecha_inicio.strftime('%d/%m/%Y')} - {d.fecha_fin.strftime('%d/%m/%Y')}" for d in solapamientos_reales]
+                        raise ValueError(f"Se superpone con disponibilidades existentes: {', '.join(fechas_conflicto)}")
+
+                    Disponibilidad.objects.create(
+                        propiedad=propiedad,
+                        fecha_inicio=fecha_inicio,
+                        fecha_fin=fecha_fin,
+                        es_manual=True
+                    )
+                    propiedades_actualizadas += 1
+                    propiedades_exitosas.append({
+                        'propiedad_id': propiedad_id,
+                        'direccion': propiedad.direccion,
+                        'piso': propiedad.piso or '-',
+                        'departamento': propiedad.departamento or '-'
+                    })
+                except ValueError as e:
+                    errores_detallados.append({
+                        'propiedad_id': propiedad_id,
+                        'direccion': propiedad.direccion,
+                        'piso': propiedad.piso or '-',
+                        'departamento': propiedad.departamento or '-',
+                        'error': str(e),
+                        'tipo': 'solapamiento'
+                    })
+                except Exception as e:
+                    errores_detallados.append({
+                        'propiedad_id': propiedad_id,
+                        'direccion': getattr(propiedad, 'direccion', 'Desconocida'),
+                        'piso': getattr(propiedad, 'piso', '-') or '-',
+                        'departamento': getattr(propiedad, 'departamento', '-') or '-',
+                        'error': str(e),
+                        'tipo': 'error_general'
+                    })
+
+            respuesta = {
+                'propiedades_procesadas': len(propiedad_ids),
+                'propiedades_exitosas': propiedades_actualizadas,
+                'propiedades_con_errores': len(errores_detallados),
+                'detalles_exitosas': propiedades_exitosas,
+                'detalles_errores': errores_detallados
+            }
+            if propiedades_actualizadas > 0:
+                mensaje = f'✅ {propiedades_actualizadas} propiedades actualizadas correctamente'
+                if errores_detallados:
+                    mensaje += f'\n⚠️ {len(errores_detallados)} propiedades con errores'
+                return JsonResponse({'success': True, 'message': mensaje, 'detalles': respuesta})
+            return JsonResponse({
+                'success': False,
+                'message': f'❌ No se pudo actualizar ninguna propiedad ({len(errores_detallados)} errores)',
+                'detalles': respuesta
+            })
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+
+    propiedades = Propiedad.objects.filter(
+        tipo_cliente='ESTUDIANTE'
+    ).filter(q_sucursales).select_related('propietario', 'sucursal').order_by('direccion')
+
+    return render(request, 'inmobiliaria/estudiantes/disponibilidad_masiva.html', {
+        'propiedades': propiedades,
+        'es_estudiantes': True
+    })
+
+
+@login_required
+def buscar_propiedades_estudiantes(request):
+    """
+    Buscar propiedades de estudiantes por fechas, ambientes y precio máximo.
+    """
+    propiedades_encontradas = []
+    fecha_desde = None
+    fecha_hasta = None
+    filtro_ambientes = None
+    filtro_precio_max = None
+
+    q_sucursales = Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
+
+    if request.method == 'POST':
+        fecha_desde_str = request.POST.get('fecha_desde', '')
+        fecha_hasta_str = request.POST.get('fecha_hasta', '')
+        ambientes_str = request.POST.get('ambientes', '').strip()
+        precio_max_str = request.POST.get('precio_max', '').strip()
+
+        if fecha_desde_str and fecha_hasta_str:
+            try:
+                fecha_desde = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+                fecha_hasta = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+                if ambientes_str:
+                    filtro_ambientes = int(ambientes_str)
+                if precio_max_str:
+                    filtro_precio_max = Decimal(precio_max_str.replace(',', '.'))
+            except (ValueError, InvalidOperation):
+                pass
+
+        if fecha_desde and fecha_hasta:
+            disponibilidades = Disponibilidad.objects.filter(
+                fecha_inicio__lt=fecha_hasta,
+                fecha_fin__gt=fecha_desde,
+            ).select_related('propiedad', 'propiedad__propietario', 'propiedad__sucursal')
+
+            propiedades_ids = list(disponibilidades.values_list('propiedad_id', flat=True).distinct())
+            q_prop = Q(id__in=propiedades_ids, tipo_cliente='ESTUDIANTE') & q_sucursales
+            if filtro_ambientes is not None:
+                q_prop = q_prop & Q(ambientes=filtro_ambientes)
+            propiedades = Propiedad.objects.filter(q_prop).select_related('propietario', 'sucursal').prefetch_related('precios')
+
+            for propiedad in propiedades:
+                precio_est = next((p for p in propiedad.precios.all() if p.tipo_precio == 'ESTUDIANTE'), None)
+                precio_val = precio_est.precio_total if (precio_est and precio_est.precio_total is not None) else None
+                if filtro_precio_max is not None:
+                    if precio_val is None:
+                        continue
+                    if precio_val > filtro_precio_max:
+                        continue
+                disp_prop = disponibilidades.filter(propiedad=propiedad)
+                reserva_termina_en_inicio = propiedad.reservas.filter(
+                    eliminada=False,
+                    fecha_fin=fecha_desde,
+                    estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera']
+                ).exclude(fecha_inicio=fecha_desde).first()
+                propiedades_encontradas.append({
+                    'propiedad': propiedad,
+                    'disponibilidades': disp_prop,
+                    'reserva_termina_en_inicio': reserva_termina_en_inicio,
+                    'precio_estudiante': precio_val
+                })
+
+    ambientes_choices = list(Propiedad.objects.filter(tipo_cliente='ESTUDIANTE').filter(q_sucursales).values_list('ambientes', flat=True).distinct().order_by('ambientes'))
+    ambientes_choices = [a for a in ambientes_choices if a is not None]
+
+    return render(request, 'inmobiliaria/estudiantes/buscar.html', {
+        'propiedades_encontradas': propiedades_encontradas,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+        'filtro_ambientes': filtro_ambientes,
+        'filtro_precio_max': filtro_precio_max,
+        'ambientes_choices': ambientes_choices,
+    })
+
+
 def agregar_disponibilidad_masiva(request):
     # Obtener la sucursal del usuario logueado
     sucursal = request.user.sucursal
-    
+
     if request.method == 'POST':
         propiedad_ids = request.POST.getlist('propiedades[]')
         fecha_inicio = request.POST.get('fecha_inicio')

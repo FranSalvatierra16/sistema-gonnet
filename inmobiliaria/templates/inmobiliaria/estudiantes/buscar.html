@@ -1,0 +1,157 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load bootstrap4 %}
+{% load custom_filters %}
+
+{% block title %}Buscar propiedades estudiantes{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'inmobiliaria:estudiantes' %}">Estudiantes</a></li>
+            <li class="breadcrumb-item active">Buscar propiedades</li>
+        </ol>
+    </nav>
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-4"><i class="fas fa-search me-2"></i>Buscar propiedades de estudiantes</h2>
+            <p class="text-muted">Filtrá por rango de fechas, cantidad de ambientes y precio máximo (precio tipo Estudiante).</p>
+
+            <div class="card shadow">
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-2">
+                                <label for="fecha_desde" class="form-label">Fecha desde</label>
+                                <input type="date" class="form-control" id="fecha_desde" name="fecha_desde"
+                                       value="{% if fecha_desde %}{{ fecha_desde|date:'Y-m-d' }}{% endif %}" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="fecha_hasta" class="form-label">Fecha hasta</label>
+                                <input type="date" class="form-control" id="fecha_hasta" name="fecha_hasta"
+                                       value="{% if fecha_hasta %}{{ fecha_hasta|date:'Y-m-d' }}{% endif %}" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="ambientes" class="form-label">Ambientes</label>
+                                <select class="form-select" id="ambientes" name="ambientes">
+                                    <option value="">Todos</option>
+                                    {% for a in ambientes_choices %}
+                                    <option value="{{ a }}" {% if filtro_ambientes == a %}selected{% endif %}>{{ a }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="precio_max" class="form-label">Precio máx.</label>
+                                <input type="text" class="form-control" id="precio_max" name="precio_max"
+                                       placeholder="Ej: 150000" value="{% if filtro_precio_max %}{{ filtro_precio_max }}{% endif %}">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search me-1"></i> Buscar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if propiedades_encontradas %}
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Leyenda:</strong>
+                <span class="badge bg-warning text-dark ms-2">Amarillo</span> = Tiene una reserva que termina el día de inicio (se puede reservar).
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        Resultados ({{ propiedades_encontradas|length }} propiedades)
+                        {% if fecha_desde and fecha_hasta %}
+                        <small class="text-muted">del {{ fecha_desde|date:'d/m/Y' }} al {{ fecha_hasta|date:'d/m/Y' }}</small>
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Dirección</th>
+                                    <th>Ambientes</th>
+                                    <th>Precio estudiante</th>
+                                    <th>Propietario</th>
+                                    <th>Disponibilidades</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in propiedades_encontradas %}
+                                <tr {% if item.reserva_termina_en_inicio %}class="table-warning" style="background-color: #fff3cd !important;"{% endif %}>
+                                    <td>{{ item.propiedad.id }}</td>
+                                    <td>
+                                        <strong>{{ item.propiedad.direccion }}</strong>
+                                        {% if item.propiedad.piso or item.propiedad.departamento %}
+                                        <br><small class="text-muted">
+                                            {% if item.propiedad.piso %}Piso: {{ item.propiedad.piso }}{% endif %}
+                                            {% if item.propiedad.departamento %} — Dpto: {{ item.propiedad.departamento }}{% endif %}
+                                        </small>
+                                        {% endif %}
+                                        {% if item.reserva_termina_en_inicio %}
+                                        <br><small class="badge bg-warning text-dark">Reserva hasta {{ item.reserva_termina_en_inicio.fecha_fin|date:'d/m/Y' }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ item.propiedad.ambientes }}</td>
+                                    <td>
+                                        {% if item.precio_estudiante is not None %}
+                                        $ {{ item.precio_estudiante|floatformat:0 }}
+                                        {% else %}
+                                        <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ item.propiedad.propietario.apellido }}, {{ item.propiedad.propietario.nombre }}</td>
+                                    <td>
+                                        {% for disp in item.disponibilidades %}
+                                        <div class="mb-1">
+                                            <span class="badge bg-info">{{ disp.fecha_inicio|date:'d/m/Y' }} — {{ disp.fecha_fin|date:'d/m/Y' }}</span>
+                                        </div>
+                                        {% endfor %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'inmobiliaria:propiedad_detalle' item.propiedad.id %}" class="btn btn-sm btn-info" title="Ver detalles">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% elif fecha_desde and fecha_hasta %}
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                No se encontraron propiedades de estudiantes con disponibilidad en el rango indicado{% if filtro_ambientes %} con {{ filtro_ambientes }} ambiente(s){% endif %}{% if filtro_precio_max %} y precio hasta ${{ filtro_precio_max }}{% endif %}.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="mt-3">
+        <a href="{% url 'inmobiliaria:estudiantes' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i> Volver a Estudiantes</a>
+    </div>
+</div>
+{% endblock %}
