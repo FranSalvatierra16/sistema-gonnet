@@ -6244,45 +6244,63 @@ def editar_historial_reserva(request):
         old_start = historial.fecha_inicio
         old_fin = historial.fecha_fin
         with transaction.atomic():
+            # Guardar fechas originales la primera vez que se edita
+            if not reserva.fue_editada:
+                reserva.fecha_inicio_original = old_start
+                reserva.fecha_fin_original = old_fin
             reserva.fecha_inicio = fecha_inicio
             reserva.fecha_fin = fecha_fin
-            reserva.save(update_fields=['fecha_inicio', 'fecha_fin'])
+            reserva.fue_editada = True
+            reserva.save(update_fields=['fecha_inicio', 'fecha_fin', 'fecha_inicio_original', 'fecha_fin_original', 'fue_editada'])
             historial.fecha_inicio = fecha_inicio
             historial.fecha_fin = fecha_fin
             historial.save(update_fields=['fecha_inicio', 'fecha_fin'])
             propiedad = historial.propiedad
             def _crear_o_actualizar_periodo_libre(prop, start, fin):
-                """Crea período libre o lo fusiona con uno contiguo existente."""
-                # ¿Hay un historial libre que empieza justo después? (ej: liberamos 28, existe 29-20/07 → extendemos a 28-20/07)
+                """Crea período libre o lo fusiona con uno contiguo existente (formato hotel: libre empieza el mismo día que termina reserva)."""
+                # ¿Hay un historial libre que empieza el mismo día o el día siguiente? (ej: liberamos 2, existe 2-10 o 3-10 → fusionar)
                 siguiente = HistorialDisponibilidad.objects.filter(
-                    propiedad=prop, estado='libre', fecha_inicio=fin + timedelta(days=1)
-                ).first()
+                    propiedad=prop, estado='libre',
+                    fecha_inicio__gte=start,
+                    fecha_inicio__lte=fin + timedelta(days=1)
+                ).order_by('fecha_inicio').first()
                 if siguiente:
+                    # Fusionar: extender el siguiente para que empiece en start y termine en max(fin, siguiente.fecha_fin)
+                    siguiente_fecha_inicio_original = siguiente.fecha_inicio
+                    nueva_fin = max(fin, siguiente.fecha_fin)
                     siguiente.fecha_inicio = start
-                    siguiente.save(update_fields=['fecha_inicio'])
+                    siguiente.fecha_fin = nueva_fin
+                    siguiente.save(update_fields=['fecha_inicio', 'fecha_fin'])
+                    # Buscar Disponibilidad que empiece en o cerca de siguiente.fecha_inicio original (antes de cambiar)
                     disp = Disponibilidad.objects.filter(
                         propiedad=prop, es_manual=True,
-                        fecha_inicio=fin + timedelta(days=1)
-                    ).first()
+                        fecha_inicio__gte=siguiente_fecha_inicio_original,
+                        fecha_inicio__lte=siguiente_fecha_inicio_original + timedelta(days=1)
+                    ).order_by('fecha_inicio').first()
                     if disp:
                         disp.fecha_inicio = start
-                        disp.save(update_fields=['fecha_inicio'])
+                        disp.fecha_fin = nueva_fin
+                        disp.save(update_fields=['fecha_inicio', 'fecha_fin'])
                     else:
                         Disponibilidad.objects.create(
-                            propiedad=prop, fecha_inicio=start, fecha_fin=fin, es_manual=True
+                            propiedad=prop, fecha_inicio=start, fecha_fin=nueva_fin, es_manual=True
                         )
                     return
-                # ¿Hay un historial libre que termina justo antes? (ej: existe 20-26, liberamos 27-28 → extendemos a 20-28)
+                # ¿Hay un historial libre que termina justo antes o el mismo día? (ej: existe 20-1, liberamos 2-3 → fusionar)
                 anterior = HistorialDisponibilidad.objects.filter(
-                    propiedad=prop, estado='libre', fecha_fin=start - timedelta(days=1)
-                ).first()
+                    propiedad=prop, estado='libre',
+                    fecha_fin__gte=start - timedelta(days=1),
+                    fecha_fin__lt=start
+                ).order_by('-fecha_fin').first()
                 if anterior:
+                    # Fusionar: extender el anterior para que termine en fin
                     anterior.fecha_fin = fin
                     anterior.save(update_fields=['fecha_fin'])
                     disp = Disponibilidad.objects.filter(
                         propiedad=prop, es_manual=True,
-                        fecha_fin=start - timedelta(days=1)
-                    ).first()
+                        fecha_fin__gte=anterior.fecha_fin - timedelta(days=1),
+                        fecha_fin__lt=anterior.fecha_fin + timedelta(days=1)
+                    ).order_by('-fecha_fin').first()
                     if disp:
                         disp.fecha_fin = fin
                         disp.save(update_fields=['fecha_fin'])
@@ -6313,7 +6331,8 @@ def editar_historial_reserva(request):
                 if libre_start <= libre_fin:
                     _crear_o_actualizar_periodo_libre(propiedad, libre_start, libre_fin)
             if fecha_fin < old_fin:
-                libre_start = fecha_fin + timedelta(days=1)
+                # Formato hotel: el período libre empieza el mismo día que termina la reserva
+                libre_start = fecha_fin  # Mismo día que termina la reserva
                 libre_fin = old_fin
                 if libre_start <= libre_fin:
                     _crear_o_actualizar_periodo_libre(propiedad, libre_start, libre_fin)
@@ -11486,7 +11505,10 @@ def detalles_operacion_reserva(request, reserva_id):
             'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
             'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
             'total_dias': (reserva.fecha_fin - reserva.fecha_inicio).days,
-            'estado': reserva.estado
+            'estado': reserva.estado,
+            'fue_editada': reserva.fue_editada,
+            'fecha_inicio_original': reserva.fecha_inicio_original.strftime('%d/%m/%Y') if reserva.fecha_inicio_original else None,
+            'fecha_fin_original': reserva.fecha_fin_original.strftime('%d/%m/%Y') if reserva.fecha_fin_original else None,
         }
         
         # Debug: Log para verificar qué se está enviando

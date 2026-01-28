@@ -1152,6 +1152,11 @@
                                         <small>
                                             Reserva #{{ historial.reserva.id }} <br>
                                             Cliente: {{ historial.reserva.cliente.apellido }}
+                                            {% if historial.reserva.fue_editada %}
+                                            <br><span class="badge bg-warning text-dark" title="Esta reserva fue editada desde el historial">
+                                                <i class="fas fa-edit"></i> Editada
+                                            </span>
+                                            {% endif %}
                                         </small>
                                     {% else %}
                                         -
@@ -2756,7 +2761,12 @@ function mostrarDetallesOperacion(operacion, reserva) {
                     <p><strong>Cliente:</strong> ${reserva.cliente || 'No especificado'}</p>
                     ${celularHtml}
                     <p><strong>Productor:</strong> ${reserva.productor_id ? `#${reserva.productor_id} - ${reserva.productor_nombre}` : 'No especificado'}</p>
-                    <p><strong>Período:</strong> ${reserva.fecha_inicio} al ${reserva.fecha_fin}</p>
+                    ${reserva.fue_editada && reserva.fecha_inicio_original && reserva.fecha_fin_original ? `
+                        <p><strong>Período original:</strong> <span class="text-muted">${reserva.fecha_inicio_original} al ${reserva.fecha_fin_original}</span></p>
+                        <p><strong>Período editado:</strong> <span class="text-primary"><strong>${reserva.fecha_inicio} al ${reserva.fecha_fin}</strong></span></p>
+                    ` : `
+                        <p><strong>Período:</strong> ${reserva.fecha_inicio} al ${reserva.fecha_fin}</p>
+                    `}
                     <p><strong>Total días:</strong> ${reserva.total_dias}</p>
                 </div>
                 <div class="col-md-6">
