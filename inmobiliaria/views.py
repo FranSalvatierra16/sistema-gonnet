@@ -6251,42 +6251,72 @@ def editar_historial_reserva(request):
             historial.fecha_fin = fecha_fin
             historial.save(update_fields=['fecha_inicio', 'fecha_fin'])
             propiedad = historial.propiedad
+            def _crear_o_actualizar_periodo_libre(prop, start, fin):
+                """Crea período libre o lo fusiona con uno contiguo existente."""
+                # ¿Hay un historial libre que empieza justo después? (ej: liberamos 28, existe 29-20/07 → extendemos a 28-20/07)
+                siguiente = HistorialDisponibilidad.objects.filter(
+                    propiedad=prop, estado='libre', fecha_inicio=fin + timedelta(days=1)
+                ).first()
+                if siguiente:
+                    siguiente.fecha_inicio = start
+                    siguiente.save(update_fields=['fecha_inicio'])
+                    disp = Disponibilidad.objects.filter(
+                        propiedad=prop, es_manual=True,
+                        fecha_inicio=fin + timedelta(days=1)
+                    ).first()
+                    if disp:
+                        disp.fecha_inicio = start
+                        disp.save(update_fields=['fecha_inicio'])
+                    else:
+                        Disponibilidad.objects.create(
+                            propiedad=prop, fecha_inicio=start, fecha_fin=fin, es_manual=True
+                        )
+                    return
+                # ¿Hay un historial libre que termina justo antes? (ej: existe 20-26, liberamos 27-28 → extendemos a 20-28)
+                anterior = HistorialDisponibilidad.objects.filter(
+                    propiedad=prop, estado='libre', fecha_fin=start - timedelta(days=1)
+                ).first()
+                if anterior:
+                    anterior.fecha_fin = fin
+                    anterior.save(update_fields=['fecha_fin'])
+                    disp = Disponibilidad.objects.filter(
+                        propiedad=prop, es_manual=True,
+                        fecha_fin=start - timedelta(days=1)
+                    ).first()
+                    if disp:
+                        disp.fecha_fin = fin
+                        disp.save(update_fields=['fecha_fin'])
+                    else:
+                        Disponibilidad.objects.create(
+                            propiedad=prop, fecha_inicio=start, fecha_fin=fin, es_manual=True
+                        )
+                    return
+                # Sin contiguo: crear nuevo
+                HistorialDisponibilidad.objects.create(
+                    propiedad=prop,
+                    fecha_inicio=start,
+                    fecha_fin=fin,
+                    estado='libre',
+                    reserva=None,
+                    es_principal=True
+                )
+                Disponibilidad.objects.create(
+                    propiedad=prop,
+                    fecha_inicio=start,
+                    fecha_fin=fin,
+                    es_manual=True
+                )
+
             if fecha_inicio > old_start:
                 libre_start = old_start
                 libre_fin = fecha_inicio - timedelta(days=1)
                 if libre_start <= libre_fin:
-                    HistorialDisponibilidad.objects.create(
-                        propiedad=propiedad,
-                        fecha_inicio=libre_start,
-                        fecha_fin=libre_fin,
-                        estado='libre',
-                        reserva=None,
-                        es_principal=True
-                    )
-                    Disponibilidad.objects.create(
-                        propiedad=propiedad,
-                        fecha_inicio=libre_start,
-                        fecha_fin=libre_fin,
-                        es_manual=True
-                    )
+                    _crear_o_actualizar_periodo_libre(propiedad, libre_start, libre_fin)
             if fecha_fin < old_fin:
                 libre_start = fecha_fin + timedelta(days=1)
                 libre_fin = old_fin
                 if libre_start <= libre_fin:
-                    HistorialDisponibilidad.objects.create(
-                        propiedad=propiedad,
-                        fecha_inicio=libre_start,
-                        fecha_fin=libre_fin,
-                        estado='libre',
-                        reserva=None,
-                        es_principal=True
-                    )
-                    Disponibilidad.objects.create(
-                        propiedad=propiedad,
-                        fecha_inicio=libre_start,
-                        fecha_fin=libre_fin,
-                        es_manual=True
-                    )
+                    _crear_o_actualizar_periodo_libre(propiedad, libre_start, libre_fin)
         return JsonResponse({
             'success': True,
             'message': f'Fechas de la reserva actualizadas: {fecha_inicio.strftime("%d/%m/%Y")} al {fecha_fin.strftime("%d/%m/%Y")}. Los días liberados quedan disponibles.'
