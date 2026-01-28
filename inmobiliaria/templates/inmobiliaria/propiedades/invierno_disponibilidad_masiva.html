@@ -1,0 +1,165 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+
+{% block title %}Alquileres Invierno - Disponibilidad masiva{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'inmobiliaria:alquileres_invierno' %}">Alquileres Invierno</a></li>
+            <li class="breadcrumb-item active">Disponibilidad masiva</li>
+        </ol>
+    </nav>
+    <h2 class="mb-4"><i class="fas fa-snowflake me-2"></i>Disponibilidad masiva (Alquileres Invierno)</h2>
+    <p class="text-muted">Seleccioná propiedades habilitadas para invierno (Colón y Corrientes) y activálas como disponibles.</p>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <input type="text" id="buscar-id" class="form-control" placeholder="Buscar por ID">
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col">
+            <button class="btn btn-secondary" id="seleccionar-todas">Seleccionar Todas</button>
+            <button class="btn btn-secondary" id="deseleccionar-todas">Deseleccionar Todas</button>
+            <button class="btn btn-primary" id="guardar-disponibilidad">Activar para Invierno</button>
+            <a href="{% url 'inmobiliaria:alquileres_invierno' %}" class="btn btn-outline-secondary">Volver a Alquileres Invierno</a>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped" id="tabla-propiedades">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="checkbox-principal"></th>
+                    <th>ID</th>
+                    <th>Dirección</th>
+                    <th>Piso</th>
+                    <th>Dpto</th>
+                    <th>Ambientes</th>
+                    <th>Propietario</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for propiedad in propiedades %}
+                <tr>
+                    <td>
+                        <input type="checkbox" class="propiedad-checkbox" value="{{ propiedad.id }}">
+                    </td>
+                    <td>{{ propiedad.id }}</td>
+                    <td>{{ propiedad.direccion }}</td>
+                    <td>{{ propiedad.piso|default:"-" }}</td>
+                    <td>{{ propiedad.departamento|default:"-" }}</td>
+                    <td>{{ propiedad.ambientes }}</td>
+                    <td>{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted">No hay propiedades habilitadas para invierno (Colón/Corrientes) para listar.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxPrincipal = document.getElementById('checkbox-principal');
+    const checkboxesPropiedades = document.querySelectorAll('.propiedad-checkbox');
+    const btnSeleccionarTodas = document.getElementById('seleccionar-todas');
+    const btnDeseleccionarTodas = document.getElementById('deseleccionar-todas');
+    const btnGuardarDisponibilidad = document.getElementById('guardar-disponibilidad');
+    const buscarIdInput = document.getElementById('buscar-id');
+
+    if (checkboxPrincipal) {
+        checkboxPrincipal.addEventListener('change', function() {
+            checkboxesPropiedades.forEach(checkbox => { checkbox.checked = this.checked; });
+        });
+    }
+    btnSeleccionarTodas.addEventListener('click', function() {
+        checkboxesPropiedades.forEach(checkbox => { checkbox.checked = true; });
+        if (checkboxPrincipal) checkboxPrincipal.checked = true;
+    });
+    btnDeseleccionarTodas.addEventListener('click', function() {
+        checkboxesPropiedades.forEach(checkbox => { checkbox.checked = false; });
+        if (checkboxPrincipal) checkboxPrincipal.checked = false;
+    });
+
+    btnGuardarDisponibilidad.addEventListener('click', function() {
+        const propiedadesSeleccionadas = Array.from(checkboxesPropiedades)
+            .filter(checkbox => checkbox.checked)
+            .map(checkbox => checkbox.value);
+        if (propiedadesSeleccionadas.length === 0) {
+            Swal.fire('Error', 'Por favor seleccione al menos una propiedad', 'error');
+            return;
+        }
+        Swal.fire({
+            title: '¿Activar para invierno?',
+            text: 'Se activarán ' + propiedadesSeleccionadas.length + ' propiedades como disponibles para Alquileres Invierno.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, activar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) guardarDisponibilidad(propiedadesSeleccionadas);
+        });
+    });
+
+    function guardarDisponibilidad(propiedades) {
+        Swal.fire({ title: 'Guardando...', text: 'Por favor espere.', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+        const formData = new FormData();
+        propiedades.forEach(id => formData.append('propiedades[]', id));
+        fetch('{% url "inmobiliaria:invierno_disponibilidad_masiva" %}', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                let html = '<div style="text-align: left;"><p><strong>' + data.message + '</strong></p>';
+                if (data.detalles && data.detalles.detalles_exitosas && data.detalles.detalles_exitosas.length > 0) {
+                    html += '<h4 style="color: green;">✅ Activas (' + data.detalles.detalles_exitosas.length + '):</h4><table style="width:100%;border-collapse:collapse;"><tr style="background:#d4edda;"><th style="border:1px solid #ddd;padding:8px;">ID</th><th style="border:1px solid #ddd;padding:8px;">Dirección</th><th style="border:1px solid #ddd;padding:8px;">Piso</th><th style="border:1px solid #ddd;padding:8px;">Dpto</th></tr>';
+                    data.detalles.detalles_exitosas.forEach(prop => {
+                        html += '<tr><td style="border:1px solid #ddd;padding:8px;">' + prop.propiedad_id + '</td><td style="border:1px solid #ddd;padding:8px;">' + prop.direccion + '</td><td style="border:1px solid #ddd;padding:8px;">' + prop.piso + '</td><td style="border:1px solid #ddd;padding:8px;">' + prop.departamento + '</td></tr>';
+                    });
+                    html += '</table>';
+                }
+                if (data.detalles && data.detalles.detalles_errores && data.detalles.detalles_errores.length > 0) {
+                    html += '<h4 style="color: red;">❌ Con errores (' + data.detalles.detalles_errores.length + '):</h4><table style="width:100%;border-collapse:collapse;"><tr style="background:#f8d7da;"><th style="border:1px solid #ddd;padding:8px;">ID</th><th style="border:1px solid #ddd;padding:8px;">Dirección</th><th style="border:1px solid #ddd;padding:8px;">Error</th></tr>';
+                    data.detalles.detalles_errores.forEach(err => {
+                        html += '<tr><td style="border:1px solid #ddd;padding:8px;">' + err.propiedad_id + '</td><td style="border:1px solid #ddd;padding:8px;">' + err.direccion + '</td><td style="border:1px solid #ddd;padding:8px;color:red;">' + err.error + '</td></tr>';
+                    });
+                    html += '</table>';
+                }
+                html += '</div>';
+                Swal.fire({ icon: data.detalles && data.detalles.detalles_errores && data.detalles.detalles_errores.length ? 'warning' : 'success', title: data.detalles && data.detalles.detalles_errores && data.detalles.detalles_errores.length ? 'Completado con errores' : 'Éxito', html: html, width: '800px' }).then(() => window.location.reload());
+            } else {
+                let html = '<p><strong>' + data.message + '</strong></p>';
+                if (data.detalles && data.detalles.detalles_errores && data.detalles.detalles_errores.length > 0) {
+                    html += '<table style="width:100%;border-collapse:collapse;"><tr style="background:#f8d7da;"><th style="border:1px solid #ddd;padding:8px;">ID</th><th style="border:1px solid #ddd;padding:8px;">Error</th></tr>';
+                    data.detalles.detalles_errores.forEach(err => { html += '<tr><td style="border:1px solid #ddd;padding:8px;">' + err.propiedad_id + '</td><td style="border:1px solid #ddd;padding:8px;color:red;">' + err.error + '</td></tr>'; });
+                    html += '</table>';
+                }
+                Swal.fire({ icon: 'error', title: 'Error', html: html, width: '700px' });
+            }
+        })
+        .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Error al guardar.' }));
+    }
+
+    if (buscarIdInput) {
+        buscarIdInput.addEventListener('keyup', function() {
+            const filter = this.value.toUpperCase();
+            document.querySelectorAll('#tabla-propiedades tbody tr').forEach(row => {
+                const idCell = row.querySelector('td:nth-child(2)');
+                row.style.display = (idCell && (idCell.textContent || idCell.innerText).toUpperCase().indexOf(filter) > -1) ? '' : 'none';
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

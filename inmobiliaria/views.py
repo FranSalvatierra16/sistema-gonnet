@@ -6648,42 +6648,138 @@ def alquileres_24_meses(request):
 @login_required
 def alquileres_invierno(request):
     # Filtrar propiedades que tienen alquiler de invierno activado
-    propiedades_invierno = Propiedad.objects.filter(
-        info_invierno__disponible=True,  # Solo propiedades con alquiler invierno activado
-        info_invierno__estado='disponible'  # Por defecto mostrar solo las disponibles
-    ).select_related(
-        'info_invierno', 
+    estado = request.GET.get('estado', '')
+    busqueda = request.GET.get('busqueda', '')
+    filtro_ambientes = request.GET.get('ambientes', '')
+    filtro_precio_max = request.GET.get('precio_max', '')
+
+    propiedades_invierno = Propiedad.objects.filter(info_invierno__disponible=True)
+    if estado:
+        propiedades_invierno = propiedades_invierno.filter(info_invierno__estado=estado)
+    else:
+        propiedades_invierno = propiedades_invierno.filter(info_invierno__estado='disponible')
+    propiedades_invierno = propiedades_invierno.select_related(
+        'info_invierno',
         'sucursal'
     ).prefetch_related('imagenes')
 
-    # Aplicar filtros de búsqueda si existen
-    busqueda = request.GET.get('busqueda', '')
     if busqueda:
         propiedades_invierno = propiedades_invierno.filter(
             Q(direccion__icontains=busqueda) |
             Q(id__icontains=busqueda)
         )
+    if filtro_ambientes:
+        try:
+            propiedades_invierno = propiedades_invierno.filter(ambientes=int(filtro_ambientes))
+        except ValueError:
+            pass
+    if filtro_precio_max:
+        try:
+            precio_max = Decimal(filtro_precio_max.replace(',', '.'))
+            propiedades_invierno = propiedades_invierno.filter(
+                info_invierno__precio_mensual__lte=precio_max
+            )
+        except (ValueError, InvalidOperation):
+            pass
 
-    # Si se selecciona un estado específico, sobreescribir el filtro por defecto
-    estado = request.GET.get('estado', '')
-    if estado:
-        propiedades_invierno = Propiedad.objects.filter(
-            info_invierno__disponible=True,
-            info_invierno__estado=estado
-        ).select_related(
-            'info_invierno', 
-            'sucursal'
-        ).prefetch_related('imagenes')
+    # Opciones de ambientes para el filtro (desde propiedades con invierno habilitado)
+    ambientes_choices = list(
+        Propiedad.objects.filter(habilitar_invierno=True)
+        .values_list('ambientes', flat=True)
+        .distinct()
+        .order_by('ambientes')
+    )
+    ambientes_choices = [a for a in ambientes_choices if a is not None]
 
     context = {
         'propiedades': propiedades_invierno,
         'busqueda': busqueda,
-        'estado_filtro': estado or 'disponible',  # Si no hay estado seleccionado, marcar 'disponible'
+        'estado_filtro': estado or 'disponible',
         'estados': AlquilerInvierno.ESTADO_CHOICES,
+        'filtro_ambientes': filtro_ambientes,
+        'filtro_precio_max': filtro_precio_max,
+        'ambientes_choices': ambientes_choices,
         'inquilinos': Inquilino.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
     }
-    
     return render(request, 'inmobiliaria/propiedades/alquileres_invierno.html', context)
+
+
+@login_required
+def invierno_disponibilidad_masiva(request):
+    """
+    Disponibilidad masiva para Alquileres Invierno: seleccionar propiedades (habilitar_invierno)
+    y activarlas como disponibles para invierno (Colón y Corrientes).
+    """
+    q_sucursales = Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
+
+    if request.method == 'POST':
+        propiedad_ids = request.POST.getlist('propiedades[]')
+        propiedades_actualizadas = 0
+        propiedades_exitosas = []
+        errores_detallados = []
+
+        for propiedad_id in propiedad_ids:
+            try:
+                propiedad = Propiedad.objects.filter(
+                    q_sucursales, habilitar_invierno=True
+                ).get(id=propiedad_id)
+            except Propiedad.DoesNotExist:
+                errores_detallados.append({
+                    'propiedad_id': propiedad_id,
+                    'direccion': 'Desconocida',
+                    'error': 'No es una propiedad habilitada para invierno (Colón/Corrientes) o no existe',
+                    'tipo': 'no_existe'
+                })
+                continue
+
+            try:
+                info_invierno, created = AlquilerInvierno.objects.get_or_create(propiedad=propiedad)
+                info_invierno.disponible = True
+                info_invierno.estado = 'disponible'
+                info_invierno.save()
+                propiedades_actualizadas += 1
+                propiedades_exitosas.append({
+                    'propiedad_id': propiedad_id,
+                    'direccion': propiedad.direccion,
+                    'piso': propiedad.piso or '-',
+                    'departamento': propiedad.departamento or '-'
+                })
+            except Exception as e:
+                errores_detallados.append({
+                    'propiedad_id': propiedad_id,
+                    'direccion': getattr(propiedad, 'direccion', 'Desconocida'),
+                    'piso': getattr(propiedad, 'piso', '-') or '-',
+                    'departamento': getattr(propiedad, 'departamento', '-') or '-',
+                    'error': str(e),
+                    'tipo': 'error_general'
+                })
+
+        respuesta = {
+            'propiedades_procesadas': len(propiedad_ids),
+            'propiedades_exitosas': propiedades_actualizadas,
+            'propiedades_con_errores': len(errores_detallados),
+            'detalles_exitosas': propiedades_exitosas,
+            'detalles_errores': errores_detallados
+        }
+        if propiedades_actualizadas > 0:
+            mensaje = f'✅ {propiedades_actualizadas} propiedades activadas para invierno'
+            if errores_detallados:
+                mensaje += f'\n⚠️ {len(errores_detallados)} con errores'
+            return JsonResponse({'success': True, 'message': mensaje, 'detalles': respuesta})
+        return JsonResponse({
+            'success': False,
+            'message': f'❌ No se pudo activar ninguna propiedad ({len(errores_detallados)} errores)',
+            'detalles': respuesta
+        })
+
+    propiedades = Propiedad.objects.filter(
+        habilitar_invierno=True
+    ).filter(q_sucursales).select_related('propietario', 'sucursal').order_by('direccion')
+
+    return render(request, 'inmobiliaria/propiedades/invierno_disponibilidad_masiva.html', {
+        'propiedades': propiedades,
+    })
+
 
 def generar_mensaje_whatsapp(propiedad):
     # Formatear el mensaje

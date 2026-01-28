@@ -16,11 +16,18 @@
         </div>
     </div>
 
+    <!-- Acción: Disponibilidad masiva -->
+    <div class="mb-3">
+        <a href="{% url 'inmobiliaria:invierno_disponibilidad_masiva' %}" class="btn btn-info">
+            <i class="fas fa-calendar-plus"></i> Disponibilidad masiva
+        </a>
+    </div>
+
     <!-- Filtros -->
     <div class="card shadow-modern border-radius-modern mb-4">
         <div class="card-body">
             <form method="get" class="row g-3 align-items-end">
-                <div class="col-md-4">
+                <div class="col-md-2">
                     <label class="form-label"><i class="fas fa-filter"></i> Estado</label>
                     <select name="estado" class="form-select" onchange="this.form.submit()">
                         <option value="">Todos</option>
@@ -31,10 +38,22 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-2">
+                    <label class="form-label"><i class="fas fa-door-open"></i> Ambientes</label>
+                    <select name="ambientes" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todos</option>
+                        {% for a in ambientes_choices %}
+                        <option value="{{ a }}" {% if filtro_ambientes == a|stringformat:"d" %}selected{% endif %}>{{ a }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label"><i class="fas fa-tag"></i> Precio máx.</label>
+                    <input type="text" name="precio_max" class="form-control" placeholder="Ej: 500000" value="{{ filtro_precio_max }}">
+                </div>
+                <div class="col-md-4">
                     <label class="form-label"><i class="fas fa-search"></i> Buscar</label>
-                    <input type="text" name="busqueda" class="form-control" placeholder="Buscar por dirección..." 
-                           value="{{ busqueda }}">
+                    <input type="text" name="busqueda" class="form-control" placeholder="Buscar por dirección..." value="{{ busqueda }}">
                 </div>
                 <div class="col-md-2">
                     <button type="submit" class="btn btn-primary w-100">

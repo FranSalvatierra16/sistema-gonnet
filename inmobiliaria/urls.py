@@ -151,6 +151,7 @@ urlpatterns = [
     path('ventas/', views.ventas, name='ventas'),
     path('alquileres-24-meses/', views.alquileres_24_meses, name='alquileres_24_meses'),
     path('alquileres-invierno/', views.alquileres_invierno, name='alquileres_invierno'),
+    path('alquileres-invierno/disponibilidad-masiva/', views.invierno_disponibilidad_masiva, name='invierno_disponibilidad_masiva'),
     path('dashboard/ventas/', views.ventas, name='dashboard_ventas'),
     path('propiedad/<int:propiedad_id>/iniciar-compra/', views.iniciar_compra, name='iniciar_compra'),
     path('caja/', views.gestionar_caja, name='gestionar_caja'),
