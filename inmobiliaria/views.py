@@ -6707,10 +6707,10 @@ def alquileres_invierno(request):
 @login_required
 def invierno_disponibilidad_masiva(request):
     """
-    Disponibilidad masiva para Alquileres Invierno: seleccionar propiedades (habilitar_invierno)
-    y activarlas como disponibles para invierno (Colón y Corrientes).
+    Disponibilidad masiva para Alquileres Invierno: lista TODAS las propiedades de la sucursal
+    del usuario; se pueden seleccionar y habilitar para invierno (con o sin precio, el precio se carga después).
     """
-    q_sucursales = Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
+    sucursal = request.user.sucursal
 
     if request.method == 'POST':
         propiedad_ids = request.POST.getlist('propiedades[]')
@@ -6720,19 +6720,19 @@ def invierno_disponibilidad_masiva(request):
 
         for propiedad_id in propiedad_ids:
             try:
-                propiedad = Propiedad.objects.filter(
-                    q_sucursales, habilitar_invierno=True
-                ).get(id=propiedad_id)
+                propiedad = Propiedad.objects.filter(sucursal=sucursal).get(id=propiedad_id)
             except Propiedad.DoesNotExist:
                 errores_detallados.append({
                     'propiedad_id': propiedad_id,
                     'direccion': 'Desconocida',
-                    'error': 'No es una propiedad habilitada para invierno (Colón/Corrientes) o no existe',
+                    'error': 'No pertenece a su sucursal o no existe',
                     'tipo': 'no_existe'
                 })
                 continue
 
             try:
+                propiedad.habilitar_invierno = True
+                propiedad.save(update_fields=['habilitar_invierno'])
                 info_invierno, created = AlquilerInvierno.objects.get_or_create(propiedad=propiedad)
                 info_invierno.disponible = True
                 info_invierno.estado = 'disponible'
@@ -6762,22 +6762,24 @@ def invierno_disponibilidad_masiva(request):
             'detalles_errores': errores_detallados
         }
         if propiedades_actualizadas > 0:
-            mensaje = f'✅ {propiedades_actualizadas} propiedades activadas para invierno'
+            mensaje = f'✅ {propiedades_actualizadas} propiedades habilitadas para invierno'
             if errores_detallados:
                 mensaje += f'\n⚠️ {len(errores_detallados)} con errores'
             return JsonResponse({'success': True, 'message': mensaje, 'detalles': respuesta})
         return JsonResponse({
             'success': False,
-            'message': f'❌ No se pudo activar ninguna propiedad ({len(errores_detallados)} errores)',
+            'message': f'❌ No se pudo habilitar ninguna propiedad ({len(errores_detallados)} errores)',
             'detalles': respuesta
         })
 
+    # Listar TODAS las propiedades de la sucursal del usuario (con o sin precio)
     propiedades = Propiedad.objects.filter(
-        habilitar_invierno=True
-    ).filter(q_sucursales).select_related('propietario', 'sucursal').order_by('direccion')
+        sucursal=sucursal
+    ).select_related('propietario', 'sucursal').order_by('direccion')
 
     return render(request, 'inmobiliaria/propiedades/invierno_disponibilidad_masiva.html', {
         'propiedades': propiedades,
+        'sucursal': sucursal,
     })
 
 
