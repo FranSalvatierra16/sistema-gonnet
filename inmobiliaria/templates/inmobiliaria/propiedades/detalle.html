@@ -1166,6 +1166,15 @@
                                                 title="Ver monto de la operación">
                                             <i class="fas fa-dollar-sign"></i> Ver Monto
                                         </button>
+                                        <button type="button" 
+                                                class="btn btn-warning btn-sm editar-historial-reserva"
+                                                data-historial-id="{{ historial.id }}"
+                                                data-fecha-inicio="{{ historial.fecha_inicio|date:'Y-m-d' }}"
+                                                data-fecha-fin="{{ historial.fecha_fin|date:'Y-m-d' }}"
+                                                data-reserva-id="{{ historial.reserva.id }}"
+                                                title="Editar fechas de la reserva (sin cambiar precio ni info)">
+                                            <i class="fas fa-edit"></i> Editar fechas
+                                        </button>
                                     {% elif historial.estado == 'libre' %}
                                         <button type="button" 
                                                 class="btn btn-warning btn-sm editar-historial-libre"
@@ -1234,6 +1243,49 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="btnGuardarHistorialLibre">
+                    <i class="fas fa-save"></i> Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para editar fechas de una reserva en el historial -->
+<div class="modal fade" id="modalEditarHistorialReserva" tabindex="-1" aria-labelledby="modalEditarHistorialReservaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEditarHistorialReservaLabel">
+                    <i class="fas fa-edit"></i> Editar fechas de la reserva
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> 
+                    <strong>Solo se modifican las fechas.</strong> El precio y la información de la reserva no cambian. 
+                    Útil cuando la estadía terminó antes: acortá el rango y los días liberados quedarán disponibles (ej. si ponés hasta el 16, el 17 saldrá en búsqueda).
+                </div>
+                <form id="formEditarHistorialReserva">
+                    {% csrf_token %}
+                    <input type="hidden" id="historial_reserva_id_edit" name="historial_id">
+                    <div class="mb-3">
+                        <label for="historial_reserva_fecha_inicio" class="form-label">
+                            <i class="fas fa-calendar-alt"></i> Fecha de Inicio
+                        </label>
+                        <input type="date" class="form-control" id="historial_reserva_fecha_inicio" name="fecha_inicio" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="historial_reserva_fecha_fin" class="form-label">
+                            <i class="fas fa-calendar-alt"></i> Fecha de Fin
+                        </label>
+                        <input type="date" class="form-control" id="historial_reserva_fecha_fin" name="fecha_fin" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnGuardarHistorialReserva">
                     <i class="fas fa-save"></i> Guardar Cambios
                 </button>
             </div>
@@ -2763,7 +2815,7 @@ function mostrarDetallesOperacion(operacion, reserva) {
     });
 }
 
-// Manejar clic en botón "Editar" de historial libre
+// Manejar clic en botón "Editar" de historial libre y "Editar fechas" de reserva
 document.addEventListener('DOMContentLoaded', function() {
     // Event delegation para botones de editar historial libre
     document.addEventListener('click', function(e) {
@@ -2773,13 +2825,24 @@ document.addEventListener('DOMContentLoaded', function() {
             const fechaInicio = btn.getAttribute('data-fecha-inicio');
             const fechaFin = btn.getAttribute('data-fecha-fin');
             
-            // Llenar el modal con los datos actuales
             document.getElementById('historial_id_edit').value = historialId;
             document.getElementById('historial_fecha_inicio').value = fechaInicio;
             document.getElementById('historial_fecha_fin').value = fechaFin;
             
-            // Mostrar el modal
             const modal = new bootstrap.Modal(document.getElementById('modalEditarHistorialLibre'));
+            modal.show();
+        }
+        if (e.target.closest('.editar-historial-reserva')) {
+            const btn = e.target.closest('.editar-historial-reserva');
+            const historialId = btn.getAttribute('data-historial-id');
+            const fechaInicio = btn.getAttribute('data-fecha-inicio');
+            const fechaFin = btn.getAttribute('data-fecha-fin');
+            
+            document.getElementById('historial_reserva_id_edit').value = historialId;
+            document.getElementById('historial_reserva_fecha_inicio').value = fechaInicio;
+            document.getElementById('historial_reserva_fecha_fin').value = fechaFin;
+            
+            const modal = new bootstrap.Modal(document.getElementById('modalEditarHistorialReserva'));
             modal.show();
         }
     });
@@ -2863,19 +2926,74 @@ document.addEventListener('DOMContentLoaded', function() {
                     title: 'Error',
                     text: data.error || 'Error al actualizar las fechas'
                 });
-                btnGuardar.disabled = false;
-                btnGuardar.innerHTML = textoOriginal;
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Error de conexión al guardar'
-            });
             btnGuardar.disabled = false;
             btnGuardar.innerHTML = textoOriginal;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error de conexión al guardar'
+        });
+        btnGuardar.disabled = false;
+        btnGuardar.innerHTML = textoOriginal;
+    });
+}
+
+    // Guardar fechas de reserva (historial reservado/alquilado)
+    const btnGuardarHistorialReserva = document.getElementById('btnGuardarHistorialReserva');
+    if (btnGuardarHistorialReserva) {
+        btnGuardarHistorialReserva.addEventListener('click', function() {
+            const historialId = document.getElementById('historial_reserva_id_edit').value;
+            const fechaInicio = document.getElementById('historial_reserva_fecha_inicio').value;
+            const fechaFin = document.getElementById('historial_reserva_fecha_fin').value;
+            if (!historialId || !fechaInicio || !fechaFin) {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Completá ambas fechas' });
+                return;
+            }
+            if (fechaInicio > fechaFin) {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'La fecha de inicio debe ser anterior a la de fin' });
+                return;
+            }
+            Swal.fire({
+                title: '¿Guardar cambios?',
+                text: 'Se actualizarán solo las fechas de la reserva. Los días liberados quedarán disponibles.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, guardar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const formData = new FormData();
+                    formData.append('historial_id', historialId);
+                    formData.append('fecha_inicio', fechaInicio);
+                    formData.append('fecha_fin', fechaFin);
+                    formData.append('csrfmiddlewaretoken', document.querySelector('#formEditarHistorialReserva [name=csrfmiddlewaretoken]').value);
+                    btnGuardarHistorialReserva.disabled = true;
+                    btnGuardarHistorialReserva.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+                    fetch('{% url "inmobiliaria:editar_historial_reserva" %}', { method: 'POST', body: formData })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.success) {
+                                Swal.fire({ icon: 'success', title: 'Listo', text: data.message || 'Fechas actualizadas' }).then(() => {
+                                    bootstrap.Modal.getInstance(document.getElementById('modalEditarHistorialReserva')).hide();
+                                    location.reload();
+                                });
+                            } else {
+                                Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'Error al actualizar' });
+                            }
+                            btnGuardarHistorialReserva.disabled = false;
+                            btnGuardarHistorialReserva.innerHTML = '<i class="fas fa-save"></i> Guardar Cambios';
+                        })
+                        .catch(() => {
+                            Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión' });
+                            btnGuardarHistorialReserva.disabled = false;
+                            btnGuardarHistorialReserva.innerHTML = '<i class="fas fa-save"></i> Guardar Cambios';
+                        });
+                }
+            });
         });
     }
 });

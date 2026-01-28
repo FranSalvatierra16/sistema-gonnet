@@ -6214,6 +6214,91 @@ def editar_historial_disponibilidad(request):
             'error': f'Error al actualizar historial: {str(e)}'
         })
 
+
+@login_required
+@require_POST
+def editar_historial_reserva(request):
+    """
+    Editar las fechas de un historial que corresponde a una reserva (reservado/alquilado).
+    Solo se modifican las fechas; el precio y la info de la reserva no cambian.
+    Si se acorta el rango (ej: de 15-17 a 15-16), los días liberados (ej: 17) pasan a estar
+    disponibles y la propiedad sale en búsqueda para esas fechas.
+    """
+    from datetime import timedelta
+    try:
+        historial_id = request.POST.get('historial_id')
+        fecha_inicio_str = request.POST.get('fecha_inicio')
+        fecha_fin_str = request.POST.get('fecha_fin')
+        if not historial_id or not fecha_inicio_str or not fecha_fin_str:
+            return JsonResponse({'success': False, 'error': 'Faltan datos requeridos'})
+        historial = get_object_or_404(HistorialDisponibilidad, id=historial_id)
+        if historial.propiedad.sucursal != request.user.sucursal:
+            return JsonResponse({'success': False, 'error': 'No tienes permisos para editar este historial'})
+        if not historial.reserva_id or historial.estado not in ('reservado', 'alquilado'):
+            return JsonResponse({'success': False, 'error': 'Este historial no corresponde a una reserva editable'})
+        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        if fecha_inicio > fecha_fin:
+            return JsonResponse({'success': False, 'error': 'La fecha de inicio debe ser anterior o igual a la de fin'})
+        reserva = historial.reserva
+        old_start = historial.fecha_inicio
+        old_fin = historial.fecha_fin
+        with transaction.atomic():
+            reserva.fecha_inicio = fecha_inicio
+            reserva.fecha_fin = fecha_fin
+            reserva.save(update_fields=['fecha_inicio', 'fecha_fin'])
+            historial.fecha_inicio = fecha_inicio
+            historial.fecha_fin = fecha_fin
+            historial.save(update_fields=['fecha_inicio', 'fecha_fin'])
+            propiedad = historial.propiedad
+            if fecha_inicio > old_start:
+                libre_start = old_start
+                libre_fin = fecha_inicio - timedelta(days=1)
+                if libre_start <= libre_fin:
+                    HistorialDisponibilidad.objects.create(
+                        propiedad=propiedad,
+                        fecha_inicio=libre_start,
+                        fecha_fin=libre_fin,
+                        estado='libre',
+                        reserva=None,
+                        es_principal=True
+                    )
+                    Disponibilidad.objects.create(
+                        propiedad=propiedad,
+                        fecha_inicio=libre_start,
+                        fecha_fin=libre_fin,
+                        es_manual=True
+                    )
+            if fecha_fin < old_fin:
+                libre_start = fecha_fin + timedelta(days=1)
+                libre_fin = old_fin
+                if libre_start <= libre_fin:
+                    HistorialDisponibilidad.objects.create(
+                        propiedad=propiedad,
+                        fecha_inicio=libre_start,
+                        fecha_fin=libre_fin,
+                        estado='libre',
+                        reserva=None,
+                        es_principal=True
+                    )
+                    Disponibilidad.objects.create(
+                        propiedad=propiedad,
+                        fecha_inicio=libre_start,
+                        fecha_fin=libre_fin,
+                        es_manual=True
+                    )
+        return JsonResponse({
+            'success': True,
+            'message': f'Fechas de la reserva actualizadas: {fecha_inicio.strftime("%d/%m/%Y")} al {fecha_fin.strftime("%d/%m/%Y")}. Los días liberados quedan disponibles.'
+        })
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': f'Formato de fecha inválido: {str(e)}'})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
 @login_required
 def limpieza_brutal(request):
     """

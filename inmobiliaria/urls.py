@@ -72,6 +72,7 @@ urlpatterns = [
     path('propiedad/<int:propiedad_id>/historial-disponibilidad/', views.ver_historial_disponibilidad, name='historial_disponibilidad'),
     path('limpiar-historial-disponibilidad/', views.limpiar_historial_disponibilidad, name='limpiar_historial_disponibilidad'),
     path('editar-historial-disponibilidad/', views.editar_historial_disponibilidad, name='editar_historial_disponibilidad'),
+    path('editar-historial-reserva/', views.editar_historial_reserva, name='editar_historial_reserva'),
     path('limpieza-brutal/', views.limpieza_brutal, name='limpieza_brutal'),
     path('propiedades/buscar-por-fechas/', views.buscar_propiedades_por_fechas, name='buscar_propiedades_por_fechas'),
     # Estudiantes
