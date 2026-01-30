@@ -1181,14 +1181,7 @@
                                             <i class="fas fa-edit"></i> Editar fechas
                                         </button>
                                     {% elif historial.estado == 'libre' %}
-                                        <button type="button" 
-                                                class="btn btn-warning btn-sm editar-historial-libre"
-                                                data-historial-id="{{ historial.id }}"
-                                                data-fecha-inicio="{{ historial.fecha_inicio|date:'Y-m-d' }}"
-                                                data-fecha-fin="{{ historial.fecha_fin|date:'Y-m-d' }}"
-                                                title="Editar fechas de disponibilidad libre">
-                                            <i class="fas fa-edit"></i> Editar
-                                        </button>
+                                        -
                                     {% else %}
                                         -
                                     {% endif %}
