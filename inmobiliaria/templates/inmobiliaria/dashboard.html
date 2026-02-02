@@ -54,16 +54,14 @@
         </div>
 
         <!-- Invierno -->
+     
         <div class="col-md-4 mb-4">
-            <div class="card shadow-modern border-radius-modern" onclick="window.location.href='{% url 'inmobiliaria:alquileres_invierno' %}'" style="cursor: pointer;">
-                <div class="card-header text-center">
-                    <i class="fas fa-snowflake fa-2x mb-2"></i>
-                    <h4 class="mb-0">Estudiantes</h4>
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:alquileres_invierno' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-graduation-cap"></i>
                 </div>
-                <div class="card-body text-center">
-                    <p class="text-muted">Alquileres de 9 meses (marzo a diciembre)</p>
-                    <span class="badge bg-info">Temporada</span>
-                </div>
+                <h3>Estudiantes</h3>
+                <p>Alquileres estudiantiles</p>
             </div>
         </div>
 
@@ -108,7 +106,7 @@
         {% endif %}
 
         <!-- Estudiantes -->
-      
+     
     </div>
 </div>
 
