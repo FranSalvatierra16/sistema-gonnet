@@ -189,10 +189,19 @@ class MultipleFileField(forms.FileField):
     def clean(self, data, initial=None):
         single_file_clean = super().clean
         if isinstance(data, (list, tuple)):
-            result = [single_file_clean(d, initial) for d in data]
-        else:
-            result = single_file_clean(data, initial)
-        return result
+            result = []
+            for d in data:
+                try:
+                    v = single_file_clean(d, initial)
+                    if v is not None and getattr(v, 'name', None):
+                        result.append(v)
+                except forms.ValidationError:
+                    raise
+                except Exception:
+                    pass  # ignorar entradas vacías o inválidas
+            return result
+        v = single_file_clean(data, initial)
+        return [v] if (v is not None and getattr(v, 'name', None)) else []
 # Formulario de Propiedad
 class PropiedadForm(forms.ModelForm):
     imagenes = MultipleFileField(
@@ -380,7 +389,10 @@ class PropiedadForm(forms.ModelForm):
                 else:
                     raise ValidationError(f'Error al guardar la propiedad: {error_msg}')
             # Guardar imágenes solo si existen
-            imagenes = self.cleaned_data.get('imagenes')
+            imagenes = self.cleaned_data.get('imagenes') or []
+            if not isinstance(imagenes, (list, tuple)):
+                imagenes = [imagenes] if imagenes else []
+            imagenes = [f for f in imagenes if f is not None and getattr(f, 'name', None)]
             if imagenes:
                 # Obtener el último orden existente
                 ultimo_orden = ImagenPropiedad.objects.filter(propiedad=propiedad).aggregate(
@@ -394,6 +406,8 @@ class PropiedadForm(forms.ModelForm):
                 # Agregar las nuevas imágenes al final, evitando duplicados
                 nuevas_agregadas = 0
                 for imagen in imagenes:
+                    if imagen is None or not getattr(imagen, 'name', None):
+                        continue
                     nombre_archivo = os.path.basename(imagen.name)
                     # Si la imagen ya existe, saltarla
                     if nombre_archivo in nombres_existentes:
