@@ -12,10 +12,19 @@
         </ol>
     </nav>
     <h2 class="mb-4"><i class="fas fa-snowflake me-2"></i>Disponibilidad masiva (Alquileres Invierno)</h2>
-    <p class="text-muted">Se listan <strong>todas las propiedades de su sucursal</strong>. Seleccioná las que quieras habilitar para invierno y activálas como disponibles. No importa si aún no tienen precio; el precio se puede cargar después desde el detalle de cada propiedad.</p>
+    <p class="text-muted">Se listan propiedades de <strong>Colón y Corrientes</strong>, ordenadas por precio. Elegí el rango de fechas (desde/hasta) y las propiedades a habilitar; al activar se les carga el mismo período a todas.</p>
 
-    <div class="row mb-3">
-        <div class="col-md-4">
+    <div class="row mb-3 align-items-end">
+        <div class="col-md-3">
+            <label for="fecha_inicio" class="form-label">Desde fecha</label>
+            <input type="date" id="fecha_inicio" class="form-control" name="fecha_inicio">
+        </div>
+        <div class="col-md-3">
+            <label for="fecha_fin" class="form-label">Hasta fecha</label>
+            <input type="date" id="fecha_fin" class="form-control" name="fecha_fin">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label d-block">&nbsp;</label>
             <input type="text" id="buscar-id" class="form-control" placeholder="Buscar por ID">
         </div>
     </div>
@@ -39,6 +48,7 @@
                     <th>Piso</th>
                     <th>Dpto</th>
                     <th>Ambientes</th>
+                    <th>Precio invierno</th>
                     <th>Propietario</th>
                 </tr>
             </thead>
@@ -53,11 +63,12 @@
                     <td>{{ propiedad.piso|default:"-" }}</td>
                     <td>{{ propiedad.departamento|default:"-" }}</td>
                     <td>{{ propiedad.ambientes }}</td>
+                    <td>{% if propiedad.info_invierno and propiedad.info_invierno.precio_mensual %}$ {{ propiedad.info_invierno.precio_mensual }}{% else %}-{% endif %}</td>
                     <td>{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="text-center text-muted">No hay propiedades en su sucursal para listar.</td>
+                    <td colspan="8" class="text-center text-muted">No hay propiedades de Colón/Corrientes para listar.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -97,22 +108,34 @@ document.addEventListener('DOMContentLoaded', function() {
             Swal.fire('Error', 'Por favor seleccione al menos una propiedad', 'error');
             return;
         }
+        const fechaInicio = document.getElementById('fecha_inicio').value.trim();
+        const fechaFin = document.getElementById('fecha_fin').value.trim();
+        if (!fechaInicio || !fechaFin) {
+            Swal.fire('Error', 'Debe indicar Desde fecha y Hasta fecha para el período de invierno', 'error');
+            return;
+        }
+        if (fechaInicio > fechaFin) {
+            Swal.fire('Error', 'La fecha de inicio debe ser anterior o igual a la fecha de fin', 'error');
+            return;
+        }
         Swal.fire({
             title: '¿Activar para invierno?',
-            text: 'Se activarán ' + propiedadesSeleccionadas.length + ' propiedades como disponibles para Alquileres Invierno.',
+            html: 'Se activarán <strong>' + propiedadesSeleccionadas.length + '</strong> propiedades con el período <strong>' + fechaInicio + '</strong> a <strong>' + fechaFin + '</strong>.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Sí, activar',
             cancelButtonText: 'Cancelar'
         }).then((result) => {
-            if (result.isConfirmed) guardarDisponibilidad(propiedadesSeleccionadas);
+            if (result.isConfirmed) guardarDisponibilidad(propiedadesSeleccionadas, fechaInicio, fechaFin);
         });
     });
 
-    function guardarDisponibilidad(propiedades) {
+    function guardarDisponibilidad(propiedades, fechaInicio, fechaFin) {
         Swal.fire({ title: 'Guardando...', text: 'Por favor espere.', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
         const formData = new FormData();
         propiedades.forEach(id => formData.append('propiedades[]', id));
+        formData.append('fecha_inicio', fechaInicio);
+        formData.append('fecha_fin', fechaFin);
         fetch('{% url "inmobiliaria:invierno_disponibilidad_masiva" %}', {
             method: 'POST',
             body: formData,
@@ -155,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
         buscarIdInput.addEventListener('keyup', function() {
             const filter = this.value.toUpperCase();
             document.querySelectorAll('#tabla-propiedades tbody tr').forEach(row => {
-                const idCell = row.querySelector('td:nth-child(2)');
+                const idCell = row.querySelector('td:nth-child(2)'); // ID es la 2ª columna
                 row.style.display = (idCell && (idCell.textContent || idCell.innerText).toUpperCase().indexOf(filter) > -1) ? '' : 'none';
             });
         });

@@ -6982,25 +6982,52 @@ def alquileres_invierno(request):
 @login_required
 def invierno_disponibilidad_masiva(request):
     """
-    Disponibilidad masiva para Alquileres Invierno: lista TODAS las propiedades de la sucursal
-    del usuario; se pueden seleccionar y habilitar para invierno (con o sin precio, el precio se carga después).
+    Disponibilidad masiva para Alquileres Invierno: lista propiedades de sucursales Colón y Corrientes,
+    ordenadas por precio. Al activar, se puede elegir rango de fechas (desde/hasta) que se aplica a todas.
     """
-    sucursal = request.user.sucursal
+    from django.db.models import Q, F, Value
+    from django.db.models.functions import Coalesce
+
+    # Solo sucursales Colón y Corrientes
+    q_sucursales = Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
 
     if request.method == 'POST':
         propiedad_ids = request.POST.getlist('propiedades[]')
+        fecha_inicio_str = request.POST.get('fecha_inicio', '').strip()
+        fecha_fin_str = request.POST.get('fecha_fin', '').strip()
+
+        if not fecha_inicio_str or not fecha_fin_str:
+            return JsonResponse({
+                'success': False,
+                'message': 'Debe indicar fecha de inicio y fecha de fin para el período de invierno.'
+            })
+
+        try:
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+            fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({
+                'success': False,
+                'message': 'Formato de fecha inválido. Use AAAA-MM-DD.'
+            })
+        if fecha_inicio > fecha_fin:
+            return JsonResponse({
+                'success': False,
+                'message': 'La fecha de inicio debe ser anterior o igual a la fecha de fin.'
+            })
+
         propiedades_actualizadas = 0
         propiedades_exitosas = []
         errores_detallados = []
 
         for propiedad_id in propiedad_ids:
             try:
-                propiedad = Propiedad.objects.filter(sucursal=sucursal).get(id=propiedad_id)
+                propiedad = Propiedad.objects.filter(q_sucursales).get(id=propiedad_id)
             except Propiedad.DoesNotExist:
                 errores_detallados.append({
                     'propiedad_id': propiedad_id,
                     'direccion': 'Desconocida',
-                    'error': 'No pertenece a su sucursal o no existe',
+                    'error': 'No existe o no pertenece a Colón/Corrientes',
                     'tipo': 'no_existe'
                 })
                 continue
@@ -7011,6 +7038,8 @@ def invierno_disponibilidad_masiva(request):
                 info_invierno, created = AlquilerInvierno.objects.get_or_create(propiedad=propiedad)
                 info_invierno.disponible = True
                 info_invierno.estado = 'disponible'
+                info_invierno.fecha_inicio = fecha_inicio
+                info_invierno.fecha_fin = fecha_fin
                 info_invierno.save()
                 propiedades_actualizadas += 1
                 propiedades_exitosas.append({
@@ -7037,7 +7066,7 @@ def invierno_disponibilidad_masiva(request):
             'detalles_errores': errores_detallados
         }
         if propiedades_actualizadas > 0:
-            mensaje = f'✅ {propiedades_actualizadas} propiedades habilitadas para invierno'
+            mensaje = f'✅ {propiedades_actualizadas} propiedades habilitadas para invierno ({fecha_inicio_str} a {fecha_fin_str})'
             if errores_detallados:
                 mensaje += f'\n⚠️ {len(errores_detallados)} con errores'
             return JsonResponse({'success': True, 'message': mensaje, 'detalles': respuesta})
@@ -7047,14 +7076,16 @@ def invierno_disponibilidad_masiva(request):
             'detalles': respuesta
         })
 
-    # Listar TODAS las propiedades de la sucursal del usuario (con o sin precio)
+    # Listar propiedades solo de Colón y Corrientes, ordenadas por precio (sin precio al final)
     propiedades = Propiedad.objects.filter(
-        sucursal=sucursal
-    ).select_related('propietario', 'sucursal').order_by('direccion')
+        q_sucursales
+    ).select_related('propietario', 'sucursal', 'info_invierno').annotate(
+        precio_ord=Coalesce(F('info_invierno__precio_mensual'), Value(Decimal('999999999')))
+    ).order_by('precio_ord', 'direccion')
 
     return render(request, 'inmobiliaria/propiedades/invierno_disponibilidad_masiva.html', {
         'propiedades': propiedades,
-        'sucursal': sucursal,
+        'sucursal': getattr(request.user, 'sucursal', None),
     })
 
 
