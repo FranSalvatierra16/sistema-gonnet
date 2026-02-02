@@ -986,7 +986,14 @@ def propiedad_editar(request, propiedad_id):
     
     if request.method == 'POST':
         try:
-            form = PropiedadForm(request.POST, request.FILES, instance=propiedad, user=request.user)
+            # Pasar solo campos que existen en PropiedadForm para evitar error si POST trae precio_invierno u otros no incluidos
+            allowed_keys = set(PropiedadForm.base_fields.keys()) | {'csrfmiddlewaretoken'}
+            post_data = request.POST.copy()
+            post_data._mutable = True
+            for key in list(post_data.keys()):
+                if key not in allowed_keys:
+                    post_data.pop(key, None)
+            form = PropiedadForm(post_data, request.FILES, instance=propiedad, user=request.user)
             propietario_form = PropietarioForm(user=request.user)
             if form.is_valid():
                 try:
