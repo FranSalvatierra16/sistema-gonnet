@@ -22,7 +22,7 @@ from .models import (
 )
 from datetime import datetime
 from django.forms import modelformset_factory
-from django.core.exceptions import ValidationError
+from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.db import models
 import os
 from django.utils import timezone
@@ -321,6 +321,21 @@ class PropiedadForm(forms.ModelForm):
             self.fields['numero_por_propietario'].initial = self.instance.numero_por_propietario
         
         # Hacer que el campo sea siempre editable para que el usuario pueda elegir
+
+    def _update_errors(self, errors):
+        """Filtra errores del modelo: solo añade al form campos que existan (evita precio_invierno, etc.)."""
+        if hasattr(errors, 'error_dict'):
+            new_dict = {}
+            for field, messages in errors.error_dict.items():
+                if field == NON_FIELD_ERRORS or field in self.fields:
+                    new_dict[field] = messages
+                else:
+                    for msg in messages:
+                        self.add_error(None, msg)
+            if new_dict:
+                super()._update_errors(ValidationError(new_dict))
+        else:
+            super()._update_errors(errors)
 
     def clean(self):
         cleaned_data = super().clean()
