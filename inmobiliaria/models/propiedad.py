@@ -449,8 +449,7 @@ class Propiedad(models.Model):
             raise ValidationError({'precio_venta': 'Debe ingresar un precio de venta si está habilitado.'})
         if self.habilitar_23_meses and not self.precio_23_meses:
             raise ValidationError({'precio_23_meses': 'Debe ingresar un precio para 23 meses si está habilitado.'})
-        if self.habilitar_invierno and not self.precio_invierno:
-            raise ValidationError({'precio_invierno': 'Debe ingresar un precio de invierno si está habilitado.'})
+        # Precio invierno no es obligatorio aunque invierno esté habilitado
 
     def fichar(self, usuario):
         """Método para fichar una propiedad"""
