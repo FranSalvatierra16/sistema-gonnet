@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, QueryDict
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
@@ -943,11 +943,15 @@ def propiedad_nuevo(request):
                     messages.success(request, 'Propiedad creada exitosamente.')
                     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
                 except ValidationError as e:
-                    # Si hay errores de validación, agregarlos al formulario
+                    # Si hay errores de validación, agregarlos al formulario (solo si el campo existe en el form)
                     if hasattr(e, 'error_dict'):
                         for field, errors in e.error_dict.items():
                             for error in errors:
-                                form.add_error(field, error)
+                                if field in form.fields:
+                                    form.add_error(field, error)
+                                else:
+                                    # Campos del modelo que no están en PropiedadForm (ej. precio_invierno)
+                                    messages.error(request, str(error))
                     else:
                         messages.error(request, str(e))
             else:
@@ -988,11 +992,10 @@ def propiedad_editar(request, propiedad_id):
         try:
             # Pasar solo campos que existen en PropiedadForm para evitar error si POST trae precio_invierno u otros no incluidos
             allowed_keys = set(PropiedadForm.base_fields.keys()) | {'csrfmiddlewaretoken'}
-            post_data = request.POST.copy()
-            post_data._mutable = True
-            for key in list(post_data.keys()):
-                if key not in allowed_keys:
-                    post_data.pop(key, None)
+            post_data = QueryDict(mutable=True)
+            for key in allowed_keys:
+                if key in request.POST:
+                    post_data.setlist(key, request.POST.getlist(key))
             form = PropiedadForm(post_data, request.FILES, instance=propiedad, user=request.user)
             propietario_form = PropietarioForm(user=request.user)
             if form.is_valid():
@@ -1001,11 +1004,15 @@ def propiedad_editar(request, propiedad_id):
                     messages.success(request, 'Propiedad actualizada exitosamente.')
                     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
                 except ValidationError as e:
-                    # Si hay errores de validación, agregarlos al formulario
+                    # Si hay errores de validación, agregarlos al formulario (solo si el campo existe en el form)
                     if hasattr(e, 'error_dict'):
                         for field, errors in e.error_dict.items():
                             for error in errors:
-                                form.add_error(field, error)
+                                if field in form.fields:
+                                    form.add_error(field, error)
+                                else:
+                                    # Campos del modelo que no están en PropiedadForm (ej. precio_invierno)
+                                    messages.error(request, str(error))
                     else:
                         messages.error(request, str(e))
             else:
