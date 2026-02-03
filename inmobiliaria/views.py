@@ -10232,7 +10232,9 @@ def guardar_precios_propiedad(request):
             else:
                 precio_total_nuevo = Decimal(str(precio_info.get('precio_total', 0) or 0))
             
-            ajuste_porcentaje_nuevo = Decimal(str(precio_info.get('ajuste_porcentaje', 0) or 0))
+            ajuste_porcentaje_raw = Decimal(str(precio_info.get('ajuste_porcentaje', 0) or 0))
+            # Evitar overflow: el campo es porcentaje (máx 999.99); si viene un valor tipo precio, limitar
+            ajuste_porcentaje_nuevo = max(Decimal('-999.99'), min(Decimal('999.99'), ajuste_porcentaje_raw))
             
 # print(f"💰 Valores RECIBIDOS del form:")
 # print(f"   - precio_toma: {precio_toma_nuevo}")
@@ -10321,7 +10323,8 @@ def guardar_precio_individual(request):
         else:
             precio_total_nuevo = Decimal(str(request.POST.get('precio_total', 0) or 0))
         
-        ajuste_porcentaje_nuevo = Decimal(str(request.POST.get('ajuste_porcentaje', 0) or 0))
+        ajuste_porcentaje_raw = Decimal(str(request.POST.get('ajuste_porcentaje', 0) or 0))
+        ajuste_porcentaje_nuevo = max(Decimal('-999.99'), min(Decimal('999.99'), ajuste_porcentaje_raw))
         
         # Actualizar el precio
         precio.precio_toma = precio_toma_nuevo
