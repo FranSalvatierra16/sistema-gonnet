@@ -63,7 +63,7 @@
                     <td>{{ propiedad.piso|default:"-" }}</td>
                     <td>{{ propiedad.departamento|default:"-" }}</td>
                     <td>{{ propiedad.ambientes }}</td>
-                    <td>{% if propiedad.info_invierno and propiedad.info_invierno.precio_mensual %} {{ propiedad.info_invierno.precio_mensual }}{% else %}-{% endif %}</td>
+                    <td>{% if propiedad.info_invierno and propiedad.info_invierno.precio_mensual %}$ {{ propiedad.info_invierno.precio_mensual }}{% else %}-{% endif %}</td>
                     <td>{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</td>
                 </tr>
                 {% empty %}
