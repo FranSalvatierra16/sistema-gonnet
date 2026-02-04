@@ -9626,10 +9626,13 @@ def obtener_valor_concepto_contrato(contrato, campo):
     return Decimal('0')
 
 def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
-    """Procesa los conceptos y crea el movimiento de caja"""
+    """Procesa los conceptos y crea el movimiento de caja. Retorna (movimiento, total) o (None, 0) y el tercer elemento opcional es el mensaje de error."""
     try:
         import json
-        
+
+        if not getattr(request.user, 'sucursal', None):
+            raise ValueError('El usuario no tiene sucursal asignada. No se puede crear el movimiento.')
+
         # Función auxiliar para limpiar valores monetarios
         def limpiar_valor_monetario(valor_str):
             if not valor_str or valor_str.strip() == '':
@@ -9788,7 +9791,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         import logging
         logger = logging.getLogger(__name__)
         logger.error(error_msg)
-        return None, 0
+        return None, 0, str(e)
 
 @login_required
 @require_POST
@@ -9816,12 +9819,16 @@ def procesar_operacion_contrato(request, contrato_id):
         if not caja:
             return JsonResponse({'error': 'No hay una caja abierta'}, status=400)
         
-        movimiento, total_movimiento = procesar_conceptos_y_crear_movimiento(request, caja, contrato)
+        result = procesar_conceptos_y_crear_movimiento(request, caja, contrato)
+        movimiento = result[0]
+        total_movimiento = result[1]
+        error_detalle = result[2] if len(result) > 2 else None
         if not movimiento:
             import logging
             logger = logging.getLogger(__name__)
-            logger.error(f"Error al procesar movimiento para contrato {contrato_id}")
-            return JsonResponse({'error': 'Error al procesar el movimiento. Verifica los logs del servidor para más detalles.'}, status=400)
+            logger.error(f"Error al procesar movimiento para contrato {contrato_id}: {error_detalle}")
+            mensaje = error_detalle or 'Error al procesar el movimiento. Verifica los logs del servidor para más detalles.'
+            return JsonResponse({'error': mensaje}, status=400)
         
         if tipo_operacion == 'principal':
             # Capturar el día de vencimiento seleccionado
