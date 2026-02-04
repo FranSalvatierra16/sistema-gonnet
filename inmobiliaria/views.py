@@ -9524,9 +9524,25 @@ def crear_operacion_contrato(request, contrato_id):
         Q(sucursal=request.user.sucursal) | Q(sucursal__isnull=True)
     ).order_by('nombre')
 
-    # Para operación principal: datos del concepto 1 (alquiler) y 10 (depósito) para precargar
+    # Para operación principal: datos del concepto 1 (alquiler) y 10 (depósito) para precargar (json_script evita romper JS)
     concepto_1 = conceptos_qs.filter(id='1').first()
     concepto_10 = conceptos_qs.filter(id='10').first()
+    from django.core.serializers.json import DjangoJSONEncoder
+    import json
+    conceptos_principal_data = {
+        'precio_mensual': float(contrato.precio_mensual or 0),
+        'deposito_garantia': float(contrato.deposito_garantia or 0),
+        'nombre_alquiler': concepto_1.nombre if concepto_1 else 'Alquiler',
+        'nombre_deposito': concepto_10.nombre if concepto_10 else 'Depósito de garantía',
+    }
+    config_operacion = {
+        'tipo_operacion': tipo_operacion,
+        'contrato_id': contrato.id,
+        'precio_mensual_val': conceptos_principal_data['precio_mensual'],
+        'deposito_garantia_val': conceptos_principal_data['deposito_garantia'],
+        'concepto_alquiler_nombre': concepto_1.nombre if concepto_1 else 'Alquiler',
+        'concepto_deposito_nombre': concepto_10.nombre if concepto_10 else 'Depósito de garantía',
+    }
     context = {
         'contrato': contrato,
         'tipo_operacion': tipo_operacion,
@@ -9535,8 +9551,10 @@ def crear_operacion_contrato(request, contrato_id):
         'today': timezone.now(),
         'concepto_alquiler': concepto_1,
         'concepto_deposito': concepto_10,
-        'precio_mensual_val': float(contrato.precio_mensual or 0),
-        'deposito_garantia_val': float(contrato.deposito_garantia or 0),
+        'precio_mensual_val': conceptos_principal_data['precio_mensual'],
+        'deposito_garantia_val': conceptos_principal_data['deposito_garantia'],
+        'conceptos_principal_json': json.dumps(conceptos_principal_data, cls=DjangoJSONEncoder),
+        'config_operacion': config_operacion,
     }
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
 

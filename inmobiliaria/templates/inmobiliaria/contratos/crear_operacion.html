@@ -421,15 +421,28 @@
     </div>
 </div>
 
+{{ config_operacion|json_script:"config-operacion" }}
 <script>
-// Variables de configuración desde Django
-const tipoOperacion = '{{ tipo_operacion }}';
-const contratoId = {{ contrato.id }};
-// Para operación principal: precargar concepto 1 (alquiler) y 10 (depósito), editables
-const precioMensualInicial = {{ precio_mensual_val }};
-const depositoGarantiaInicial = {{ deposito_garantia_val }};
-const conceptoAlquilerNombre = "{% if concepto_alquiler %}{{ concepto_alquiler.nombre|escapejs }}{% else %}Alquiler{% endif %}";
-const conceptoDepositoNombre = "{% if concepto_deposito %}{{ concepto_deposito.nombre|escapejs }}{% else %}Depósito de garantía{% endif %}";
+// Variables de configuración desde Django (leídas de JSON para evitar errores de sintaxis)
+(function() {
+    var config = {};
+    try {
+        var el = document.getElementById('config-operacion');
+        if (el && el.textContent) config = JSON.parse(el.textContent);
+    } catch (e) { /* usar defaults */ }
+    window.tipoOperacion = config.tipo_operacion || 'principal';
+    window.contratoId = config.contrato_id || 0;
+    window.precioMensualInicial = typeof config.precio_mensual_val === 'number' ? config.precio_mensual_val : 0;
+    window.depositoGarantiaInicial = typeof config.deposito_garantia_val === 'number' ? config.deposito_garantia_val : 0;
+    window.conceptoAlquilerNombre = config.concepto_alquiler_nombre || 'Alquiler';
+    window.conceptoDepositoNombre = config.concepto_deposito_nombre || 'Depósito de garantía';
+})();
+var tipoOperacion = window.tipoOperacion;
+var contratoId = window.contratoId;
+var precioMensualInicial = window.precioMensualInicial;
+var depositoGarantiaInicial = window.depositoGarantiaInicial;
+var conceptoAlquilerNombre = window.conceptoAlquilerNombre;
+var conceptoDepositoNombre = window.conceptoDepositoNombre;
 
 // Variables globales
 let conceptosAgregados = [];
@@ -457,14 +470,16 @@ function parsearValorFormateado(valor) {
 
 // Función para formatear números en tiempo real
 function formatearNumeroEnTiempoReal(input) {
+    if (!input || !input.value) return;
     let valor = input.value.replace(/\D/g, '');
     if (valor === '') {
         input.value = '';
         return;
     }
-    let numero = parseInt(valor);
+    let numero = parseInt(valor, 10);
     input.value = numero.toLocaleString('es-AR');
 }
+window.formatearNumeroEnTiempoReal = formatearNumeroEnTiempoReal;
 
 // Función para mostrar el modal de concepto
 function mostrarModalConcepto() {
@@ -502,6 +517,7 @@ function mostrarModalConcepto() {
     const modal = new bootstrap.Modal(modalElement);
     modal.show();
 }
+window.mostrarModalConcepto = mostrarModalConcepto;
 
 // Función para agregar concepto
 function agregarConcepto() {
@@ -1132,11 +1148,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Event listener para honorarios
-    document.getElementById('honorarios_top').addEventListener('input', calcularTotales);
-    
-    // Event listener para sellados
-    document.getElementById('sellados_top').addEventListener('input', calcularTotales);
+    // Event listener para honorarios y sellados (solo si existen)
+    var honorariosEl = document.getElementById('honorarios_top');
+    if (honorariosEl) honorariosEl.addEventListener('input', calcularTotales);
+    var selladosEl = document.getElementById('sellados_top');
+    if (selladosEl) selladosEl.addEventListener('input', calcularTotales);
     
     // Event listeners para los botones de seleccionar concepto
     document.addEventListener('click', function(e) {
