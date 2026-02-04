@@ -5326,9 +5326,11 @@ def estudiantes(request):
 @login_required
 def estudiantes_disponibilidad_masiva(request):
     """
-    Disponibilidad masiva solo para propiedades de tipo Estudiante (sucursales Colón y Corrientes).
+    Disponibilidad masiva para propiedades de tipo Estudiante.
+    Por defecto muestra solo la sucursal del usuario; con ver_todas=1 muestra Colón y Corrientes juntas.
     """
-    q_sucursales = Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
+    q_sucursales_colon_corrientes = Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
+    ver_todas = request.GET.get('ver_todas') == '1'
 
     if request.method == 'POST':
         propiedad_ids = request.POST.getlist('propiedades[]')
@@ -5351,7 +5353,7 @@ def estudiantes_disponibilidad_masiva(request):
         try:
             for propiedad_id in propiedad_ids:
                 try:
-                    propiedad = Propiedad.objects.filter(q_sucursales, tipo_cliente='ESTUDIANTE').get(id=propiedad_id)
+                    propiedad = Propiedad.objects.filter(q_sucursales_colon_corrientes, tipo_cliente='ESTUDIANTE').get(id=propiedad_id)
                 except Propiedad.DoesNotExist:
                     errores_detallados.append({
                         'propiedad_id': propiedad_id,
@@ -5423,13 +5425,22 @@ def estudiantes_disponibilidad_masiva(request):
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)})
 
-    propiedades = Propiedad.objects.filter(
-        tipo_cliente='ESTUDIANTE'
-    ).filter(q_sucursales).select_related('propietario', 'sucursal').order_by('direccion')
+    # Lista: por defecto sucursal del usuario; con ver_todas=1, Colón y Corrientes juntas
+    base_qs = Propiedad.objects.filter(tipo_cliente='ESTUDIANTE')
+    if ver_todas:
+        base_qs = base_qs.filter(q_sucursales_colon_corrientes)
+    else:
+        sucursal_usuario = getattr(request.user, 'sucursal', None)
+        if sucursal_usuario:
+            base_qs = base_qs.filter(sucursal=sucursal_usuario)
+        else:
+            base_qs = base_qs.filter(q_sucursales_colon_corrientes)
+    propiedades = base_qs.select_related('propietario', 'sucursal').order_by('direccion')
 
     return render(request, 'inmobiliaria/estudiantes/disponibilidad_masiva.html', {
         'propiedades': propiedades,
-        'es_estudiantes': True
+        'es_estudiantes': True,
+        'ver_todas': ver_todas,
     })
 
 

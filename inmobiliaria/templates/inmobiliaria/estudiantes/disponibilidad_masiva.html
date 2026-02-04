@@ -12,7 +12,21 @@
         </ol>
     </nav>
     <h2 class="mb-4"><i class="fas fa-calendar-plus me-2"></i>Disponibilidad masiva (propiedades estudiantes)</h2>
-    <p class="text-muted">Solo se listan propiedades de tipo Estudiante (sucursales Colón y Corrientes). Seleccioná las que quieras y definí el rango de fechas para activarlas.</p>
+    <p class="text-muted">
+        {% if ver_todas %}
+            Mostrando todas las propiedades de estudiantes de Colón y Corrientes.
+        {% else %}
+            Mostrando propiedades de estudiantes de tu sucursal actual.
+        {% endif %}
+        Seleccioná las que quieras y definí el rango de fechas para activarlas.
+    </p>
+    <p class="mb-3">
+        {% if ver_todas %}
+            <a href="{% url 'inmobiliaria:estudiantes_disponibilidad_masiva' %}" class="btn btn-outline-secondary btn-sm">Ver solo mi sucursal</a>
+        {% else %}
+            <a href="{% url 'inmobiliaria:estudiantes_disponibilidad_masiva' %}?ver_todas=1" class="btn btn-outline-primary btn-sm">Ver todas (Colón y Corrientes)</a>
+        {% endif %}
+    </p>
 
     <div class="row mb-4">
         <div class="col-md-6">
@@ -72,7 +86,9 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="text-center text-muted">No hay propiedades de estudiantes (Colón/Corrientes) para listar.</td>
+                    <td colspan="7" class="text-center text-muted">
+                        {% if ver_todas %}No hay propiedades de estudiantes en Colón/Corrientes para listar.{% else %}No hay propiedades de estudiantes en tu sucursal para listar.{% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
