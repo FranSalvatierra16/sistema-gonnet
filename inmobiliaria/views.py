@@ -6944,7 +6944,7 @@ def alquileres_24_meses(request):
 
 @login_required
 def alquileres_invierno(request):
-    # Filtrar propiedades que tienen alquiler de invierno activado (solo Colón y Corrientes), orden por precio
+    # Por defecto: propiedades de la sucursal del usuario. Con ver_todas=1: Colón y Corrientes juntas.
     from django.db.models import Q, F, Value
     from django.db.models.functions import Coalesce
 
@@ -6952,11 +6952,18 @@ def alquileres_invierno(request):
     busqueda = request.GET.get('busqueda', '')
     filtro_ambientes = request.GET.get('ambientes', '')
     filtro_precio_max = request.GET.get('precio_max', '')
+    ver_todas = request.GET.get('ver_todas') == '1'
 
-    q_sucursales = Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
-    propiedades_invierno = Propiedad.objects.filter(
-        info_invierno__disponible=True
-    ).filter(q_sucursales)
+    q_sucursales_colon_corrientes = Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
+    propiedades_invierno = Propiedad.objects.filter(info_invierno__disponible=True)
+    if ver_todas:
+        propiedades_invierno = propiedades_invierno.filter(q_sucursales_colon_corrientes)
+    else:
+        sucursal_usuario = getattr(request.user, 'sucursal', None)
+        if sucursal_usuario:
+            propiedades_invierno = propiedades_invierno.filter(sucursal=sucursal_usuario)
+        else:
+            propiedades_invierno = propiedades_invierno.filter(q_sucursales_colon_corrientes)
     if estado:
         propiedades_invierno = propiedades_invierno.filter(info_invierno__estado=estado)
     else:
@@ -6987,13 +6994,17 @@ def alquileres_invierno(request):
         except (ValueError, InvalidOperation):
             pass
 
-    # Opciones de ambientes para el filtro (desde propiedades con invierno habilitado en Colón/Corrientes)
-    ambientes_choices = list(
-        Propiedad.objects.filter(habilitar_invierno=True).filter(q_sucursales)
-        .values_list('ambientes', flat=True)
-        .distinct()
-        .order_by('ambientes')
-    )
+    # Opciones de ambientes (mismo ámbito: sucursal actual o Colón/Corrientes)
+    base_ambientes = Propiedad.objects.filter(habilitar_invierno=True)
+    if ver_todas:
+        base_ambientes = base_ambientes.filter(q_sucursales_colon_corrientes)
+    else:
+        sucursal_usuario = getattr(request.user, 'sucursal', None)
+        if sucursal_usuario:
+            base_ambientes = base_ambientes.filter(sucursal=sucursal_usuario)
+        else:
+            base_ambientes = base_ambientes.filter(q_sucursales_colon_corrientes)
+    ambientes_choices = list(base_ambientes.values_list('ambientes', flat=True).distinct().order_by('ambientes'))
     ambientes_choices = [a for a in ambientes_choices if a is not None]
 
     nivel = getattr(request.user, 'nivel', 0)
@@ -7008,6 +7019,7 @@ def alquileres_invierno(request):
         'ambientes_choices': ambientes_choices,
         'inquilinos': Inquilino.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
         'puede_editar_invierno': puede_editar_invierno,
+        'ver_todas': ver_todas,
     }
     return render(request, 'inmobiliaria/propiedades/alquileres_invierno.html', context)
 
