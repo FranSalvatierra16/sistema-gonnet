@@ -9883,21 +9883,24 @@ def procesar_operacion_contrato(request, contrato_id):
             else:
                 return JsonResponse({'error': 'Debe seleccionar un día de vencimiento'}, status=400)
             
-            # Validar concepto 10 desde POST (movimiento.concepto se trunca a 200 chars y puede cortar el concepto 10)
+            # Validar concepto 10 y concepto 1 desde POST (movimiento.concepto se trunca a 200 chars)
             conceptos_count = int(request.POST.get('conceptos_count', 0))
             concepto_10_presente = False
             concepto_10_importe = None
+            concepto_1_importe = None  # alquiler / primer mes (puede estar editado por el usuario)
             for i in range(conceptos_count):
                 cid = (request.POST.get(f'concepto_{i}_id') or '').strip()
+                raw_importe = (request.POST.get(f'concepto_{i}_importe') or '0').strip()
+                raw_limpio = raw_importe.replace('.', '').replace(',', '.')
+                try:
+                    importe_val = float(Decimal(raw_limpio))
+                except (ValueError, InvalidOperation):
+                    importe_val = 0.0
                 if cid == '10':
                     concepto_10_presente = True
-                    raw_importe = (request.POST.get(f'concepto_{i}_importe') or '0').strip()
-                    raw_limpio = raw_importe.replace('.', '').replace(',', '.')
-                    try:
-                        concepto_10_importe = float(Decimal(raw_limpio))
-                    except (ValueError, InvalidOperation):
-                        concepto_10_importe = 0.0
-                    break
+                    concepto_10_importe = importe_val
+                elif cid == '1':
+                    concepto_1_importe = importe_val
 
             if not concepto_10_presente:
                 return JsonResponse({
@@ -9906,17 +9909,21 @@ def procesar_operacion_contrato(request, contrato_id):
 
             if concepto_10_importe is None:
                 concepto_10_importe = float(contrato.deposito_garantia or 0)
+            # Primer mes: usar lo enviado en concepto 1 (alquiler), o el precio del contrato si no viene
+            if concepto_1_importe is None:
+                concepto_1_importe = float(contrato.precio_mensual or 0)
 
-            # Validar: total = depósito (concepto 10) + primer mes
-            total_esperado = concepto_10_importe + float(contrato.precio_mensual or 0)
+            # Validar: total = depósito (concepto 10) + primer mes (concepto 1, editable)
+            total_esperado = concepto_10_importe + concepto_1_importe
             if abs(float(total_movimiento) - total_esperado) > 0.01:
                 return JsonResponse({
-                    'error': f'El monto total (${total_movimiento:,.0f}) debe ser igual al depósito (${concepto_10_importe:,.0f}) más el primer mes (${contrato.precio_mensual:,.0f}).'
+                    'error': f'El monto total (${total_movimiento:,.0f}) debe ser igual al depósito (${concepto_10_importe:,.0f}) más el primer mes (${concepto_1_importe:,.0f}).'
                 }, status=400)
 
-            # Mantener el contrato ligado al depósito realmente cobrado (concepto 10, editable por el usuario)
+            # Mantener el contrato ligado a lo realmente cobrado (conceptos 10 y 1, editables por el usuario)
             contrato.deposito_garantia = Decimal(str(concepto_10_importe))
-            contrato.save(update_fields=['deposito_garantia'])
+            contrato.precio_mensual = Decimal(str(concepto_1_importe))
+            contrato.save(update_fields=['deposito_garantia', 'precio_mensual'])
             
             # Usar el día de vencimiento seleccionado para crear las fechas
             fecha_actual = timezone.now().date()
