@@ -9741,10 +9741,10 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         if len(concepto_json) > 200:
             concepto_json = concepto_json[:197] + "..."
         
-        # Crear movimiento de caja
+        # Crear movimiento de caja (tipo debe ser código del enum: 'IN', no 'INGRESO')
         movimiento = MovimientoCaja.objects.create(
             caja=caja,
-            tipo='INGRESO',
+            tipo=TipoMovimientoCajaEnum.INGRESO,
             concepto=concepto_json,  # ✅ Guardar JSON o fallback (truncado si es necesario)
             monto_efectivo=monto_efectivo,
             monto_cheque=monto_cheque,
@@ -10061,10 +10061,10 @@ def pagar_cuota(request, cuota_id):
         
         # Procesar el pago
         with transaction.atomic():
-            # Crear movimiento de caja
+            # Crear movimiento de caja (tipo debe ser código del enum: 'IN')
             movimiento = MovimientoCaja.objects.create(
                 caja=caja,
-                tipo='INGRESO',
+                tipo=TipoMovimientoCajaEnum.INGRESO,
                 concepto=f'Cuota {cuota.numero_cuota}/{contrato.duracion_meses} - {contrato.propiedad.direccion}',
                 monto_efectivo=cuota.monto_total,
                 fecha=timezone.now(),
