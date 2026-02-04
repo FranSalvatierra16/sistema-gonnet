@@ -16,27 +16,17 @@
         </div>
     </div>
 
-    <!-- Acción: Disponibilidad masiva + Ver sucursal -->
-    <div class="mb-3 d-flex flex-wrap align-items-center gap-2">
+    <!-- Acción: Disponibilidad masiva -->
+    <div class="mb-3">
         <a href="{% url 'inmobiliaria:invierno_disponibilidad_masiva' %}" class="btn btn-info">
             <i class="fas fa-calendar-plus"></i> Disponibilidad masiva
         </a>
-        <span class="text-muted small align-middle">
-            {% if ver_todas %}
-                Mostrando Colón y Corrientes.
-                <a href="{% url 'inmobiliaria:alquileres_invierno' %}" class="btn btn-outline-secondary btn-sm">Ver solo mi sucursal</a>
-            {% else %}
-                Mostrando tu sucursal.
-                <a href="{% url 'inmobiliaria:alquileres_invierno' %}?ver_todas=1" class="btn btn-outline-primary btn-sm">Ver todas (Colón y Corrientes)</a>
-            {% endif %}
-        </span>
     </div>
 
     <!-- Filtros -->
     <div class="card shadow-modern border-radius-modern mb-4">
         <div class="card-body">
             <form method="get" class="row g-3 align-items-end">
-                {% if ver_todas %}<input type="hidden" name="ver_todas" value="1">{% endif %}
                 <div class="col-md-2">
                     <label class="form-label"><i class="fas fa-filter"></i> Estado</label>
                     <select name="estado" class="form-select" onchange="this.form.submit()">
