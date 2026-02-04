@@ -158,6 +158,11 @@
                         </button>
                     </div>
                     <div class="card-body">
+                        {% if tipo_operacion == 'principal' %}
+                        <p class="text-muted small mb-2">
+                            <strong>Operación principal:</strong> El depósito es obligatorio y está ligado al <strong>concepto 10 (depósito de garantía)</strong>. Se precargan alquiler (concepto 1) y depósito con los valores del contrato; podés modificarlos si hace falta.
+                        </p>
+                        {% endif %}
                         <!-- Tabla de Conceptos -->
                         <div class="table-responsive">
                             <table class="table table-sm table-bordered" id="tablaConceptos">
@@ -420,6 +425,11 @@
 // Variables de configuración desde Django
 const tipoOperacion = '{{ tipo_operacion }}';
 const contratoId = {{ contrato.id }};
+// Para operación principal: precargar concepto 1 (alquiler) y 10 (depósito), editables
+const precioMensualInicial = {{ precio_mensual_val }};
+const depositoGarantiaInicial = {{ deposito_garantia_val }};
+const conceptoAlquilerNombre = "{% if concepto_alquiler %}{{ concepto_alquiler.nombre|escapejs }}{% else %}Alquiler{% endif %}";
+const conceptoDepositoNombre = "{% if concepto_deposito %}{{ concepto_deposito.nombre|escapejs }}{% else %}Depósito de garantía{% endif %}";
 
 // Variables globales
 let conceptosAgregados = [];
@@ -1137,6 +1147,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Operación principal: precargar concepto 1 (alquiler) y 10 (depósito), ligados al contrato y editables
+    if (tipoOperacion === 'principal') {
+        const fechaActual = new Date().toLocaleDateString('es-AR');
+        if (precioMensualInicial > 0) {
+            conceptosAgregados.push({
+                id: ++contadorConceptos,
+                conceptoId: '1',
+                nombre: conceptoAlquilerNombre,
+                observaciones: 'Sin observaciones',
+                importe: precioMensualInicial,
+                fecha: fechaActual
+            });
+        }
+        if (depositoGarantiaInicial > 0) {
+            conceptosAgregados.push({
+                id: ++contadorConceptos,
+                conceptoId: '10',
+                nombre: conceptoDepositoNombre,
+                observaciones: 'Sin observaciones',
+                importe: depositoGarantiaInicial,
+                fecha: fechaActual
+            });
+        }
+        if (conceptosAgregados.length > 0) {
+            actualizarTablaConceptos();
+        }
+    }
+
     // Inicializar cálculos
     calcularTotales();
 });

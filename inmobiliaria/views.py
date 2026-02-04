@@ -9520,17 +9520,24 @@ def crear_operacion_contrato(request, contrato_id):
         )
         messages.success(request, 'Se ha abierto una nueva caja automáticamente.')
 
+    conceptos_qs = Concepto.objects.filter(
+        Q(sucursal=request.user.sucursal) | Q(sucursal__isnull=True)
+    ).order_by('nombre')
+
+    # Para operación principal: datos del concepto 1 (alquiler) y 10 (depósito) para precargar
+    concepto_1 = conceptos_qs.filter(id='1').first()
+    concepto_10 = conceptos_qs.filter(id='10').first()
     context = {
         'contrato': contrato,
         'tipo_operacion': tipo_operacion,
         'caja': caja,
-        'conceptos': Concepto.objects.filter(
-            Q(sucursal=request.user.sucursal) | 
-            Q(sucursal__isnull=True)
-        ).order_by('nombre'),
+        'conceptos': conceptos_qs,
         'today': timezone.now(),
+        'concepto_alquiler': concepto_1,
+        'concepto_deposito': concepto_10,
+        'precio_mensual_val': float(contrato.precio_mensual or 0),
+        'deposito_garantia_val': float(contrato.deposito_garantia or 0),
     }
-    
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
 
 def obtener_caja_abierta(request):
@@ -9843,31 +9850,47 @@ def procesar_operacion_contrato(request, contrato_id):
             else:
                 return JsonResponse({'error': 'Debe seleccionar un día de vencimiento'}, status=400)
             
-            # Lógica inteligente: solo incluir depósito si hay concepto 10 (igual que alquiler por día)
+            # En la operación principal el depósito es obligatorio y está ligado al concepto 10
+            import json
             conceptos_texto = movimiento.concepto
             concepto_10_presente = ' | ID:10 |' in conceptos_texto or '"id":"10"' in conceptos_texto or '"id":10' in conceptos_texto
-            
-            # Calcular total de conceptos desde el JSON
-            import json
+
+            if not concepto_10_presente:
+                return JsonResponse({
+                    'error': 'En la operación principal el depósito es obligatorio. Debe incluir el concepto 10 (depósito de garantía) en los conceptos.'
+                }, status=400)
+
+            # Calcular total de conceptos y extraer importe del concepto 10 (puede estar modificado por el usuario)
+            total_conceptos_calculado = total_movimiento
+            concepto_10_importe = None
             try:
                 if conceptos_texto.startswith('[') or conceptos_texto.startswith('{'):
                     conceptos_parseados = json.loads(conceptos_texto)
                     if isinstance(conceptos_parseados, list):
                         total_conceptos_calculado = sum(float(c.get('importe', 0)) for c in conceptos_parseados)
+                        for c in conceptos_parseados:
+                            cid = str(c.get('id', '')).strip()
+                            if cid == '10':
+                                concepto_10_importe = float(c.get('importe', 0))
+                                break
                     else:
                         total_conceptos_calculado = float(conceptos_parseados.get('importe', 0))
-                else:
-                    total_conceptos_calculado = total_movimiento
-            except:
-                total_conceptos_calculado = total_movimiento
-            
-            if concepto_10_presente:
-                total_esperado = float(contrato.deposito_garantia or 0) + float(contrato.precio_mensual or 0)
-                mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al depósito (${contrato.deposito_garantia}) más el primer mes (${contrato.precio_mensual})'
-            else:
-                # Si no hay concepto 10, el total esperado es lo que esté en los conceptos
-                total_esperado = total_conceptos_calculado  # Aceptar el total de conceptos (sin depósito)
-                mensaje_error = f'Total validado: ${total_movimiento} (sin depósito, concepto 10 no presente)'
+            except Exception:
+                pass
+
+            if concepto_10_importe is None:
+                concepto_10_importe = float(contrato.deposito_garantia or 0)
+
+            # Validar: total = depósito (concepto 10) + primer mes
+            total_esperado = concepto_10_importe + float(contrato.precio_mensual or 0)
+            if abs(float(total_movimiento) - total_esperado) > 0.01:
+                return JsonResponse({
+                    'error': f'El monto total (${total_movimiento:,.0f}) debe ser igual al depósito (${concepto_10_importe:,.0f}) más el primer mes (${contrato.precio_mensual:,.0f}).'
+                }, status=400)
+
+            # Mantener el contrato ligado al depósito realmente cobrado (concepto 10, editable por el usuario)
+            contrato.deposito_garantia = Decimal(str(concepto_10_importe))
+            contrato.save(update_fields=['deposito_garantia'])
             
             # Usar el día de vencimiento seleccionado para crear las fechas
             fecha_actual = timezone.now().date()
