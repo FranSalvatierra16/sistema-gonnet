@@ -9568,9 +9568,15 @@ def obtener_caja_abierta(request):
 def determinar_estado_concepto_contrato(contrato, concepto_id):
     """
     Determina si un concepto específico está pagado para un contrato.
-    LÓGICA MEJORADA: Si existe el concepto en JSON = PAGADO
+    LÓGICA MEJORADA: Si existe el concepto en JSON = PAGADO.
+    Para concepto 10 (depósito): si la operación principal ya se procesó, el depósito está pagado
+    (el movimiento.concepto se trunca a 200 chars y puede no contener el concepto 10).
     """
     import json
+    
+    # Contratos: si ya se procesó la operación principal, el depósito (concepto 10) está pagado
+    if str(concepto_id) == '10' and getattr(contrato, 'operacion_principal', False):
+        return 'pagado'
     
     # Buscar movimientos de caja relacionados con este contrato
     movimientos = MovimientoCaja.objects.filter(
