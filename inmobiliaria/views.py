@@ -9844,6 +9844,21 @@ def procesar_operacion_contrato(request, contrato_id):
         if not caja:
             return JsonResponse({'error': 'No hay una caja abierta'}, status=400)
         
+        # Para operación principal: validar concepto 10 desde POST antes de crear el movimiento
+        # (movimiento.concepto se trunca a 200 chars y puede no contener el concepto 10)
+        if tipo_operacion == 'principal':
+            conceptos_count_pre = int(request.POST.get('conceptos_count', 0))
+            concepto_10_en_post = False
+            for i in range(conceptos_count_pre):
+                cid = (request.POST.get(f'concepto_{i}_id') or '').strip()
+                if cid == '10':
+                    concepto_10_en_post = True
+                    break
+            if not concepto_10_en_post:
+                return JsonResponse({
+                    'error': 'En la operación principal el depósito es obligatorio. Debe incluir el concepto 10 (depósito de garantía) en los conceptos.'
+                }, status=400)
+        
         result = procesar_conceptos_y_crear_movimiento(request, caja, contrato)
         movimiento = result[0]
         total_movimiento = result[1]
@@ -9868,33 +9883,26 @@ def procesar_operacion_contrato(request, contrato_id):
             else:
                 return JsonResponse({'error': 'Debe seleccionar un día de vencimiento'}, status=400)
             
-            # En la operación principal el depósito es obligatorio y está ligado al concepto 10
-            import json
-            conceptos_texto = movimiento.concepto
-            concepto_10_presente = ' | ID:10 |' in conceptos_texto or '"id":"10"' in conceptos_texto or '"id":10' in conceptos_texto
+            # Validar concepto 10 desde POST (movimiento.concepto se trunca a 200 chars y puede cortar el concepto 10)
+            conceptos_count = int(request.POST.get('conceptos_count', 0))
+            concepto_10_presente = False
+            concepto_10_importe = None
+            for i in range(conceptos_count):
+                cid = (request.POST.get(f'concepto_{i}_id') or '').strip()
+                if cid == '10':
+                    concepto_10_presente = True
+                    raw_importe = (request.POST.get(f'concepto_{i}_importe') or '0').strip()
+                    raw_limpio = raw_importe.replace('.', '').replace(',', '.')
+                    try:
+                        concepto_10_importe = float(Decimal(raw_limpio))
+                    except (ValueError, InvalidOperation):
+                        concepto_10_importe = 0.0
+                    break
 
             if not concepto_10_presente:
                 return JsonResponse({
                     'error': 'En la operación principal el depósito es obligatorio. Debe incluir el concepto 10 (depósito de garantía) en los conceptos.'
                 }, status=400)
-
-            # Calcular total de conceptos y extraer importe del concepto 10 (puede estar modificado por el usuario)
-            total_conceptos_calculado = total_movimiento
-            concepto_10_importe = None
-            try:
-                if conceptos_texto.startswith('[') or conceptos_texto.startswith('{'):
-                    conceptos_parseados = json.loads(conceptos_texto)
-                    if isinstance(conceptos_parseados, list):
-                        total_conceptos_calculado = sum(float(c.get('importe', 0)) for c in conceptos_parseados)
-                        for c in conceptos_parseados:
-                            cid = str(c.get('id', '')).strip()
-                            if cid == '10':
-                                concepto_10_importe = float(c.get('importe', 0))
-                                break
-                    else:
-                        total_conceptos_calculado = float(conceptos_parseados.get('importe', 0))
-            except Exception:
-                pass
 
             if concepto_10_importe is None:
                 concepto_10_importe = float(contrato.deposito_garantia or 0)
