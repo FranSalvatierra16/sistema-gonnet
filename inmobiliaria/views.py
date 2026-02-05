@@ -728,14 +728,24 @@ def propietarios(request):
 
     if form.is_valid():
         termino = form.cleaned_data.get('termino')
-        
         if termino:
-            palabras = termino.split()
-            query = Q()
-            for palabra in palabras:
-                query |= Q(nombre__icontains=palabra) | Q(apellido__icontains=palabra)
-            # Buscar por ID (exacto o parcial), DNI, nombre o apellido
-            query |= Q(dni__icontains=termino) | Q(id__icontains=termino)
+            termino = termino.strip()
+            # 1) Coincidir término completo en nombre, apellido, DNI o ID (apellidos con espacio ej. "de Marcos")
+            query = (
+                Q(nombre__icontains=termino) |
+                Q(apellido__icontains=termino) |
+                Q(dni__icontains=termino) |
+                Q(id__icontains=termino)
+            )
+            # 2) Si hay varias palabras, también coincidir si TODAS aparecen en nombre o apellido
+            palabras = [p.strip() for p in termino.split() if p.strip()]
+            if len(palabras) > 1:
+                query_palabras = Q()
+                for palabra in palabras:
+                    query_palabras &= (Q(nombre__icontains=palabra) | Q(apellido__icontains=palabra))
+                query = query | query_palabras
+            elif len(palabras) == 1:
+                query |= Q(nombre__icontains=palabras[0]) | Q(apellido__icontains=palabras[0])
             propietarios = propietarios.filter(query)
 
     # Detectar si la solicitud es AJAX
@@ -3310,12 +3320,21 @@ def buscar_propietarios(request):
         qs = qs.filter(sucursal=request.user.sucursal)
 
     if term:
-        qs = qs.filter(
+        # Término completo (apellidos con espacio, ej. "de Marcos") y por palabras
+        term = term.strip()
+        q = (
             Q(nombre__icontains=term) |
             Q(apellido__icontains=term) |
             Q(dni__icontains=term) |
-            Q(id__icontains=term)  # Buscar por ID también
+            Q(id__icontains=term)
         )
+        palabras = [p.strip() for p in term.split() if p.strip()]
+        if len(palabras) > 1:
+            q_palabras = Q()
+            for p in palabras:
+                q_palabras &= (Q(nombre__icontains=p) | Q(apellido__icontains=p))
+            q = q | q_palabras
+        qs = qs.filter(q)
 
     total = qs.count()
     propietarios = qs.order_by("apellido", "nombre")[offset: offset + page_size]
