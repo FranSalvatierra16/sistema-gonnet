@@ -6679,6 +6679,7 @@ def obtener_invierno_info_ajax(request, propiedad_id):
         return JsonResponse({
             'precio_mensual': '',
             'precio_expensas': '',
+            'precio_autorizacion': '',
             'estado': 'disponible',
             'fecha_inicio': '',
             'fecha_fin': '',
@@ -6687,6 +6688,7 @@ def obtener_invierno_info_ajax(request, propiedad_id):
     return JsonResponse({
         'precio_mensual': str(info.precio_mensual) if info.precio_mensual is not None else '',
         'precio_expensas': str(info.precio_expensas) if info.precio_expensas is not None else '',
+        'precio_autorizacion': str(info.precio_autorizacion) if getattr(info, 'precio_autorizacion', None) is not None else '',
         'estado': info.estado or 'disponible',
         'fecha_inicio': info.fecha_inicio.strftime('%Y-%m-%d') if info.fecha_inicio else '',
         'fecha_fin': info.fecha_fin.strftime('%Y-%m-%d') if info.fecha_fin else '',
@@ -6716,6 +6718,7 @@ def actualizar_invierno_ajax(request):
         info_invierno.disponible = True
         precio_mensual = request.POST.get('precio_mensual', '').strip()
         precio_expensas = request.POST.get('precio_expensas', '').strip()
+        precio_autorizacion = request.POST.get('precio_autorizacion', '').strip()
         if precio_mensual:
             try:
                 info_invierno.precio_mensual = Decimal(precio_mensual.replace(',', '.'))
@@ -6730,10 +6733,26 @@ def actualizar_invierno_ajax(request):
                 pass
         else:
             info_invierno.precio_expensas = None
+        if precio_autorizacion:
+            try:
+                info_invierno.precio_autorizacion = Decimal(precio_autorizacion.replace(',', '.'))
+            except (ValueError, InvalidOperation):
+                pass
+        else:
+            info_invierno.precio_autorizacion = None
         info_invierno.estado = request.POST.get('estado', 'disponible') or 'disponible'
         fi = request.POST.get('fecha_inicio', '').strip()
         ff = request.POST.get('fecha_fin', '').strip()
         if info_invierno.estado == 'disponible':
+            # Quitar segmentos de historial que eran de invierno (reserva=null, es_principal) para este rango
+            if info_invierno.fecha_inicio and info_invierno.fecha_fin:
+                HistorialDisponibilidad.objects.filter(
+                    propiedad=propiedad,
+                    reserva__isnull=True,
+                    es_principal=True,
+                    fecha_inicio=info_invierno.fecha_inicio,
+                    fecha_fin=info_invierno.fecha_fin
+                ).delete()
             info_invierno.fecha_inicio = None
             info_invierno.fecha_fin = None
         else:
@@ -6741,6 +6760,24 @@ def actualizar_invierno_ajax(request):
             info_invierno.fecha_fin = datetime.strptime(ff, '%Y-%m-%d').date() if ff else None
         info_invierno.observaciones = request.POST.get('observaciones', '') or ''
         info_invierno.save()
+        # Sincronizar Historial de Disponibilidad: si estado es reservado/ocupado con fechas, crear segmento
+        if info_invierno.estado in ('reservado', 'ocupado') and info_invierno.fecha_inicio and info_invierno.fecha_fin:
+            hist_estado = 'reservado' if info_invierno.estado == 'reservado' else 'alquilado'
+            # Eliminar segmentos previos de invierno (reserva=null) que solapen este rango para no duplicar
+            HistorialDisponibilidad.objects.filter(
+                propiedad=propiedad,
+                reserva__isnull=True,
+                fecha_inicio=info_invierno.fecha_inicio,
+                fecha_fin=info_invierno.fecha_fin
+            ).delete()
+            HistorialDisponibilidad.objects.create(
+                propiedad=propiedad,
+                fecha_inicio=info_invierno.fecha_inicio,
+                fecha_fin=info_invierno.fecha_fin,
+                estado=hist_estado,
+                reserva=None,
+                es_principal=True
+            )
         return JsonResponse({
             'success': True,
             'precio_mensual': str(info_invierno.precio_mensual) if info_invierno.precio_mensual is not None else '0',

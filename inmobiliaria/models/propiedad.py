@@ -1299,6 +1299,13 @@ class AlquilerInvierno(models.Model):
         blank=True,
         verbose_name="Observaciones"
     )
+    precio_autorizacion = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Precio de autorización"
+    )
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
     def __str__(self):

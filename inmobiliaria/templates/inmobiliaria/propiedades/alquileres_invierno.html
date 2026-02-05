@@ -250,6 +250,10 @@
                             <label for="editar-invierno-precio-expensas" class="form-label">Precio expensas</label>
                             <input type="number" class="form-control" id="editar-invierno-precio-expensas" name="precio_expensas" step="0.01" placeholder="0">
                         </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editar-invierno-precio-autorizacion" class="form-label">Precio de autorización</label>
+                            <input type="number" class="form-control" id="editar-invierno-precio-autorizacion" name="precio_autorizacion" step="0.01" placeholder="0">
+                        </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
@@ -379,6 +383,7 @@ function abrirGaleriaImagenes(propiedadId, imagenIndex) {
                 .then(function(data) {
                     document.getElementById('editar-invierno-precio-mensual').value = data.precio_mensual || '';
                     document.getElementById('editar-invierno-precio-expensas').value = data.precio_expensas || '';
+                    document.getElementById('editar-invierno-precio-autorizacion').value = data.precio_autorizacion || '';
                     document.getElementById('editar-invierno-estado').value = data.estado || 'disponible';
                     document.getElementById('editar-invierno-fecha-inicio').value = data.fecha_inicio || '';
                     document.getElementById('editar-invierno-fecha-fin').value = data.fecha_fin || '';
@@ -415,6 +420,21 @@ function abrirGaleriaImagenes(propiedadId, imagenIndex) {
                     if (expensasDisplay && data.precio_expensas) {
                         expensasDisplay.textContent = '$' + Number(data.precio_expensas).toLocaleString('es-AR');
                         if (expensasRow) expensasRow.style.display = '';
+                    }
+                    // Actualizar badge de estado (Disponible / Reservado / Ocupado)
+                    const badgeEl = card.querySelector('.position-absolute .badge');
+                    if (badgeEl && data.estado) {
+                        badgeEl.className = 'badge ';
+                        if (data.estado === 'disponible') {
+                            badgeEl.className += 'bg-success';
+                            badgeEl.textContent = 'Disponible';
+                        } else if (data.estado === 'reservado') {
+                            badgeEl.className += 'bg-warning text-dark';
+                            badgeEl.textContent = 'Reservado';
+                        } else if (data.estado === 'ocupado') {
+                            badgeEl.className += 'bg-info';
+                            badgeEl.textContent = 'Ocupado';
+                        }
                     }
                 }
                 bootstrap.Modal.getInstance(modalEl).hide();
