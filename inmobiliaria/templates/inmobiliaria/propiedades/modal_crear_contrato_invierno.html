@@ -181,6 +181,80 @@
     </div>
 </div>
 
+<!-- Modal Crear Inquilino (para uso cuando solo se incluye contrato invierno, ej. Alquileres Invierno) -->
+<div id="modalNuevoInquilinoInvierno" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1050; overflow-y: auto;">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 600px; margin: 2rem auto;">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title">Crear Nuevo Inquilino</h5>
+                <button type="button" class="btn-close btn-close-white" onclick="cerrarModalNuevoInquilinoInvierno()" aria-label="Cerrar"></button>
+            </div>
+            <form id="formNuevoInquilinoInvierno">
+                {% csrf_token %}
+                <input type="hidden" name="tipo_doc" value="dni">
+                <div class="modal-body">
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Nombre *</label>
+                            <input type="text" class="form-control" name="nombre" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Apellido *</label>
+                            <input type="text" class="form-control" name="apellido" required>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Email *</label>
+                        <input type="email" class="form-control" name="email" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Celular *</label>
+                        <input type="text" class="form-control" name="celular" required>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label">DNI *</label>
+                            <input type="text" class="form-control" name="dni" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">CUIT</label>
+                            <input type="text" class="form-control" name="cuit" placeholder="Opcional">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Domicilio *</label>
+                        <input type="text" class="form-control" name="domicilio" required>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Localidad *</label>
+                            <input type="text" class="form-control" name="localidad" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Provincia *</label>
+                            <input type="text" class="form-control" name="provincia" required>
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label">Observaciones</label>
+                            <textarea class="form-control" name="observaciones" rows="2"></textarea>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Garantía</label>
+                            <textarea class="form-control" name="garantia" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="cerrarModalNuevoInquilinoInvierno()">Cancelar</button>
+                    <button type="button" class="btn btn-success" onclick="guardarNuevoInquilinoInvierno()">Guardar Inquilino</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 // Variable global para el timeout de búsqueda
 let busquedaVendedorTimeoutInvierno;
@@ -260,10 +334,7 @@ function actualizarInquilinoIdInvierno() {
 
 function mostrarModalCrearInquilinoInvierno() {
     console.log('🏠 Abriendo modal crear inquilino desde invierno...');
-    // Reutilizar el mismo modal de crear inquilino que ya existe
-    mostrarModalCrearInquilino();
-    
-    // Guardar referencia para actualizar el select correcto después de crear
+    // Guardar callback para actualizar el select después de crear
     window.actualizarSelectInquilino = function(inquilino) {
         const select = document.getElementById('inquilino_select_invierno');
         if (select) {
@@ -274,12 +345,64 @@ function mostrarModalCrearInquilinoInvierno() {
             option.dataset.dni = inquilino.dni || '';
             option.textContent = `ID: ${inquilino.id} - ${inquilino.apellido}, ${inquilino.nombre} (DNI: ${inquilino.dni || 'N/A'})`;
             select.appendChild(option);
-            
-            // Seleccionar el nuevo inquilino
             select.value = inquilino.id;
             actualizarInquilinoIdInvierno();
         }
     };
+    // Abrir modal: usar el de invierno si existe, sino el global (p. ej. desde detalle que incluye ambos)
+    var modalInvierno = document.getElementById('modalNuevoInquilinoInvierno');
+    if (modalInvierno) {
+        modalInvierno.style.display = 'block';
+    } else if (typeof mostrarModalCrearInquilino === 'function') {
+        mostrarModalCrearInquilino();
+    } else {
+        console.error('No se encontró el modal de crear inquilino.');
+        alert('Error: no se pudo abrir el formulario de nuevo inquilino.');
+    }
+}
+
+function cerrarModalNuevoInquilinoInvierno() {
+    var modal = document.getElementById('modalNuevoInquilinoInvierno');
+    if (modal) {
+        modal.style.display = 'none';
+        var form = document.getElementById('formNuevoInquilinoInvierno');
+        if (form) form.reset();
+    }
+}
+
+function guardarNuevoInquilinoInvierno() {
+    var form = document.getElementById('formNuevoInquilinoInvierno');
+    if (!form) return;
+    var camposRequeridos = ['nombre', 'apellido', 'email', 'celular', 'dni', 'domicilio', 'localidad', 'provincia'];
+    for (var i = 0; i < camposRequeridos.length; i++) {
+        var input = form.querySelector('[name="' + camposRequeridos[i] + '"]');
+        if (!input || !input.value.trim()) {
+            alert('Por favor completá todos los campos requeridos.');
+            return;
+        }
+    }
+    var formData = new FormData(form);
+    var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrf) formData.set('csrfmiddlewaretoken', csrf.value);
+    fetch('{% url "inmobiliaria:crear_inquilino_ajax" %}', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            cerrarModalNuevoInquilinoInvierno();
+            if (window.actualizarSelectInquilino) window.actualizarSelectInquilino(data.inquilino);
+            alert('Inquilino creado: ' + data.inquilino.apellido + ', ' + data.inquilino.nombre);
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo crear el inquilino'));
+        }
+    })
+    .catch(function(err) {
+        console.error(err);
+        alert('Error al crear el inquilino.');
+    });
 }
 
 // Función para buscar vendedor automáticamente
