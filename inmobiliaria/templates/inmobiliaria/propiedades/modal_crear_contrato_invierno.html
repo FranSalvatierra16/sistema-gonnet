@@ -181,8 +181,8 @@
     </div>
 </div>
 
-<!-- Modal Crear Inquilino (para uso cuando solo se incluye contrato invierno, ej. Alquileres Invierno) -->
-<div id="modalNuevoInquilinoInvierno" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1050; overflow-y: auto;">
+<!-- Modal Crear Inquilino (por encima del modal de contrato: z-index alto) -->
+<div id="modalNuevoInquilinoInvierno" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); z-index: 2060; overflow-y: auto; padding: 1rem;">
     <div class="modal-dialog modal-dialog-centered" style="max-width: 600px; margin: 2rem auto;">
         <div class="modal-content">
             <div class="modal-header bg-dark text-white">
@@ -334,32 +334,33 @@ function actualizarInquilinoIdInvierno() {
 
 function mostrarModalCrearInquilinoInvierno() {
     console.log('🏠 Abriendo modal crear inquilino desde invierno...');
-    // Guardar callback para actualizar el select después de crear
     window.actualizarSelectInquilino = function(inquilino) {
-        const select = document.getElementById('inquilino_select_invierno');
+        var select = document.getElementById('inquilino_select_invierno');
         if (select) {
-            const option = document.createElement('option');
+            var option = document.createElement('option');
             option.value = inquilino.id;
-            option.dataset.nombre = `${inquilino.nombre.toLowerCase()} ${inquilino.apellido.toLowerCase()}`;
-            option.dataset.id = inquilino.id;
+            option.dataset.nombre = (inquilino.nombre || '').toLowerCase() + ' ' + (inquilino.apellido || '').toLowerCase();
+            option.dataset.id = String(inquilino.id);
             option.dataset.dni = inquilino.dni || '';
-            option.textContent = `ID: ${inquilino.id} - ${inquilino.apellido}, ${inquilino.nombre} (DNI: ${inquilino.dni || 'N/A'})`;
+            option.textContent = 'ID: ' + inquilino.id + ' - ' + (inquilino.apellido || '') + ', ' + (inquilino.nombre || '') + ' (DNI: ' + (inquilino.dni || 'N/A') + ')';
             select.appendChild(option);
-            select.value = inquilino.id;
-            actualizarInquilinoIdInvierno();
+            select.value = String(inquilino.id);
+            if (typeof actualizarInquilinoIdInvierno === 'function') actualizarInquilinoIdInvierno();
         }
     };
-    // Abrir modal: usar el de invierno si existe, sino el global (p. ej. desde detalle que incluye ambos)
     var modalInvierno = document.getElementById('modalNuevoInquilinoInvierno');
     if (modalInvierno) {
         modalInvierno.style.display = 'block';
-    } else if (typeof mostrarModalCrearInquilino === 'function') {
-        mostrarModalCrearInquilino();
-    } else {
-        console.error('No se encontró el modal de crear inquilino.');
-        alert('Error: no se pudo abrir el formulario de nuevo inquilino.');
+        return;
     }
+    if (typeof mostrarModalCrearInquilino === 'function') {
+        mostrarModalCrearInquilino();
+        return;
+    }
+    console.error('No se encontró el modal de crear inquilino.');
+    alert('Error: no se pudo abrir el formulario de nuevo inquilino.');
 }
+window.mostrarModalCrearInquilinoInvierno = mostrarModalCrearInquilinoInvierno;
 
 function cerrarModalNuevoInquilinoInvierno() {
     var modal = document.getElementById('modalNuevoInquilinoInvierno');
@@ -369,6 +370,7 @@ function cerrarModalNuevoInquilinoInvierno() {
         if (form) form.reset();
     }
 }
+window.cerrarModalNuevoInquilinoInvierno = cerrarModalNuevoInquilinoInvierno;
 
 function guardarNuevoInquilinoInvierno() {
     var form = document.getElementById('formNuevoInquilinoInvierno');
@@ -404,6 +406,7 @@ function guardarNuevoInquilinoInvierno() {
         alert('Error al crear el inquilino.');
     });
 }
+window.guardarNuevoInquilinoInvierno = guardarNuevoInquilinoInvierno;
 
 // Función para buscar vendedor automáticamente
 function buscarVendedorAutomaticoInvierno() {
