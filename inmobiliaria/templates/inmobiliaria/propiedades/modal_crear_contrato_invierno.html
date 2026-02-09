@@ -350,7 +350,17 @@ function mostrarModalCrearInquilinoInvierno() {
     };
     var modalInvierno = document.getElementById('modalNuevoInquilinoInvierno');
     if (modalInvierno) {
+        // Desactivar el modal de contrato para que los inputs de este modal reciban foco y escritura
+        var modalContrato = document.getElementById('modalContratoInvierno');
+        if (modalContrato) {
+            modalContrato.setAttribute('inert', '');
+            modalContrato.setAttribute('aria-hidden', 'true');
+        }
         modalInvierno.style.display = 'block';
+        setTimeout(function() {
+            var firstInput = modalInvierno.querySelector('input:not([type="hidden"]), textarea');
+            if (firstInput) firstInput.focus();
+        }, 150);
         return;
     }
     if (typeof mostrarModalCrearInquilino === 'function') {
@@ -368,6 +378,12 @@ function cerrarModalNuevoInquilinoInvierno() {
         modal.style.display = 'none';
         var form = document.getElementById('formNuevoInquilinoInvierno');
         if (form) form.reset();
+    }
+    // Reactivar el modal de contrato
+    var modalContrato = document.getElementById('modalContratoInvierno');
+    if (modalContrato) {
+        modalContrato.removeAttribute('inert');
+        modalContrato.removeAttribute('aria-hidden');
     }
 }
 window.cerrarModalNuevoInquilinoInvierno = cerrarModalNuevoInquilinoInvierno;
