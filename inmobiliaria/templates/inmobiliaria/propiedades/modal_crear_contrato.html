@@ -755,10 +755,8 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Mostrar mensaje de éxito
-                alert('✅ ¡Contrato creado exitosamente!');
-                // Redirigir al dashboard/menú principal
-                window.location.href = '{% url "inmobiliaria:dashboard" %}';
+                alert('✅ Contrato creado. Completá la operación principal (depósito + primer mes).');
+                window.location.href = data.redirect_url;
             } else {
                 alert(`❌ Error al crear contrato: ${data.error}`);
             }

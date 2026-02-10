@@ -9436,14 +9436,23 @@ def crear_contrato_alquiler(request):
                 estado='reservado'  # Iniciar en estado reservado
             )
 
-            # Marcar la propiedad como reservada
-            propiedad.info_meses.estado = 'reservado'
-            propiedad.info_meses.save()
+            # Marcar la propiedad como reservada según tipo de contrato
+            if duracion_meses == 9:
+                if hasattr(propiedad, 'info_invierno') and propiedad.info_invierno:
+                    propiedad.info_invierno.estado = 'reservado'
+                    propiedad.info_invierno.save()
+            else:
+                if hasattr(propiedad, 'info_meses') and propiedad.info_meses:
+                    propiedad.info_meses.estado = 'reservado'
+                    propiedad.info_meses.save()
 
-            messages.success(request, 'Contrato creado exitosamente')
+            messages.success(request, 'Contrato creado. Completá la operación principal (depósito + primer mes).')
+            # Redirigir a operación principal para unificar creación de contrato con el pago (estudiantes, 24 meses, invierno)
+            operacion_url = reverse('inmobiliaria:crear_operacion_contrato', args=[contrato.id]) + '?tipo=principal'
             return JsonResponse({
                 'success': True,
-                'redirect_url': reverse('inmobiliaria:detalle_contrato', args=[contrato.id])
+                'redirect_url': operacion_url,
+                'contrato_id': contrato.id,
             })
 
         except Exception as e:
