@@ -10006,21 +10006,23 @@ def procesar_operacion_contrato(request, contrato_id):
 
             if concepto_10_importe is None:
                 concepto_10_importe = float(contrato.deposito_garantia or 0)
-            # Primer mes: usar lo enviado en concepto 1 (alquiler), o el precio del contrato si no viene
-            if concepto_1_importe is None:
-                concepto_1_importe = float(contrato.precio_mensual or 0)
+            # Primer mes: usar lo enviado en concepto 1 (alquiler); si no viene, considerar 0 (permite "solo depósito")
+            importe_primer_mes = concepto_1_importe if concepto_1_importe is not None else 0.0
 
-            # Validar: total = depósito (concepto 10) + primer mes (concepto 1, editable)
-            total_esperado = concepto_10_importe + concepto_1_importe
+            # Validar: total = depósito (concepto 10) + primer mes (puede ser 0 = solo depósito)
+            total_esperado = concepto_10_importe + importe_primer_mes
             if abs(float(total_movimiento) - total_esperado) > 0.01:
                 return JsonResponse({
-                    'error': f'El monto total (${total_movimiento:,.0f}) debe ser igual al depósito (${concepto_10_importe:,.0f}) más el primer mes (${concepto_1_importe:,.0f}).'
+                    'error': f'El monto total (${total_movimiento:,.0f}) debe ser igual al depósito (${concepto_10_importe:,.0f}) más el primer mes (${importe_primer_mes:,.0f}).'
                 }, status=400)
 
-            # Mantener el contrato ligado a lo realmente cobrado (conceptos 10 y 1, editables por el usuario)
+            # Actualizar depósito siempre; precio_mensual solo si cobraron algo por primer mes (si pagaron 0, mantener el del contrato para las cuotas)
             contrato.deposito_garantia = Decimal(str(concepto_10_importe))
-            contrato.precio_mensual = Decimal(str(concepto_1_importe))
-            contrato.save(update_fields=['deposito_garantia', 'precio_mensual'])
+            update_fields = ['deposito_garantia']
+            if concepto_1_importe is not None and float(concepto_1_importe) > 0:
+                contrato.precio_mensual = Decimal(str(concepto_1_importe))
+                update_fields.append('precio_mensual')
+            contrato.save(update_fields=update_fields)
             
             # Usar el día de vencimiento seleccionado para crear las fechas
             fecha_actual = timezone.now().date()

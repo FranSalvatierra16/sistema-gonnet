@@ -1163,19 +1163,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Operación principal: precargar concepto 1 (alquiler) y 10 (depósito), ligados al contrato y editables
+    // Operación principal: precargar concepto 1 (alquiler) y 10 (depósito); siempre ambos para permitir "solo depósito" (alquiler 0)
     if (tipoOperacion === 'principal') {
         const fechaActual = new Date().toLocaleDateString('es-AR');
-        if (precioMensualInicial > 0) {
-            conceptosAgregados.push({
-                id: ++contadorConceptos,
-                conceptoId: '1',
-                nombre: conceptoAlquilerNombre,
-                observaciones: 'Sin observaciones',
-                importe: precioMensualInicial,
-                fecha: fechaActual
-            });
-        }
+        conceptosAgregados.push({
+            id: ++contadorConceptos,
+            conceptoId: '1',
+            nombre: conceptoAlquilerNombre,
+            observaciones: 'Sin observaciones',
+            importe: precioMensualInicial || 0,
+            fecha: fechaActual
+        });
         if (depositoGarantiaInicial > 0) {
             conceptosAgregados.push({
                 id: ++contadorConceptos,
