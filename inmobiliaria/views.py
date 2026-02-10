@@ -5466,13 +5466,15 @@ def estudiantes_disponibilidad_masiva(request):
 @login_required
 def buscar_propiedades_estudiantes(request):
     """
-    Buscar propiedades de estudiantes por fechas, ambientes y precio máximo.
+    Buscar propiedades de estudiantes por fechas, ambientes, precio máximo, dirección y ficha.
     """
     propiedades_encontradas = []
     fecha_desde = None
     fecha_hasta = None
     filtro_ambientes = None
     filtro_precio_max = None
+    filtro_direccion = ''
+    filtro_ficha = ''
 
     q_sucursales = Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
 
@@ -5481,6 +5483,8 @@ def buscar_propiedades_estudiantes(request):
         fecha_hasta_str = request.POST.get('fecha_hasta', '')
         ambientes_str = request.POST.get('ambientes', '').strip()
         precio_max_str = request.POST.get('precio_max', '').strip()
+        filtro_direccion = (request.POST.get('direccion', '') or '').strip()
+        filtro_ficha = (request.POST.get('ficha', '') or '').strip()
 
         if fecha_desde_str and fecha_hasta_str:
             try:
@@ -5503,6 +5507,13 @@ def buscar_propiedades_estudiantes(request):
             q_prop = Q(id__in=propiedades_ids, tipo_cliente='ESTUDIANTE') & q_sucursales
             if filtro_ambientes is not None:
                 q_prop = q_prop & Q(ambientes=filtro_ambientes)
+            if filtro_direccion:
+                q_prop = q_prop & Q(direccion__icontains=filtro_direccion)
+            if filtro_ficha:
+                try:
+                    q_prop = q_prop & Q(numero_por_propietario=int(filtro_ficha))
+                except ValueError:
+                    pass  # Si no es número, no se aplica filtro por ficha
             propiedades = Propiedad.objects.filter(q_prop).select_related('propietario', 'sucursal').prefetch_related('precios')
 
             for propiedad in propiedades:
@@ -5535,6 +5546,8 @@ def buscar_propiedades_estudiantes(request):
         'fecha_hasta': fecha_hasta,
         'filtro_ambientes': filtro_ambientes,
         'filtro_precio_max': filtro_precio_max,
+        'filtro_direccion': filtro_direccion,
+        'filtro_ficha': filtro_ficha,
         'ambientes_choices': ambientes_choices,
     })
 

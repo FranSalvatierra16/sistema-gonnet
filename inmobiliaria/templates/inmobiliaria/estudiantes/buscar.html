@@ -15,7 +15,7 @@
     <div class="row mb-4">
         <div class="col-12">
             <h2 class="mb-4"><i class="fas fa-search me-2"></i>Buscar propiedades de estudiantes</h2>
-            <p class="text-muted">Filtrá por rango de fechas, cantidad de ambientes y precio máximo (precio tipo Estudiante).</p>
+            <p class="text-muted">Filtrá por rango de fechas, dirección, ficha, ambientes y precio máximo (precio tipo Estudiante).</p>
 
             <div class="card shadow">
                 <div class="card-body">
@@ -31,6 +31,16 @@
                                 <label for="fecha_hasta" class="form-label">Fecha hasta</label>
                                 <input type="date" class="form-control" id="fecha_hasta" name="fecha_hasta"
                                        value="{% if fecha_hasta %}{{ fecha_hasta|date:'Y-m-d' }}{% endif %}" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="direccion" class="form-label">Dirección</label>
+                                <input type="text" class="form-control" id="direccion" name="direccion"
+                                       placeholder="Ej: Avellaneda" value="{{ filtro_direccion }}">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="ficha" class="form-label">Ficha</label>
+                                <input type="text" class="form-control" id="ficha" name="ficha"
+                                       placeholder="Nº ficha" value="{{ filtro_ficha }}">
                             </div>
                             <div class="col-md-2">
                                 <label for="ambientes" class="form-label">Ambientes</label>
