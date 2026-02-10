@@ -6655,23 +6655,59 @@ def editar_info_invierno(request, propiedad_id):
             
             info_invierno.disponible = 'disponible' in request.POST
             if info_invierno.disponible:
+                nuevo_estado = request.POST.get('estado')
+                fi = request.POST.get('fecha_inicio', '').strip()
+                ff = request.POST.get('fecha_fin', '').strip()
+                # Antes de cambiar fechas: si pasamos a disponible, borrar segmentos con las fechas viejas
+                if nuevo_estado == 'disponible' and info_invierno.fecha_inicio and info_invierno.fecha_fin:
+                    HistorialDisponibilidad.objects.filter(
+                        propiedad=propiedad,
+                        reserva__isnull=True,
+                        es_principal=True,
+                        fecha_inicio=info_invierno.fecha_inicio,
+                        fecha_fin=info_invierno.fecha_fin
+                    ).delete()
+
                 info_invierno.precio_mensual = request.POST.get('precio_mensual')
-                info_invierno.estado = request.POST.get('estado')
-                info_invierno.fecha_inicio = request.POST.get('fecha_inicio') or None
-                info_invierno.fecha_fin = request.POST.get('fecha_fin') or None
+                info_invierno.estado = nuevo_estado
                 info_invierno.precio_expensas = request.POST.get('precio_expensas') or None
+                _pa = request.POST.get('precio_autorizacion', '').strip()
+                if _pa:
+                    try:
+                        info_invierno.precio_autorizacion = Decimal(_pa.replace(',', '.'))
+                    except (ValueError, InvalidOperation):
+                        info_invierno.precio_autorizacion = None
+                else:
+                    info_invierno.precio_autorizacion = None
                 info_invierno.observaciones = request.POST.get('observaciones', '')
-                
-                # Si el estado es 'disponible', limpiamos las fechas
-                if info_invierno.estado == 'disponible':
+
+                if nuevo_estado == 'disponible':
                     info_invierno.fecha_inicio = None
                     info_invierno.fecha_fin = None
-                # Solo establecemos fechas si el estado no es 'disponible'
-                elif info_invierno.estado in ['reservado', 'ocupado']:
-                    info_invierno.fecha_inicio = request.POST.get('fecha_inicio') or None
-                    info_invierno.fecha_fin = request.POST.get('fecha_fin') or None
-            
+                elif nuevo_estado in ['reservado', 'ocupado']:
+                    info_invierno.fecha_inicio = datetime.strptime(fi, '%Y-%m-%d').date() if fi else None
+                    info_invierno.fecha_fin = datetime.strptime(ff, '%Y-%m-%d').date() if ff else None
+                else:
+                    info_invierno.fecha_inicio = datetime.strptime(fi, '%Y-%m-%d').date() if fi else None
+                    info_invierno.fecha_fin = datetime.strptime(ff, '%Y-%m-%d').date() if ff else None
+
             info_invierno.save()
+            # Crear segmento en historial si estado reservado/ocupado con fechas
+            if info_invierno.disponible and info_invierno.estado in ('reservado', 'ocupado') and info_invierno.fecha_inicio and info_invierno.fecha_fin:
+                HistorialDisponibilidad.objects.filter(
+                    propiedad=propiedad,
+                    reserva__isnull=True,
+                    fecha_inicio=info_invierno.fecha_inicio,
+                    fecha_fin=info_invierno.fecha_fin
+                ).delete()
+                hist_estado = 'reservado' if info_invierno.estado == 'reservado' else 'alquilado'
+                HistorialDisponibilidad.objects.create(
+                    propiedad=propiedad,
+                    fecha_inicio=info_invierno.fecha_inicio,
+                    fecha_fin=info_invierno.fecha_fin,
+                    estado=hist_estado,
+                    es_principal=True,
+                )
             messages.success(request, 'Información de alquiler invierno actualizada correctamente.')
         except Exception as e:
             messages.error(request, f'Error al actualizar la información: {str(e)}')
