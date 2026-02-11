@@ -9872,15 +9872,18 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             concepto_json = f'Contrato #{contrato.id} - {contrato.propiedad.direccion}'
 # print(f"💾 CONCEPTO FALLBACK: {concepto_json}")
         
-        # ✅ Truncar concepto a 200 caracteres para evitar error de base de datos
+        # Truncar concepto a 200 caracteres para el campo legacy
+        concepto_json_truncado = concepto_json
         if len(concepto_json) > 200:
-            concepto_json = concepto_json[:197] + "..."
+            concepto_json_truncado = concepto_json[:197] + "..."
+        # JSON completo para el recibo (sin truncar)
+        concepto_detalle_json = json.dumps(conceptos_data) if conceptos_data else ''
         
-        # Crear movimiento de caja (tipo debe ser código del enum: 'IN', no 'INGRESO')
         movimiento = MovimientoCaja.objects.create(
             caja=caja,
             tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto=concepto_json,  # ✅ Guardar JSON o fallback (truncado si es necesario)
+            concepto=concepto_json_truncado,
+            concepto_detalle=concepto_detalle_json,
             monto_efectivo=monto_efectivo,
             monto_cheque=monto_cheque,
             monto_tarjeta=monto_tarjeta,
@@ -9892,32 +9895,21 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             sellados=sellados
         )
         
-        # ✅ ASIGNAR DESTINO DE TRANSFERENCIA DINÁMICAMENTE
         cuentas_con_monto = [data for data in montos_cuentas_bancarias.values() if data['monto'] > 0]
-        
         if len(cuentas_con_monto) == 1:
-            # Solo una cuenta bancaria con monto
             cuenta_usada = cuentas_con_monto[0]['cuenta']
             movimiento.destino_deposito = f"cuenta_{cuenta_usada.id}"
             movimiento.monto_deposito = cuentas_con_monto[0]['monto']
-# print(f"✅ Destino asignado: Cuenta {cuenta_usada.nombre_banco} (ID: {cuenta_usada.id})")
         elif len(cuentas_con_monto) > 1:
-            # Múltiples cuentas bancarias con monto
             movimiento.destino_deposito = 'mixto'
             movimiento.monto_deposito = monto_deposito_final
-# print(f"✅ Destino mixto asignado: {len(cuentas_con_monto)} cuentas")
         elif monto_deposito_legacy > 0:
-            # Fallback a lógica legacy si hay montos en campos antiguos
             if monto_deposito_galicia > 0:
                 movimiento.destino_deposito = 'galicia'
                 movimiento.monto_deposito = monto_deposito_galicia
             elif monto_deposito_mp > 0:
                 movimiento.destino_deposito = 'mp'
                 movimiento.monto_deposito = monto_deposito_mp
-        
-        # Guardar JSON completo de conceptos para el recibo (concepto se trunca a 200)
-        if conceptos_data:
-            movimiento.concepto_detalle = json.dumps(conceptos_data)
         movimiento.save()
         
         return movimiento, total_movimiento

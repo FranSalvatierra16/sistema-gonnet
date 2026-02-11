@@ -803,28 +803,30 @@ function procesarOperacion() {
         return;
     }
     
-    // Preparar datos
-    const formData = new FormData(document.getElementById('formOperacionContrato'));
+    // FormData: copiar solo campos del form que NO sean concepto_* (evitar que nada pise los conceptos)
+    const form = document.getElementById('formOperacionContrato');
+    const formData = new FormData();
+    for (const pair of new FormData(form).entries()) {
+        if (!String(pair[0]).startsWith('concepto_') && pair[0] !== 'conceptos_count') {
+            formData.append(pair[0], pair[1]);
+        }
+    }
     
-    // Agregar el nuevo precio mensual
     const nuevoPrecioMensual = parsearValorFormateado(document.getElementById('precio_mensual').value);
     formData.append('nuevo_precio_mensual', nuevoPrecioMensual);
-    
-    // Operación principal: vencimiento siempre día 5 (fijo)
     if (tipoOperacion === 'principal') {
         formData.append('dia_vencimiento', '5');
     }
     
-    // Agregar conceptos
+    // Agregar TODOS los conceptos (índices 0, 1, 2, ...)
     conceptosAgregados.forEach((concepto, index) => {
-        formData.append(`concepto_${index}_id`, concepto.conceptoId);
-        formData.append(`concepto_${index}_nombre`, concepto.nombre);
-        formData.append(`concepto_${index}_observaciones`, concepto.observaciones);
-        formData.append(`concepto_${index}_importe`, concepto.importe);
-        formData.append(`concepto_${index}_fecha`, concepto.fecha);
+        formData.append('concepto_' + index + '_id', String(concepto.conceptoId || ''));
+        formData.append('concepto_' + index + '_nombre', String(concepto.nombre || ''));
+        formData.append('concepto_' + index + '_observaciones', String(concepto.observaciones || ''));
+        formData.append('concepto_' + index + '_importe', String(concepto.importe));
+        formData.append('concepto_' + index + '_fecha', String(concepto.fecha || ''));
     });
-    
-    formData.append('conceptos_count', conceptosAgregados.length);
+    formData.append('conceptos_count', String(conceptosAgregados.length));
     formData.append('tipo_operacion', tipoOperacion);
     
     // Enviar al servidor
