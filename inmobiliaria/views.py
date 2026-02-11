@@ -9749,19 +9749,24 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
 def obtener_valor_concepto_contrato(contrato, campo):
     """
     Obtiene el valor de honorarios o sellados desde MovimientoCaja para un contrato.
+    Usa el mismo criterio que el recibo: preferir el movimiento con concepto_detalle (más reciente con datos).
     """
     from decimal import Decimal
     
-    # Buscar el primer movimiento de caja relacionado con este contrato
-    movimiento = MovimientoCaja.objects.filter(
+    movimientos = MovimientoCaja.objects.filter(
         propiedad=contrato.propiedad,
-        concepto__icontains=f'Contrato #{contrato.id}'
-    ).first()
+        concepto__icontains=f'Contrato #{contrato.id}',
+        sucursal=contrato.sucursal
+    ).order_by('-id')
     
-    if movimiento:
-        # Obtener el valor del campo específico
-        return getattr(movimiento, campo, Decimal('0'))
+    for mov in movimientos:
+        detalle = (getattr(mov, 'concepto_detalle', None) or '').strip()
+        if detalle and detalle.startswith('['):
+            return getattr(mov, campo, Decimal('0'))
     
+    primer = movimientos.first()
+    if primer:
+        return getattr(primer, campo, Decimal('0'))
     return Decimal('0')
 
 def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
@@ -9812,7 +9817,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         # Usar el total dinámico o el legacy como fallback
         monto_deposito_final = monto_deposito_total if monto_deposito_total > 0 else monto_deposito_legacy
         
-        # Honorarios y sellados (campos movidos arriba)
+        # Honorarios y sellados desde el form (se pueden sobrescribir con concepto 25/26)
         honorarios = limpiar_valor_monetario(request.POST.get('honorarios_top', '0'))
         sellados = limpiar_valor_monetario(request.POST.get('sellados_top', '0'))
         
@@ -9903,6 +9908,13 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             concepto_para_busqueda = concepto_para_busqueda[:197] + "..."
         concepto_detalle_json = json.dumps(conceptos_data) if conceptos_data else ''
         
+        # Honorarios = concepto 25 (igual que depósito con concepto 10): si está en conceptos, usar su importe
+        honorarios_final = honorarios
+        for c in conceptos_data:
+            if str(c.get('id') or c.get('codigo')) == '25':
+                honorarios_final = Decimal(str(c.get('importe', 0)))
+                break
+        
         movimiento = MovimientoCaja.objects.create(
             caja=caja,
             tipo=TipoMovimientoCajaEnum.INGRESO,
@@ -9915,7 +9927,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             empleado=request.user,
             sucursal=request.user.sucursal,
             propiedad=contrato.propiedad,
-            honorarios=honorarios,
+            honorarios=honorarios_final,
             sellados=sellados
         )
         
