@@ -9825,46 +9825,32 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
                           (monto_deposito_final or 0))
         
         # ✅ PROCESAR CONCEPTOS INDIVIDUALES (igual que en alquiler por día)
-        conceptos_count = int(request.POST.get('conceptos_count', 0))
+        conceptos_count_post = int(request.POST.get('conceptos_count', 0) or 0)
+        # Respaldo: contar por cantidad de concepto_X_nombre para no perder conceptos
+        conceptos_count_keys = len([k for k in request.POST.keys() if k.startswith('concepto_') and k.endswith('_nombre')])
+        conceptos_count = max(conceptos_count_post, conceptos_count_keys)
         conceptos_data = []
         conceptos_detalle = []
         
-# print(f"🔍 DEBUG CONTRATOS: Procesando {conceptos_count} conceptos")
-# print(f"🔍 DEBUG CONTRATOS: Todos los datos POST:")
-        for key, value in request.POST.items():
-            if 'concepto' in key.lower():
-                pass  # ✅ Bloque vacío
-# print(f"  - {key}: {value}")
-        
         for i in range(conceptos_count):
-            concepto_id = request.POST.get(f'concepto_{i}_id')
-            concepto_nombre = request.POST.get(f'concepto_{i}_nombre')
+            concepto_id = (request.POST.get(f'concepto_{i}_id') or '').strip()
+            concepto_nombre = (request.POST.get(f'concepto_{i}_nombre') or '').strip()
             concepto_importe = request.POST.get(f'concepto_{i}_importe')
             concepto_observaciones = request.POST.get(f'concepto_{i}_observaciones', '')
             concepto_fecha = request.POST.get(f'concepto_{i}_fecha')
             
-# print(f"  - Concepto {i}: ID='{concepto_id}', Nombre='{concepto_nombre}', Importe='{concepto_importe}', Obs='{concepto_observaciones}', Fecha='{concepto_fecha}'")
-            
-            if concepto_id and concepto_nombre and concepto_importe:
-                # Limpiar el importe
-                importe_limpio = limpiar_valor_monetario(concepto_importe)
-                
-                # Agregar al array de conceptos (formato JSON)
+            # Aceptar concepto si tiene nombre e importe (aunque id venga vacío, ej. Limpieza)
+            if concepto_nombre and concepto_importe is not None and str(concepto_importe).strip() != '':
+                importe_limpio = limpiar_valor_monetario(str(concepto_importe))
+                id_para_json = concepto_id if concepto_id else f'C{i}'
                 conceptos_data.append({
-                    'id': concepto_id,
+                    'id': id_para_json,
                     'nombre': concepto_nombre,
                     'importe': float(importe_limpio),
-                    'observaciones': concepto_observaciones,
-                    'fecha': concepto_fecha
+                    'observaciones': concepto_observaciones or '',
+                    'fecha': concepto_fecha or ''
                 })
-                
-                # Agregar al detalle para mostrar
                 conceptos_detalle.append(f"{concepto_nombre} ${importe_limpio}")
-                
-# print(f"    ✅ Concepto {i} AGREGADO: ID={concepto_id}, Nombre={concepto_nombre}, Importe=${importe_limpio}")
-            else:
-                pass  # ✅ Bloque vacío
-# print(f"    ❌ Concepto {i} OMITIDO: Faltan datos")
         
         # Construir concepto final
         if conceptos_data:
@@ -11327,10 +11313,11 @@ def recibo_contrato_24(request, contrato_id):
 # print(f"  - precio_mensual: ${contrato.precio_mensual}")
 # print(f"  - deposito_garantia: ${contrato.deposito_garantia}")
             
-            # ✅ Usar concepto_detalle (JSON completo) si existe; si no, concepto (puede estar truncado)
+            # ✅ Usar concepto_detalle (JSON completo) si existe y no está vacío; si no, concepto (puede estar truncado)
             try:
                 import json
-                json_str = getattr(primer_movimiento, 'concepto_detalle', None) or primer_movimiento.concepto or '[]'
+                concepto_detalle_raw = (getattr(primer_movimiento, 'concepto_detalle', None) or '').strip()
+                json_str = concepto_detalle_raw if concepto_detalle_raw else (primer_movimiento.concepto or '[]')
                 if not (json_str and json_str.strip().startswith('[')):
                     json_str = '[]'
                 conceptos_data = json.loads(json_str) if json_str.strip() else []
