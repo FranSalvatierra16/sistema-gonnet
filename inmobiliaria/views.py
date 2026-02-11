@@ -9824,33 +9824,43 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         total_movimiento = ((monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + 
                           (monto_deposito_final or 0))
         
-        # ✅ PROCESAR CONCEPTOS INDIVIDUALES (igual que en alquiler por día)
+        # ✅ PROCESAR CONCEPTOS: obtener índices desde las claves POST (no depender solo de conceptos_count)
+        import re
+        indices_conceptos = set()
+        for key in request.POST.keys():
+            m = re.match(r'concepto_(\d+)_nombre', key)
+            if m:
+                indices_conceptos.add(int(m.group(1)))
         conceptos_count_post = int(request.POST.get('conceptos_count', 0) or 0)
-        # Respaldo: contar por cantidad de concepto_X_nombre para no perder conceptos
-        conceptos_count_keys = len([k for k in request.POST.keys() if k.startswith('concepto_') and k.endswith('_nombre')])
-        conceptos_count = max(conceptos_count_post, conceptos_count_keys)
+        if indices_conceptos:
+            indices_ordenados = list(range(max(indices_conceptos) + 1))
+        else:
+            indices_ordenados = list(range(conceptos_count_post))
         conceptos_data = []
         conceptos_detalle = []
         
-        for i in range(conceptos_count):
+        for i in indices_ordenados:
             concepto_id = (request.POST.get(f'concepto_{i}_id') or '').strip()
             concepto_nombre = (request.POST.get(f'concepto_{i}_nombre') or '').strip()
             concepto_importe = request.POST.get(f'concepto_{i}_importe')
             concepto_observaciones = request.POST.get(f'concepto_{i}_observaciones', '')
             concepto_fecha = request.POST.get(f'concepto_{i}_fecha')
             
-            # Aceptar concepto si tiene nombre e importe (aunque id venga vacío, ej. Limpieza)
-            if concepto_nombre and concepto_importe is not None and str(concepto_importe).strip() != '':
-                importe_limpio = limpiar_valor_monetario(str(concepto_importe))
-                id_para_json = concepto_id if concepto_id else f'C{i}'
-                conceptos_data.append({
-                    'id': id_para_json,
-                    'nombre': concepto_nombre,
-                    'importe': float(importe_limpio),
-                    'observaciones': concepto_observaciones or '',
-                    'fecha': concepto_fecha or ''
-                })
-                conceptos_detalle.append(f"{concepto_nombre} ${importe_limpio}")
+            if not concepto_nombre:
+                continue
+            raw_importe = (concepto_importe if concepto_importe is not None else '').strip()
+            if raw_importe == '':
+                continue
+            importe_limpio = limpiar_valor_monetario(raw_importe)
+            id_para_json = concepto_id if concepto_id else f'C{i}'
+            conceptos_data.append({
+                'id': id_para_json,
+                'nombre': concepto_nombre,
+                'importe': float(importe_limpio),
+                'observaciones': concepto_observaciones or '',
+                'fecha': concepto_fecha or ''
+            })
+            conceptos_detalle.append(f"{concepto_nombre} ${importe_limpio}")
         
         # Construir concepto final
         if conceptos_data:

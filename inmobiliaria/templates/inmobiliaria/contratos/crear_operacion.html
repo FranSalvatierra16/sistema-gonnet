@@ -82,15 +82,15 @@
             <form id="formOperacionContrato" method="post">
                 {% csrf_token %}
                 
-                <!-- Campos ocultos para honorarios y sellados -->
+                <!-- Campos ocultos para honorarios (sellados ya no se usa) -->
                 <input type="hidden" id="honorarios_top" name="honorarios_top" value="0">
                 <input type="hidden" id="sellados_top" name="sellados_top" value="0">
                 
-                <!-- Sección de Honorarios y Sellados -->
+                <!-- Sección de Honorarios -->
                 <div class="card mb-4" style="display: block !important; visibility: visible !important;">
                     <div class="card-header bg-warning text-dark">
-                        <h5 class="mb-0">💼 Honorarios y Sellados</h5>
-                        <small class="text-muted">Define los valores a pagar. Se cobran solo si agregas manualmente los conceptos 25 (Honorarios) y 26 (Sellados) abajo</small>
+                        <h5 class="mb-0">💼 Honorarios</h5>
+                        <small class="text-muted">Valor a pagar. Se cobra solo si agregás el concepto 25 (Honorarios) en la tabla de conceptos abajo.</small>
                     </div>
                     <div class="card-body">
                         <div class="row">
@@ -101,17 +101,7 @@
                                            value="0" 
                                            onchange="formatearNumeroEnTiempoReal(this); sincronizarHonorarios()" 
                                            oninput="formatearNumeroEnTiempoReal(this); sincronizarHonorarios()">
-                                    <small class="form-text text-muted">Valor a pagar. Se cobra solo si agregas el concepto 25 manualmente</small>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label><strong>Sellados:</strong></label>
-                                    <input type="text" class="form-control" id="sellados_visible" 
-                                           value="0" 
-                                           onchange="formatearNumeroEnTiempoReal(this); sincronizarSellados()" 
-                                           oninput="formatearNumeroEnTiempoReal(this); sincronizarSellados()">
-                                    <small class="form-text text-muted">Valor a pagar. Se cobra solo si agregas el concepto 26 manualmente</small>
+                                    <small class="form-text text-muted">Se cobra solo si agregás el concepto 25 manualmente abajo.</small>
                                 </div>
                             </div>
                         </div>
@@ -705,8 +695,8 @@ function actualizarEstadoDepositoHonorariosYSellados() {
     const concepto26Presente = verificarConcepto26();
     
     const depositoValue = parsearValorFormateado(depositoInput?.value || '0');
-    const honorariosValue = parsearValorFormateado(honorariosInput.value);
-    const selladosValue = parsearValorFormateado(selladosInput.value);
+    const honorariosValue = parsearValorFormateado(honorariosInput ? honorariosInput.value : '0');
+    const selladosValue = selladosInput ? parsearValorFormateado(selladosInput.value) : 0;
     
     // Actualizar estilo del campo depósito (solo si existe)
     if (depositoInput) {
@@ -744,22 +734,7 @@ function actualizarEstadoDepositoHonorariosYSellados() {
         honorariosInput.title = '';
     }
     
-    // Actualizar estilo del campo sellados
-    if (selladosValue > 0) {
-        if (concepto26Presente) {
-            selladosInput.style.backgroundColor = '#d4edda';
-            selladosInput.style.color = '#155724';
-            selladosInput.title = '✅ Sellados pagados (concepto 26 cargado)';
-        } else {
-            selladosInput.style.backgroundColor = '#fff3cd';
-            selladosInput.style.color = '#856404';
-            selladosInput.title = '⏳ Sellados pendientes - Cargar concepto 26 para pagarlos';
-        }
-    } else {
-        selladosInput.style.backgroundColor = '';
-        selladosInput.style.color = '';
-        selladosInput.title = '';
-    }
+    // Sellados ya no se usa; no actualizar estilos
 }
 
 // Función para calcular total de pagos
@@ -1135,9 +1110,12 @@ function sincronizarHonorarios() {
 }
 
 function sincronizarSellados() {
-    const valorVisible = document.getElementById('sellados_visible').value;
-    document.getElementById('sellados_top').value = valorVisible;
-    calcularTotales();
+    // Sellados ya no se usa; mantener por compatibilidad
+    var el = document.getElementById('sellados_visible');
+    if (el) {
+        document.getElementById('sellados_top').value = el.value;
+        calcularTotales();
+    }
 }
 
 </script>
