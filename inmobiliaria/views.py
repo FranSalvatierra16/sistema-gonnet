@@ -9975,17 +9975,9 @@ def procesar_operacion_contrato(request, contrato_id):
             return JsonResponse({'error': mensaje}, status=400)
         
         if tipo_operacion == 'principal':
-            # Capturar el día de vencimiento seleccionado
-            dia_vencimiento = request.POST.get('dia_vencimiento')
-            if dia_vencimiento:
-                try:
-                    dia_vencimiento = int(dia_vencimiento)
-                    contrato.dia_vencimiento = dia_vencimiento
-                    contrato.save()
-                except (ValueError, TypeError):
-                    return JsonResponse({'error': 'Día de vencimiento inválido'}, status=400)
-            else:
-                return JsonResponse({'error': 'Debe seleccionar un día de vencimiento'}, status=400)
+            # Vencimientos siempre el día 5
+            contrato.dia_vencimiento = 5
+            contrato.save(update_fields=['dia_vencimiento'])
             
             # Leer concepto 10 y 1 desde POST si el usuario los agregó (no son obligatorios)
             conceptos_count = int(request.POST.get('conceptos_count', 0))
@@ -10117,13 +10109,13 @@ def procesar_operacion_contrato(request, contrato_id):
             cuota.fecha_pago = timezone.now().date()
             cuota.movimiento = movimiento
             cuota.save()
-        
-        # Validación más flexible: permitir pequeñas diferencias por redondeo
-        diferencia = abs(float(total_movimiento) - float(total_esperado))
-        if diferencia > 0.01:  # Permitir diferencias menores a 1 centavo
-            return JsonResponse({
-                'error': mensaje_error + f' (Diferencia: ${diferencia:.2f})'
-            }, status=400)
+            
+            # Validación solo para pago de cuota: monto debe coincidir con el valor de la cuota
+            diferencia = abs(float(total_movimiento) - float(total_esperado))
+            if diferencia > 0.01:
+                return JsonResponse({
+                    'error': mensaje_error + f' (Diferencia: ${diferencia:.2f})'
+                }, status=400)
         
         return JsonResponse({
             'success': True,
