@@ -9963,21 +9963,6 @@ def procesar_operacion_contrato(request, contrato_id):
         if not caja:
             return JsonResponse({'error': 'No hay una caja abierta'}, status=400)
         
-        # Para operación principal: validar concepto 10 desde POST antes de crear el movimiento
-        # (movimiento.concepto se trunca a 200 chars y puede no contener el concepto 10)
-        if tipo_operacion == 'principal':
-            conceptos_count_pre = int(request.POST.get('conceptos_count', 0))
-            concepto_10_en_post = False
-            for i in range(conceptos_count_pre):
-                cid = (request.POST.get(f'concepto_{i}_id') or '').strip()
-                if cid == '10':
-                    concepto_10_en_post = True
-                    break
-            if not concepto_10_en_post:
-                return JsonResponse({
-                    'error': 'En la operación principal el depósito es obligatorio. Debe incluir el concepto 10 (depósito de garantía) en los conceptos.'
-                }, status=400)
-        
         result = procesar_conceptos_y_crear_movimiento(request, caja, contrato)
         movimiento = result[0]
         total_movimiento = result[1]
@@ -10002,11 +9987,10 @@ def procesar_operacion_contrato(request, contrato_id):
             else:
                 return JsonResponse({'error': 'Debe seleccionar un día de vencimiento'}, status=400)
             
-            # Validar concepto 10 y concepto 1 desde POST (movimiento.concepto se trunca a 200 chars)
+            # Leer concepto 10 y 1 desde POST si el usuario los agregó (no son obligatorios)
             conceptos_count = int(request.POST.get('conceptos_count', 0))
-            concepto_10_presente = False
             concepto_10_importe = None
-            concepto_1_importe = None  # alquiler / primer mes (puede estar editado por el usuario)
+            concepto_1_importe = None
             for i in range(conceptos_count):
                 cid = (request.POST.get(f'concepto_{i}_id') or '').strip()
                 raw_importe = (request.POST.get(f'concepto_{i}_importe') or '0').strip()
@@ -10016,35 +10000,20 @@ def procesar_operacion_contrato(request, contrato_id):
                 except (ValueError, InvalidOperation):
                     importe_val = 0.0
                 if cid == '10':
-                    concepto_10_presente = True
                     concepto_10_importe = importe_val
                 elif cid == '1':
                     concepto_1_importe = importe_val
 
-            if not concepto_10_presente:
-                return JsonResponse({
-                    'error': 'En la operación principal el depósito es obligatorio. Debe incluir el concepto 10 (depósito de garantía) en los conceptos.'
-                }, status=400)
-
-            if concepto_10_importe is None:
-                concepto_10_importe = float(contrato.deposito_garantia or 0)
-            # Primer mes: usar lo enviado en concepto 1 (alquiler); si no viene, considerar 0 (permite "solo depósito")
-            importe_primer_mes = concepto_1_importe if concepto_1_importe is not None else 0.0
-
-            # Validar: total = depósito (concepto 10) + primer mes (puede ser 0 = solo depósito)
-            total_esperado = concepto_10_importe + importe_primer_mes
-            if abs(float(total_movimiento) - total_esperado) > 0.01:
-                return JsonResponse({
-                    'error': f'El monto total (${total_movimiento:,.0f}) debe ser igual al depósito (${concepto_10_importe:,.0f}) más el primer mes (${importe_primer_mes:,.0f}).'
-                }, status=400)
-
-            # Actualizar depósito siempre; precio_mensual solo si cobraron algo por primer mes (si pagaron 0, mantener el del contrato para las cuotas)
-            contrato.deposito_garantia = Decimal(str(concepto_10_importe))
-            update_fields = ['deposito_garantia']
+            # Actualizar contrato solo si el usuario incluyó esos conceptos: depósito (10) y/o primer mes (1)
+            update_fields = []
+            if concepto_10_importe is not None:
+                contrato.deposito_garantia = Decimal(str(concepto_10_importe))
+                update_fields.append('deposito_garantia')
             if concepto_1_importe is not None and float(concepto_1_importe) > 0:
                 contrato.precio_mensual = Decimal(str(concepto_1_importe))
                 update_fields.append('precio_mensual')
-            contrato.save(update_fields=update_fields)
+            if update_fields:
+                contrato.save(update_fields=update_fields)
             
             # Usar el día de vencimiento seleccionado para crear las fechas
             fecha_actual = timezone.now().date()

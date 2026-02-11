@@ -160,7 +160,7 @@
                     <div class="card-body">
                         {% if tipo_operacion == 'principal' %}
                         <p class="text-muted small mb-2">
-                            <strong>Operación principal:</strong> El depósito es obligatorio y está ligado al <strong>concepto 10 (depósito de garantía)</strong>. Se precargan alquiler (concepto 1) y depósito con los valores del contrato; podés modificarlos si hace falta.
+                            <strong>Operación principal:</strong> Agregá los conceptos que quieras con «+ Agregar Concepto». Si agregás el <strong>concepto 10 (depósito de garantía)</strong>, el depósito se marcará como pagado; no es obligatorio.
                         </p>
                         {% endif %}
                         <!-- Tabla de Conceptos -->
@@ -1163,31 +1163,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Operación principal: precargar concepto 1 (alquiler) y 10 (depósito); siempre ambos para permitir "solo depósito" (alquiler 0)
-    if (tipoOperacion === 'principal') {
-        const fechaActual = new Date().toLocaleDateString('es-AR');
-        conceptosAgregados.push({
-            id: ++contadorConceptos,
-            conceptoId: '1',
-            nombre: conceptoAlquilerNombre,
-            observaciones: 'Sin observaciones',
-            importe: precioMensualInicial || 0,
-            fecha: fechaActual
-        });
-        if (depositoGarantiaInicial > 0) {
-            conceptosAgregados.push({
-                id: ++contadorConceptos,
-                conceptoId: '10',
-                nombre: conceptoDepositoNombre,
-                observaciones: 'Sin observaciones',
-                importe: depositoGarantiaInicial,
-                fecha: fechaActual
-            });
-        }
-        if (conceptosAgregados.length > 0) {
-            actualizarTablaConceptos();
-        }
-    }
+    // Operación principal: no se precargan conceptos; el usuario los agrega manualmente
 
     // Inicializar cálculos
     calcularTotales();
