@@ -818,7 +818,18 @@ function procesarOperacion() {
         formData.append('dia_vencimiento', '5');
     }
     
-    // Agregar TODOS los conceptos (índices 0, 1, 2, ...)
+    // Enviar conceptos como JSON (una sola clave) para que el servidor reciba todos seguro
+    const conceptosParaEnviar = conceptosAgregados.map(function(c) {
+        return {
+            id: String(c.conceptoId || ''),
+            nombre: String(c.nombre || ''),
+            importe: Number(c.importe) || 0,
+            observaciones: String(c.observaciones || ''),
+            fecha: String(c.fecha || '')
+        };
+    });
+    formData.append('conceptos_json', JSON.stringify(conceptosParaEnviar));
+    // También enviar por índice por compatibilidad
     conceptosAgregados.forEach((concepto, index) => {
         formData.append('concepto_' + index + '_id', String(concepto.conceptoId || ''));
         formData.append('concepto_' + index + '_nombre', String(concepto.nombre || ''));
