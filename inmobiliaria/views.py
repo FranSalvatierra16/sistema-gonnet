@@ -7221,9 +7221,11 @@ def invierno_disponibilidad_masiva(request):
             'detalles': respuesta
         })
 
-    # Listar solo propiedades de la sucursal actual (para activar)
+    # Listar solo propiedades de la sucursal que aún no están activadas para invierno
     propiedades = Propiedad.objects.filter(
         sucursal=sucursal
+    ).exclude(
+        info_invierno__disponible=True
     ).select_related('propietario', 'sucursal', 'info_invierno').order_by('direccion')
 
     return render(request, 'inmobiliaria/propiedades/invierno_disponibilidad_masiva.html', {
