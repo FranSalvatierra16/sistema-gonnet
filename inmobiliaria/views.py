@@ -9681,15 +9681,10 @@ def obtener_caja_abierta(request):
 def determinar_estado_concepto_contrato(contrato, concepto_id):
     """
     Determina si un concepto específico está pagado para un contrato.
-    LÓGICA MEJORADA: Si existe el concepto en JSON = PAGADO.
-    Para concepto 10 (depósito): si la operación principal ya se procesó, el depósito está pagado
-    (el movimiento.concepto se trunca a 200 chars y puede no contener el concepto 10).
+    Solo devuelve 'pagado' si el concepto está efectivamente en algún movimiento (JSON o texto).
+    El depósito (concepto 10) queda pendiente si no se cargó ese concepto en la operación.
     """
     import json
-    
-    # Contratos: si ya se procesó la operación principal, el depósito (concepto 10) está pagado
-    if str(concepto_id) == '10' and getattr(contrato, 'operacion_principal', False):
-        return 'pagado'
     
     # Buscar movimientos de caja relacionados con este contrato
     movimientos = MovimientoCaja.objects.filter(
@@ -9706,41 +9701,39 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
 # print(f"   - Movimiento {i+1}: {movimiento.concepto[:50]}...")
         
         try:
-            # ✅ PARSEAR COMO JSON (formato principal)
-            conceptos_data = json.loads(movimiento.concepto)
-# print(f"     ✅ JSON parseado: {len(conceptos_data)} conceptos")
+            # ✅ Usar concepto_detalle (JSON completo) si existe; si no, intentar parsear concepto
+            json_str = getattr(movimiento, 'concepto_detalle', None)
+            if json_str and json_str.strip().startswith('['):
+                conceptos_data = json.loads(json_str)
+            else:
+                try:
+                    conceptos_data = json.loads(movimiento.concepto) if (movimiento.concepto or '').strip().startswith('[') else []
+                except (json.JSONDecodeError, ValueError, TypeError):
+                    conceptos_data = []
             
             for concepto in conceptos_data:
                 concepto_id_actual = str(concepto.get('id', concepto.get('codigo', '')))
-                concepto_nombre = concepto.get('nombre', '')
-                concepto_importe = concepto.get('importe', 0)
-                
-# print(f"       - Concepto: ID={concepto_id_actual}, Nombre={concepto_nombre}, Importe=${concepto_importe}")
-                
                 if concepto_id_actual == str(concepto_id):
-                    pass  # ✅ Bloque vacío
-# print(f"     🎯 ¡CONCEPTO {concepto_id} ENCONTRADO! = PAGADO")
+                    return 'pagado'
+            
+            # Si no hay concepto_detalle y no encontramos en JSON, buscar en texto (contratos antiguos)
+            if not (json_str and json_str.strip().startswith('[')) and (movimiento.concepto or ''):
+                concepto_texto = (movimiento.concepto or '').lower()
+                if str(concepto_id) == '25' and ('honorario' in concepto_texto or 'concepto 25' in concepto_texto):
+                    return 'pagado'
+                if str(concepto_id) == '26' and ('sellado' in concepto_texto or 'concepto 26' in concepto_texto):
+                    return 'pagado'
+                if str(concepto_id) == '10' and ('deposito' in concepto_texto or 'concepto 10' in concepto_texto):
                     return 'pagado'
                     
         except (json.JSONDecodeError, ValueError, TypeError) as e:
-            pass  # ✅ Bloque vacío
-# print(f"     ⚠️ No es JSON: {e}")
-            
             # FALLBACK: Buscar en formato texto (contratos antiguos)
-            concepto_texto = movimiento.concepto.lower()
-            
-            # Si el concepto está en el texto del movimiento
-            if concepto_id == '25' and ('honorario' in concepto_texto or 'concepto 25' in concepto_texto):
-                pass  # ✅ Bloque vacío
-# print(f"     🎯 HONORARIOS ENCONTRADO EN TEXTO!")
+            concepto_texto = (movimiento.concepto or '').lower()
+            if str(concepto_id) == '25' and ('honorario' in concepto_texto or 'concepto 25' in concepto_texto):
                 return 'pagado'
-            elif concepto_id == '26' and ('sellado' in concepto_texto or 'concepto 26' in concepto_texto):
-                pass  # ✅ Bloque vacío
-# print(f"     🎯 SELLADOS ENCONTRADO EN TEXTO!")
+            if str(concepto_id) == '26' and ('sellado' in concepto_texto or 'concepto 26' in concepto_texto):
                 return 'pagado'
-            elif concepto_id == '10' and ('deposito' in concepto_texto or 'concepto 10' in concepto_texto):
-                pass  # ✅ Bloque vacío
-# print(f"     🎯 DEPÓSITO ENCONTRADO EN TEXTO!")
+            if str(concepto_id) == '10' and ('deposito' in concepto_texto or 'concepto 10' in concepto_texto):
                 return 'pagado'
                 
         except Exception as e:
@@ -9924,6 +9917,9 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
                 movimiento.destino_deposito = 'mp'
                 movimiento.monto_deposito = monto_deposito_mp
         
+        # Guardar JSON completo de conceptos para el recibo (concepto se trunca a 200)
+        if conceptos_data:
+            movimiento.concepto_detalle = json.dumps(conceptos_data)
         movimiento.save()
         
         return movimiento, total_movimiento
@@ -11329,15 +11325,13 @@ def recibo_contrato_24(request, contrato_id):
 # print(f"  - precio_mensual: ${contrato.precio_mensual}")
 # print(f"  - deposito_garantia: ${contrato.deposito_garantia}")
             
-            # ✅ INTENTAR PRIMERO PARSEAR JSON (conceptos reales que agregaste)
-# print(f"🔍 CONTENIDO COMPLETO DEL CONCEPTO:")
-# print(f"'{primer_movimiento.concepto}'")
-# print(f"🔍 TIPO: {type(primer_movimiento.concepto)}")
-# print(f"🔍 LONGITUD: {len(primer_movimiento.concepto) if primer_movimiento.concepto else 0}")
-            
+            # ✅ Usar concepto_detalle (JSON completo) si existe; si no, concepto (puede estar truncado)
             try:
                 import json
-                conceptos_data = json.loads(primer_movimiento.concepto)
+                json_str = getattr(primer_movimiento, 'concepto_detalle', None) or primer_movimiento.concepto or '[]'
+                if not (json_str and json_str.strip().startswith('[')):
+                    json_str = '[]'
+                conceptos_data = json.loads(json_str) if json_str.strip() else []
 # print(f"🎯 CONCEPTOS JSON ENCONTRADOS: {len(conceptos_data)} conceptos")
 # print(f"🎯 DATOS COMPLETOS: {conceptos_data}")
                 
@@ -11650,12 +11644,14 @@ def recibo_contrato_24(request, contrato_id):
                 return f"PESOS {str(int(float(numero))).upper()}"
             return ""
         
+        deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
         context = {
             'contrato': contrato,
             'conceptos_contrato': conceptos_contrato,
             'primer_mes': format_currency(primer_mes),
             'alquiler_mensual': format_currency(alquiler_mensual),
             'deposito_garantia': format_currency(deposito_garantia),
+            'deposito_estado': deposito_estado,
             'honorarios': format_currency(honorarios),
             'sellado': format_currency(sellado),
             'total_a_abonar': format_currency(total_a_abonar),
