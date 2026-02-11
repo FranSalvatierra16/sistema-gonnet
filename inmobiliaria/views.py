@@ -9827,6 +9827,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         # ✅ PROCESAR CONCEPTOS: prioridad 1 = conceptos_json (un solo campo con todo)
         conceptos_data = []
         conceptos_detalle = []
+        conceptos_count_post = int(request.POST.get('conceptos_count', 0) or 0)
         conceptos_json_str = (request.POST.get('conceptos_json') or '').strip()
         if conceptos_json_str:
             try:
@@ -9850,17 +9851,18 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
                             conceptos_detalle.append(f"{nombre} ${imp}")
             except (json.JSONDecodeError, ValueError, TypeError):
                 pass
-        # Prioridad 2 = concepto_0_*, concepto_1_*, ...
-        if not conceptos_data:
+        # Prioridad 2 = concepto_0_*, concepto_1_* (si no vinieron por JSON o faltan)
+        if not conceptos_data or len(conceptos_data) < conceptos_count_post:
             import re
             indices_conceptos = set()
             for key in request.POST.keys():
                 m = re.match(r'concepto_(\d+)_nombre', key)
                 if m:
                     indices_conceptos.add(int(m.group(1)))
-            conceptos_count_post = int(request.POST.get('conceptos_count', 0) or 0)
             max_idx = max(conceptos_count_post, max(indices_conceptos) + 1 if indices_conceptos else 0)
-            for i in range(max_idx):
+            # Si ya teníamos algo del JSON, solo agregar los índices que faltan
+            start_i = len(conceptos_data) if conceptos_data else 0
+            for i in range(start_i, max_idx):
                 concepto_id = (request.POST.get(f'concepto_{i}_id') or '').strip()
                 concepto_nombre = (request.POST.get(f'concepto_{i}_nombre') or '').strip()
                 concepto_importe = request.POST.get(f'concepto_{i}_importe')
@@ -11357,18 +11359,14 @@ def recibo_contrato_24(request, contrato_id):
 # print(f"    - Código: '{codigo}'")
 # print(f"    - Nombre: '{nombre}'")
                     
-                    if importe_valor > 0:  # Solo agregar conceptos con importe > 0
-                        conceptos_contrato.append({
-                            'fecha': primer_movimiento.fecha,
-                            'codigo': codigo,
-                            'nombre': nombre,
-                            'importe': f"${importe_valor:,.2f}".replace(',', '.'),
-                            'importe_numerico': importe_valor
-                        })
-# print(f"    ✅ CONCEPTO AGREGADO: {codigo} - {nombre} - ${importe_valor}")
-                    else:
-                        pass  # ✅ Bloque vacío
-# print(f"    ❌ CONCEPTO OMITIDO: Importe = {importe_valor}")
+                    # Incluir TODOS los conceptos del detalle (alquiler, gas, etc.), no solo uno
+                    conceptos_contrato.append({
+                        'fecha': primer_movimiento.fecha,
+                        'codigo': codigo,
+                        'nombre': nombre,
+                        'importe': f"${importe_valor:,.2f}".replace(',', '.'),
+                        'importe_numerico': importe_valor
+                    })
                 
                 if len(conceptos_contrato) > 0:
                     pass  # ✅ Bloque vacío
