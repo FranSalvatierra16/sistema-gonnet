@@ -11586,28 +11586,30 @@ def recibo_contrato_24(request, contrato_id):
         
         alquiler_mensual = contrato.precio_mensual
         
-        # LÓGICA CORREGIDA: El total es SOLO la suma de los conceptos que se pagaron
-        total_conceptos = sum(concepto['importe_numerico'] for concepto in conceptos_contrato)
+        # Total = suma de TODOS los conceptos EXCEPTO el 10 (depósito de garantía)
+        total_conceptos = sum(
+            concepto['importe_numerico'] for concepto in conceptos_contrato
+            if str(concepto.get('codigo') or concepto.get('id') or '') != '10'
+        )
         
-        # Honorarios y sellados SOLO si están como conceptos 25 y 26
+        # Honorarios: solo concepto 25 (ya no se usa sellado en el recibo)
         honorarios = Decimal('0')
-        sellado = Decimal('0')
-        
-        # Buscar si hay conceptos 25 (honorarios) y 26 (sellados) en los conceptos pagados
         for concepto in conceptos_contrato:
             if concepto.get('codigo') == '25' or concepto.get('id') == '25':
                 honorarios = Decimal(str(concepto['importe_numerico']))
-            elif concepto.get('codigo') == '26' or concepto.get('id') == '26':
-                sellado = Decimal(str(concepto['importe_numerico']))
+                break
         
-        # El total del recibo es SOLO la suma de conceptos (que ya incluye honorarios y sellados si se pagaron)
         total_a_abonar = float(total_conceptos)
         subtotal = total_a_abonar
         total_contrato = total_a_abonar
         
-        # Para el template (estos son solo informativos)
         deposito_garantia = contrato.deposito_garantia or Decimal('0')
-        primer_mes = alquiler_mensual
+        # Anticipo y Mes alquiler: si hay conceptos cargados, mostrar el total (suma de conceptos excepto 10)
+        if total_a_abonar > 0:
+            primer_mes = Decimal(str(total_a_abonar))
+            alquiler_mensual = primer_mes
+        else:
+            primer_mes = alquiler_mensual
         
         # Convertir números a formato de pesos argentinos
         def format_currency(amount):
@@ -11642,7 +11644,6 @@ def recibo_contrato_24(request, contrato_id):
             'deposito_garantia': format_currency(deposito_garantia),
             'deposito_estado': deposito_estado,
             'honorarios': format_currency(honorarios),
-            'sellado': format_currency(sellado),
             'total_a_abonar': format_currency(total_a_abonar),
             'subtotal': format_currency(subtotal),
             'total_contrato': format_currency(total_contrato),
