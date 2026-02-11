@@ -9894,17 +9894,19 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             concepto_json = f'Contrato #{contrato.id} - {contrato.propiedad.direccion}'
 # print(f"💾 CONCEPTO FALLBACK: {concepto_json}")
         
-        # Truncar concepto a 200 caracteres para el campo legacy
-        concepto_json_truncado = concepto_json
-        if len(concepto_json) > 200:
-            concepto_json_truncado = concepto_json[:197] + "..."
-        # JSON completo para el recibo (sin truncar)
+        # Truncar concepto a 200 caracteres; incluir "Contrato #X" para que el recibo encuentre el movimiento
+        prefijo = f'Contrato #{contrato.id} - '
+        max_len = 200 - len(prefijo) - 3  # espacio para "..."
+        concepto_json_truncado = concepto_json if len(concepto_json) <= max_len else concepto_json[:max_len] + "..."
+        concepto_para_busqueda = prefijo + concepto_json_truncado
+        if len(concepto_para_busqueda) > 200:
+            concepto_para_busqueda = concepto_para_busqueda[:197] + "..."
         concepto_detalle_json = json.dumps(conceptos_data) if conceptos_data else ''
         
         movimiento = MovimientoCaja.objects.create(
             caja=caja,
             tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto=concepto_json_truncado,
+            concepto=concepto_para_busqueda,
             concepto_detalle=concepto_detalle_json,
             monto_efectivo=monto_efectivo,
             monto_cheque=monto_cheque,
@@ -11299,15 +11301,22 @@ def recibo_contrato_24(request, contrato_id):
         # Obtener los conceptos del primer pago del contrato
         conceptos_contrato = []
         
-        # Buscar el primer movimiento de caja relacionado con este contrato
-        # Los movimientos de contrato incluyen el ID del contrato en el concepto
-        primer_movimiento = MovimientoCaja.objects.filter(
+        # Buscar movimientos del contrato (más reciente primero) y usar el que tenga concepto_detalle
+        movimientos_contrato = MovimientoCaja.objects.filter(
             concepto__icontains=f'Contrato #{contrato.id}',
             propiedad=contrato.propiedad,
             sucursal=request.user.sucursal
-        ).first()
+        ).order_by('-id')
         
-        # Si no encontramos movimiento por concepto, buscar por cuotas pagadas
+        primer_movimiento = None
+        for mov in movimientos_contrato:
+            detalle = (getattr(mov, 'concepto_detalle', None) or '').strip()
+            if detalle and detalle.startswith('['):
+                primer_movimiento = mov
+                break
+        if not primer_movimiento:
+            primer_movimiento = movimientos_contrato.first()
+        
         if not primer_movimiento:
             cuota_pagada = contrato.cuotas.filter(estado='pagada', movimiento__isnull=False).first()
             if cuota_pagada and cuota_pagada.movimiento:
