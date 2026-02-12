@@ -6608,12 +6608,20 @@ def editar_info_venta(request, propiedad_id):
         info_venta.en_venta = en_venta
 
         if en_venta:
-            # Solo actualizar otros campos si está en venta
-            info_venta.metros_cuadrados = request.POST.get('metros_cuadrados') or None
-            info_venta.precio_venta = request.POST.get('precio_venta') or None
-            info_venta.precio_autorizacion = request.POST.get('precio_autorizacion') or None
+            # Solo actualizar otros campos si está en venta (decimales: vacío -> None para no provocar error de validación)
+            def _decimal_post(key):
+                v = (request.POST.get(key) or '').strip()
+                if not v:
+                    return None
+                try:
+                    return Decimal(v.replace(',', '.'))
+                except (ValueError, InvalidOperation):
+                    return None
+            info_venta.metros_cuadrados = _decimal_post('metros_cuadrados')
+            info_venta.precio_venta = _decimal_post('precio_venta')
+            info_venta.precio_autorizacion = _decimal_post('precio_autorizacion')
             info_venta.estado = request.POST.get('estado', 'disponible')
-            info_venta.precio_expensas = request.POST.get('precio_expensas') or None
+            info_venta.precio_expensas = _decimal_post('precio_expensas')
             info_venta.escribania = request.POST.get('escribania', '')
             info_venta.observaciones = request.POST.get('observaciones', '')
 
@@ -6633,11 +6641,19 @@ def editar_info_meses(request, propiedad_id):
             
             info_meses.disponible = 'disponible' in request.POST
             if info_meses.disponible:
-                info_meses.precio_mensual = request.POST.get('precio_mensual')
+                _pm = (request.POST.get('precio_mensual') or '').strip()
+                try:
+                    info_meses.precio_mensual = Decimal(_pm.replace(',', '.')) if _pm else None
+                except (ValueError, InvalidOperation):
+                    info_meses.precio_mensual = None
                 info_meses.estado = request.POST.get('estado')
                 info_meses.fecha_inicio = request.POST.get('fecha_inicio')
                 info_meses.fecha_fin = request.POST.get('fecha_fin')
-                info_meses.precio_expensas = request.POST.get('precio_expensas') or None
+                _pe = (request.POST.get('precio_expensas') or '').strip()
+                try:
+                    info_meses.precio_expensas = Decimal(_pe.replace(',', '.')) if _pe else None
+                except (ValueError, InvalidOperation):
+                    info_meses.precio_expensas = None
                 info_meses.observaciones = request.POST.get('observaciones', '')
                 
                 # Si el estado es 'disponible', limpiamos las fechas
@@ -6681,9 +6697,17 @@ def editar_info_invierno(request, propiedad_id):
                         fecha_fin=info_invierno.fecha_fin
                     ).delete()
 
-                info_invierno.precio_mensual = request.POST.get('precio_mensual')
+                _pm = (request.POST.get('precio_mensual') or '').strip()
+                try:
+                    info_invierno.precio_mensual = Decimal(_pm.replace(',', '.')) if _pm else None
+                except (ValueError, InvalidOperation):
+                    info_invierno.precio_mensual = None
                 info_invierno.estado = nuevo_estado
-                info_invierno.precio_expensas = request.POST.get('precio_expensas') or None
+                _pe = (request.POST.get('precio_expensas') or '').strip()
+                try:
+                    info_invierno.precio_expensas = Decimal(_pe.replace(',', '.')) if _pe else None
+                except (ValueError, InvalidOperation):
+                    info_invierno.precio_expensas = None
                 _pa = request.POST.get('precio_autorizacion', '').strip()
                 if _pa:
                     try:
