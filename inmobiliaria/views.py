@@ -837,7 +837,9 @@ def propiedades(request):
 def propiedad_detalle(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
     # ✅ FILTRAR SOLO DISPONIBILIDADES MANUALES (no automáticas)
-    disponibilidades = propiedad.disponibilidades.filter(es_manual=True)
+    disponibilidades = propiedad.disponibilidades.filter(es_manual=True).order_by('fecha_inicio')
+    ids_superpuestos, textos_superpuestos = _disponibilidades_superpuestas(disponibilidades)
+    hay_superposiciones = len(ids_superpuestos) > 0
     
     # Obtener el historial de disponibilidad
     historiales = HistorialDisponibilidad.objects.filter(
@@ -926,6 +928,8 @@ def propiedad_detalle(request, propiedad_id):
     context = {
         'propiedad': propiedad,
         'disponibilidades': disponibilidades,
+        'hay_superposiciones': hay_superposiciones,
+        'textos_superpuestos': textos_superpuestos,
         'precios': precios,
         'imagenes': imagenes,
         'historiales': historiales,  # Agregamos el historial al contexto
@@ -11236,6 +11240,49 @@ def editar_disponibilidad(request, disponibilidad_id):
         'success': False,
         'error': 'Método no permitido'
     })
+
+
+def _disponibilidades_superpuestas(disponibilidades):
+    """Devuelve (lista de ids a eliminar, lista de textos para mostrar).
+    Eliminamos las que están totalmente contenidas en otra."""
+    lista = list(disponibilidades.order_by('fecha_inicio', 'fecha_fin'))
+    ids_a_eliminar = []
+    textos = []
+    for i, d in enumerate(lista):
+        for j, otra in enumerate(lista):
+            if i == j:
+                continue
+            # d está contenida en otra: otra.inicio <= d.inicio y otra.fin >= d.fin
+            if otra.fecha_inicio <= d.fecha_inicio and otra.fecha_fin >= d.fecha_fin:
+                if d.id not in ids_a_eliminar:
+                    ids_a_eliminar.append(d.id)
+                    textos.append(
+                        f"{d.fecha_inicio.strftime('%d/%m/%Y')}–{d.fecha_fin.strftime('%d/%m/%Y')} "
+                        f"(contenida en {otra.fecha_inicio.strftime('%d/%m/%Y')}–{otra.fecha_fin.strftime('%d/%m/%Y')})"
+                    )
+                break
+    return ids_a_eliminar, textos
+
+
+@login_required
+@require_POST
+def corregir_superposiciones_disponibilidades(request, propiedad_id):
+    """Elimina disponibilidades que están totalmente contenidas en otra (quita duplicados)."""
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    if propiedad.sucursal != request.user.sucursal and not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Sin permisos.'}, status=403)
+    disp = propiedad.disponibilidades.filter(es_manual=True)
+    ids_a_eliminar, _ = _disponibilidades_superpuestas(disp)
+    eliminadas = 0
+    for did in ids_a_eliminar:
+        Disponibilidad.objects.filter(id=did, propiedad=propiedad).delete()
+        eliminadas += 1
+    return JsonResponse({
+        'success': True,
+        'message': f'Se eliminaron {eliminadas} disponibilidad(es) duplicada(s).',
+        'eliminadas': eliminadas
+    })
+
 
 @login_required
 def configurar_numeracion_recibos(request, sucursal_id):

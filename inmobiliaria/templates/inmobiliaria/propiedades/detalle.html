@@ -405,6 +405,20 @@
                                         <div id="collapseDisponibilidades" class="collapse" aria-labelledby="headingDisponibilidades" 
                                              data-bs-parent="#accordionDisponibilidades">
                                             <div class="card-body">
+                                                {% if hay_superposiciones %}
+                                                <div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3" role="alert">
+                                                    <div>
+                                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                                        <strong>Hay disponibilidades superpuestas.</strong>
+                                                        {% for texto in textos_superpuestos %}
+                                                        <br><small>{{ texto }}</small>
+                                                        {% endfor %}
+                                                    </div>
+                                                    <button type="button" class="btn btn-warning btn-sm" id="btn-corregir-superposiciones">
+                                                        <i class="fas fa-compress-arrows-alt"></i> Corregir superposiciones
+                                                    </button>
+                                                </div>
+                                                {% endif %}
                                                 <table class="table">
                                                     <thead>
                                                         <tr>
@@ -2104,14 +2118,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const asegurado = btn.dataset.asegurado === 'true';
             const montoAsegurado = btn.dataset.montoAsegurado || '';
             const monedaAsegurado = btn.dataset.monedaAsegurado || 'ARS';
-            
-            // Abrir modal y cargar información
-            abrirModalEdicion(disponibilidadId, fechaInicio, fechaFin, asegurado, montoAsegurado, monedaAsegurado);
+            const textoOriginalBtn = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            abrirModalEdicion(disponibilidadId, fechaInicio, fechaFin, asegurado, montoAsegurado, monedaAsegurado, btn, textoOriginalBtn);
         }
     });
     
     // Función para abrir modal de edición
-    function abrirModalEdicion(disponibilidadId, fechaInicio, fechaFin, asegurado, montoAsegurado, monedaAsegurado) {
+    function abrirModalEdicion(disponibilidadId, fechaInicio, fechaFin, asegurado, montoAsegurado, monedaAsegurado, btnEditar, textoOriginalBtn) {
+        function restaurarBoton() {
+            if (btnEditar) {
+                btnEditar.disabled = false;
+                btnEditar.innerHTML = textoOriginalBtn || '<i class="fas fa-edit"></i> Editar';
+            }
+        }
         console.log(`📝 Editando disponibilidad ${disponibilidadId}: ${fechaInicio} - ${fechaFin}`);
         
         // Establecer valores iniciales
@@ -2131,7 +2152,12 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`{% url 'inmobiliaria:editar_disponibilidad' 0 %}`.replace('0', disponibilidadId), {
             method: 'GET'
         })
-        .then(response => response.json())
+        .then(function(response) {
+            if (!response.ok) {
+                return response.text().then(function(t) { throw new Error(response.status + ' ' + (t && t.length < 100 ? t : response.statusText)); });
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 const info = data.disponibilidad;
@@ -2191,14 +2217,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Abrir el modal
                 const modal = new bootstrap.Modal(document.getElementById('modalEditarDisponibilidad'));
                 modal.show();
-                
+                restaurarBoton();
             } else {
-                alert('❌ Error al cargar información: ' + data.error);
+                alert('❌ Error al cargar información: ' + (data.error || ''));
+                restaurarBoton();
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('❌ Error de conexión al cargar información de edición');
+            alert('❌ Error al cargar información de edición. ' + (error.message || ''));
+            restaurarBoton();
         });
     }
     
@@ -2263,6 +2291,40 @@ document.addEventListener('DOMContentLoaded', function() {
             // Restaurar botón
             btnGuardar.disabled = false;
             btnGuardar.innerHTML = textoOriginal;
+        });
+    }
+
+    // Corregir superposiciones de disponibilidades
+    const btnCorregirSuperp = document.getElementById('btn-corregir-superposiciones');
+    if (btnCorregirSuperp) {
+        btnCorregirSuperp.addEventListener('click', function() {
+            if (!confirm('Se eliminarán las disponibilidades que están duplicadas (contenidas dentro de otra). ¿Continuar?')) return;
+            const btn = this;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Corrigiendo...';
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            fetch('{% url "inmobiliaria:corregir_superposiciones_disponibilidades" propiedad.id %}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                    location.reload();
+                } else {
+                    alert('❌ ' + (data.error || 'Error al corregir'));
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-compress-arrows-alt"></i> Corregir superposiciones';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('❌ Error de conexión');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-compress-arrows-alt"></i> Corregir superposiciones';
+            });
         });
     }
 });
