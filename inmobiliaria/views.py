@@ -6903,19 +6903,26 @@ def reactivar_propiedad_invierno(request, propiedad_id):
 def desactivar_propiedad_invierno(request, propiedad_id):
     """Desactivar una propiedad para alquileres de invierno"""
     propiedad = get_object_or_404(Propiedad, id=propiedad_id)
-    
+    es_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
     try:
         if hasattr(propiedad, 'info_invierno'):
             info_invierno = propiedad.info_invierno
             # Desactivar la propiedad para invierno (disponible = False)
             info_invierno.disponible = False
             info_invierno.save()
+            if es_ajax:
+                return JsonResponse({'success': True, 'message': 'Propiedad desactivada para alquileres de invierno.'})
             messages.success(request, 'Propiedad desactivada para alquileres de invierno.')
         else:
+            if es_ajax:
+                return JsonResponse({'success': False, 'error': 'Esta propiedad no tiene información de invierno.'})
             messages.warning(request, 'Esta propiedad no tiene información de invierno.')
     except Exception as e:
+        if es_ajax:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
         messages.error(request, f'Error al desactivar la propiedad: {str(e)}')
-    
+
     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
 
 @login_required

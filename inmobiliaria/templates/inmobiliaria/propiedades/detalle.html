@@ -1941,24 +1941,29 @@ function reactivarPropiedadInvierno(propiedadId) {
 
 function desactivarPropiedadInvierno(propiedadId) {
     if (confirm('¿Estás seguro que deseas desactivar esta propiedad para alquileres de invierno?')) {
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
         fetch(`/propiedades/${propiedadId}/desactivar-invierno/`, {
             method: 'POST',
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                'Content-Type': 'application/json',
-            },
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
         })
-        .then(response => response.json())
-        .then(data => {
+        .then(function(response) {
+            return response.json().then(function(data) {
+                if (!response.ok) return Promise.reject(new Error(data.error || response.statusText));
+                return data;
+            });
+        })
+        .then(function(data) {
             if (data.success) {
                 location.reload();
             } else {
-                alert('Error al desactivar la propiedad');
+                alert('Error: ' + (data.error || 'Error al desactivar la propiedad'));
             }
         })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error al desactivar la propiedad');
+        .catch(function(err) {
+            console.error('Error:', err);
+            alert('Error al desactivar la propiedad: ' + (err.message || ''));
         });
     }
 }
