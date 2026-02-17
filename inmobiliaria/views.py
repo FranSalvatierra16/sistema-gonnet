@@ -6574,16 +6574,22 @@ def reconstruir_historial_propiedad(propiedad):
         primera_reserva = reservas_activas.first()
         primera_reserva.reconstruir_historial_cronologico()
     else:
-        # Si no hay reservas, crear historial básico con disponibilidades
+        # Si no hay reservas, crear historial con rangos unidos (evitar duplicados por solapamiento)
         HistorialDisponibilidad.objects.filter(propiedad=propiedad).delete()
-        for disp in propiedad.disponibilidades.filter(es_manual=True).order_by('fecha_inicio'):
+        disps = list(propiedad.disponibilidades.filter(es_manual=True).order_by('fecha_inicio').values_list('fecha_inicio', 'fecha_fin'))
+        rangos = []
+        for ini, fin in disps:
+            if rangos and ini <= rangos[-1][1]:
+                rangos[-1] = (rangos[-1][0], max(rangos[-1][1], fin))
+            else:
+                rangos.append((ini, fin))
+        for fecha_inicio, fecha_fin in rangos:
             HistorialDisponibilidad.objects.create(
                 propiedad=propiedad,
-                fecha_inicio=disp.fecha_inicio,
-                fecha_fin=disp.fecha_fin,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=fecha_fin,
                 estado='libre'
             )
-# print(f"   📅 Agregado período LIBRE: {disp.fecha_inicio} al {disp.fecha_fin}")
 
 @login_required
 def editar_info_venta(request, propiedad_id):
