@@ -54,6 +54,8 @@ urlpatterns = [
     path('propiedades/nuevo/', views.propiedad_nuevo, name='propiedad_nuevo'),
     path('propiedades/<int:propiedad_id>/editar/', views.propiedad_editar, name='propiedad_editar'),
     path('propiedades/<int:propiedad_id>/eliminar/', views.propiedad_eliminar, name='propiedad_eliminar'),
+    path('propiedades-eliminadas/', views.propiedades_eliminadas, name='propiedades_eliminadas'),
+    path('propiedades/<int:propiedad_id>/recuperar/', views.propiedad_recuperar, name='propiedad_recuperar'),
     path('propiedades/nuevo/', views.propiedad_nuevo, name='propiedad_nuevo'),
     path('propiedad/<int:propiedad_id>/crear-disponibilidad/', views.crear_disponibilidad, name='crear_disponibilidad'),
  

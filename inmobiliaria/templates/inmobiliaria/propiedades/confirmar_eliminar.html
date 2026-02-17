@@ -1,21 +1,40 @@
 {% extends 'inmobiliaria/base.html' %}
-{% load bootstrap4 %}
+{% load static %}
 
 {% block content %}
-<div class="container">
+<div class="container mt-4">
     <div class="row justify-content-center">
         <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="text-center">Confirmar Eliminación</h2>
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h2 class="mb-0 text-center">
+                        {% if paso == 1 %}
+                        <i class="fas fa-exclamation-triangle"></i> Primera confirmación
+                        {% else %}
+                        <i class="fas fa-exclamation-circle"></i> Segunda confirmación
+                        {% endif %}
+                    </h2>
                 </div>
                 <div class="card-body">
-                    <p class="text-center">¿Está seguro que desea eliminar la propiedad {{ propiedad.direccion }}?</p>
-                    <form method="post" class="text-center">
+                    {% if paso == 1 %}
+                    <p class="text-center mb-4">¿Está seguro que desea eliminar la propiedad <strong>{{ propiedad.direccion }}</strong>?</p>
+                    <p class="text-muted small text-center">La propiedad no se borrará de forma permanente: quedará oculta y podrá recuperarla desde "Propiedades eliminadas".</p>
+                    <form method="post" class="text-center mt-4">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-danger">Confirmar</button>
-                        <a href="{% url 'inmobiliaria:propiedades' %}" class="btn btn-secondary">Cancelar</a>
+                        <input type="hidden" name="paso" value="1">
+                        <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad_id=propiedad.id %}" class="btn btn-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-warning">Sí, quiero eliminarla</button>
                     </form>
+                    {% else %}
+                    <p class="text-center mb-4">Última confirmación: la propiedad <strong>{{ propiedad.direccion }}</strong> quedará oculta en el sistema.</p>
+                    <p class="text-center text-muted small">Podrá recuperarla con toda su información e historial desde el menú <strong>Propiedades eliminadas</strong>.</p>
+                    <form method="post" class="text-center mt-4">
+                        {% csrf_token %}
+                        <input type="hidden" name="paso" value="2">
+                        <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad_id=propiedad.id %}" class="btn btn-secondary">Volver</a>
+                        <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+                    </form>
+                    {% endif %}
                 </div>
             </div>
         </div>

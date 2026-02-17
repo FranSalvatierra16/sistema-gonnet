@@ -1072,34 +1072,67 @@ def propiedad_editar(request, propiedad_id):
 
 @login_required
 def propiedad_eliminar(request, propiedad_id):
-    try:
-        propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
-        
-        # Primero eliminar todas las imágenes asociadas
-        imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad)
-        for imagen in imagenes:
+    """Eliminación con doble confirmación y soft delete (se puede recuperar)."""
+    propiedad = get_object_or_404(Propiedad.all_objects, pk=propiedad_id)
+    if propiedad.sucursal != request.user.sucursal and not request.user.is_superuser:
+        messages.error(request, 'No tiene permisos para eliminar esta propiedad.')
+        return redirect('inmobiliaria:propiedades')
+
+    if request.method == 'POST':
+        paso = request.POST.get('paso', '1')
+        if paso == '2':
             try:
-                # Eliminar el archivo físico
-                if imagen.imagen:
-                    imagen.imagen.delete(save=False)
+                propiedad.eliminada = True
+                propiedad.fecha_eliminacion = timezone.now()
+                propiedad.save()
+                messages.success(
+                    request,
+                    f'La propiedad "{propiedad.direccion}" fue eliminada. Puede recuperarla desde "Propiedades eliminadas".'
+                )
+                return redirect('inmobiliaria:propiedades')
             except Exception as e:
-                logger.error(f"Error al eliminar archivo de imagen {imagen.id}: {str(e)}")
-            
-        # Luego eliminar la propiedad
-        nombre_propiedad = str(propiedad)
-        propiedad.delete()
-        
-        messages.success(request, f'La propiedad "{nombre_propiedad}" ha sido eliminada exitosamente.')
-        return redirect('inmobiliaria:propiedades')
-        
-    except Propiedad.DoesNotExist:
-        messages.error(request, 'La propiedad no existe o ya fue eliminada.')
-        return redirect('inmobiliaria:propiedades')
-    except Exception as e:
-        logger.error(f"Error al eliminar propiedad {propiedad_id}: {str(e)}")
-        messages.error(request, f'Error al eliminar la propiedad: {str(e)}')
-        return redirect('inmobiliaria:propiedades')
-    
+                logger.error(f"Error al eliminar propiedad {propiedad_id}: {str(e)}")
+                messages.error(request, f'Error al eliminar la propiedad: {str(e)}')
+                return redirect('inmobiliaria:propiedades')
+        return render(request, 'inmobiliaria/propiedades/confirmar_eliminar.html', {
+            'propiedad': propiedad,
+            'paso': 2,
+        })
+
+    return render(request, 'inmobiliaria/propiedades/confirmar_eliminar.html', {
+        'propiedad': propiedad,
+        'paso': 1,
+    })
+
+
+@login_required
+def propiedades_eliminadas(request):
+    """Lista de propiedades marcadas como eliminadas (soft delete); el usuario puede recuperarlas."""
+    base = Propiedad.all_objects.filter(eliminada=True)
+    if not request.user.is_superuser:
+        base = base.filter(sucursal=request.user.sucursal)
+    propiedades = base.select_related('propietario', 'sucursal').order_by('-fecha_eliminacion')
+    return render(request, 'inmobiliaria/propiedades/lista_eliminadas.html', {
+        'propiedades': propiedades,
+    })
+
+
+@login_required
+def propiedad_recuperar(request, propiedad_id):
+    """Recupera una propiedad eliminada (quita marca eliminada y vuelve a mostrarla)."""
+    if request.method != 'POST':
+        return redirect('inmobiliaria:propiedades_eliminadas')
+    propiedad = get_object_or_404(Propiedad.all_objects, pk=propiedad_id, eliminada=True)
+    if propiedad.sucursal != request.user.sucursal and not request.user.is_superuser:
+        messages.error(request, 'No tiene permisos para recuperar esta propiedad.')
+        return redirect('inmobiliaria:propiedades_eliminadas')
+    propiedad.eliminada = False
+    propiedad.fecha_eliminacion = None
+    propiedad.save()
+    messages.success(request, f'La propiedad "{propiedad.direccion}" fue recuperada correctamente.')
+    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+
+
 def register(request):
     if request.method == 'POST':
         form = VendedorUserCreationForm(request.POST)

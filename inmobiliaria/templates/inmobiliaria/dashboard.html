@@ -105,6 +105,19 @@
         </div>
         {% endif %}
 
+        <!-- Propiedades eliminadas (recuperar) -->
+        {% if user.nivel >= 2 %}
+        <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:propiedades_eliminadas' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-trash-restore"></i>
+                </div>
+                <h3>Propiedades eliminadas</h3>
+                <p>Recuperar propiedades borradas con toda su info e historial</p>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Estudiantes -->
      
     </div>

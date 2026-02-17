@@ -92,6 +92,12 @@ class HistorialDisponibilidad(models.Model):
     def __str__(self):
         return f"{self.propiedad} - {self.estado} - {self.fecha_inicio} al {self.fecha_fin}"
 
+class PropiedadManager(models.Manager):
+    """Por defecto excluye propiedades marcadas como eliminadas (soft delete)."""
+    def get_queryset(self):
+        return super().get_queryset().filter(eliminada=False)
+
+
 class Propiedad(models.Model):
     DIRECCION_MAX_LENGTH = 255
     UBICACION_MAX_LENGTH = 255
@@ -229,6 +235,20 @@ class Propiedad(models.Model):
         choices=TIPO_CLIENTE_CHOICES,
         default='PARTICULAR'
     )
+
+    eliminada = models.BooleanField(
+        default=False,
+        verbose_name="Eliminada",
+        help_text="Si está marcada, la propiedad no se muestra en listados pero se puede recuperar."
+    )
+    fecha_eliminacion = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de eliminación"
+    )
+
+    objects = PropiedadManager()
+    all_objects = models.Manager()
 
     class Meta:
         verbose_name = "Propiedad"
