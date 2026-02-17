@@ -1224,7 +1224,10 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer d-flex justify-content-between">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="btnReconstruirHistorial" title="Elimina duplicados y regenera el historial con la lógica actual">
+                    <i class="fas fa-sync-alt"></i> Reconstruir historial
+                </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
@@ -1864,6 +1867,26 @@ function reconstruirHistorial() {
         }
     });
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    var btnReconstruir = document.getElementById('btnReconstruirHistorial');
+    if (btnReconstruir) {
+        btnReconstruir.addEventListener('click', function() {
+            if (!confirm('¿Reconstruir el historial de esta propiedad? Se eliminarán duplicados y se regenerará con la lógica actual.')) return;
+            btnReconstruir.disabled = true;
+            btnReconstruir.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reconstruyendo...';
+            var formData = new FormData();
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            fetch('{% url "inmobiliaria:reconstruir_historial_propiedad_ajax" propiedad.id %}', { method: 'POST', body: formData })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) { location.reload(); }
+                    else { alert('Error: ' + (data.error || '')); btnReconstruir.disabled = false; btnReconstruir.innerHTML = '<i class="fas fa-sync-alt"></i> Reconstruir historial'; }
+                })
+                .catch(function() { alert('Error de conexión'); btnReconstruir.disabled = false; btnReconstruir.innerHTML = '<i class="fas fa-sync-alt"></i> Reconstruir historial'; });
+        });
+    }
+});
 
 function openGallery(imageIndex = 0) {
     // Abrir el modal de galería

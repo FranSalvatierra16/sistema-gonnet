@@ -841,13 +841,20 @@ def propiedad_detalle(request, propiedad_id):
     ids_superpuestos, textos_superpuestos = _disponibilidades_superpuestas(disponibilidades)
     hay_superposiciones = len(ids_superpuestos) > 0
     
-    # Obtener el historial de disponibilidad
-    historiales = HistorialDisponibilidad.objects.filter(
+    # Obtener el historial de disponibilidad (sin duplicados: mismo rango+estado+reserva solo una vez)
+    historiales_qs = HistorialDisponibilidad.objects.filter(
         propiedad=propiedad
     ).order_by('fecha_inicio', 'fecha_fin')
+    seen = set()
+    historiales = []
+    for h in historiales_qs:
+        key = (h.fecha_inicio, h.fecha_fin, h.estado, h.reserva_id)
+        if key not in seen:
+            seen.add(key)
+            historiales.append(h)
     
     # Si el historial está vacío pero hay reservas, reconstruirlo automáticamente
-    if not historiales.exists():
+    if not historiales:
         # Verificar si hay reservas activas (no eliminadas)
         reservas_activas = propiedad.reservas.filter(eliminada=False).exists()
         # Verificar si hay disponibilidades manuales
@@ -859,10 +866,14 @@ def propiedad_detalle(request, propiedad_id):
             primera_reserva = propiedad.reservas.filter(eliminada=False).first()
             if primera_reserva:
                 primera_reserva.reconstruir_historial_cronologico()
-                # Volver a obtener el historial después de reconstruirlo, ordenado cronológicamente
-                historiales = HistorialDisponibilidad.objects.filter(
-                    propiedad=propiedad
-                ).order_by('fecha_inicio', 'fecha_fin')
+                historiales_qs = HistorialDisponibilidad.objects.filter(propiedad=propiedad).order_by('fecha_inicio', 'fecha_fin')
+                seen = set()
+                historiales = []
+                for h in historiales_qs:
+                    key = (h.fecha_inicio, h.fecha_fin, h.estado, h.reserva_id)
+                    if key not in seen:
+                        seen.add(key)
+                        historiales.append(h)
     
     # Obtener imágenes usando el related_name correcto
     imagenes = propiedad.imagenes.all()
@@ -6590,6 +6601,22 @@ def reconstruir_historial_propiedad(propiedad):
                 fecha_fin=fecha_fin,
                 estado='libre'
             )
+
+
+@login_required
+def reconstruir_historial_propiedad_ajax(request, propiedad_id):
+    """Reconstruye el historial de una propiedad (elimina duplicados y regenera). POST con AJAX."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    if propiedad.sucursal != request.user.sucursal and not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
+    try:
+        reconstruir_historial_propiedad(propiedad)
+        return JsonResponse({'success': True, 'message': 'Historial reconstruido correctamente.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 
 @login_required
 def editar_info_venta(request, propiedad_id):
