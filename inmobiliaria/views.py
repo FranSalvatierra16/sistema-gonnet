@@ -11906,10 +11906,10 @@ def ver_comodato_invierno(request, contrato_id):
         'firma_anio': fop.year,
         'deposito_texto': deposito_texto,
         'deposito_numero': deposito_numero,
-        'fiador_nombre': '—',
-        'fiador_domicilio': '—',
-        'fiador_ciudad': '—',
-        'fiador_provincia': '—',
+        'fiador_nombre': '..........................',
+        'fiador_domicilio': '..........................',
+        'fiador_ciudad': '..........................',
+        'fiador_provincia': '..........................',
         'url_volver': reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
     }
     return render(request, 'inmobiliaria/contratos/comodato_invierno.html', context)
