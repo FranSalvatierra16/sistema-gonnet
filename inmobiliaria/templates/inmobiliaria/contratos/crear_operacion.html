@@ -29,6 +29,11 @@
                             <h5 class="mb-0">Contrato #{{ contrato.id }} - {{ contrato.propiedad.direccion }}</h5>
                         </div>
                         <div class="col-md-4 text-end">
+                            {% if contrato.duracion_meses == 9 %}
+                            <a href="{% url 'inmobiliaria:ver_comodato_invierno' contrato.id %}" class="btn btn-light btn-sm mb-2" target="_blank" title="Ver Comodato Invierno">
+                                <i class="fas fa-file-contract"></i> Ver comodato
+                            </a>
+                            {% endif %}
                             <p class="mb-1"><strong>Caja:</strong> #{{ caja.numero }}</p>
                             <p class="mb-1"><strong>Sucursal:</strong> {{ contrato.sucursal.nombre }}</p>
                             <p class="mb-0"><strong>Fecha:</strong> {{ today|date:"d/m/Y" }} {{ today|time:"H:i" }}</p>

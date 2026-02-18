@@ -211,6 +211,11 @@
                                             <i class="fas fa-file-invoice"></i>
                                         </a>
                                         {% endif %}
+                                        {% if contrato.duracion_meses == 9 %}
+                                        <a href="{% url 'inmobiliaria:ver_comodato_invierno' contrato.id %}" class="btn btn-sm btn-outline-info" title="Ver Comodato Invierno" target="_blank">
+                                            <i class="fas fa-file-contract"></i>
+                                        </a>
+                                        {% endif %}
                                         {% if contrato.estado == 'activo' or contrato.estado == 'reservado' %}
                                             {% if not contrato.operacion_principal %}
                                             <button class="btn btn-sm btn-warning" 

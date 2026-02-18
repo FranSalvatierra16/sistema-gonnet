@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Comodato Invierno - {{ contrato.propiedad.direccion }}</title>
+    <style>
+        body { font-family: 'Times New Roman', serif; font-size: 11pt; line-height: 1.35; margin: 1.2cm; color: #000; }
+        .header { text-align: center; margin-bottom: 16px; }
+        .logo-text { color: #2d8524; font-size: 22pt; font-weight: bold; }
+        .sub { font-size: 10pt; color: #333; }
+        .contacto { font-size: 9pt; margin-top: 4px; }
+        h1.doc-title { text-align: center; font-size: 14pt; margin: 20px 0; text-decoration: underline; }
+        .clause { margin: 10px 0; text-align: justify; }
+        .clause-num { font-weight: bold; }
+        .fill { font-weight: bold; text-decoration: underline; }
+        .signature-block { margin-top: 30px; }
+        .signature-table { width: 100%; border-collapse: collapse; margin-top: 40px; }
+        .signature-table td { vertical-align: top; padding: 8px; width: 50%; }
+        .signature-table .label { font-weight: bold; font-size: 10pt; margin-bottom: 20px; }
+        .signature-line { border-bottom: 1px solid #000; min-height: 22px; margin-top: 4px; }
+        @media print { body { margin: 1cm; } .no-print { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="margin-bottom: 15px;">
+        <a href="javascript:window.print()" style="padding: 8px 16px; background: #2d8524; color: white; text-decoration: none; border-radius: 4px;">Imprimir / Guardar PDF</a>
+        <a href="{{ url_volver }}" style="margin-left: 10px; padding: 8px 16px; background: #6c757d; color: white; text-decoration: none; border-radius: 4px;">Volver al contrato</a>
+    </div>
+
+    <div class="header">
+        <div class="logo-text">Gonnet</div>
+        <div class="sub">PROPIEDADES</div>
+        <div class="contacto">
+            http://www.gonnet.com.ar<br>
+            AV. COLON 1764 (7600) Mar del Plata<br>
+            e-mail: info@gonnet.com.ar | Tel: (0223) 595-4474 / 491-0600
+        </div>
+    </div>
+
+    <h1 class="doc-title">COMODATO TEMPORARIO</h1>
+
+    <div class="clause">
+        <span class="clause-num">PRIMERA:</span>
+        Entre el Señor/a <span class="fill">{{ comodante_nombre }}</span> (DNI <span class="fill">{{ comodante_dni }}</span>), 
+        con domicilio legal en la Provincia de <span class="fill">{{ comodante_provincia }}</span>, 
+        Ciudad de <span class="fill">{{ comodante_localidad }}</span>, 
+        calle <span class="fill">{{ comodante_domicilio }}</span>, 
+        que en adelante se denominará el COMODANTE, por una parte, y el/la Señor/a 
+        <span class="fill">{{ comodatario_nombre }}</span> (DNI <span class="fill">{{ comodatario_dni }}</span>), 
+        con domicilio en la Provincia de <span class="fill">{{ comodatario_provincia }}</span>, 
+        Ciudad de <span class="fill">{{ comodatario_localidad }}</span>, 
+        calle <span class="fill">{{ comodatario_domicilio }}</span>, 
+        que en adelante se denominará el COMODATARIO, por la otra parte, 
+        convienen en celebrar el presente COMODATO TEMPORARIO de uso y habitación del inmueble ubicado en 
+        <span class="fill">{{ propiedad_direccion }}</span>{% if propiedad_piso %}, Piso <span class="fill">{{ propiedad_piso }}</span>{% endif %}{% if propiedad_dpto %}, Dpto. <span class="fill">{{ propiedad_dpto }}</span>{% endif %}, 
+        de esta ciudad de Mar del Plata, Partido de General Pueyrredón, Provincia de Buenos Aires.
+    </div>
+
+    <div class="clause">
+        <span class="clause-num">SEGUNDA:</span>
+        El presente comodato comprende desde el día <span class="fill">{{ fecha_inicio_dia }}</span> 
+        de <span class="fill">{{ fecha_inicio_mes }}</span> de <span class="fill">{{ fecha_inicio_anio }}</span> 
+        hasta el día <span class="fill">{{ fecha_fin_dia }}</span> 
+        de <span class="fill">{{ fecha_fin_mes }}</span> de <span class="fill">{{ fecha_fin_anio }}</span> a las 9 Hs.
+    </div>
+
+    <div class="clause">
+        <span class="clause-num">TERCERA:</span>
+        El COMODATARIO se obliga a usar el inmueble exclusivamente para vivienda y a conservarlo en buen estado.
+    </div>
+
+    <div class="clause">
+        <span class="clause-num">CUARTA:</span>
+        El COMODATARIO no podrá ceder ni subarrendar el inmueble sin consentimiento escrito del COMODANTE.
+    </div>
+
+    <div class="clause">
+        <span class="clause-num">QUINTA:</span>
+        Habitarán el inmueble el COMODATARIO y las siguientes personas: 
+        Señor/a <span class="fill">{{ comodatario_nombre }}</span> (DNI <span class="fill">{{ comodatario_dni }}</span>).
+    </div>
+
+    <div class="clause">
+        <span class="clause-num">SEXTA a DÉCIMA QUINTA:</span>
+        Se dejan constancia de las cláusulas habituales en materia de habitabilidad, servicios, depósito en garantía y obligaciones del comodatario según uso en Mar del Plata.
+    </div>
+
+    <div class="clause">
+        <span class="clause-num">DÉCIMA SEXTA:</span>
+        ES FIADOR, (sólido y llano pagador de todas las obligaciones del COMODATARIO) el Señor/a <span class="fill">{{ fiador_nombre }}</span> 
+        con domicilio en la calle <span class="fill">{{ fiador_domicilio }}</span> de la ciudad de <span class="fill">{{ fiador_ciudad }}</span>, 
+        de <span class="fill">{{ fiador_provincia }}</span>.
+    </div>
+
+    <div class="clause">
+        <span class="clause-num">DÉCIMO SÉPTIMA:</span>
+        Para todo lo concerniente al presente contrato las partes se someten a los Tribunales Ordinarios o al Tribunal Arbitral del Colegio de Abogados, con asiento en AV. COLON 1764, Mar del Plata.
+    </div>
+
+    <div class="clause">
+        Se firman 3 ejemplares de un mismo tenor y a un solo efecto en la Ciudad de Mar del Plata, 
+        a los <span class="fill">{{ firma_dia }}</span> días del mes de <span class="fill">{{ firma_mes }}</span> del año <span class="fill">{{ firma_anio }}</span>.
+    </div>
+
+    <div class="clause">
+        <span class="clause-num">DEPÓSITO EN GARANTÍA:</span>
+        DIGO DEPOSITO EN GARANTIA PESOS <span class="fill">{{ deposito_texto }}</span> ($ <span class="fill">{{ deposito_numero }}</span>).
+    </div>
+
+    <div class="clause">
+        <span class="clause-num">CLÁUSULA ADICIONAL:</span>
+        Los pagos de tasas, servicios y demás conceptos relativos al comodato deberán realizarse SOLO EN EFECTIVO en calle Corrientes 1987, Mar del Plata, en los horarios establecidos.
+    </div>
+
+    <table class="signature-table">
+        <tr>
+            <td>
+                <div class="label">COMODANTE</div>
+                <div class="signature-line">{{ comodante_nombre }}</div>
+                <div style="font-size: 9pt;">N° DOCUMENTO <span class="fill">{{ comodante_dni }}</span></div>
+            </td>
+            <td>
+                <div class="label">COMODATARIO</div>
+                <div class="signature-line">{{ comodatario_nombre }}</div>
+                <div style="font-size: 9pt;">N° DOCUMENTO <span class="fill">{{ comodatario_dni }}</span></div>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

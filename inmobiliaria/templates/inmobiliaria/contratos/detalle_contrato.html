@@ -9,10 +9,15 @@
         <h1 class="text-gradient">
             <i class="fas fa-file-contract"></i> <strong>Contrato #{{ contrato.id }}</strong>
         </h1>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
             <a href="{% url 'inmobiliaria:lista_contratos' %}" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Volver a Contratos
             </a>
+            {% if contrato.duracion_meses == 9 %}
+            <a href="{% url 'inmobiliaria:ver_comodato_invierno' contrato.id %}" class="btn btn-info" target="_blank" title="Ver documento Comodato Invierno con datos del contrato">
+                <i class="fas fa-file-contract"></i> Ver comodato
+            </a>
+            {% endif %}
         </div>
     </div>
 

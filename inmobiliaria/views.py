@@ -11849,6 +11849,72 @@ def recibo_contrato_24(request, contrato_id):
         return redirect('inmobiliaria:lista_contratos')
 
 
+MESES_ES = [
+    '', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+]
+
+
+@login_required
+def ver_comodato_invierno(request, contrato_id):
+    """Genera el documento COMODATO INVIERNO (temporario) con datos del contrato rellenados. Solo para contratos de 9 meses (invierno)."""
+    contrato = get_object_or_404(
+        ContratoAlquiler.objects.select_related('propiedad', 'propiedad__propietario', 'inquilino'),
+        id=contrato_id,
+        sucursal=request.user.sucursal
+    )
+    if contrato.duracion_meses != 9:
+        messages.warning(request, 'El comodato invierno solo aplica a contratos de 9 meses (invierno).')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    prop = contrato.propiedad
+    propi = prop.propietario
+    inq = contrato.inquilino
+
+    fi = contrato.fecha_inicio
+    ff = contrato.fecha_fin
+    fop = contrato.fecha_operacion or timezone.now().date()
+
+    deposito = contrato.deposito_garantia or Decimal('0')
+    deposito_int = int(deposito)
+    deposito_texto = f"{deposito_int:,}".replace(',', '.')
+    deposito_numero = f"${deposito_int:,}".replace(',', '.')
+
+    context = {
+        'contrato': contrato,
+        'comodante_nombre': f"{propi.apellido or ''}, {propi.nombre or ''}".strip() or '—',
+        'comodante_dni': propi.dni or '—',
+        'comodante_domicilio': (propi.domicilio or '—')[:80],
+        'comodante_localidad': propi.localidad or '—',
+        'comodante_provincia': propi.provincia or 'Buenos Aires',
+        'comodatario_nombre': f"{inq.apellido or ''}, {inq.nombre or ''}".strip() or '—',
+        'comodatario_dni': inq.dni or '—',
+        'comodatario_domicilio': (inq.domicilio or '—')[:80],
+        'comodatario_localidad': inq.localidad or '—',
+        'comodatario_provincia': inq.provincia or '—',
+        'propiedad_direccion': prop.direccion or '—',
+        'propiedad_piso': getattr(prop, 'piso', None) or '',
+        'propiedad_dpto': getattr(prop, 'departamento', None) or '',
+        'fecha_inicio_dia': fi.day,
+        'fecha_inicio_mes': MESES_ES[fi.month],
+        'fecha_inicio_anio': fi.year,
+        'fecha_fin_dia': ff.day,
+        'fecha_fin_mes': MESES_ES[ff.month],
+        'fecha_fin_anio': ff.year,
+        'firma_dia': fop.day,
+        'firma_mes': MESES_ES[fop.month],
+        'firma_anio': fop.year,
+        'deposito_texto': deposito_texto,
+        'deposito_numero': deposito_numero,
+        'fiador_nombre': '—',
+        'fiador_domicilio': '—',
+        'fiador_ciudad': '—',
+        'fiador_provincia': '—',
+        'url_volver': reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
+    }
+    return render(request, 'inmobiliaria/contratos/comodato_invierno.html', context)
+
+
 @login_required
 def detalles_operacion_reserva(request, reserva_id):
     """
