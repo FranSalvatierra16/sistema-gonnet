@@ -11774,32 +11774,56 @@ def recibo_contrato_24(request, contrato_id):
         # Obtener valores de honorarios y sellados del movimiento (si existen)
         from decimal import Decimal
         
-        alquiler_mensual = contrato.precio_mensual
+        # Mes de alquiler, depósito y honorarios (valores del contrato / conceptos)
+        alquiler_mensual = contrato.precio_mensual or Decimal('0')
+        deposito_garantia = contrato.deposito_garantia or Decimal('0')
         
-        # Total = suma de TODOS los conceptos EXCEPTO el 10 (depósito de garantía)
-        total_conceptos = sum(
-            concepto['importe_numerico'] for concepto in conceptos_contrato
-            if str(concepto.get('codigo') or concepto.get('id') or '') != '10'
-        )
-        
-        # Honorarios: solo concepto 25 (ya no se usa sellado en el recibo)
         honorarios = Decimal('0')
         for concepto in conceptos_contrato:
             if concepto.get('codigo') == '25' or concepto.get('id') == '25':
                 honorarios = Decimal(str(concepto['importe_numerico']))
                 break
         
-        total_a_abonar = float(total_conceptos)
+        # Total a abonar = Mes de alquiler + Depósito de garantía + Honorarios
+        total_a_abonar = float(alquiler_mensual) + float(deposito_garantia) + float(honorarios)
+        
+        # Importe de la reserva (lo que ya dejaron como anticipo): buscar reserva asociada
+        importe_reserva = Decimal('0')
+        try:
+            reserva_asoc = Reserva.objects.filter(
+                propiedad=contrato.propiedad,
+                cliente=contrato.inquilino,
+                eliminada=False
+            ).filter(
+                fecha_inicio__lte=contrato.fecha_fin,
+                fecha_fin__gte=contrato.fecha_inicio
+            ).first()
+            if reserva_asoc:
+                # Usar seña o total pagado en la reserva (recibos/pagos)
+                if reserva_asoc.senia and reserva_asoc.senia > 0:
+                    importe_reserva = reserva_asoc.senia
+                else:
+                    total_pagado_reserva = sum(
+                        float(mov.monto_efectivo or 0) + float(mov.monto_cheque or 0) +
+                        float(mov.monto_tarjeta or 0) + float(mov.monto_deposito or 0)
+                        for mov in MovimientoCaja.objects.filter(
+                            concepto__icontains=f'Reserva #{reserva_asoc.id}'
+                        )
+                    )
+                    if total_pagado_reserva > 0:
+                        importe_reserva = Decimal(str(total_pagado_reserva))
+        except Exception:
+            pass
+        
+        # Neto a la posesión = Total a abonar - Importe de la reserva
+        neto_a_posesion = Decimal(str(total_a_abonar)) - importe_reserva
+        if neto_a_posesion < 0:
+            neto_a_posesion = Decimal('0')
+        
         subtotal = total_a_abonar
         total_contrato = total_a_abonar
-        
-        deposito_garantia = contrato.deposito_garantia or Decimal('0')
-        # Anticipo y Mes alquiler: si hay conceptos cargados, mostrar el total (suma de conceptos excepto 10)
-        if total_a_abonar > 0:
-            primer_mes = Decimal(str(total_a_abonar))
-            alquiler_mensual = primer_mes
-        else:
-            primer_mes = alquiler_mensual
+        # Anticipo = importe de la reserva (lo que ya pagaron)
+        primer_mes = importe_reserva
         
         # Convertir números a formato de pesos argentinos
         def format_currency(amount):
@@ -11830,11 +11854,13 @@ def recibo_contrato_24(request, contrato_id):
             'contrato': contrato,
             'conceptos_contrato': conceptos_contrato,
             'primer_mes': format_currency(primer_mes),
+            'importe_reserva': format_currency(importe_reserva),
             'alquiler_mensual': format_currency(alquiler_mensual),
             'deposito_garantia': format_currency(deposito_garantia),
             'deposito_estado': deposito_estado,
             'honorarios': format_currency(honorarios),
             'total_a_abonar': format_currency(total_a_abonar),
+            'neto_a_posesion': format_currency(neto_a_posesion),
             'subtotal': format_currency(subtotal),
             'total_contrato': format_currency(total_contrato),
             'suma_en_letras': numero_a_texto(total_contrato),

@@ -229,10 +229,12 @@
                 
                 <div style="width: 48%; border: 1px solid #2d8524; padding: 5px;">
                     <div style="text-align: right; margin-bottom: 10px;">
-                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">SUBTOTAL</div>
-                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">{{ subtotal|default:"0.00" }}</div>
-                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 12px; font-weight: bold;">TOTAL</div>
-                        <div style="text-align: center; font-size: 14px; font-weight: bold;">{{ total_contrato|default:"0.00" }}</div>
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">TOTAL A ABONAR</div>
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">{{ total_a_abonar|default:"0.00" }}</div>
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 9px;">(-) Importe reserva</div>
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 9px;">{{ importe_reserva|default:"0.00" }}</div>
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 11px; font-weight: bold;">NETO A LA POSESIÓN</div>
+                        <div style="text-align: center; font-size: 13px; font-weight: bold;">{{ neto_a_posesion|default:"0.00" }}</div>
                     </div>
                 </div>
             </div>
