@@ -11800,8 +11800,12 @@ def recibo_contrato_24(request, contrato_id):
         
         alquiler_mensual = mes_alquiler_sum
         
-        # Total a abonar = Mes de alquiler (suma de todo lo que no es 10 ni 25) + Depósito + Honorarios
-        total_a_abonar = float(alquiler_mensual) + float(deposito_garantia) + float(honorarios)
+        # Si el depósito aparece pendiente, no se suma al total a abonar
+        deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
+        deposito_para_suma = Decimal('0') if deposito_estado == 'pendiente' else deposito_garantia
+        
+        # Total a abonar = Mes de alquiler + (Depósito solo si no está pendiente) + Honorarios
+        total_a_abonar = float(alquiler_mensual) + float(deposito_para_suma) + float(honorarios)
         
         # Importe de la reserva (lo que ya dejaron como anticipo): buscar reserva asociada
         importe_reserva = Decimal('0')
@@ -11831,8 +11835,12 @@ def recibo_contrato_24(request, contrato_id):
         except Exception:
             pass
         
-        # Neto a la posesión = Total a abonar - Importe de la reserva
-        neto_a_posesion = Decimal(str(total_a_abonar)) - importe_reserva
+        # Total solo = suma de todos los conceptos cargados (la tabla de conceptos)
+        total_solo = sum(Decimal(str(c['importe_numerico'])) for c in conceptos_contrato)
+        total_solo_float = float(total_solo)
+        
+        # Neto a la posesión = Total a abonar - Total solo
+        neto_a_posesion = Decimal(str(total_a_abonar)) - total_solo
         if neto_a_posesion < 0:
             neto_a_posesion = Decimal('0')
         
@@ -11865,7 +11873,6 @@ def recibo_contrato_24(request, contrato_id):
                 return f"PESOS {str(int(float(numero))).upper()}"
             return ""
         
-        deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
         context = {
             'contrato': contrato,
             'conceptos_contrato': conceptos_contrato,
@@ -11876,6 +11883,7 @@ def recibo_contrato_24(request, contrato_id):
             'deposito_estado': deposito_estado,
             'honorarios': format_currency(honorarios),
             'total_a_abonar': format_currency(total_a_abonar),
+            'total_solo': format_currency(total_solo_float),
             'neto_a_posesion': format_currency(neto_a_posesion),
             'subtotal': format_currency(subtotal),
             'total_contrato': format_currency(total_contrato),
