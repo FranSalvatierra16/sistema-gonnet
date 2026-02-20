@@ -11773,10 +11773,17 @@ def recibo_contrato_24(request, contrato_id):
         
         from decimal import Decimal
         
-        # Mes alquiler, depósito y honorarios salen de lo cargado en el contrato (no de conceptos 10/25)
+        # Mes alquiler = lo que se llena en "precio mensual" (contrato o, si está en 0, del concepto alquiler cargado)
         alquiler_mensual = contrato.precio_mensual or Decimal('0')
+        if alquiler_mensual == 0 and conceptos_contrato:
+            for c in conceptos_contrato:
+                co = str(c.get('codigo') or c.get('id') or '')
+                nom = (c.get('nombre') or '').lower()
+                if co == '1' or 'alquiler' in nom:
+                    alquiler_mensual = Decimal(str(c['importe_numerico']))
+                    break
         deposito_garantia = contrato.deposito_garantia or Decimal('0')
-        # Honorarios: lo cargado al hacer la operación (campo del movimiento)
+        # Honorarios = lo cargado en el campo "Honorarios" al hacer la operación (formulario)
         honorarios = Decimal('0')
         if primer_movimiento and getattr(primer_movimiento, 'honorarios', None):
             honorarios = Decimal(str(primer_movimiento.honorarios))
