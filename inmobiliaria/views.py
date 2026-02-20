@@ -11800,12 +11800,9 @@ def recibo_contrato_24(request, contrato_id):
         
         alquiler_mensual = mes_alquiler_sum
         
-        # Si el depósito aparece pendiente, no se suma al total a abonar
         deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
-        deposito_para_suma = Decimal('0') if deposito_estado == 'pendiente' else deposito_garantia
-        
-        # Total a abonar = Mes de alquiler + (Depósito solo si no está pendiente) + Honorarios
-        total_a_abonar = float(alquiler_mensual) + float(deposito_para_suma) + float(honorarios)
+        # El depósito siempre se suma al total a abonar (aunque figure pendiente)
+        total_a_abonar = float(alquiler_mensual) + float(deposito_garantia) + float(honorarios)
         
         # Importe de la reserva (lo que ya dejaron como anticipo): buscar reserva asociada
         importe_reserva = Decimal('0')
