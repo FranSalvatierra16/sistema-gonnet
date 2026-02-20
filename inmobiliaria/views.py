@@ -11771,80 +11771,31 @@ def recibo_contrato_24(request, contrato_id):
                 })
 # print(f"  ✅ SIN MOVIMIENTO: Alquiler ${precio_mensual_valor}")
         
-        # Obtener valores de honorarios y sellados del movimiento (si existen)
         from decimal import Decimal
         
-        # Todo lo que NO sea concepto 10 (depósito) ni 25 (honorarios) se suma al "Mes de alquiler"
-        codigo_deposito = ('10', 10)
-        codigo_honorarios = ('25', 25)
-        
-        def _codigo(c):
-            co = c.get('codigo') or c.get('id') or ''
-            return str(co) if co is not None else ''
-        
-        mes_alquiler_sum = Decimal('0')
+        # Mes alquiler, depósito y honorarios salen de lo cargado en el contrato (no de conceptos 10/25)
+        alquiler_mensual = contrato.precio_mensual or Decimal('0')
         deposito_garantia = contrato.deposito_garantia or Decimal('0')
+        # Honorarios: lo cargado al hacer la operación (campo del movimiento)
         honorarios = Decimal('0')
-        
-        for concepto in conceptos_contrato:
-            co = _codigo(concepto)
-            if co == '25':
-                honorarios += Decimal(str(concepto['importe_numerico']))
-            elif co != '10':
-                # Todo lo que no es 10 (depósito) ni 25 (honorarios) va al mes de alquiler
-                mes_alquiler_sum += Decimal(str(concepto['importe_numerico']))
-        
-        # Si no hay conceptos "de alquiler" en el detalle, usar precio mensual del contrato
-        if mes_alquiler_sum == 0 and (contrato.precio_mensual or 0) > 0:
-            mes_alquiler_sum = contrato.precio_mensual
-        
-        alquiler_mensual = mes_alquiler_sum
+        if primer_movimiento and getattr(primer_movimiento, 'honorarios', None):
+            honorarios = Decimal(str(primer_movimiento.honorarios))
         
         deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
-        # El depósito siempre se suma al total a abonar (aunque figure pendiente)
+        # Total a abonar = Mes alquiler + Depósito + Honorarios (todo del contrato/carga)
         total_a_abonar = float(alquiler_mensual) + float(deposito_garantia) + float(honorarios)
         
-        # Importe de la reserva (lo que ya dejaron como anticipo): buscar reserva asociada
-        importe_reserva = Decimal('0')
-        try:
-            reserva_asoc = Reserva.objects.filter(
-                propiedad=contrato.propiedad,
-                cliente=contrato.inquilino,
-                eliminada=False
-            ).filter(
-                fecha_inicio__lte=contrato.fecha_fin,
-                fecha_fin__gte=contrato.fecha_inicio
-            ).first()
-            if reserva_asoc:
-                # Usar seña o total pagado en la reserva (recibos/pagos)
-                if reserva_asoc.senia and reserva_asoc.senia > 0:
-                    importe_reserva = reserva_asoc.senia
-                else:
-                    total_pagado_reserva = sum(
-                        float(mov.monto_efectivo or 0) + float(mov.monto_cheque or 0) +
-                        float(mov.monto_tarjeta or 0) + float(mov.monto_deposito or 0)
-                        for mov in MovimientoCaja.objects.filter(
-                            concepto__icontains=f'Reserva #{reserva_asoc.id}'
-                        )
-                    )
-                    if total_pagado_reserva > 0:
-                        importe_reserva = Decimal(str(total_pagado_reserva))
-        except Exception:
-            pass
-        
-        # Total solo = suma de todos los conceptos cargados (la tabla de conceptos)
+        # Total solo = suma de los conceptos cargados (lo que se ha cobrado/pagado)
         total_solo = sum(Decimal(str(c['importe_numerico'])) for c in conceptos_contrato)
         total_solo_float = float(total_solo)
         
-        # Neto a la posesión = Total a abonar - Total solo
+        # Neto a la posesión = Total a abonar - conceptos pagados (total solo)
         neto_a_posesion = Decimal(str(total_a_abonar)) - total_solo
         if neto_a_posesion < 0:
             neto_a_posesion = Decimal('0')
         
         subtotal = total_a_abonar
         total_contrato = total_a_abonar
-        # Anticipo = importe de la reserva (lo que ya pagaron)
-        primer_mes = importe_reserva
         
         # Convertir números a formato de pesos argentinos
         def format_currency(amount):
@@ -11873,8 +11824,6 @@ def recibo_contrato_24(request, contrato_id):
         context = {
             'contrato': contrato,
             'conceptos_contrato': conceptos_contrato,
-            'primer_mes': format_currency(primer_mes),
-            'importe_reserva': format_currency(importe_reserva),
             'alquiler_mensual': format_currency(alquiler_mensual),
             'deposito_garantia': format_currency(deposito_garantia),
             'deposito_estado': deposito_estado,

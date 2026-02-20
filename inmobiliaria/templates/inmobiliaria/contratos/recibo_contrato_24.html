@@ -210,14 +210,12 @@
                     <div style="margin-top: 10px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 7px;">
                             <tr style="border-bottom: 1px solid black;">
-                                <td style="padding: 2px; text-align: center; border-right: 1px solid black;">Anticipo</td>
                                 <td style="padding: 2px; text-align: center; border-right: 1px solid black;">Mes alquiler</td>
                                 <td style="padding: 2px; text-align: center; border-right: 1px solid black;">Depósito</td>
                                 <td style="padding: 2px; text-align: center; border-right: 1px solid black;">Honorarios</td>
                                 <td style="padding: 2px; text-align: center;">Total a abonar</td>
                             </tr>
                             <tr>
-                                <td style="padding: 5px; text-align: center; border-right: 1px solid black;">{{ primer_mes|default:"0.00" }}</td>
                                 <td style="padding: 5px; text-align: center; border-right: 1px solid black;">{{ alquiler_mensual|default:"0.00" }}</td>
                                 <td style="padding: 5px; text-align: center; border-right: 1px solid black;">{{ deposito_garantia|default:"0.00" }}{% if deposito_estado == 'pendiente' %} <span style="font-size: 6px; color: #c00;">(Pendiente)</span>{% endif %}</td>
                                 <td style="padding: 5px; text-align: center; border-right: 1px solid black;">{{ honorarios|default:"0.00" }}</td>
