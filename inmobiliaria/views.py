@@ -11774,17 +11774,33 @@ def recibo_contrato_24(request, contrato_id):
         # Obtener valores de honorarios y sellados del movimiento (si existen)
         from decimal import Decimal
         
-        # Mes de alquiler, depósito y honorarios (valores del contrato / conceptos)
-        alquiler_mensual = contrato.precio_mensual or Decimal('0')
+        # Todo lo que NO sea concepto 10 (depósito) ni 25 (honorarios) se suma al "Mes de alquiler"
+        codigo_deposito = ('10', 10)
+        codigo_honorarios = ('25', 25)
+        
+        def _codigo(c):
+            co = c.get('codigo') or c.get('id') or ''
+            return str(co) if co is not None else ''
+        
+        mes_alquiler_sum = Decimal('0')
         deposito_garantia = contrato.deposito_garantia or Decimal('0')
-        
         honorarios = Decimal('0')
-        for concepto in conceptos_contrato:
-            if concepto.get('codigo') == '25' or concepto.get('id') == '25':
-                honorarios = Decimal(str(concepto['importe_numerico']))
-                break
         
-        # Total a abonar = Mes de alquiler + Depósito de garantía + Honorarios
+        for concepto in conceptos_contrato:
+            co = _codigo(concepto)
+            if co == '25':
+                honorarios += Decimal(str(concepto['importe_numerico']))
+            elif co != '10':
+                # Todo lo que no es 10 (depósito) ni 25 (honorarios) va al mes de alquiler
+                mes_alquiler_sum += Decimal(str(concepto['importe_numerico']))
+        
+        # Si no hay conceptos "de alquiler" en el detalle, usar precio mensual del contrato
+        if mes_alquiler_sum == 0 and (contrato.precio_mensual or 0) > 0:
+            mes_alquiler_sum = contrato.precio_mensual
+        
+        alquiler_mensual = mes_alquiler_sum
+        
+        # Total a abonar = Mes de alquiler (suma de todo lo que no es 10 ni 25) + Depósito + Honorarios
         total_a_abonar = float(alquiler_mensual) + float(deposito_garantia) + float(honorarios)
         
         # Importe de la reserva (lo que ya dejaron como anticipo): buscar reserva asociada
