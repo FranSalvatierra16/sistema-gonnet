@@ -161,36 +161,32 @@
                 </div>
             </div>
             
-            <!-- Encabezados -->
-            <div style="display: flex; justify-content: space-between; height: 6%;">
-                <div style="display: flex; border: 1px solid #2d8524;width: 80%;">
-                    <div style="width: 15%; padding: 3px; border-right: 1px solid transparent;margin-left: 5%; font-size: 9px;">FECHA</div>
-                    <div style="width: 15%; padding: 3px; border-right: 1px solid transparent;margin-left: 10px; font-size: 9px;">CÓDIGO</div>
-                    <div style="width: 55%; padding: 3px; border-right: 1px solid transparent;margin-left: 10px; font-size: 9px;">CONCEPTO</div>
-                </div>
-                <div style="display: flex; border-bottom: 1px solid #2d8524;width: 20%; justify-content: center;">
-                    <div style="width: 15%; padding: 3px; border-right: 1px solid transparent; font-size: 9px;">IMPORTE</div>
-                </div>
-            </div>
-
-            <!-- Conceptos del primer pago -->
-            <div style="display: flex; justify-content: space-between; height: 20%;">
-                <div style="display: flex; flex-direction: column; border: 1px solid #2d8524; width: 80%;">
-                    {% for concepto in conceptos_contrato %}
-                    <div style="display: flex; border-bottom: 1px solid #2d8524; height: 25%;">
-                        <div style="width: 15%; padding: 3px; border-right: 1px solid transparent; margin-left: 5%; font-size: 8px;">{{ concepto.fecha|date:"d/m/Y" }}</div>
-                        <div style="width: 15%; padding: 3px; border-right: 1px solid transparent; margin-left: 10px; font-size: 8px;">{{ concepto.codigo }}</div>
-                        <div style="width: 55%; padding: 3px; border-right: 1px solid transparent; margin-left: 10px; font-size: 8px;">{{ concepto.nombre }}</div>
-                    </div>
-                    {% endfor %}
-                </div>
-                <div style="display: flex; flex-direction: column; border-bottom: 1px solid #2d8524; width: 20%; text-align: center;">
-                    {% for concepto in conceptos_contrato %}
-                    <div style="border-bottom: 1px solid #2d8524; height: 25%; display: flex; align-items: center; justify-content: center;">
-                        <div style="font-size: 8px;">{{ concepto.importe }}</div>
-                    </div>
-                    {% endfor %}
-                </div>
+            <!-- Tabla de conceptos -->
+            <div style="width: 100%; border: 1px solid #2d8524;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 9px;">
+                    <thead>
+                        <tr style="background: #f0f8f0; border-bottom: 2px solid #2d8524;">
+                            <th style="padding: 6px 8px; text-align: left; border-right: 1px solid #2d8524; width: 14%; font-weight: bold;">FECHA</th>
+                            <th style="padding: 6px 8px; text-align: center; border-right: 1px solid #2d8524; width: 10%; font-weight: bold;">CÓDIGO</th>
+                            <th style="padding: 6px 8px; text-align: left; border-right: 1px solid #2d8524; font-weight: bold;">CONCEPTO</th>
+                            <th style="padding: 6px 8px; text-align: right; width: 18%; font-weight: bold;">IMPORTE</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for concepto in conceptos_contrato %}
+                        <tr style="border-bottom: 1px solid #2d8524;">
+                            <td style="padding: 6px 8px; border-right: 1px solid #2d8524;">{{ concepto.fecha|date:"d/m/Y" }}</td>
+                            <td style="padding: 6px 8px; text-align: center; border-right: 1px solid #2d8524;">{{ concepto.codigo }}</td>
+                            <td style="padding: 6px 8px; border-right: 1px solid #2d8524;">{{ concepto.nombre }}</td>
+                            <td style="padding: 6px 8px; text-align: right; font-weight: 500;">{{ concepto.importe }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" style="padding: 10px; text-align: center; color: #666;">Sin conceptos cargados</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
 
             <!-- Tabla de honorarios y resumen -->
