@@ -1605,13 +1605,92 @@ def operaciones(request):
                 # Si solo queremos pendientes y esta está pagada completa, saltarla
                 continue
             
-            # Agregar a la lista de reservas con pagos
+            reserva.es_invierno = False
             reservas_con_pagos.append(reserva)
         else:
             pass  # ✅ Bloque vacío
 # print(f"❌ OPERACIONES - Reserva {reserva.id} SIN PAGOS REALES - No se incluye en operaciones")
-    
+
+    # ✅ Incluir operaciones de invierno (ContratoAlquiler 9 meses con movimientos de caja)
+    from types import SimpleNamespace
+    from decimal import Decimal
+    contratos_invierno_qs = ContratoAlquiler.objects.filter(
+        sucursal=request.user.sucursal,
+        duracion_meses=9
+    ).select_related('propiedad', 'vendedor').order_by('-id')
+
+    if search_id:
+        try:
+            contratos_invierno_qs = contratos_invierno_qs.filter(id=int(search_id))
+        except ValueError:
+            contratos_invierno_qs = contratos_invierno_qs.none()
+    if fecha_desde:
+        try:
+            fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
+            contratos_invierno_qs = contratos_invierno_qs.filter(fecha_inicio__gte=fecha_desde_obj)
+        except ValueError:
+            pass
+    if fecha_hasta:
+        try:
+            fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
+            contratos_invierno_qs = contratos_invierno_qs.filter(fecha_inicio__lte=fecha_hasta_obj)
+        except ValueError:
+            pass
+    if search_vendedor_id:
+        try:
+            contratos_invierno_qs = contratos_invierno_qs.filter(vendedor_id=int(search_vendedor_id))
+        except ValueError:
+            pass
+    if search_ficha:
+        try:
+            contratos_invierno_qs = contratos_invierno_qs.filter(propiedad__numero_por_propietario=int(search_ficha))
+        except ValueError:
+            contratos_invierno_qs = contratos_invierno_qs.filter(propiedad__numero_por_propietario__icontains=search_ficha)
+
+    invierno_list = []
+    for contrato in contratos_invierno_qs:
+        movimientos = MovimientoCaja.objects.filter(
+            propiedad=contrato.propiedad,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+            concepto__icontains=f'Contrato #{contrato.id}'
+        )
+        if not movimientos.exists():
+            continue
+        total_pagado = sum(
+            float(mov.monto_efectivo or 0) + float(mov.monto_cheque or 0) + float(mov.monto_tarjeta or 0) + float(mov.monto_deposito or 0)
+            for mov in movimientos
+        )
+        if total_pagado <= 0:
+            continue
+        precio_total = (contrato.deposito_garantia or Decimal('0')) + (contrato.precio_mensual or Decimal('0')) * 9
+        saldo_pendiente = precio_total - Decimal(str(total_pagado))
+        if solo_pendientes and saldo_pendiente <= 0:
+            continue
+        total_operaciones += 1
+        if saldo_pendiente > 0:
+            operaciones_pendientes += 1
+        invierno_list.append(SimpleNamespace(
+            es_invierno=True,
+            contrato=contrato,
+            id=contrato.id,
+            propiedad=contrato.propiedad,
+            fecha_inicio=contrato.fecha_inicio,
+            fecha_fin=contrato.fecha_fin,
+            precio_total=precio_total,
+            total_pagado=Decimal(str(total_pagado)),
+            saldo_pendiente=saldo_pendiente,
+            estado=contrato.estado,
+            deposito_estado='pagado' if (contrato.deposito_garantia and total_pagado >= float(contrato.deposito_garantia)) else 'pendiente',
+            total_deposito_pagado=contrato.deposito_garantia or Decimal('0'),
+            movimiento_reciente=movimientos.first(),
+            todos_recibos=None,
+        ))
+
+    operaciones = list(reservas_con_pagos) + invierno_list
+    operaciones.sort(key=lambda x: x.fecha_inicio, reverse=True)
+
     return render(request, 'inmobiliaria/reserva/operaciones.html', {
+        'operaciones': operaciones,
         'reservas': reservas_con_pagos,
         'search_id': search_id,
         'fecha_desde': fecha_desde,
@@ -1621,7 +1700,7 @@ def operaciones(request):
         'solo_pendientes': solo_pendientes,
         'total_operaciones': total_operaciones,
         'operaciones_pendientes': operaciones_pendientes,
-        'operaciones_mostradas': len(reservas_con_pagos),
+        'operaciones_mostradas': len(operaciones),
         'vendedores': vendedores,
     })
 def crear_reserva(request):

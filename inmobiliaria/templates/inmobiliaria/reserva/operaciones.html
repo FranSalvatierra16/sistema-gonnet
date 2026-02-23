@@ -563,25 +563,31 @@
             </div>
         {% endif %}
 
-        <!-- Operaciones Lista -->
-        {% if reservas %}
+        <!-- Operaciones Lista (reservas por día + operaciones invierno) -->
+        {% if operaciones %}
             <div class="operaciones-lista">
-                {% for reserva in reservas %}
+                {% for op in operaciones %}
                     <div class="operacion-card fade-in 
-                        {% if reserva.estado == 'pagada' and reserva.saldo_pendiente == 0 %}pagada-completa
-                        {% elif reserva.estado == 'pagada' and reserva.saldo_pendiente > 0 %}pago-parcial
-                        {% else %}pendiente{% endif %}" 
+                        {% if op.es_invierno %}
+                        {% if op.saldo_pendiente == 0 %}pagada-completa{% else %}pago-parcial{% endif %}
+                        {% else %}
+                        {% if op.estado == 'pagada' and op.saldo_pendiente == 0 %}pagada-completa
+                        {% elif op.estado == 'pagada' and op.saldo_pendiente > 0 %}pago-parcial
+                        {% else %}pendiente{% endif %}
+                        {% endif %}" 
                          style="animation-delay: {{ forloop.counter0|add:1|floatformat:1 }}s;">
                         
                         <!-- Información Principal -->
                         <div style="flex: 1; display: flex; align-items: center; gap: 1rem;">
                             <div class="property-icon" style="width: 50px; height: 50px; position: relative;">
                                 <i class="fas fa-home"></i>
-                                {% if reserva.estado == 'pagada' and reserva.saldo_pendiente == 0 %}
+                                {% if op.es_invierno %}
+                                <span class="badge bg-info position-absolute" style="top: -5px; right: -5px; font-size: 0.65rem;">Invierno</span>
+                                {% elif op.estado == 'pagada' and op.saldo_pendiente == 0 %}
                                     <div style="position: absolute; top: -3px; right: -3px; background: #28a745; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;">
                                         <i class="fas fa-check" style="font-size: 0.6rem; color: white;"></i>
                                     </div>
-                                {% elif reserva.estado == 'pagada' and reserva.saldo_pendiente > 0 %}
+                                {% elif op.estado == 'pagada' and op.saldo_pendiente > 0 %}
                                     <div style="position: absolute; top: -3px; right: -3px; background: #ffc107; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;">
                                         <i class="fas fa-exclamation" style="font-size: 0.6rem; color: #212529;"></i>
                                     </div>
@@ -590,25 +596,31 @@
                             
                             <div style="flex: 1;">
                                 <h5 style="margin: 0; font-size: 1.1rem; color: #2c3e50; font-weight: 600;">
-                                    Operación #{{ reserva.id }} - {{ reserva.propiedad.direccion|truncatechars:35 }}
+                                    {% if op.es_invierno %}Contrato #{{ op.id }} (Invierno){% else %}Operación #{{ op.id }}{% endif %} - {{ op.propiedad.direccion|truncatechars:35 }}
                                 </h5>
                                 <div style="display: flex; align-items: center; gap: 1rem; margin-top: 0.3rem;">
                                     <span class="status-badge 
-                                        {% if reserva.estado == 'pagada' and reserva.saldo_pendiente == 0 %}status-pagada
-                                        {% elif reserva.estado == 'pagada' and reserva.saldo_pendiente > 0 %}status-parcial
-                                        {% else %}status-pendiente{% endif %}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">
-                                        {% if reserva.estado == 'pagada' and reserva.saldo_pendiente == 0 %}
+                                        {% if op.es_invierno %}
+                                        {% if op.saldo_pendiente == 0 %}status-pagada{% else %}status-parcial{% endif %}
+                                        {% else %}
+                                        {% if op.estado == 'pagada' and op.saldo_pendiente == 0 %}status-pagada
+                                        {% elif op.estado == 'pagada' and op.saldo_pendiente > 0 %}status-parcial
+                                        {% else %}status-pendiente{% endif %}
+                                        {% endif %}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">
+                                        {% if op.es_invierno %}
+                                            {% if op.saldo_pendiente == 0 %}✅ Pagado Completo{% else %}⏳ Pendiente - Seña Pagada{% endif %}
+                                        {% elif op.estado == 'pagada' and op.saldo_pendiente == 0 %}
                                             ✅ Pagada Completa
-                                        {% elif reserva.estado == 'pagada' and reserva.saldo_pendiente > 0 %}
+                                        {% elif op.estado == 'pagada' and op.saldo_pendiente > 0 %}
                                             ⏳ Pendiente - Seña Pagada
-                                        {% elif reserva.estado == 'confirmada_no_pagada' %}
+                                        {% elif op.estado == 'confirmada_no_pagada' %}
                                             📋 Sin Pagos
                                         {% else %}
-                                            {{ reserva.estado }}
+                                            {{ op.estado }}
                                         {% endif %}
                                     </span>
                                     <small class="text-muted" style="font-size: 0.8rem;">
-                                        📅 {{ reserva.fecha_inicio|date:"d/m/Y" }} → {{ reserva.fecha_fin|date:"d/m/Y" }}
+                                        📅 {{ op.fecha_inicio|date:"d/m/Y" }} → {{ op.fecha_fin|date:"d/m/Y" }}
                                     </small>
                                 </div>
                             </div>
@@ -618,33 +630,33 @@
                         <div style="display: flex; flex-direction: column; align-items: end; text-align: right; min-width: 250px;">
                             <div style="margin-bottom: 0.5rem;">
                                 <div style="font-size: 1.2rem; font-weight: bold; color: #2c3e50;">
-                                    💰 ${{ reserva.precio_total|format_price }}
+                                    💰 ${{ op.precio_total|format_price }}
                                 </div>
                                 <small class="text-muted">Precio Total</small>
                             </div>
                             
                             <div style="margin-bottom: 0.5rem;">
                                 <div style="font-size: 1rem; color: #28a745; font-weight: 600;">
-                                    ✅ ${{ reserva.total_pagado|format_price }}
+                                    ✅ ${{ op.total_pagado|format_price }}
                                 </div>
                                 <small class="text-muted">Pagado</small>
                             </div>
                             
-                            {% if reserva.total_deposito_pagado > 0 %}
+                            {% if op.total_deposito_pagado > 0 %}
                             <div style="margin-bottom: 0.5rem;">
-                                <div style="font-size: 0.9rem; {% if reserva.deposito_estado == 'pagado' %}color: #28a745;{% else %}color: #dc3545;{% endif %} font-weight: 600;">
-                                    {% if reserva.deposito_estado == 'pagado' %}✅{% else %}⏳{% endif %} ${{ reserva.total_deposito_pagado|format_price }}
+                                <div style="font-size: 0.9rem; {% if op.deposito_estado == 'pagado' %}color: #28a745;{% else %}color: #dc3545;{% endif %} font-weight: 600;">
+                                    {% if op.deposito_estado == 'pagado' %}✅{% else %}⏳{% endif %} ${{ op.total_deposito_pagado|format_price }}
                                 </div>
-                                <small class="{% if reserva.deposito_estado == 'pagado' %}text-success{% else %}text-danger{% endif %}">
-                                    Depósito {% if reserva.deposito_estado == 'pagado' %}Pagado{% else %}Pendiente{% endif %}
+                                <small class="{% if op.deposito_estado == 'pagado' %}text-success{% else %}text-danger{% endif %}">
+                                    Depósito {% if op.deposito_estado == 'pagado' %}Pagado{% else %}Pendiente{% endif %}
                                 </small>
                             </div>
                             {% endif %}
                             
-                            {% if reserva.saldo_pendiente > 0 %}
+                            {% if op.saldo_pendiente > 0 %}
                             <div style="margin-bottom: 0.5rem;">
                                 <div style="font-size: 1.1rem; color: #dc3545; font-weight: 600;">
-                                    ⏰ ${{ reserva.saldo_pendiente|format_price }}
+                                    ⏰ ${{ op.saldo_pendiente|format_price }}
                                 </div>
                                 <small class="text-muted">Saldo Pendiente</small>
                             </div>
@@ -653,24 +665,40 @@
 
                         <!-- Actions -->
                         <div class="actions-section">
-                            <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn-action btn-ver">
+                            {% if op.es_invierno %}
+                                <a href="{% url 'inmobiliaria:detalle_contrato' op.contrato.id %}" class="btn-action btn-ver">
+                                    <i class="fas fa-eye"></i>Ver
+                                </a>
+                                <a href="{% url 'inmobiliaria:recibo_contrato_24' op.contrato.id %}" class="btn-action btn-recibo">
+                                    <i class="fas fa-receipt"></i>Recibo
+                                </a>
+                                {% if op.saldo_pendiente > 0 %}
+                                <a href="{% url 'inmobiliaria:crear_operacion_contrato' op.contrato.id %}" class="btn-action btn-finalizar">
+                                    <i class="fas fa-check"></i>Completar Pago
+                                </a>
+                                {% endif %}
+                                {% if user.nivel >= 2 %}
+                                <a href="{% url 'inmobiliaria:cancelar_contrato' op.contrato.id %}" class="btn-action btn-eliminar">
+                                    <i class="fas fa-times"></i>Cancelar
+                                </a>
+                                {% endif %}
+                            {% else %}
+                            <a href="{% url 'inmobiliaria:reserva_detalle' op.id %}" class="btn-action btn-ver">
                                 <i class="fas fa-eye"></i>Ver
                             </a>
                             
-                            {% if reserva.todos_recibos %}
-                                {% if reserva.todos_recibos.count == 1 %}
-                                    <!-- Si hay solo un recibo, mostrar botón simple -->
-                                    <a href="{% url 'inmobiliaria:ver_recibo_movimiento' reserva.todos_recibos.first.movimiento_caja.id %}" class="btn-action btn-recibo">
+                            {% if op.todos_recibos %}
+                                {% if op.todos_recibos.count == 1 %}
+                                    <a href="{% url 'inmobiliaria:ver_recibo_movimiento' op.todos_recibos.first.movimiento_caja.id %}" class="btn-action btn-recibo">
                                         <i class="fas fa-receipt"></i>Recibo
                                     </a>
                                 {% else %}
-                                    <!-- Si hay múltiples recibos, mostrar dropdown -->
                                     <div class="dropdown dropdown-recibos">
-                                        <button class="btn-action btn-recibo dropdown-toggle" type="button" id="dropdownRecibos{{ reserva.id }}" data-bs-toggle="dropdown" aria-expanded="false">
-                                            <i class="fas fa-receipt"></i>Recibos ({{ reserva.todos_recibos.count }})
+                                        <button class="btn-action btn-recibo dropdown-toggle" type="button" id="dropdownRecibos{{ op.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fas fa-receipt"></i>Recibos ({{ op.todos_recibos.count }})
                                         </button>
-                                        <ul class="dropdown-menu dropdown-menu-recibos" aria-labelledby="dropdownRecibos{{ reserva.id }}">
-                                            {% for recibo in reserva.todos_recibos %}
+                                        <ul class="dropdown-menu dropdown-menu-recibos" aria-labelledby="dropdownRecibos{{ op.id }}">
+                                            {% for recibo in op.todos_recibos %}
                                                 <li>
                                                     <a class="dropdown-item" href="{% url 'inmobiliaria:ver_recibo_movimiento' recibo.movimiento_caja.id %}">
                                                         <i class="fas fa-receipt me-2"></i>{{ recibo.numero_recibo }}
@@ -681,27 +709,28 @@
                                         </ul>
                                     </div>
                                 {% endif %}
-                            {% elif reserva.movimiento_reciente %}
-                                <a href="{% url 'inmobiliaria:ver_recibo_movimiento' reserva.movimiento_reciente.id %}" class="btn-action btn-recibo">
+                            {% elif op.movimiento_reciente %}
+                                <a href="{% url 'inmobiliaria:ver_recibo_movimiento' op.movimiento_reciente.id %}" class="btn-action btn-recibo">
                                     <i class="fas fa-receipt"></i>Recibo
                                 </a>
                             {% else %}
-                                <a href="{% url 'inmobiliaria:ver_recibo' reserva.id %}" class="btn-action btn-recibo">
+                                <a href="{% url 'inmobiliaria:ver_recibo' op.id %}" class="btn-action btn-recibo">
                                     <i class="fas fa-receipt"></i>Recibo
                                 </a>
                             {% endif %}
                             
-                            {% if reserva.estado == 'confirmada_no_pagada' or reserva.saldo_pendiente > 0 %}
-                                <a href="{% url 'inmobiliaria:finalizar_reserva_nueva' reserva.id %}" class="btn-action btn-finalizar">
+                            {% if op.estado == 'confirmada_no_pagada' or op.saldo_pendiente > 0 %}
+                                <a href="{% url 'inmobiliaria:finalizar_reserva_nueva' op.id %}" class="btn-action btn-finalizar">
                                     <i class="fas fa-check"></i>
-                                    {% if reserva.saldo_pendiente > 0 %}Completar Pago{% else %}Finalizar{% endif %}
+                                    {% if op.saldo_pendiente > 0 %}Completar Pago{% else %}Finalizar{% endif %}
                                 </a>
                             {% endif %}
                             
                             {% if user.nivel >= 2 %}
-                            <a href="{% url 'inmobiliaria:reserva_eliminar' reserva.id %}" class="btn-action btn-eliminar">
+                            <a href="{% url 'inmobiliaria:reserva_eliminar' op.id %}" class="btn-action btn-eliminar">
                                 <i class="fas fa-trash"></i>Eliminar
                             </a>
+                            {% endif %}
                             {% endif %}
                         </div>
                     </div>
