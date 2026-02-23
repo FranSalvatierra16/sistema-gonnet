@@ -42,7 +42,13 @@ class ContratoAlquiler(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
     operacion_principal = models.BooleanField(default=False, help_text='Indica si ya se realizó la operación principal (depósito + primer mes)')
-    
+
+    # Datos del garante (opcional; usado en contratos invierno)
+    garante_nombre = models.CharField(max_length=100, blank=True)
+    garante_apellido = models.CharField(max_length=100, blank=True)
+    garante_dni = models.CharField(max_length=20, blank=True)
+    garante_celular = models.CharField(max_length=30, blank=True)
+
     class Meta:
         verbose_name = 'Contrato de Alquiler'
         verbose_name_plural = 'Contratos de Alquiler'

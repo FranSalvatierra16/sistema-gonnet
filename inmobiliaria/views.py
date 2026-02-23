@@ -9562,6 +9562,11 @@ def crear_contrato_alquiler(request):
             precio_mensual = Decimal(request.POST.get('precio_mensual').replace('.', '').replace(',', '.'))
             deposito_garantia = Decimal(request.POST.get('deposito_garantia').replace('.', '').replace(',', '.'))
 
+            garante_nombre = (request.POST.get('garante_nombre') or '').strip()
+            garante_apellido = (request.POST.get('garante_apellido') or '').strip()
+            garante_dni = (request.POST.get('garante_dni') or '').strip()
+            garante_celular = (request.POST.get('garante_celular') or '').strip()
+
             # Validar datos
             if not all([propiedad_id, inquilino_id, vendedor_id, fecha_operacion, fecha_inicio, fecha_fin]):
                 return JsonResponse({'error': 'Todos los campos son requeridos'}, status=400)
@@ -9586,7 +9591,11 @@ def crear_contrato_alquiler(request):
                 duracion_meses=duracion_meses,
                 precio_mensual=precio_mensual,
                 deposito_garantia=deposito_garantia,
-                estado='reservado'  # Iniciar en estado reservado
+                estado='reservado',  # Iniciar en estado reservado
+                garante_nombre=garante_nombre,
+                garante_apellido=garante_apellido,
+                garante_dni=garante_dni,
+                garante_celular=garante_celular,
             )
 
             # Marcar la propiedad como reservada según tipo de contrato
