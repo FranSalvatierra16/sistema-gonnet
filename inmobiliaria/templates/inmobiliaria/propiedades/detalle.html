@@ -1169,8 +1169,8 @@
                                 <td>{{ historial.fecha_inicio|date:"d/m/Y" }}</td>
                                 <td>{{ historial.fecha_fin|date:"d/m/Y" }}</td>
                                 <td>
-                                    <span class="badge {% if historial.estado == 'libre' %}bg-success{% elif historial.estado == 'reservado' %}bg-warning{% else %}bg-danger{% endif %}">
-                                        {% if historial.es_invierno %}Operación (Invierno){% else %}{{ historial.get_estado_display|default:historial.estado|title }}{% endif %}
+                                    <span class="badge {% if historial.estado == 'libre' or historial.es_libre_invierno %}bg-success{% elif historial.estado == 'reservado' %}bg-warning{% else %}bg-danger{% endif %}">
+                                        {% if historial.es_libre_invierno %}Libre (Invierno){% elif historial.es_invierno %}Operación (Invierno){% else %}{{ historial.get_estado_display|default:historial.estado|title }}{% endif %}
                                     </span>
                                 </td>
                                 <td>
@@ -1189,6 +1189,8 @@
                                             <strong>Invierno</strong> — Contrato #{{ historial.contrato.id }}<br>
                                             Inquilino: {{ historial.contrato.inquilino.apellido }}, {{ historial.contrato.inquilino.nombre }}
                                         </small>
+                                    {% elif historial.es_libre_invierno %}
+                                        <small class="text-muted">Disponible para alquiler invierno</small>
                                     {% else %}
                                         -
                                     {% endif %}
@@ -1215,6 +1217,8 @@
                                         <a href="{% url 'inmobiliaria:detalle_contrato' historial.contrato.id %}" class="btn btn-outline-info btn-sm" title="Ver contrato" target="_blank">
                                             <i class="fas fa-file-contract"></i> Ver contrato
                                         </a>
+                                    {% elif historial.es_libre_invierno %}
+                                        —
                                     {% elif historial.estado == 'libre' %}
                                         -
                                     {% else %}

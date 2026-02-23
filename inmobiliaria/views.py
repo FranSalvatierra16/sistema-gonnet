@@ -915,6 +915,78 @@ def propiedad_detalle(request, propiedad_id):
             fecha_actualizacion=contrato.fecha_creacion,
         )
         historiales.append(entry)
+
+    # Incluir períodos "Libre (Invierno)" entre y después de contratos invierno, para que se vea la fecha disponible
+    try:
+        info_invierno = propiedad.info_invierno
+    except AlquilerInvierno.DoesNotExist:
+        info_invierno = None
+    if info_invierno and getattr(info_invierno, 'disponible', False):
+        hoy = date.today()
+        # Entre dos contratos consecutivos: disponible desde fin del primero hasta día anterior al inicio del siguiente
+        for j in range(len(contratos_invierno) - 1):
+            c1 = contratos_invierno[j]
+            c2 = contratos_invierno[j + 1]
+            libre_inicio = c1.fecha_fin + timedelta(days=1)
+            libre_fin = c2.fecha_inicio - timedelta(days=1)
+            if libre_inicio <= libre_fin:
+                historiales.append(SimpleNamespace(
+                    fecha_inicio=libre_inicio,
+                    fecha_fin=libre_fin,
+                    estado='libre',
+                    reserva=None,
+                    es_libre_invierno=True,
+                    es_invierno=False,
+                    contrato=None,
+                    fecha_actualizacion=info_invierno.fecha_actualizacion,
+                ))
+        # Después del último contrato: disponible desde el día siguiente al fin hasta ~6 meses después
+        if contratos_invierno:
+            ultimo = contratos_invierno[-1]
+            libre_inicio = ultimo.fecha_fin + timedelta(days=1)
+            libre_fin = ultimo.fecha_fin + timedelta(days=180)
+            if libre_inicio <= libre_fin:
+                historiales.append(SimpleNamespace(
+                    fecha_inicio=libre_inicio,
+                    fecha_fin=libre_fin,
+                    estado='libre',
+                    reserva=None,
+                    es_libre_invierno=True,
+                    es_invierno=False,
+                    contrato=None,
+                    fecha_actualizacion=info_invierno.fecha_actualizacion,
+                ))
+        # Antes del primer contrato (si el primer contrato empieza en el futuro): disponible desde ~6 meses antes
+        if contratos_invierno:
+            primero = contratos_invierno[0]
+            if primero.fecha_inicio > hoy:
+                libre_fin = primero.fecha_inicio - timedelta(days=1)
+                libre_inicio = primero.fecha_inicio - timedelta(days=180)
+                if libre_inicio <= libre_fin:
+                    historiales.append(SimpleNamespace(
+                        fecha_inicio=libre_inicio,
+                        fecha_fin=libre_fin,
+                        estado='libre',
+                        reserva=None,
+                        es_libre_invierno=True,
+                        es_invierno=False,
+                        contrato=None,
+                        fecha_actualizacion=info_invierno.fecha_actualizacion,
+                    ))
+        # Si no hay contratos y está disponible para invierno: mostrar un rango "Libre (Invierno)" (ej. temporada actual)
+        elif info_invierno.estado == 'disponible':
+            libre_inicio = hoy
+            libre_fin = hoy + timedelta(days=365)
+            historiales.append(SimpleNamespace(
+                fecha_inicio=libre_inicio,
+                fecha_fin=libre_fin,
+                estado='libre',
+                reserva=None,
+                es_libre_invierno=True,
+                es_invierno=False,
+                contrato=None,
+                fecha_actualizacion=info_invierno.fecha_actualizacion,
+            ))
     historiales.sort(key=lambda x: (x.fecha_inicio, x.fecha_fin))
     
     # Obtener imágenes usando el related_name correcto
@@ -6210,6 +6282,7 @@ def ver_historial_disponibilidad(request, propiedad_id):
             'es_invierno': False,
             'contrato_id': None,
             'inquilino_texto': None,
+            'es_libre_invierno': False,
             '_sort': (h.fecha_inicio, h.fecha_fin),
         })
 
@@ -6230,8 +6303,93 @@ def ver_historial_disponibilidad(request, propiedad_id):
             'es_invierno': True,
             'contrato_id': c.id,
             'inquilino_texto': f'{c.inquilino.apellido}, {c.inquilino.nombre}' if c.inquilino else '-',
+            'es_libre_invierno': False,
             '_sort': (c.fecha_inicio, c.fecha_fin),
         })
+
+    # Incluir períodos "Libre (Invierno)" entre y después de contratos invierno
+    try:
+        info_invierno = propiedad.info_invierno
+    except AlquilerInvierno.DoesNotExist:
+        info_invierno = None
+    if info_invierno and getattr(info_invierno, 'disponible', False):
+        hoy = date.today()
+        for j in range(len(contratos_invierno) - 1):
+            c1 = contratos_invierno[j]
+            c2 = contratos_invierno[j + 1]
+            libre_inicio = c1.fecha_fin + timedelta(days=1)
+            libre_fin = c2.fecha_inicio - timedelta(days=1)
+            if libre_inicio <= libre_fin:
+                items.append({
+                    'id': None,
+                    'fecha_inicio': libre_inicio.strftime('%d/%m/%Y'),
+                    'fecha_fin': libre_fin.strftime('%d/%m/%Y'),
+                    'estado': 'libre',
+                    'reserva_id': None,
+                    'cliente': None,
+                    'ultima_actualizacion': info_invierno.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if info_invierno.fecha_actualizacion else '',
+                    'es_invierno': False,
+                    'contrato_id': None,
+                    'inquilino_texto': None,
+                    'es_libre_invierno': True,
+                    '_sort': (libre_inicio, libre_fin),
+                })
+        if contratos_invierno:
+            ultimo = contratos_invierno[-1]
+            libre_inicio = ultimo.fecha_fin + timedelta(days=1)
+            libre_fin = ultimo.fecha_fin + timedelta(days=180)
+            if libre_inicio <= libre_fin:
+                items.append({
+                    'id': None,
+                    'fecha_inicio': libre_inicio.strftime('%d/%m/%Y'),
+                    'fecha_fin': libre_fin.strftime('%d/%m/%Y'),
+                    'estado': 'libre',
+                    'reserva_id': None,
+                    'cliente': None,
+                    'ultima_actualizacion': info_invierno.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if info_invierno.fecha_actualizacion else '',
+                    'es_invierno': False,
+                    'contrato_id': None,
+                    'inquilino_texto': None,
+                    'es_libre_invierno': True,
+                    '_sort': (libre_inicio, libre_fin),
+                })
+        if contratos_invierno:
+            primero = contratos_invierno[0]
+            if primero.fecha_inicio > hoy:
+                libre_fin = primero.fecha_inicio - timedelta(days=1)
+                libre_inicio = primero.fecha_inicio - timedelta(days=180)
+                if libre_inicio <= libre_fin:
+                    items.append({
+                        'id': None,
+                        'fecha_inicio': libre_inicio.strftime('%d/%m/%Y'),
+                        'fecha_fin': libre_fin.strftime('%d/%m/%Y'),
+                        'estado': 'libre',
+                        'reserva_id': None,
+                        'cliente': None,
+                        'ultima_actualizacion': info_invierno.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if info_invierno.fecha_actualizacion else '',
+                        'es_invierno': False,
+                        'contrato_id': None,
+                        'inquilino_texto': None,
+                        'es_libre_invierno': True,
+                        '_sort': (libre_inicio, libre_fin),
+                    })
+        elif getattr(info_invierno, 'estado', None) == 'disponible':
+            libre_inicio = hoy
+            libre_fin = hoy + timedelta(days=365)
+            items.append({
+                'id': None,
+                'fecha_inicio': libre_inicio.strftime('%d/%m/%Y'),
+                'fecha_fin': libre_fin.strftime('%d/%m/%Y'),
+                'estado': 'libre',
+                'reserva_id': None,
+                'cliente': None,
+                'ultima_actualizacion': info_invierno.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if info_invierno.fecha_actualizacion else '',
+                'es_invierno': False,
+                'contrato_id': None,
+                'inquilino_texto': None,
+                'es_libre_invierno': True,
+                '_sort': (libre_inicio, libre_fin),
+            })
 
     items.sort(key=lambda x: x['_sort'])
     for it in items:
