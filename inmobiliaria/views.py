@@ -1651,17 +1651,14 @@ def operaciones(request):
     for contrato in contratos_invierno_qs:
         movimientos = MovimientoCaja.objects.filter(
             propiedad=contrato.propiedad,
+            sucursal=request.user.sucursal,
             tipo=TipoMovimientoCajaEnum.INGRESO,
             concepto__icontains=f'Contrato #{contrato.id}'
         )
-        if not movimientos.exists():
-            continue
         total_pagado = sum(
             float(mov.monto_efectivo or 0) + float(mov.monto_cheque or 0) + float(mov.monto_tarjeta or 0) + float(mov.monto_deposito or 0)
             for mov in movimientos
-        )
-        if total_pagado <= 0:
-            continue
+        ) if movimientos.exists() else 0
         precio_total = (contrato.deposito_garantia or Decimal('0')) + (contrato.precio_mensual or Decimal('0')) * 9
         saldo_pendiente = precio_total - Decimal(str(total_pagado))
         if solo_pendientes and saldo_pendiente <= 0:
@@ -1669,6 +1666,7 @@ def operaciones(request):
         total_operaciones += 1
         if saldo_pendiente > 0:
             operaciones_pendientes += 1
+        deposito_ok = contrato.deposito_garantia and total_pagado >= float(contrato.deposito_garantia or 0)
         invierno_list.append(SimpleNamespace(
             es_invierno=True,
             contrato=contrato,
@@ -1680,9 +1678,9 @@ def operaciones(request):
             total_pagado=Decimal(str(total_pagado)),
             saldo_pendiente=saldo_pendiente,
             estado=contrato.estado,
-            deposito_estado='pagado' if (contrato.deposito_garantia and total_pagado >= float(contrato.deposito_garantia)) else 'pendiente',
+            deposito_estado='pagado' if deposito_ok else 'pendiente',
             total_deposito_pagado=contrato.deposito_garantia or Decimal('0'),
-            movimiento_reciente=movimientos.first(),
+            movimiento_reciente=movimientos.first() if movimientos.exists() else None,
             todos_recibos=None,
         ))
 
