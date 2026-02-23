@@ -5523,6 +5523,8 @@ def buscar_propiedades_estudiantes(request):
     filtro_precio_max = None
     filtro_direccion = ''
     filtro_ficha = ''
+    total_propiedades_disponibles = 0
+    total_propiedades_reservadas = 0
 
     q_sucursales = Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
 
@@ -5578,12 +5580,23 @@ def buscar_propiedades_estudiantes(request):
                     fecha_fin=fecha_desde,
                     estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera']
                 ).exclude(fecha_inicio=fecha_desde).first()
+                # ¿Tiene reserva activa que solapa con el rango? (para contar como reservada)
+                reserva_activa_rango = propiedad.reservas.filter(
+                    eliminada=False,
+                    estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera'],
+                    fecha_inicio__lt=fecha_hasta,
+                    fecha_fin__gt=fecha_desde
+                ).exists()
                 propiedades_encontradas.append({
                     'propiedad': propiedad,
                     'disponibilidades': disp_prop,
                     'reserva_termina_en_inicio': reserva_termina_en_inicio,
-                    'precio_estudiante': precio_val
+                    'precio_estudiante': precio_val,
+                    'es_reservada': reserva_activa_rango,
                 })
+
+    total_propiedades_disponibles = sum(1 for item in propiedades_encontradas if not item.get('es_reservada', False))
+    total_propiedades_reservadas = sum(1 for item in propiedades_encontradas if item.get('es_reservada', False))
 
     ambientes_choices = list(Propiedad.objects.filter(tipo_cliente='ESTUDIANTE').filter(q_sucursales).values_list('ambientes', flat=True).distinct().order_by('ambientes'))
     ambientes_choices = [a for a in ambientes_choices if a is not None]
@@ -5597,6 +5610,8 @@ def buscar_propiedades_estudiantes(request):
         'filtro_direccion': filtro_direccion,
         'filtro_ficha': filtro_ficha,
         'ambientes_choices': ambientes_choices,
+        'total_propiedades_disponibles': total_propiedades_disponibles,
+        'total_propiedades_reservadas': total_propiedades_reservadas,
     })
 
 

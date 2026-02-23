@@ -90,6 +90,39 @@
                     </h5>
                 </div>
                 <div class="card-body">
+                    <!-- Resumen de totales (como en alquiler por día) -->
+                    <div class="row mb-3">
+                        <div class="col-md-6 mb-2">
+                            <div class="card shadow-sm" style="border-left: 3px solid #28a745;">
+                                <div class="card-body py-2 px-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="card-title text-success mb-0">
+                                                <i class="fas fa-check-circle me-1"></i>Disponibles
+                                            </h6>
+                                            <small class="text-muted">Listas para reservar</small>
+                                        </div>
+                                        <h4 class="fw-bold text-success mb-0">{{ total_propiedades_disponibles|default:0 }}</h4>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <div class="card shadow-sm" style="border-left: 3px solid #f44336;">
+                                <div class="card-body py-2 px-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="card-title text-danger mb-0">
+                                                <i class="fas fa-calendar-times me-1"></i>Reservadas
+                                            </h6>
+                                            <small class="text-muted">Confirmadas sin pagar</small>
+                                        </div>
+                                        <h4 class="fw-bold text-danger mb-0">{{ total_propiedades_reservadas|default:0 }}</h4>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
