@@ -7219,6 +7219,34 @@ def alquileres_invierno(request):
         except (ValueError, InvalidOperation):
             pass
 
+    # Totales Disponibles / Reservados (mismo ámbito y filtros, sin filtrar por estado)
+    base_para_totales = Propiedad.objects.filter(info_invierno__disponible=True)
+    if ver_todas:
+        base_para_totales = base_para_totales.filter(q_sucursales_colon_corrientes)
+    else:
+        sucursal_usuario = getattr(request.user, 'sucursal', None)
+        if sucursal_usuario:
+            base_para_totales = base_para_totales.filter(sucursal=sucursal_usuario)
+        else:
+            base_para_totales = base_para_totales.filter(q_sucursales_colon_corrientes)
+    if busqueda:
+        base_para_totales = base_para_totales.filter(
+            Q(direccion__icontains=busqueda) | Q(id__icontains=busqueda)
+        )
+    if filtro_ambientes:
+        try:
+            base_para_totales = base_para_totales.filter(ambientes=int(filtro_ambientes))
+        except ValueError:
+            pass
+    if filtro_precio_max:
+        try:
+            precio_max = Decimal(filtro_precio_max.replace(',', '.'))
+            base_para_totales = base_para_totales.filter(info_invierno__precio_mensual__lte=precio_max)
+        except (ValueError, InvalidOperation):
+            pass
+    total_disponibles_invierno = base_para_totales.filter(info_invierno__estado='disponible').count()
+    total_reservados_invierno = base_para_totales.filter(info_invierno__estado='reservado').count()
+
     # Opciones de ambientes (mismo ámbito: sucursal actual o Colón/Corrientes)
     base_ambientes = Propiedad.objects.filter(habilitar_invierno=True)
     if ver_todas:
@@ -7245,6 +7273,8 @@ def alquileres_invierno(request):
         'inquilinos': Inquilino.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
         'puede_editar_invierno': puede_editar_invierno,
         'ver_todas': ver_todas,
+        'total_disponibles_invierno': total_disponibles_invierno,
+        'total_reservados_invierno': total_reservados_invierno,
     }
     return render(request, 'inmobiliaria/propiedades/alquileres_invierno.html', context)
 
