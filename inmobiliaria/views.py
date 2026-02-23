@@ -9820,10 +9820,14 @@ def crear_contrato_alquiler(request):
             # Si es contrato de invierno (9 meses), verificar que no haya reservas por día que se superpongan
             if duracion_meses == 9:
                 try:
-                    fi = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
-                    ff = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
-                except (ValueError, TypeError):
-                    fi = ff = None
+                    fi = datetime.strptime(fecha_inicio.strip(), '%Y-%m-%d').date()
+                    ff = datetime.strptime(fecha_fin.strip(), '%Y-%m-%d').date()
+                except (ValueError, TypeError, AttributeError):
+                    try:
+                        fi = datetime.strptime(fecha_inicio.strip(), '%d/%m/%Y').date()
+                        ff = datetime.strptime(fecha_fin.strip(), '%d/%m/%Y').date()
+                    except (ValueError, TypeError, AttributeError):
+                        fi = ff = None
                 if fi and ff:
                     reservas_solapadas = Reserva.objects.filter(
                         propiedad=propiedad,
@@ -9833,14 +9837,15 @@ def crear_contrato_alquiler(request):
                     ).order_by('fecha_inicio')
                     if reservas_solapadas.exists():
                         primera = reservas_solapadas.first()
-                        texto_fechas = primera.fecha_inicio.strftime('%d/%m/%Y') + ' al ' + primera.fecha_fin.strftime('%d/%m/%Y')
+                        desde = primera.fecha_inicio.strftime('%d/%m/%Y')
+                        hasta = primera.fecha_fin.strftime('%d/%m/%Y')
                         if reservas_solapadas.count() > 1:
-                            texto_fechas = f'{reservas_solapadas.count()} reservas por día (ej: {texto_fechas})'
+                            msg = f'Hay {reservas_solapadas.count()} reservas por día que se superponen. Una de ellas es del {desde} al {hasta}. Debe cancelar o modificar esas reservas antes de crear el contrato de invierno.'
                         else:
-                            texto_fechas = f'Reserva por día del {texto_fechas}'
+                            msg = f'Hay una reserva por día del {desde} al {hasta} que se superpone con las fechas del contrato. Debe cancelar o modificar esa reserva antes de crear el contrato de invierno.'
                         return JsonResponse({
                             'success': False,
-                            'error': f'No se puede crear el contrato de invierno: {texto_fechas} se superpone con las fechas elegidas. Debe cancelar o modificar esa reserva primero.'
+                            'error': msg
                         }, status=400)
 
             # Crear el contrato

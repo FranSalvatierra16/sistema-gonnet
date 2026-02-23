@@ -567,18 +567,25 @@ document.getElementById('formContratoInvierno')?.addEventListener('submit', func
             'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
         }
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
+    .then(function(response) {
+        return response.json().then(function(data) {
+            return { data: data, ok: response.ok };
+        }).catch(function() {
+            return { data: { error: 'Error al crear el contrato. Revisá los datos e intentá de nuevo.' }, ok: false };
+        });
+    })
+    .then(function(result) {
+        var data = result.data;
+        if (data && data.success) {
             alert('✅ Contrato creado exitosamente');
             window.location.href = data.redirect_url;
         } else {
-            alert('❌ Error: ' + (data.error || 'Error al crear el contrato'));
+            alert('❌ ' + (data && data.error ? data.error : 'Error al crear el contrato'));
         }
     })
-    .catch(error => {
+    .catch(function(error) {
         console.error('Error:', error);
-        alert('❌ Error al crear el contrato');
+        alert('❌ Error al crear el contrato. Revisá la conexión e intentá de nuevo.');
     });
 });
 </script>
