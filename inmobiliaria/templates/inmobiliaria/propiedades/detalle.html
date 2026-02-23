@@ -1170,7 +1170,7 @@
                                 <td>{{ historial.fecha_fin|date:"d/m/Y" }}</td>
                                 <td>
                                     <span class="badge {% if historial.estado == 'libre' %}bg-success{% elif historial.estado == 'reservado' %}bg-warning{% else %}bg-danger{% endif %}">
-                                        {{ historial.get_estado_display|default:historial.estado|title }}
+                                        {% if historial.es_invierno %}Operación (Invierno){% else %}{{ historial.get_estado_display|default:historial.estado|title }}{% endif %}
                                     </span>
                                 </td>
                                 <td>
@@ -1183,6 +1183,11 @@
                                                 <i class="fas fa-edit"></i> Editada
                                             </span>
                                             {% endif %}
+                                        </small>
+                                    {% elif historial.es_invierno %}
+                                        <small>
+                                            <strong>Invierno</strong> — Contrato #{{ historial.contrato.id }}<br>
+                                            Inquilino: {{ historial.contrato.inquilino.apellido }}, {{ historial.contrato.inquilino.nombre }}
                                         </small>
                                     {% else %}
                                         -
@@ -1206,6 +1211,10 @@
                                                 title="Editar fechas de la reserva (sin cambiar precio ni info)">
                                             <i class="fas fa-edit"></i> Editar fechas
                                         </button>
+                                    {% elif historial.es_invierno %}
+                                        <a href="{% url 'inmobiliaria:detalle_contrato' historial.contrato.id %}" class="btn btn-outline-info btn-sm" title="Ver contrato" target="_blank">
+                                            <i class="fas fa-file-contract"></i> Ver contrato
+                                        </a>
                                     {% elif historial.estado == 'libre' %}
                                         -
                                     {% else %}

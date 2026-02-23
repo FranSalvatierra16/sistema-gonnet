@@ -874,6 +874,25 @@ def propiedad_detalle(request, propiedad_id):
                     if key not in seen:
                         seen.add(key)
                         historiales.append(h)
+
+    # Incluir contratos de invierno (9 meses) en el historial para que se vean como "Invierno"
+    from types import SimpleNamespace
+    contratos_invierno = ContratoAlquiler.objects.filter(
+        propiedad=propiedad,
+        duracion_meses=9
+    ).select_related('inquilino').order_by('fecha_inicio')
+    for contrato in contratos_invierno:
+        entry = SimpleNamespace(
+            fecha_inicio=contrato.fecha_inicio,
+            fecha_fin=contrato.fecha_fin,
+            estado='alquilado',
+            reserva=None,
+            es_invierno=True,
+            contrato=contrato,
+            fecha_actualizacion=contrato.fecha_creacion,
+        )
+        historiales.append(entry)
+    historiales.sort(key=lambda x: (x.fecha_inicio, x.fecha_fin))
     
     # Obtener imágenes usando el related_name correcto
     imagenes = propiedad.imagenes.all()
@@ -6151,20 +6170,53 @@ def logout_view(request):
 def ver_historial_disponibilidad(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
     # Orden cronológico: más antiguo primero (fecha_inicio ascendente)
-    historial = HistorialDisponibilidad.objects.filter(
+    historial_qs = HistorialDisponibilidad.objects.filter(
         propiedad=propiedad
     ).order_by('fecha_inicio', 'fecha_fin', 'id')
 
-    return JsonResponse({
-        'success': True,
-        'historial': [{
+    items = []
+    for h in historial_qs:
+        items.append({
+            'id': h.id,
             'fecha_inicio': h.fecha_inicio.strftime('%d/%m/%Y'),
             'fecha_fin': h.fecha_fin.strftime('%d/%m/%Y'),
             'estado': h.estado,
             'reserva_id': h.reserva.id if h.reserva else None,
             'cliente': h.reserva.cliente.nombre if h.reserva and h.reserva.cliente else None,
-            'ultima_actualizacion': h.fecha_actualizacion.strftime('%d/%m/%Y %H:%M')
-        } for h in historial]
+            'ultima_actualizacion': h.fecha_actualizacion.strftime('%d/%m/%Y %H:%M'),
+            'es_invierno': False,
+            'contrato_id': None,
+            'inquilino_texto': None,
+            '_sort': (h.fecha_inicio, h.fecha_fin),
+        })
+
+    # Incluir contratos de invierno (9 meses) en el historial
+    contratos_invierno = ContratoAlquiler.objects.filter(
+        propiedad=propiedad,
+        duracion_meses=9
+    ).select_related('inquilino').order_by('fecha_inicio')
+    for c in contratos_invierno:
+        items.append({
+            'id': None,
+            'fecha_inicio': c.fecha_inicio.strftime('%d/%m/%Y'),
+            'fecha_fin': c.fecha_fin.strftime('%d/%m/%Y'),
+            'estado': 'alquilado',
+            'reserva_id': None,
+            'cliente': None,
+            'ultima_actualizacion': c.fecha_creacion.strftime('%d/%m/%Y %H:%M') if c.fecha_creacion else '',
+            'es_invierno': True,
+            'contrato_id': c.id,
+            'inquilino_texto': f'{c.inquilino.apellido}, {c.inquilino.nombre}' if c.inquilino else '-',
+            '_sort': (c.fecha_inicio, c.fecha_fin),
+        })
+
+    items.sort(key=lambda x: x['_sort'])
+    for it in items:
+        del it['_sort']
+
+    return JsonResponse({
+        'success': True,
+        'historial': items,
     })
 
 @login_required
@@ -6314,7 +6366,10 @@ def editar_historial_disponibilidad(request):
                 fecha_fin=fecha_fin,
                 es_manual=True
             )
-        
+
+        # Actualizar historial automáticamente para que refleje el cambio sin pulsar "Reconstruir historial"
+        reconstruir_historial_propiedad(propiedad)
+
         return JsonResponse({
             'success': True,
             'message': f'Fechas actualizadas correctamente: {fecha_inicio.strftime("%d/%m/%Y")} al {fecha_fin.strftime("%d/%m/%Y")}. La propiedad ahora está disponible en este rango.'
@@ -11294,7 +11349,10 @@ def editar_disponibilidad(request, disponibilidad_id):
                 disponibilidad.moneda_asegurado = None
             
             disponibilidad.save()
-            
+
+            # Actualizar historial automáticamente para que refleje el cambio sin pulsar "Reconstruir historial"
+            reconstruir_historial_propiedad(disponibilidad.propiedad)
+
             return JsonResponse({
                 'success': True,
                 'message': f'Disponibilidad actualizada correctamente',
