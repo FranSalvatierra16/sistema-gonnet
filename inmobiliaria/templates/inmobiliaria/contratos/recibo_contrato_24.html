@@ -33,10 +33,10 @@
                 top: 0;
                 width: 100%;
             }
-            button {
-                display: none;
+            .no-print, .no-print * {
+                display: none !important;
+                visibility: hidden !important;
             }
-           
         }
     </style>
 
@@ -247,5 +247,14 @@
         </div>
     </div>
 
+    <!-- Botones visibles en pantalla; al imprimir no se muestran (CSS @media print los oculta) -->
+    <div class="no-print" style="text-align: center; margin: 20px 0; page-break-inside: avoid;">
+        <button type="button" onclick="window.print();" class="btn btn-primary">
+            <i class="fas fa-print"></i> Imprimir Recibo
+        </button>
+        <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-secondary ms-2">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
 </div>
 {% endblock %}
