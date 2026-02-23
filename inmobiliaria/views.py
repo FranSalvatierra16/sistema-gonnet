@@ -877,11 +877,34 @@ def propiedad_detalle(request, propiedad_id):
 
     # Incluir contratos de invierno (9 meses) en el historial para que se vean como "Invierno"
     from types import SimpleNamespace
-    contratos_invierno = ContratoAlquiler.objects.filter(
+    contratos_invierno = list(ContratoAlquiler.objects.filter(
         propiedad=propiedad,
         duracion_meses=9
-    ).select_related('inquilino').order_by('fecha_inicio')
+    ).select_related('inquilino').order_by('fecha_inicio'))
+    contratos_ya_mostrados = set()
+    # Convertir filas del historial que son "Operación" sin reserva (creadas desde ficha Invierno) en "Operación (Invierno)" si coinciden con un contrato
+    for i, h in enumerate(historiales):
+        if getattr(h, 'reserva', None) is None and getattr(h, 'estado', None) in ('alquilado', 'reservado'):
+            for c in contratos_invierno:
+                if c.id in contratos_ya_mostrados:
+                    continue
+                # ¿El rango del historial se solapa con el del contrato?
+                if h.fecha_inicio < c.fecha_fin and h.fecha_fin > c.fecha_inicio:
+                    historiales[i] = SimpleNamespace(
+                        fecha_inicio=h.fecha_inicio,
+                        fecha_fin=h.fecha_fin,
+                        estado='alquilado',
+                        reserva=None,
+                        es_invierno=True,
+                        contrato=c,
+                        fecha_actualizacion=getattr(h, 'fecha_actualizacion', c.fecha_creacion),
+                    )
+                    contratos_ya_mostrados.add(c.id)
+                    break
+    # Agregar contratos de invierno que no estaban ya en el historial (ej. recién creados)
     for contrato in contratos_invierno:
+        if contrato.id in contratos_ya_mostrados:
+            continue
         entry = SimpleNamespace(
             fecha_inicio=contrato.fecha_inicio,
             fecha_fin=contrato.fecha_fin,
