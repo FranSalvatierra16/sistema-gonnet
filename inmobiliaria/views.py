@@ -9817,6 +9817,32 @@ def crear_contrato_alquiler(request):
             except (Propiedad.DoesNotExist, Inquilino.DoesNotExist, Vendedor.DoesNotExist) as e:
                 return JsonResponse({'error': f'Error al obtener datos: {str(e)}'}, status=400)
 
+            # Si es contrato de invierno (9 meses), verificar que no haya reservas por día que se superpongan
+            if duracion_meses == 9:
+                try:
+                    fi = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+                    ff = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+                except (ValueError, TypeError):
+                    fi = ff = None
+                if fi and ff:
+                    reservas_solapadas = Reserva.objects.filter(
+                        propiedad=propiedad,
+                        eliminada=False,
+                        fecha_inicio__lt=ff,
+                        fecha_fin__gt=fi
+                    ).order_by('fecha_inicio')
+                    if reservas_solapadas.exists():
+                        primera = reservas_solapadas.first()
+                        texto_fechas = primera.fecha_inicio.strftime('%d/%m/%Y') + ' al ' + primera.fecha_fin.strftime('%d/%m/%Y')
+                        if reservas_solapadas.count() > 1:
+                            texto_fechas = f'{reservas_solapadas.count()} reservas por día (ej: {texto_fechas})'
+                        else:
+                            texto_fechas = f'Reserva por día del {texto_fechas}'
+                        return JsonResponse({
+                            'success': False,
+                            'error': f'No se puede crear el contrato de invierno: {texto_fechas} se superpone con las fechas elegidas. Debe cancelar o modificar esa reserva primero.'
+                        }, status=400)
+
             # Crear el contrato
             contrato = ContratoAlquiler.objects.create(
                 propiedad=propiedad,
