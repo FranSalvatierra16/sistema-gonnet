@@ -48,6 +48,8 @@ class ContratoAlquiler(models.Model):
     garante_apellido = models.CharField(max_length=100, blank=True)
     garante_dni = models.CharField(max_length=20, blank=True)
     garante_celular = models.CharField(max_length=30, blank=True)
+    garante_email = models.EmailField(max_length=120, blank=True)
+    garante_domicilio = models.CharField(max_length=200, blank=True)
 
     class Meta:
         verbose_name = 'Contrato de Alquiler'
