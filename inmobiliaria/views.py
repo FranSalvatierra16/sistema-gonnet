@@ -1605,6 +1605,9 @@ def operaciones(request):
                 # Si solo queremos pendientes y esta está pagada completa, saltarla
                 continue
             
+            # Fecha en que se hizo la operación (para ordenar): fecha de creación de la reserva
+            reserva.fecha_operacion_dia = reserva.fecha_creacion.date() if getattr(reserva, 'fecha_creacion', None) else reserva.fecha_inicio
+            
             reserva.es_invierno = False
             reservas_con_pagos.append(reserva)
         else:
@@ -1674,6 +1677,7 @@ def operaciones(request):
             propiedad=contrato.propiedad,
             fecha_inicio=contrato.fecha_inicio,
             fecha_fin=contrato.fecha_fin,
+            fecha_operacion_dia=contrato.fecha_operacion,
             precio_total=precio_total,
             total_pagado=Decimal(str(total_pagado)),
             saldo_pendiente=saldo_pendiente,
@@ -1685,7 +1689,7 @@ def operaciones(request):
         ))
 
     operaciones = list(reservas_con_pagos) + invierno_list
-    operaciones.sort(key=lambda x: x.fecha_inicio, reverse=True)
+    operaciones.sort(key=lambda x: getattr(x, 'fecha_operacion_dia', x.fecha_inicio), reverse=True)
 
     return render(request, 'inmobiliaria/reserva/operaciones.html', {
         'operaciones': operaciones,
