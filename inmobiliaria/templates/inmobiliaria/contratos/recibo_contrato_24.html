@@ -143,6 +143,21 @@
             </div>
         </div>
 
+        {% if contrato.duracion_meses == 9 %}
+        {% if contrato.garante_nombre or contrato.garante_apellido or contrato.garante_dni or contrato.garante_celular or contrato.garante_email or contrato.garante_domicilio %}
+        <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; padding: 6px 8px;">
+            <h2 style="margin: 0 0 4px 0; color: green; font-size: 10px;">GARANTE:</h2>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 8px;">
+                <span><strong>Nombre:</strong> {{ contrato.garante_apellido|default:"" }}{% if contrato.garante_apellido and contrato.garante_nombre %}, {% endif %}{{ contrato.garante_nombre|default:"" }}</span>
+                {% if contrato.garante_dni %}<span><strong>D.N.I.:</strong> {{ contrato.garante_dni }}</span>{% endif %}
+                {% if contrato.garante_celular %}<span><strong>Tel./Cel.:</strong> {{ contrato.garante_celular }}</span>{% endif %}
+                {% if contrato.garante_email %}<span><strong>E-mail:</strong> {{ contrato.garante_email }}</span>{% endif %}
+                {% if contrato.garante_domicilio %}<span><strong>Domicilio:</strong> {{ contrato.garante_domicilio }}</span>{% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+
         <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; height: 50%;">
             <!-- Información del contrato -->
             <div style="width: 100%; display: flex; flex-direction: column; height: 12%;">
