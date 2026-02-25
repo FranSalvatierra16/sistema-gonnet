@@ -53,13 +53,13 @@
                                         <div class="col-4">
                                             <div class="mb-3">
                                                 <label class="form-label"><strong>🗓️ Fecha Inicio:</strong></label>
-                                                <input type="date" class="form-control" id="fecha_inicio_invierno" name="fecha_inicio" required>
+                                                <input type="date" class="form-control" id="fecha_inicio_invierno_modal" name="fecha_inicio" required>
                                             </div>
                                         </div>
                                         <div class="col-4">
                                             <div class="mb-3">
                                                 <label class="form-label"><strong>🏁 Fecha Fin:</strong></label>
-                                                <input type="date" class="form-control" id="fecha_fin_invierno" name="fecha_fin" required>
+                                                <input type="date" class="form-control" id="fecha_fin_invierno_modal" name="fecha_fin" required>
                                             </div>
                                         </div>
                                     </div>
@@ -315,8 +315,8 @@ function mostrarModalContratoInvierno(propiedadId, direccion, sucursal, precioMe
     
     // Establecer fechas de inicio y fin para invierno (marzo a diciembre del año actual)
     const añoActual = new Date().getFullYear();
-    document.getElementById('fecha_inicio_invierno').value = `${añoActual}-03-01`;
-    document.getElementById('fecha_fin_invierno').value = `${añoActual}-12-31`;
+    document.getElementById('fecha_inicio_invierno_modal').value = añoActual + '-03-01';
+    document.getElementById('fecha_fin_invierno_modal').value = añoActual + '-12-31';
     
     // Mostrar el modal
     const modal = new bootstrap.Modal(document.getElementById('modalContratoInvierno'));
