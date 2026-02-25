@@ -1,0 +1,11 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "steps": {
+    "install": {
+      "commands": [
+        "python -m venv /app/.venv",
+        ". /app/.venv/bin/activate && pip install --default-timeout=600 -r requirements.txt"
+      ]
+    }
+  }
+}

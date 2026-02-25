@@ -10,17 +10,21 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.egg-info/
+.eggs/
+dist/
+build/
 
-# Django
+# Django (no necesarios para el build)
 *.log
 db.sqlite3
 db.sqlite3-journal
 staticfiles/
 media/
-
-# Backups
-backups/
 *.sql
+
+# Backups y datos pesados
+backups/
 *.json.backup
 
 # IDEs
@@ -41,4 +45,8 @@ Thumbs.db
 # Temporary files
 *.tmp
 temp_vars.txt
+
+# Tests y docs (opcional: incluir si los necesitás en deploy)
+# tests/
+# docs/
 
