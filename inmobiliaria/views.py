@@ -11941,6 +11941,7 @@ def configurar_numeracion_recibos(request, sucursal_id):
 @login_required
 def recibo_contrato_24(request, contrato_id):
     """Vista para mostrar el recibo de un contrato de 24 meses"""
+    from decimal import Decimal
     try:
         contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
         
