@@ -843,6 +843,12 @@ function procesarOperacion() {
     
     const nuevoPrecioMensual = parsearValorFormateado(document.getElementById('precio_mensual').value);
     formData.append('nuevo_precio_mensual', nuevoPrecioMensual);
+    // Los campos de "Información del Contrato" están fuera del form: enviar a mano
+    const mesAlquilerValor = document.getElementById('mes_alquiler_valor');
+    if (mesAlquilerValor) formData.append('mes_alquiler_valor', mesAlquilerValor.value || '');
+    const radioProporcional = document.getElementById('mes_alquiler_proporcional');
+    const mesAlquilerTipo = (radioProporcional && radioProporcional.checked) ? 'proporcional' : 'mensual';
+    formData.append('mes_alquiler_tipo', mesAlquilerTipo);
     if (tipoOperacion === 'principal') {
         formData.append('dia_vencimiento', '5');
     }
