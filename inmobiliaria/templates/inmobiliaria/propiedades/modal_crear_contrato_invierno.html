@@ -53,13 +53,13 @@
                                         <div class="col-4">
                                             <div class="mb-3">
                                                 <label class="form-label"><strong>🗓️ Fecha Inicio:</strong></label>
-                                                <input type="date" class="form-control" id="fecha_inicio_invierno" name="fecha_inicio" required>
+                                                <input type="date" class="form-control" id="fecha_inicio_invierno_modal" name="fecha_inicio" required>
                                             </div>
                                         </div>
                                         <div class="col-4">
                                             <div class="mb-3">
                                                 <label class="form-label"><strong>🏁 Fecha Fin:</strong></label>
-                                                <input type="date" class="form-control" id="fecha_fin_invierno" name="fecha_fin" required>
+                                                <input type="date" class="form-control" id="fecha_fin_invierno_modal" name="fecha_fin" required>
                                             </div>
                                         </div>
                                     </div>
@@ -170,38 +170,37 @@
                         </div>
                     </div>
 
-                    <!-- Garante -->
+                    <!-- Garantes (múltiples inquilinos) -->
                     <div class="row mt-3">
                         <div class="col-12">
                             <div class="card">
                                 <div class="card-header bg-primary text-white">
-                                    <h5 class="mb-0">🛡️ Datos del Garante</h5>
+                                    <h5 class="mb-0">🛡️ Garantes</h5>
+                                    <small class="opacity-75">Agregá uno o más inquilinos como garantes (misma lista que el inquilino)</small>
                                 </div>
                                 <div class="card-body">
-                                    <div class="row g-3">
-                                        <div class="col-md-3">
-                                            <label class="form-label"><strong>Nombre</strong></label>
-                                            <input type="text" class="form-control" name="garante_nombre" id="garante_nombre_invierno" placeholder="Nombre del garante">
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label"><strong>Apellido</strong></label>
-                                            <input type="text" class="form-control" name="garante_apellido" id="garante_apellido_invierno" placeholder="Apellido del garante">
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label"><strong>DNI</strong></label>
-                                            <input type="text" class="form-control" name="garante_dni" id="garante_dni_invierno" placeholder="DNI">
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label"><strong>Celular</strong></label>
-                                            <input type="text" class="form-control" name="garante_celular" id="garante_celular_invierno" placeholder="Celular">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label class="form-label"><strong>Seleccionar inquilino como garante</strong></label>
+                                            <div class="d-flex gap-2 mb-2">
+                                                <input type="text" id="buscar_garante_invierno" class="form-control" placeholder="Buscar por nombre, ID o DNI..." oninput="filtrarGarantesInvierno()">
+                                                <button type="button" class="btn btn-success" onclick="agregarGaranteInvierno()">➕ Agregar</button>
+                                            </div>
+                                            <select id="garante_select_invierno" size="5" class="form-control" style="max-height: 140px;">
+                                                <option value="">-- Seleccionar --</option>
+                                                {% for inquilino in inquilinos %}
+                                                <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.apellido }}, {{ inquilino.nombre }}" data-dni="{{ inquilino.dni|default:'' }}">
+                                                    ID: {{ inquilino.id }} - {{ inquilino.apellido }}, {{ inquilino.nombre }} (DNI: {{ inquilino.dni|default:'N/A' }})
+                                                </option>
+                                                {% endfor %}
+                                            </select>
                                         </div>
                                         <div class="col-md-6">
-                                            <label class="form-label"><strong>Mail</strong></label>
-                                            <input type="email" class="form-control" name="garante_email" id="garante_email_invierno" placeholder="Email del garante">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label"><strong>Domicilio</strong></label>
-                                            <input type="text" class="form-control" name="garante_domicilio" id="garante_domicilio_invierno" placeholder="Domicilio del garante">
+                                            <label class="form-label"><strong>Garantes agregados</strong></label>
+                                            <div id="lista_garantes_invierno" class="border rounded p-2" style="min-height: 100px; max-height: 160px; overflow-y: auto;">
+                                                <span class="text-muted small">Ninguno. Seleccioná arriba y pulsá Agregar.</span>
+                                            </div>
+                                            <div id="garante_ids_container_invierno"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -315,12 +314,62 @@ function mostrarModalContratoInvierno(propiedadId, direccion, sucursal, precioMe
     
     // Establecer fechas de inicio y fin para invierno (marzo a diciembre del año actual)
     const añoActual = new Date().getFullYear();
-    document.getElementById('fecha_inicio_invierno').value = `${añoActual}-03-01`;
-    document.getElementById('fecha_fin_invierno').value = `${añoActual}-12-31`;
+    document.getElementById('fecha_inicio_invierno_modal').value = añoActual + '-03-01';
+    document.getElementById('fecha_fin_invierno_modal').value = añoActual + '-12-31';
+    
+    // Limpiar garantes
+    garantesSeleccionadosInvierno = [];
+    actualizarListaGarantesInvierno();
     
     // Mostrar el modal
     const modal = new bootstrap.Modal(document.getElementById('modalContratoInvierno'));
     modal.show();
+}
+
+// Garantes (invierno): lista { id, nombre }
+var garantesSeleccionadosInvierno = [];
+function agregarGaranteInvierno() {
+    var sel = document.getElementById('garante_select_invierno');
+    var opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+    var id = parseInt(opt.value, 10);
+    if (garantesSeleccionadosInvierno.some(function(g) { return g.id === id; })) return;
+    garantesSeleccionadosInvierno.push({ id: id, nombre: opt.dataset.nombre || opt.text });
+    actualizarListaGarantesInvierno();
+}
+function quitarGaranteInvierno(id) {
+    garantesSeleccionadosInvierno = garantesSeleccionadosInvierno.filter(function(g) { return g.id !== id; });
+    actualizarListaGarantesInvierno();
+}
+function actualizarListaGarantesInvierno() {
+    var cont = document.getElementById('lista_garantes_invierno');
+    var hiddenCont = document.getElementById('garante_ids_container_invierno');
+    if (!cont || !hiddenCont) return;
+    hiddenCont.innerHTML = '';
+    if (garantesSeleccionadosInvierno.length === 0) {
+        cont.innerHTML = '<span class="text-muted small">Ninguno. Seleccioná arriba y pulsá Agregar.</span>';
+        return;
+    }
+    cont.innerHTML = garantesSeleccionadosInvierno.map(function(g) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'garante_ids';
+        inp.value = g.id;
+        hiddenCont.appendChild(inp);
+        return '<span class="badge bg-primary me-1 mb-1" style="font-size: 0.85rem;">' + (g.nombre || 'ID ' + g.id) + ' <a href="#" onclick="quitarGaranteInvierno(' + g.id + '); return false;" class="text-white">✕</a></span>';
+    }).join(' ');
+}
+function filtrarGarantesInvierno() {
+    var term = (document.getElementById('buscar_garante_invierno') || {}).value.toLowerCase();
+    var select = document.getElementById('garante_select_invierno');
+    if (!select) return;
+    Array.from(select.options).forEach(function(opt) {
+        if (opt.value === '') { opt.style.display = ''; return; }
+        var text = (opt.textContent || '').toLowerCase();
+        var dataNombre = (opt.dataset.nombre || '').toLowerCase();
+        var dataDni = (opt.dataset.dni || '').toLowerCase();
+        opt.style.display = (text.indexOf(term) >= 0 || dataNombre.indexOf(term) >= 0 || dataDni.indexOf(term) >= 0) ? '' : 'none';
+    });
 }
 
 // Función para buscar inquilinos en tiempo real

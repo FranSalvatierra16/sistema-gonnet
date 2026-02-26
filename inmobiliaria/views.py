@@ -9885,6 +9885,8 @@ def crear_contrato_alquiler(request):
             garante_celular = (request.POST.get('garante_celular') or '').strip()
             garante_email = (request.POST.get('garante_email') or '').strip()
             garante_domicilio = (request.POST.get('garante_domicilio') or '').strip()
+            carrera = (request.POST.get('carrera') or '').strip()
+            garante_ids = [x for x in request.POST.getlist('garante_ids') if x.strip().isdigit()]
 
             # Validar datos
             if not all([propiedad_id, inquilino_id, vendedor_id, fecha_operacion, fecha_inicio, fecha_fin]):
@@ -9948,7 +9950,15 @@ def crear_contrato_alquiler(request):
                 garante_celular=garante_celular,
                 garante_email=garante_email,
                 garante_domicilio=garante_domicilio,
+                carrera=carrera,
             )
+            # Asignar garantes (inquilinos seleccionados)
+            if garante_ids:
+                garantes_ok = Inquilino.objects.filter(
+                    id__in=garante_ids,
+                    sucursal=request.user.sucursal
+                ).values_list('id', flat=True)
+                contrato.garantes.set(garantes_ok)
 
             # Marcar la propiedad como reservada según tipo de contrato
             if duracion_meses == 9:

@@ -143,8 +143,26 @@
             </div>
         </div>
 
-        {% if contrato.duracion_meses == 9 %}
-        {% if contrato.garante_nombre or contrato.garante_apellido or contrato.garante_dni or contrato.garante_celular or contrato.garante_email or contrato.garante_domicilio %}
+        {% if contrato.carrera %}
+        <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; padding: 4px 8px;">
+            <h2 style="margin: 0; color: green; font-size: 9px;">CARRERA (contrato estudiante):</h2>
+            <div style="font-size: 8px;">{{ contrato.carrera }}</div>
+        </div>
+        {% endif %}
+        {% if contrato.garantes.exists %}
+        <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; padding: 6px 8px;">
+            <h2 style="margin: 0 0 4px 0; color: green; font-size: 10px;">GARANTES:</h2>
+            {% for g in contrato.garantes.all %}
+            <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 8px; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px dotted #ccc;">
+                <span><strong>Nombre:</strong> {{ g.apellido|default:"" }}, {{ g.nombre|default:"" }}</span>
+                {% if g.dni %}<span><strong>D.N.I.:</strong> {{ g.dni }}</span>{% endif %}
+                {% if g.celular %}<span><strong>Tel./Cel.:</strong> {{ g.celular }}</span>{% endif %}
+                {% if g.email %}<span><strong>E-mail:</strong> {{ g.email }}</span>{% endif %}
+                {% if g.domicilio %}<span><strong>Domicilio:</strong> {{ g.domicilio }}</span>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% elif contrato.garante_nombre or contrato.garante_apellido or contrato.garante_dni or contrato.garante_celular or contrato.garante_email or contrato.garante_domicilio %}
         <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; padding: 6px 8px;">
             <h2 style="margin: 0 0 4px 0; color: green; font-size: 10px;">GARANTE:</h2>
             <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 8px;">
@@ -155,7 +173,6 @@
                 {% if contrato.garante_domicilio %}<span><strong>Domicilio:</strong> {{ contrato.garante_domicilio }}</span>{% endif %}
             </div>
         </div>
-        {% endif %}
         {% endif %}
 
         <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; height: 50%;">

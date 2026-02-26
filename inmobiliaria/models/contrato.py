@@ -43,7 +43,17 @@ class ContratoAlquiler(models.Model):
     sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
     operacion_principal = models.BooleanField(default=False, help_text='Indica si ya se realizó la operación principal (depósito + primer mes)')
 
-    # Datos del garante (opcional; usado en contratos invierno)
+    # Garantes: inquilinos seleccionados como garantes (varios por contrato)
+    garantes = models.ManyToManyField(
+        'Inquilino',
+        related_name='contratos_como_garante',
+        blank=True,
+        verbose_name='Garantes'
+    )
+    # Carrera del inquilino (contrato estudiante)
+    carrera = models.CharField(max_length=200, blank=True, verbose_name='Carrera')
+
+    # Datos del garante en texto (legacy; se usa si no hay garantes M2M)
     garante_nombre = models.CharField(max_length=100, blank=True)
     garante_apellido = models.CharField(max_length=100, blank=True)
     garante_dni = models.CharField(max_length=20, blank=True)

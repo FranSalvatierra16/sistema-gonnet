@@ -172,6 +172,49 @@
                         </div>
                     </div>
 
+                    <!-- Carrera (contrato estudiante) y Garantes -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0">📚 Carrera (contrato estudiante) y Garantes</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row mb-3">
+                                        <div class="col-12">
+                                            <label class="form-label"><strong>Carrera</strong></label>
+                                            <input type="text" class="form-control" name="carrera" id="carrera_contrato" placeholder="Nombre de la carrera que estudia el inquilino (ej: Medicina, Ingeniería)">
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label class="form-label"><strong>Agregar garantes (inquilinos)</strong></label>
+                                            <div class="d-flex gap-2 mb-2">
+                                                <input type="text" id="buscar_garante_24" class="form-control" placeholder="Buscar por nombre, ID o DNI..." oninput="filtrarGarantes24()">
+                                                <button type="button" class="btn btn-success" onclick="agregarGarante24()">➕ Agregar</button>
+                                            </div>
+                                            <select id="garante_select_24" size="4" class="form-control" style="max-height: 120px;">
+                                                <option value="">-- Seleccionar --</option>
+                                                {% for inquilino in inquilinos %}
+                                                <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.apellido }}, {{ inquilino.nombre }}" data-dni="{{ inquilino.dni|default:'' }}">
+                                                    ID: {{ inquilino.id }} - {{ inquilino.apellido }}, {{ inquilino.nombre }} (DNI: {{ inquilino.dni|default:'N/A' }})
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label"><strong>Garantes agregados</strong></label>
+                                            <div id="lista_garantes_24" class="border rounded p-2" style="min-height: 80px; max-height: 140px; overflow-y: auto;">
+                                                <span class="text-muted small">Ninguno.</span>
+                                            </div>
+                                            <div id="garante_ids_container_24"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Honorarios y Sellados -->
                     <div class="row mt-3">
                         <div class="col-12">
@@ -454,9 +497,62 @@ function mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, e
     document.getElementById('fecha_inicio').value = hoy;
     document.getElementById('fecha_inicio').min = hoy;
     
+    // Limpiar garantes y carrera
+    garantesSeleccionados24 = [];
+    actualizarListaGarantes24();
+    var carreraInput = document.getElementById('carrera_contrato');
+    if (carreraInput) carreraInput.value = '';
+    
     // Mostrar el modal
     const modalBootstrap = new bootstrap.Modal(document.getElementById('modalContrato'));
     modalBootstrap.show();
+}
+
+// Garantes (contrato 24): lista { id, nombre }
+var garantesSeleccionados24 = [];
+function agregarGarante24() {
+    var sel = document.getElementById('garante_select_24');
+    if (!sel) return;
+    var opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+    var id = parseInt(opt.value, 10);
+    if (garantesSeleccionados24.some(function(g) { return g.id === id; })) return;
+    garantesSeleccionados24.push({ id: id, nombre: opt.dataset.nombre || opt.text });
+    actualizarListaGarantes24();
+}
+function quitarGarante24(id) {
+    garantesSeleccionados24 = garantesSeleccionados24.filter(function(g) { return g.id !== id; });
+    actualizarListaGarantes24();
+}
+function actualizarListaGarantes24() {
+    var cont = document.getElementById('lista_garantes_24');
+    var hiddenCont = document.getElementById('garante_ids_container_24');
+    if (!cont || !hiddenCont) return;
+    hiddenCont.innerHTML = '';
+    if (garantesSeleccionados24.length === 0) {
+        cont.innerHTML = '<span class="text-muted small">Ninguno.</span>';
+        return;
+    }
+    cont.innerHTML = garantesSeleccionados24.map(function(g) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'garante_ids';
+        inp.value = g.id;
+        hiddenCont.appendChild(inp);
+        return '<span class="badge bg-primary me-1 mb-1" style="font-size: 0.85rem;">' + (g.nombre || 'ID ' + g.id) + ' <a href="#" onclick="quitarGarante24(' + g.id + '); return false;" class="text-white">✕</a></span>';
+    }).join(' ');
+}
+function filtrarGarantes24() {
+    var term = (document.getElementById('buscar_garante_24') || {}).value.toLowerCase();
+    var select = document.getElementById('garante_select_24');
+    if (!select) return;
+    Array.from(select.options).forEach(function(opt) {
+        if (opt.value === '') { opt.style.display = ''; return; }
+        var text = (opt.textContent || '').toLowerCase();
+        var dataNombre = (opt.dataset.nombre || '').toLowerCase();
+        var dataDni = (opt.dataset.dni || '').toLowerCase();
+        opt.style.display = (text.indexOf(term) >= 0 || dataNombre.indexOf(term) >= 0 || dataDni.indexOf(term) >= 0) ? '' : 'none';
+    });
 }
 
 // Función para buscar inquilinos en tiempo real
