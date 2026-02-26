@@ -10576,11 +10576,13 @@ def procesar_operacion_contrato(request, contrato_id):
                     concepto_1_importe = importe_val
 
             # Actualizar contrato solo si el usuario incluyó esos conceptos: depósito (10) y/o primer mes (1)
+            # No sobrescribir precio_mensual con el concepto 1 si eligieron proporcional (el concepto 1 puede ser el proporcional)
+            mes_alquiler_tipo_post = (request.POST.get('mes_alquiler_tipo') or '').strip().lower()
             update_fields = []
             if concepto_10_importe is not None:
                 contrato.deposito_garantia = Decimal(str(concepto_10_importe))
                 update_fields.append('deposito_garantia')
-            if concepto_1_importe is not None and float(concepto_1_importe) > 0:
+            if concepto_1_importe is not None and float(concepto_1_importe) > 0 and mes_alquiler_tipo_post != 'proporcional':
                 contrato.precio_mensual = Decimal(str(concepto_1_importe))
                 update_fields.append('precio_mensual')
             if update_fields:
