@@ -10444,10 +10444,22 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             mes_alquiler_importe = float(limpiar_valor_monetario(mes_alquiler_valor_raw)) if mes_alquiler_valor_raw else None
         except (TypeError, ValueError):
             mes_alquiler_importe = None
-        if conceptos_data and mes_alquiler_importe is not None:
+        # Si no vino el valor pero sí el tipo, usar importe del concepto 1 (alquiler) o 0
+        if mes_alquiler_importe is None and mes_alquiler_tipo and request.POST.get('mes_alquiler_tipo', '').strip().lower() in ('proporcional', 'mensual'):
+            for c in conceptos_data:
+                if str(c.get('id') or c.get('codigo')) == '1':
+                    try:
+                        mes_alquiler_importe = float(c.get('importe', 0))
+                    except (TypeError, ValueError):
+                        mes_alquiler_importe = 0.0
+                    break
+            if mes_alquiler_importe is None:
+                mes_alquiler_importe = 0.0
+        if conceptos_data and (mes_alquiler_importe is not None or request.POST.get('mes_alquiler_tipo', '').strip().lower() in ('proporcional', 'mensual')):
+            importe_para_json = float(mes_alquiler_importe) if mes_alquiler_importe is not None else 0.0
             concepto_detalle_json = json.dumps({
                 'conceptos': conceptos_data,
-                'mes_alquiler_importe': mes_alquiler_importe,
+                'mes_alquiler_importe': importe_para_json,
                 'mes_alquiler_tipo': mes_alquiler_tipo,
             })
         else:
@@ -11997,6 +12009,13 @@ def recibo_contrato_24(request, contrato_id):
                             pass
                     if obj.get('mes_alquiler_tipo') in ('proporcional', 'mensual'):
                         mes_alquiler_tipo_recibo = obj.get('mes_alquiler_tipo')
+                    elif mes_alquiler_importe_recibo is not None and contrato.precio_mensual:
+                        # Movimientos antiguos sin mes_alquiler_tipo: si el importe difiere del precio mensual, asumir proporcional
+                        try:
+                            if abs(float(mes_alquiler_importe_recibo) - float(contrato.precio_mensual)) > 0.01:
+                                mes_alquiler_tipo_recibo = 'proporcional'
+                        except (TypeError, ValueError):
+                            pass
                 else:
                     if not (json_str and json_str.strip().startswith('[')):
                         json_str = '[]'
