@@ -145,9 +145,17 @@
         </div>
 
         {% if contrato.carrera %}
-        <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; padding: 4px 8px;">
-            <h2 style="margin: 0; color: green; font-size: 9px;">CARRERA (contrato estudiante):</h2>
-            <div style="font-size: 8px;">{{ contrato.carrera }}{% if precio_mensual_contrato %} — Precio mensual: {{ precio_mensual_contrato }}{% endif %}</div>
+        <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; padding: 4px 8px; display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start;">
+            <div style="width: 48%;">
+                <h2 style="margin: 0; color: green; font-size: 9px;">CARRERA (contrato estudiante):</h2>
+                <div style="font-size: 8px;">{{ contrato.carrera }}</div>
+            </div>
+            {% if precio_mensual_contrato %}
+            <div style="width: 48%; text-align: right;">
+                <h2 style="margin: 0; color: green; font-size: 9px;">Precio mensual:</h2>
+                <div style="font-size: 8px;">{{ precio_mensual_contrato }}</div>
+            </div>
+            {% endif %}
         </div>
         {% endif %}
         {% if contrato.garantes.exists %}
