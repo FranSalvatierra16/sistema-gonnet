@@ -10455,13 +10455,24 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
                     break
             if mes_alquiler_importe is None:
                 mes_alquiler_importe = 0.0
+        # Precio mensual completo (el del campo "Mes alquiler") para mostrarlo en el recibo aunque se haya elegido proporcional
+        precio_mensual_completo = None
+        try:
+            pm_raw = (request.POST.get('precio_mensual') or request.POST.get('nuevo_precio_mensual') or '').strip()
+            if pm_raw:
+                precio_mensual_completo = float(limpiar_valor_monetario(pm_raw))
+        except (TypeError, ValueError):
+            pass
         if conceptos_data and (mes_alquiler_importe is not None or request.POST.get('mes_alquiler_tipo', '').strip().lower() in ('proporcional', 'mensual')):
             importe_para_json = float(mes_alquiler_importe) if mes_alquiler_importe is not None else 0.0
-            concepto_detalle_json = json.dumps({
+            payload = {
                 'conceptos': conceptos_data,
                 'mes_alquiler_importe': importe_para_json,
                 'mes_alquiler_tipo': mes_alquiler_tipo,
-            })
+            }
+            if precio_mensual_completo is not None:
+                payload['precio_mensual_completo'] = precio_mensual_completo
+            concepto_detalle_json = json.dumps(payload)
         else:
             concepto_detalle_json = json.dumps(conceptos_data) if conceptos_data else ''
 
@@ -11951,6 +11962,7 @@ def recibo_contrato_24(request, contrato_id):
         conceptos_contrato = []
         mes_alquiler_importe_recibo = None  # valor elegido (mensual/proporcional) guardado en movimiento
         mes_alquiler_tipo_recibo = 'mensual'  # 'proporcional' o 'mensual' para la etiqueta en el recibo
+        precio_mensual_completo_recibo = None  # precio mensual del formulario (para "Mes alquiler" en recibo)
 
         # Buscar movimientos del contrato (más reciente primero) y usar el que tenga concepto_detalle
         movimientos_contrato = MovimientoCaja.objects.filter(
@@ -12017,6 +12029,11 @@ def recibo_contrato_24(request, contrato_id):
                         try:
                             if abs(float(mes_alquiler_importe_recibo) - float(contrato.precio_mensual)) > 0.01:
                                 mes_alquiler_tipo_recibo = 'proporcional'
+                        except (TypeError, ValueError):
+                            pass
+                    if obj.get('precio_mensual_completo') is not None:
+                        try:
+                            precio_mensual_completo_recibo = Decimal(str(obj['precio_mensual_completo']))
                         except (TypeError, ValueError):
                             pass
                 else:
@@ -12348,8 +12365,11 @@ def recibo_contrato_24(request, contrato_id):
                 return f"PESOS {str(int(float(numero))).upper()}"
             return ""
         
-        # Precio mensual del contrato (siempre el valor mensual, no el proporcional) para mostrar junto a CARRERA
-        precio_mensual_contrato = format_currency(contrato.precio_mensual or 0)
+        # Precio mensual del contrato (siempre el valor mensual, no el proporcional) para "Mes alquiler" en el recibo
+        if precio_mensual_completo_recibo is not None and float(precio_mensual_completo_recibo) > 0:
+            precio_mensual_contrato = format_currency(precio_mensual_completo_recibo)
+        else:
+            precio_mensual_contrato = format_currency(contrato.precio_mensual or 0)
 
         context = {
             'contrato': contrato,
