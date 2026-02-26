@@ -170,6 +170,21 @@
                         </div>
                     </div>
 
+                    <!-- Carrera (contrato estudiante) -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0">📚 Carrera (contrato estudiante)</h5>
+                                </div>
+                                <div class="card-body py-2">
+                                    <label class="form-label mb-0"><strong>Nombre de la carrera que estudia el inquilino</strong></label>
+                                    <input type="text" class="form-control" name="carrera" id="carrera_invierno" placeholder="Ej: Medicina, Ingeniería, Abogacía...">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Garantes (múltiples inquilinos) -->
                     <div class="row mt-3">
                         <div class="col-12">
@@ -317,9 +332,11 @@ function mostrarModalContratoInvierno(propiedadId, direccion, sucursal, precioMe
     document.getElementById('fecha_inicio_invierno_modal').value = añoActual + '-03-01';
     document.getElementById('fecha_fin_invierno_modal').value = añoActual + '-12-31';
     
-    // Limpiar garantes
+    // Limpiar garantes y carrera
     garantesSeleccionadosInvierno = [];
     actualizarListaGarantesInvierno();
+    var carreraInv = document.getElementById('carrera_invierno');
+    if (carreraInv) carreraInv.value = '';
     
     // Mostrar el modal
     const modal = new bootstrap.Modal(document.getElementById('modalContratoInvierno'));
