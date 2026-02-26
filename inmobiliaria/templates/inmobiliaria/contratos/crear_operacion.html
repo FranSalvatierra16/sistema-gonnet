@@ -55,19 +55,19 @@
                             <div class="form-group mb-2">
                                 <label><strong>Mes alquiler (elegir uno):</strong></label>
                                 <div class="mb-1">
-                                    <label class="me-2"><strong>Precio mensual:</strong></label>
+                                    <label class="me-2"><strong>Mes alquiler (precio mensual):</strong></label>
                                     <input type="text" class="form-control d-inline-block" id="precio_mensual" name="precio_mensual" style="max-width: 140px;"
                                            value="{{ contrato.precio_mensual|format_price }}" 
-                                           onchange="formatearNumeroEnTiempoReal(this); actualizarProporcionalYMesAlquiler(); actualizarTotalEsperado()" 
-                                           oninput="formatearNumeroEnTiempoReal(this); actualizarProporcionalYMesAlquiler(); actualizarTotalEsperado()">
+                                           onchange="formatearNumeroEnTiempoReal(this); actualizarProporcionalYMesAlquiler(); actualizarTotalEsperado(); actualizarEtiquetaValorUsar()" 
+                                           oninput="formatearNumeroEnTiempoReal(this); actualizarProporcionalYMesAlquiler(); actualizarTotalEsperado(); actualizarEtiquetaValorUsar()">
                                 </div>
                                 <div class="mb-2">
                                     <label class="me-2"><strong>Proporcional:</strong></label>
                                     <input type="text" class="form-control d-inline-block" id="proporcional_display" name="proporcional_display" style="max-width: 140px;"
-                                           placeholder="Podés escribirlo o se calcula automático"
-                                           onchange="formatearNumeroEnTiempoReal(this); actualizarMesAlquilerValorDesdeRadio()"
-                                           oninput="formatearNumeroEnTiempoReal(this); actualizarMesAlquilerValorDesdeRadio()"
-                                           title="Escribí el proporcional o se calcula desde fecha inicio hasta fin de mes">
+                                           placeholder="0 o escribí el valor"
+                                           onchange="formatearNumeroEnTiempoReal(this); actualizarMesAlquilerValorDesdeRadio(); actualizarEtiquetaValorUsar()"
+                                           oninput="formatearNumeroEnTiempoReal(this); actualizarMesAlquilerValorDesdeRadio(); actualizarEtiquetaValorUsar()"
+                                           title="Escribí el proporcional (ej. 0) o se calcula desde fecha inicio hasta fin de mes">
                                 </div>
                                 <div class="form-check form-check-inline">
                                     <input class="form-check-input" type="radio" name="mes_alquiler_tipo" id="mes_alquiler_mensual" value="mensual" checked>
@@ -76,6 +76,9 @@
                                 <div class="form-check form-check-inline">
                                     <input class="form-check-input" type="radio" name="mes_alquiler_tipo" id="mes_alquiler_proporcional" value="proporcional">
                                     <label class="form-check-label" for="mes_alquiler_proporcional">Usar proporcional</label>
+                                </div>
+                                <div class="mt-2 small">
+                                    <strong>Valor a usar:</strong> <span id="etiqueta_mes_o_proporcional">Mes alquiler</span> ........ <span id="valor_mes_o_proporcional">0</span>
                                 </div>
                                 <input type="hidden" id="mes_alquiler_valor" name="mes_alquiler_valor" value="">
                             </div>
@@ -923,11 +926,15 @@ function actualizarProporcionalYMesAlquiler() {
                 var month = d.getMonth();
                 var lastDay = new Date(year, month + 1, 0).getDate();
                 var dayStart = d.getDate();
-                var dias = lastDay - dayStart + 1;
-                if (dias < 1) dias = 1;
-                if (dias > 31) dias = lastDay;
-                proporcional = (precioMensual / 30) * dias;
-                proporcional = Math.round(proporcional * 100) / 100;
+                if (dayStart === 1) {
+                    proporcional = 0;
+                } else {
+                    var dias = lastDay - dayStart + 1;
+                    if (dias < 1) dias = 1;
+                    if (dias > 31) dias = lastDay;
+                    proporcional = (precioMensual / 30) * dias;
+                    proporcional = Math.round(proporcional * 100) / 100;
+                }
             }
         } catch (e) { /* mantener 0 */ }
     }
@@ -945,6 +952,21 @@ function actualizarMesAlquilerValorDesdeRadio() {
     var usarProporcional = document.getElementById('mes_alquiler_proporcional') && document.getElementById('mes_alquiler_proporcional').checked;
     var mesAlquilerValor = document.getElementById('mes_alquiler_valor');
     if (mesAlquilerValor) mesAlquilerValor.value = String(usarProporcional ? proporcional : precioMensual);
+    actualizarEtiquetaValorUsar();
+}
+
+function actualizarEtiquetaValorUsar() {
+    var usarProporcional = document.getElementById('mes_alquiler_proporcional') && document.getElementById('mes_alquiler_proporcional').checked;
+    var precioMensual = parsearValorFormateado(document.getElementById('precio_mensual').value);
+    var proporcionalDisplay = document.getElementById('proporcional_display');
+    var proporcional = parsearValorFormateado(proporcionalDisplay ? proporcionalDisplay.value : '0');
+    var etiq = document.getElementById('etiqueta_mes_o_proporcional');
+    var valSpan = document.getElementById('valor_mes_o_proporcional');
+    if (etiq) etiq.textContent = usarProporcional ? 'Proporcional' : 'Mes alquiler';
+    if (valSpan) {
+        var valor = usarProporcional ? proporcional : precioMensual;
+        valSpan.textContent = typeof valor === 'number' ? '$' + (valor || 0).toLocaleString('es-AR') : '$0';
+    }
 }
 
 // Función para buscar concepto por ID
@@ -1179,6 +1201,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Inicializar proporcional y mes alquiler elegido
     actualizarProporcionalYMesAlquiler();
+    actualizarEtiquetaValorUsar();
     document.querySelectorAll('input[name="mes_alquiler_tipo"]').forEach(function(radio) {
         radio.addEventListener('change', function() {
             actualizarMesAlquilerValorDesdeRadio();
