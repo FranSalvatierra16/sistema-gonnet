@@ -10179,6 +10179,7 @@ def crear_operacion_contrato(request, contrato_id):
         'deposito_garantia_val': conceptos_principal_data['deposito_garantia'],
         'concepto_alquiler_nombre': concepto_1.nombre if concepto_1 else 'Alquiler',
         'concepto_deposito_nombre': concepto_10.nombre if concepto_10 else 'Depósito de garantía',
+        'fecha_inicio': contrato.fecha_inicio.isoformat() if getattr(contrato, 'fecha_inicio', None) else None,
     }
     context = {
         'contrato': contrato,
@@ -10225,16 +10226,22 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
 # print(f"   - Movimiento {i+1}: {movimiento.concepto[:50]}...")
         
         try:
-            # ✅ Usar concepto_detalle (JSON completo) si existe; si no, intentar parsear concepto
+            # ✅ Usar concepto_detalle (JSON completo); puede ser array o objeto {conceptos, ...}
             json_str = getattr(movimiento, 'concepto_detalle', None)
-            if json_str and json_str.strip().startswith('['):
-                conceptos_data = json.loads(json_str)
+            if json_str and json_str.strip():
+                parsed = json.loads(json_str)
+                if isinstance(parsed, dict) and 'conceptos' in parsed:
+                    conceptos_data = parsed.get('conceptos', [])
+                elif isinstance(parsed, list):
+                    conceptos_data = parsed
+                else:
+                    conceptos_data = []
             else:
                 try:
                     conceptos_data = json.loads(movimiento.concepto) if (movimiento.concepto or '').strip().startswith('[') else []
                 except (json.JSONDecodeError, ValueError, TypeError):
                     conceptos_data = []
-            
+
             for concepto in conceptos_data:
                 concepto_id_actual = str(concepto.get('id', concepto.get('codigo', '')))
                 if concepto_id_actual == str(concepto_id):
@@ -10428,8 +10435,17 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         concepto_para_busqueda = prefijo + concepto_json_truncado
         if len(concepto_para_busqueda) > 200:
             concepto_para_busqueda = concepto_para_busqueda[:197] + "..."
-        concepto_detalle_json = json.dumps(conceptos_data) if conceptos_data else ''
-        
+        # Guardar mes_alquiler_importe (elegido: mensual o proporcional) para el recibo
+        mes_alquiler_valor_raw = (request.POST.get('mes_alquiler_valor') or '').strip()
+        try:
+            mes_alquiler_importe = float(limpiar_valor_monetario(mes_alquiler_valor_raw)) if mes_alquiler_valor_raw else None
+        except (TypeError, ValueError):
+            mes_alquiler_importe = None
+        if conceptos_data and mes_alquiler_importe is not None:
+            concepto_detalle_json = json.dumps({'conceptos': conceptos_data, 'mes_alquiler_importe': mes_alquiler_importe})
+        else:
+            concepto_detalle_json = json.dumps(conceptos_data) if conceptos_data else ''
+
         # Honorarios = concepto 25 (igual que depósito con concepto 10): si está en conceptos, usar su importe
         honorarios_final = honorarios
         for c in conceptos_data:
@@ -11880,7 +11896,8 @@ def recibo_contrato_24(request, contrato_id):
         
         # Obtener los conceptos del primer pago del contrato
         conceptos_contrato = []
-        
+        mes_alquiler_importe_recibo = None  # valor elegido (mensual/proporcional) guardado en movimiento
+
         # Buscar movimientos del contrato (más reciente primero) y usar el que tenga concepto_detalle
         movimientos_contrato = MovimientoCaja.objects.filter(
             concepto__icontains=f'Contrato #{contrato.id}',
@@ -11891,7 +11908,7 @@ def recibo_contrato_24(request, contrato_id):
         primer_movimiento = None
         for mov in movimientos_contrato:
             detalle = (getattr(mov, 'concepto_detalle', None) or '').strip()
-            if detalle and detalle.startswith('['):
+            if detalle and (detalle.startswith('[') or detalle.startswith('{')):
                 primer_movimiento = mov
                 break
         if not primer_movimiento:
@@ -11926,14 +11943,23 @@ def recibo_contrato_24(request, contrato_id):
 # print(f"  - precio_mensual: ${contrato.precio_mensual}")
 # print(f"  - deposito_garantia: ${contrato.deposito_garantia}")
             
-            # ✅ Usar concepto_detalle (JSON completo) si existe y no está vacío; si no, concepto (puede estar truncado)
+            # ✅ Usar concepto_detalle (JSON completo) si existe; puede ser array o objeto {conceptos, mes_alquiler_importe}
             try:
                 import json
                 concepto_detalle_raw = (getattr(primer_movimiento, 'concepto_detalle', None) or '').strip()
                 json_str = concepto_detalle_raw if concepto_detalle_raw else (primer_movimiento.concepto or '[]')
-                if not (json_str and json_str.strip().startswith('[')):
-                    json_str = '[]'
-                conceptos_data = json.loads(json_str) if json_str.strip() else []
+                if json_str.strip().startswith('{'):
+                    obj = json.loads(json_str)
+                    conceptos_data = obj.get('conceptos', [])
+                    if obj.get('mes_alquiler_importe') is not None:
+                        try:
+                            mes_alquiler_importe_recibo = Decimal(str(obj['mes_alquiler_importe']))
+                        except (TypeError, ValueError):
+                            pass
+                else:
+                    if not (json_str and json_str.strip().startswith('[')):
+                        json_str = '[]'
+                    conceptos_data = json.loads(json_str) if json_str.strip() else []
 # print(f"🎯 CONCEPTOS JSON ENCONTRADOS: {len(conceptos_data)} conceptos")
 # print(f"🎯 DATOS COMPLETOS: {conceptos_data}")
                 
@@ -12191,9 +12217,11 @@ def recibo_contrato_24(request, contrato_id):
 # print(f"  ✅ SIN MOVIMIENTO: Alquiler ${precio_mensual_valor}")
         
         from decimal import Decimal
-        
-        # Mes alquiler = precio mensual del contrato; si está en 0, del concepto alquiler cargado; si no, de la propiedad
-        alquiler_mensual = contrato.precio_mensual or Decimal('0')
+
+        # Mes alquiler: prioridad = valor guardado en movimiento (mensual/proporcional elegido); luego contrato; luego concepto 1; luego propiedad
+        alquiler_mensual = mes_alquiler_importe_recibo if mes_alquiler_importe_recibo is not None else None
+        if alquiler_mensual is None:
+            alquiler_mensual = contrato.precio_mensual or Decimal('0')
         if alquiler_mensual == 0 and conceptos_contrato:
             for c in conceptos_contrato:
                 co = str(c.get('codigo') or c.get('id') or '')

@@ -69,6 +69,7 @@
             <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-end; text-align: right; padding-right: 10px;">
                 <h1 style="margin: 0; color: green; font-size: 24px;">RECIBO</h1>
                 <h2 style="margin: 0; color: green; font-size: 12px;">CONTRATO 24M</h2>
+                <h2 style="margin: 0; color: black; font-size: 9px; font-weight: bold;">Mes alquiler: {{ alquiler_mensual|default:"0.00" }}</h2>
                 <h2 style="margin: 0; color: black; font-size: 8px;">Fecha:</h2>
                 <h2 style="margin: 0; color: black; font-size: 8px;">Hora:</h2>
                 <h2 style="margin: 0; color: black; font-size: 8px;">ING.BRUTOS: 20-10757577-6</h2>
@@ -228,7 +229,11 @@
                     <div style="margin-top: 10px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 7px;">
                             <tr style="border-bottom: 1px solid black;">
-                                <td style="padding: 2px; text-align: center; border-right: 1px solid black;">Mes alquiler <span style="letter-spacing: 1px;">..........................</span></td>
+                                <td style="padding: 2px; text-align: left; border-right: 1px solid black; vertical-align: top;">
+                                    <div style="font-size: 8px;">Mes alquiler</div>
+                                    <input type="text" class="input-mes-alquiler-obs" placeholder="..." style="width: 100%; font-size: 8px; border: none; border-bottom: 1px dotted #333; background: transparent; margin: 0; padding: 0 2px;" title="Escribir aquí arriba de los puntos">
+                                    <span style="letter-spacing: 1px; font-size: 8px;">..........................</span>
+                                </td>
                                 <td style="padding: 2px; text-align: center; border-right: 1px solid black;">Depósito</td>
                                 <td style="padding: 2px; text-align: center; border-right: 1px solid black;">Honorarios</td>
                                 <td style="padding: 2px; text-align: center;">Total a abonar</td>
