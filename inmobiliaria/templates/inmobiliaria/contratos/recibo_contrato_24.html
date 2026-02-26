@@ -147,7 +147,7 @@
         {% if contrato.carrera %}
         <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; padding: 4px 8px;">
             <h2 style="margin: 0; color: green; font-size: 9px;">CARRERA (contrato estudiante):</h2>
-            <div style="font-size: 8px;">{{ contrato.carrera }}</div>
+            <div style="font-size: 8px;">{{ contrato.carrera }}{% if precio_mensual_contrato %} — Precio mensual: {{ precio_mensual_contrato }}{% endif %}</div>
         </div>
         {% endif %}
         {% if contrato.garantes.exists %}
@@ -229,20 +229,16 @@
                     <div style="margin-top: 10px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 7px;">
                             <tr style="border-bottom: 1px solid black;">
-                                <td style="padding: 2px; text-align: left; border-right: 1px solid black; vertical-align: top;">
-                                    <div style="font-size: 8px;">Mes alquiler</div>
-                                    <input type="text" class="input-mes-alquiler-obs" placeholder="..." style="width: 100%; font-size: 8px; border: none; border-bottom: 1px dotted #333; background: transparent; margin: 0; padding: 0 2px;" title="Escribir aquí arriba de los puntos">
-                                    <span style="letter-spacing: 1px; font-size: 8px;">..........................</span>
-                                </td>
-                                <td style="padding: 2px; text-align: center; border-right: 1px solid black;">Depósito</td>
-                                <td style="padding: 2px; text-align: center; border-right: 1px solid black;">Honorarios</td>
-                                <td style="padding: 2px; text-align: center;">Total a abonar</td>
+                                <td style="padding: 2px 4px; text-align: left; border-right: 1px solid black; font-size: 8px;">Mes alquiler <input type="text" class="input-mes-alquiler-obs" placeholder="proporcional o texto..." style="width: 70px; font-size: 7px; border: none; border-bottom: 1px dotted #333; background: transparent; margin: 0; padding: 0 2px; vertical-align: middle;" title="Escribir proporcional o texto"> <span style="letter-spacing: 1px;">..........................</span></td>
+                                <td style="padding: 2px 4px; text-align: center; border-right: 1px solid black;">Depósito</td>
+                                <td style="padding: 2px 4px; text-align: center; border-right: 1px solid black;">Honorarios</td>
+                                <td style="padding: 2px 4px; text-align: center;">Total a abonar</td>
                             </tr>
-                            <tr>
-                                <td style="padding: 5px; text-align: center; border-right: 1px solid black;">{{ alquiler_mensual|default:"0.00" }}</td>
-                                <td style="padding: 5px; text-align: center; border-right: 1px solid black;">{{ deposito_garantia|default:"0.00" }}</td>
-                                <td style="padding: 5px; text-align: center; border-right: 1px solid black;">{{ honorarios|default:"0.00" }}</td>
-                                <td style="padding: 5px; text-align: center; font-weight: bold;">{{ total_a_abonar|default:"0.00" }}</td>
+                            <tr style="border-bottom: 1px solid black;">
+                                <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black;">{{ alquiler_mensual|default:"0.00" }}</td>
+                                <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black;">{{ deposito_garantia|default:"0.00" }}</td>
+                                <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black;">{{ honorarios|default:"0.00" }}</td>
+                                <td style="padding: 5px 4px; text-align: center; font-weight: bold;">{{ total_a_abonar|default:"0.00" }}</td>
                             </tr>
                         </table>
                     </div>

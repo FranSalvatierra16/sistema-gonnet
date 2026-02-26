@@ -63,8 +63,11 @@
                                 </div>
                                 <div class="mb-2">
                                     <label class="me-2"><strong>Proporcional:</strong></label>
-                                    <input type="text" class="form-control d-inline-block" id="proporcional_display" readonly style="max-width: 140px; background-color: #e9ecef;"
-                                           title="Calculado desde fecha inicio de contrato hasta fin del mes (días × precio/30)">
+                                    <input type="text" class="form-control d-inline-block" id="proporcional_display" name="proporcional_display" style="max-width: 140px;"
+                                           placeholder="Podés escribirlo o se calcula automático"
+                                           onchange="formatearNumeroEnTiempoReal(this); actualizarMesAlquilerValorDesdeRadio()"
+                                           oninput="formatearNumeroEnTiempoReal(this); actualizarMesAlquilerValorDesdeRadio()"
+                                           title="Escribí el proporcional o se calcula desde fecha inicio hasta fin de mes">
                                 </div>
                                 <div class="form-check form-check-inline">
                                     <input class="form-check-input" type="radio" name="mes_alquiler_tipo" id="mes_alquiler_mensual" value="mensual" checked>

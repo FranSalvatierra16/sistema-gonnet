@@ -12285,6 +12285,9 @@ def recibo_contrato_24(request, contrato_id):
                 return f"PESOS {str(int(float(numero))).upper()}"
             return ""
         
+        # Precio mensual del contrato (siempre el valor mensual, no el proporcional) para mostrar junto a CARRERA
+        precio_mensual_contrato = format_currency(contrato.precio_mensual or 0)
+
         context = {
             'contrato': contrato,
             'conceptos_contrato': conceptos_contrato,
@@ -12299,6 +12302,7 @@ def recibo_contrato_24(request, contrato_id):
             'total_contrato': format_currency(total_contrato),
             'suma_en_letras': numero_a_texto(total_contrato),
             'logo_base64': logo_base64,
+            'precio_mensual_contrato': precio_mensual_contrato,
         }
         
         return render(request, 'inmobiliaria/contratos/recibo_contrato_24.html', context)
