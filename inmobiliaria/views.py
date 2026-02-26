@@ -10435,14 +10435,21 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         concepto_para_busqueda = prefijo + concepto_json_truncado
         if len(concepto_para_busqueda) > 200:
             concepto_para_busqueda = concepto_para_busqueda[:197] + "..."
-        # Guardar mes_alquiler_importe (elegido: mensual o proporcional) para el recibo
+        # Guardar mes_alquiler_importe y mes_alquiler_tipo (elegido: mensual o proporcional) para el recibo
         mes_alquiler_valor_raw = (request.POST.get('mes_alquiler_valor') or '').strip()
+        mes_alquiler_tipo = (request.POST.get('mes_alquiler_tipo') or '').strip().lower()
+        if mes_alquiler_tipo not in ('proporcional', 'mensual'):
+            mes_alquiler_tipo = 'mensual'
         try:
             mes_alquiler_importe = float(limpiar_valor_monetario(mes_alquiler_valor_raw)) if mes_alquiler_valor_raw else None
         except (TypeError, ValueError):
             mes_alquiler_importe = None
         if conceptos_data and mes_alquiler_importe is not None:
-            concepto_detalle_json = json.dumps({'conceptos': conceptos_data, 'mes_alquiler_importe': mes_alquiler_importe})
+            concepto_detalle_json = json.dumps({
+                'conceptos': conceptos_data,
+                'mes_alquiler_importe': mes_alquiler_importe,
+                'mes_alquiler_tipo': mes_alquiler_tipo,
+            })
         else:
             concepto_detalle_json = json.dumps(conceptos_data) if conceptos_data else ''
 
@@ -11897,6 +11904,7 @@ def recibo_contrato_24(request, contrato_id):
         # Obtener los conceptos del primer pago del contrato
         conceptos_contrato = []
         mes_alquiler_importe_recibo = None  # valor elegido (mensual/proporcional) guardado en movimiento
+        mes_alquiler_tipo_recibo = 'mensual'  # 'proporcional' o 'mensual' para la etiqueta en el recibo
 
         # Buscar movimientos del contrato (más reciente primero) y usar el que tenga concepto_detalle
         movimientos_contrato = MovimientoCaja.objects.filter(
@@ -11956,6 +11964,8 @@ def recibo_contrato_24(request, contrato_id):
                             mes_alquiler_importe_recibo = Decimal(str(obj['mes_alquiler_importe']))
                         except (TypeError, ValueError):
                             pass
+                    if obj.get('mes_alquiler_tipo') in ('proporcional', 'mensual'):
+                        mes_alquiler_tipo_recibo = obj.get('mes_alquiler_tipo')
                 else:
                     if not (json_str and json_str.strip().startswith('[')):
                         json_str = '[]'
@@ -12303,6 +12313,7 @@ def recibo_contrato_24(request, contrato_id):
             'suma_en_letras': numero_a_texto(total_contrato),
             'logo_base64': logo_base64,
             'precio_mensual_contrato': precio_mensual_contrato,
+            'mes_alquiler_es_proporcional': mes_alquiler_tipo_recibo == 'proporcional',
         }
         
         return render(request, 'inmobiliaria/contratos/recibo_contrato_24.html', context)
