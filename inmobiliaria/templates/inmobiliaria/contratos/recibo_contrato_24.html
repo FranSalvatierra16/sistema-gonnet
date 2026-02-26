@@ -182,9 +182,9 @@
                         <div style="width: 50%; text-align: left; padding: 5px;">
                             <h3 style="margin: 0; font-size: 10px;">DESDE: {{ contrato.fecha_inicio|date:"d/m/Y" }} HORA: 14:00 HS.</h3>
                             <h3 style="margin: 0; font-size: 10px;">HASTA: {{ contrato.fecha_fin|date:"d/m/Y" }} HORA: 09:00 HS.</h3>
+                            {% if precio_mensual_contrato %}<h3 style="margin: 0; font-size: 10px;">Precio mensual: {{ precio_mensual_contrato }}</h3>{% endif %}
                         </div>
                         <div style="width: 50%; text-align: right; padding: 5px;">
-                            {% if precio_mensual_contrato %}<h3 style="margin: 0; font-size: 8px;">Precio mensual: {{ precio_mensual_contrato }}</h3>{% endif %}
                             <h3 style="margin: 0; font-size: 8px;">OPERACIÓN: {{ contrato.id }}</h3>
                             <h3 style="margin: 0; font-size: 8px;">CARPETA: 0</h3>
                             <h3 style="margin: 0; font-size: 8px;">OPERADOR:</h3>

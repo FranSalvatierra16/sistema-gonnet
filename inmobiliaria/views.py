@@ -10833,12 +10833,17 @@ def cancelar_contrato(request, contrato_id):
         contrato.fecha_cancelacion = timezone.now().date()
         contrato.motivo_cancelacion = motivo
         contrato.save()
-        
-        # Desactivar la propiedad para 24 meses (disponible = False)
+
+        # Contrato estudiante (tiene carrera): poner la propiedad en estado disponible automáticamente
         if hasattr(contrato.propiedad, 'info_meses'):
-            contrato.propiedad.info_meses.disponible = False
-            contrato.propiedad.info_meses.estado = 'disponible'
-            contrato.propiedad.info_meses.save()
+            if getattr(contrato, 'carrera', None) and contrato.carrera:
+                contrato.propiedad.info_meses.disponible = True
+                contrato.propiedad.info_meses.estado = 'disponible'
+                contrato.propiedad.info_meses.save()
+            else:
+                contrato.propiedad.info_meses.disponible = False
+                contrato.propiedad.info_meses.estado = 'disponible'
+                contrato.propiedad.info_meses.save()
         
         messages.success(request, f'El contrato #{contrato.id} ha sido cancelado exitosamente')
         return JsonResponse({'success': True})
