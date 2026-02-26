@@ -189,9 +189,10 @@
                                     <div class="row">
                                         <div class="col-md-6">
                                             <label class="form-label"><strong>Agregar garantes (inquilinos)</strong></label>
-                                            <div class="d-flex gap-2 mb-2">
+                                            <div class="d-flex gap-2 mb-2 flex-wrap">
                                                 <input type="text" id="buscar_garante_24" class="form-control" placeholder="Buscar por nombre, ID o DNI..." oninput="filtrarGarantes24()">
                                                 <button type="button" class="btn btn-success" onclick="agregarGarante24()">➕ Agregar</button>
+                                                <button type="button" class="btn btn-outline-primary" onclick="mostrarModalCrearGarante()" title="Misma funcionalidad que crear inquilino">➕ Crear garante</button>
                                             </div>
                                             <select id="garante_select_24" size="4" class="form-control" style="max-height: 120px;">
                                                 <option value="">-- Seleccionar --</option>
@@ -605,7 +606,14 @@ function actualizarInquilinoId() {
 
 
 function mostrarModalCrearInquilino() {
+    window.crearInquilinoComoGarante = false;
     console.log('🏠 Abriendo modal crear inquilino...');
+    document.getElementById('modalNuevoInquilino').style.display = 'block';
+}
+
+function mostrarModalCrearGarante() {
+    window.crearInquilinoComoGarante = true;
+    console.log('🏠 Abriendo modal crear garante (misma funcionalidad que crear inquilino)...');
     document.getElementById('modalNuevoInquilino').style.display = 'block';
 }
 
@@ -670,8 +678,25 @@ function guardarNuevoInquilino() {
         console.log('📊 Respuesta crear inquilino:', data);
         
         if (data.success) {
-            // Cerrar modal
             cerrarModalNuevoInquilino();
+
+            if (window.crearInquilinoComoGarante) {
+                window.crearInquilinoComoGarante = false;
+                // Agregar el nuevo inquilino al select de garantes y como garante seleccionado
+                const selGarante = document.getElementById('garante_select_24');
+                if (selGarante) {
+                    const opt = document.createElement('option');
+                    opt.value = data.inquilino.id;
+                    opt.dataset.nombre = `${data.inquilino.apellido}, ${data.inquilino.nombre}`;
+                    opt.dataset.dni = data.inquilino.dni || '';
+                    opt.textContent = `ID: ${data.inquilino.id} - ${data.inquilino.apellido}, ${data.inquilino.nombre} (DNI: ${data.inquilino.dni || 'N/A'})`;
+                    selGarante.appendChild(opt);
+                    selGarante.value = data.inquilino.id;
+                    agregarGarante24();
+                }
+                alert(`✅ Garante creado y agregado: ${data.inquilino.apellido}, ${data.inquilino.nombre}`);
+                return;
+            }
             
             // Agregar el nuevo inquilino a la lista (para modal de 24 meses)
             const select = document.getElementById('inquilino_select');
@@ -684,12 +709,10 @@ function guardarNuevoInquilino() {
                 option.textContent = `ID: ${data.inquilino.id} - ${data.inquilino.apellido}, ${data.inquilino.nombre} (DNI: ${data.inquilino.dni || 'N/A'})`;
                 select.appendChild(option);
                 
-                // Seleccionar el nuevo inquilino
                 select.value = data.inquilino.id;
                 actualizarInquilinoId();
             }
             
-            // Si hay una función para actualizar el select de invierno, llamarla
             if (window.actualizarSelectInquilino) {
                 window.actualizarSelectInquilino(data.inquilino);
             }

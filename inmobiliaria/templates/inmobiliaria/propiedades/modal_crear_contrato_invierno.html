@@ -112,7 +112,7 @@
                                             </div>
                                             <div class="col-4">
                                                 <div class="d-flex gap-2">
-                                                    <button type="button" onclick="mostrarModalCrearInquilinoInvierno()" class="btn btn-success">
+                                                    <button type="button" onclick="window.crearInquilinoComoGaranteInvierno = false; mostrarModalCrearInquilinoInvierno();" class="btn btn-success">
                                                         ➕ Crear
                                                     </button>
                                                     <button type="button" onclick="buscarTodosLosInquilinosInvierno()" class="btn btn-primary">
@@ -197,9 +197,10 @@
                                     <div class="row">
                                         <div class="col-md-6">
                                             <label class="form-label"><strong>Seleccionar inquilino como garante</strong></label>
-                                            <div class="d-flex gap-2 mb-2">
+                                            <div class="d-flex gap-2 mb-2 flex-wrap">
                                                 <input type="text" id="buscar_garante_invierno" class="form-control" placeholder="Buscar por nombre, ID o DNI..." oninput="filtrarGarantesInvierno()">
                                                 <button type="button" class="btn btn-success" onclick="agregarGaranteInvierno()">➕ Agregar</button>
+                                                <button type="button" class="btn btn-outline-primary" onclick="mostrarModalCrearGaranteInvierno()" title="Misma funcionalidad que crear inquilino">➕ Crear garante</button>
                                             </div>
                                             <select id="garante_select_invierno" size="5" class="form-control" style="max-height: 140px;">
                                                 <option value="">-- Seleccionar --</option>
@@ -476,6 +477,13 @@ function mostrarModalCrearInquilinoInvierno() {
 }
 window.mostrarModalCrearInquilinoInvierno = mostrarModalCrearInquilinoInvierno;
 
+function mostrarModalCrearGaranteInvierno() {
+    window.crearInquilinoComoGaranteInvierno = true;
+    console.log('🏠 Abriendo modal crear garante (misma funcionalidad que crear inquilino)...');
+    mostrarModalCrearInquilinoInvierno();
+}
+window.mostrarModalCrearGaranteInvierno = mostrarModalCrearGaranteInvierno;
+
 function cerrarModalNuevoInquilinoInvierno() {
     var modal = document.getElementById('modalNuevoInquilinoInvierno');
     if (modal) {
@@ -515,6 +523,22 @@ function guardarNuevoInquilinoInvierno() {
     .then(function(data) {
         if (data.success) {
             cerrarModalNuevoInquilinoInvierno();
+            if (window.crearInquilinoComoGaranteInvierno) {
+                window.crearInquilinoComoGaranteInvierno = false;
+                var selGarante = document.getElementById('garante_select_invierno');
+                if (selGarante) {
+                    var opt = document.createElement('option');
+                    opt.value = data.inquilino.id;
+                    opt.dataset.nombre = (data.inquilino.apellido || '') + ', ' + (data.inquilino.nombre || '');
+                    opt.dataset.dni = data.inquilino.dni || '';
+                    opt.textContent = 'ID: ' + data.inquilino.id + ' - ' + (data.inquilino.apellido || '') + ', ' + (data.inquilino.nombre || '') + ' (DNI: ' + (data.inquilino.dni || 'N/A') + ')';
+                    selGarante.appendChild(opt);
+                    selGarante.value = data.inquilino.id;
+                    agregarGaranteInvierno();
+                }
+                alert('Garante creado y agregado: ' + data.inquilino.apellido + ', ' + data.inquilino.nombre);
+                return;
+            }
             if (window.actualizarSelectInquilino) window.actualizarSelectInquilino(data.inquilino);
             alert('Inquilino creado: ' + data.inquilino.apellido + ', ' + data.inquilino.nombre);
         } else {
