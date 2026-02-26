@@ -10834,8 +10834,34 @@ def cancelar_contrato(request, contrato_id):
         contrato.motivo_cancelacion = motivo
         contrato.save()
 
-        # Contrato estudiante (tiene carrera): poner la propiedad en estado disponible automáticamente
-        if hasattr(contrato.propiedad, 'info_meses'):
+        # Alquiler de invierno (9 meses): poner la propiedad en disponible y limpiar historial
+        if contrato.duracion_meses == 9 and hasattr(contrato.propiedad, 'info_invierno'):
+            info_invierno = contrato.propiedad.info_invierno
+            info_invierno.estado = 'disponible'
+            # Borrar segmentos de historial de invierno (reserva=null, es_principal) por fechas de info_invierno
+            if info_invierno.fecha_inicio and info_invierno.fecha_fin:
+                HistorialDisponibilidad.objects.filter(
+                    propiedad=contrato.propiedad,
+                    reserva__isnull=True,
+                    es_principal=True,
+                    fecha_inicio=info_invierno.fecha_inicio,
+                    fecha_fin=info_invierno.fecha_fin
+                ).delete()
+            # También borrar por fechas del contrato por si no estaban sincronizadas en info_invierno
+            if contrato.fecha_inicio and contrato.fecha_fin:
+                HistorialDisponibilidad.objects.filter(
+                    propiedad=contrato.propiedad,
+                    reserva__isnull=True,
+                    es_principal=True,
+                    fecha_inicio=contrato.fecha_inicio,
+                    fecha_fin=contrato.fecha_fin
+                ).delete()
+            info_invierno.fecha_inicio = None
+            info_invierno.fecha_fin = None
+            info_invierno.save()
+
+        # Contrato 24 meses: estudiante (carrera) -> disponible; resto -> desactivar
+        elif hasattr(contrato.propiedad, 'info_meses'):
             if getattr(contrato, 'carrera', None) and contrato.carrera:
                 contrato.propiedad.info_meses.disponible = True
                 contrato.propiedad.info_meses.estado = 'disponible'
@@ -10844,7 +10870,7 @@ def cancelar_contrato(request, contrato_id):
                 contrato.propiedad.info_meses.disponible = False
                 contrato.propiedad.info_meses.estado = 'disponible'
                 contrato.propiedad.info_meses.save()
-        
+
         messages.success(request, f'El contrato #{contrato.id} ha sido cancelado exitosamente')
         return JsonResponse({'success': True})
     except Exception as e:
