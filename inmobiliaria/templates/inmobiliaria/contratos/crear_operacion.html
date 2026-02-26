@@ -443,17 +443,12 @@ let conceptoSeleccionadoActual = null;
 function parsearValorFormateado(valor) {
     if (!valor || valor === '') return 0;
     
-    // Convertir a string y limpiar
-    const valorStr = valor.toString().trim();
+    // Convertir a string y limpiar: quitar $, espacios y usar punto como miles (argentino)
+    const valorStr = valor.toString().trim().replace(/\$/g, '').replace(/\s/g, '');
+    // Remover puntos de miles (formato argentino); coma es decimal
+    const valorLimpio = valorStr.replace(/\./g, '').replace(',', '.');
     
-    // Remover puntos de miles (formato argentino) y espacios
-    const valorLimpio = valorStr.replace(/\./g, '').replace(/\s/g, '');
-    
-    // Convertir a número
     const resultado = parseFloat(valorLimpio) || 0;
-    
-    console.log('🔧 parsearValorFormateado:', valor, '→', valorLimpio, '→', resultado);
-    
     return resultado;
 }
 
