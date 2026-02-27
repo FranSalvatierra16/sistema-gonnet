@@ -114,8 +114,8 @@
                                             </div>
                                             <div class="col-4">
                                                 <div class="d-flex gap-2">
-                                                    <button type="button" onclick="mostrarModalCrearInquilino()" class="btn btn-success">
-                                                        ➕ Crear
+                                                    <button type="button" onclick="mostrarModalCrearInquilino()" class="btn btn-success" title="Crear inquilino (se agrega a inquilino y a garantes)">
+                                                        ➕ Crear inquilino
                                                     </button>
                                                     <button type="button" onclick="buscarTodosLosInquilinos()" class="btn btn-primary">
                                                         🔍 Todos
@@ -192,7 +192,7 @@
                                             <div class="d-flex gap-2 mb-2 flex-wrap">
                                                 <input type="text" id="buscar_garante_24" class="form-control" placeholder="Buscar por nombre, ID o DNI..." oninput="filtrarGarantes24()">
                                                 <button type="button" class="btn btn-success" onclick="agregarGarante24()">➕ Agregar</button>
-                                                <button type="button" class="btn btn-outline-primary" onclick="mostrarModalCrearGarante()" title="Misma funcionalidad que crear inquilino">➕ Crear garante</button>
+                                                <button type="button" class="btn btn-success" onclick="mostrarModalCrearInquilino();" title="Crear inquilino (se agrega a inquilino y a garantes)">➕ Crear inquilino</button>
                                             </div>
                                             <select id="garante_select_24" size="4" class="form-control" style="max-height: 120px;">
                                                 <option value="">-- Seleccionar --</option>
@@ -606,15 +606,11 @@ function actualizarInquilinoId() {
 
 
 function mostrarModalCrearInquilino() {
-    window.crearInquilinoComoGarante = false;
-    console.log('🏠 Abriendo modal crear inquilino...');
     document.getElementById('modalNuevoInquilino').style.display = 'block';
 }
 
 function mostrarModalCrearGarante() {
-    window.crearInquilinoComoGarante = true;
-    console.log('🏠 Abriendo modal crear garante (misma funcionalidad que crear inquilino)...');
-    document.getElementById('modalNuevoInquilino').style.display = 'block';
+    mostrarModalCrearInquilino();
 }
 
 function cerrarModalNuevoInquilino() {
@@ -679,45 +675,40 @@ function guardarNuevoInquilino() {
         
         if (data.success) {
             cerrarModalNuevoInquilino();
+            const inv = data.inquilino;
 
-            if (window.crearInquilinoComoGarante) {
-                window.crearInquilinoComoGarante = false;
-                // Agregar el nuevo inquilino al select de garantes y como garante seleccionado
-                const selGarante = document.getElementById('garante_select_24');
-                if (selGarante) {
-                    const opt = document.createElement('option');
-                    opt.value = data.inquilino.id;
-                    opt.dataset.nombre = `${data.inquilino.apellido}, ${data.inquilino.nombre}`;
-                    opt.dataset.dni = data.inquilino.dni || '';
-                    opt.textContent = `ID: ${data.inquilino.id} - ${data.inquilino.apellido}, ${data.inquilino.nombre} (DNI: ${data.inquilino.dni || 'N/A'})`;
-                    selGarante.appendChild(opt);
-                    selGarante.value = data.inquilino.id;
-                    agregarGarante24();
-                }
-                alert(`✅ Garante creado y agregado: ${data.inquilino.apellido}, ${data.inquilino.nombre}`);
-                return;
-            }
-            
-            // Agregar el nuevo inquilino a la lista (para modal de 24 meses)
+            // Agregar a la lista de inquilinos y seleccionarlo
             const select = document.getElementById('inquilino_select');
             if (select) {
                 const option = document.createElement('option');
-                option.value = data.inquilino.id;
-                option.dataset.nombre = `${data.inquilino.nombre.toLowerCase()} ${data.inquilino.apellido.toLowerCase()}`;
-                option.dataset.id = data.inquilino.id;
-                option.dataset.dni = data.inquilino.dni || '';
-                option.textContent = `ID: ${data.inquilino.id} - ${data.inquilino.apellido}, ${data.inquilino.nombre} (DNI: ${data.inquilino.dni || 'N/A'})`;
+                option.value = inv.id;
+                option.dataset.nombre = `${(inv.nombre || '').toLowerCase()} ${(inv.apellido || '').toLowerCase()}`;
+                option.dataset.id = inv.id;
+                option.dataset.dni = inv.dni || '';
+                option.textContent = `ID: ${inv.id} - ${inv.apellido}, ${inv.nombre} (DNI: ${inv.dni || 'N/A'})`;
                 select.appendChild(option);
-                
-                select.value = data.inquilino.id;
+                select.value = String(inv.id);
                 actualizarInquilinoId();
             }
-            
+
+            // Agregar a la lista de garantes y agregarlo como garante
+            const selGarante = document.getElementById('garante_select_24');
+            if (selGarante) {
+                const opt = document.createElement('option');
+                opt.value = inv.id;
+                opt.dataset.nombre = `${inv.apellido}, ${inv.nombre}`;
+                opt.dataset.dni = inv.dni || '';
+                opt.textContent = `ID: ${inv.id} - ${inv.apellido}, ${inv.nombre} (DNI: ${inv.dni || 'N/A'})`;
+                selGarante.appendChild(opt);
+                selGarante.value = String(inv.id);
+                agregarGarante24();
+            }
+
             if (window.actualizarSelectInquilino) {
-                window.actualizarSelectInquilino(data.inquilino);
+                window.actualizarSelectInquilino(inv);
             }
             
-            alert(`✅ Inquilino creado exitosamente: ${data.inquilino.apellido}, ${data.inquilino.nombre}`);
+            alert(`✅ Inquilino creado y agregado como inquilino y garante: ${inv.apellido}, ${inv.nombre}`);
         } else {
             alert(`❌ Error al crear inquilino: ${data.error}`);
         }

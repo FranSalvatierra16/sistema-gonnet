@@ -112,8 +112,8 @@
                                             </div>
                                             <div class="col-4">
                                                 <div class="d-flex gap-2">
-                                                    <button type="button" onclick="window.crearInquilinoComoGaranteInvierno = false; mostrarModalCrearInquilinoInvierno();" class="btn btn-success">
-                                                        ➕ Crear
+                                                    <button type="button" onclick="mostrarModalCrearInquilinoInvierno();" class="btn btn-success" title="Crear inquilino (se agrega a inquilino y a garantes)">
+                                                        ➕ Crear inquilino
                                                     </button>
                                                     <button type="button" onclick="buscarTodosLosInquilinosInvierno()" class="btn btn-primary">
                                                         🔍 Todos
@@ -200,7 +200,7 @@
                                             <div class="d-flex gap-2 mb-2 flex-wrap">
                                                 <input type="text" id="buscar_garante_invierno" class="form-control" placeholder="Buscar por nombre, ID o DNI..." oninput="filtrarGarantesInvierno()">
                                                 <button type="button" class="btn btn-success" onclick="agregarGaranteInvierno()">➕ Agregar</button>
-                                                <button type="button" class="btn btn-outline-primary" onclick="mostrarModalCrearGaranteInvierno()" title="Misma funcionalidad que crear inquilino">➕ Crear garante</button>
+                                                <button type="button" class="btn btn-success" onclick="mostrarModalCrearInquilinoInvierno();" title="Crear inquilino (se agrega a inquilino y a garantes)">➕ Crear inquilino</button>
                                             </div>
                                             <select id="garante_select_invierno" size="5" class="form-control" style="max-height: 140px;">
                                                 <option value="">-- Seleccionar --</option>
@@ -478,8 +478,6 @@ function mostrarModalCrearInquilinoInvierno() {
 window.mostrarModalCrearInquilinoInvierno = mostrarModalCrearInquilinoInvierno;
 
 function mostrarModalCrearGaranteInvierno() {
-    window.crearInquilinoComoGaranteInvierno = true;
-    console.log('🏠 Abriendo modal crear garante (misma funcionalidad que crear inquilino)...');
     mostrarModalCrearInquilinoInvierno();
 }
 window.mostrarModalCrearGaranteInvierno = mostrarModalCrearGaranteInvierno;
@@ -523,24 +521,33 @@ function guardarNuevoInquilinoInvierno() {
     .then(function(data) {
         if (data.success) {
             cerrarModalNuevoInquilinoInvierno();
-            if (window.crearInquilinoComoGaranteInvierno) {
-                window.crearInquilinoComoGaranteInvierno = false;
-                var selGarante = document.getElementById('garante_select_invierno');
-                if (selGarante) {
-                    var opt = document.createElement('option');
-                    opt.value = data.inquilino.id;
-                    opt.dataset.nombre = (data.inquilino.apellido || '') + ', ' + (data.inquilino.nombre || '');
-                    opt.dataset.dni = data.inquilino.dni || '';
-                    opt.textContent = 'ID: ' + data.inquilino.id + ' - ' + (data.inquilino.apellido || '') + ', ' + (data.inquilino.nombre || '') + ' (DNI: ' + (data.inquilino.dni || 'N/A') + ')';
-                    selGarante.appendChild(opt);
-                    selGarante.value = data.inquilino.id;
-                    agregarGaranteInvierno();
-                }
-                alert('Garante creado y agregado: ' + data.inquilino.apellido + ', ' + data.inquilino.nombre);
-                return;
+            var inv = data.inquilino;
+            // Agregar a la lista de inquilinos y seleccionarlo
+            var selInq = document.getElementById('inquilino_select_invierno');
+            if (selInq) {
+                var optInq = document.createElement('option');
+                optInq.value = inv.id;
+                optInq.dataset.nombre = (inv.nombre || '').toLowerCase() + ' ' + (inv.apellido || '').toLowerCase();
+                optInq.dataset.id = String(inv.id);
+                optInq.dataset.dni = inv.dni || '';
+                optInq.textContent = 'ID: ' + inv.id + ' - ' + (inv.apellido || '') + ', ' + (inv.nombre || '') + ' (DNI: ' + (inv.dni || 'N/A') + ')';
+                selInq.appendChild(optInq);
+                selInq.value = String(inv.id);
+                if (typeof actualizarInquilinoIdInvierno === 'function') actualizarInquilinoIdInvierno();
             }
-            if (window.actualizarSelectInquilino) window.actualizarSelectInquilino(data.inquilino);
-            alert('Inquilino creado: ' + data.inquilino.apellido + ', ' + data.inquilino.nombre);
+            // Agregar a la lista de garantes y agregarlo como garante
+            var selGarante = document.getElementById('garante_select_invierno');
+            if (selGarante) {
+                var optGar = document.createElement('option');
+                optGar.value = inv.id;
+                optGar.dataset.nombre = (inv.apellido || '') + ', ' + (inv.nombre || '');
+                optGar.dataset.dni = inv.dni || '';
+                optGar.textContent = 'ID: ' + inv.id + ' - ' + (inv.apellido || '') + ', ' + (inv.nombre || '') + ' (DNI: ' + (inv.dni || 'N/A') + ')';
+                selGarante.appendChild(optGar);
+                selGarante.value = String(inv.id);
+                agregarGaranteInvierno();
+            }
+            alert('Inquilino creado y agregado como inquilino y garante: ' + (inv.apellido || '') + ', ' + (inv.nombre || ''));
         } else {
             alert('Error: ' + (data.error || 'No se pudo crear el inquilino'));
         }
