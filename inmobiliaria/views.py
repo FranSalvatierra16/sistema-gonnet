@@ -10133,6 +10133,49 @@ def lista_contratos(request):
     
     return render(request, 'inmobiliaria/contratos/lista_contratos.html', context)
 
+
+@login_required
+def rescindir_contratos_duplicados(request):
+    """Rescinde contratos duplicados (misma propiedad + inquilino) para la sucursal del usuario."""
+    from django.db.models import Count
+    sucursal = request.user.sucursal
+    qs = (
+        ContratoAlquiler.objects
+        .filter(sucursal=sucursal, estado__in=['activo', 'reservado'])
+        .values('propiedad', 'inquilino')
+        .annotate(total=Count('id'))
+        .filter(total__gt=1)
+    )
+    grupos = list(qs)
+    rescindidos = 0
+    for g in grupos:
+        contratos = (
+            ContratoAlquiler.objects
+            .filter(
+                sucursal=sucursal,
+                propiedad_id=g['propiedad'],
+                inquilino_id=g['inquilino'],
+                estado__in=['activo', 'reservado'],
+            )
+            .order_by('-operacion_principal', '-id')
+        )
+        contratos_list = list(contratos)
+        if len(contratos_list) <= 1:
+            continue
+        mantener = contratos_list[0]
+        for c in contratos_list[1:]:
+            c.estado = 'rescindido'
+            c.fecha_cancelacion = timezone.now().date()
+            c.motivo_cancelacion = f'Contrato duplicado - conservado #{mantener.id}'
+            c.save()
+            rescindidos += 1
+    if rescindidos:
+        messages.success(request, f'Se rescindieron {rescindidos} contrato(s) duplicado(s). Ya no aparecen en la lista.')
+    else:
+        messages.info(request, 'No había contratos duplicados (misma propiedad e inquilino) para rescindir.')
+    return redirect('inmobiliaria:lista_contratos')
+
+
 @login_required
 def detalle_contrato(request, contrato_id):
     """Vista para ver el detalle de un contrato específico"""
