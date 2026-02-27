@@ -10491,6 +10491,9 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             }
             if precio_mensual_completo is not None:
                 payload['precio_mensual_completo'] = precio_mensual_completo
+            texto_recibo = (request.POST.get('mes_alquiler_texto_recibo') or '').strip()[:200]
+            if texto_recibo:
+                payload['mes_alquiler_texto_recibo'] = texto_recibo
             concepto_detalle_json = json.dumps(payload)
         else:
             concepto_detalle_json = json.dumps(conceptos_data) if conceptos_data else ''
@@ -11982,6 +11985,7 @@ def recibo_contrato_24(request, contrato_id):
         mes_alquiler_importe_recibo = None  # valor elegido (mensual/proporcional) guardado en movimiento
         mes_alquiler_tipo_recibo = 'mensual'  # 'proporcional' o 'mensual' para la etiqueta en el recibo
         precio_mensual_completo_recibo = None  # precio mensual del formulario (para "Mes alquiler" en recibo)
+        mes_alquiler_texto_recibo = ''  # texto que va en los puntos del recibo (ej. "marzo 2026")
 
         # Buscar movimientos del contrato (más reciente primero) y usar el que tenga concepto_detalle
         movimientos_contrato = MovimientoCaja.objects.filter(
@@ -12055,6 +12059,8 @@ def recibo_contrato_24(request, contrato_id):
                             precio_mensual_completo_recibo = Decimal(str(obj['precio_mensual_completo']))
                         except (TypeError, ValueError):
                             pass
+                    if obj.get('mes_alquiler_texto_recibo'):
+                        mes_alquiler_texto_recibo = str(obj['mes_alquiler_texto_recibo']).strip()[:200]
                 else:
                     if not (json_str and json_str.strip().startswith('[')):
                         json_str = '[]'
@@ -12406,6 +12412,7 @@ def recibo_contrato_24(request, contrato_id):
             'logo_base64': logo_base64,
             'precio_mensual_contrato': precio_mensual_contrato,
             'mes_alquiler_es_proporcional': mes_alquiler_tipo_recibo == 'proporcional',
+            'mes_alquiler_texto_recibo': mes_alquiler_texto_recibo,
         }
         
         return render(request, 'inmobiliaria/contratos/recibo_contrato_24.html', context)

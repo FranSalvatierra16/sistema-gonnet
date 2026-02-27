@@ -77,8 +77,10 @@
                                     <input class="form-check-input" type="radio" name="mes_alquiler_tipo" id="mes_alquiler_proporcional" value="proporcional">
                                     <label class="form-check-label" for="mes_alquiler_proporcional">Usar proporcional</label>
                                 </div>
-                                <div class="mt-2 small">
-                                    <strong>Valor a usar:</strong> <span id="etiqueta_mes_o_proporcional">Mes alquiler</span> ........ <span id="valor_mes_o_proporcional">0</span>
+                                <div class="mt-2 small d-flex align-items-center flex-wrap gap-1">
+                                    <strong>Valor a usar:</strong> <span id="etiqueta_mes_o_proporcional">Mes alquiler</span>
+                                    <input type="text" id="mes_alquiler_texto_recibo" class="form-control form-control-sm d-inline-block" style="width: 140px; max-width: 100%;" placeholder="ej. marzo 2026, primer mes..." title="Texto que aparece en el recibo en los puntos">
+                                    <span id="valor_mes_o_proporcional">0</span>
                                 </div>
                                 <input type="hidden" id="mes_alquiler_valor" name="mes_alquiler_valor" value="">
                             </div>
@@ -844,6 +846,8 @@ function procesarOperacion() {
     const radioProporcional = document.getElementById('mes_alquiler_proporcional');
     const mesAlquilerTipo = (radioProporcional && radioProporcional.checked) ? 'proporcional' : 'mensual';
     formData.append('mes_alquiler_tipo', mesAlquilerTipo);
+    const textoRecibo = document.getElementById('mes_alquiler_texto_recibo');
+    if (textoRecibo) formData.append('mes_alquiler_texto_recibo', (textoRecibo.value || '').trim());
     if (tipoOperacion === 'principal') {
         formData.append('dia_vencimiento', '5');
     }
