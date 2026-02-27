@@ -670,6 +670,9 @@ document.getElementById('formContratoInvierno')?.addEventListener('submit', func
             window.location.href = data.redirect_url;
         } else {
             alert('❌ ' + (data && data.error ? data.error : 'Error al crear el contrato'));
+            if (data && data.redirect_url && confirm('¿Querés ir a la operación del contrato existente?')) {
+                window.location.href = data.redirect_url;
+            }
         }
     })
     .catch(function(error) {

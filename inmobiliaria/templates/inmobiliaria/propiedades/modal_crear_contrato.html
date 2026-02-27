@@ -877,7 +877,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('✅ Contrato creado. Completá la operación principal (depósito + primer mes).');
                 window.location.href = data.redirect_url;
             } else {
-                alert(`❌ Error al crear contrato: ${data.error}`);
+                alert(`❌ ${data.error || 'Error al crear contrato.'}`);
+                if (data.redirect_url) {
+                    if (confirm('¿Querés ir a la operación del contrato existente?')) {
+                        window.location.href = data.redirect_url;
+                    }
+                }
             }
         })
         .catch(error => {

@@ -9900,6 +9900,21 @@ def crear_contrato_alquiler(request):
             except (Propiedad.DoesNotExist, Inquilino.DoesNotExist, Vendedor.DoesNotExist) as e:
                 return JsonResponse({'error': f'Error al obtener datos: {str(e)}'}, status=400)
 
+            # Evitar duplicados: ya existe un contrato activo o reservado para esta propiedad e inquilino
+            existente = ContratoAlquiler.objects.filter(
+                propiedad=propiedad,
+                inquilino=inquilino,
+                estado__in=['reservado', 'activo'],
+                sucursal=request.user.sucursal
+            ).first()
+            if existente:
+                operacion_url = reverse('inmobiliaria:crear_operacion_contrato', args=[existente.id]) + '?tipo=principal'
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Ya existe un contrato (#{existente.id}) para esta propiedad e inquilino. Completá la operación principal de ese contrato o cancelalo antes de crear otro.',
+                    'redirect_url': operacion_url,
+                }, status=400)
+
             # Si es contrato de invierno (9 meses), verificar que no haya reservas por día que se superpongan
             if duracion_meses == 9:
                 try:
@@ -9991,10 +10006,13 @@ def lista_contratos(request):
     from django.db.models import Q, Count, Case, When, IntegerField
     from datetime import datetime
     
-    # Query base
+    # Query base: por defecto solo activos y reservados; con mostrar_eliminados=1 se incluyen finalizados y rescindidos
+    mostrar_eliminados = request.GET.get('mostrar_eliminados') == '1'
     contratos = ContratoAlquiler.objects.filter(
         sucursal=request.user.sucursal
     ).select_related('propiedad', 'inquilino', 'vendedor')
+    if not mostrar_eliminados:
+        contratos = contratos.filter(estado__in=['activo', 'reservado'])
     
     # Aplicar filtros
     estado_cuota = request.GET.get('estado_cuota')
@@ -10110,6 +10128,7 @@ def lista_contratos(request):
         'cuotas_pendientes': cuotas_pendientes,
         'cuotas_vencidas': cuotas_vencidas,
         'mes_actual': mes_filtro.strftime('%B %Y'),
+        'mostrar_eliminados': mostrar_eliminados,
     }
     
     return render(request, 'inmobiliaria/contratos/lista_contratos.html', context)
