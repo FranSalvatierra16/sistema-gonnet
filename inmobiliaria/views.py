@@ -6343,6 +6343,78 @@ def logout_view(request):
     logout(request)
     return redirect('inmobiliaria:login')
 
+def _clip_libre_por_contratos_invierno(items, contratos_invierno):
+    """Recorta segmentos 'libre' para que no se superpongan con contratos de invierno."""
+    if not contratos_invierno:
+        return items
+    from datetime import datetime as dt
+    rangos_contrato = [(c.fecha_inicio, c.fecha_fin) for c in contratos_invierno]
+    resultado = []
+    for it in items:
+        if it.get('estado') != 'libre':
+            resultado.append(it)
+            continue
+        try:
+            ini = dt.strptime(it['fecha_inicio'], '%d/%m/%Y').date()
+            fin = dt.strptime(it['fecha_fin'], '%d/%m/%Y').date()
+        except (ValueError, TypeError):
+            resultado.append(it)
+            continue
+        segmentos = [(ini, fin)]
+        for (c_ini, c_fin) in rangos_contrato:
+            nuevos = []
+            for (s_ini, s_fin) in segmentos:
+                if s_ini >= c_fin or s_fin <= c_ini:
+                    nuevos.append((s_ini, s_fin))
+                    continue
+                if s_ini < c_ini:
+                    nuevos.append((s_ini, min(s_fin, c_ini - timedelta(days=1))))
+                if s_fin > c_fin:
+                    nuevos.append((max(s_ini, c_fin + timedelta(days=1)), s_fin))
+            segmentos = [(a, b) for a, b in nuevos if a <= b]
+        for (a, b) in segmentos:
+            copia = dict(it)
+            copia['fecha_inicio'] = a.strftime('%d/%m/%Y')
+            copia['fecha_fin'] = b.strftime('%d/%m/%Y')
+            copia['_sort'] = (a, b)
+            resultado.append(copia)
+    return resultado
+
+
+def actualizar_historial_por_contrato_invierno(propiedad, fecha_inicio, fecha_fin):
+    """Trunca segmentos 'libre' del historial que superpongan con el contrato de invierno."""
+    segmentos = list(HistorialDisponibilidad.objects.filter(
+        propiedad=propiedad, estado='libre'
+    ))
+    for seg in segmentos:
+        if seg.fecha_inicio >= fecha_fin or seg.fecha_fin <= fecha_inicio:
+            continue
+        if seg.fecha_inicio >= fecha_inicio and seg.fecha_fin <= fecha_fin:
+            seg.delete()
+        elif seg.fecha_inicio < fecha_inicio and seg.fecha_fin > fecha_fin:
+            HistorialDisponibilidad.objects.create(
+                propiedad=propiedad, fecha_inicio=seg.fecha_inicio,
+                fecha_fin=fecha_inicio - timedelta(days=1), estado='libre', es_principal=seg.es_principal
+            )
+            HistorialDisponibilidad.objects.create(
+                propiedad=propiedad, fecha_inicio=fecha_fin + timedelta(days=1),
+                fecha_fin=seg.fecha_fin, estado='libre', es_principal=seg.es_principal
+            )
+            seg.delete()
+        elif seg.fecha_inicio < fecha_inicio:
+            seg.fecha_fin = fecha_inicio - timedelta(days=1)
+            if seg.fecha_inicio <= seg.fecha_fin:
+                seg.save(update_fields=['fecha_fin'])
+            else:
+                seg.delete()
+        else:
+            seg.fecha_inicio = fecha_fin + timedelta(days=1)
+            if seg.fecha_inicio <= seg.fecha_fin:
+                seg.save(update_fields=['fecha_inicio'])
+            else:
+                seg.delete()
+
+
 def ver_historial_disponibilidad(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
     # Orden cronológico: más antiguo primero (fecha_inicio ascendente)
@@ -6471,6 +6543,9 @@ def ver_historial_disponibilidad(request, propiedad_id):
                 'es_libre_invierno': True,
                 '_sort': (libre_inicio, libre_fin),
             })
+
+    # Recortar segmentos 'libre' que se superpongan con contratos de invierno
+    items = _clip_libre_por_contratos_invierno(items, contratos_invierno)
 
     items.sort(key=lambda x: x['_sort'])
     for it in items:
@@ -9980,6 +10055,18 @@ def crear_contrato_alquiler(request):
                 if hasattr(propiedad, 'info_invierno') and propiedad.info_invierno:
                     propiedad.info_invierno.estado = 'reservado'
                     propiedad.info_invierno.save()
+                # Actualizar historial: truncar "Libre" que superponga con el contrato
+                try:
+                    fi = datetime.strptime(fecha_inicio.strip(), '%Y-%m-%d').date()
+                    ff = datetime.strptime(fecha_fin.strip(), '%Y-%m-%d').date()
+                    actualizar_historial_por_contrato_invierno(propiedad, fi, ff)
+                except (ValueError, TypeError, AttributeError):
+                    try:
+                        fi = datetime.strptime(fecha_inicio.strip(), '%d/%m/%Y').date()
+                        ff = datetime.strptime(fecha_fin.strip(), '%d/%m/%Y').date()
+                        actualizar_historial_por_contrato_invierno(propiedad, fi, ff)
+                    except (ValueError, TypeError, AttributeError):
+                        pass
             else:
                 if hasattr(propiedad, 'info_meses') and propiedad.info_meses:
                     propiedad.info_meses.estado = 'reservado'
@@ -10744,6 +10831,10 @@ def procesar_operacion_contrato(request, contrato_id):
                 if hasattr(contrato.propiedad, 'info_invierno'):
                     contrato.propiedad.info_invierno.estado = 'ocupado'
                     contrato.propiedad.info_invierno.save()
+                # Asegurar que el historial no muestre "Libre" superpuesto con el contrato
+                actualizar_historial_por_contrato_invierno(
+                    contrato.propiedad, contrato.fecha_inicio, contrato.fecha_fin
+                )
             else:
                 # Contrato de 24 meses
                 if hasattr(contrato.propiedad, 'info_meses'):
