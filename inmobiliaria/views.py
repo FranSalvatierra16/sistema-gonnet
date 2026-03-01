@@ -10264,6 +10264,32 @@ def rescindir_contratos_duplicados(request):
 
 
 @login_required
+def actualizar_historiales_invierno(request):
+    """Actualiza el historial de disponibilidad de todas las propiedades con contratos de invierno, para que no queden segmentos 'Libre' superpuestos con las fechas del contrato."""
+    contratos_invierno = ContratoAlquiler.objects.filter(
+        sucursal=request.user.sucursal,
+        duracion_meses=9
+    ).select_related('propiedad')
+    actualizados = 0
+    for contrato in contratos_invierno:
+        try:
+            actualizar_historial_por_contrato_invierno(
+                contrato.propiedad, contrato.fecha_inicio, contrato.fecha_fin
+            )
+            actualizados += 1
+        except Exception:
+            continue
+    if actualizados:
+        messages.success(
+            request,
+            f'Se actualizaron los historiales de {actualizados} contrato(s) de invierno. Los períodos "Libre" ya no se superponen con las operaciones.'
+        )
+    else:
+        messages.info(request, 'No hay contratos de invierno en tu sucursal, o no fue necesario cambiar ningún historial.')
+    return redirect('inmobiliaria:lista_contratos')
+
+
+@login_required
 def detalle_contrato(request, contrato_id):
     """Vista para ver el detalle de un contrato específico"""
     from .models import ContratoAlquiler

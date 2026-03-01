@@ -17,6 +17,9 @@
             <!-- <a href="{% url 'inmobiliaria:rescindir_contratos_duplicados' %}" class="btn btn-warning" onclick="return confirm('¿Rescindir contratos duplicados (misma propiedad e inquilino)? Se mantendrá uno por grupo y el resto pasará a estado Rescindido.');" title="Marcar como rescindidos los contratos duplicados para que dejen de aparecer en la lista">
                 <i class="fas fa-compress-arrows-alt"></i> Rescindir duplicados
             </a> -->
+            <a href="{% url 'inmobiliaria:actualizar_historiales_invierno' %}" class="btn btn-info" onclick="return confirm('¿Actualizar historiales de propiedades con contratos de invierno? Se recortarán los períodos Libre que se superpongan con las fechas del contrato.');" title="Corregir historial para que Libre no se superponga con Operación Invierno">
+                <i class="fas fa-history"></i> Actualizar historiales invierno
+            </a>
             <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Volver
             </a>
