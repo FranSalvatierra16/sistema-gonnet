@@ -7048,7 +7048,7 @@ def reconstruir_historial_propiedad_ajax(request, propiedad_id):
     """Reconstruye el historial de una propiedad (elimina duplicados y regenera). POST con AJAX."""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
-    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    propiedad = get_object_or_404(Propiedad, id=str(propiedad_id))
     if propiedad.sucursal != request.user.sucursal and not request.user.is_superuser:
         return JsonResponse({'success': False, 'error': 'Sin permisos'}, status=403)
     try:
@@ -7056,6 +7056,31 @@ def reconstruir_historial_propiedad_ajax(request, propiedad_id):
         return JsonResponse({'success': True, 'message': 'Historial reconstruido correctamente.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def actualizar_historial_invierno_propiedad(request, propiedad_id):
+    """Actualiza el historial de una propiedad para que los segmentos Libre no se superpongan con sus contratos de invierno (evita fechas superpuestas)."""
+    propiedad = get_object_or_404(Propiedad, id=str(propiedad_id))
+    if propiedad.sucursal != request.user.sucursal and not request.user.is_superuser:
+        messages.error(request, 'No tenés permisos para esta propiedad.')
+        return redirect('inmobiliaria:lista_contratos')
+    contratos_invierno = ContratoAlquiler.objects.filter(
+        propiedad=propiedad, duracion_meses=9
+    ).order_by('fecha_inicio')
+    for c in contratos_invierno:
+        actualizar_historial_por_contrato_invierno(propiedad, c.fecha_inicio, c.fecha_fin)
+    if contratos_invierno:
+        messages.success(
+            request,
+            f'Historial de la propiedad {propiedad.direccion} (id {propiedad.id}) actualizado: los períodos Libre ya no se superponen con los contratos de invierno.'
+        )
+    else:
+        messages.info(request, f'La propiedad {propiedad.id} no tiene contratos de invierno; no se modificó el historial.')
+    next_url = request.GET.get('next') or request.META.get('HTTP_REFERER')
+    if next_url and next_url.startswith('/'):
+        return redirect(next_url)
+    return redirect('inmobiliaria:lista_contratos')
 
 
 @login_required
