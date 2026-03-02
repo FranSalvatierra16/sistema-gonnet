@@ -875,12 +875,19 @@ def propiedad_detalle(request, propiedad_id):
                         seen.add(key)
                         historiales.append(h)
 
-    # Incluir contratos de invierno (9 meses) en el historial para que se vean como "Invierno"
+    # Incluir solo contratos de invierno vigentes (no cancelados/rescindidos); si hay superposición de fechas, solo el más reciente
     from types import SimpleNamespace
-    contratos_invierno = list(ContratoAlquiler.objects.filter(
+    _contratos_inv = list(ContratoAlquiler.objects.filter(
         propiedad=propiedad,
-        duracion_meses=9
-    ).select_related('inquilino').order_by('fecha_inicio'))
+        duracion_meses=9,
+        estado__in=['activo', 'reservado']
+    ).select_related('inquilino').order_by('-id'))
+    contratos_invierno = []
+    for c in _contratos_inv:
+        if any(c.fecha_inicio < ex.fecha_fin and c.fecha_fin > ex.fecha_inicio for ex in contratos_invierno):
+            continue
+        contratos_invierno.append(c)
+    contratos_invierno.sort(key=lambda x: (x.fecha_inicio, x.fecha_fin))
     contratos_ya_mostrados = set()
     # Convertir filas del historial que son "Operación" sin reserva (creadas desde ficha Invierno) en "Operación (Invierno)" si coinciden con un contrato
     for i, h in enumerate(historiales):
@@ -6440,11 +6447,18 @@ def ver_historial_disponibilidad(request, propiedad_id):
         })
 
     # Incluir solo contratos de invierno vigentes (no cancelados/rescindidos)
-    contratos_invierno = ContratoAlquiler.objects.filter(
+    contratos_invierno_qs = ContratoAlquiler.objects.filter(
         propiedad=propiedad,
         duracion_meses=9,
         estado__in=['activo', 'reservado']
-    ).select_related('inquilino').order_by('fecha_inicio')
+    ).select_related('inquilino').order_by('-id')
+    # Si hay varios con fechas superpuestas, mostrar solo el más reciente (mayor id) por rango
+    contratos_invierno = []
+    for c in contratos_invierno_qs:
+        if any(c.fecha_inicio < ex.fecha_fin and c.fecha_fin > ex.fecha_inicio for ex in contratos_invierno):
+            continue
+        contratos_invierno.append(c)
+    contratos_invierno.sort(key=lambda x: (x.fecha_inicio, x.fecha_fin))
     for c in contratos_invierno:
         items.append({
             'id': None,
