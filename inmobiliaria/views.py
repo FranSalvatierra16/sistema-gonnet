@@ -7288,8 +7288,9 @@ def editar_info_invierno(request, propiedad_id):
                 info_invierno.observaciones = request.POST.get('observaciones', '')
 
                 if nuevo_estado == 'disponible':
-                    info_invierno.fecha_inicio = None
-                    info_invierno.fecha_fin = None
+                    # Guardar rango de fechas para "Libre (Invierno)" (ej. 15/04–30/08) para el historial
+                    info_invierno.fecha_inicio = datetime.strptime(fi, '%Y-%m-%d').date() if fi else None
+                    info_invierno.fecha_fin = datetime.strptime(ff, '%Y-%m-%d').date() if ff else None
                 elif nuevo_estado in ['reservado', 'ocupado']:
                     info_invierno.fecha_inicio = datetime.strptime(fi, '%Y-%m-%d').date() if fi else None
                     info_invierno.fecha_fin = datetime.strptime(ff, '%Y-%m-%d').date() if ff else None
@@ -7404,7 +7405,7 @@ def actualizar_invierno_ajax(request):
         fi = request.POST.get('fecha_inicio', '').strip()
         ff = request.POST.get('fecha_fin', '').strip()
         if info_invierno.estado == 'disponible':
-            # Quitar segmentos de historial que eran de invierno (reserva=null, es_principal) para este rango
+            # Quitar segmentos de historial que eran de invierno (reserva=null, es_principal) para el rango anterior
             if info_invierno.fecha_inicio and info_invierno.fecha_fin:
                 HistorialDisponibilidad.objects.filter(
                     propiedad=propiedad,
@@ -7413,8 +7414,9 @@ def actualizar_invierno_ajax(request):
                     fecha_inicio=info_invierno.fecha_inicio,
                     fecha_fin=info_invierno.fecha_fin
                 ).delete()
-            info_invierno.fecha_inicio = None
-            info_invierno.fecha_fin = None
+            # Guardar rango de fechas para "Libre (Invierno)" (ej. 15/04–30/08) para el historial
+            info_invierno.fecha_inicio = datetime.strptime(fi, '%Y-%m-%d').date() if fi else None
+            info_invierno.fecha_fin = datetime.strptime(ff, '%Y-%m-%d').date() if ff else None
         else:
             info_invierno.fecha_inicio = datetime.strptime(fi, '%Y-%m-%d').date() if fi else None
             info_invierno.fecha_fin = datetime.strptime(ff, '%Y-%m-%d').date() if ff else None
