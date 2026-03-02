@@ -1019,10 +1019,14 @@ def propiedad_detalle(request, propiedad_id):
                         contrato=None,
                         fecha_actualizacion=info_invierno.fecha_actualizacion,
                     ))
-        # Si no hay contratos y está disponible para invierno: mostrar un rango "Libre (Invierno)" (ej. temporada actual)
+        # Si no hay contratos y está disponible para invierno: mostrar el rango configurado (fecha_inicio/fecha_fin) o un año por defecto
         elif info_invierno.estado == 'disponible':
-            libre_inicio = hoy
-            libre_fin = hoy + timedelta(days=365)
+            if getattr(info_invierno, 'fecha_inicio', None) and getattr(info_invierno, 'fecha_fin', None):
+                libre_inicio = info_invierno.fecha_inicio
+                libre_fin = info_invierno.fecha_fin
+            else:
+                libre_inicio = hoy
+                libre_fin = hoy + timedelta(days=365)
             historiales.append(SimpleNamespace(
                 fecha_inicio=libre_inicio,
                 fecha_fin=libre_fin,
@@ -6586,8 +6590,12 @@ def ver_historial_disponibilidad(request, propiedad_id):
                         '_sort': (libre_inicio, libre_fin),
                     })
         elif getattr(info_invierno, 'estado', None) == 'disponible':
-            libre_inicio = hoy
-            libre_fin = hoy + timedelta(days=365)
+            if getattr(info_invierno, 'fecha_inicio', None) and getattr(info_invierno, 'fecha_fin', None):
+                libre_inicio = info_invierno.fecha_inicio
+                libre_fin = info_invierno.fecha_fin
+            else:
+                libre_inicio = hoy
+                libre_fin = hoy + timedelta(days=365)
             items.append({
                 'id': None,
                 'fecha_inicio': libre_inicio.strftime('%d/%m/%Y'),
