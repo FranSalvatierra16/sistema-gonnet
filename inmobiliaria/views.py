@@ -6439,10 +6439,11 @@ def ver_historial_disponibilidad(request, propiedad_id):
             '_sort': (h.fecha_inicio, h.fecha_fin),
         })
 
-    # Incluir contratos de invierno (9 meses) en el historial
+    # Incluir solo contratos de invierno vigentes (no cancelados/rescindidos)
     contratos_invierno = ContratoAlquiler.objects.filter(
         propiedad=propiedad,
-        duracion_meses=9
+        duracion_meses=9,
+        estado__in=['activo', 'reservado']
     ).select_related('inquilino').order_by('fecha_inicio')
     for c in contratos_invierno:
         items.append({
