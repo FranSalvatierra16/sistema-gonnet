@@ -907,9 +907,11 @@ def propiedad_detalle(request, propiedad_id):
                     nuevos.append((s_ini, s_fin))
                     continue
                 if s_ini < c_ini:
-                    nuevos.append((s_ini, min(s_fin, c_ini - timedelta(days=1))))
+                    # Hotel: Libre hasta el día de inicio del contrato inclusive
+                    nuevos.append((s_ini, min(s_fin, c_ini)))
                 if s_fin > c_fin:
-                    nuevos.append((max(s_ini, c_fin + timedelta(days=1)), s_fin))
+                    # Hotel: Libre desde el día de fin del contrato inclusive
+                    nuevos.append((max(s_ini, c_fin), s_fin))
             segmentos = [(a, b) for a, b in nuevos if a <= b]
         for (a, b) in segmentos:
             if hasattr(h, 'reserva') or isinstance(h, SimpleNamespace):
@@ -967,12 +969,12 @@ def propiedad_detalle(request, propiedad_id):
         info_invierno = None
     if info_invierno and getattr(info_invierno, 'disponible', False):
         hoy = date.today()
-        # Entre dos contratos consecutivos: disponible desde fin del primero hasta día anterior al inicio del siguiente
+        # Entre dos contratos: hotelero, disponible desde el día de fin del primero hasta el día de inicio del siguiente (inclusive)
         for j in range(len(contratos_invierno) - 1):
             c1 = contratos_invierno[j]
             c2 = contratos_invierno[j + 1]
-            libre_inicio = c1.fecha_fin + timedelta(days=1)
-            libre_fin = c2.fecha_inicio - timedelta(days=1)
+            libre_inicio = c1.fecha_fin
+            libre_fin = c2.fecha_inicio
             if libre_inicio <= libre_fin:
                 historiales.append(SimpleNamespace(
                     fecha_inicio=libre_inicio,
@@ -984,10 +986,10 @@ def propiedad_detalle(request, propiedad_id):
                     contrato=None,
                     fecha_actualizacion=info_invierno.fecha_actualizacion,
                 ))
-        # Después del último contrato: disponible desde el día siguiente al fin hasta ~6 meses después
+        # Después del último contrato: hotelero, disponible desde el día de fin del contrato inclusive
         if contratos_invierno:
             ultimo = contratos_invierno[-1]
-            libre_inicio = ultimo.fecha_fin + timedelta(days=1)
+            libre_inicio = ultimo.fecha_fin
             libre_fin = ultimo.fecha_fin + timedelta(days=180)
             if libre_inicio <= libre_fin:
                 historiales.append(SimpleNamespace(
@@ -1000,11 +1002,11 @@ def propiedad_detalle(request, propiedad_id):
                     contrato=None,
                     fecha_actualizacion=info_invierno.fecha_actualizacion,
                 ))
-        # Antes del primer contrato (si el primer contrato empieza en el futuro): disponible desde ~6 meses antes
+        # Antes del primer contrato (si empieza en el futuro): hotelero, disponible hasta el día de inicio inclusive
         if contratos_invierno:
             primero = contratos_invierno[0]
             if primero.fecha_inicio > hoy:
-                libre_fin = primero.fecha_inicio - timedelta(days=1)
+                libre_fin = primero.fecha_inicio
                 libre_inicio = primero.fecha_inicio - timedelta(days=180)
                 if libre_inicio <= libre_fin:
                     historiales.append(SimpleNamespace(
@@ -6412,9 +6414,11 @@ def _clip_libre_por_contratos_invierno(items, contratos_invierno):
                     nuevos.append((s_ini, s_fin))
                     continue
                 if s_ini < c_ini:
-                    nuevos.append((s_ini, min(s_fin, c_ini - timedelta(days=1))))
+                    # Hotel: Libre hasta el día de inicio del contrato inclusive
+                    nuevos.append((s_ini, min(s_fin, c_ini)))
                 if s_fin > c_fin:
-                    nuevos.append((max(s_ini, c_fin + timedelta(days=1)), s_fin))
+                    # Hotel: Libre desde el día de fin del contrato inclusive
+                    nuevos.append((max(s_ini, c_fin), s_fin))
             segmentos = [(a, b) for a, b in nuevos if a <= b]
         for (a, b) in segmentos:
             copia = dict(it)
@@ -6436,23 +6440,26 @@ def actualizar_historial_por_contrato_invierno(propiedad, fecha_inicio, fecha_fi
         if seg.fecha_inicio >= fecha_inicio and seg.fecha_fin <= fecha_fin:
             seg.delete()
         elif seg.fecha_inicio < fecha_inicio and seg.fecha_fin > fecha_fin:
+            # Hotel: Libre hasta inicio inclusive, Libre desde fin inclusive
             HistorialDisponibilidad.objects.create(
                 propiedad=propiedad, fecha_inicio=seg.fecha_inicio,
-                fecha_fin=fecha_inicio - timedelta(days=1), estado='libre', es_principal=seg.es_principal
+                fecha_fin=fecha_inicio, estado='libre', es_principal=seg.es_principal
             )
             HistorialDisponibilidad.objects.create(
-                propiedad=propiedad, fecha_inicio=fecha_fin + timedelta(days=1),
+                propiedad=propiedad, fecha_inicio=fecha_fin,
                 fecha_fin=seg.fecha_fin, estado='libre', es_principal=seg.es_principal
             )
             seg.delete()
         elif seg.fecha_inicio < fecha_inicio:
-            seg.fecha_fin = fecha_inicio - timedelta(days=1)
+            # Hotel: Libre hasta el día de inicio del contrato inclusive
+            seg.fecha_fin = fecha_inicio
             if seg.fecha_inicio <= seg.fecha_fin:
                 seg.save(update_fields=['fecha_fin'])
             else:
                 seg.delete()
         else:
-            seg.fecha_inicio = fecha_fin + timedelta(days=1)
+            # Hotel: Libre desde el día de fin del contrato inclusive
+            seg.fecha_inicio = fecha_fin
             if seg.fecha_inicio <= seg.fecha_fin:
                 seg.save(update_fields=['fecha_inicio'])
             else:
@@ -6522,8 +6529,8 @@ def ver_historial_disponibilidad(request, propiedad_id):
         for j in range(len(contratos_invierno) - 1):
             c1 = contratos_invierno[j]
             c2 = contratos_invierno[j + 1]
-            libre_inicio = c1.fecha_fin + timedelta(days=1)
-            libre_fin = c2.fecha_inicio - timedelta(days=1)
+            libre_inicio = c1.fecha_fin
+            libre_fin = c2.fecha_inicio
             if libre_inicio <= libre_fin:
                 items.append({
                     'id': None,
@@ -6541,7 +6548,7 @@ def ver_historial_disponibilidad(request, propiedad_id):
                 })
         if contratos_invierno:
             ultimo = contratos_invierno[-1]
-            libre_inicio = ultimo.fecha_fin + timedelta(days=1)
+            libre_inicio = ultimo.fecha_fin
             libre_fin = ultimo.fecha_fin + timedelta(days=180)
             if libre_inicio <= libre_fin:
                 items.append({
@@ -6561,7 +6568,7 @@ def ver_historial_disponibilidad(request, propiedad_id):
         if contratos_invierno:
             primero = contratos_invierno[0]
             if primero.fecha_inicio > hoy:
-                libre_fin = primero.fecha_inicio - timedelta(days=1)
+                libre_fin = primero.fecha_inicio
                 libre_inicio = primero.fecha_inicio - timedelta(days=180)
                 if libre_inicio <= libre_fin:
                     items.append({
