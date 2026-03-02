@@ -888,6 +888,43 @@ def propiedad_detalle(request, propiedad_id):
             continue
         contratos_invierno.append(c)
     contratos_invierno.sort(key=lambda x: (x.fecha_inicio, x.fecha_fin))
+    # Recortar segmentos "Libre" del historial que se superpongan con contratos de invierno
+    rangos_contrato = [(c.fecha_inicio, c.fecha_fin) for c in contratos_invierno]
+    new_historiales = []
+    for h in historiales:
+        if getattr(h, 'estado', None) != 'libre':
+            new_historiales.append(h)
+            continue
+        ini, fin = getattr(h, 'fecha_inicio', None), getattr(h, 'fecha_fin', None)
+        if ini is None or fin is None:
+            new_historiales.append(h)
+            continue
+        segmentos = [(ini, fin)]
+        for (c_ini, c_fin) in rangos_contrato:
+            nuevos = []
+            for (s_ini, s_fin) in segmentos:
+                if s_ini >= c_fin or s_fin <= c_ini:
+                    nuevos.append((s_ini, s_fin))
+                    continue
+                if s_ini < c_ini:
+                    nuevos.append((s_ini, min(s_fin, c_ini - timedelta(days=1))))
+                if s_fin > c_fin:
+                    nuevos.append((max(s_ini, c_fin + timedelta(days=1)), s_fin))
+            segmentos = [(a, b) for a, b in nuevos if a <= b]
+        for (a, b) in segmentos:
+            if hasattr(h, 'reserva') or isinstance(h, SimpleNamespace):
+                new_historiales.append(SimpleNamespace(
+                    fecha_inicio=a, fecha_fin=b, estado='libre', reserva=getattr(h, 'reserva', None),
+                    es_libre_invierno=False, es_invierno=False, contrato=None,
+                    fecha_actualizacion=getattr(h, 'fecha_actualizacion', None),
+                ))
+            else:
+                new_historiales.append(SimpleNamespace(
+                    fecha_inicio=a, fecha_fin=b, estado='libre', reserva=h.reserva if hasattr(h, 'reserva') else None,
+                    es_libre_invierno=False, es_invierno=False, contrato=None,
+                    fecha_actualizacion=getattr(h, 'fecha_actualizacion', None),
+                ))
+    historiales = new_historiales
     contratos_ya_mostrados = set()
     # Convertir filas del historial que son "Operación" sin reserva (creadas desde ficha Invierno) en "Operación (Invierno)" si coinciden con un contrato
     for i, h in enumerate(historiales):
