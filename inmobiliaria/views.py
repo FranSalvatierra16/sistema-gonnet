@@ -1019,7 +1019,7 @@ def propiedad_detalle(request, propiedad_id):
                         contrato=None,
                         fecha_actualizacion=info_invierno.fecha_actualizacion,
                     ))
-        # Si no hay contratos y está disponible para invierno: mostrar el rango configurado (fecha_inicio/fecha_fin) o un año por defecto
+        # Si no hay contratos y está disponible para invierno: mostrar el rango configurado (fecha_inicio/fecha_fin) o un año por defecto, recortado por reservas
         elif info_invierno.estado == 'disponible':
             if getattr(info_invierno, 'fecha_inicio', None) and getattr(info_invierno, 'fecha_fin', None):
                 libre_inicio = info_invierno.fecha_inicio
@@ -1027,16 +1027,40 @@ def propiedad_detalle(request, propiedad_id):
             else:
                 libre_inicio = hoy
                 libre_fin = hoy + timedelta(days=365)
-            historiales.append(SimpleNamespace(
-                fecha_inicio=libre_inicio,
-                fecha_fin=libre_fin,
-                estado='libre',
-                reserva=None,
-                es_libre_invierno=True,
-                es_invierno=False,
-                contrato=None,
-                fecha_actualizacion=info_invierno.fecha_actualizacion,
-            ))
+            rangos_ocupados = []
+            for h in historiales:
+                if getattr(h, 'estado', None) not in ('reservado', 'alquilado'):
+                    continue
+                ri, rf = getattr(h, 'fecha_inicio', None), getattr(h, 'fecha_fin', None)
+                if ri is None or rf is None:
+                    continue
+                if ri < libre_fin and rf > libre_inicio:
+                    rangos_ocupados.append((max(ri, libre_inicio), min(rf, libre_fin)))
+            rangos_ocupados.sort(key=lambda x: x[0])
+            segmentos_libre = []
+            if not rangos_ocupados:
+                segmentos_libre = [(libre_inicio, libre_fin)]
+            else:
+                actual = libre_inicio
+                for (o_ini, o_fin) in rangos_ocupados:
+                    if actual < o_ini:
+                        segmentos_libre.append((actual, o_ini))
+                    actual = max(actual, o_fin)
+                if actual < libre_fin:
+                    segmentos_libre.append((actual, libre_fin))
+            for (a, b) in segmentos_libre:
+                if a >= b:
+                    continue
+                historiales.append(SimpleNamespace(
+                    fecha_inicio=a,
+                    fecha_fin=b,
+                    estado='libre',
+                    reserva=None,
+                    es_libre_invierno=True,
+                    es_invierno=False,
+                    contrato=None,
+                    fecha_actualizacion=info_invierno.fecha_actualizacion,
+                ))
     historiales.sort(key=lambda x: (x.fecha_inicio, x.fecha_fin))
     
     # Obtener imágenes usando el related_name correcto
@@ -6596,20 +6620,50 @@ def ver_historial_disponibilidad(request, propiedad_id):
             else:
                 libre_inicio = hoy
                 libre_fin = hoy + timedelta(days=365)
-            items.append({
-                'id': None,
-                'fecha_inicio': libre_inicio.strftime('%d/%m/%Y'),
-                'fecha_fin': libre_fin.strftime('%d/%m/%Y'),
-                'estado': 'libre',
-                'reserva_id': None,
-                'cliente': None,
-                'ultima_actualizacion': info_invierno.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if info_invierno.fecha_actualizacion else '',
-                'es_invierno': False,
-                'contrato_id': None,
-                'inquilino_texto': None,
-                'es_libre_invierno': True,
-                '_sort': (libre_inicio, libre_fin),
-            })
+            # Recortar el bloque "Libre (Invierno)" por reservas y otros segmentos ocupados ya en items
+            rangos_ocupados = []
+            for it in items:
+                if it.get('estado') not in ('reservado', 'alquilado'):
+                    continue
+                try:
+                    from datetime import datetime as _dt
+                    ri = _dt.strptime(it['fecha_inicio'], '%d/%m/%Y').date()
+                    rf = _dt.strptime(it['fecha_fin'], '%d/%m/%Y').date()
+                except (ValueError, TypeError, KeyError):
+                    continue
+                if ri < libre_fin and rf > libre_inicio:
+                    rangos_ocupados.append((max(ri, libre_inicio), min(rf, libre_fin)))
+            rangos_ocupados.sort(key=lambda x: x[0])
+            # Unir solapados y obtener huecos libres
+            segmentos_libre = []
+            if not rangos_ocupados:
+                segmentos_libre = [(libre_inicio, libre_fin)]
+            else:
+                actual = libre_inicio
+                for (o_ini, o_fin) in rangos_ocupados:
+                    if actual < o_ini:
+                        segmentos_libre.append((actual, o_ini))
+                    actual = max(actual, o_fin)
+                if actual < libre_fin:
+                    segmentos_libre.append((actual, libre_fin))
+            ultima_act = info_invierno.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if info_invierno.fecha_actualizacion else ''
+            for (a, b) in segmentos_libre:
+                if a >= b:
+                    continue
+                items.append({
+                    'id': None,
+                    'fecha_inicio': a.strftime('%d/%m/%Y'),
+                    'fecha_fin': b.strftime('%d/%m/%Y'),
+                    'estado': 'libre',
+                    'reserva_id': None,
+                    'cliente': None,
+                    'ultima_actualizacion': ultima_act,
+                    'es_invierno': False,
+                    'contrato_id': None,
+                    'inquilino_texto': None,
+                    'es_libre_invierno': True,
+                    '_sort': (a, b),
+                })
 
     # Recortar segmentos 'libre' que se superpongan con contratos de invierno
     items = _clip_libre_por_contratos_invierno(items, contratos_invierno)
