@@ -986,22 +986,7 @@ def propiedad_detalle(request, propiedad_id):
                     contrato=None,
                     fecha_actualizacion=info_invierno.fecha_actualizacion,
                 ))
-        # Después del último contrato: hotelero, disponible desde el día de fin del contrato inclusive
-        if contratos_invierno:
-            ultimo = contratos_invierno[-1]
-            libre_inicio = ultimo.fecha_fin
-            libre_fin = ultimo.fecha_fin + timedelta(days=180)
-            if libre_inicio <= libre_fin:
-                historiales.append(SimpleNamespace(
-                    fecha_inicio=libre_inicio,
-                    fecha_fin=libre_fin,
-                    estado='libre',
-                    reserva=None,
-                    es_libre_invierno=True,
-                    es_invierno=False,
-                    contrato=None,
-                    fecha_actualizacion=info_invierno.fecha_actualizacion,
-                ))
+        # No agregar "Libre (Invierno)" después del último contrato (evita que se muestre hasta 180 días después, ej. hasta 2027).
         # No agregar "Libre (Invierno)" antes del primer contrato: al crear una operación de invierno no debe aparecer ese bloque automático.
         # Si no hay contratos y está disponible para invierno: mostrar el rango configurado (fecha_inicio/fecha_fin) o un año por defecto, recortado por reservas
         elif info_invierno.estado == 'disponible':
@@ -6563,25 +6548,7 @@ def ver_historial_disponibilidad(request, propiedad_id):
                     'es_libre_invierno': True,
                     '_sort': (libre_inicio, libre_fin),
                 })
-        if contratos_invierno:
-            ultimo = contratos_invierno[-1]
-            libre_inicio = ultimo.fecha_fin
-            libre_fin = ultimo.fecha_fin + timedelta(days=180)
-            if libre_inicio <= libre_fin:
-                items.append({
-                    'id': None,
-                    'fecha_inicio': libre_inicio.strftime('%d/%m/%Y'),
-                    'fecha_fin': libre_fin.strftime('%d/%m/%Y'),
-                    'estado': 'libre',
-                    'reserva_id': None,
-                    'cliente': None,
-                    'ultima_actualizacion': info_invierno.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if info_invierno.fecha_actualizacion else '',
-                    'es_invierno': False,
-                    'contrato_id': None,
-                    'inquilino_texto': None,
-                    'es_libre_invierno': True,
-                    '_sort': (libre_inicio, libre_fin),
-                })
+        # No agregar "Libre (Invierno)" después del último contrato (evita fecha hasta 2027).
         # No agregar "Libre (Invierno)" antes del primer contrato: al crear una operación de invierno no debe aparecer ese bloque automático.
         if getattr(info_invierno, 'estado', None) == 'disponible':
             if getattr(info_invierno, 'fecha_inicio', None) and getattr(info_invierno, 'fecha_fin', None):
