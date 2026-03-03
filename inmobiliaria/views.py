@@ -1027,6 +1027,11 @@ def propiedad_detalle(request, propiedad_id):
             else:
                 libre_inicio = hoy
                 libre_fin = hoy + timedelta(days=365)
+            # No mostrar "Libre (Invierno)" en el pasado: si la fecha inicio guardada es anterior a hoy, arrancar desde hoy
+            if libre_inicio < hoy:
+                libre_inicio = hoy
+            if libre_fin < libre_inicio:
+                libre_fin = libre_inicio
             rangos_ocupados = []
             for h in historiales:
                 if getattr(h, 'estado', None) not in ('reservado', 'alquilado'):
@@ -6620,6 +6625,11 @@ def ver_historial_disponibilidad(request, propiedad_id):
             else:
                 libre_inicio = hoy
                 libre_fin = hoy + timedelta(days=365)
+            # No mostrar "Libre (Invierno)" en el pasado: si la fecha inicio guardada es anterior a hoy, arrancar desde hoy
+            if libre_inicio < hoy:
+                libre_inicio = hoy
+            if libre_fin < libre_inicio:
+                libre_fin = libre_inicio
             # Recortar el bloque "Libre (Invierno)" por reservas y otros segmentos ocupados ya en items
             rangos_ocupados = []
             for it in items:
