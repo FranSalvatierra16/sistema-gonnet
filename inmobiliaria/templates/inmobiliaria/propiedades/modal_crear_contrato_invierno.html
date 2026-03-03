@@ -112,7 +112,7 @@
                                             </div>
                                             <div class="col-4">
                                                 <div class="d-flex gap-2">
-                                                    <button type="button" onclick="mostrarModalCrearInquilinoInvierno();" class="btn btn-success" title="Crear inquilino (se agrega a inquilino y a garantes)">
+                                                    <button type="button" onclick="mostrarModalCrearInquilinoInvierno();" class="btn btn-success" title="Crear inquilino (se agrega a las listas, sin seleccionar)">
                                                         ➕ Crear inquilino
                                                     </button>
                                                     <button type="button" onclick="buscarTodosLosInquilinosInvierno()" class="btn btn-primary">
@@ -200,7 +200,7 @@
                                             <div class="d-flex gap-2 mb-2 flex-wrap">
                                                 <input type="text" id="buscar_garante_invierno" class="form-control" placeholder="Buscar por nombre, ID o DNI..." oninput="filtrarGarantesInvierno()">
                                                 <button type="button" class="btn btn-success" onclick="agregarGaranteInvierno()">➕ Agregar</button>
-                                                <button type="button" class="btn btn-success" onclick="mostrarModalCrearInquilinoInvierno();" title="Crear inquilino (se agrega a inquilino y a garantes)">➕ Crear inquilino</button>
+                                                <button type="button" class="btn btn-success" onclick="mostrarModalCrearInquilinoInvierno();" title="Crear inquilino (se agrega a las listas, sin seleccionar)">➕ Crear inquilino</button>
                                             </div>
                                             <select id="garante_select_invierno" size="5" class="form-control" style="max-height: 140px;">
                                                 <option value="">-- Seleccionar --</option>
@@ -522,7 +522,7 @@ function guardarNuevoInquilinoInvierno() {
         if (data.success) {
             cerrarModalNuevoInquilinoInvierno();
             var inv = data.inquilino;
-            // Agregar a la lista de inquilinos y seleccionarlo
+            // Agregar a la lista de inquilinos (solo a la lista, no seleccionar)
             var selInq = document.getElementById('inquilino_select_invierno');
             if (selInq) {
                 var optInq = document.createElement('option');
@@ -532,10 +532,8 @@ function guardarNuevoInquilinoInvierno() {
                 optInq.dataset.dni = inv.dni || '';
                 optInq.textContent = 'ID: ' + inv.id + ' - ' + (inv.apellido || '') + ', ' + (inv.nombre || '') + ' (DNI: ' + (inv.dni || 'N/A') + ')';
                 selInq.appendChild(optInq);
-                selInq.value = String(inv.id);
-                if (typeof actualizarInquilinoIdInvierno === 'function') actualizarInquilinoIdInvierno();
             }
-            // Agregar a la lista de garantes y agregarlo como garante
+            // Agregar a la lista de garantes (solo a la lista, no agregarlo como garante seleccionado)
             var selGarante = document.getElementById('garante_select_invierno');
             if (selGarante) {
                 var optGar = document.createElement('option');
@@ -544,10 +542,8 @@ function guardarNuevoInquilinoInvierno() {
                 optGar.dataset.dni = inv.dni || '';
                 optGar.textContent = 'ID: ' + inv.id + ' - ' + (inv.apellido || '') + ', ' + (inv.nombre || '') + ' (DNI: ' + (inv.dni || 'N/A') + ')';
                 selGarante.appendChild(optGar);
-                selGarante.value = String(inv.id);
-                agregarGaranteInvierno();
             }
-            alert('Inquilino creado y agregado como inquilino y garante: ' + (inv.apellido || '') + ', ' + (inv.nombre || ''));
+            alert('Inquilino creado. Ya aparece en las listas de inquilinos y garantes; seleccionalo si lo necesitás.');
         } else {
             alert('Error: ' + (data.error || 'No se pudo crear el inquilino'));
         }
