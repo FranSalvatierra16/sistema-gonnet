@@ -517,12 +517,21 @@ function guardarNuevoInquilinoInvierno() {
         body: formData,
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+        return r.json().catch(function() { return null; }).then(function(data) {
+            if (!r.ok) {
+                var msg = (data && data.error) ? data.error : (r.statusText || 'No se pudo crear el inquilino');
+                alert('Error: ' + msg);
+                return Promise.reject();
+            }
+            return data;
+        });
+    })
     .then(function(data) {
+        if (!data) return;
         if (data.success) {
             cerrarModalNuevoInquilinoInvierno();
             var inv = data.inquilino;
-            // Agregar a la lista de inquilinos (solo a la lista, no seleccionar)
             var selInq = document.getElementById('inquilino_select_invierno');
             if (selInq) {
                 var optInq = document.createElement('option');
@@ -533,7 +542,6 @@ function guardarNuevoInquilinoInvierno() {
                 optInq.textContent = 'ID: ' + inv.id + ' - ' + (inv.apellido || '') + ', ' + (inv.nombre || '') + ' (DNI: ' + (inv.dni || 'N/A') + ')';
                 selInq.appendChild(optInq);
             }
-            // Agregar a la lista de garantes (solo a la lista, no agregarlo como garante seleccionado)
             var selGarante = document.getElementById('garante_select_invierno');
             if (selGarante) {
                 var optGar = document.createElement('option');
@@ -550,7 +558,7 @@ function guardarNuevoInquilinoInvierno() {
     })
     .catch(function(err) {
         console.error(err);
-        alert('Error al crear el inquilino.');
+        alert(err && err.message ? 'Error: ' + err.message : 'Error de conexión o respuesta inválida. Revisá la consola.');
     });
 }
 window.guardarNuevoInquilinoInvierno = guardarNuevoInquilinoInvierno;

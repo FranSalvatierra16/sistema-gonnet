@@ -665,12 +665,17 @@ function guardarNuevoInquilino() {
     })
     .then(response => {
         console.log('🔄 Respuesta recibida:', response);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
+        return response.json().catch(() => null).then(data => {
+            if (!response.ok) {
+                const msg = (data && data.error) ? data.error : (response.statusText || 'No se pudo crear el inquilino');
+                alert('Error: ' + msg);
+                return Promise.reject();
+            }
+            return data;
+        });
     })
     .then(data => {
+        if (!data) return;
         console.log('📊 Respuesta crear inquilino:', data);
         
         if (data.success) {
@@ -706,12 +711,12 @@ function guardarNuevoInquilino() {
             
             alert(`✅ Inquilino creado. Ya aparece en las listas de inquilinos y garantes; seleccionalo si lo necesitás.`);
         } else {
-            alert(`❌ Error al crear inquilino: ${data.error}`);
+            alert('Error: ' + (data.error || 'No se pudo crear el inquilino'));
         }
     })
     .catch(error => {
         console.error('❌ Error al crear inquilino:', error);
-        alert(`Error al crear inquilino: ${error.message}`);
+        alert(error && error.message ? 'Error: ' + error.message : 'Error de conexión o respuesta inválida. Revisá la consola.');
     });
 }
 
