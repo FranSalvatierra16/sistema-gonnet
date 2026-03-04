@@ -3613,29 +3613,28 @@ function guardarInquilino() {
     .then(response => {
         console.log('📊 Status de respuesta:', response.status);
         console.log('📊 Headers de respuesta:', response.headers.get('content-type'));
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        return response.text(); // Primero obtener como texto
+        return response.text().then(text => ({ ok: response.ok, text }));
     })
-    .then(responseText => {
-        console.log('📄 Respuesta cruda del servidor:', responseText.substring(0, 200) + '...');
-        
-        // Intentar parsear como JSON
-        let data;
+    .then(({ ok, text: responseText }) => {
+        console.log('📄 Respuesta cruda del servidor:', responseText.substring(0, 200) + (responseText.length > 200 ? '...' : ''));
+        let data = null;
         try {
             data = JSON.parse(responseText);
         } catch (e) {
             console.error('❌ Error al parsear JSON:', e);
             console.error('📄 Respuesta completa:', responseText);
-            throw new Error('El servidor no devolvió JSON válido. Posible error o página de login.');
+            alert('El servidor no devolvió una respuesta válida. Revisá la consola.');
+            return Promise.reject();
         }
-        
+        if (!ok) {
+            const msg = (data && data.error) ? data.error : 'No se pudo crear el inquilino';
+            alert('Error: ' + msg);
+            return Promise.reject();
+        }
         return data;
     })
     .then(data => {
+        if (!data) return;
         console.log('📝 Respuesta crear inquilino:', data);
         
         if (data.success) {
@@ -3694,12 +3693,12 @@ function guardarInquilino() {
             console.log('✅ Proceso completo: Modal cerrado, inquilino agregado y seleccionado');
         } else {
             console.error('❌ Error al crear inquilino:', data.error);
-            alert('❌ Error al crear el inquilino: ' + (data.error || 'Error desconocido'));
+            alert('Error: ' + (data.error || 'No se pudo crear el inquilino'));
         }
     })
     .catch(error => {
         console.error('💥 Error en la solicitud:', error);
-        alert('💥 Error al procesar la solicitud. Intenta de nuevo.');
+        alert(error && error.message ? 'Error: ' + error.message : 'Error de conexión o respuesta inválida. Revisá la consola.');
     });
 }
 
