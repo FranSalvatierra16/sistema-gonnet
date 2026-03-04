@@ -989,7 +989,7 @@ def propiedad_detalle(request, propiedad_id):
         # No agregar "Libre (Invierno)" después del último contrato (evita que se muestre hasta 180 días después, ej. hasta 2027).
         # No agregar "Libre (Invierno)" antes del primer contrato: al crear una operación de invierno no debe aparecer ese bloque automático.
         # Si no hay contratos y está disponible para invierno: mostrar el rango configurado (fecha_inicio/fecha_fin) o un año por defecto, recortado por reservas
-        elif info_invierno.estado == 'disponible':
+        if not contratos_invierno and getattr(info_invierno, 'estado', None) == 'disponible':
             if getattr(info_invierno, 'fecha_inicio', None) and getattr(info_invierno, 'fecha_fin', None):
                 libre_inicio = info_invierno.fecha_inicio
                 libre_fin = info_invierno.fecha_fin
@@ -6550,7 +6550,7 @@ def ver_historial_disponibilidad(request, propiedad_id):
                 })
         # No agregar "Libre (Invierno)" después del último contrato (evita fecha hasta 2027).
         # No agregar "Libre (Invierno)" antes del primer contrato: al crear una operación de invierno no debe aparecer ese bloque automático.
-        if getattr(info_invierno, 'estado', None) == 'disponible':
+        if not contratos_invierno and getattr(info_invierno, 'estado', None) == 'disponible':
             if getattr(info_invierno, 'fecha_inicio', None) and getattr(info_invierno, 'fecha_fin', None):
                 libre_inicio = info_invierno.fecha_inicio
                 libre_fin = info_invierno.fecha_fin
